@@ -142,6 +142,11 @@ The ChatGPT / Claude.ai pattern ([turn-anchor.ts](../../web/src/components/messa
 - **No chasing**: anchored streams start with `shouldAutoScroll = false`. Once the reply runs past the screen the scroll button becomes the "New messages" pill. Tapping it, or the user scrolling to the real bottom (`STREAMING_RESUME_THRESHOLD_PX`, 16px — not the 200px follow threshold: the anchored view already sits at the reserved bottom, so any small scroll re-armed following), switches following back on. Programmatic scrolls never re-arm it.
 - **No end-of-turn jump**: an anchored reply that wasn't re-followed settles in place (`settleAnchoredReply`); a followed one stays at the bottom. The old read-from-start jump (`scrollToFinishedStreamMessage`) is gone; `RESPONSE_JUMP_MIN_VIEWPORT_RATIO` only steers an unanchored batch reply.
 - **Reduced motion**: `scrollToBottom`/`scrollToPosition` and the native `scrollIntoView` calls jump instead of animating under `prefers-reduced-motion: reduce`.
+- **Pitfalls found shipping it** (each has an E2E in `Chat - Send-to-top` / `program auto-start on a phone`):
+  - The anchored view sits *at its reserved bottom*, so every "pin if at bottom" path fires on it. `applyCompactionMarkers` (runs after every turn) now returns early when no divider changed and checks a 1px bottom, and `composer-height.ts` re-fits the reservation (`refreshTurnSpace`) instead of pinning when a turn is anchored (the sports quick-actions bar grows the composer after the reservation). Any new "re-pin if at bottom" code must check `isTurnAnchored()`.
+  - Measure with `offsetTop`, not `getBoundingClientRect`: entrance animations transform new messages.
+  - While anchored, `.messages.turn-anchored` drops the first message's bottom-aligning `margin-top: auto`; it collapsed/expanded as the batch loader was swapped for the reply and moved every measurement.
+  - The turn element is any non-assistant message before the reply (`.message:not(.assistant)`): a program's auto-start sends a `.trigger-message` chip, not a user bubble. Views that clear `#messages` themselves (sports/language) call `resetTurnAnchor`.
 
 ## Programmatic Scroll Wrapper
 

@@ -31,7 +31,7 @@ export function showLoadingIndicator(): void {
   // (send-to-top); the reply takes over the reserved space (batch-send.ts)
   const previous = container.lastElementChild;
   container.appendChild(loading);
-  if (previous instanceof HTMLElement && previous.matches('.message.user')) {
+  if (previous instanceof HTMLElement && previous.matches('.message:not(.assistant)')) {
     anchorTurn(container, previous, loading);
   } else {
     programmaticScrollToBottom(container);

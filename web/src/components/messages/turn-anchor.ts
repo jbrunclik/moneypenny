@@ -15,6 +15,11 @@ import { programmaticScrollToPosition } from '../../utils/thumbnails';
 let anchorTop: number | null = null;
 
 const RESERVED_ATTR = 'data-turn-space';
+// While a turn is anchored the list doesn't bottom-align a short chat
+// (layout.css): the reservation fills the screen anyway, and the transient
+// margin-top:auto collapsing/expanding as the placeholder is swapped moved
+// every measurement by its height
+const ANCHORED_CLASS = 'turn-anchored';
 
 function topInset(container: HTMLElement): number {
   return parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
@@ -26,7 +31,13 @@ function visibleHeight(container: HTMLElement): number {
   return container.clientHeight - topInset(container) - bottomInset;
 }
 
+/**
+ * The element's top in the list's scroll coordinates. Layout position, not
+ * getBoundingClientRect: a message's entrance animation transforms it, and
+ * measuring mid-animation put the target (and the reservation) tens of px off.
+ */
 function contentTop(container: HTMLElement, el: HTMLElement): number {
+  if (el.offsetParent === container) return el.offsetTop;
   return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
 }
 
@@ -36,6 +47,7 @@ function releaseTurnSpace(container: HTMLElement): void {
     el.style.minHeight = '';
     el.removeAttribute(RESERVED_ATTR);
   });
+  container.classList.remove(ANCHORED_CLASS);
   anchorTop = null;
 }
 
@@ -48,9 +60,28 @@ function releaseTurnSpace(container: HTMLElement): void {
 export function reserveTurnSpace(container: HTMLElement, replyEl: HTMLElement): void {
   if (anchorTop === null) return;
   const minHeight = anchorTop + visibleHeight(container) - contentTop(container, replyEl);
-  if (minHeight <= 0) return;
+  if (minHeight <= 0) {
+    replyEl.style.minHeight = '';
+    replyEl.removeAttribute(RESERVED_ATTR);
+    return;
+  }
   replyEl.style.minHeight = `${Math.ceil(minHeight)}px`;
   replyEl.setAttribute(RESERVED_ATTR, '');
+}
+
+/**
+ * Re-fit the reservation after the band between header and composer changed
+ * height (the composer grew/shrank: quick actions, multi-line input, the
+ * keyboard) so the list still ends exactly at the anchor - pinning to the
+ * bottom instead pushed the turn under the header. Overwrites in place (the
+ * element's own top doesn't depend on its min-height), never clearing first:
+ * a layout read in between would clamp the position.
+ */
+export function refreshTurnSpace(container: HTMLElement): void {
+  if (anchorTop === null) return;
+  container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`).forEach((el) => {
+    reserveTurnSpace(container, el);
+  });
 }
 
 /** Whether a turn is anchored (send-to-top owns the scroll position). */
@@ -64,18 +95,21 @@ export function isTurnAnchored(): boolean {
  */
 export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl: HTMLElement): void {
   releaseTurnSpace(container);
+  container.classList.add(ANCHORED_CLASS);
   const visible = visibleHeight(container);
   // A message taller than the screen keeps the start of the reply in view
-  const target = Math.max(
-    contentTop(container, turnEl),
-    contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visible
-  );
-  anchorTop = target;
+  const measureTarget = (): number =>
+    Math.max(
+      contentTop(container, turnEl),
+      contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visible
+    );
+  anchorTop = measureTarget();
   reserveTurnSpace(container, replyEl);
-  programmaticScrollToPosition(container, target - topInset(container), true);
+  programmaticScrollToPosition(container, anchorTop - topInset(container), true);
 }
 
 /** Forget the anchor (conversation switch re-renders the list). */
-export function resetTurnAnchor(): void {
+export function resetTurnAnchor(container: HTMLElement): void {
+  container.classList.remove(ANCHORED_CLASS);
   anchorTop = null;
 }

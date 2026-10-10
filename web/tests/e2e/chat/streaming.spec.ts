@@ -168,6 +168,9 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
     const messagesContainer = page.locator('#messages');
+    // Let the send-to-top glide finish: it only aborts on a move of more than
+    // a few px, and its target here sits ~5px from the top
+    await page.waitForTimeout(700);
 
     // Scroll up during streaming to interrupt auto-scroll
     await messagesContainer.evaluate((el) => {
@@ -934,22 +937,54 @@ test.describe('Chat - Send-to-top', () => {
         await expect.poll(() => messagesScrollTop(page), { timeout: 5000 }).toBeGreaterThan(before + 50);
       });
 
-      test('a batch reply lands below the message at the top', async ({ page }) => {
-        // The phone hides the toolbar holding the toggle - press it directly
-        await page.evaluate(() => document.getElementById('stream-btn')!.click());
-        await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
-        await setMockResponse(page, LONG_RESPONSE);
-        await page.fill('#message-input', 'Tell me everything');
-        await page.click('#send-btn');
-        await expect(page.locator('.message.assistant')).toContainText('Line 120', { timeout: 20000 });
-        await page.waitForTimeout(300);
+      for (const reply of [
+        { name: 'long', text: LONG_RESPONSE, last: 'Line 120' },
+        // A short reply in a new chat: the loader's reserved space moves to
+        // the reply, and the post-turn compaction refresh used to pin the
+        // "at bottom" anchored view, hiding the message under the header
+        { name: 'short', text: 'Short and sweet.', last: 'Short and sweet.' },
+      ]) {
+        test(`a ${reply.name} batch reply lands below the message at the top`, async ({ page }) => {
+          // The phone hides the toolbar holding the toggle - press it directly
+          await page.evaluate(() => document.getElementById('stream-btn')!.click());
+          await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
+          await setMockResponse(page, reply.text);
+          await page.fill('#message-input', 'Tell me everything');
+          await page.click('#send-btn');
+          await expect(page.locator('.message.assistant')).toContainText(reply.last, { timeout: 20000 });
+          await page.waitForTimeout(800);
 
-        const gap = await turnTopBelowHeader(page, layout.header);
-        expect(gap).toBeGreaterThanOrEqual(0);
-        expect(gap).toBeLessThan(40);
-      });
+          const gap = await turnTopBelowHeader(page, layout.header);
+          expect(gap).toBeGreaterThanOrEqual(0);
+          expect(gap).toBeLessThan(40);
+        });
+      }
     });
   }
+});
+
+// A program's auto-start turn (sports/language) answers a trigger chip, not
+// a user bubble, and its quick-actions bar grows the composer after the
+// reservation: the chip must stay visible under the header.
+test.describe('Send-to-top - program auto-start on a phone', () => {
+  test.use({ viewport: { width: 375, height: 667 } });
+
+  test('the session-start chip stays below the header', async ({ page }) => {
+    await page.request.post('/test/set-sports-programs', {
+      data: { programs: [{ id: 'pushups', name: 'Push-ups', emoji: '💪', created_at: '2026-01-01T00:00:00Z' }] },
+    });
+    await page.goto('/#/sports/pushups');
+    await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 15000 });
+    await page.waitForTimeout(800);
+
+    const gap = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>('.mobile-header')!;
+      const chip = document.querySelector<HTMLElement>('#messages .trigger-message')!;
+      return chip.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+    });
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThan(40);
+  });
 });
 
 test.describe('Chat - Stop Streaming on a phone', () => {

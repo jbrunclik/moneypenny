@@ -9,6 +9,7 @@
  */
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('composer-height');
@@ -60,7 +61,10 @@ export function initComposerHeight(): void {
       // Agents): re-pinning there raced the view's own render and dropped
       // the user at the bottom of a page that had just scrolled to the top.
       const grew = h > (parseInt(prev, 10) || 0);
-      if (grew && wasAtBottom && messages) {
+      if (messages && isTurnAnchored()) {
+        // Send-to-top owns the position: re-fit the reserved space instead
+        refreshTurnSpace(messages);
+      } else if (grew && wasAtBottom && messages) {
         requestAnimationFrame(() => programmaticScrollToBottom(messages));
       }
     }

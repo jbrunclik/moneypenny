@@ -92,10 +92,11 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
   }
 
   // The turn this reply answers: the user's message just sent (or being
-  // regenerated), else the reply itself (Continue appends a new bubble)
+  // regenerated) or a program's auto-start trigger chip, else the reply
+  // itself (Continue appends a new bubble after the previous reply)
   const previous = container.lastElementChild;
   const turnEl =
-    previous instanceof HTMLElement && previous.matches('.message.user') ? previous : messageEl;
+    previous instanceof HTMLElement && previous.matches('.message:not(.assistant)') ? previous : messageEl;
 
   // Send-to-top: the view stays on the turn instead of following the reply
   // down; scrolling to the bottom (or the pill) re-arms following

@@ -191,10 +191,14 @@ export function applyCompactionMarkers(
 ): void {
   if (!container) return;
   const preserve = options.preserveScroll ?? false;
-  const wasAtBottom = preserve && isScrolledToBottom(container);
+  // Really at the bottom, not the 200px "following" zone: a send-to-top turn
+  // sits at its reserved bottom, and a reply that ran a little past the
+  // screen was yanked down to its end by the pin below
+  const wasAtBottom = preserve && isScrolledToBottom(container, 1);
   const anchor = preserve && !wasAtBottom ? findScrollAnchor(container) : null;
   const anchorTop = anchor?.getBoundingClientRect().top ?? 0;
 
+  const hadDivider = container.querySelector(`.${DIVIDER_CLASS}`) !== null;
   container.querySelectorAll(`.${DIVIDER_CLASS}`).forEach((el) => el.remove());
   container.querySelectorAll(`.${COMPACTED_CLASS}`).forEach((el) => {
     el.classList.remove(COMPACTED_CLASS);
@@ -211,6 +215,10 @@ export function applyCompactionMarkers(
     }
     boundary.after(buildDivider(status));
   }
+
+  // No divider before or after: nothing moved, so leave the scroll alone
+  // (this runs after every turn)
+  if (!hadDivider && !(status && boundary)) return;
 
   if (wasAtBottom) {
     container.scrollTop = container.scrollHeight;

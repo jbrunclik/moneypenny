@@ -147,19 +147,32 @@ describe('CompactionIndicator', () => {
   });
 
   it('keeps the user pinned to the bottom when a late insertion shifts content', async () => {
-    // jsdom has no layout: emulate a scrolled-to-bottom container
-    let scrollHeight = 1000;
-    Object.defineProperty(container, 'scrollHeight', { get: () => scrollHeight, configurable: true });
+    // jsdom has no layout: emulate a scrolled-to-bottom container whose
+    // height grows by the divider once it is inserted
+    Object.defineProperty(container, 'scrollHeight', {
+      get: () => (container.querySelector('.compaction-divider') ? 1030 : 1000),
+      configurable: true,
+    });
     Object.defineProperty(container, 'clientHeight', { value: 400, configurable: true });
     container.scrollTop = 600;
-    vi.mocked(costs.getConversationCompaction).mockImplementation(async () => {
-      scrollHeight = 1030; // the divider adds height
-      return status();
-    });
+    vi.mocked(costs.getConversationCompaction).mockResolvedValue(status());
 
     await updateCompactionIndicator(CONV_ID);
 
     expect(container.scrollTop).toBe(1030);
+  });
+
+  it('leaves the scroll alone when there is no divider to place (runs after every turn)', async () => {
+    // A send-to-top turn sits at its reserved bottom: the old unconditional
+    // pin moved it even though nothing was inserted
+    Object.defineProperty(container, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(container, 'clientHeight', { value: 400, configurable: true });
+    container.scrollTop = 450;
+    vi.mocked(costs.getConversationCompaction).mockResolvedValue(status({ active: false, boundary_message_id: null }));
+
+    await updateCompactionIndicator(CONV_ID);
+
+    expect(container.scrollTop).toBe(450);
   });
 
   it('keeps the first visible message in place when the user is scrolled up', async () => {

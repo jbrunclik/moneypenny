@@ -17,10 +17,23 @@ export const test = base.extend<{
     await use(id);
   },
 
-  context: async ({ context, testExecutionId }, use) => {
+  context: async ({ context, testExecutionId }, use, testInfo) => {
     await context.setExtraHTTPHeaders({
       'X-Test-Execution-Id': testExecutionId,
     });
+    // Visual baselines must not depend on the minute they were rendered in:
+    // pin every message clock (send-to-top keeps a reply's action row, and
+    // so its time, in view in most conversation screenshots)
+    if (testInfo.file.includes('/visual/')) {
+      await context.addInitScript(() => {
+        const pin = (): void => {
+          for (const el of document.querySelectorAll('.message-time')) {
+            if (el.textContent !== '12:00 PM') el.textContent = '12:00 PM';
+          }
+        };
+        new MutationObserver(pin).observe(document, { childList: true, subtree: true });
+      });
+    }
     // The web fonts ship as unicode-range subsets with font-display: swap, so
     // a face only starts loading the first time text uses it. A visual test
     // that injects a popup with the first display-font heading on the page

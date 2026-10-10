@@ -471,6 +471,18 @@ test.describe('Messages Pagination', () => {
     // Let the open's bottom pin settle, then wheel to the top like a user
     // (the older page loads from the scroll handler)
     await page.waitForTimeout(800);
+    // Record where the topmost message sits on every scroll until the older
+    // page's loader goes in (it pushes the content down while the page loads,
+    // and under load that can happen before the test reads the position)
+    await page.evaluate(() => {
+      const c = document.getElementById('messages')!;
+      const w = window as unknown as { __anchor?: { text: string; top: number } };
+      c.addEventListener('scroll', () => {
+        if (c.querySelector('.older-messages-loader')) return;
+        const el = c.querySelector<HTMLElement>('.message')!;
+        w.__anchor = { text: el.textContent!.trim().slice(0, 40), top: el.getBoundingClientRect().top };
+      });
+    });
     await page.locator('#messages').hover();
     await expect
       .poll(
@@ -481,13 +493,10 @@ test.describe('Messages Pagination', () => {
         { timeout: 5000 }
       )
       .toBe(0);
-    // Remember where the topmost message sits before the older page (and its
-    // loader) arrive above it
-    const anchor = await page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>('#messages .message')!;
-      return { text: el.textContent!.trim().slice(0, 40), top: el.getBoundingClientRect().top };
-    });
     await expect.poll(() => page.locator('.message').count(), { timeout: 10000 }).toBeGreaterThan(initialCount);
+    const anchor = await page.evaluate(
+      () => (window as unknown as { __anchor: { text: string; top: number } }).__anchor
+    );
     await expect(page.locator('.older-messages-loader')).toHaveCount(0);
     await page.waitForTimeout(300);
 

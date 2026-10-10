@@ -181,6 +181,14 @@
     margin-top: auto;
 }
 
+/* ...except while a new turn is anchored to the top (send-to-top,
+   components/messages/turn-anchor.ts): its reserved space fills the screen
+   anyway, and the margin collapsing/expanding as the reply placeholder is
+   swapped moved every measurement. */
+.messages.turn-anchored > .message:first-child {
+    margin-top: 0;
+}
+
 /* ============================================
    Input Area
    ============================================ */

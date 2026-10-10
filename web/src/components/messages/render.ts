@@ -248,7 +248,7 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
   // A fresh render holds no reserved send-to-top space
-  resetTurnAnchor();
+  resetTurnAnchor(container);
 
   if (messages.length === 0) {
     container.innerHTML = renderWelcomeMessageHtml();

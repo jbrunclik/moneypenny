@@ -23,6 +23,7 @@ import {
 import { renderModelDropdown } from '../components/ModelSelector';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { getElementById, clearElement } from '../utils/dom';
+import { resetTurnAnchor } from '../components/messages/turn-anchor';
 import {
   clearConversationHash,
   setLanguageHash,
@@ -235,7 +236,8 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
     }
     updateConversationCost(convResponse.id);
 
-    // Render messages
+    // Render messages (a fresh list holds no send-to-top reservation)
+    resetTurnAnchor(messagesContainer);
     clearElement(messagesContainer);
 
     if (convResponse.messages.length > 0) {

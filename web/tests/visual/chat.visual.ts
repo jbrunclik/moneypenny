@@ -49,8 +49,11 @@ test.describe('Visual: Chat Interface', () => {
       await page.click('#new-chat-btn');
       await page.fill('#message-input', `Test message ${i + 1}`);
       await page.click('#send-btn');
-      await page.waitForSelector('.message.assistant', { timeout: 10000 });
+      // Finished, not just started: the title arrives with the done event
+      await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
     }
+    // Every generated title has landed
+    await expect(page.locator('.conversation-item-wrapper', { hasText: 'New Conversation' })).toHaveCount(0);
 
     // Wait for animations
     await page.waitForTimeout(500);
