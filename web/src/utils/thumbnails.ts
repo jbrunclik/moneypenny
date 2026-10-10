@@ -1,5 +1,5 @@
 import { files } from '../api/files';
-import { getElementById, scrollToBottom, scrollToElementTop, scrollToPosition, isScrolledToBottom, cancelSmoothScroll } from './dom';
+import { getElementById, scrollToBottom, scrollToElementTop, scrollToPosition, isScrolledToBottom, cancelSmoothScroll, type SmoothScrollOptions } from './dom';
 import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
@@ -238,10 +238,15 @@ export function programmaticScrollToElementTop(
 export function programmaticScrollToPosition(
     container: HTMLElement,
     targetTop: number,
-    smooth = true
+    smooth = true,
+    options: SmoothScrollOptions = {},
+    onDone?: () => void
 ): void {
     const token = beginProgrammaticScroll();
-    scrollToPosition(container, targetTop, smooth, () => endProgrammaticScroll(token));
+    scrollToPosition(container, targetTop, smooth, () => {
+        endProgrammaticScroll(token);
+        onDone?.();
+    }, options);
 }
 
 /**

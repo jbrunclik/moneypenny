@@ -584,4 +584,90 @@ describe('scrollToBottom (smooth) yields to an external scroll', () => {
     tick(1000);
     expect(el.scrollTop).toBe(1500);
   });
+
+  it('a glide to a position survives an outside drift with no user input (iOS momentum)', async () => {
+    vi.resetModules();
+    const { scrollToPosition } = await import('@/utils/dom');
+    const el = scroller();
+    el.scrollTop = 400;
+    scrollToPosition(el, 1200, true);
+    for (let i = 0; i < 5; i++) {
+      el.scrollTop -= 30;
+      tick(16);
+    }
+    tick(1000);
+    expect(el.scrollTop).toBe(1200);
+  });
+
+  it('a glide to a position stops where the user takes over', async () => {
+    vi.resetModules();
+    const { noteUserScrollIntent, scrollToPosition } = await import('@/utils/dom');
+    const el = scroller();
+    scrollToPosition(el, 1200, true);
+    tick(16);
+    tick(16);
+    noteUserScrollIntent();
+    el.scrollTop = 100;
+    tick(16);
+    tick(1000);
+    expect(el.scrollTop).toBe(100);
+  });
+
+  it('a glide whose last writes the browser dropped still lands on its target', async () => {
+    vi.resetModules();
+    const { scrollToPosition } = await import('@/utils/dom');
+    const el = scroller();
+    // iOS ignoring scrollTop writes for a while (momentum, layout not ready)
+    let ignoring = true;
+    let top = 0;
+    Object.defineProperty(el, 'scrollTop', {
+      get: () => top,
+      set: (v: number) => {
+        if (!ignoring) top = v;
+      },
+      configurable: true,
+    });
+    scrollToPosition(el, 1200, true);
+    tick(16);
+    tick(1000); // the curve "ends" while every write is dropped
+    ignoring = false;
+    tick(16);
+    tick(16);
+    expect(el.scrollTop).toBe(1200);
+  });
+
+  it('an automatic scroll yields to a coast from a flick just before it started', async () => {
+    vi.resetModules();
+    const { noteUserScrollIntent, scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    el.scrollTop = 1000;
+    now = 5000;
+    noteUserScrollIntent(); // the flick up
+    now = 5400; // its coast is still running when e.g. a merge pins to the bottom
+    scrollToBottom(el, true);
+    for (let i = 0; i < 3; i++) {
+      el.scrollTop -= 30;
+      tick(16);
+    }
+    tick(1000);
+    expect(el.scrollTop).toBeLessThan(1000);
+  });
+
+  it('the button (ignoreMomentum) is not stopped by that coast', async () => {
+    vi.resetModules();
+    const { noteUserScrollIntent, scrollToBottom } = await import('@/utils/dom');
+    const el = scroller();
+    el.scrollTop = 1000;
+    now = 5000;
+    noteUserScrollIntent();
+    now = 5400;
+    scrollToBottom(el, true, undefined, { ignoreMomentum: true });
+    for (let i = 0; i < 3; i++) {
+      el.scrollTop -= 30;
+      tick(16);
+    }
+    tick(1000);
+    tick(1000);
+    expect(el.scrollTop).toBe(1500);
+  });
 });

@@ -1539,6 +1539,15 @@ test.describe('Scroll to bottom behavior', () => {
       await page.click('#send-btn');
       await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i}`, { timeout: 20000 });
     }
+    // The last turn settles first: its reserved space below the reply is
+    // released (animated) after the turn ends - measured in between, the list
+    // was >200px from a bottom that then came up to meet it (button hidden,
+    // correctly)
+    await page.waitForFunction(
+      () =>
+        !document.querySelector('#messages [data-turn-space]') &&
+        ![...document.querySelectorAll<HTMLElement>('#messages .message')].some((m) => m.style.minHeight)
+    );
 
     const messagesContainer = page.locator('#messages');
 

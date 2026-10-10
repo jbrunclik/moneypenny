@@ -293,7 +293,11 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     // Scroll to the top to read the beginning of the message
     // Use scrollTo() which more reliably triggers scroll events across browsers
+    // A real scroll-up comes with input (here a wheel): a bare scrollTop
+    // write with none reads as layout or momentum, which our own scrolls
+    // ride through (keyboard-close clamps, iOS coasting)
     await messagesContainer.evaluate((el) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       el.scrollTop = 0;
       el.dispatchEvent(new Event('scroll'));
     });
@@ -1149,7 +1153,7 @@ test.describe('Send-to-top - band changes keep the turn anchored', () => {
   });
 });
 
-// With real motion (the suite otherwise runs reduced: the glide is a jump).
+// With real motion, explicitly (a reduced-motion glide is a jump).
 // A message that wraps in the phone composer shrinks it as the send clears
 // the input - mid-glide - and the glide used to take that move for the user
 // and stop where it was: the message stayed at the bottom on iOS.
@@ -1159,6 +1163,40 @@ test.describe('Send-to-top - animated glide on a phone', () => {
   test.afterEach(async ({ page }) => {
     await clearMockResponse(page);
     await resetStreamDelay(page);
+  });
+
+  // Device log (Oct 10 2026): sent with the keyboard open (list 490px tall),
+  // the keyboard closed mid-glide (874px): the taller list clamped the
+  // position 220px down, the glide took that for the user and stopped
+  test('the keyboard closing mid-glide still lands the message at the top', async ({ page, request }) => {
+    const messages = Array.from({ length: 30 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(20),
+    }));
+    await request.post('/test/seed', { data: { conversations: [{ title: 'History', messages }] } });
+    // "Keyboard open": a short viewport
+    await page.setViewportSize({ width: 390, height: 420 });
+    await page.goto('/');
+    await page.click('#menu-btn');
+    await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
+    await page.waitForTimeout(800);
+    await enableStreaming(page);
+
+    await setMockResponse(page, LONG_RESPONSE);
+    await setStreamDelay(page, 150);
+    await page.fill('#message-input', 'Short question');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant.streaming');
+    await page.waitForTimeout(60); // mid-glide
+    // The keyboard closes
+    await page.setViewportSize({ width: 390, height: 664 });
+
+    await expect
+      .poll(async () => {
+        const gap = await turnTopBelowHeader(page, '.mobile-header');
+        return gap >= 0 && gap < 40;
+      }, { timeout: 5000 })
+      .toBe(true);
   });
 
   test('a message that wraps in the composer still glides to the top', async ({ page, request }) => {

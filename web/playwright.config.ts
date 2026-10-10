@@ -29,7 +29,6 @@ export default defineConfig({
     baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    reducedMotion: 'reduce',
   },
 
   // Only run on chromium by default - mobile tests use viewport emulation

@@ -93,7 +93,7 @@ export function initScrollToBottom(): void {
     // Ours, not the user's: the header auto-hide hid the header on every tap
     const token = beginProgrammaticScroll();
     stopMomentumScroll(messagesContainer);
-    scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token));
+    scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token), { ignoreMomentum: true });
   });
 
   // The user touching, wheeling or key-scrolling the list takes over from any
@@ -119,14 +119,41 @@ export function initScrollToBottom(): void {
 
   // Scroll listener with debounce for performance
   let scrollTimeout: number | undefined;
-  onMessagesScroll('scroll-button-visibility', () => {
+  const scheduleVisibilityCheck = (): void => {
     if (scrollTimeout) {
       cancelAnimationFrame(scrollTimeout);
     }
     scrollTimeout = requestAnimationFrame(() => {
       updateScrollButtonVisibility(messagesContainer);
     });
-  });
+  };
+  onMessagesScroll('scroll-button-visibility', scheduleVisibilityCheck);
+  watchLayoutChanges(messagesContainer, scheduleVisibilityCheck);
+}
+
+/**
+ * Re-check the button when the distance to the bottom changes WITHOUT a
+ * scroll event: a reply's late content growing (actions row, highlighting,
+ * a diagram), the list resizing (iOS keyboard, composer), a reservation
+ * re-fit. Only scroll events re-checked it, so the button stayed hidden
+ * with a tall reply below (or showed at the bottom) until the next scroll.
+ */
+function watchLayoutChanges(container: HTMLElement, onChange: () => void): void {
+  if (typeof ResizeObserver !== 'function' || typeof MutationObserver !== 'function') return;
+  const resizes = new ResizeObserver(onChange);
+  resizes.observe(container);
+  for (const child of container.children) resizes.observe(child);
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof Element) resizes.observe(node);
+      });
+      mutation.removedNodes.forEach((node) => {
+        if (node instanceof Element) resizes.unobserve(node);
+      });
+    }
+    onChange();
+  }).observe(container, { childList: true });
 }
 
 /**

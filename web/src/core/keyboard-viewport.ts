@@ -403,7 +403,10 @@ export function initKeyboardViewportPinning(): void {
     // true for it too - but it must stay anchored, not be pinned (pinning
     // pushed it under the header by the keyboard height)
     const atAnchor = container ? isAtTurnAnchor(container) : false;
-    const wasAtBottom = container && !atAnchor ? isScrolledToBottom(container) : false;
+    // Anchored but not (yet) on the anchor - a send glide in flight, or the
+    // user reading elsewhere in the turn: never bottom-pin (that cancelled the
+    // glide and left the turn low); the list's resize observer re-fits it
+    const wasAtBottom = container && !isTurnAnchored() ? isScrolledToBottom(container) : false;
 
     currentInset = inset;
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);

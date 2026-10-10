@@ -7,6 +7,8 @@ import { SCROLL_BOTTOM_THRESHOLD_PX } from '../config';
 // stable this long, giving up after the max
 const SMOOTH_SCROLL_SETTLE_MS = 400;
 const SMOOTH_SCROLL_SETTLE_MAX_MS = 1500;
+// How long a glide keeps re-writing a target the browser didn't take
+const SMOOTH_SCROLL_LAND_MAX_MS = 500;
 
 /**
  * Escape HTML special characters to prevent XSS
@@ -101,7 +103,7 @@ let currentSmoothScrollDone: (() => void) | null = null;
 
 // When the user last touched-moved / wheeled / key-scrolled the list (see
 // ScrollToBottom's takeover listeners) - delayed re-pins of ours check it
-let lastUserScrollIntentAt = 0;
+let lastUserScrollIntentAt = -Infinity;
 
 /** The user just started scrolling the list themselves. */
 export function noteUserScrollIntent(): void {
@@ -158,6 +160,31 @@ export function stopMomentumScroll(element: HTMLElement): void {
   element.style.overflowY = '';
 }
 
+/** Options of a smooth scroll. */
+export interface SmoothScrollOptions {
+  /**
+   * The user asked for this very scroll (the scroll button, a send): a coast
+   * left over from their earlier flick doesn't stop it (stop the momentum
+   * first - stopMomentumScroll). Automatic scrolls (follow, merges, image
+   * re-pins) yield to it instead: the user flicked up, they are reading.
+   */
+  ignoreMomentum?: boolean;
+}
+
+// How long after the user's last input an outside move still counts as
+// theirs: iOS momentum coasts for a second or more after the finger lifts
+const USER_SCROLL_MOMENTUM_MS = 1500;
+
+/** Whether an outside move during a scroll started at `startTime` is the user's. */
+function userTookOver(startTime: number, options: SmoothScrollOptions): boolean {
+  return userScrolledSince(options.ignoreMomentum ? startTime : startTime - USER_SCROLL_MOMENTUM_MS);
+}
+
+/** Whether one of our smooth scrolls (a glide, the bottom animation) is running. */
+export function isSmoothScrolling(): boolean {
+  return currentSmoothScrollAnimationId !== null;
+}
+
 /** The user asked for less motion: smooth scrolls jump instead. */
 export function prefersReducedMotion(): boolean {
   return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -166,7 +193,12 @@ export function prefersReducedMotion(): boolean {
 /**
  * Scroll element to bottom
  */
-export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: () => void): void {
+export function scrollToBottom(
+  element: HTMLElement,
+  smooth = false,
+  onDone?: () => void,
+  options: SmoothScrollOptions = {}
+): void {
   // Cancel any ongoing smooth scroll animation before starting a new scroll
   cancelSmoothScroll();
 
@@ -228,7 +260,7 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
     if (element.scrollHeight !== lastScrollHeight || element.clientHeight !== lastClientHeight) {
       // A scroll-up landing in the same frame as a height change is still
       // the user's - don't overwrite it with the retarget
-      if (element.scrollTop < expectedScrollTop - 5 && userScrolledSince(startTime)) {
+      if (element.scrollTop < expectedScrollTop - 5 && userTookOver(startTime, options)) {
         scrollDebug('bottom-abort-user', { top: Math.round(element.scrollTop), expected: Math.round(expectedScrollTop) });
         finishSmoothScroll();
         return;
@@ -239,7 +271,7 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
       distance = target - start;
       expectedScrollTop = element.scrollTop;
       lastChangeAt = currentTime;
-    } else if (element.scrollTop < expectedScrollTop - 5 && userScrolledSince(startTime)) {
+    } else if (element.scrollTop < expectedScrollTop - 5 && userTookOver(startTime, options)) {
       // The user scrolled up - respect it and stop animating. An upward
       // drift with no input of theirs is iOS momentum from the flick before
       // the tap (the button is outside the list, so the tap doesn't stop
@@ -268,7 +300,7 @@ export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: ()
       settleSince !== null &&
       Math.abs(element.scrollTop - expectedScrollTop) > 1 &&
       currentTime > lastChangeAt &&
-      userScrolledSince(startTime)
+      userTookOver(startTime, options)
     ) {
       finishSmoothScroll();
       return;
@@ -336,7 +368,8 @@ export function scrollToPosition(
   container: HTMLElement,
   targetTop: number,
   smooth = true,
-  onDone?: () => void
+  onDone?: () => void,
+  options: SmoothScrollOptions = {}
 ): void {
   cancelSmoothScroll();
 
@@ -367,13 +400,17 @@ export function scrollToPosition(
   const animate = (currentTime: number): void => {
     // Detect if scroll position was changed externally (user scrolled or other code)
     // Allow small tolerance for rounding errors
+    // Only the user's own input counts (touch, wheel, keys, a scrollbar
+    // press): a move with none is iOS momentum still coasting from a flick
+    // before the send, or layout - aborting on it left a send-to-top turn
+    // where it was, at the bottom of the screen
     const currentScrollTop = container.scrollTop;
-    if (Math.abs(currentScrollTop - expectedScrollTop) > 5) {
+    if (Math.abs(currentScrollTop - expectedScrollTop) > 5 && userTookOver(startTime, options)) {
       // External scroll detected - cancel our animation to respect user's intent
       scrollDebug('glide-abort-outside', {
         top: Math.round(currentScrollTop),
         expected: Math.round(expectedScrollTop),
-        user: userScrolledSince(startTime),
+        user: userTookOver(startTime, options),
         ch: container.clientHeight,
         sh: container.scrollHeight,
       });
@@ -391,10 +428,21 @@ export function scrollToPosition(
 
     if (progress < 1) {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
-    } else {
-      scrollDebug('glide-done', { top: Math.round(container.scrollTop), wanted: Math.round(targetTop) });
-      finishSmoothScroll();
+      return;
     }
+    // Landed? iOS drops scrollTop writes for a while (a list still coasting,
+    // layout not ready): the curve ended with the list short of its target
+    // and the send-to-top turn left at the bottom. Keep writing the target
+    // (bounded) until it sticks; a target past the end can't be reached.
+    const reachable = Math.min(targetTop, container.scrollHeight - container.clientHeight);
+    if (Math.abs(container.scrollTop - reachable) > 1 && elapsed < duration + SMOOTH_SCROLL_LAND_MAX_MS) {
+      container.scrollTop = targetTop;
+      expectedScrollTop = targetTop;
+      currentSmoothScrollAnimationId = requestAnimationFrame(animate);
+      return;
+    }
+    scrollDebug('glide-done', { top: Math.round(container.scrollTop), wanted: Math.round(targetTop) });
+    finishSmoothScroll();
   };
 
   currentSmoothScrollAnimationId = requestAnimationFrame(animate);

@@ -52,6 +52,7 @@ import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHis
 import { getCompactionPopupHtml, initCompactionIndicator } from '../components/CompactionIndicator';
 import { initVoiceInput } from '../components/VoiceInput';
 import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
+import { initTurnAnchorResizeHold } from '../components/messages/turn-anchor';
 import { initHeaderAutoHide } from './header-autohide';
 import { initVersionBanner } from '../components/VersionBanner';
 import { getElementById, clearElement } from '../utils/dom';
@@ -528,6 +529,8 @@ export async function init(): Promise<void> {
   initCompactionIndicator();
   initAgents();
   initScrollToBottom();
+  const messagesList = document.getElementById('messages');
+  if (messagesList) initTurnAnchorResizeHold(messagesList);
   initHeaderAutoHide();
   // Set up callback to load remaining newer messages before scrolling to bottom
   // This ensures clicking scroll-to-bottom in a partial view (after search navigation)

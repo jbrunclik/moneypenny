@@ -8,7 +8,8 @@
  */
 
 import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
-import { prefersReducedMotion, scrollDebug } from '../../utils/dom';
+import { isSmoothScrolling, prefersReducedMotion, scrollDebug, stopMomentumScroll } from '../../utils/dom';
+import { onMessagesScroll } from '../../utils/scroll-manager';
 import { useStore } from '../../state/store';
 import { hasTrackedRequestFor } from '../../core/active-requests';
 import {
@@ -23,7 +24,7 @@ import {
 // Relative to the element, not an absolute coordinate - content inserted
 // above it (an interject, an older page, a compaction divider) shifted a
 // stored coordinate and left the reservation the wrong size.
-let anchor: { el: HTMLElement; extra: number } | null = null;
+let anchor: { el: HTMLElement; replyEl: HTMLElement; extra: number } | null = null;
 
 const RESERVED_ATTR = 'data-turn-space';
 // While a turn is anchored the list doesn't bottom-align a short chat
@@ -60,6 +61,19 @@ function visibleHeight(container: HTMLElement): number {
 function contentTop(container: HTMLElement, el: HTMLElement): number {
   if (el.offsetParent === container) return el.offsetTop;
   return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+}
+
+/**
+ * How far below the turn's top the anchored view starts: 0, or more when the
+ * message is taller than the visible band (the start of the reply stays in
+ * view). Depends on the band's height - recomputed when the list resizes
+ * (sent with the iOS keyboard open, it closes: the band grows and the turn
+ * belongs at the top again, not the keyboard-open offset under the header).
+ */
+function anchorExtra(container: HTMLElement, turnEl: HTMLElement, replyEl: HTMLElement): number {
+  const turnTop = contentTop(container, turnEl);
+  const replyStart = contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visibleHeight(container);
+  return Math.max(0, Math.max(turnTop, replyStart) - turnTop);
 }
 
 /** Content-coordinate top of the visible area the turn is anchored to. */
@@ -156,17 +170,27 @@ export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl:
   // anchored reply to its end once a thumbnail in it loads
   disableScrollOnImageLoad();
   container.classList.add(ANCHORED_CLASS);
-  const visible = visibleHeight(container);
-  // A message taller than the screen keeps the start of the reply in view
-  const measureTarget = (): number =>
-    Math.max(
-      contentTop(container, turnEl),
-      contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visible
-    );
-  const target = measureTarget();
-  anchor = { el: turnEl, extra: Math.max(0, target - contentTop(container, turnEl)) };
+  anchor = { el: turnEl, replyEl, extra: anchorExtra(container, turnEl, replyEl) };
   reserveTurnSpace(container, replyEl);
-  programmaticScrollToPosition(container, target - topInset(container), true);
+  // A list still coasting from a flick ignores our writes until it rests
+  stopMomentumScroll(container);
+  glideToAnchor(container);
+}
+
+// Whether the smooth scroll running is the send glide (a resize retargets
+// it); the generation tells a retarget's cancelled predecessor apart
+let isAnchorGlide = false;
+let glideGeneration = 0;
+
+/** Glide the view onto the anchor (the send, or a retarget mid-glide). */
+function glideToAnchor(container: HTMLElement): void {
+  const anchorTop = anchorTopOf(container);
+  if (anchorTop === null) return;
+  const generation = ++glideGeneration;
+  isAnchorGlide = true;
+  programmaticScrollToPosition(container, anchorTop - topInset(container), true, { ignoreMomentum: true }, () => {
+    if (generation === glideGeneration) isAnchorGlide = false;
+  });
 }
 
 /**
@@ -233,6 +257,49 @@ export function settleTurnFor(convId: string): void {
   if (hasTrackedRequestFor(convId)) return;
   const container = document.getElementById('messages');
   if (container) settleTurnSpace(container);
+}
+
+/**
+ * Keep an anchored turn anchored whenever the list itself changes height -
+ * whatever the cause (the iOS keyboard opening or closing, the viewport,
+ * the composer). The reservation is sized for the visible band: a taller
+ * list made the anchor unreachable (the browser clamped the position down
+ * and a glide in flight landed short - device log Oct 10 2026, keyboard
+ * closed mid-glide). The keyboard and composer handlers only covered their
+ * own changes. Re-fit the reservation; a view that sat on the anchor goes
+ * back onto it; a glide in flight lands on its own.
+ */
+export function initTurnAnchorResizeHold(container: HTMLElement): void {
+  if (typeof ResizeObserver !== 'function') return;
+  let lastClientHeight = container.clientHeight;
+  // The position before a resize: a resize's own clamp fires a scroll event
+  // (before the observer runs) that must not count as where the view sat
+  let settledTop = container.scrollTop;
+  onMessagesScroll('turn-anchor-settled', () => {
+    if (container.clientHeight === lastClientHeight) settledTop = container.scrollTop;
+  });
+  new ResizeObserver(() => {
+    const height = container.clientHeight;
+    if (height === lastClientHeight) return;
+    lastClientHeight = height;
+    const anchorTop = anchorTopOf(container);
+    if (anchor !== null && anchorTop !== null) {
+      const wasAtAnchor = Math.abs(settledTop - (anchorTop - topInset(container))) < 3;
+      const gliding = isSmoothScrolling();
+      if (anchor.replyEl.isConnected) anchor.extra = anchorExtra(container, anchor.el, anchor.replyEl);
+      scrollDebug('anchor-resize', { ch: height, wasAtAnchor, gliding, extra: Math.round(anchor.extra) });
+      if (gliding && isAnchorGlide) {
+        // Retarget the send glide in flight onto the re-measured anchor
+        refreshTurnSpace(container);
+        glideToAnchor(container);
+      } else if (wasAtAnchor && !gliding) {
+        holdTurnAnchor(container);
+      } else {
+        refreshTurnSpace(container);
+      }
+    }
+    settledTop = container.scrollTop;
+  }).observe(container);
 }
 
 /** Forget the anchor (conversation switch re-renders the list). */

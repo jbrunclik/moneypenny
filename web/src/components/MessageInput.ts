@@ -1,6 +1,6 @@
 import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
-import { holdTurnAnchor, isAtTurnAnchor } from './messages/turn-anchor';
+import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from './messages/turn-anchor';
 import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
@@ -185,7 +185,8 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
         // layout settles.
         const messagesContainer = getElementById('messages');
         const atAnchor = messagesContainer ? isAtTurnAnchor(messagesContainer) : false;
-        const wasAtBottom = messagesContainer && !atAnchor ? isScrolledToBottom(messagesContainer) : false;
+        // (an anchored turn is never bottom-pinned - mid-glide included)
+        const wasAtBottom = messagesContainer && !isTurnAnchored() ? isScrolledToBottom(messagesContainer) : false;
         // Use requestAnimationFrame to wait for layout to settle
         requestAnimationFrame(() => {
           if (messagesContainer && atAnchor) {
