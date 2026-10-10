@@ -1,5 +1,6 @@
 import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { holdTurnAnchor, isAtTurnAnchor } from './messages/turn-anchor';
 import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
@@ -183,10 +184,13 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
         // turn) down whenever the keyboard opened. Measured before the
         // layout settles.
         const messagesContainer = getElementById('messages');
-        const wasAtBottom = messagesContainer ? isScrolledToBottom(messagesContainer) : false;
+        const atAnchor = messagesContainer ? isAtTurnAnchor(messagesContainer) : false;
+        const wasAtBottom = messagesContainer && !atAnchor ? isScrolledToBottom(messagesContainer) : false;
         // Use requestAnimationFrame to wait for layout to settle
         requestAnimationFrame(() => {
-          if (messagesContainer && wasAtBottom) {
+          if (messagesContainer && atAnchor) {
+            holdTurnAnchor(messagesContainer); // a send-to-top turn stays anchored
+          } else if (messagesContainer && wasAtBottom) {
             programmaticScrollToBottom(messagesContainer);
           }
         });

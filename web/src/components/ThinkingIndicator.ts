@@ -32,7 +32,7 @@ import {
   PHONE_ICON,
 } from '../utils/icons';
 import { escapeHtml, isScrolledToBottom } from '../utils/dom';
-import { markProgrammaticScrollEnd, markProgrammaticScrollStart } from '../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 
@@ -309,11 +309,12 @@ export function finalizeThinkingIndicator(
     if (
       collapseDelta > 0 &&
       indicatorBottom < viewportTop &&
-      !isScrolledToBottom(scrollContainer)
+      // Really at the bottom (1px), not the 200px follow zone: an anchored
+      // reader near the end of a long reply saw the text jump up
+      !isScrolledToBottom(scrollContainer, 1)
     ) {
-      markProgrammaticScrollStart();
+      endProgrammaticScroll(beginProgrammaticScroll());
       scrollContainer.scrollTop -= collapseDelta;
-      markProgrammaticScrollEnd();
     }
   }
 

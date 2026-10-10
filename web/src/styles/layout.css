@@ -257,13 +257,23 @@
            clips scrolled content at the padding-top edge, so content never
            enters the header region and the glass has nothing to blur. A
            spacer is scrollable content, so messages DO pass under the header
-           through the blur. (padding-bottom IS scrollable, so the composer
-           keeps using it.) */
+           through the blur. The composer clearance is a spacer too
+           (::after): WebKit counts a scroll container's padding-bottom only
+           once its content overflows, so a send-to-top reservation shrinking
+           below the screen dropped the padding and the turn fell. */
         padding-top: 0;
+        padding-bottom: 0;
         gap: var(--space-3);
-        /* Clear the floating composer (live pill footprint from
-           composer-height.ts; fallback covers the pre-JS first paint) */
-        padding-bottom: calc(var(--composer-height, 72px) + var(--space-3));
+    }
+
+    /* Clear the floating composer (live pill footprint from composer-height.ts;
+       fallback covers the pre-JS first paint). The list gap adds the
+       breathing room above it. */
+    .messages::after {
+        content: '';
+        display: block;
+        flex-shrink: 0;
+        height: var(--composer-height, 72px);
     }
 
     .messages::before {
@@ -393,9 +403,18 @@
         scroll-padding-top: calc(56px + var(--space-4));
     }
 
-    /* Composer shown: clear the live pill footprint (composer-height.ts). */
+    /* Composer shown: clear the live pill footprint (composer-height.ts) with
+       a spacer, not padding-bottom (WebKit ignores that until the content
+       overflows - see the mobile rule); the list gap adds the breathing room */
     .main:has(.input-area:not(.hidden)) .messages {
-        padding-bottom: calc(var(--composer-height, 140px) + var(--space-4));
+        padding-bottom: 0;
+    }
+
+    .main:has(.input-area:not(.hidden)) .messages::after {
+        content: '';
+        display: block;
+        flex-shrink: 0;
+        height: var(--composer-height, 140px);
     }
     /* NB: the scroll-to-bottom lift lives in buttons.css (imported after this
        file) so it wins the cascade over that button's base position. */

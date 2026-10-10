@@ -227,12 +227,15 @@ function setupStreamingScrollListener(container: HTMLElement): void {
       return;
     }
 
-    // Re-arm following only when the USER reaches the real bottom: our own
-    // scrolls (the send-to-top glide ends at the reserved bottom) and a
-    // small scroll near it must not start chasing the reply
+    // Re-arm following only when the USER scrolls DOWN to the real bottom:
+    // our own scrolls (the send-to-top glide ends at the reserved bottom), a
+    // small scroll near it, and iOS's rubber-band bounce there (overscrolled
+    // positions, then a move back up) must not start chasing the reply
     const atBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
+    const maxScrollTop = container.scrollHeight - container.clientHeight;
+    const movedDown = scrollTop > previousScrollTop && scrollTop <= maxScrollTop + 1;
 
-    if (atBottom && !isProgrammaticScrollActive()) {
+    if (atBottom && movedDown && !isProgrammaticScrollActive()) {
       // User scrolled back to bottom - use debounce to re-enable auto-scroll
       // This prevents rapid toggling when user is scrolling around near the bottom
       if (resumeDebounceTimeout) {

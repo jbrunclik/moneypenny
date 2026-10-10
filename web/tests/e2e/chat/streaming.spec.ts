@@ -849,11 +849,15 @@ async function blankBelowLastMessage(page: import('@playwright/test').Page): Pro
   return page.evaluate(() => {
     const c = document.getElementById('messages')!;
     const last = [...c.querySelectorAll<HTMLElement>('.message')].pop()!;
-    // The text itself: the wrapper stretches to the reserved min-height
-    const content = last.querySelector<HTMLElement>('.message-content') ?? last;
-    const contentBottom = content.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop;
-    const listEnd = c.scrollHeight - parseFloat(getComputedStyle(c).paddingBottom);
-    return Math.round(listEnd - contentBottom);
+    // A reservation still held is blank by definition (the message's wrapper
+    // stretches to its min-height, so its bottom alone can't tell)
+    if (c.querySelector('[data-turn-space]')) return Number.POSITIVE_INFINITY;
+    const bottom = last.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop;
+    // The composer clearance: the ::after spacer plus the list gap before it
+    const spacer = parseFloat(getComputedStyle(c, '::after').height) || 0;
+    const clearance = spacer + (spacer > 0 ? parseFloat(getComputedStyle(c).rowGap) || 0 : 0);
+    const listEnd = c.scrollHeight - parseFloat(getComputedStyle(c).paddingBottom) - clearance;
+    return Math.round(listEnd - bottom);
   });
 }
 
@@ -1023,6 +1027,128 @@ test.describe('Chat - Send-to-top', () => {
   }
 });
 
+// Every way a turn can end must give back its reserved space - not only a
+// normal done. A stop, an error or a dropped bubble left the "empty space"
+// (and the bottom-align switched off) until the next message.
+test.describe('Send-to-top - reserved space after an abnormal end', () => {
+  test.use({ viewport: { width: 390, height: 664 } });
+
+  test.afterEach(async ({ page }) => {
+    await page.request.post('/test/set-emit-thinking', { data: { emit: false } });
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+
+  test('stopping during the thinking phase leaves no empty space', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    await setMockResponse(page, 'First answer.');
+    await page.fill('#message-input', 'First question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 10000 });
+
+    await page.request.post('/test/set-emit-thinking', { data: { emit: true, text: 'Pondering...', hold_ms: 5000 } });
+    await page.fill('#message-input', 'Second question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant.streaming')).toBeVisible();
+    await page.waitForTimeout(800);
+    await clickStop(page);
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0, { timeout: 15000 });
+
+    await expect.poll(() => blankBelowLastMessage(page), { timeout: 3000 }).toBeLessThan(40);
+    expect(await page.evaluate(() => document.getElementById('messages')!.classList.contains('turn-anchored'))).toBe(false);
+  });
+});
+
+// The user touching the list takes over from any smooth scroll of ours:
+// the glide only aborted on a >5px deviation, so a press-and-hold (or a drag
+// along with it) was fought for up to 600ms.
+test.describe('Send-to-top - the user takes over the glide', () => {
+  test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
+
+  test('a touch mid-glide stops it where it is', async ({ page, request }) => {
+    const messages = Array.from({ length: 30 }, (_, i) => ({
+      role: i % 2 ? 'assistant' : 'user',
+      content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(20),
+    }));
+    await request.post('/test/seed', { data: { conversations: [{ title: 'History', messages }] } });
+    await page.goto('/');
+    await page.click('#menu-btn');
+    await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
+    await page.waitForTimeout(800);
+    await enableStreaming(page);
+    // Reading further up: the send pins to the bottom first, then glides
+    await page.evaluate(() => {
+      document.getElementById('messages')!.scrollTop = 0;
+    });
+
+    // Still streaming throughout (a finished reply releases its space)
+    await setMockResponse(page, LONG_RESPONSE);
+    await setStreamDelay(page, 150);
+    await page.fill('#message-input', 'New question');
+    await page.click('#send-btn');
+    // The glide starts with the reply bubble; catch it mid-flight
+    await page.waitForSelector('.message.assistant.streaming');
+    await page.waitForTimeout(80);
+    await page.evaluate(() => {
+      const c = document.getElementById('messages')!;
+      c.dispatchEvent(new Event('touchstart', { bubbles: true }));
+    });
+    const held = await page.evaluate(() => document.getElementById('messages')!.scrollTop);
+    await page.waitForTimeout(700);
+
+    const after = await page.evaluate(() => document.getElementById('messages')!.scrollTop);
+    expect(Math.abs(after - held)).toBeLessThan(2);
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+});
+
+// The band between header and composer changing mid-turn (iOS keyboard,
+// a growing composer) must keep the anchored turn where it is.
+test.describe('Send-to-top - band changes keep the turn anchored', () => {
+  test.use({ viewport: { width: 390, height: 664 } });
+
+  test.afterEach(async ({ page }) => {
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+
+  test('typing a multi-line follow-up mid-stream keeps the turn under the header', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    await setMockResponse(page, 'First answer.');
+    await page.fill('#message-input', 'First question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 10000 });
+
+    await setMockResponse(page, LONG_RESPONSE);
+    await setStreamDelay(page, 150);
+    await page.fill('#message-input', 'Tell me everything');
+    await page.click('#send-btn');
+    await expect
+      .poll(async () => {
+        const gap = await turnTopBelowHeader(page, '.mobile-header');
+        return gap >= 0 && gap < 40;
+      }, { timeout: 5000 })
+      .toBe(true);
+    await page.waitForTimeout(700);
+    const anchored = await turnTopBelowHeader(page, '.mobile-header');
+
+    // The composer grows by several lines
+    await page.fill('#message-input', 'One\nTwo\nThree\nFour\nFive');
+    await page.waitForTimeout(600);
+
+    expect(Math.abs((await turnTopBelowHeader(page, '.mobile-header')) - anchored)).toBeLessThan(3);
+  });
+});
+
 // While the reply is still only thinking / using tools, the trace growing
 // past the screen is not "new messages" - the pill waits for answer text.
 test.describe('Send-to-top - no pill while thinking', () => {
@@ -1055,7 +1181,7 @@ test.describe('Send-to-top - no pill while thinking', () => {
 
 // A program's auto-start turn (sports/language) answers a trigger chip, not
 // a user bubble, and its quick-actions bar grows the composer after the
-// reservation: the chip must never end up under the header.
+// reservation: the turn must end visible, without empty space.
 test.describe('Send-to-top - program auto-start on a phone', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
@@ -1066,15 +1192,10 @@ test.describe('Send-to-top - program auto-start on a phone', () => {
     await page.goto('/#/sports/pushups');
     await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 15000 });
 
-    // The short reply released its reserved space and settled above the
-    // composer - the chip never ends up under the header
+    // The reply released its reserved space and settled like a normal chat:
+    // no empty area under it, the reply on screen
     await expect.poll(() => blankBelowLastMessage(page), { timeout: 3000 }).toBeLessThan(40);
-    const chipBelowHeader = await page.evaluate(() => {
-      const header = document.querySelector<HTMLElement>('.mobile-header')!;
-      const chip = document.querySelector<HTMLElement>('#messages .trigger-message')!;
-      return chip.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
-    });
-    expect(chipBelowHeader).toBeGreaterThanOrEqual(0);
+    expect(await blankBelowLastMessage(page)).toBeGreaterThan(-40);
     await expect(page.locator('.message.assistant')).toBeInViewport();
   });
 

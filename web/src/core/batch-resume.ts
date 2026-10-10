@@ -11,6 +11,7 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { hideLoadingIndicator, showLoadingIndicator } from '../components/messages';
+import { settleTurnFor } from '../components/messages/turn-anchor';
 import type { Message } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { waitForReplyTo } from './reply-wait';
@@ -107,6 +108,7 @@ export async function resumeInflightBatchIfAny(convId: string, messages: Message
     clearInflightBatch(convId, entry.messageId);
     if (useStore.getState().currentConversation?.id === convId) {
       hideLoadingIndicator();
+      settleTurnFor(convId);
     }
   }
 }

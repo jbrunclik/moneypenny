@@ -273,12 +273,16 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
  * per user, not per device). Used when a merge or a conversation open finds
  * the reply's empty placeholder. No-op while this tab runs its own turn.
  */
-export async function followRemoteStream(convId: string, messageId: string): Promise<void> {
+export async function followRemoteStream(
+  convId: string,
+  messageId: string,
+  { anchor }: { anchor?: boolean } = {}
+): Promise<void> {
   if (useStore.getState().getActiveRequest(convId)) return;
   const container = getElementById<HTMLDivElement>('messages');
   const placeholder = container?.querySelector(`[data-message-id="${messageId}"]`) ?? null;
   log.info('Following a stream from another device', { conversationId: convId, messageId });
-  await streamTurnFromJournal(convId, messageId, placeholder, { ownTurn: false });
+  await streamTurnFromJournal(convId, messageId, placeholder, { ownTurn: false, anchor });
 }
 
 /**
@@ -289,7 +293,7 @@ async function streamTurnFromJournal(
   convId: string,
   messageId: string,
   placeholder: Element | null,
-  { ownTurn }: { ownTurn: boolean }
+  { ownTurn, anchor: forceAnchor }: { ownTurn: boolean; anchor?: boolean }
 ): Promise<void> {
   // Replace the empty placeholder bubble (if the loader rendered it) with a
   // live streaming bubble
@@ -299,7 +303,7 @@ async function streamTurnFromJournal(
   // Our own reloaded turn anchors like a fresh send; another device's turn
   // must not move a reader who isn't at the bottom
   const container = getElementById<HTMLDivElement>('messages');
-  const anchor = ownTurn || (container !== null && isScrolledToBottom(container));
+  const anchor = forceAnchor ?? (ownTurn || (container !== null && isScrolledToBottom(container)));
   const messageEl = addStreamingMessage(convId, { anchor });
   messageEl.dataset.messageId = messageId;
 

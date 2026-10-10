@@ -127,5 +127,7 @@ async function mergeOnce(convId: string): Promise<void> {
  */
 export function followRemoteStreamOnOpen(conv: Conversation): void {
   if (!conv.streaming_message_id || readInflightStream(conv.id)) return;
-  void followRemoteStream(conv.id, conv.streaming_message_id);
+  // Opening the chat: anchor the turn like a send (the open's own scroll to
+  // the bottom hasn't landed yet, so "is the reader at the bottom" is moot)
+  void followRemoteStream(conv.id, conv.streaming_message_id, { anchor: true });
 }

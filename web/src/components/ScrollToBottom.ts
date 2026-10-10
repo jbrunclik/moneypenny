@@ -1,9 +1,12 @@
-import { getElementById, isScrolledToBottom, scrollToBottom } from '../utils/dom';
+import { cancelSmoothScroll, getElementById, isScrolledToBottom, scrollToBottom } from '../utils/dom';
 import { CHEVRON_DOWN_ICON } from '../utils/icons';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
 import { onMessagesScroll } from '../utils/scroll-manager';
 
 let scrollButton: HTMLButtonElement | null = null;
+
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
 // Track whether streaming is active and auto-scroll is paused
 let isStreamingPaused = false;
@@ -58,20 +61,42 @@ export function initScrollToBottom(): void {
     messagesContainer.nextSibling
   );
 
-  // Click handler - async to support loading messages before scroll
+  // Click handler - async to support loading messages before scroll.
+  // A tap while the previous one still loads the remaining messages is
+  // ignored (it used to start a second load and append duplicates).
+  let busy = false;
   scrollButton.addEventListener('click', async () => {
-    // If there's a before-scroll callback (e.g., to load remaining messages), call it first
-    if (onBeforeScrollToBottom) {
-      try {
-        await onBeforeScrollToBottom();
-      } catch {
-        // If loading fails, still try to scroll to current bottom
+    if (busy) return;
+    busy = true;
+    try {
+      // If there's a before-scroll callback (e.g., to load remaining messages), call it first
+      if (onBeforeScrollToBottom) {
+        try {
+          await onBeforeScrollToBottom();
+        } catch {
+          // If loading fails, still try to scroll to current bottom
+        }
       }
+    } finally {
+      busy = false;
     }
     // Let interested parties (streaming follow mode) re-arm synchronously
     // before the smooth scroll starts
     onJumpToBottom?.();
-    scrollToBottom(messagesContainer, true);
+    // Ours, not the user's: the header auto-hide hid the header on every tap
+    const token = beginProgrammaticScroll();
+    scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token));
+  });
+
+  // The user touching, wheeling or key-scrolling the list takes over from any
+  // smooth scroll of ours (send glide, this button's own animation, image
+  // re-pins). Those only aborted on a >5px deviation, so a press-and-hold or
+  // a drag along with the glide was fought for up to 600ms.
+  const takeOver = (): void => cancelSmoothScroll();
+  messagesContainer.addEventListener('touchstart', takeOver, { passive: true });
+  messagesContainer.addEventListener('wheel', takeOver, { passive: true });
+  messagesContainer.addEventListener('keydown', (event) => {
+    if (SCROLL_KEYS.has(event.key)) takeOver();
   });
 
   // Scroll listener with debounce for performance

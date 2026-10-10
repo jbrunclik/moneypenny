@@ -9,12 +9,12 @@ import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
 import {
   observeThumbnail,
-  markProgrammaticScrollStart,
-  markProgrammaticScrollEnd,
+  beginProgrammaticScroll,
+  endProgrammaticScroll,
   countVisibleImagesForScroll,
   setDeferImageObservation,
 } from '../../utils/thumbnails';
-import { checkScrollButtonVisibility } from '../ScrollToBottom';
+import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { renderWelcomeMessageHtml } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
 import { agents } from '../../api/agents';
@@ -151,10 +151,10 @@ function parseTriggerMessage(content: string): { type: string; timestamp: string
 function scheduleScrollToBottom(container: HTMLElement): void {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      markProgrammaticScrollStart();
+      const token = beginProgrammaticScroll();
       scrollToBottom(container);
       requestAnimationFrame(() => {
-        markProgrammaticScrollEnd();
+        endProgrammaticScroll(token);
       });
     });
   });
@@ -247,8 +247,10 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   log.debug('Rendering messages', { count: messages.length, skipScrollToBottom: options.skipScrollToBottom });
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
-  // A fresh render holds no reserved send-to-top space
+  // A fresh render holds no reserved send-to-top space and no merged-in
+  // "New messages" from the previous list
   resetTurnAnchor(container);
+  clearNewMessagesPill();
 
   if (messages.length === 0) {
     container.innerHTML = renderWelcomeMessageHtml();

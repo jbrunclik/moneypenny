@@ -9,16 +9,20 @@
 
 import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
 import { prefersReducedMotion } from '../../utils/dom';
+import { useStore } from '../../state/store';
 import {
-  isProgrammaticScrollActive,
-  markProgrammaticScrollEnd,
-  markProgrammaticScrollStart,
+  beginProgrammaticScroll,
+  disableScrollOnImageLoad,
+  endProgrammaticScroll,
   programmaticScrollToPosition,
 } from '../../utils/thumbnails';
 
-// Content-coordinate top of the visible area the current turn is anchored
-// to (scroll-padding included), or null when no turn is anchored
-let anchorTop: number | null = null;
+// The anchored turn: its element, and how far below that element's top the
+// visible area starts (0, or more for a message taller than the screen).
+// Relative to the element, not an absolute coordinate - content inserted
+// above it (an interject, an older page, a compaction divider) shifted a
+// stored coordinate and left the reservation the wrong size.
+let anchor: { el: HTMLElement; extra: number } | null = null;
 
 const RESERVED_ATTR = 'data-turn-space';
 // While a turn is anchored the list doesn't bottom-align a short chat
@@ -31,10 +35,20 @@ function topInset(container: HTMLElement): number {
   return parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
 }
 
+/**
+ * The list's bottom clearance for the floating composer: the ::after spacer
+ * plus the list gap before it (plus any padding-bottom).
+ */
+function bottomInset(container: HTMLElement): number {
+  const style = getComputedStyle(container);
+  const spacer = parseFloat(getComputedStyle(container, '::after').height) || 0;
+  const gap = spacer > 0 ? parseFloat(style.rowGap) || 0 : 0;
+  return spacer + gap + (parseFloat(style.paddingBottom) || 0);
+}
+
 /** Height of the band between the header and the composer. */
 function visibleHeight(container: HTMLElement): number {
-  const bottomInset = parseFloat(getComputedStyle(container).paddingBottom) || 0;
-  return container.clientHeight - topInset(container) - bottomInset;
+  return container.clientHeight - topInset(container) - bottomInset(container);
 }
 
 /**
@@ -47,6 +61,12 @@ function contentTop(container: HTMLElement, el: HTMLElement): number {
   return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
 }
 
+/** Content-coordinate top of the visible area the turn is anchored to. */
+function anchorTopOf(container: HTMLElement): number | null {
+  if (!anchor || !anchor.el.isConnected) return null;
+  return contentTop(container, anchor.el) + anchor.extra;
+}
+
 /** Drop the previous turn's reserved space. */
 function releaseTurnSpace(container: HTMLElement): void {
   container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`).forEach((el) => {
@@ -54,7 +74,7 @@ function releaseTurnSpace(container: HTMLElement): void {
     el.removeAttribute(RESERVED_ATTR);
   });
   container.classList.remove(ANCHORED_CLASS);
-  anchorTop = null;
+  anchor = null;
 }
 
 /**
@@ -64,6 +84,7 @@ function releaseTurnSpace(container: HTMLElement): void {
  * before anything reads layout, or the browser clamps the position first.
  */
 export function reserveTurnSpace(container: HTMLElement, replyEl: HTMLElement): void {
+  const anchorTop = anchorTopOf(container);
   if (anchorTop === null) return;
   const minHeight = anchorTop + visibleHeight(container) - contentTop(container, replyEl);
   if (minHeight <= 0) {
@@ -84,7 +105,7 @@ export function reserveTurnSpace(container: HTMLElement, replyEl: HTMLElement): 
  * a layout read in between would clamp the position.
  */
 export function refreshTurnSpace(container: HTMLElement): void {
-  if (anchorTop === null) return;
+  if (anchor === null) return;
   container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`).forEach((el) => {
     reserveTurnSpace(container, el);
   });
@@ -92,7 +113,33 @@ export function refreshTurnSpace(container: HTMLElement): void {
 
 /** Whether a turn is anchored (send-to-top owns the scroll position). */
 export function isTurnAnchored(): boolean {
-  return anchorTop !== null;
+  // A view that cleared #messages itself (agents, planner, data, programs)
+  // took the anchored turn with it - nothing to hold
+  return anchor !== null && anchor.el.isConnected;
+}
+
+/** Whether the view still sits exactly at the anchored position. */
+export function isAtTurnAnchor(container: HTMLElement): boolean {
+  const anchorTop = anchorTopOf(container);
+  return anchorTop !== null && Math.abs(container.scrollTop - (anchorTop - topInset(container))) < 3;
+}
+
+/**
+ * Keep an anchored view anchored through a change of the band between header
+ * and composer (iOS keyboard opening/closing, composer resize): re-fit the
+ * reservation, then put the view back on the anchor. Pinning to the bottom
+ * instead pushed the turn under the header by the keyboard's height, and a
+ * keyboard closing let the browser clamp it down. Only call it when the view
+ * was at the anchor (isAtTurnAnchor) before the change.
+ */
+export function holdTurnAnchor(container: HTMLElement): void {
+  if (anchor === null) return;
+  refreshTurnSpace(container);
+  const anchorTop = anchorTopOf(container);
+  if (anchorTop === null) return;
+  const token = beginProgrammaticScroll();
+  container.scrollTop = anchorTop - topInset(container);
+  endProgrammaticScroll(token);
 }
 
 /**
@@ -101,6 +148,9 @@ export function isTurnAnchored(): boolean {
  */
 export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl: HTMLElement): void {
   releaseTurnSpace(container);
+  // The open's "scroll to the bottom as images load" mode would chase the
+  // anchored reply to its end once a thumbnail in it loads
+  disableScrollOnImageLoad();
   container.classList.add(ANCHORED_CLASS);
   const visible = visibleHeight(container);
   // A message taller than the screen keeps the start of the reply in view
@@ -109,9 +159,10 @@ export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl:
       contentTop(container, turnEl),
       contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visible
     );
-  anchorTop = measureTarget();
+  const target = measureTarget();
+  anchor = { el: turnEl, extra: Math.max(0, target - contentTop(container, turnEl)) };
   reserveTurnSpace(container, replyEl);
-  programmaticScrollToPosition(container, anchorTop - topInset(container), true);
+  programmaticScrollToPosition(container, target - topInset(container), true);
 }
 
 /**
@@ -122,8 +173,8 @@ export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl:
  * reservation, so nothing moves.
  */
 export function settleTurnSpace(container: HTMLElement): void {
-  if (anchorTop === null) return;
-  anchorTop = null;
+  if (anchor === null) return;
+  anchor = null;
   const reserved = [...container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`)];
   // Still at least screen-tall while the space is held, so the
   // bottom-aligning margin comes back without a jump as it shrinks
@@ -142,11 +193,7 @@ export function settleTurnSpace(container: HTMLElement): void {
     return;
   }
 
-  // The marker is one global flag: only take it if no other programmatic
-  // scroll holds it - ending it under the still-running send glide let the
-  // glide's last frames read as the user scrolling (auto-hiding the header)
-  const ownsMarker = !isProgrammaticScrollActive();
-  if (ownsMarker) markProgrammaticScrollStart();
+  const token = beginProgrammaticScroll();
   for (const el of reserved) {
     el.removeAttribute(RESERVED_ATTR);
     el.style.transition = `min-height ${TURN_SPACE_RELEASE_MS}ms ease-out`;
@@ -156,12 +203,24 @@ export function settleTurnSpace(container: HTMLElement): void {
   window.setTimeout(() => {
     // A new turn may have reserved one of them again meanwhile
     reserved.filter((el) => !el.hasAttribute(RESERVED_ATTR)).forEach(clear);
-    if (ownsMarker) markProgrammaticScrollEnd();
+    endProgrammaticScroll(token);
   }, TURN_SPACE_RELEASE_MS + 50);
+}
+
+/**
+ * A turn of `convId` ended in any way (done, stop, error, recovery, a
+ * resumed batch giving up): give back its reserved space if that
+ * conversation is on screen. Only a normal done used to - a stopped or
+ * failed turn left the empty area and the bottom-align switched off.
+ */
+export function settleTurnFor(convId: string): void {
+  if (useStore.getState().currentConversation?.id !== convId) return;
+  const container = document.getElementById('messages');
+  if (container) settleTurnSpace(container);
 }
 
 /** Forget the anchor (conversation switch re-renders the list). */
 export function resetTurnAnchor(container: HTMLElement): void {
   container.classList.remove(ANCHORED_CLASS);
-  anchorTop = null;
+  anchor = null;
 }

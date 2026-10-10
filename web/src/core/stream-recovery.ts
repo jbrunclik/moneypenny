@@ -9,6 +9,7 @@
  * 4. Update UI with recovered content or show error
  */
 
+import { settleTurnFor } from '../components/messages/turn-anchor';
 import { conversations as conversationsApi } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { useStore } from '../state/store';
@@ -508,6 +509,7 @@ async function updateUIWithRecoveredMessage(
     );
 
     // Clean up streaming context
+    settleTurnFor(convId);
     cleanupStreamingContext();
 
     // Update streaming state
@@ -577,7 +579,8 @@ async function updateUIWithRecoveredMessage(
       if (wasAtBottom) programmaticScrollToBottom(container);
 
       // Clean up streaming state
-      cleanupStreamingContext();
+      settleTurnFor(convId);
+    cleanupStreamingContext();
       const store = useStore.getState();
       store.setStreamingConversation(null);
       store.removeActiveRequest(convId);
@@ -618,7 +621,8 @@ function markStreamingMessageAsIncomplete(convId: string): void {
   }
 
   // Clean up streaming state
-  cleanupStreamingContext();
+  settleTurnFor(convId);
+    cleanupStreamingContext();
   const store = useStore.getState();
   store.setStreamingConversation(null);
   store.removeActiveRequest(convId);

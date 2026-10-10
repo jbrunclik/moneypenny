@@ -2,6 +2,12 @@
 
 import { SCROLL_BOTTOM_THRESHOLD_PX } from '../config';
 
+
+// The bottom animation's settle phase: pinned until the height has been
+// stable this long, giving up after the max
+const SMOOTH_SCROLL_SETTLE_MS = 400;
+const SMOOTH_SCROLL_SETTLE_MAX_MS = 1500;
+
 /**
  * Escape HTML special characters to prevent XSS
  */
@@ -90,6 +96,15 @@ export function autoResizeTextarea(textarea: HTMLTextAreaElement): void {
 
 // Track the current smooth scroll animation frame ID for cancellation
 let currentSmoothScrollAnimationId: number | null = null;
+// Completion callback of the running animation (fires on finish, abort or cancel)
+let currentSmoothScrollDone: (() => void) | null = null;
+
+function finishSmoothScroll(): void {
+  currentSmoothScrollAnimationId = null;
+  const done = currentSmoothScrollDone;
+  currentSmoothScrollDone = null;
+  done?.();
+}
 
 /**
  * Cancel any ongoing smooth scroll animation.
@@ -98,8 +113,8 @@ let currentSmoothScrollAnimationId: number | null = null;
 export function cancelSmoothScroll(): void {
   if (currentSmoothScrollAnimationId !== null) {
     cancelAnimationFrame(currentSmoothScrollAnimationId);
-    currentSmoothScrollAnimationId = null;
   }
+  finishSmoothScroll();
 }
 
 /** The user asked for less motion: smooth scrolls jump instead. */
@@ -110,23 +125,29 @@ export function prefersReducedMotion(): boolean {
 /**
  * Scroll element to bottom
  */
-export function scrollToBottom(element: HTMLElement, smooth = false): void {
+export function scrollToBottom(element: HTMLElement, smooth = false, onDone?: () => void): void {
   // Cancel any ongoing smooth scroll animation before starting a new scroll
   cancelSmoothScroll();
 
-  if (!smooth || prefersReducedMotion()) {
+  if (!smooth) {
     element.scrollTo({
       top: element.scrollHeight,
       behavior: 'auto',
     });
+    onDone?.();
     return;
   }
+  currentSmoothScrollDone = onDone ?? null;
 
-  // Custom smooth scroll with easing for better animation
+  // Custom smooth scroll with easing for better animation. Reduced motion:
+  // a zero-length curve - the jump - but the settle phase below still runs
+  // (it is about landing at the real bottom, not about motion)
   const start = element.scrollTop;
   let target = element.scrollHeight - element.clientHeight;
   let distance = target - start;
-  const duration = Math.min(600, Math.max(300, Math.abs(distance) * 0.5)); // 300-600ms based on distance
+  const duration = prefersReducedMotion()
+    ? 0
+    : Math.min(600, Math.max(300, Math.abs(distance) * 0.5)); // 300-600ms based on distance
   const startTime = performance.now();
 
   // Track the position we last wrote and the content height we saw. A
@@ -141,6 +162,13 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
   // below) retarget to the new bottom and keep going.
   let expectedScrollTop = start;
   let lastScrollHeight = element.scrollHeight;
+  let lastClientHeight = element.clientHeight;
+  // After the curve ends, keep pinning while late content lands (a diagram
+  // rendering, the actions row, an image) - stopping at the height seen at
+  // the last frame left the list short, the button still showing, and the
+  // user tapping again
+  let settleSince: number | null = null;
+  let lastChangeAt = startTime;
 
   // Easing function: ease-out-cubic
   const easeOutCubic = (t: number): number => {
@@ -148,30 +176,39 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
   };
 
   const animate = (currentTime: number): void => {
-    if (element.scrollHeight !== lastScrollHeight) {
+    // Content or viewport height changed (keyboard, composer): new bottom
+    if (element.scrollHeight !== lastScrollHeight || element.clientHeight !== lastClientHeight) {
       lastScrollHeight = element.scrollHeight;
+      lastClientHeight = element.clientHeight;
       target = element.scrollHeight - element.clientHeight;
       distance = target - start;
       expectedScrollTop = element.scrollTop;
+      lastChangeAt = currentTime;
     } else if (element.scrollTop < expectedScrollTop - 5) {
       // Scrolled up from outside - respect it and stop animating
-      currentSmoothScrollAnimationId = null;
+      finishSmoothScroll();
       return;
     }
 
     const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
+    const progress = duration === 0 ? 1 : Math.min(elapsed / duration, 1);
     const eased = easeOutCubic(progress);
 
     const newScrollTop = start + distance * eased;
     element.scrollTop = newScrollTop;
-    expectedScrollTop = newScrollTop;
+    expectedScrollTop = element.scrollTop;
 
     if (progress < 1) {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
+      return;
+    }
+    // Settle: pinned until the height is stable for a moment (bounded)
+    settleSince ??= currentTime;
+    const stable = currentTime - lastChangeAt >= SMOOTH_SCROLL_SETTLE_MS;
+    if (stable || currentTime - settleSince >= SMOOTH_SCROLL_SETTLE_MAX_MS) {
+      finishSmoothScroll();
     } else {
-      // Animation complete, clear the ID
-      currentSmoothScrollAnimationId = null;
+      currentSmoothScrollAnimationId = requestAnimationFrame(animate);
     }
   };
 
@@ -200,7 +237,8 @@ export function isScrolledToBottom(
 export function scrollToElementTop(
   container: HTMLElement,
   targetElement: HTMLElement,
-  smooth = true
+  smooth = true,
+  onDone?: () => void
 ): void {
   // Cancel any ongoing smooth scroll animation before starting a new scroll
   cancelSmoothScroll();
@@ -215,7 +253,7 @@ export function scrollToElementTop(
   // the element's first line landed under that header.
   const topInset = parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
   const targetTop = targetRect.top - containerRect.top + container.scrollTop - topInset;
-  scrollToPosition(container, targetTop, smooth);
+  scrollToPosition(container, targetTop, smooth, onDone);
 }
 
 /**
@@ -223,7 +261,12 @@ export function scrollToElementTop(
  * The animation aborts when anything else moves the position (the user, or
  * other code) so it never fights them.
  */
-export function scrollToPosition(container: HTMLElement, targetTop: number, smooth = true): void {
+export function scrollToPosition(
+  container: HTMLElement,
+  targetTop: number,
+  smooth = true,
+  onDone?: () => void
+): void {
   cancelSmoothScroll();
 
   if (!smooth || prefersReducedMotion()) {
@@ -231,8 +274,10 @@ export function scrollToPosition(container: HTMLElement, targetTop: number, smoo
       top: targetTop,
       behavior: 'auto',
     });
+    onDone?.();
     return;
   }
+  currentSmoothScrollDone = onDone ?? null;
 
   // Custom smooth scroll with easing
   const start = container.scrollTop;
@@ -253,7 +298,7 @@ export function scrollToPosition(container: HTMLElement, targetTop: number, smoo
     const currentScrollTop = container.scrollTop;
     if (Math.abs(currentScrollTop - expectedScrollTop) > 5) {
       // External scroll detected - cancel our animation to respect user's intent
-      currentSmoothScrollAnimationId = null;
+      finishSmoothScroll();
       return;
     }
 
@@ -268,7 +313,7 @@ export function scrollToPosition(container: HTMLElement, targetTop: number, smoo
     if (progress < 1) {
       currentSmoothScrollAnimationId = requestAnimationFrame(animate);
     } else {
-      currentSmoothScrollAnimationId = null;
+      finishSmoothScroll();
     }
   };
 

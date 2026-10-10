@@ -6,8 +6,8 @@ import {
   enableScrollOnImageLoad,
   disableScrollOnImageLoad,
   isScrollOnImageLoadEnabled,
-  markProgrammaticScrollStart,
-  markProgrammaticScrollEnd,
+  beginProgrammaticScroll,
+  endProgrammaticScroll,
   isProgrammaticScrollActive,
   programmaticScrollToBottom,
 } from '@/utils/thumbnails';
@@ -133,37 +133,33 @@ describe('programmatic scroll markers', () => {
     vi.useRealTimers();
   });
 
-  it('markProgrammaticScrollStart and markProgrammaticScrollEnd are exported', () => {
-    // These functions should be callable without errors
-    expect(() => markProgrammaticScrollStart()).not.toThrow();
-    expect(() => markProgrammaticScrollEnd()).not.toThrow();
-  });
-
-  it('markProgrammaticScrollEnd uses delayed reset', () => {
-    // Start a programmatic scroll
-    markProgrammaticScrollStart();
-
-    // End it - should schedule a delayed reset
-    markProgrammaticScrollEnd();
-
-    // The internal state uses a 150ms delay for reset
-    // We can't directly test the internal state, but we can verify no errors occur
+  it('a token holds the flag until shortly after it ends', () => {
+    const token = beginProgrammaticScroll();
+    expect(isProgrammaticScrollActive()).toBe(true);
+    endProgrammaticScroll(token);
+    // Its scroll events dispatch a frame later and still count as ours
+    expect(isProgrammaticScrollActive()).toBe(true);
     vi.advanceTimersByTime(200);
+    expect(isProgrammaticScrollActive()).toBe(false);
   });
 
-  it('multiple start calls are safe', () => {
-    markProgrammaticScrollStart();
-    markProgrammaticScrollStart();
-    markProgrammaticScrollStart();
-    // Should not throw
-  });
-
-  it('multiple end calls are safe', () => {
-    markProgrammaticScrollEnd();
-    markProgrammaticScrollEnd();
-    markProgrammaticScrollEnd();
+  it('overlapping scrolls do not end each other early', () => {
+    // The reserved-space release ending while the send glide still ran used
+    // to clear the single flag and expose the glide's last frames
+    const glide = beginProgrammaticScroll();
+    const release = beginProgrammaticScroll();
+    endProgrammaticScroll(release);
     vi.advanceTimersByTime(500);
-    // Should not throw
+    expect(isProgrammaticScrollActive()).toBe(true);
+    endProgrammaticScroll(glide);
+    vi.advanceTimersByTime(200);
+    expect(isProgrammaticScrollActive()).toBe(false);
+  });
+
+  it('a token that is never ended expires instead of muting user scrolls forever', () => {
+    beginProgrammaticScroll();
+    vi.advanceTimersByTime(3100);
+    expect(isProgrammaticScrollActive()).toBe(false);
   });
 });
 

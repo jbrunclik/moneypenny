@@ -4,6 +4,7 @@
  * the live stream and the reload-resume path.
  */
 
+import { settleTurnFor } from '../components/messages/turn-anchor';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import {
@@ -178,6 +179,8 @@ export function cleanupStreamingRequest(
   // per-conversation state is the new turn's now - leave it alone
   if (hasTrackedRequestFor(convId)) return;
 
+  // However the turn ended, its reserved send-to-top space goes back
+  settleTurnFor(convId);
   cleanupStreamingContext();
   useStore.getState().removeActiveRequest(convId);
 

@@ -527,7 +527,22 @@ function appendMessagesToUI(messages: Message[], container: HTMLElement): void {
  * @param conversationId - The conversation ID to load messages for
  * @returns Promise that resolves when all newer messages are loaded, or rejects on error
  */
-export async function loadAllRemainingNewerMessages(conversationId: string): Promise<void> {
+// One "load the rest" per conversation at a time: a second caller (another
+// scroll-button tap, a send) waits for the running one instead of loading
+// the same pages again and appending duplicates
+const loadAllInFlight = new Map<string, Promise<void>>();
+
+export function loadAllRemainingNewerMessages(conversationId: string): Promise<void> {
+  const running = loadAllInFlight.get(conversationId);
+  if (running) return running;
+  const load = loadAllRemainingNewerMessagesOnce(conversationId).finally(() => {
+    loadAllInFlight.delete(conversationId);
+  });
+  loadAllInFlight.set(conversationId, load);
+  return load;
+}
+
+async function loadAllRemainingNewerMessagesOnce(conversationId: string): Promise<void> {
   const store = useStore.getState();
   const container = getElementById<HTMLDivElement>('messages');
 

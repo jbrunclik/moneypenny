@@ -7,7 +7,6 @@ import {
     THUMBNAIL_MAX_CONCURRENT_FETCHES,
     SCROLL_PROGRAMMATIC_RESET_DELAY_MS,
     SCROLL_USER_DETECTION_THRESHOLD_PX,
-    SCROLL_SMOOTH_COMPLETION_DELAY_MS,
     SCROLL_MODE_GRACE_PERIOD_MS,
     IMAGE_LOAD_RETRY_DELAY_MS,
     IMAGE_LOAD_MAX_RETRY_ATTEMPTS,
@@ -130,34 +129,34 @@ let userScrollListener: (() => void) | null = null;
 // This prevents false positives when images loading above viewport increase scrollHeight
 let previousScrollTopForImageLoad = 0;
 
-// Global flag to mark programmatic scrolls - set this before any scroll operation
-// and it will be checked by the scroll listener
-let isProgrammaticScroll = false;
-let programmaticScrollResetTimeout: number | undefined;
+// Programmatic scrolls in flight, one token each. Scroll listeners ignore
+// scroll events while any is held, so our own scrolls never read as the
+// user's. Tokens (not one boolean): overlapping scrolls used to end each
+// other's window early - the reserved-space release ended the still-running
+// send glide's, and its last frames auto-hid the header.
+const programmaticScrollTokens = new Set<number>();
+let nextProgrammaticScrollToken = 0;
+// A token whose end was never called (a bug elsewhere) must not mute user
+// scrolls forever
+const PROGRAMMATIC_SCROLL_TOKEN_MAX_MS = 3000;
 
 /**
- * Mark the start of a programmatic scroll.
- * Call this before any scroll operation to prevent the scroll listener from
- * treating it as a user scroll.
+ * Start a programmatic scroll. Pass the returned token to
+ * endProgrammaticScroll when the scroll (animation included) is done.
  */
-export function markProgrammaticScrollStart(): void {
-    isProgrammaticScroll = true;
-    // Clear any pending reset
-    if (programmaticScrollResetTimeout) {
-        clearTimeout(programmaticScrollResetTimeout);
-    }
+export function beginProgrammaticScroll(): number {
+    const token = ++nextProgrammaticScrollToken;
+    programmaticScrollTokens.add(token);
+    window.setTimeout(() => programmaticScrollTokens.delete(token), PROGRAMMATIC_SCROLL_TOKEN_MAX_MS);
+    return token;
 }
 
 /**
- * Mark the end of a programmatic scroll.
- * Call this after any scroll operation completes.
+ * End a programmatic scroll - after a short delay, so the scroll events it
+ * caused (dispatched a frame later) still count as ours.
  */
-export function markProgrammaticScrollEnd(): void {
-    // Use a small delay to ensure scroll events have fired
-    programmaticScrollResetTimeout = window.setTimeout(() => {
-        isProgrammaticScroll = false;
-        programmaticScrollResetTimeout = undefined;
-    }, SCROLL_PROGRAMMATIC_RESET_DELAY_MS);
+export function endProgrammaticScroll(token: number): void {
+    window.setTimeout(() => programmaticScrollTokens.delete(token), SCROLL_PROGRAMMATIC_RESET_DELAY_MS);
 }
 
 /**
@@ -165,7 +164,7 @@ export function markProgrammaticScrollEnd(): void {
  * use this to avoid attributing our own scrolls to the user.
  */
 export function isProgrammaticScrollActive(): boolean {
-    return isProgrammaticScroll;
+    return programmaticScrollTokens.size > 0;
 }
 
 // Where the last stream-follow scroll left #messages (see isStreamFollowScroll)
@@ -212,18 +211,9 @@ export function programmaticScrollToBottom(element: HTMLElement, smooth = false)
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 1) {
         return;
     }
-    markProgrammaticScrollStart();
-    scrollToBottom(element, smooth);
-
-    if (smooth) {
-        // Smooth scroll takes 300-600ms, wait a bit longer to ensure completion
-        setTimeout(() => {
-            markProgrammaticScrollEnd();
-        }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
-    } else {
-        // Instant scroll completes immediately
-        markProgrammaticScrollEnd();
-    }
+    const token = beginProgrammaticScroll();
+    // Held until the animation actually ends (finished, aborted or cancelled)
+    scrollToBottom(element, smooth, () => endProgrammaticScroll(token));
 }
 
 /**
@@ -238,18 +228,8 @@ export function programmaticScrollToElementTop(
     targetElement: HTMLElement,
     smooth = true
 ): void {
-    markProgrammaticScrollStart();
-    scrollToElementTop(container, targetElement, smooth);
-
-    if (smooth) {
-        // Smooth scroll takes 300-600ms, wait a bit longer to ensure completion
-        setTimeout(() => {
-            markProgrammaticScrollEnd();
-        }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
-    } else {
-        // Instant scroll completes immediately
-        markProgrammaticScrollEnd();
-    }
+    const token = beginProgrammaticScroll();
+    scrollToElementTop(container, targetElement, smooth, () => endProgrammaticScroll(token));
 }
 
 /**
@@ -260,15 +240,8 @@ export function programmaticScrollToPosition(
     targetTop: number,
     smooth = true
 ): void {
-    markProgrammaticScrollStart();
-    scrollToPosition(container, targetTop, smooth);
-    if (smooth) {
-        setTimeout(() => {
-            markProgrammaticScrollEnd();
-        }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
-    } else {
-        markProgrammaticScrollEnd();
-    }
+    const token = beginProgrammaticScroll();
+    scrollToPosition(container, targetTop, smooth, () => endProgrammaticScroll(token));
 }
 
 /**
@@ -712,7 +685,7 @@ function setupUserScrollListener(): void {
         }
 
         // Ignore programmatic scrolls for the disable decision (but we still updated the position above)
-        if (isProgrammaticScroll) {
+        if (isProgrammaticScrollActive()) {
             return;
         }
 
@@ -906,15 +879,14 @@ function scheduleScrollAfterImageLoad(): void {
                         scrollHeight: messagesContainer.scrollHeight,
                         clientHeight: messagesContainer.clientHeight,
                     });
-                    markProgrammaticScrollStart();
-                    // Use smooth scroll to avoid abrupt flashing
-                    scrollToBottom(messagesContainer, true);
-                    // End programmatic scroll after animation completes (smooth scroll takes 300-600ms)
-                    // Also clear the scheduling flag after scroll completes to prevent false positives
-                    setTimeout(() => {
-                        markProgrammaticScrollEnd();
-                        isSchedulingScroll = false; // Clear flag after scroll animation completes
-                    }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
+                    const token = beginProgrammaticScroll();
+                    // Use smooth scroll to avoid abrupt flashing; the token and
+                    // the scheduling flag end with the animation (the
+                    // scheduling flag prevents false positives until then)
+                    scrollToBottom(messagesContainer, true, () => {
+                        endProgrammaticScroll(token);
+                        isSchedulingScroll = false;
+                    });
                     // Update button visibility after scrolling
                     requestAnimationFrame(() => {
                         checkScrollButtonVisibility();

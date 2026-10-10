@@ -9,7 +9,7 @@
  */
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
-import { isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
+import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('composer-height');
@@ -35,6 +35,7 @@ export function initComposerHeight(): void {
     // padding-bottom) changes.
     const messages = getElementById<HTMLDivElement>('messages');
     const wasAtBottom = messages ? isScrolledToBottom(messages) : false;
+    const atAnchor = messages ? isAtTurnAnchor(messages) : false;
 
     // The list only needs to clear the VISIBLE composer pill, not the full
     // .input-area box - that box has a transparent gradient scrim / padding
@@ -62,8 +63,10 @@ export function initComposerHeight(): void {
       // the user at the bottom of a page that had just scrolled to the top.
       const grew = h > (parseInt(prev, 10) || 0);
       if (messages && isTurnAnchored()) {
-        // Send-to-top owns the position: re-fit the reserved space instead
-        refreshTurnSpace(messages);
+        // Send-to-top owns the position: re-fit the reserved space instead,
+        // and keep a view that sat on the anchor there (a shrink clamped it)
+        if (atAnchor) holdTurnAnchor(messages);
+        else refreshTurnSpace(messages);
       } else if (grew && wasAtBottom && messages) {
         requestAnimationFrame(() => programmaticScrollToBottom(messages));
       }

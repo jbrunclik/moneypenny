@@ -8,6 +8,7 @@
  * (consumed by base.css to shrink the layout above the keyboard), and
  * re-pins the messages scroll to the bottom when the user was following.
  */
+import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
@@ -397,7 +398,11 @@ export function initKeyboardViewportPinning(): void {
     // Capture follow state BEFORE the layout shrinks (afterwards the
     // distance-from-bottom already includes the lost height)
     const container = getElementById<HTMLDivElement>('messages');
-    const wasAtBottom = container ? isScrolledToBottom(container) : false;
+    // A send-to-top turn sits at its reserved bottom, so "at the bottom" is
+    // true for it too - but it must stay anchored, not be pinned (pinning
+    // pushed it under the header by the keyboard height)
+    const atAnchor = container ? isAtTurnAnchor(container) : false;
+    const wasAtBottom = container && !atAnchor ? isScrolledToBottom(container) : false;
 
     currentInset = inset;
     document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`);
@@ -407,6 +412,18 @@ export function initKeyboardViewportPinning(): void {
     setPanGuard(inset > 0);
     setSettlePoller(inset > 0);
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
+
+    if (atAnchor && container) {
+      // Opening or closing: re-fit the reservation, back onto the anchor
+      requestAnimationFrame(() => holdTurnAnchor(container));
+      if (keyboardJustOpened) {
+        for (const delay of [150, 350, 600]) {
+          setTimeout(() => {
+            if (!signal.aborted && isTurnAnchored()) holdTurnAnchor(container);
+          }, delay);
+        }
+      }
+    }
 
     if (inset > 0) {
       requestAnimationFrame(() => {

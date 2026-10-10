@@ -28,7 +28,7 @@ import { notifyTurnFinished } from './attention';
 import { trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { scrollToBatchReply, settleAnchoredReply } from './response-scroll';
-import { isTurnAnchored, reserveTurnSpace } from '../components/messages/turn-anchor';
+import { isTurnAnchored, reserveTurnSpace, settleTurnFor } from '../components/messages/turn-anchor';
 import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './batch-resume';
 
@@ -242,6 +242,7 @@ export async function sendBatchMessage(
   } finally {
     // A failed turn ends here too (no-op after completeBatchTurn)
     getSyncManager()?.setConversationStreaming(convId, false);
+    settleTurnFor(convId);
     // Clean up request tracking
     untrackRequest(requestId);
     // Remove active request from store

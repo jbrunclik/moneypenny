@@ -203,24 +203,27 @@ describe('scrollToBottom', () => {
     expect(rafSpy).toHaveBeenCalled();
   });
 
-  it('jumps instead of animating when the user prefers reduced motion', () => {
+  it('jumps instead of animating when the user prefers reduced motion', async () => {
     const original = window.matchMedia;
     window.matchMedia = vi.fn((query: string) => ({ matches: query.includes('reduce') }) as MediaQueryList);
     try {
       const div = document.createElement('div');
-      div.scrollTo = vi.fn();
+      let top = 0;
       Object.defineProperty(div, 'scrollHeight', { value: 1000 });
-      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
-      rafSpy.mockClear();
+      Object.defineProperty(div, 'clientHeight', { value: 400 });
+      Object.defineProperty(div, 'scrollTop', { get: () => top, set: (v: number) => (top = v), configurable: true });
 
       scrollToBottom(div, true);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
 
-      expect(div.scrollTo).toHaveBeenCalledWith({ top: 1000, behavior: 'auto' });
-      expect(rafSpy).not.toHaveBeenCalled();
+      // The first frame lands at the bottom - no curve (a settle phase still
+      // follows, keeping it there while late content lands)
+      expect(top).toBe(600);
     } finally {
       window.matchMedia = original;
     }
   });
+
 });
 
 describe('scrollToElementTop', () => {
