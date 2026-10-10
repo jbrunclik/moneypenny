@@ -406,6 +406,9 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
         const convId = useStore.getState().currentConversation?.id;
         if (convId) void mergeExternalChanges(convId);
       },
+      onCurrentConversationRenamed: (title: string) => {
+        updateChatTitle(title);
+      },
       onPlannerDeleted: () => {
         // Planner was deleted in another tab
         if (useStore.getState().isPlannerView) {

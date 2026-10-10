@@ -34,6 +34,8 @@ export interface SyncManagerCallbacks {
   onCurrentConversationDeleted: () => void;
   /** Called when the current conversation has new messages from another device */
   onCurrentConversationExternalUpdate: (messageCount: number) => void;
+  /** Called when the current conversation was renamed on another device */
+  onCurrentConversationRenamed?: (title: string) => void;
   /** Called when the planner conversation was deleted in another tab */
   onPlannerDeleted?: () => void;
   /** Called when the planner conversation was reset in another tab */
@@ -638,6 +640,10 @@ export class SyncManager {
       }
 
       if (existing) {
+        // The open chat's header shows the title too (the sidebar re-renders)
+        if (isCurrentConv && existing.title !== serverConv.title) {
+          this.callbacks.onCurrentConversationRenamed?.(serverConv.title);
+        }
         // Update existing conversation
         store.updateConversation(serverConv.id, {
           title: serverConv.title,

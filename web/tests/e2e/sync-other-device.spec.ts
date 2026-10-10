@@ -149,3 +149,13 @@ test.describe('the open chat', () => {
     await phone.close();
   });
 });
+
+test('a rename on another device updates the open chat\'s header too', async ({ page, request }) => {
+  await item(page, 'Alpha').click();
+  await expect(page.locator('.message.assistant')).toContainText('a!');
+
+  await request.patch(`/api/conversations/${ids.alpha}`, { data: { title: 'Alpha renamed' } });
+  await poll(page);
+
+  await expect(page.locator('#current-chat-title').first()).toHaveText('Alpha renamed');
+});
