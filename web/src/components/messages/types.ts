@@ -36,4 +36,11 @@ export interface StreamingMessageContext {
   scrollListenerCleanup: (() => void) | null;
   /** Conversation ID this streaming context belongs to */
   conversationId: string;
+  /**
+   * Answer text has started (not just thinking / tool use). Until then the
+   * scroll button never becomes the "New messages" pill: a long thinking
+   * trace growing past the screen isn't new content, and following it only
+   * to have it collapse when the answer starts left the reader mid-page.
+   */
+  hasReplyText: boolean;
 }

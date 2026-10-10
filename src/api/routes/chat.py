@@ -5,6 +5,7 @@ batch (complete response) and streaming (SSE) modes.
 """
 
 import uuid
+from datetime import timedelta
 from typing import NoReturn
 
 from apiflask import APIBlueprint
@@ -23,10 +24,10 @@ from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.rate_limiting import rate_limit_chat
 from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest, StopChatRequest
 from src.api.schemas.common import MessageRole, StatusResponse
-from src.api.utils import build_chat_response, is_round_capped
+from src.api.utils import build_chat_response, is_empty_placeholder, is_round_capped
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
-from src.db.models import User, db
+from src.db.models import Message, User, db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -224,7 +225,8 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
     # Persist as a visible user message FIRST - even if the running turn
     # never consumes the steering (already answering), the guidance is in
     # history for the next turn
-    db.add_message(conv_id, MessageRole.USER, text)
+    steering = db.add_message(conv_id, MessageRole.USER, text)
+    _order_reply_after_steering(conv_id, steering)
     save_interjection(user.id, conv_id, text)
 
     logger.info(
@@ -232,6 +234,22 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
         extra={"user_id": user.id, "conversation_id": conv_id, "length": len(text)},
     )
     return {"status": "interjected"}
+
+
+def _order_reply_after_steering(conv_id: str, steering: Message) -> None:
+    """Keep the in-flight reply AFTER the steering it takes into account.
+
+    The reply's placeholder was saved at turn start, so the steering would
+    otherwise sort after it and the turn would end on a user message - no
+    regenerate/continue on the reply (continue requires an assistant last),
+    live and after a reload. A turn that already finished has no
+    placeholder: the steering stays last, for the next turn.
+    """
+    placeholder = next(
+        (m for m in reversed(db.get_messages(conv_id)[-3:]) if is_empty_placeholder(m)), None
+    )
+    if placeholder is not None:
+        db.set_message_created_at(placeholder.id, steering.created_at + timedelta(microseconds=1))
 
 
 @api.route("/conversations/<conv_id>/chat/stop", methods=["POST"])

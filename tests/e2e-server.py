@@ -123,6 +123,9 @@ DEFAULT_CONFIG = {
     # Canned grounding-check outcome ({"annotations", "summary"}); empty = no check
     "grounding_result": None,
     "emit_thinking": False,
+    # Custom thinking text and a hold before the answer's tokens start
+    "thinking_text": "Let me think about this...",
+    "thinking_hold_ms": 0,
     # Emit a transient-error "retry" status first and hold it this long (ms)
     "emit_retry_hold_ms": 0,
     # Deep research: offer args for the next streamed turn (one-shot) and the
@@ -453,7 +456,9 @@ def create_mock_stream_chat_events() -> Any:
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):
             time.sleep(delay_s)
-            yield {"type": "thinking", "text": "Let me think about this..."}
+            yield {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
+            if MOCK_CONFIG["thinking_hold_ms"]:
+                time.sleep(MOCK_CONFIG["thinking_hold_ms"] / 1000)
 
         # Optionally yield tool events (if force_tools specified)
         if force_tools:
@@ -1056,6 +1061,8 @@ def main() -> None:
             data = request.get_json() or {}
             emit = data.get("emit", True)
             MOCK_CONFIG["emit_thinking"] = emit
+            MOCK_CONFIG["thinking_text"] = data.get("text", "Let me think about this...")
+            MOCK_CONFIG["thinking_hold_ms"] = int(data.get("hold_ms", 0))
             return {"status": "set", "emit_thinking": emit}, 200
 
         @test_bp.route("/test/set-emit-retry", methods=["POST"])

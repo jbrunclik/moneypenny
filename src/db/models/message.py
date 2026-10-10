@@ -294,6 +294,16 @@ class MessageMixin:
             action=action,
         )
 
+    def set_message_created_at(self, message_id: str, created_at: datetime) -> None:
+        """Re-stamp a message (moves it in the conversation's order)."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE messages SET created_at = ? WHERE id = ?",
+                (created_at.isoformat(), message_id),
+            )
+            conn.commit()
+
     def set_message_research(self, message_id: str, research: dict[str, Any] | None) -> None:
         """Replace a message's deep-research data (offer status changes)."""
         with self._pool.get_connection() as conn:

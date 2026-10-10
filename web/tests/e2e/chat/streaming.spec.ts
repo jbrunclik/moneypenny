@@ -437,11 +437,26 @@ test.describe('Chat - Mid-run Steering', () => {
     // The original turn keeps streaming to completion
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 20000 });
 
+    // The reply takes the steering into account, so it reads AFTER it - and
+    // stays the latest assistant turn (regenerate/continue), live and after
+    // a reload. (Below the steering bubble it ended the turn on a user
+    // message and lost both actions.)
+    const order = (): Promise<string[]> =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('#messages .message')].map((el) =>
+          el.classList.contains('user') ? 'user' : 'assistant'
+        )
+      );
+    expect(await order()).toEqual(['user', 'user', 'assistant']);
+    await expect(page.locator('.message.assistant.message--latest-assistant')).toHaveCount(1);
+
     // The steering message survives a reload (persisted server-side)
     await page.reload();
     await expect(
       page.locator('.message.user', { hasText: 'Actually focus on the 2025 season' })
     ).toBeVisible({ timeout: 10000 });
+    expect(await order()).toEqual(['user', 'user', 'assistant']);
+    await expect(page.locator('.message.assistant.message--latest-assistant')).toHaveCount(1);
   });
 });
 
@@ -961,6 +976,36 @@ test.describe('Chat - Send-to-top', () => {
       }
     });
   }
+});
+
+// While the reply is still only thinking / using tools, the trace growing
+// past the screen is not "new messages" - the pill waits for answer text.
+test.describe('Send-to-top - no pill while thinking', () => {
+  test.use({ viewport: { width: 390, height: 664 } });
+
+  test.afterEach(async ({ page }) => {
+    await page.request.post('/test/set-emit-thinking', { data: { emit: false } });
+  });
+
+  test('a long thinking trace does not raise the New messages pill', async ({ page }) => {
+    const thoughts = Array.from({ length: 80 }, (_, i) => `Thought ${i + 1} about the joke.`).join('\n\n');
+    await page.request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 4000 } });
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+
+    await setMockResponse(page, Array.from({ length: 40 }, (_, i) => `Answer line ${i + 1}.`).join('\n\n'));
+    await page.fill('#message-input', 'Was my joke funny?');
+    await page.click('#send-btn');
+    // Mid-thinking: the trace is far taller than the screen
+    await page.waitForTimeout(2000);
+    await expect(page.locator('.message.assistant')).toHaveClass(/streaming/);
+    // One-shot, not toHaveCount (it retries until the stream ends and clears it)
+    expect(await page.locator('.scroll-to-bottom.streaming-paused').count()).toBe(0);
+    await clearMockResponse(page);
+  });
 });
 
 // A program's auto-start turn (sports/language) answers a trigger chip, not

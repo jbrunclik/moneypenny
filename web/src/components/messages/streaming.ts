@@ -110,6 +110,7 @@ export function addStreamingMessage(
     shouldAutoScroll: false,
     scrollListenerCleanup: null,
     conversationId,
+    hasReplyText: false,
   };
 
   container.appendChild(messageEl);
@@ -183,8 +184,9 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     currentStreamingContext.shouldAutoScroll = false;
     log.debug('Streaming auto-scroll paused (user interaction detected)');
 
-    // Show visual indicator on scroll button
-    setStreamingPausedIndicator(true);
+    // Show visual indicator on scroll button - once there is answer text
+    // (a growing thinking trace isn't "new messages")
+    if (currentStreamingContext.hasReplyText) setStreamingPausedIndicator(true);
 
     // Clear any pending resume timeout
     if (resumeDebounceTimeout) {
@@ -387,6 +389,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
     shouldAutoScroll: wasAtBottom,
     scrollListenerCleanup: null,
     conversationId,
+    hasReplyText: content.trim() !== '',
   };
 
   // Update thinking indicator with the restored state
@@ -424,9 +427,12 @@ function autoScrollForStreaming(): void {
   if (!messagesContainer) return;
 
   if (!currentStreamingContext.shouldAutoScroll) {
-    // Not following: once the reply runs past the screen, the scroll button
-    // becomes the "New messages" pill
-    if (!isScrolledToBottom(messagesContainer, SCROLL_BUTTON_SHOW_THRESHOLD_PX)) {
+    // Not following: once the ANSWER runs past the screen, the scroll button
+    // becomes the "New messages" pill (see hasReplyText)
+    if (
+      currentStreamingContext.hasReplyText &&
+      !isScrolledToBottom(messagesContainer, SCROLL_BUTTON_SHOW_THRESHOLD_PX)
+    ) {
       setStreamingPausedIndicator(true);
       checkScrollButtonVisibility();
     }
@@ -577,6 +583,7 @@ export function updateStreamingMessage(
 
   // When content starts flowing, mark thinking as done
   if (content && currentStreamingContext) {
+    currentStreamingContext.hasReplyText = true;
     currentStreamingContext.thinkingState.isThinking = false;
     updateThinkingIndicator(
       currentStreamingContext.thinkingIndicator,

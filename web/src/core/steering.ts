@@ -7,7 +7,7 @@ import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
-import { addMessageToUI } from '../components/messages';
+import { addMessageToUI, getStreamingMessageElement } from '../components/messages';
 import { clearMessageInput } from '../components/MessageInput';
 import { getElementById } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
@@ -41,7 +41,17 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
     addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
-    programmaticScrollToBottom(messagesContainer);
+    // Above the reply still streaming: it takes the steering into account
+    // and the server orders it that way too. Appended below, the turn
+    // ended on a user message and lost regenerate/continue.
+    const bubble = messagesContainer.lastElementChild;
+    const reply = getStreamingMessageElement(convId);
+    if (reply && bubble instanceof HTMLElement && bubble !== reply) {
+      reply.before(bubble);
+      bubble.scrollIntoView({ block: 'nearest' });
+    } else {
+      programmaticScrollToBottom(messagesContainer);
+    }
   }
 
   // The route persisted one user message - keep sync counts in step so no
