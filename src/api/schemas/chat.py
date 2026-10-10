@@ -43,6 +43,19 @@ class InterjectRequest(BaseModel):
     """
 
     message: str = Field(..., min_length=1, max_length=4000)
+    client_message_id: str | None = Field(
+        default=None, description="Id of the bubble the client rendered (saved under it; UUID)"
+    )
+
+    @field_validator("client_message_id")
+    @classmethod
+    def validate_client_message_id(cls, v: str | None) -> str | None:
+        """Becomes the row's primary key - UUIDs only (as for chat sends)."""
+        if v is not None and not re.fullmatch(
+            r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", v
+        ):
+            raise ValueError("client_message_id must be a UUID")
+        return v
 
 
 class DeepResearchStart(BaseModel):

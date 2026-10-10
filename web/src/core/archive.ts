@@ -2,6 +2,7 @@
  * Conversation archive: archive/unarchive and the archive view.
  */
 
+import { getSyncManager } from '../sync/SyncManager';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
@@ -30,6 +31,7 @@ export async function archiveConversation(convId: string): Promise<void> {
   if (!conv) return;
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.archive(convId);
 
     // Move from active to archived list
@@ -67,6 +69,7 @@ export async function unarchiveConversation(convId: string): Promise<void> {
   if (!conv) return;
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.unarchive(convId);
 
     // Move from archived to active list

@@ -718,3 +718,23 @@ class TestCursorSync:
     ) -> None:
         response = client.get("/api/conversations/sync?cursor=abc", headers=auth_headers)
         assert response.status_code == 400
+
+
+class TestFullSyncCarriesState:
+    def test_full_sync_reports_pins(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """The client applies the full sync's pin state - a summary that
+        always said "not pinned" unpinned everything on reload."""
+        conv = test_database.create_conversation(test_user.id, "Pinned one")
+        test_database.set_conversation_pinned(conv.id, test_user.id, True)
+
+        data = json.loads(
+            client.get("/api/conversations/sync?full=true", headers=auth_headers).data
+        )
+
+        assert next(c for c in data["conversations"] if c["id"] == conv.id)["pinned"] is True

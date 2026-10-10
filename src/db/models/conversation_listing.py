@@ -153,7 +153,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
@@ -177,7 +177,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
@@ -225,7 +225,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
@@ -240,7 +240,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
@@ -283,7 +283,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
@@ -298,7 +298,7 @@ class ConversationListingMixin:
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, COUNT(m.id) as message_count,
+                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
                               (SELECT m2.content FROM messages m2
                                WHERE m2.conversation_id = c.id
                                ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message

@@ -3,6 +3,7 @@
  * Handles toolbar buttons initialization and state management.
  */
 
+import { getSyncManager } from '../sync/SyncManager';
 import { useStore } from '../state/store';
 import { conversations } from '../api/conversations';
 import { costs } from '../api/costs';
@@ -149,6 +150,7 @@ export function initToolbarButtons(): void {
       // claiming a state the server never stored (the server ORs its flag, so
       // the divergence surfaced only when turning anonymous OFF - the UI said
       // memory-enabled while the server kept the conversation anonymous).
+      getSyncManager()?.noteLocalChange(convId);
       void conversations.setAnonymousMode(convId, newState).catch((error: unknown) => {
         logger.error('Failed to persist anonymous mode', { error });
         useStore.getState().setAnonymousMode(convId, currentState);

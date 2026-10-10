@@ -106,6 +106,8 @@ vi.mock('@/router/deeplink', () => ({
 vi.mock('@/sync/SyncManager', () => ({
   getSyncManager: vi.fn(() => ({
     incrementLocalMessageCount: vi.fn(),
+    setLocalMessageCount: vi.fn(),
+    noteOwnMessageSaved: vi.fn(),
     setConversationStreaming: vi.fn(),
   })),
 }));

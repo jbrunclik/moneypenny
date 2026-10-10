@@ -22,8 +22,10 @@ const log = createLogger('messaging');
  * it as a regular user message, so it shows up in history either way.
  */
 export async function interjectIntoActiveTurn(convId: string, messageText: string): Promise<void> {
+  // One id for the bubble and the saved message (sync echoes, later deletes)
+  const steeringId = crypto.randomUUID();
   try {
-    await conversations.interject(convId, messageText);
+    await conversations.interject(convId, messageText, steeringId);
   } catch (error) {
     log.error('Failed to send interjection', { error, conversationId: convId });
     toast.error('Failed to steer the response. Please wait for it to finish.');
@@ -32,7 +34,7 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
 
   // Render the steering text as a normal user bubble right away
   const userMessage: Message = {
-    id: crypto.randomUUID(),
+    id: steeringId,
     role: 'user',
     content: messageText,
     created_at: new Date().toISOString(),

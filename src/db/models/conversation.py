@@ -241,10 +241,14 @@ class ConversationMixin:
                 return False
             self._execute_with_timing(
                 conn,
+                # Only ever forward (MAX): a device that switched away during
+                # its own turn reports count - 1 after the device with the chat
+                # open reported count - that reply was read. Deletes clamp it
+                # down (trigger, migration 0063).
                 """UPDATE conversations
                    SET read_message_count = MIN(
                        ?, (SELECT COUNT(*) FROM messages WHERE conversation_id = ?))
-                   WHERE id = ? AND read_message_count != MIN(
+                   WHERE id = ? AND read_message_count < MIN(
                        ?, (SELECT COUNT(*) FROM messages WHERE conversation_id = ?))""",
                 (message_count, conv_id, conv_id, message_count, conv_id),
             )

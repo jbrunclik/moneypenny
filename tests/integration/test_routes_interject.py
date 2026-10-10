@@ -83,6 +83,40 @@ class TestChatInterject:
 
         assert test_database.get_messages(test_conversation.id)[-1].content == "Too late"
 
+    def test_interjection_is_stored_under_the_client_id(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        """The bubble the client rendered and the saved message share an id:
+        otherwise every steered turn's sync echo looked like a vanished
+        message and forced a full re-render (and a later delete 404'd)."""
+        client_id = "0b6f8f2e-6d0c-4f7a-9a8e-2f1d3c4b5a69"
+        for _ in range(2):  # a retry is idempotent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/interject",
+                json={"message": "Steer it", "client_message_id": client_id},
+                headers=auth_headers,
+            )
+            assert response.status_code == 200
+
+        steering = [
+            m for m in test_database.get_messages(test_conversation.id) if m.content == "Steer it"
+        ]
+        assert [m.id for m in steering] == [client_id]
+
+    def test_rejects_a_non_uuid_client_id(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
+    ) -> None:
+        response = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/interject",
+            json={"message": "x", "client_message_id": "not-a-uuid"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+
     def test_rejects_unknown_conversation(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:

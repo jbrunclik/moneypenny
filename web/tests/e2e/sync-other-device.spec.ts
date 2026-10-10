@@ -227,3 +227,44 @@ test("a poll during this device's own first turn doesn't revert the new title", 
   await expect(page.locator('#current-chat-title').first()).not.toHaveText('New Conversation');
   await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
 });
+
+test.describe("this device's own changes echoing back", () => {
+  test.beforeEach(async ({ page }) => {
+    await item(page, 'Alpha').click();
+    await expect(page.locator('.message.assistant')).toContainText('a!');
+    // Marks the rendered DOM: a full re-render would drop it
+    await page.evaluate(() => document.querySelector('.message.user')!.setAttribute('data-kept', '1'));
+  });
+
+  test('a steered turn does not trigger a full re-render on the next poll', async ({ page, request }) => {
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    await page.fill('#message-input', 'Long answer please');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant.streaming');
+    await page.fill('#message-input', 'Actually keep it short');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.user', { hasText: 'Actually keep it short' })).toBeVisible();
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0, { timeout: 30000 });
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
+
+    await poll(page);
+    await page.waitForTimeout(800);
+    await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
+  });
+
+  test('deleting a message does not trigger a full re-render on the next poll', async ({ page }) => {
+    const reply = page.locator('.message.assistant').last();
+    const id = (await reply.getAttribute('data-message-id'))!;
+    // The app's own delete (the action-row button -> confirm dialog)
+    await page.evaluate((mid) => {
+      window.dispatchEvent(new CustomEvent('message:delete', { detail: { messageId: mid } }));
+    }, id);
+    await page.locator('.modal-confirm').click();
+    await expect(page.locator(`.message[data-message-id="${id}"]`)).toHaveCount(0);
+
+    await poll(page);
+    await page.waitForTimeout(800);
+    await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
+  });
+
+});

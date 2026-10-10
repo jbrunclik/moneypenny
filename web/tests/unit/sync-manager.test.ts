@@ -952,14 +952,17 @@ describe('SyncManager', () => {
       expect(updatedOld?.messageCount).toBe(12);
     });
 
-    it('full sync does NOT add new conversations (only updates existing ones)', async () => {
-      // With the new architecture, full sync only updates existing conversations and detects deletions.
-      // It does NOT add new conversations - they come via pagination or incremental sync.
+    it('full sync does NOT add conversations older than the loaded part of the list', async () => {
+      // Older ones come via pagination; only those inside the loaded window
+      // (new / continued / restored elsewhere) are added
 
-      // Initial store has one conversation
+      // Initial store has one conversation, and the list has more pages
       const conv1 = createConversation('conv-1', 'Conv 1', 3);
       conv1.updated_at = '2024-01-15T00:00:00Z';
       useStore.getState().addConversation(conv1);
+      useStore.setState({
+        conversationsPagination: { ...useStore.getState().conversationsPagination, hasMore: true },
+      });
 
       // Server returns multiple conversations, but full sync only updates existing ones
       const summaries = [
@@ -1688,6 +1691,89 @@ describe('SyncManager', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(useStore.getState().conversations.find((c) => c.id === 'a')?.title).toBe('Cinema trip');
+      expect(mockSyncChanges()).toHaveBeenCalledTimes(2);
+    });
+
+    it('a full sync never "deletes" a conversation created while it was in flight', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      let respond!: (r: SyncResponse) => void;
+      mockSync.mockReturnValueOnce(new Promise<SyncResponse>((resolve) => (respond = resolve)));
+      const full = syncManager.fullSync();
+
+      // Meanwhile this device creates (or restores/unarchives) one
+      const created = createConversation('new', 'Just created', 2);
+      useStore.getState().addConversation(created);
+      useStore.getState().setCurrentConversation(created);
+      respond({ conversations: [createConversationSummary('a', 'A', 2)], server_time: '2024-01-10T12:00:00Z', is_full_sync: true, cursor: 10 });
+      await full;
+
+      expect(useStore.getState().conversations.some((c) => c.id === 'new')).toBe(true);
+      expect(callbacks.onCurrentConversationDeleted).not.toHaveBeenCalled();
+    });
+
+    it('an open archived chat merges its changes and never toasts "archived on another device"', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      const archived = { ...createConversation('arch', 'Old', 2), archived: true };
+      useStore.getState().setCurrentConversation(archived);
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('arch', 'Old', 4), archived: true }]));
+
+      await syncManager.incrementalSync();
+
+      expect(toast.info).not.toHaveBeenCalled();
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalledWith(4);
+    });
+
+    it('an open chat outside the loaded sidebar list still merges remote changes', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      useStore.getState().setCurrentConversation(createConversation('deep', 'From search', 2));
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('deep', 'From search', 4), created_at: '2023-01-01T00:00:00Z' }]));
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalled();
+    });
+
+    it('a bfcache restore that skipped visibilitychange resumes polling', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      const visible = (): boolean => (syncManager as unknown as { isVisible: boolean }).isVisible;
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', writable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(visible()).toBe(false); // polls are skipped while hidden
+
+      // Restored without a visibilitychange back to "visible"
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true });
+      window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+
+      expect(visible()).toBe(true);
+    });
+
+
+    it('a poll requested before a local rename never re-applies the old title', async () => {
+      await startWithCursor([createConversation('a', 'Old title', 2)]);
+      let respond!: (r: SyncResponse) => void;
+      mockSyncChanges().mockReturnValueOnce(new Promise<SyncResponse>((resolve) => (respond = resolve)));
+      const poll = syncManager.incrementalSync();
+
+      // Renamed here while that poll is in flight
+      syncManager.noteLocalChange('a');
+      useStore.getState().updateConversation('a', { title: 'Mine' });
+      respond(changes([createConversationSummary('a', 'Old title', 2)]));
+      await poll;
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.title).toBe('Mine');
+    });
+
+    it('an incremental sync requested during another one is queued, not dropped', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      let respond!: (r: SyncResponse) => void;
+      mockSyncChanges().mockReturnValueOnce(new Promise<SyncResponse>((resolve) => (respond = resolve)));
+      const first = syncManager.incrementalSync();
+      mockSyncChanges().mockResolvedValue(changes([]));
+      await syncManager.incrementalSync(); // e.g. "a turn just ended - fetch its state"
+      respond(changes([]));
+      await first;
+      await vi.advanceTimersByTimeAsync(0);
+
       expect(mockSyncChanges()).toHaveBeenCalledTimes(2);
     });
 

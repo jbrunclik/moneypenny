@@ -213,7 +213,8 @@ export async function deliverResumedTurn(
   state: StreamingState,
   convId: string,
   messageId: string,
-  messageEl: HTMLElement
+  messageEl: HTMLElement,
+  { remote = false }: { remote?: boolean } = {}
 ): Promise<boolean | 'stopped'> {
   let delivered: boolean;
   try {
@@ -237,6 +238,13 @@ export async function deliverResumedTurn(
     throw error;
   }
   if (delivered) return true;
+  if (remote) {
+    // Another device's turn: no "Recovering response..." toasts on a device
+    // that never sent anything - drop the live bubble; the change log brings
+    // the saved reply in with the next sync's merge
+    messageEl.remove();
+    return false;
+  }
   // Journal gone or turn dead - poll recovery handles saved-but-swept
   markStreamForRecovery(convId, messageId, '', 'network');
   delivered = await attemptRecovery(convId);
@@ -255,12 +263,24 @@ export async function deliverResumedTurn(
  * replays the journal from seq 0 - there is no rendered prefix to offset
  * from - and continues live.
  */
-export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
+export async function resumeInflightStreamIfAny(
+  convId: string,
+  serverStreamingId?: string | null
+): Promise<void> {
   // The stream is still live in THIS tab (conversation switch, not a reload):
   // the activeRequest restore path re-creates the streaming UI and the live
   // reader keeps feeding it. Resuming here would spawn a second, competing
   // reader and a duplicate bubble - and consume the entry a real reload needs.
   if (useStore.getState().getActiveRequest(convId)) return;
+  // The server says which reply is in flight (when the caller fetched it): a
+  // local entry for any other one is stale - its turn finished, or another
+  // tab / device's turn is running (followed via followRemoteStreamOnOpen,
+  // which a leftover entry blocked; resuming it replayed an old reply)
+  const entry = readInflightStream(convId);
+  if (entry && serverStreamingId !== undefined && entry.messageId !== serverStreamingId) {
+    clearInflightStream(convId);
+    return;
+  }
   const resumable = findResumableMessage(convId);
   if (!resumable) return;
   log.info('Resuming in-flight stream after reload', { conversationId: convId, messageId: resumable.messageId });
@@ -329,7 +349,7 @@ async function streamTurnFromJournal(
 
   let delivered = false;
   try {
-    delivered = (await deliverResumedTurn(state, convId, messageId, messageEl)) === true;
+    delivered = (await deliverResumedTurn(state, convId, messageId, messageEl, { remote: !ownTurn })) === true;
   } finally {
     if (state.stopTimer) clearTimeout(state.stopTimer);
     cleanupLifecycleListeners();

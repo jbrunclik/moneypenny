@@ -20,35 +20,34 @@ import type { Conversation, Message } from '../types/api';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
-import { isTempConversation } from './conversation';
+import { isTempConversation, markAgentViewedAndRefresh } from './conversation';
 import { readInflightStream } from './inflight-streams';
 import { followRemoteStream } from './stream-resume';
 import { reloadCurrentConversation } from './sync-banner';
 
 const log = createLogger('remote-merge');
 
-// One merge at a time; a request during one runs again after it
+// One merge at a time; a request during one runs after it - for the
+// conversation open THEN (a switch meanwhile used to re-run the old one,
+// which bailed, and the new one's merge was lost until its next change)
 let inFlight: Promise<void> | null = null;
-let rerun = false;
+let pendingConvId: string | null = null;
 
 /** Merge the open conversation's external changes (serialized). */
 export function mergeExternalChanges(convId: string): Promise<void> {
-  if (inFlight) {
-    rerun = true;
-    return inFlight;
-  }
+  pendingConvId = convId;
+  if (inFlight) return inFlight;
   inFlight = (async () => {
-    do {
-      rerun = false;
-      await mergeOnce(convId);
-    } while (rerun);
-  })()
-    .catch((error: unknown) => {
-      log.warn('Merging external changes failed', { error, conversationId: convId });
-    })
-    .finally(() => {
-      inFlight = null;
-    });
+    while (pendingConvId !== null) {
+      const next = pendingConvId;
+      pendingConvId = null;
+      await mergeOnce(next).catch((error: unknown) => {
+        log.warn('Merging external changes failed', { error, conversationId: next });
+      });
+    }
+  })().finally(() => {
+    inFlight = null;
+  });
   return inFlight;
 }
 
@@ -115,6 +114,11 @@ async function mergeOnce(convId: string): Promise<void> {
     }
   }
   getSyncManager()?.markConversationRead(convId, response.message_pagination.total_count);
+  // An agent conversation's new messages are now on screen: viewed (the
+  // command-center unread badge stuck otherwise)
+  if (toRender.length > 0 && response.is_agent && response.agent_id) {
+    markAgentViewedAndRefresh(response.agent_id);
+  }
 
   if (live && !rendered.has(live)) void followRemoteStream(convId, live);
 }

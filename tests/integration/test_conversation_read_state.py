@@ -122,3 +122,56 @@ class TestReadState:
         )
 
         assert response.status_code == 404
+
+
+class TestReadStateRaces:
+    def test_a_lower_report_never_undoes_a_higher_one(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        """Device B (chat open) read 4; device A, switched away during its own
+        turn, then reports 3 - the reply B saw must stay read."""
+        _seed(test_database, test_conversation, 4)
+        for count in (4, 3):
+            client.post(
+                f"/api/conversations/{test_conversation.id}/read",
+                json={"message_count": count},
+                headers=auth_headers,
+            )
+
+        conv = test_database.get_conversation(test_conversation.id, test_user.id)
+        assert conv is not None and conv.read_message_count == 4
+
+    def test_deleting_messages_clamps_the_read_count(
+        self, test_database: Database, test_user: User, test_conversation: Conversation
+    ) -> None:
+        """Left above the real count, the next messages from another device
+        got no badge anywhere."""
+        _seed(test_database, test_conversation, 4)
+        test_database.mark_conversation_read(test_conversation.id, test_user.id, 4)
+        last = test_database.get_messages(test_conversation.id)[-1]
+
+        test_database.delete_message(last.id, test_user.id)
+
+        conv = test_database.get_conversation(test_conversation.id, test_user.id)
+        assert conv is not None and conv.read_message_count == 3
+
+    def test_sync_summary_carries_anonymous_mode(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        cursor = test_database.get_sync_cursor()
+        test_database.set_conversation_anonymous_mode(test_conversation.id, test_user.id, True)
+
+        changes = json.loads(
+            client.get(f"/api/conversations/sync?cursor={cursor}", headers=auth_headers).data
+        )
+        assert changes["conversations"][0]["anonymous_mode"] is True

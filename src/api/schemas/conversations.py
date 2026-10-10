@@ -132,6 +132,7 @@ class SyncConversationResponse(BaseModel):
     archived: bool = False
     trashed: bool = Field(default=False, description="In the trash (deleted_at set)")
     pinned: bool = False
+    anonymous_mode: bool = Field(default=False, description="Memory and integrations off")
 
 
 class SyncResponse(BaseModel):

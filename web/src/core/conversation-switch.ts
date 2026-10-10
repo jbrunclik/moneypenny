@@ -199,7 +199,7 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   // active request of its own, and running first would make the restore path
   // immediately re-create a competing bubble for it (the resume bails out when
   // an active request already exists, so the two paths are mutually exclusive).
-  void resumeInflightStreamIfAny(conv.id);
+  void resumeInflightStreamIfAny(conv.id, conv.streaming_message_id);
   followRemoteStreamOnOpen(conv);
   // Same for a batch turn: wait for its reply instead of showing none
   void resumeInflightBatchIfAny(conv.id, conv.messages || []);

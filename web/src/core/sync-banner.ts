@@ -8,10 +8,8 @@ import { createLogger } from '../utils/logger';
 import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
-import type { Conversation } from '../types/api';
 
-import { isTempConversation, markAgentViewedAndRefresh } from './conversation';
-import { switchToConversation } from './conversation-switch';
+import { isTempConversation, markAgentViewedAndRefresh, showLoadedConversation } from './conversation';
 
 const log = createLogger('sync-banner');
 
@@ -24,7 +22,6 @@ export async function reloadCurrentConversation(conversationId: string): Promise
   if (isTempConversation(conversationId)) return;
 
   try {
-    const store = useStore.getState();
     const response = await conversations.get(conversationId);
 
     // Check if user switched away during API call
@@ -37,25 +34,11 @@ export async function reloadCurrentConversation(conversationId: string): Promise
       return;
     }
 
-    // Store messages and pagination in the per-conversation Maps
-    store.setMessages(conversationId, response.messages, response.message_pagination);
-
-    // Keep agent context - dropping is_agent/agent_id here used to strip
-    // the agent header and leave new messages permanently "unread"
-    const conv: Conversation = {
-      id: response.id,
-      title: response.title,
-      model: response.model,
-      created_at: response.created_at,
-      updated_at: response.updated_at,
-      messages: response.messages,
-      is_agent: response.is_agent,
-      agent_id: response.agent_id,
-      has_pending_approval: response.has_pending_approval,
-    };
-    // Pass total message count from pagination for correct sync behavior
-    const totalCount = response.message_pagination.total_count;
-    switchToConversation(conv, totalCount);
+    // The same path as opening it: merges unconfirmed outbox sends (a
+    // separate copy here dropped pending/failed bubbles), adopts anonymous
+    // mode, and keeps archived / agent context and the id of a reply still
+    // streaming elsewhere (followed live)
+    showLoadedConversation(conversationId, response);
 
     // The newly arrived messages are now on screen - mark them viewed so
     // the unread badge clears (daily briefing reuses one conversation)

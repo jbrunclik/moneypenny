@@ -252,7 +252,7 @@ export async function selectConversation(convId: string): Promise<void> {
 }
 
 /** Store a freshly fetched conversation and switch to it. */
-function showLoadedConversation(convId: string, response: ConversationDetailResponse): void {
+export function showLoadedConversation(convId: string, response: ConversationDetailResponse): void {
   const store = useStore.getState();
 
   // Merge in unconfirmed outbox sends (pending/failed) before storing:
@@ -264,9 +264,9 @@ function showLoadedConversation(convId: string, response: ConversationDetailResp
 
   // Anonymous mode is persisted server-side; adopt it so a reload does not
   // silently drop the conversation back to memory-enabled.
-  if (response.anonymous_mode) {
-    store.setAnonymousMode(convId, true);
-  }
+  // Adopted both ways: only ever setting it true left a mode turned off on
+  // another device "on" here, and the next send re-enabled it server-side
+  store.setAnonymousMode(convId, Boolean(response.anonymous_mode));
 
   // Mark agent conversation as viewed to reset unread count
   // Also track the agent for sync purposes

@@ -221,7 +221,9 @@ def streaming_message_id(messages: list[Any]) -> str | None:
     before its own user message, saved in the same instant), and only when
     younger than the chat-turn deadline: an old empty reply is just empty.
     """
-    cutoff = datetime.now() - timedelta(seconds=Config.CHAT_TIMEOUT + 60)
+    # The longest a turn can run: a deep-research run outlasts a chat turn
+    longest = max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
+    cutoff = datetime.now() - timedelta(seconds=longest + 60)
     for message in messages[-2:]:
         if is_empty_placeholder(message) and message.created_at >= cutoff:
             return str(message.id)

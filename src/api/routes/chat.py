@@ -225,7 +225,14 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
     # Persist as a visible user message FIRST - even if the running turn
     # never consumes the steering (already answering), the guidance is in
     # history for the next turn
-    steering = db.add_message(conv_id, MessageRole.USER, text)
+    # Saved under the id of the bubble the client rendered (sync echoes and
+    # later deletes then find it); a retry of the same id is a no-op
+    existing = db.get_message_by_id(data.client_message_id) if data.client_message_id else None
+    if existing is not None:
+        if existing.conversation_id != conv_id:
+            raise_not_found_error("Conversation")
+        return {"status": "interjected"}
+    steering = db.add_message(conv_id, MessageRole.USER, text, message_id=data.client_message_id)
     _order_reply_after_steering(conv_id, steering)
     save_interjection(user.id, conv_id, text)
 

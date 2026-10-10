@@ -4,6 +4,7 @@
  * The terminal `done` event is handled in stream-done.ts.
  */
 
+import { getSyncManager } from '../sync/SyncManager';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { ApiError } from '../api/http';
@@ -152,6 +153,7 @@ export function processStreamEvent(
   switch (event.type) {
     case 'user_message_saved':
       handleUserMessageSaved(event, state, convId, tempUserMessageId);
+      getSyncManager()?.noteOwnMessageSaved(convId);
       break;
 
     case 'thinking':

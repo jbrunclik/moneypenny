@@ -7739,6 +7739,12 @@ export interface components {
              * @default false
              */
             pinned: boolean;
+            /**
+             * Anonymous Mode
+             * @description Memory and integrations off
+             * @default false
+             */
+            anonymous_mode: boolean;
         };
         /**
          * SyncResponse

@@ -3,6 +3,8 @@
  * Handles app shell rendering, login overlay, and initial data loading.
  */
 
+import { renderChatHeader } from '../components/ChatHeader';
+import { updateConversationCost } from './toolbar';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { models, config } from '../api/app';
@@ -393,6 +395,10 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
         store.setCurrentConversation(null);
         renderMessages([]);
         updateChatTitle(APP_NAME);
+        // The deleted chat's header controls and cost chip go too (as for a
+        // delete on this device - removeConversationFromUI)
+        renderChatHeader(null);
+        void updateConversationCost(null);
         // Clear the hash since conversation no longer exists
         clearConversationHash();
       },

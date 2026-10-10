@@ -501,6 +501,7 @@ export interface ConversationSummary {
   archived?: boolean;
   trashed?: boolean; // In the trash
   pinned?: boolean;
+  anonymous_mode?: boolean; // Memory and integrations off (adopted across devices)
 }
 
 export interface SyncResponse {

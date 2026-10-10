@@ -3,6 +3,7 @@
  */
 
 import { useStore } from '../state/store';
+import { getSyncManager } from '../sync/SyncManager';
 import { createLogger } from '../utils/logger';
 import { conversations, messages } from '../api/conversations';
 import { toast } from '../components/Toast';
@@ -76,6 +77,7 @@ export async function deleteConversation(convId: string): Promise<void> {
   const conv = found ? { ...found, archived: isArchived } : undefined;
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.delete(convId);
 
     // Into the trash store before the re-render below, so the menu badge
@@ -124,6 +126,14 @@ export async function deleteMessage(messageId: string): Promise<void> {
     const messageEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
     if (messageEl) {
       messageEl.remove();
+    }
+    // ...and from the store, with the sync baseline: left there, the change
+    // log's echo of our own delete looked like a message vanished on another
+    // device and forced a full re-render (scroll jump)
+    const convId = useStore.getState().currentConversation?.id;
+    if (convId) {
+      useStore.getState().removeMessage(convId, messageId);
+      getSyncManager()?.incrementLocalMessageCount(convId, -1);
     }
     toast.success('Message deleted.');
   } catch (error) {
@@ -205,6 +215,7 @@ export async function renameConversationTo(convId: string, newTitle: string): Pr
   }
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.update(convId, { title: trimmedTitle });
 
     // Update local state
@@ -237,11 +248,17 @@ export function updateConversationTitle(convId: string, title?: string): void {
   if (!title) return;
 
   const store = useStore.getState();
-  if (store.currentConversation?.title === DEFAULT_CONVERSATION_TITLE) {
-    store.updateConversation(convId, { title });
-    updateChatTitle(title);
-    renderConversationsList();
-  }
+  // THIS conversation's title decides (not the open one's: a background
+  // turn's generated title was dropped, or written into another chat's
+  // header). Only an untitled conversation is auto-titled.
+  const conv =
+    store.conversations.find((c) => c.id === convId) ??
+    (store.currentConversation?.id === convId ? store.currentConversation : undefined);
+  if (conv && conv.title !== DEFAULT_CONVERSATION_TITLE) return;
+  getSyncManager()?.noteLocalChange(convId);
+  store.updateConversation(convId, { title });
+  if (store.currentConversation?.id === convId) updateChatTitle(title);
+  renderConversationsList();
 }
 
 /**
@@ -257,8 +274,10 @@ export async function togglePinConversation(convId: string): Promise<void> {
   const nextPinned = !conv.pinned;
   try {
     if (nextPinned) {
+      getSyncManager()?.noteLocalChange(convId);
       await conversations.pin(convId);
     } else {
+      getSyncManager()?.noteLocalChange(convId);
       await conversations.unpin(convId);
     }
   } catch (error) {

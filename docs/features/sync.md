@@ -99,6 +99,18 @@ The planner and agent views still show the "New messages available - Reload" ban
 
 **Pitfall:** the `initSyncManager` callbacks in core/init.ts must read `useStore.getState()` live - the `store` const there is a startup snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
 
+## Race Condition Audit (Oct 10 2026)
+
+A full data-flow audit found and fixed these (tests in `sync-manager.test.ts`, `sync-other-device.spec.ts`, `test_conversation_read_state.py`, `test_routes_interject.py`):
+- **Full sync vs local creation**: only conversations known BEFORE the request can be "missing" from its answer (one created/restored/unarchived meanwhile was removed, open -> "deleted").
+- **Stale in-flight polls**: local changes (`noteLocalChange` - rename, pin, archive, trash, restore, anonymous, title) make a response requested before them skip that conversation; colliding incremental syncs are queued, not dropped.
+- **Own echoes**: the interject bubble and its saved message share an id (`client_message_id`), and a delete leaves the store too - otherwise every steered turn / delete looked like a vanished message and forced a full re-render. The re-render fallback goes through `showLoadedConversation` (keeps outbox sends, anonymous mode, archived/streaming state).
+- **Open conversation**: merges run for the conversation open when they run (a switch mid-merge lost the new one's); an open archived chat merges (no "archived on another device" from its own echo); an open chat outside the loaded list still merges.
+- **Read state** only moves forward (`MAX`) - a device that switched away reporting count-1 can't undo another's read - and deletes clamp it (migration 0063 trigger). The dedupe follows the server's `read_count`; our own message is reported read when the server saves it (`noteOwnMessageSaved`).
+- **Anonymous mode** is in the summaries and adopted both ways (it was only ever set to true locally).
+- **Remote stream follow**: a failed follow ends silently (no recovery toasts on a device that sent nothing); the follow window covers deep research; a reload-resume entry only replays when the server reports that reply in flight (another tab's / a finished turn's stale entry blocked the follow).
+- **Lifecycle**: a bfcache restore without `visibilitychange` resumes polling; `stop()` during the initial sync leaves no zombie poller; the full sync adds by the loaded list window, not `initialLoadTime` (a conversation created elsewhere while this page booted was lost); pins apply on full syncs; the planner reset baseline follows this device's own resets; a generated title applies to its own conversation (not whichever is open).
+
 ## Race Condition Handling
 
 The SyncManager handles several race conditions:

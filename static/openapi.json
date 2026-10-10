@@ -8060,6 +8060,12 @@
             "default": false,
             "title": "Pinned",
             "type": "boolean"
+          },
+          "anonymous_mode": {
+            "default": false,
+            "description": "Memory and integrations off",
+            "title": "Anonymous Mode",
+            "type": "boolean"
           }
         },
         "required": [

@@ -103,6 +103,22 @@ export class SyncManager {
   /** A full sync was requested while another sync held the lock. */
   private fullSyncQueued = false;
 
+  /** An incremental sync was requested while another sync held the lock. */
+  private incrementalSyncQueued = false;
+
+  /**
+   * Local changes (rename, pin, archive, trash, restore, anonymous) bump a
+   * counter; a sync response requested BEFORE a conversation's latest local
+   * change carries its older state and must not re-apply it (the old title
+   * back, a trashed chat re-added) - the next poll brings the current one.
+   */
+  private localChangeSeq = 0;
+  private localChangeAt: Map<string, number> = new Map();
+  private syncRequestSeq = 0;
+
+  /** Stopped (logout) - a start still awaiting its first sync must not go on. */
+  private stopped = false;
+
   /** The read count last reported to the server per conversation (dedupe). */
   private reportedReadCounts: Map<string, number> = new Map();
 
@@ -171,6 +187,8 @@ export class SyncManager {
     } catch (error) {
       log.warn('SyncManager initial sync failed - continuing with polling', { error });
     }
+    // stop() (logout) during the initial sync: no zombie poller / listeners
+    if (this.stopped) return;
 
     // Start polling
     this.schedulePoll();
@@ -212,7 +230,10 @@ export class SyncManager {
     this.streamingConversations.clear();
     this.deferredUpdates.clear();
     this.reportedReadCounts.clear();
+    this.localChangeAt.clear();
     this.fullSyncQueued = false;
+    this.incrementalSyncQueued = false;
+    this.stopped = true;
     this.isSyncing = false;
     this.plannerMessageCount = null;
     this.plannerLastReset = null;
@@ -261,6 +282,13 @@ export class SyncManager {
       // Prune stale entries before syncing
       this.pruneLocalMessageCounts();
 
+      // Only conversations known BEFORE the request can be "missing" from
+      // its answer: one created, restored or unarchived here while it was
+      // in flight is absent from the server's older snapshot - it was
+      // removed (open: "This conversation was deleted.") until the change
+      // log re-added it a minute later
+      const knownBefore = new Set(useStore.getState().conversations.map((c) => c.id));
+      this.syncRequestSeq = this.localChangeSeq;
       const result = await conversationsApi.sync(null, true);
       this.lastSyncTime = result.server_time;
       // Taken before the server's query: changes during it re-arrive next time
@@ -273,7 +301,7 @@ export class SyncManager {
         log.debug('Initial load time established', { initialLoadTime: this.initialLoadTime });
       }
 
-      this.applyFullSync(result.conversations);
+      this.applyFullSync(result.conversations, knownBefore);
       log.info('Full sync completed', {
         conversationCount: result.conversations.length,
         serverTime: result.server_time,
@@ -291,9 +319,24 @@ export class SyncManager {
   }
 
   private runQueuedFullSync(): void {
-    if (!this.fullSyncQueued) return;
-    this.fullSyncQueued = false;
-    void this.fullSync();
+    if (this.fullSyncQueued) {
+      this.fullSyncQueued = false;
+      this.incrementalSyncQueued = false; // the full sync covers it
+      void this.fullSync();
+    } else if (this.incrementalSyncQueued) {
+      this.incrementalSyncQueued = false;
+      void this.incrementalSync();
+    }
+  }
+
+  /** A local change to a conversation (see localChangeSeq). */
+  noteLocalChange(convId: string): void {
+    this.localChangeAt.set(convId, ++this.localChangeSeq);
+  }
+
+  /** Changed here after the in-flight sync request was made: skip its state. */
+  private changedLocallySinceRequest(convId: string): boolean {
+    return (this.localChangeAt.get(convId) ?? 0) > this.syncRequestSeq;
   }
 
   /**
@@ -302,7 +345,10 @@ export class SyncManager {
   async incrementalSync(): Promise<void> {
     // Prevent concurrent syncs
     if (this.isSyncing) {
-      log.debug('Incremental sync skipped - another sync in progress');
+      // Queued, not dropped: the "a turn just ended, fetch its state" sync
+      // was lost whenever it collided with a poll
+      log.debug('Incremental sync queued - another sync in progress');
+      this.incrementalSyncQueued = true;
       return;
     }
 
@@ -353,6 +399,7 @@ export class SyncManager {
   /** Fetch and apply every change after the cursor (paging while has_more). */
   private async syncChangeLog(): Promise<void> {
     for (let page = 0; page < SYNC_MAX_CHANGE_PAGES && this.changeCursor !== null; page++) {
+      this.syncRequestSeq = this.localChangeSeq;
       const result = await conversationsApi.syncChanges(this.changeCursor);
       this.lastSyncTime = result.server_time;
       this.applyChangeLog(result);
@@ -370,12 +417,21 @@ export class SyncManager {
   private applyChangeLog(result: SyncResponse): void {
     let changed = false;
     for (const id of result.removed_ids ?? []) {
+      if (this.changedLocallySinceRequest(id)) continue;
       changed = this.removeExternally(id, 'deleted') || changed;
     }
 
     const store = useStore.getState();
+    const openConv = store.currentConversation;
     const existing: ConversationSummary[] = [];
     for (const conv of result.conversations) {
+      if (this.changedLocallySinceRequest(conv.id)) continue;
+      // An archived chat that is OPEN here (archive view, search, deep link):
+      // its changes - our own read echo included - are just changes to the
+      // open chat, not "archived on another device"
+      if (conv.archived && !conv.trashed && openConv?.id === conv.id && openConv.archived) {
+        continue;
+      }
       if (conv.trashed || conv.archived) {
         changed = this.removeExternally(conv.id, conv.trashed ? 'trashed' : 'archived') || changed;
       } else if (store.conversations.some((c) => c.id === conv.id)) {
@@ -385,26 +441,29 @@ export class SyncManager {
       }
     }
 
+    this.notifiedCurrentUpdate = false;
     if (existing.length > 0) {
-      this.notifiedCurrentUpdate = false;
       this.applyChanges(existing, false);
-      // Any change to the open conversation - not only a higher count: a
-      // delete, a regenerate or another device's finished stream keep it
-      // the same. The merge diffs against what is rendered (no-op if ours).
-      const currentId = useStore.getState().currentConversation?.id;
-      const current = existing.find((c) => c.id === currentId);
-      if (current && !this.notifiedCurrentUpdate && !this.streamingConversations.has(current.id)) {
-        this.callbacks.onCurrentConversationExternalUpdate(current.message_count);
-      }
-      for (const conv of existing) {
-        const local = useStore.getState().conversations.find((c) => c.id === conv.id);
-        if (local && conv.pinned !== undefined && Boolean(local.pinned) !== conv.pinned) {
-          useStore.getState().updateConversation(conv.id, { pinned: conv.pinned });
-        }
-      }
       changed = true;
     }
     if (changed) this.callbacks.onConversationsUpdated();
+
+    // Any change to the open conversation - not only a higher count (a
+    // delete, a regenerate or another device's finished stream keep it the
+    // same), and also when it isn't in the loaded sidebar list (opened from
+    // search or a deep link). The merge diffs against what is rendered, so
+    // our own changes are a no-op.
+    const open = useStore.getState().currentConversation;
+    const changedOpen = result.conversations.find((c) => c.id === open?.id && !c.trashed);
+    if (
+      open &&
+      changedOpen &&
+      !this.notifiedCurrentUpdate &&
+      !this.streamingConversations.has(open.id) &&
+      (!changedOpen.archived || open.archived)
+    ) {
+      this.callbacks.onCurrentConversationExternalUpdate(changedOpen.message_count);
+    }
   }
 
   /**
@@ -508,7 +567,7 @@ export class SyncManager {
    * agent conversations are filtered out at the backend (is_planning=0, is_agent=0).
    * They have separate sync mechanisms (syncPlanner, syncAgentConversation).
    */
-  private applyFullSync(serverConversations: ConversationSummary[]): void {
+  private applyFullSync(serverConversations: ConversationSummary[], knownBefore: Set<string>): void {
     const store = useStore.getState();
     const serverIds = new Set(serverConversations.map((c) => c.id));
     const localIds = new Set(store.conversations.map((c) => c.id));
@@ -519,7 +578,9 @@ export class SyncManager {
     // a deep-linked archived conversation would otherwise be "deleted" and
     // kicked out of view seconds after loading
     const deletedIds = store.conversations
-      .filter((c) => !c.id.startsWith('temp-') && !c.archived && !serverIds.has(c.id))
+      .filter(
+        (c) => !c.id.startsWith('temp-') && !c.archived && knownBefore.has(c.id) && !serverIds.has(c.id)
+      )
       .map((c) => c.id);
 
     // Handle deletions
@@ -544,10 +605,11 @@ export class SyncManager {
       if (localIds.has(serverConv.id)) {
         existingServerConvs.push(serverConv);
       } else {
-        // Check if this is a genuinely new conversation (created after initialLoadTime)
-        // or a pagination-discovered one (older, just not loaded yet)
-        const isPaginationDiscovered = this.isPaginationDiscovered(serverConv.updated_at);
-        if (!isPaginationDiscovered) {
+        // Belongs in the loaded part of the list (new, continued or restored
+        // elsewhere) or only further down (pagination brings it). By the
+        // list, not initialLoadTime: a conversation created on another
+        // device while this page booted predates that time and was lost.
+        if (this.inLoadedWindow(serverConv.updated_at)) {
           newServerConvs.push(serverConv);
         } else {
           // Pagination-discovered: just track the message count for when it's loaded via pagination
@@ -571,14 +633,17 @@ export class SyncManager {
         messageCount: serverConv.message_count,
       });
 
-      // Initialize local count to 0 so unread count shows all messages -
-      // unless we already know an older count (continued elsewhere)
+      // Unread: the server's read state; without it, all of a conversation
+      // created after this page loaded, or beyond a count we already knew -
+      // an older one (continued, restored) isn't wholly new
       const knownCount = this.localMessageCounts.get(serverConv.id);
-      if (knownCount === undefined) this.localMessageCounts.set(serverConv.id, 0);
+      const createdBeforeLoad = this.isPaginationDiscovered(serverConv.created_at ?? serverConv.updated_at);
+      const baseline = knownCount ?? (createdBeforeLoad ? serverConv.message_count : 0);
+      this.localMessageCounts.set(serverConv.id, baseline);
       const unreadCount =
         serverConv.read_count !== undefined
           ? Math.max(0, serverConv.message_count - serverConv.read_count)
-          : Math.max(0, serverConv.message_count - (knownCount ?? 0));
+          : Math.max(0, serverConv.message_count - baseline);
 
       store.addConversation({
         id: serverConv.id,
@@ -619,6 +684,7 @@ export class SyncManager {
     const store = useStore.getState();
 
     for (const serverConv of serverConversations) {
+      if (this.changedLocallySinceRequest(serverConv.id)) continue;
       // Skip conversations that are currently streaming to avoid false unread counts
       // The local message count will be updated when streaming completes
       if (this.streamingConversations.has(serverConv.id)) {
@@ -652,6 +718,16 @@ export class SyncManager {
           unreadCount = serverConv.message_count - localCount;
         }
       }
+      // The server's read state is what our reports dedupe against (a device
+      // that reported the same count, or a higher one, makes ours moot)
+      if (serverConv.read_count !== undefined) {
+        this.reportedReadCounts.set(serverConv.id, serverConv.read_count);
+      }
+      // Another device toggled anonymous mode: adopt it (the next send here
+      // must not turn it back on)
+      if (serverConv.anonymous_mode !== undefined) {
+        store.setAnonymousMode(serverConv.id, serverConv.anonymous_mode);
+      }
       // Server-side read state wins: shared by the user's devices, so a chat
       // read on the phone isn't unread here (the local count only drives the
       // open conversation's change detection)
@@ -659,6 +735,9 @@ export class SyncManager {
         unreadCount = Math.max(0, serverConv.message_count - serverConv.read_count);
       }
 
+      if (existing && serverConv.pinned !== undefined && Boolean(existing.pinned) !== serverConv.pinned) {
+        store.updateConversation(serverConv.id, { pinned: serverConv.pinned });
+      }
       if (existing) {
         // The open chat's header shows the title too (the sidebar re-renders)
         if (isCurrentConv && existing.title !== serverConv.title) {
@@ -800,6 +879,16 @@ export class SyncManager {
   }
 
   /**
+   * Our own message was saved: it is read (we wrote it) - reported right
+   * away, or other devices badged our in-progress turn until it ended.
+   * The reply placeholder still counts as one unread there: a reply coming.
+   */
+  noteOwnMessageSaved(convId: string): void {
+    const known = this.localMessageCounts.get(convId);
+    if (known !== undefined) this.reportRead(convId, known + 1);
+  }
+
+  /**
    * Update local message count after sending a message.
    * Prefer setLocalMessageCount with the server's count when a turn reports it.
    */
@@ -927,6 +1016,9 @@ export class SyncManager {
   private async handlePageShow(event: PageTransitionEvent): Promise<void> {
     if (!event.persisted) return;
     log.info('Page restored from bfcache');
+    // iOS can restore without a visibilitychange to "visible" after the
+    // "hidden" one - polling stayed paused until the next visibility event
+    this.isVisible = document.visibilityState === 'visible';
     void this.attemptPendingStreamRecovery(0);
     this.incrementalSync();
   }
@@ -1142,6 +1234,11 @@ export class SyncManager {
    */
   setPlannerBaseline(messageCount: number): void {
     this.plannerMessageCount = messageCount;
+    // Re-baseline the reset marker too: this device just loaded (possibly
+    // auto-reset) or reset the planner itself - the next poll's new
+    // last_reset is ours, not "reset in another tab" (whose reload would
+    // re-render over the running analysis)
+    this.plannerLastReset = null;
   }
 
   /**

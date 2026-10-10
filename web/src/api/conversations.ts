@@ -252,10 +252,10 @@ export const conversations = {
   },
 
   /** Steer a turn that is currently generating (picked up between tool rounds). */
-  async interject(id: string, message: string): Promise<void> {
+  async interject(id: string, message: string, clientMessageId?: string): Promise<void> {
     await request<{ status: string }>(`/api/conversations/${id}/chat/interject`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, client_message_id: clientMessageId }),
     });
   },
 

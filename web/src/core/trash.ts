@@ -31,6 +31,7 @@ export async function restoreConversation(convId: string, conv?: Conversation): 
   const source = conv ?? store.trashedConversations.find((c) => c.id === convId);
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.restore(convId);
 
     store.removeTrashedConversation(convId);
@@ -69,6 +70,7 @@ export async function deleteConversationForever(convId: string): Promise<void> {
   if (!confirmed) return;
 
   try {
+    getSyncManager()?.noteLocalChange(convId);
     await conversations.deletePermanently(convId);
   } catch (error) {
     // 404: already purged (or deleted on another device) - drop the stale row
