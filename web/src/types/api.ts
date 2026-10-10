@@ -399,6 +399,7 @@ export interface ChatResponse {
   stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
   model_fallback?: string; // Model that answered when the conversation's model was down
   research?: MessageResearch; // Deep-research offer or run
+  message_count?: number; // The conversation's message count after this turn (sync baseline)
 }
 
 export interface ErrorResponse {

@@ -239,3 +239,7 @@ class ChatBatchResponse(BaseModel):
         default=None,
         description="Model that answered when the conversation's model was unavailable (503)",
     )
+    message_count: int | None = Field(
+        default=None,
+        description="The conversation's message count after this turn (sync baseline)",
+    )

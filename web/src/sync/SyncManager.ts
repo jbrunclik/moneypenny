@@ -79,6 +79,17 @@ export class SyncManager {
   private streamingConversations: Set<string> = new Set();
 
   /**
+   * The latest server summary that arrived for a conversation while this
+   * device's own turn was running there. It was skipped (our own messages
+   * would read as unread), but the poll moved on past it - applied when the
+   * turn ends so a rename or the other device's messages aren't lost.
+   */
+  private deferredUpdates: Map<string, ConversationSummary> = new Map();
+
+  /** A full sync was requested while another sync held the lock. */
+  private fullSyncQueued = false;
+
+  /**
    * Tracks planner conversation message count for sync.
    */
   private plannerMessageCount: number | null = null;
@@ -102,6 +113,7 @@ export class SyncManager {
     this.callbacks = callbacks;
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handlePageShow = this.handlePageShow.bind(this);
+    this.handleOnline = this.handleOnline.bind(this);
   }
 
   /**
@@ -147,6 +159,9 @@ export class SyncManager {
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     // iOS bfcache restores can skip visibilitychange entirely (R14)
     window.addEventListener('pageshow', this.handlePageShow);
+    // Back online after an outage: polls failed meanwhile (and deletions only
+    // show up in a full sync)
+    window.addEventListener('online', this.handleOnline);
 
     log.debug('SyncManager started', {
       lastSyncTime: this.lastSyncTime,
@@ -167,12 +182,15 @@ export class SyncManager {
 
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('pageshow', this.handlePageShow);
+    window.removeEventListener('online', this.handleOnline);
 
     this.lastSyncTime = null;
     this.lastHiddenTime = null;
     this.initialLoadTime = null;
     this.localMessageCounts.clear();
     this.streamingConversations.clear();
+    this.deferredUpdates.clear();
+    this.fullSyncQueued = false;
     this.isSyncing = false;
     this.plannerMessageCount = null;
     this.plannerLastReset = null;
@@ -207,7 +225,10 @@ export class SyncManager {
   async fullSync(): Promise<void> {
     // Prevent concurrent syncs
     if (this.isSyncing) {
-      log.debug('Full sync skipped - another sync in progress');
+      // Don't drop it: a full sync is how deletions are noticed (a frozen
+      // iOS poll timer firing on resume used to swallow the resume's one)
+      log.debug('Full sync queued - another sync in progress');
+      this.fullSyncQueued = true;
       return;
     }
 
@@ -241,7 +262,14 @@ export class SyncManager {
       // Don't throw - syncing is best-effort
     } finally {
       this.isSyncing = false;
+      this.runQueuedFullSync();
     }
+  }
+
+  private runQueuedFullSync(): void {
+    if (!this.fullSyncQueued) return;
+    this.fullSyncQueued = false;
+    void this.fullSync();
   }
 
   /**
@@ -290,6 +318,7 @@ export class SyncManager {
       // Don't throw - syncing is best-effort
     } finally {
       this.isSyncing = false;
+      this.runQueuedFullSync();
     }
   }
 
@@ -370,8 +399,11 @@ export class SyncManager {
         messageCount: serverConv.message_count,
       });
 
-      // Initialize local count to 0 so unread count shows all messages
-      this.localMessageCounts.set(serverConv.id, 0);
+      // Initialize local count to 0 so unread count shows all messages -
+      // unless we already know an older count (continued elsewhere)
+      const knownCount = this.localMessageCounts.get(serverConv.id);
+      if (knownCount === undefined) this.localMessageCounts.set(serverConv.id, 0);
+      const unreadCount = Math.max(0, serverConv.message_count - (knownCount ?? 0));
 
       store.addConversation({
         id: serverConv.id,
@@ -381,7 +413,7 @@ export class SyncManager {
         updated_at: serverConv.updated_at,
         messageCount: serverConv.message_count,
         last_message_preview: serverConv.last_message_preview,
-        unreadCount: serverConv.message_count, // All messages are unread
+        unreadCount,
         hasExternalUpdate: false,
       });
     }
@@ -415,7 +447,8 @@ export class SyncManager {
       // Skip conversations that are currently streaming to avoid false unread counts
       // The local message count will be updated when streaming completes
       if (this.streamingConversations.has(serverConv.id)) {
-        log.debug('Skipping sync for streaming conversation', { conversationId: serverConv.id });
+        log.debug('Deferring sync for streaming conversation', { conversationId: serverConv.id });
+        this.deferredUpdates.set(serverConv.id, serverConv);
         continue;
       }
 
@@ -472,8 +505,13 @@ export class SyncManager {
         const isPaginationDiscovered = this.isPaginationDiscovered(serverConv.updated_at);
 
         // For actually new conversations, show unread badge with message count
-        // For pagination-discovered, no badge (user just hasn't scrolled to see it yet)
-        const unreadCount = isPaginationDiscovered ? 0 : serverConv.message_count;
+        // For pagination-discovered, no badge (user just hasn't scrolled to see it yet).
+        // An older conversation continued on another device has a count we
+        // already know (full sync tracks unloaded ones): only the rest is new.
+        const knownCount = this.localMessageCounts.get(serverConv.id);
+        const unreadCount = isPaginationDiscovered
+          ? 0
+          : Math.max(0, serverConv.message_count - (knownCount ?? 0));
 
         if (isPaginationDiscovered) {
           log.info('Pagination-discovered conversation (not unread, skipping add)', {
@@ -496,8 +534,8 @@ export class SyncManager {
         // For actually new conversations, initialize to 0 so unread count is correct
         // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
         // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
-        // the 0 value until the user views the conversation
-        this.localMessageCounts.set(serverConv.id, 0);
+        // the baseline until the user views the conversation
+        if (knownCount === undefined) this.localMessageCounts.set(serverConv.id, 0);
 
         store.addConversation({
           id: serverConv.id,
@@ -560,17 +598,32 @@ export class SyncManager {
 
   /**
    * Update local message count after sending a message.
-   * Call this after successfully sending a message.
+   * Prefer setLocalMessageCount with the server's count when a turn reports it.
    */
   incrementLocalMessageCount(convId: string, increment: number = 1): void {
     const currentCount = this.localMessageCounts.get(convId) || 0;
-    const newCount = currentCount + increment;
-    this.localMessageCounts.set(convId, newCount);
+    this.setLocalMessageCount(convId, currentCount + increment);
+  }
 
-    // Also update the store
-    useStore.getState().updateConversation(convId, {
-      messageCount: newCount,
-    });
+  /**
+   * Take the server's exact message count after this device's own turn as
+   * the baseline. Guessing +2 drifted (regenerate/continue change the count
+   * by 0/+1), and the inflated baseline hid the other device's next messages.
+   * The planner and agent views track their own baselines - bump those too,
+   * or this device's own messages there read as "new from another device".
+   */
+  setLocalMessageCount(convId: string, count: number): void {
+    this.localMessageCounts.set(convId, count);
+    const store = useStore.getState();
+    store.updateConversation(convId, { messageCount: count });
+
+    if (store.currentConversation?.id !== convId) return;
+    if (store.isPlannerView && this.plannerMessageCount !== null) {
+      this.plannerMessageCount = count;
+    }
+    if (this.viewedAgentId && this.agentConversationMessageCount !== null) {
+      this.agentConversationMessageCount = count;
+    }
   }
 
   /**
@@ -591,7 +644,21 @@ export class SyncManager {
         conversationId: convId,
         allStreaming: Array.from(this.streamingConversations),
       });
+      // Callers set the turn's count first, so only the other device's
+      // changes remain once the deferred summary is applied
+      const deferred = this.deferredUpdates.get(convId);
+      if (deferred) {
+        this.deferredUpdates.delete(convId);
+        this.applyChanges([deferred], false);
+        this.callbacks.onConversationsUpdated();
+      }
     }
+  }
+
+  /** Back online: catch up with a full sync (deletions only show up there). */
+  private handleOnline(): void {
+    log.info('Back online, performing full sync');
+    void this.fullSync();
   }
 
   /**

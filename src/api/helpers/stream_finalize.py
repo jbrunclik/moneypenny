@@ -183,6 +183,7 @@ def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
         "user_message_id": context.user_msg.id,
         "approval_required": True,
         "approval_id": approval_id,
+        "message_count": db.count_messages(context.conv_id),
     }
 
     try:

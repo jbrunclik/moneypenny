@@ -49,6 +49,8 @@ export interface StreamingState {
   tokenCount?: number;
   /** A deep-research turn's progress (research_* events) */
   research?: ResearchProgress;
+  /** The server's message count once the turn finished (done event) */
+  serverMessageCount?: number;
 }
 
 export function createStreamingState(
@@ -159,13 +161,18 @@ export function initStreamingRequest(
 export function cleanupStreamingRequest(
   requestId: string,
   convId: string,
-  messageSuccessful: boolean
+  messageSuccessful: boolean,
+  serverMessageCount?: number
 ): void {
   untrackRequest(requestId);
-  if (messageSuccessful) {
+  // The sync baseline BEFORE the streaming flag clears below: clearing it
+  // applies any summary deferred during the turn against this count
+  if (serverMessageCount !== undefined) {
+    getSyncManager()?.setLocalMessageCount(convId, serverMessageCount);
+  } else if (messageSuccessful) {
     getSyncManager()?.incrementLocalMessageCount(convId, 2);
-    notifyTurnFinished();
   }
+  if (messageSuccessful) notifyTurnFinished();
   // A newer turn already started in this conversation (a follow-up sent while
   // this one fetched its cost, an autostarted deep research): the shared
   // per-conversation state is the new turn's now - leave it alone

@@ -255,6 +255,6 @@ export async function sendStreamingMessage(
     // page that died mid-stream should resume after reload. Per-conversation:
     // other concurrent streams keep their entries.
     clearInflightStream(convId);
-    cleanupStreamingRequest(requestId, convId, state.messageSuccessful);
+    cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
   }
 }

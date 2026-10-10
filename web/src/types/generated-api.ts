@@ -9729,6 +9729,12 @@ export interface components {
              * @default null
              */
             model_fallback: string | null;
+            /**
+             * Message Count
+             * @description The conversation's message count after this turn (sync baseline)
+             * @default null
+             */
+            message_count: number | null;
         };
         /**
          * ConversationCompactionResponse

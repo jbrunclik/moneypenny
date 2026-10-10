@@ -88,11 +88,11 @@ The SyncManager handles several race conditions:
 
 ### 1. Concurrent Sync Prevention
 
-`isSyncing` lock prevents multiple syncs from running simultaneously.
+`isSyncing` lock prevents multiple syncs from running simultaneously. A **full** sync requested while the lock is held is queued (`fullSyncQueued`) and runs when the holder finishes - dropping it lost the resume-time full sync whenever a frozen iOS poll timer fired first. The `online` event also triggers a full sync.
 
-### 2. Streaming Protection
+### 2. Own-turn Protection (stream AND batch)
 
-Conversations being actively streamed are skipped during sync to prevent false unread counts.
+Conversations with a turn running on this device (streaming, or a batch request in flight) are skipped during sync to prevent false unread counts from our own messages. The skipped summary is kept (`deferredUpdates`) and applied when the turn ends - the poll cursor has moved past it, so dropping it lost the other device's rename/messages until their next change.
 
 ### 3. Clock Skew
 
@@ -116,18 +116,20 @@ If captured after the query, a conversation created/updated between the query an
 
 ### 6. Streaming Completion Race
 
-When streaming completes, the local message count must be incremented BEFORE clearing the streaming flag.
+When a turn completes, the local message count must be set BEFORE clearing the streaming flag (clearing it applies the deferred summary against the baseline). The count is the server's exact one: the done event and the batch response carry `message_count` (`conversation_message_count()` in `src/api/utils.py`). The old `+2` guess drifted on regenerate/continue (server change 0/+1) and the inflated baseline hid the other device's next messages.
 
 **Critical ordering in `cleanupStreamingRequest()` ([stream-session.ts](../../web/src/core/stream-session.ts)), called from the `sendStreamingMessage()` finally block:**
 ```typescript
 // CORRECT ORDER - prevents race condition
-if (messageSuccessful) {
-  getSyncManager()?.incrementLocalMessageCount(convId, 2);  // 1. Increment count FIRST
+if (serverMessageCount !== undefined) {
+  getSyncManager()?.setLocalMessageCount(convId, serverMessageCount); // 1. Baseline FIRST
 }
-getSyncManager()?.setConversationStreaming(convId, false);   // 2. THEN clear streaming flag
+getSyncManager()?.setConversationStreaming(convId, false);             // 2. THEN clear the flag
 ```
 
-The same pattern applies to `sendBatchMessage()` where `incrementLocalMessageCount()` is called after successful response processing, before the function returns.
+The same pattern applies to `completeBatchTurn()` - which sets the baseline first thing, even when the user switched away (returning before it left our own turn as "unread 2"). `setLocalMessageCount` also moves the planner / agent view baselines when that view is open, so our own messages there don't raise their "new messages" banner.
+
+An older conversation continued on another device (known from the full sync but not loaded in the sidebar) shows only the messages beyond its known count as unread, not its whole history.
 
 ### 7. Pagination Count Mismatch
 

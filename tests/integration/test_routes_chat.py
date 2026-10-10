@@ -41,6 +41,33 @@ class TestChatBatch:
         assert data["role"] == "assistant"
         assert "Hello" in data["content"]
 
+    def test_response_carries_the_conversation_message_count(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """The exact server count after the turn (see the stream done event)."""
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Hi!",
+                [],
+                {"input_tokens": 1, "output_tokens": 1},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Hello!"},
+            )
+
+        data = json.loads(response.data)
+        assert data["message_count"] == test_database.count_messages(test_conversation.id) == 2
+
     def test_requires_message_or_files(
         self,
         client: FlaskClient,
@@ -1004,6 +1031,47 @@ class TestChatStreamDoneEvent:
         messages = test_database.get_messages(test_conversation.id)
         assistant_msg = messages[-1]
         assert assistant_msg.id == done_event["id"]
+
+    def test_done_event_carries_the_conversation_message_count(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        """Other-device sync compares counts: the client needs the exact
+        server count after its own turn, not a +2 guess (regenerate/continue
+        change it by 0/+1)."""
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Response content"}
+                yield {
+                    "type": "final",
+                    "content": "Response content",
+                    "result_messages": [],
+                    "tool_results": [],
+                    "usage_info": {"input_tokens": 50, "output_tokens": 10},
+                }
+
+            mock_agent.stream_chat_events = mock_stream_events
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Test"},
+            )
+            events = [
+                json.loads(line[6:])
+                for line in response.get_data(as_text=True).split("\n")
+                if line.startswith("data: ")
+            ]
+
+        done_event = next(e for e in events if e.get("type") == "done")
+        assert done_event["message_count"] == test_database.count_messages(test_conversation.id)
+        assert done_event["message_count"] == 2
 
     def test_done_event_includes_content_for_recovery(
         self,

@@ -173,8 +173,20 @@ def build_chat_response(
         response_data["stop_reason"] = stop_reason
     add_grounding(response_data, assistant_msg)
     add_research(response_data, assistant_msg)
+    response_data["message_count"] = conversation_message_count(assistant_msg)
 
     return response_data
+
+
+def conversation_message_count(assistant_msg: Any) -> int:
+    """The conversation's exact message count after a turn finished.
+
+    Other devices notice new messages by comparing counts, so the sending
+    client takes this as its baseline instead of guessing +2 (regenerate and
+    continue change the count by 0/+1, and the drift hid the other device's
+    next messages).
+    """
+    return db.count_messages(assistant_msg.conversation_id)
 
 
 def is_round_capped(tool_rounds: int) -> bool:
@@ -307,6 +319,7 @@ def build_stream_done_event(
         done_data["stop_reason"] = stop_reason
     add_grounding(done_data, assistant_msg)
     add_research(done_data, assistant_msg)
+    done_data["message_count"] = conversation_message_count(assistant_msg)
 
     return done_data
 

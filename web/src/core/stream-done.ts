@@ -53,6 +53,8 @@ export interface StreamDoneEvent {
   annotations?: ClaimAnnotation[];
   grounding?: GroundingSummary;
   research?: MessageResearch;
+  /** The conversation's message count after this turn (sync baseline) */
+  message_count?: number;
 }
 
 /**
@@ -184,6 +186,7 @@ export async function handleStreamDone(
   convId: string,
   tempUserMessageId: string
 ): Promise<void> {
+  if (event.message_count !== undefined) state.serverMessageCount = event.message_count;
   log.info('Streaming complete', {
     conversationId: convId,
     messageId: event.id,

@@ -307,9 +307,10 @@ export async function resumeInflightStreamIfAny(convId: string): Promise<void> {
     clearInflightStream(convId);
     // messageSuccessful=false on purpose: the reload refetched server counts,
     // so the user message is already counted - only the newly delivered
-    // assistant message needs the local baseline bump
-    cleanupStreamingRequest(requestId, convId, false);
-    if (delivered) {
+    // assistant message needs the local baseline bump (exact when the done
+    // event carried the server's count)
+    cleanupStreamingRequest(requestId, convId, false, delivered ? state.serverMessageCount : undefined);
+    if (delivered && state.serverMessageCount === undefined) {
       getSyncManager()?.incrementLocalMessageCount(convId, 1);
     }
   }

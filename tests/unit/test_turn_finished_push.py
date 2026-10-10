@@ -142,6 +142,7 @@ class TestApprovalFinalizeNotifies:
 
     def test_disconnected_client_gets_approval_push(self) -> None:
         mock_db = MagicMock()
+        mock_db.count_messages.return_value = 2
         with (
             patch("src.api.helpers.stream_finalize.db", mock_db),
             patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
@@ -157,6 +158,7 @@ class TestApprovalFinalizeNotifies:
 
     def test_connected_client_no_push(self) -> None:
         mock_db = MagicMock()
+        mock_db.count_messages.return_value = 2
         message = MagicMock()
         message.id = "msg-1"
         message.created_at = datetime(2026, 6, 12, 10, 0, 0)
@@ -177,6 +179,7 @@ class TestAgentConversationTagCoalescing:
         from src.api.helpers.stream_producer import _notify_response_ready
 
         mock_db = MagicMock()
+        mock_db.count_messages.return_value = 2
         mock_db.get_conversation.return_value = SimpleNamespace(agent_id="agent-9")
         with (
             patch("src.api.helpers.stream_producer.db", mock_db),
@@ -190,6 +193,7 @@ class TestAgentConversationTagCoalescing:
         from src.api.helpers.stream_producer import _notify_response_ready
 
         mock_db = MagicMock()
+        mock_db.count_messages.return_value = 2
         mock_db.get_conversation.return_value = SimpleNamespace(agent_id=None)
         with (
             patch("src.api.helpers.stream_producer.db", mock_db),

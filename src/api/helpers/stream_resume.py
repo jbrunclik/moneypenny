@@ -14,7 +14,7 @@ import time
 from collections.abc import Generator
 from typing import Any
 
-from src.api.utils import add_grounding, add_research
+from src.api.utils import add_grounding, add_research, conversation_message_count
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -141,6 +141,7 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
         # Same decorations as the live done event (claims, report chip, offer)
         add_grounding(done, msg)
         add_research(done, msg)
+        done["message_count"] = conversation_message_count(msg)
         return done
 
     while time.monotonic() < deadline:

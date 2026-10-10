@@ -1424,6 +1424,112 @@ describe('SyncManager', () => {
       expect(updated?.hasExternalUpdate).toBe(true);
     });
   });
+
+  describe('multi-device glitches (Oct 2026)', () => {
+    it('a conversation continued on another device shows only its new messages as unread', async () => {
+      // Known from the full sync (not loaded in the sidebar page), 10 messages
+      const old = createConversationSummary('old-conv', 'Yesterday', 10);
+      old.updated_at = '2024-01-09T08:00:00Z';
+      mockSync.mockResolvedValue({ conversations: [old], server_time: '2024-01-10T12:00:00Z', is_full_sync: true });
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      // ...then continued elsewhere: +2 messages, now updated
+      const continued = createConversationSummary('old-conv', 'Yesterday', 12);
+      continued.updated_at = '2024-01-10T12:01:00Z';
+      mockSync.mockResolvedValue({ conversations: [continued], server_time: '2024-01-10T12:02:00Z', is_full_sync: false });
+      await syncManager.incrementalSync();
+
+      const conv = useStore.getState().conversations.find((c) => c.id === 'old-conv');
+      expect(conv?.unreadCount).toBe(2);
+    });
+
+    it('applies a change that arrived during this device\'s own turn once the turn ends', async () => {
+      useStore.getState().addConversation(createConversation('conv-1', 'Test', 4));
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 4)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      syncManager.setConversationStreaming('conv-1', true);
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Renamed elsewhere', 6)], false));
+      await syncManager.incrementalSync();
+      // The poll's cursor has moved past the change; nothing re-sends it
+      mockSync.mockResolvedValue(createSyncResponse([], false));
+
+      syncManager.setLocalMessageCount('conv-1', 6);
+      syncManager.setConversationStreaming('conv-1', false);
+
+      const conv = useStore.getState().conversations.find((c) => c.id === 'conv-1');
+      expect(conv?.title).toBe('Renamed elsewhere');
+      expect(conv?.unreadCount ?? 0).toBe(0);
+    });
+
+    it('takes the server\'s exact count after its own turn (no +2 drift on regenerate)', async () => {
+      useStore.getState().addConversation(createConversation('conv-1', 'Test', 6));
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 6)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      // A regenerate replaced the last reply: the server count stays 6
+      syncManager.setLocalMessageCount('conv-1', 6);
+      // The other device then adds a turn
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 8)], false));
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'conv-1')?.unreadCount).toBe(2);
+    });
+
+    it('runs a full sync requested while another sync holds the lock', async () => {
+      let release: (value: SyncResponse) => void;
+      mockSync.mockReturnValueOnce(new Promise<SyncResponse>((resolve) => (release = resolve)));
+      syncManager = new SyncManager(callbacks);
+      const first = syncManager.fullSync();
+
+      mockSync.mockResolvedValue(createSyncResponse([]));
+      const queued = syncManager.fullSync();
+      release!(createSyncResponse([]));
+      await first;
+      await queued;
+      await vi.runOnlyPendingTimersAsync();
+
+      const fullCalls = mockSync.mock.calls.filter(([, full]) => full === true);
+      expect(fullCalls).toHaveLength(2);
+    });
+
+    it('syncs when the device comes back online', async () => {
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      mockSync.mockClear();
+
+      window.dispatchEvent(new Event('online'));
+      // Not the regular poll: no timer advance beyond the current tick
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(mockSync).toHaveBeenCalled();
+    });
+
+    it('does not report this device\'s own planner messages as external', async () => {
+      useStore.setState({ isPlannerView: true, currentConversation: { ...createConversation('planner-1', 'Planner', 2) } });
+      mockPlannerSync.mockResolvedValue({
+        conversation: { id: 'planner-1', message_count: 2, last_reset: null },
+        server_time: new Date().toISOString(),
+      });
+      callbacks.onPlannerExternalUpdate = vi.fn();
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      await syncManager.incrementalSync(); // baseline 2
+
+      // Own turn in the planner: server now has 4
+      syncManager.setLocalMessageCount('planner-1', 4);
+      mockPlannerSync.mockResolvedValue({
+        conversation: { id: 'planner-1', message_count: 4, last_reset: null },
+        server_time: new Date().toISOString(),
+      });
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerExternalUpdate).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('Agent State Management', () => {

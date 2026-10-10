@@ -42,6 +42,9 @@ function hideBatchProgress(): void {
 
 /** Track the request and show upload progress or the loading indicator. */
 function beginBatchRequest(convId: string, requestId: string, hasFiles: boolean): void {
+  // Like a stream: a poll mid-turn sees our own user message, which must not
+  // read as an external update (deferred until the turn ends)
+  getSyncManager()?.setConversationStreaming(convId, true);
   trackRequest(requestId, {
     conversationId: convId,
     type: 'batch',
@@ -138,6 +141,16 @@ async function completeBatchTurn(
     updateUserMessageId(tempUserMessageId, response.user_message_id);
   }
 
+  // The sync baseline first (the server's exact count), even if the user
+  // switched away - returning before it left our own turn as "unread 2"
+  const sync = getSyncManager();
+  if (response.message_count !== undefined) {
+    sync?.setLocalMessageCount(convId, response.message_count);
+  } else {
+    sync?.incrementLocalMessageCount(convId, 2);
+  }
+  sync?.setConversationStreaming(convId, false);
+
   const assistantMessage = toAssistantMessage(response);
   // The store is authoritative for the conversation's messages - record
   // the reply whether or not it gets rendered below
@@ -158,9 +171,6 @@ async function completeBatchTurn(
   // Update conversation cost
   await updateConversationCost(convId);
 
-  // Update sync manager's local message count (user message + assistant response = 2)
-  // This is done here (after success) to ensure the count is updated before any sync
-  getSyncManager()?.incrementLocalMessageCount(convId, 2);
   notifyTurnFinished();
 }
 
@@ -230,6 +240,8 @@ export async function sendBatchMessage(
     // Propagate: handleSendFailure decides between auto-retry and failed state
     throw error;
   } finally {
+    // A failed turn ends here too (no-op after completeBatchTurn)
+    getSyncManager()?.setConversationStreaming(convId, false);
     // Clean up request tracking
     untrackRequest(requestId);
     // Remove active request from store
