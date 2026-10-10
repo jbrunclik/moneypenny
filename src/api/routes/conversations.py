@@ -13,6 +13,7 @@ from apiflask import APIBlueprint
 from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.helpers.sync import cursor_sync, sync_summary
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.common import PaginationDirection, StatusResponse
 from src.api.schemas.conversations import (
@@ -358,20 +359,39 @@ def sync_conversations(user: User) -> dict[str, Any]:
     - is_full_sync: Whether this was a full sync (all conversations returned)
     """
     since_param = request.args.get("since")
+    cursor_param = request.args.get("cursor")
     full_param = request.args.get("full", "false").lower() == "true"
 
     logger.debug(
         "Sync conversations request",
-        extra={"user_id": user.id, "since": since_param, "full": full_param},
+        extra={
+            "user_id": user.id,
+            "since": since_param,
+            "cursor": cursor_param,
+            "full": full_param,
+        },
     )
 
-    # Determine if this is a full sync or incremental
-    is_full_sync = full_param or since_param is None
-
-    # IMPORTANT: Capture server_time BEFORE the database query to prevent race conditions.
-    # If we capture it after, a conversation created/updated between the query and timestamp
-    # assignment would be missed and never fetched again (since cursor moves past it).
+    # IMPORTANT: Capture server_time (and the cursor) BEFORE the database query
+    # to prevent race conditions. If we capture it after, a conversation
+    # created/updated between the query and the capture would be missed and
+    # never fetched again (since the client moves past it).
     server_time = datetime.now()
+    cursor = db.get_sync_cursor()
+
+    if cursor_param is not None and not full_param:
+        # Change-log sync: everything that changed after the client's cursor
+        try:
+            after = int(cursor_param)
+        except ValueError:
+            raise_validation_error(
+                "Invalid cursor. Use the cursor from the last sync.", field="cursor"
+            )
+        return {**cursor_sync(user.id, after), "server_time": server_time.isoformat()}
+
+    # Determine if this is a full sync or incremental (legacy timestamp sync,
+    # still served for tabs on an older build)
+    is_full_sync = full_param or since_param is None
 
     if is_full_sync:
         # Full sync: get all conversations with message counts
@@ -398,16 +418,10 @@ def sync_conversations(user: User) -> dict[str, Any]:
 
     return {
         "conversations": [
-            {
-                "id": conv.id,
-                "title": conv.title,
-                "model": conv.model,
-                "updated_at": conv.updated_at.isoformat(),
-                "message_count": message_count,
-                "last_message_preview": preview,
-            }
+            sync_summary(conv, message_count, preview)
             for conv, message_count, preview in conv_with_counts
         ],
         "server_time": server_time.isoformat(),
         "is_full_sync": is_full_sync,
+        "cursor": cursor,
     }

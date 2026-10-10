@@ -490,15 +490,23 @@ export interface ConversationSummary {
   id: string;
   title: string;
   model: string;
+  created_at?: string | null;
   updated_at: string;
   message_count: number;
   last_message_preview?: string | null;
+  last_message_id?: string | null; // Newest message (detects edits/deletes)
+  archived?: boolean;
+  trashed?: boolean; // In the trash
+  pinned?: boolean;
 }
 
 export interface SyncResponse {
   conversations: ConversationSummary[];
   server_time: string;
   is_full_sync: boolean;
+  cursor?: number; // Change-log position for the next ?cursor= sync
+  removed_ids?: string[]; // Permanently deleted since the cursor
+  has_more?: boolean; // More changes after cursor - sync again
 }
 
 // =============================================================================

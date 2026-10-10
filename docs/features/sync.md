@@ -22,9 +22,17 @@ The app uses timestamp-based polling with `updated_at` instead of SSE or WebSock
    - Adds genuinely new conversations created on other devices (after initialLoadTime)
    - Pagination-discovered conversations (older than initialLoadTime) are NOT added
 
-2. **Incremental sync**: Every 60 seconds
-   - Fetches only conversations updated since last sync
-   - Uses `since` timestamp parameter
+2. **Incremental sync**: Every 60 seconds - the **change log** (Oct 2026)
+   - Asks for every conversation changed after the client's `cursor` (`?cursor=N`); the full sync returns the starting cursor
+   - Each change carries the conversation's state: `archived`, `trashed`, `pinned`, `last_message_id`, plus `removed_ids` for permanent deletes - so archive / trash / delete / pin / restore from another device apply on the next tick (the timestamp sync only noticed removals on a full sync, which a visible tab never ran)
+   - Pages while `has_more` (`SYNC_CHANGES_PAGE_SIZE` per response, `SYNC_MAX_CHANGE_PAGES` per tick)
+   - Falls back to the legacy `since` timestamp sync against a server without the change log
+
+### Change log ([migration 0061](../../migrations/0061_add_sync_change_log.py))
+
+SQLite **triggers** on `conversations` and `messages` (insert / update / delete) bump a global `sync_counter` and upsert the conversation's row in `conversation_changes(conversation_id, user_id, seq)` - in the same transaction as the write, for every write path including future ones. SQLite serializes writers, so seq order is commit order: a cursor can't skip a change the way the `updated_at`-vs-`server_time` comparison could (a commit landing after the snapshot), and there's no clock/DST dependence. A permanently deleted conversation keeps its change row as a tombstone (`conversation` NULL on read → `removed_ids`). Non-chat conversations (planner, agents, programs) advance the cursor but aren't returned - they keep their own syncs.
+
+On the client (`applyChangeLog` in SyncManager): a removal closes the open conversation with a notice (an **archived** one stays open, it's still readable); a conversation that (re)appears is added when it falls inside the loaded part of the list (older ones come with pagination), counted unread only beyond its known count - a restore or unarchive isn't "new".
 
 3. **Visibility-aware polling**:
    - Polling pauses when tab is hidden
@@ -162,6 +170,7 @@ Full sync compares local conversation IDs with server response:
 - Shows toast if user was viewing a deleted conversation
 - A conversation moved to the [trash](ui-features.md#trash) on another device counts as deleted: sync
   queries filter `deleted_at IS NULL`, so it simply stops appearing
+- Since the change log, incremental syncs remove trashed / archived / deleted conversations directly; the full sync remains the safety net (start, >5 min hidden, `online`)
 
 ## Edge Cases Handled
 
@@ -170,7 +179,8 @@ Full sync compares local conversation IDs with server response:
 | **Clock skew** | Always uses `server_time` from response, not client time |
 | **Race on send** | User sends message, poll happens before save - not a problem (optimistic UI) |
 | **Viewing updated conversation** | Shows "New messages" banner, doesn't auto-inject |
-| **Offline → Online** | On visibility change, syncs immediately |
+| **Offline → Online** | `online` event runs a full sync; visibility change syncs immediately |
+| **Archived / trashed / deleted / pinned / restored elsewhere** | Change log: applied on the next tick (E2E: `sync-other-device.spec.ts`) |
 | **Deleted while viewing** | Shows toast and clears current conversation |
 | **Temp conversations** | Not synced (start with `temp-` prefix, not yet persisted) |
 | **Remote conv created while hidden** | Full sync adds genuinely new conversations (created after initialLoadTime) with unread badge |
@@ -223,6 +233,8 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 - **Backend unit**: [test_db_models.py](../../tests/integration/test_db_models.py) - Sync database methods
 - **Frontend unit**: [sync-manager.test.ts](../../web/tests/unit/sync-manager.test.ts) - SyncManager tests
 - **E2E**: [sync.spec.ts](../../web/tests/e2e/sync.spec.ts) - Multi-tab and visibility scenarios
+- **E2E**: [sync-other-device.spec.ts](../../web/tests/e2e/sync-other-device.spec.ts) - Another device (the API) archives / trashes / deletes / restores / pins / renames; only the regular poll tick (`window.__testIncrementalSync`), never a full sync
+- **Backend**: [test_db_sync_changes.py](../../tests/integration/test_db_sync_changes.py) - every write path bumps the change seq (triggers)
 - **E2E**: [pagination.spec.ts](../../web/tests/e2e/pagination.spec.ts) - "Pagination with Sync - Edge Cases"
 - **Visual**: [chat.visual.ts](../../web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
 

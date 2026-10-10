@@ -9,6 +9,7 @@ import type { AgentStatsBlock, Conversation, ConversationSummary, SyncResponse }
 vi.mock('@/api/conversations', () => ({
   conversations: {
     sync: vi.fn(),
+    syncChanges: vi.fn(),
   },
 }));
 
@@ -1528,6 +1529,114 @@ describe('SyncManager', () => {
       await syncManager.incrementalSync();
 
       expect(callbacks.onPlannerExternalUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('change-log (cursor) sync', () => {
+    const mockSyncChanges = (): ReturnType<typeof vi.fn> =>
+      conversationsApi.syncChanges as unknown as ReturnType<typeof vi.fn>;
+
+    function changes(
+      conversations: ConversationSummary[],
+      extra: Partial<SyncResponse> = {}
+    ): SyncResponse {
+      return { conversations, server_time: '2024-01-10T12:10:00Z', is_full_sync: false, cursor: 20, ...extra };
+    }
+
+    async function startWithCursor(convs: Conversation[]): Promise<void> {
+      for (const c of convs) useStore.getState().addConversation(c);
+      mockSync.mockResolvedValue({
+        conversations: convs.map((c) => createConversationSummary(c.id, c.title, c.messageCount ?? 0)),
+        server_time: '2024-01-10T12:00:00Z',
+        is_full_sync: true,
+        cursor: 10,
+      });
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+    }
+
+    it('asks for the changes after the full sync\'s cursor, then after the returned one', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      mockSyncChanges().mockResolvedValue(changes([]));
+
+      await syncManager.incrementalSync();
+      await syncManager.incrementalSync();
+
+      expect(mockSyncChanges().mock.calls.map(([c]) => c)).toEqual([10, 20]);
+    });
+
+    it('removes a conversation archived or trashed on another device without a full sync', async () => {
+      await startWithCursor([createConversation('a', 'A', 2), createConversation('t', 'T', 2)]);
+      mockSyncChanges().mockResolvedValue(
+        changes([
+          { ...createConversationSummary('a', 'A', 2), archived: true },
+          { ...createConversationSummary('t', 'T', 2), trashed: true },
+        ])
+      );
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations).toHaveLength(0);
+      expect(callbacks.onConversationsUpdated).toHaveBeenCalled();
+    });
+
+    it('closes the open conversation when it is deleted elsewhere, keeps it open when archived', async () => {
+      const open = createConversation('open', 'Open', 2);
+      await startWithCursor([open, createConversation('other', 'Other', 2)]);
+      useStore.getState().setCurrentConversation(open);
+
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('open', 'Open', 2), archived: true }]));
+      await syncManager.incrementalSync();
+      expect(useStore.getState().currentConversation?.archived).toBe(true);
+      expect(callbacks.onCurrentConversationDeleted).not.toHaveBeenCalled();
+
+      useStore.getState().setCurrentConversation(useStore.getState().conversations[0]);
+      mockSyncChanges().mockResolvedValue(changes([], { removed_ids: ['other'] }));
+      await syncManager.incrementalSync();
+      expect(callbacks.onCurrentConversationDeleted).toHaveBeenCalled();
+      expect(toast.warning).toHaveBeenCalledWith('This conversation was deleted on another device.');
+    });
+
+    it('adds a restored conversation back without an unread badge', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      const restored = { ...createConversationSummary('r', 'Restored', 8), created_at: '2023-12-01T00:00:00Z' };
+      mockSyncChanges().mockResolvedValue(changes([restored]));
+
+      await syncManager.incrementalSync();
+
+      const conv = useStore.getState().conversations.find((c) => c.id === 'r');
+      expect(conv).toBeDefined();
+      expect(conv?.unreadCount).toBe(0);
+    });
+
+    it('a conversation created on another device is all unread', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      const created = { ...createConversationSummary('n', 'New', 2), created_at: '2024-01-10T12:05:00Z', updated_at: '2024-01-10T12:05:00Z' };
+      mockSyncChanges().mockResolvedValue(changes([created]));
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'n')?.unreadCount).toBe(2);
+    });
+
+    it('applies a pin from another device', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      mockSyncChanges().mockResolvedValue(changes([{ ...createConversationSummary('a', 'A', 2), pinned: true }]));
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.pinned).toBe(true);
+    });
+
+    it('pages on while the server has more changes', async () => {
+      await startWithCursor([createConversation('a', 'A', 2)]);
+      mockSyncChanges()
+        .mockResolvedValueOnce(changes([], { cursor: 15, has_more: true }))
+        .mockResolvedValueOnce(changes([], { cursor: 20, has_more: false }));
+
+      await syncManager.incrementalSync();
+
+      expect(mockSyncChanges().mock.calls.map(([c]) => c)).toEqual([10, 15]);
     });
   });
 });

@@ -112,9 +112,16 @@ class SyncConversationResponse(BaseModel):
     id: str
     title: str
     model: str
+    created_at: str | None = None
     updated_at: str
     message_count: int
     last_message_preview: str | None = None
+    last_message_id: str | None = Field(
+        default=None, description="Newest message (detects edits/deletes a count can't)"
+    )
+    archived: bool = False
+    trashed: bool = Field(default=False, description="In the trash (deleted_at set)")
+    pinned: bool = False
 
 
 class SyncResponse(BaseModel):
@@ -123,6 +130,13 @@ class SyncResponse(BaseModel):
     conversations: list[SyncConversationResponse]
     server_time: str = Field(..., description="ISO timestamp to use for next sync")
     is_full_sync: bool
+    cursor: int = Field(
+        default=0, description="Change-log position to pass as ?cursor= on the next sync"
+    )
+    removed_ids: list[str] = Field(
+        default_factory=list, description="Conversations permanently deleted since the cursor"
+    )
+    has_more: bool = Field(default=False, description="More changes after cursor - sync again")
 
 
 class ConversationsPaginationResponse(BaseModel):

@@ -19,9 +19,10 @@ import { createLogger } from '../utils/logger';
 import {
   SYNC_POLL_INTERVAL_MS,
   SYNC_FULL_SYNC_THRESHOLD_MS,
+  SYNC_MAX_CHANGE_PAGES,
 } from '../config';
 import { hasPendingRecovery, attemptRecovery } from '../core/stream-recovery';
-import type { ConversationSummary } from '../types/api';
+import type { ConversationSummary, SyncResponse } from '../types/api';
 
 const log = createLogger('sync');
 
@@ -47,8 +48,19 @@ export interface SyncManagerCallbacks {
  * SyncManager class manages conversation synchronization with the server.
  * Should be initialized after authentication and stopped on logout.
  */
+/** Why a conversation left this device's list from another device. */
+type ExternalRemoval = 'deleted' | 'trashed' | 'archived';
+
 export class SyncManager {
   private lastSyncTime: string | null = null;
+
+  /**
+   * Change-log cursor (server seq) - incremental syncs ask for everything
+   * changed after it, archive/trash/pin/delete included. Null until a full
+   * sync returns one (a server without the change log keeps the legacy
+   * timestamp sync).
+   */
+  private changeCursor: number | null = null;
   private lastHiddenTime: number | null = null;
   private pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isVisible: boolean = true;
@@ -185,6 +197,7 @@ export class SyncManager {
     window.removeEventListener('online', this.handleOnline);
 
     this.lastSyncTime = null;
+    this.changeCursor = null;
     this.lastHiddenTime = null;
     this.initialLoadTime = null;
     this.localMessageCounts.clear();
@@ -241,6 +254,8 @@ export class SyncManager {
 
       const result = await conversationsApi.sync(null, true);
       this.lastSyncTime = result.server_time;
+      // Taken before the server's query: changes during it re-arrive next time
+      if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
 
       // Set initialLoadTime on first full sync (before applying results)
       // This allows us to distinguish pagination-discovered vs actually new conversations
@@ -289,20 +304,24 @@ export class SyncManager {
     }
 
     this.isSyncing = true;
-    log.debug('Performing incremental sync', { since: this.lastSyncTime });
+    log.debug('Performing incremental sync', { since: this.lastSyncTime, cursor: this.changeCursor });
 
     try {
-      const result = await conversationsApi.sync(this.lastSyncTime, false);
-      this.lastSyncTime = result.server_time;
-
-      if (result.conversations.length > 0) {
-        this.applyIncrementalSync(result.conversations);
-        log.info('Incremental sync completed', {
-          updatedCount: result.conversations.length,
-          serverTime: result.server_time,
-        });
+      if (this.changeCursor !== null) {
+        await this.syncChangeLog();
       } else {
-        log.debug('Incremental sync: no changes');
+        const result = await conversationsApi.sync(this.lastSyncTime, false);
+        this.lastSyncTime = result.server_time;
+
+        if (result.conversations.length > 0) {
+          this.applyIncrementalSync(result.conversations);
+          log.info('Incremental sync completed', {
+            updatedCount: result.conversations.length,
+            serverTime: result.server_time,
+          });
+        } else {
+          log.debug('Incremental sync: no changes');
+        }
       }
 
       // Additionally sync planner if user has integrations
@@ -320,6 +339,134 @@ export class SyncManager {
       this.isSyncing = false;
       this.runQueuedFullSync();
     }
+  }
+
+  /** Fetch and apply every change after the cursor (paging while has_more). */
+  private async syncChangeLog(): Promise<void> {
+    for (let page = 0; page < SYNC_MAX_CHANGE_PAGES && this.changeCursor !== null; page++) {
+      const result = await conversationsApi.syncChanges(this.changeCursor);
+      this.lastSyncTime = result.server_time;
+      this.applyChangeLog(result);
+      if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
+      if (!result.has_more) return;
+    }
+  }
+
+  /**
+   * Apply one change-log page: removals (deleted / trashed / archived on
+   * another device) leave the list right away - the timestamp sync only
+   * noticed them on a full sync, which a visible tab never ran - then
+   * updates, pins and conversations that (re)appeared.
+   */
+  private applyChangeLog(result: SyncResponse): void {
+    let changed = false;
+    for (const id of result.removed_ids ?? []) {
+      changed = this.removeExternally(id, 'deleted') || changed;
+    }
+
+    const store = useStore.getState();
+    const existing: ConversationSummary[] = [];
+    for (const conv of result.conversations) {
+      if (conv.trashed || conv.archived) {
+        changed = this.removeExternally(conv.id, conv.trashed ? 'trashed' : 'archived') || changed;
+      } else if (store.conversations.some((c) => c.id === conv.id)) {
+        existing.push(conv);
+      } else {
+        changed = this.addFromChangeLog(conv) || changed;
+      }
+    }
+
+    if (existing.length > 0) {
+      this.applyChanges(existing, false);
+      for (const conv of existing) {
+        const local = useStore.getState().conversations.find((c) => c.id === conv.id);
+        if (local && conv.pinned !== undefined && Boolean(local.pinned) !== conv.pinned) {
+          useStore.getState().updateConversation(conv.id, { pinned: conv.pinned });
+        }
+      }
+      changed = true;
+    }
+    if (changed) this.callbacks.onConversationsUpdated();
+  }
+
+  /**
+   * A conversation removed on another device. An archived one that is open
+   * here stays open (it's still readable); trashed or deleted closes.
+   * Returns whether anything changed on this device.
+   */
+  private removeExternally(id: string, reason: ExternalRemoval): boolean {
+    const store = useStore.getState();
+    const inList = store.conversations.some((c) => c.id === id);
+    const current = store.currentConversation?.id === id ? store.currentConversation : null;
+    // The known count stays (pruned on the next full sync): a restore or
+    // unarchive then compares against it instead of counting it all unread
+    this.deferredUpdates.delete(id);
+    if (!inList && !current) return false;
+    log.info('Conversation removed on another device', { conversationId: id, reason });
+
+    if (reason === 'archived') {
+      if (inList) store.removeConversation(id);
+      if (current) {
+        store.setCurrentConversation({ ...current, archived: true });
+        toast.info('This conversation was archived on another device.');
+      }
+      return true;
+    }
+
+    if (inList) store.removeConversation(id);
+    if (current) {
+      toast.warning(
+        reason === 'trashed'
+          ? 'This conversation was moved to the trash on another device.'
+          : 'This conversation was deleted on another device.'
+      );
+      this.callbacks.onCurrentConversationDeleted();
+    }
+    return true;
+  }
+
+  /**
+   * A live conversation the list doesn't hold: new on another device,
+   * continued there, or restored/unarchived there. Added when it belongs in
+   * the loaded part of the list (older ones arrive with pagination). Only a
+   * conversation created after this page loaded counts as wholly unread; a
+   * restored or unarchived one is old content.
+   */
+  private addFromChangeLog(conv: ConversationSummary): boolean {
+    const store = useStore.getState();
+    if (!conv.pinned && !this.inLoadedWindow(conv.updated_at)) {
+      this.localMessageCounts.set(conv.id, conv.message_count);
+      return false;
+    }
+    const known = this.localMessageCounts.get(conv.id);
+    const isNew = conv.created_at ? !this.isPaginationDiscovered(conv.created_at) : known === undefined;
+    const baseline = known ?? (isNew ? 0 : conv.message_count);
+    this.localMessageCounts.set(conv.id, baseline);
+    log.info('Conversation appeared from another device', { conversationId: conv.id, isNew });
+
+    store.addConversation({
+      id: conv.id,
+      title: conv.title,
+      model: conv.model,
+      created_at: conv.created_at ?? conv.updated_at,
+      updated_at: conv.updated_at,
+      messageCount: conv.message_count,
+      last_message_preview: conv.last_message_preview,
+      pinned: conv.pinned,
+      unreadCount: Math.max(0, conv.message_count - baseline),
+      hasExternalUpdate: false,
+    });
+    return true;
+  }
+
+  /** Whether `updatedAt` falls inside the part of the list already loaded. */
+  private inLoadedWindow(updatedAt: string): boolean {
+    const store = useStore.getState();
+    if (!store.conversationsPagination.hasMore) return true;
+    const unpinned = store.conversations.filter((c) => !c.pinned);
+    const oldest = unpinned[unpinned.length - 1];
+    if (!oldest) return true;
+    return new Date(updatedAt).getTime() >= new Date(oldest.updated_at).getTime();
   }
 
   /**

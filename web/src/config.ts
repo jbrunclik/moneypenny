@@ -370,6 +370,9 @@ export const SYNC_POLL_INTERVAL_MS = 1 * MS_PER_MINUTE;
 /** Threshold for triggering full sync after tab is hidden (5 minutes) */
 export const SYNC_FULL_SYNC_THRESHOLD_MS = 5 * MS_PER_MINUTE;
 
+/** Change-log pages fetched in one sync before waiting for the next poll. */
+export const SYNC_MAX_CHANGE_PAGES = 10;
+
 /** Interval for refreshing relative-time labels in the sidebar (1 minute) */
 export const SIDEBAR_TIME_REFRESH_INTERVAL_MS = 1 * MS_PER_MINUTE;
 

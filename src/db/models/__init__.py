@@ -67,6 +67,7 @@ from src.db.models.push import PushSubscriptionMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
 from src.db.models.stream_journal import StreamJournalMixin
+from src.db.models.sync_changes import ConversationChange, SyncChangesMixin
 from src.db.models.user import UserMixin
 from src.db.models.user_integrations import UserIntegrationsMixin
 
@@ -99,6 +100,7 @@ class Database(
     ProgramConversationMixin,
     PushSubscriptionMixin,
     StreamJournalMixin,
+    SyncChangesMixin,
 ):
     """Main database class combining all mixins.
 
@@ -160,6 +162,7 @@ __all__ = [
     # Database class and instance
     "Database",
     "db",
+    "ConversationChange",
     "set_database",
     "use_database",
     # Dataclasses

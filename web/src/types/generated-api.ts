@@ -7626,6 +7626,11 @@ export interface components {
             title: string;
             /** Model */
             model: string;
+            /**
+             * Created At
+             * @default null
+             */
+            created_at: string | null;
             /** Updated At */
             updated_at: string;
             /** Message Count */
@@ -7635,6 +7640,28 @@ export interface components {
              * @default null
              */
             last_message_preview: string | null;
+            /**
+             * Last Message Id
+             * @description Newest message (detects edits/deletes a count can't)
+             * @default null
+             */
+            last_message_id: string | null;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Trashed
+             * @description In the trash (deleted_at set)
+             * @default false
+             */
+            trashed: boolean;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
         };
         /**
          * SyncResponse
@@ -7650,6 +7677,23 @@ export interface components {
             server_time: string;
             /** Is Full Sync */
             is_full_sync: boolean;
+            /**
+             * Cursor
+             * @description Change-log position to pass as ?cursor= on the next sync
+             * @default 0
+             */
+            cursor: number;
+            /**
+             * Removed Ids
+             * @description Conversations permanently deleted since the cursor
+             */
+            removed_ids?: string[];
+            /**
+             * Has More
+             * @description More changes after cursor - sync again
+             * @default false
+             */
+            has_more: boolean;
         };
         /**
          * PushSubscribeResponse

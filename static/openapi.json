@@ -7917,6 +7917,18 @@
             "title": "Model",
             "type": "string"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
           "updated_at": {
             "title": "Updated At",
             "type": "string"
@@ -7936,6 +7948,35 @@
             ],
             "default": null,
             "title": "Last Message Preview"
+          },
+          "last_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Newest message (detects edits/deletes a count can't)",
+            "title": "Last Message Id"
+          },
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "trashed": {
+            "default": false,
+            "description": "In the trash (deleted_at set)",
+            "title": "Trashed",
+            "type": "boolean"
+          },
+          "pinned": {
+            "default": false,
+            "title": "Pinned",
+            "type": "boolean"
           }
         },
         "required": [
@@ -7965,6 +8006,26 @@
           },
           "is_full_sync": {
             "title": "Is Full Sync",
+            "type": "boolean"
+          },
+          "cursor": {
+            "default": 0,
+            "description": "Change-log position to pass as ?cursor= on the next sync",
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "removed_ids": {
+            "description": "Conversations permanently deleted since the cursor",
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed Ids",
+            "type": "array"
+          },
+          "has_more": {
+            "default": false,
+            "description": "More changes after cursor - sync again",
+            "title": "Has More",
             "type": "boolean"
           }
         },

@@ -302,6 +302,11 @@ export const conversations = {
     const query = params.toString();
     return requestWithRetry<SyncResponse>(`/api/conversations/sync${query ? `?${query}` : ''}`);
   },
+
+  /** Conversations changed after a change-log cursor, with their state. */
+  async syncChanges(cursor: number): Promise<SyncResponse> {
+    return requestWithRetry<SyncResponse>(`/api/conversations/sync?cursor=${cursor}`);
+  },
 };
 
 // Message endpoints

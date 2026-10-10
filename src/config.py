@@ -765,6 +765,9 @@ class Config:
     CONVERSATIONS_MAX_PAGE_SIZE: int = int(os.getenv("CONVERSATIONS_MAX_PAGE_SIZE", "100"))
     MESSAGES_DEFAULT_PAGE_SIZE: int = int(os.getenv("MESSAGES_DEFAULT_PAGE_SIZE", "50"))
     MESSAGES_MAX_PAGE_SIZE: int = int(os.getenv("MESSAGES_MAX_PAGE_SIZE", "200"))
+    # Cross-device sync: changed conversations per cursor-sync response (the
+    # client pages on while has_more); bounds a device back from a long sleep
+    SYNC_CHANGES_PAGE_SIZE: int = int(os.getenv("SYNC_CHANGES_PAGE_SIZE", "500"))
 
     # "Around" pagination for search result navigation
     # These control how many messages are loaded before/after a target message

@@ -660,6 +660,7 @@ export async function init(): Promise<void> {
 declare global {
   interface Window {
     __testFullSync: () => Promise<void>;
+    __testIncrementalSync: () => Promise<void>;
   }
 }
 window.__testFullSync = async () => {
@@ -667,4 +668,8 @@ window.__testFullSync = async () => {
   if (syncManager) {
     await syncManager.fullSync();
   }
+};
+// The regular poll tick (E2E: what a visible tab sees without a full sync)
+window.__testIncrementalSync = async () => {
+  await getSyncManager()?.incrementalSync();
 };

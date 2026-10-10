@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import pytest
 from flask.testing import FlaskClient
 
 if TYPE_CHECKING:
@@ -585,3 +586,135 @@ class TestSyncAgentConversationExclusion:
 
         assert len(data["conversations"]) == 1
         assert data["conversations"][0]["id"] == regular_conv.id
+
+
+class TestCursorSync:
+    """GET /api/conversations/sync?cursor=N - the change-log sync (Oct 2026).
+
+    Returns every chat conversation changed after the cursor WITH its state,
+    so another device sees archive/trash/pin/delete - not just new messages.
+    """
+
+    def _cursor_sync(self, client: FlaskClient, headers: dict[str, str], cursor: int) -> dict:
+        response = client.get(f"/api/conversations/sync?cursor={cursor}", headers=headers)
+        assert response.status_code == 200
+        return json.loads(response.data)
+
+    def test_full_sync_returns_the_cursor_to_continue_from(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        test_database.create_conversation(test_user.id, "Existing")
+        data = json.loads(
+            client.get("/api/conversations/sync?full=true", headers=auth_headers).data
+        )
+
+        assert data["cursor"] == test_database.get_sync_cursor()
+        assert self._cursor_sync(client, auth_headers, data["cursor"])["conversations"] == []
+
+    def test_cursor_sync_returns_changed_conversations_with_their_state(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        archived = test_database.create_conversation(test_user.id, "Archived elsewhere")
+        trashed = test_database.create_conversation(test_user.id, "Trashed elsewhere")
+        pinned = test_database.create_conversation(test_user.id, "Pinned elsewhere")
+        cursor = test_database.get_sync_cursor()
+
+        test_database.archive_conversation(archived.id, test_user.id)
+        test_database.trash_conversation(trashed.id, test_user.id)
+        test_database.set_conversation_pinned(pinned.id, test_user.id, True)
+
+        data = self._cursor_sync(client, auth_headers, cursor)
+        by_id = {c["id"]: c for c in data["conversations"]}
+
+        assert by_id[archived.id]["archived"] is True
+        assert by_id[trashed.id]["trashed"] is True
+        assert by_id[pinned.id]["pinned"] is True
+        assert by_id[pinned.id]["archived"] is False
+        assert data["cursor"] > cursor
+        assert data["has_more"] is False
+        assert data["is_full_sync"] is False
+
+    def test_cursor_sync_reports_permanent_deletes(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Gone")
+        cursor = test_database.get_sync_cursor()
+        test_database.delete_conversation(conv.id, test_user.id)
+
+        data = self._cursor_sync(client, auth_headers, cursor)
+
+        assert data["removed_ids"] == [conv.id]
+        assert data["conversations"] == []
+
+    def test_cursor_sync_sees_a_deleted_message(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Chat")
+        test_database.add_message(conv.id, "user", "q")
+        last = test_database.add_message(conv.id, "assistant", "a")
+        cursor = test_database.get_sync_cursor()
+        test_database.delete_message(last.id, test_user.id)
+
+        [change] = self._cursor_sync(client, auth_headers, cursor)["conversations"]
+
+        assert change["message_count"] == 1
+        assert change["last_message_id"] != last.id
+
+    def test_cursor_sync_skips_non_chat_conversations(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        cursor = test_database.get_sync_cursor()
+        planner = test_database.get_or_create_planner_conversation(test_user.id)
+        test_database.add_message(planner.id, "user", "plan my day")
+
+        data = self._cursor_sync(client, auth_headers, cursor)
+
+        assert data["conversations"] == []
+        assert data["cursor"] > cursor  # still consumed - nothing to re-send
+
+    def test_cursor_sync_pages(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "SYNC_CHANGES_PAGE_SIZE", 2)
+        cursor = test_database.get_sync_cursor()
+        for i in range(3):
+            test_database.create_conversation(test_user.id, f"C{i}")
+
+        first = self._cursor_sync(client, auth_headers, cursor)
+        second = self._cursor_sync(client, auth_headers, first["cursor"])
+
+        assert len(first["conversations"]) == 2 and first["has_more"] is True
+        assert len(second["conversations"]) == 1 and second["has_more"] is False
+
+    def test_invalid_cursor_is_rejected(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        response = client.get("/api/conversations/sync?cursor=abc", headers=auth_headers)
+        assert response.status_code == 400
