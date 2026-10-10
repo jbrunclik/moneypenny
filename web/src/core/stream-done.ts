@@ -31,7 +31,7 @@ import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
 import type { StreamingState } from './stream-session';
 import { handleImageScrollAfterMessage, settleAnchoredReply } from './response-scroll';
-import { isTurnAnchored } from '../components/messages/turn-anchor';
+import { isTurnAnchored, settleTurnSpace } from '../components/messages/turn-anchor';
 
 const log = createLogger('messaging');
 
@@ -173,6 +173,7 @@ function scrollAfterDone(event: StreamDoneEvent, messageEl: HTMLElement, wasFoll
     settleAnchoredReply(messagesContainer, messageEl);
   } else {
     // Followed to the bottom (stays pinned), or the user scrolled away
+    settleTurnSpace(messagesContainer);
     handleImageScrollAfterMessage(messageEl, event.files);
   }
 }

@@ -7,6 +7,7 @@
 
 import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO } from '../config';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
+import { settleTurnSpace } from '../components/messages/turn-anchor';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import {
   enableScrollOnImageLoad,
@@ -117,6 +118,7 @@ function isShortResponse(messageEl: HTMLElement, container: HTMLElement): boolea
  * the images now in view and refresh the scroll button.
  */
 export function settleAnchoredReply(messagesContainer: HTMLElement, messageEl: HTMLElement): void {
+  settleTurnSpace(messagesContainer);
   requestAnimationFrame(() => {
     triggerVisibleImageObservation(messageEl, messagesContainer);
     checkScrollButtonVisibility();

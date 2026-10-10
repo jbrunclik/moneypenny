@@ -255,6 +255,13 @@ export const RESPONSE_JUMP_MIN_VIEWPORT_RATIO = 0.9;
 export const TURN_REPLY_MIN_VISIBLE_PX = 160;
 
 /**
+ * Send-to-top: when a reply finishes, its reserved space shrinks away over
+ * this long - a short answer settles above the composer like a normal chat
+ * instead of leaving an empty area until the next message.
+ */
+export const TURN_SPACE_RELEASE_MS = 350;
+
+/**
  * A paused stream resumes following only once the user is back within this
  * distance of the real bottom. Tight on purpose: right after a send-to-top
  * the view already sits at the (reserved) bottom, so the 200px follow

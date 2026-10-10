@@ -7,8 +7,14 @@
  * reserves it with a min-height until the next turn takes over.
  */
 
-import { TURN_REPLY_MIN_VISIBLE_PX } from '../../config';
-import { programmaticScrollToPosition } from '../../utils/thumbnails';
+import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
+import { prefersReducedMotion } from '../../utils/dom';
+import {
+  isProgrammaticScrollActive,
+  markProgrammaticScrollEnd,
+  markProgrammaticScrollStart,
+  programmaticScrollToPosition,
+} from '../../utils/thumbnails';
 
 // Content-coordinate top of the visible area the current turn is anchored
 // to (scroll-padding included), or null when no turn is anchored
@@ -106,6 +112,52 @@ export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl:
   anchorTop = measureTarget();
   reserveTurnSpace(container, replyEl);
   programmaticScrollToPosition(container, anchorTop - topInset(container), true);
+}
+
+/**
+ * The reply finished: give the reserved space back. A short answer then
+ * settles above the composer (the list's position clamps as the space
+ * shrinks - animated, and marked programmatic so the header auto-hide and
+ * follow logic don't read it as the user); a long one is taller than its
+ * reservation, so nothing moves.
+ */
+export function settleTurnSpace(container: HTMLElement): void {
+  if (anchorTop === null) return;
+  anchorTop = null;
+  const reserved = [...container.querySelectorAll<HTMLElement>(`[${RESERVED_ATTR}]`)];
+  // Still at least screen-tall while the space is held, so the
+  // bottom-aligning margin comes back without a jump as it shrinks
+  container.classList.remove(ANCHORED_CLASS);
+  if (reserved.length === 0) return;
+
+  const clear = (el: HTMLElement): void => {
+    el.style.transition = '';
+    el.style.minHeight = '';
+  };
+  if (prefersReducedMotion()) {
+    reserved.forEach((el) => {
+      el.removeAttribute(RESERVED_ATTR);
+      clear(el);
+    });
+    return;
+  }
+
+  // The marker is one global flag: only take it if no other programmatic
+  // scroll holds it - ending it under the still-running send glide let the
+  // glide's last frames read as the user scrolling (auto-hiding the header)
+  const ownsMarker = !isProgrammaticScrollActive();
+  if (ownsMarker) markProgrammaticScrollStart();
+  for (const el of reserved) {
+    el.removeAttribute(RESERVED_ATTR);
+    el.style.transition = `min-height ${TURN_SPACE_RELEASE_MS}ms ease-out`;
+    void el.offsetHeight; // start from the current height
+    el.style.minHeight = '0px';
+  }
+  window.setTimeout(() => {
+    // A new turn may have reserved one of them again meanwhile
+    reserved.filter((el) => !el.hasAttribute(RESERVED_ATTR)).forEach(clear);
+    if (ownsMarker) markProgrammaticScrollEnd();
+  }, TURN_SPACE_RELEASE_MS + 50);
 }
 
 /** Forget the anchor (conversation switch re-renders the list). */

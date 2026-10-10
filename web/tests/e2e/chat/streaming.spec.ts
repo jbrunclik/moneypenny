@@ -844,6 +844,19 @@ async function turnTopBelowHeader(
   }, headerSelector);
 }
 
+/** Empty space left under the last message (the reserved turn space). */
+async function blankBelowLastMessage(page: import('@playwright/test').Page): Promise<number> {
+  return page.evaluate(() => {
+    const c = document.getElementById('messages')!;
+    const last = [...c.querySelectorAll<HTMLElement>('.message')].pop()!;
+    // The text itself: the wrapper stretches to the reserved min-height
+    const content = last.querySelector<HTMLElement>('.message-content') ?? last;
+    const contentBottom = content.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop;
+    const listEnd = c.scrollHeight - parseFloat(getComputedStyle(c).paddingBottom);
+    return Math.round(listEnd - contentBottom);
+  });
+}
+
 async function messagesScrollTop(page: import('@playwright/test').Page): Promise<number> {
   return page.evaluate(() => document.getElementById('messages')!.scrollTop);
 }
@@ -916,19 +929,35 @@ test.describe('Chat - Send-to-top', () => {
         await expect(page.locator('.scroll-to-bottom')).toBeVisible();
       });
 
-      test('a short reply in a new chat still puts the message at the top', async ({ page }) => {
-        await setMockResponse(page, 'Short and sweet.');
+      test('a short reply streams under the message at the top, then settles without empty space', async ({
+        page,
+      }) => {
+        // A later turn in an existing chat (the first turn re-renders the list)
+        await setMockResponse(page, 'First answer.');
+        await page.fill('#message-input', 'First question');
+        await page.click('#send-btn');
+        await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 10000 });
+
+        await setStreamDelay(page, 120);
+        await setMockResponse(page, 'Short and sweet, but streamed word by word.');
         await page.fill('#message-input', 'Quick question');
         await page.click('#send-btn');
-        const reply = page.locator('.message.assistant');
-        await expect(reply).toContainText('Short and sweet', { timeout: 10000 });
-        await expect(reply).not.toHaveClass(/streaming/, { timeout: 10000 });
-        await page.waitForTimeout(300);
+        const reply = page.locator('.message.assistant').last();
+        await expect(reply).toContainText('Short', { timeout: 10000 });
 
-        const gap = await turnTopBelowHeader(page, layout.header);
-        expect(gap).toBeGreaterThanOrEqual(0);
-        expect(gap).toBeLessThan(40);
+        // While it streams: the message glides to the top, room reserved below
+        await expect
+          .poll(async () => {
+            const gap = await turnTopBelowHeader(page, layout.header);
+            return gap >= 0 && gap < 40;
+          }, { timeout: 5000 })
+          .toBe(true);
+
+        // Done: the reservation is released - no empty area left behind
+        await expect(reply).not.toHaveClass(/streaming/, { timeout: 15000 });
+        await expect.poll(() => blankBelowLastMessage(page), { timeout: 3000 }).toBeLessThan(40);
         await expect(reply).toBeInViewport();
+        await expect(page.locator('.message.user').last()).toBeInViewport();
         await expect(page.locator('.scroll-to-bottom')).toBeHidden();
       });
 
@@ -966,15 +995,26 @@ test.describe('Chat - Send-to-top', () => {
           // The phone hides the toolbar holding the toggle - press it directly
           await page.evaluate(() => document.getElementById('stream-btn')!.click());
           await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
+          // A later turn in an existing chat (the first turn re-renders the list)
+          await setMockResponse(page, 'First answer.');
+          await page.fill('#message-input', 'First question');
+          await page.click('#send-btn');
+          await expect(page.locator('.message.assistant')).toContainText('First answer', { timeout: 10000 });
           await setMockResponse(page, reply.text);
           await page.fill('#message-input', 'Tell me everything');
           await page.click('#send-btn');
-          await expect(page.locator('.message.assistant')).toContainText(reply.last, { timeout: 20000 });
+          await expect(page.locator('.message.assistant').last()).toContainText(reply.last, { timeout: 20000 });
           await page.waitForTimeout(800);
 
-          const gap = await turnTopBelowHeader(page, layout.header);
-          expect(gap).toBeGreaterThanOrEqual(0);
-          expect(gap).toBeLessThan(40);
+          if (reply.name === 'long') {
+            const gap = await turnTopBelowHeader(page, layout.header);
+            expect(gap).toBeGreaterThanOrEqual(0);
+            expect(gap).toBeLessThan(40);
+          } else {
+            // A short reply releases the reserved space: no empty area, both visible
+            await expect.poll(() => blankBelowLastMessage(page), { timeout: 3000 }).toBeLessThan(40);
+            await expect(page.locator('.message.user').last()).toBeInViewport();
+          }
         });
       }
     });
@@ -1013,26 +1053,29 @@ test.describe('Send-to-top - no pill while thinking', () => {
 
 // A program's auto-start turn (sports/language) answers a trigger chip, not
 // a user bubble, and its quick-actions bar grows the composer after the
-// reservation: the chip must stay visible under the header.
+// reservation: the chip must never end up under the header.
 test.describe('Send-to-top - program auto-start on a phone', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
-  test('the session-start chip stays below the header', async ({ page }) => {
+  test('the session-start turn ends fully visible, without empty space', async ({ page }) => {
     await page.request.post('/test/set-sports-programs', {
       data: { programs: [{ id: 'pushups', name: 'Push-ups', emoji: '💪', created_at: '2026-01-01T00:00:00Z' }] },
     });
     await page.goto('/#/sports/pushups');
     await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 15000 });
-    await page.waitForTimeout(800);
 
-    const gap = await page.evaluate(() => {
+    // The short reply released its reserved space and settled above the
+    // composer - the chip never ends up under the header
+    await expect.poll(() => blankBelowLastMessage(page), { timeout: 3000 }).toBeLessThan(40);
+    const chipBelowHeader = await page.evaluate(() => {
       const header = document.querySelector<HTMLElement>('.mobile-header')!;
       const chip = document.querySelector<HTMLElement>('#messages .trigger-message')!;
       return chip.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
     });
-    expect(gap).toBeGreaterThanOrEqual(0);
-    expect(gap).toBeLessThan(40);
+    expect(chipBelowHeader).toBeGreaterThanOrEqual(0);
+    await expect(page.locator('.message.assistant')).toBeInViewport();
   });
+
 });
 
 test.describe('Chat - Stop Streaming on a phone', () => {
