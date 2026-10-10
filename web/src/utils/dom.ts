@@ -186,7 +186,8 @@ export function isScrolledToBottom(
 }
 
 /**
- * Scroll container so that the target element's top is at the top of the viewport.
+ * Scroll container so that the target element's top is at the top of the viewport
+ * (below the container's scroll-padding-top).
  * @param container - The scrollable container
  * @param targetElement - The element to scroll to
  * @param smooth - Whether to use smooth scrolling animation (default: true)
@@ -204,7 +205,11 @@ export function scrollToElementTop(
   // Formula: element's current visual position relative to container + current scroll
   const containerRect = container.getBoundingClientRect();
   const targetRect = targetElement.getBoundingClientRect();
-  const targetTop = targetRect.top - containerRect.top + container.scrollTop;
+  // scroll-padding-top is the container's own top inset - the floating
+  // header (mobile) / toolbar (desktop) the list scrolls under. Without it
+  // the element's first line landed under that header.
+  const topInset = parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
+  const targetTop = targetRect.top - containerRect.top + container.scrollTop - topInset;
 
   if (!smooth) {
     container.scrollTo({

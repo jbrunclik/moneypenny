@@ -13,7 +13,7 @@
  */
 import { getElementById } from '../utils/dom';
 import { onMessagesScroll } from '../utils/scroll-manager';
-import { isProgrammaticScrollActive } from '../utils/thumbnails';
+import { isProgrammaticScrollActive, isStreamFollowScroll } from '../utils/thumbnails';
 
 // Keep the header while still near the top (it clears roughly its own height).
 const REVEAL_NEAR_TOP_PX = 72;
@@ -45,7 +45,12 @@ export function initHeaderAutoHide(): void {
 
     const top = container.scrollTop;
     // Our own scrolls (load, follow, scroll-to-bottom) must never hide it.
-    if (isProgrammaticScrollActive()) {
+    // Following a stream scrolls down on every token without a programmatic
+    // marker; it hid the header mid-reply, so the read-from-start jump landed
+    // the reply at the very top and the next scroll-up slid the header back
+    // over its first line. (A user scroll-up pauses following on
+    // wheel/touchmove first and moves off that position, so it still reveals.)
+    if (isProgrammaticScrollActive() || isStreamFollowScroll(container)) {
       lastScrollTop = top;
       return;
     }

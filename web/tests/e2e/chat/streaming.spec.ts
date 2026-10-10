@@ -883,6 +883,62 @@ test.describe('Chat - End-of-stream repositioning', () => {
   });
 });
 
+/** Gap between the floating header's bottom edge and the reply's top edge. */
+async function replyTopBelowHeader(
+  page: import('@playwright/test').Page,
+  headerSelector: string
+): Promise<number> {
+  return page.evaluate((sel) => {
+    const header = document.querySelector<HTMLElement>(sel)!;
+    const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
+    return messageEl.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+  }, headerSelector);
+}
+
+const LONG_RESPONSE = Array.from(
+  { length: 120 },
+  (_, i) => `Line ${i + 1} of a long answer.`
+).join('\n\n');
+
+// The header floats OVER the list (content scrolls under its blur), so the
+// read-from-start jump must land the reply below it, not at the list's top
+// edge - there its first line sat hidden under the header.
+test.describe('Chat - End-of-stream jump clears the floating header', () => {
+  test.afterEach(async ({ page }) => {
+    await clearMockResponse(page);
+  });
+
+  for (const layout of [
+    { name: 'desktop', viewport: { width: 1280, height: 520 }, header: '.chat-header' },
+    { name: 'phone', viewport: { width: 390, height: 664 }, header: '.mobile-header' },
+  ]) {
+    test.describe(layout.name, () => {
+      test.use({ viewport: layout.viewport });
+
+      test('the reply\'s first line lands below the header', async ({ page }) => {
+        await page.goto('/');
+        if (layout.name === 'phone') {
+          await page.waitForSelector('#menu-btn');
+          await page.click('#menu-btn');
+        }
+        await page.click('#new-chat-btn');
+        await enableStreaming(page);
+        await setMockResponse(page, LONG_RESPONSE);
+
+        await page.fill('#message-input', 'Tell me everything');
+        await page.click('#send-btn');
+        const message = page.locator('.message.assistant');
+        await expect(message).toContainText('Line 120', { timeout: 20000 });
+        await expect(message).not.toHaveClass(/streaming/, { timeout: 20000 });
+
+        // Jumped (not still at the bottom), and not under the header
+        await expect.poll(() => replyTopBelowHeader(page, layout.header), { timeout: 5000 }).toBeGreaterThanOrEqual(0);
+        expect(await replyTopBelowHeader(page, layout.header)).toBeLessThan(40);
+      });
+    });
+  }
+});
+
 test.describe('Chat - Stop Streaming on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 

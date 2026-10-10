@@ -265,6 +265,13 @@
         height: calc(var(--header-height) + env(safe-area-inset-top, 0));
     }
 
+    /* Same clearance for scrolls TO an element (the read-from-start jump in
+       utils/dom.ts, search's scrollIntoView): land it where the first message
+       rests at scrollTop 0 - below the header, not under it. */
+    .messages {
+        scroll-padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3));
+    }
+
     .input-area {
         position: absolute;
         bottom: 0;
@@ -366,6 +373,16 @@
     /* Toolbar shown: spacer grows to clear it (52px inner + a hair of gap). */
     .main:has(.chat-header:not(.hidden)) .messages::before {
         height: 56px;
+    }
+
+    /* Scrolls TO an element land it where the first message rests (spacer +
+       list gap) - below the toolbar, not under it (see the mobile rule). */
+    .messages {
+        scroll-padding-top: calc(var(--space-6) + var(--space-4));
+    }
+
+    .main:has(.chat-header:not(.hidden)) .messages {
+        scroll-padding-top: calc(56px + var(--space-4));
     }
 
     /* Composer shown: clear the live pill footprint (composer-height.ts). */

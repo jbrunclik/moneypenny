@@ -8,7 +8,11 @@ import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { highlightLiveCodeBlocks } from './live-highlight';
-import { isProgrammaticScrollActive, programmaticScrollToBottom } from '../../utils/thumbnails';
+import {
+  isProgrammaticScrollActive,
+  markStreamFollowScroll,
+  programmaticScrollToBottom,
+} from '../../utils/thumbnails';
 import { kbDebugEvent } from '../../core/keyboard-viewport';
 import {
   checkScrollButtonVisibility,
@@ -405,6 +409,7 @@ function autoScrollForStreaming(): void {
   if (!messagesContainer) return;
 
   scrollToBottom(messagesContainer);
+  markStreamFollowScroll(messagesContainer.scrollTop);
 }
 
 /**

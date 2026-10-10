@@ -168,6 +168,35 @@ export function isProgrammaticScrollActive(): boolean {
     return isProgrammaticScroll;
 }
 
+// Where the last stream-follow scroll left #messages (see isStreamFollowScroll)
+let lastFollowScrollTop: number | null = null;
+
+/** Record the position a stream-follow scroll just wrote. */
+export function markStreamFollowScroll(scrollTop: number): void {
+    lastFollowScrollTop = scrollTop;
+}
+
+/**
+ * Whether the latest scroll event on `container` came from following a
+ * stream (pinned to the bottom as tokens arrive). Those follow scrolls are
+ * not marked programmatic - a marker window per token would swallow the
+ * user's scroll-up that pauses following - so they record their position
+ * instead. Scroll events dispatch a frame AFTER the write, and finalize may
+ * have shrunk the message meanwhile (the browser clamps to the new bottom),
+ * so a clamp below that position to the bottom counts too. Spent on the
+ * first event that isn't one, so a later user scroll never matches.
+ */
+export function isStreamFollowScroll(container: HTMLElement): boolean {
+    if (lastFollowScrollTop === null) return false;
+    const top = container.scrollTop;
+    const atBottom = container.scrollHeight - top - container.clientHeight < 1;
+    if (Math.abs(top - lastFollowScrollTop) < 1 || (top < lastFollowScrollTop && atBottom)) {
+        return true;
+    }
+    lastFollowScrollTop = null;
+    return false;
+}
+
 /**
  * Perform a programmatic scroll to bottom that won't trigger user scroll detection.
  * This is a convenience wrapper that handles the markers automatically.
