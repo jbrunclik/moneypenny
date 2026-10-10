@@ -50,7 +50,11 @@ vi.mock('@/components/messages', () => ({
 // Mock DOM utilities
 vi.mock('@/utils/dom', () => ({
   getElementById: vi.fn(),
-  scrollToBottom: vi.fn(),
+  isScrolledToBottom: vi.fn(() => true),
+}));
+
+vi.mock('@/utils/thumbnails', () => ({
+  programmaticScrollToBottom: vi.fn(),
 }));
 
 // Mock conversation/toolbar functions
@@ -96,7 +100,8 @@ import {
   cleanupStreamingContext,
   addMessageToUI,
 } from '@/components/messages';
-import { getElementById, scrollToBottom } from '@/utils/dom';
+import { getElementById, isScrolledToBottom } from '@/utils/dom';
+import { programmaticScrollToBottom } from '@/utils/thumbnails';
 import { hideNewMessagesAvailableBanner } from '@/core/sync-banner';
 
 // Helper to reset store state
@@ -162,7 +167,8 @@ describe('stream-recovery', () => {
   const mockCleanupStreamingContext = cleanupStreamingContext as ReturnType<typeof vi.fn>;
   const mockAddMessageToUI = addMessageToUI as ReturnType<typeof vi.fn>;
   const mockGetElementById = getElementById as ReturnType<typeof vi.fn>;
-  const mockScrollToBottom = scrollToBottom as ReturnType<typeof vi.fn>;
+  const mockScrollToBottom = programmaticScrollToBottom as ReturnType<typeof vi.fn>;
+  const mockIsScrolledToBottom = isScrolledToBottom as ReturnType<typeof vi.fn>;
   const mockHideNewMessagesBanner = hideNewMessagesAvailableBanner as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -815,6 +821,23 @@ describe('stream-recovery', () => {
         mockContainer
       );
       expect(mockScrollToBottom).toHaveBeenCalledWith(mockContainer);
+    });
+
+    it('leaves a reader who scrolled up where they are', async () => {
+      markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
+      const conv = createConversation('conv-1');
+      useStore.getState().addConversation(conv);
+      useStore.getState().setCurrentConversation(conv);
+      mockGetStreamingElement.mockReturnValue(null);
+      const mockContainer = document.createElement('div');
+      mockGetElementById.mockReturnValue(mockContainer);
+      mockGetMessage.mockResolvedValue(createMessage('msg-123', 'recovered content'));
+      mockIsScrolledToBottom.mockReturnValueOnce(false);
+
+      expect(await attemptRecovery('conv-1')).toBe(true);
+
+      expect(mockAddMessageToUI).toHaveBeenCalled();
+      expect(mockScrollToBottom).not.toHaveBeenCalled();
     });
 
     it('hides banner and triggers sync to check for genuinely new messages', async () => {

@@ -5,7 +5,7 @@
 import { CLAIM_FLASH_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, prefersReducedMotion } from '../utils/dom';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { closeClaimCard, plainQuote } from './ClaimCard';
 import { displayHost, getMessageAnnotations, getMessageGrounding } from './messages/annotations';
@@ -49,7 +49,7 @@ export function closeClaimsSheet(restoreFocus = false): void {
 }
 
 function flash(target: HTMLElement): void {
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
   target.classList.add('claim--flash');
   window.setTimeout(() => target.classList.remove('claim--flash'), CLAIM_FLASH_MS);
 }

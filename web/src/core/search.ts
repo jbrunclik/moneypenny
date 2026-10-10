@@ -14,7 +14,7 @@ import {
   setupOlderMessagesScrollListener,
   setupNewerMessagesScrollListener,
 } from '../components/messages';
-import { getElementById } from '../utils/dom';
+import { getElementById, prefersReducedMotion } from '../utils/dom';
 import { disableScrollOnImageLoad } from '../utils/thumbnails';
 import { getSyncManager } from '../sync/SyncManager';
 import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from '../config';
@@ -207,7 +207,7 @@ async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
 
   // Scroll the message into view - use 'start' to position it at the top of the viewport
   // This is better UX for long messages where 'center' would show the middle of the message
-  messageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  messageEl.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 
   // Apply highlight animation
   messageEl.classList.add('search-highlight');

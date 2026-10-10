@@ -457,6 +457,49 @@ test.describe('Messages Pagination', () => {
     }
   });
 
+  test('loading an older page keeps the message being read in place', async ({ page }) => {
+    const messages = Array.from({ length: 120 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `Seeded message ${i + 1}`,
+    }));
+    await page.request.post('/test/seed', { data: { conversations: [{ title: 'Long history', messages }] } });
+    await page.reload();
+    await page.locator('.conversation-item-wrapper', { hasText: 'Long history' }).click();
+    await expect(page.locator('.message').last()).toContainText('Seeded message 120', { timeout: 10000 });
+    const initialCount = await page.locator('.message').count();
+
+    // Let the open's bottom pin settle, then wheel to the top like a user
+    // (the older page loads from the scroll handler)
+    await page.waitForTimeout(800);
+    await page.locator('#messages').hover();
+    await expect
+      .poll(
+        async () => {
+          await page.mouse.wheel(0, -4000);
+          return page.evaluate(() => document.getElementById('messages')!.scrollTop);
+        },
+        { timeout: 5000 }
+      )
+      .toBe(0);
+    // Remember where the topmost message sits before the older page (and its
+    // loader) arrive above it
+    const anchor = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('#messages .message')!;
+      return { text: el.textContent!.trim().slice(0, 40), top: el.getBoundingClientRect().top };
+    });
+    await expect.poll(() => page.locator('.message').count(), { timeout: 10000 }).toBeGreaterThan(initialCount);
+    await expect(page.locator('.older-messages-loader')).toHaveCount(0);
+    await page.waitForTimeout(300);
+
+    const topNow = await page.evaluate((text) => {
+      const el = [...document.querySelectorAll<HTMLElement>('.message')].find((m) =>
+        m.textContent!.trim().startsWith(text)
+      )!;
+      return el.getBoundingClientRect().top;
+    }, anchor.text);
+    expect(Math.abs(topNow - anchor.top)).toBeLessThan(2);
+  });
+
   test('messages are displayed in correct order', async ({ page }) => {
     // Create a conversation with multiple messages
     await page.click('#new-chat-btn');

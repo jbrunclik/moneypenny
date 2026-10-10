@@ -102,6 +102,11 @@ export function cancelSmoothScroll(): void {
   }
 }
 
+/** The user asked for less motion: smooth scrolls jump instead. */
+export function prefersReducedMotion(): boolean {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
+
 /**
  * Scroll element to bottom
  */
@@ -109,7 +114,7 @@ export function scrollToBottom(element: HTMLElement, smooth = false): void {
   // Cancel any ongoing smooth scroll animation before starting a new scroll
   cancelSmoothScroll();
 
-  if (!smooth) {
+  if (!smooth || prefersReducedMotion()) {
     element.scrollTo({
       top: element.scrollHeight,
       behavior: 'auto',
@@ -210,8 +215,18 @@ export function scrollToElementTop(
   // the element's first line landed under that header.
   const topInset = parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
   const targetTop = targetRect.top - containerRect.top + container.scrollTop - topInset;
+  scrollToPosition(container, targetTop, smooth);
+}
 
-  if (!smooth) {
+/**
+ * Scroll container to `targetTop`, smoothly unless reduced motion is on.
+ * The animation aborts when anything else moves the position (the user, or
+ * other code) so it never fights them.
+ */
+export function scrollToPosition(container: HTMLElement, targetTop: number, smooth = true): void {
+  cancelSmoothScroll();
+
+  if (!smooth || prefersReducedMotion()) {
     container.scrollTo({
       top: targetTop,
       behavior: 'auto',

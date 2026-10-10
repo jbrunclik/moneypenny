@@ -2,6 +2,7 @@
  * Message rendering - HTML generation for individual messages and message lists.
  */
 
+import { resetTurnAnchor } from './turn-anchor';
 import { escapeHtml, getElementById, scrollToBottom, clearElement } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
@@ -246,6 +247,8 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   log.debug('Rendering messages', { count: messages.length, skipScrollToBottom: options.skipScrollToBottom });
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
+  // A fresh render holds no reserved send-to-top space
+  resetTurnAnchor();
 
   if (messages.length === 0) {
     container.innerHTML = renderWelcomeMessageHtml();

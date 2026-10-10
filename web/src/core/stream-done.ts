@@ -30,7 +30,8 @@ import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
 import type { StreamingState } from './stream-session';
-import { handleImageScrollAfterMessage, scrollToFinishedStreamMessage } from './response-scroll';
+import { handleImageScrollAfterMessage, settleAnchoredReply } from './response-scroll';
+import { isTurnAnchored } from '../components/messages/turn-anchor';
 
 const log = createLogger('messaging');
 
@@ -157,22 +158,19 @@ function finalizeDoneBubble(
 }
 
 /**
- * Scroll to top of message if user was following, otherwise handle image scroll.
+ * Settle the scroll once the stream is done. An anchored (send-to-top) turn
+ * stays where it is - no jump at the end; a stream the user followed to the
+ * bottom stays at the bottom.
  */
 function scrollAfterDone(event: StreamDoneEvent, messageEl: HTMLElement, wasFollowing: boolean): void {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
-  log.info('Streaming done scroll decision', {
-    wasFollowing,
-    hasMessagesContainer: !!messagesContainer,
-    messageElOffsetTop: messageEl.offsetTop,
-  });
+  if (!messagesContainer) return;
+  log.info('Streaming done scroll decision', { wasFollowing, anchored: isTurnAnchored() });
 
-  if (wasFollowing && messagesContainer) {
-    // User was following the stream - scroll to top of the assistant's response
-    scrollToFinishedStreamMessage(messagesContainer, messageEl);
+  if (!wasFollowing && isTurnAnchored()) {
+    settleAnchoredReply(messagesContainer, messageEl);
   } else {
-    // User scrolled away during streaming - don't auto-scroll, just handle images
-    log.info('Not scrolling to top - user scrolled away or no container');
+    // Followed to the bottom (stays pinned), or the user scrolled away
     handleImageScrollAfterMessage(messageEl, event.files);
   }
 }

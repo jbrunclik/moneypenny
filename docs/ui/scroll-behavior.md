@@ -33,8 +33,8 @@ The application implements sophisticated scroll behavior that:
 |----------|-------------------|-----------|
 | **Opening a conversation** | Scroll to bottom immediately, then smooth scroll again after all images load | `renderMessages()`, `enableScrollOnImageLoad()` |
 | **Opening conversation with images** | Initial scroll to bottom (makes images visible), IntersectionObserver triggers thumbnail fetches, smooth scroll after all images finish loading | `thumbnails.ts`, `messages/render.ts` |
-| **Sending a new message (batch)** | User message added → scroll to bottom → assistant response added → scroll to bottom → if images, smooth scroll after they load | `sendBatchMessage()`, `addMessageToUI()` |
-| **Sending a new message (streaming)** | User message added → scroll to bottom → auto-scroll during streaming → if images in final message, smooth scroll after load | `sendStreamingMessage()`, `autoScrollForStreaming()` |
+| **Sending a new message (batch)** | User message added → loader added → **send-to-top**: the turn glides under the header, the loader reserves room → the reply takes over the reservation, view stays | `showLoadingIndicator()`, `anchorTurn()`, `renderBatchReply()` |
+| **Sending a new message (streaming)** | User message added → streaming bubble added → **send-to-top** (turn under the header, reply grows below, view stays; "New messages" pill once it runs past the screen) → no move at the end | `addStreamingMessage()`, `anchorTurn()`, `autoScrollForStreaming()` |
 | **Auto-scroll during streaming** | Content auto-scrolls as tokens arrive, keeping latest content visible | `autoScrollForStreaming()` in `messages/streaming.ts` |
 | **User scrolls up during streaming** | Auto-scroll pauses immediately, scroll button highlights with pulsing animation | `setupStreamingScrollListener()`, `setStreamingPausedIndicator()` |
 | **User scrolls back to bottom during streaming** | Auto-scroll resumes automatically, scroll button returns to normal | streaming scroll listener threshold check |
@@ -134,9 +134,14 @@ The scroll listener must distinguish user scrolls from layout changes (like imag
 
 The previous direction-based approach (tracking `scrollTop` decreases) had issues when images loaded above the viewport - they could change `scrollTop` and incorrectly pause auto-scroll.
 
-### User Message Scroll
+### Send-to-top (Oct 2026)
 
-When user sends a message, the app scrolls to bottom immediately after adding the user message to the UI. This ensures the user's message is visible before the assistant's response starts streaming.
+The ChatGPT / Claude.ai pattern ([turn-anchor.ts](../../web/src/components/messages/turn-anchor.ts)). Sending pins the user message to the bottom, then the reply placeholder (streaming bubble or batch loader) arrives and `anchorTurn()` glides the turn up so the user message sits just under the floating header (`scroll-padding-top`). Continue anchors the new bubble itself. A user message taller than the screen scrolls only far enough to keep `TURN_REPLY_MIN_VISIBLE_PX` of the reply in view.
+
+- **Reserved space**: a short reply in a short chat can't reach the top on its own, so the reply element gets a `min-height` (`data-turn-space`) filling the band to the composer. It stays until the next turn anchors (`releaseTurnSpace`) or the list re-renders (`resetTurnAnchor`). The batch reply takes the loader's reservation via `reserveTurnSpace()` **in the same task** the loader is removed — any layout read in between lets the browser clamp the position first.
+- **No chasing**: anchored streams start with `shouldAutoScroll = false`. Once the reply runs past the screen the scroll button becomes the "New messages" pill. Tapping it, or the user scrolling to the real bottom (`STREAMING_RESUME_THRESHOLD_PX`, 16px — not the 200px follow threshold: the anchored view already sits at the reserved bottom, so any small scroll re-armed following), switches following back on. Programmatic scrolls never re-arm it.
+- **No end-of-turn jump**: an anchored reply that wasn't re-followed settles in place (`settleAnchoredReply`); a followed one stays at the bottom. The old read-from-start jump (`scrollToFinishedStreamMessage`) is gone; `RESPONSE_JUMP_MIN_VIEWPORT_RATIO` only steers an unanchored batch reply.
+- **Reduced motion**: `scrollToBottom`/`scrollToPosition` and the native `scrollIntoView` calls jump instead of animating under `prefers-reduced-motion: reduce`.
 
 ## Programmatic Scroll Wrapper
 
@@ -266,9 +271,10 @@ The scroll behavior is the most annoyance-sensitive UX area (regressions here hu
 - **One follow threshold**: every "is the user following?" decision uses `SCROLL_USER_DETECTION_THRESHOLD_PX` (200px) — `SCROLL_BOTTOM_THRESHOLD_PX` aliases it and `isScrolledToBottom` defaults to it. Don't introduce new distance constants for the same question.
 - **Streaming pause** ([streaming.ts](../../web/src/components/messages/streaming.ts)): wheel/touchmove pause immediately; the scroll handler additionally pauses on **direction** (an upward, non-programmatic move landing away from the bottom) to cover scrollbar drags and keyboard scrolling. Never pause on position alone — streaming growth changes `scrollHeight` and produced false positives historically.
 - **Scroll-button tap re-arms follow synchronously** (`setOnJumpToBottom` hook) — the debounced position-based resume can miss while tokens grow `scrollHeight` during the smooth animation. While paused mid-stream, the button becomes a labeled "New messages" pill.
-- **End-of-turn repositioning is length-conditional** (`RESPONSE_JUMP_MIN_VIEWPORT_RATIO`): responses taller than ~one viewport jump to their top (read-from-start); shorter ones finish at the bottom. The batch path pins the bottom **instantly** — `scrollToBottom`'s smooth animator has no user-interference abort and fights user scrolls for its whole run (unlike `scrollToElementTop`, which aborts on external movement).
-- **Scrolls to an element clear the floating header** (Oct 2026): the header/toolbar float OVER the list, so `.messages` sets `scroll-padding-top` to the header spacer + list gap, and `scrollToElementTop` subtracts it (native `scrollIntoView` honours it already). Without it the read-from-start jump put the reply's first line under the header.
-- **Stream-follow scrolls never hide the auto-hide header**: follow scrolls aren't marked programmatic (a marker window per token would swallow the scroll-up that pauses following), so `header-autohide.ts` asks `isStreamFollowScroll(container)`. Scroll events dispatch a frame after the write — by then finalize may have cleared the context and shrunk the message (the browser clamps to the new bottom) — so the last follow position, or a clamp below it to the bottom, still counts. Regression test: `End-of-stream jump clears the floating header` in `chat/streaming.spec.ts`.
+- **End-of-turn**: see Send-to-top above — anchored turns don't move when the reply finishes.
+- **Scrolls to an element clear the floating header** (Oct 2026): the header/toolbar float OVER the list, so `.messages` sets `scroll-padding-top` to the header spacer + list gap, and `scrollToElementTop` subtracts it (native `scrollIntoView` honours it already). Without it an element's first line landed under the header.
+- **Stream-follow scrolls never hide the auto-hide header**: follow scrolls aren't marked programmatic (a marker window per token would swallow the scroll-up that pauses following), so `header-autohide.ts` asks `isStreamFollowScroll(container)`. Scroll events dispatch a frame after the write — by then finalize may have cleared the context and shrunk the message (the browser clamps to the new bottom) — so the last follow position, or a clamp below it to the bottom, still counts. Regression tests: `Chat - Send-to-top` in `chat/streaming.spec.ts`.
+- **Older-page image compensation is per image** (`trackPrependedImagesForScrollAdjustment`): only the prepended page's images, each adding its own growth when it sits above the viewport. Comparing whole-list `scrollHeight` against the page-load baseline counted everything that grew since (a streamed reply) and threw the list down. The baseline height is taken before the loader goes in (it's gone again before compensation runs).
 - **`overflow-anchor: none` on `.messages`**: scroll anchoring is manual (pagination prepend compensation + image-load adjustment); browser anchoring on top of it double-adjusted.
 - **Mobile keyboard** ([core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts)): the fixed 100vh layout means keyboards OVERLAY the page. The visualViewport overlap becomes `--keyboard-inset` (shrinks `html/body` height) and the messages view re-pins to the bottom when the user was following. Guards: pinch zoom (`scale !== 1`), no editable element focused, overlaps under `KEYBOARD_INSET_MIN_PX`.
 - **Thinking-trace collapse compensation**: finalizing the trace shrinks content above a reader scrolled below it — `finalizeThinkingIndicator` measures the height delta and restores `scrollTop`.
@@ -305,7 +311,7 @@ The scroll behavior is the most annoyance-sensitive UX area (regressions here hu
 - [../../web/src/components/Sidebar.ts](../../web/src/components/Sidebar.ts) - Conversations infinite scroll
 
 **Main:**
-- [../../web/src/core/response-scroll.ts](../../web/src/core/response-scroll.ts) - end-of-response scroll (`scrollToFinishedStreamMessage()`, `scrollToBatchReply()`, `watchForUserScroll()`), used by [stream-done.ts](../../web/src/core/stream-done.ts) and [batch-send.ts](../../web/src/core/batch-send.ts)
+- [../../web/src/core/response-scroll.ts](../../web/src/core/response-scroll.ts) - end-of-response scroll (`settleAnchoredReply()`, `scrollToBatchReply()`, `watchForUserScroll()`), used by [stream-done.ts](../../web/src/core/stream-done.ts) and [batch-send.ts](../../web/src/core/batch-send.ts)
 
 **Backend:**
 - [../../src/db/models/](../../src/db/models/) - `build_cursor()`, `parse_cursor()`, pagination methods
@@ -334,7 +340,8 @@ Scroll behavior is comprehensively tested in E2E tests:
 - `web/tests/e2e/chat/conversation-switch.spec.ts` - "Chat - Conversation Switch During Active Request" describe block
 - `web/tests/e2e/chat/streaming.spec.ts` - "Chat - Streaming Scroll Pause Indicator" describe block
 - `web/tests/e2e/chat/conversation-switch.spec.ts` - "Chat - Conversation Switch During Streaming Scroll" describe block
-- `web/tests/e2e/pagination.spec.ts` - Pagination tests
+- `web/tests/e2e/chat/streaming.spec.ts` - "Chat - Send-to-top" (desktop + phone: long/short/batch, re-follow)
+- `web/tests/e2e/pagination.spec.ts` - Pagination tests (incl. older page keeps the reading position)
 
 ### Backend Integration Tests
 

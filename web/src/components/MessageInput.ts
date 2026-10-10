@@ -1,4 +1,5 @@
-import { escapeHtml, getElementById, autoResizeTextarea, clearElement } from '../utils/dom';
+import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
+import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
@@ -177,13 +178,16 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
       lastHeight = currentHeight;
 
       if (keyboardOpening && document.activeElement === input) {
+        // Only a reader already at the bottom gets re-pinned: pinning
+        // unconditionally yanked anyone reading further up (or a send-to-top
+        // turn) down whenever the keyboard opened. Measured before the
+        // layout settles.
+        const messagesContainer = getElementById('messages');
+        const wasAtBottom = messagesContainer ? isScrolledToBottom(messagesContainer) : false;
         // Use requestAnimationFrame to wait for layout to settle
         requestAnimationFrame(() => {
-          // Scroll the messages container to the bottom
-          // This ensures the input stays visible above the keyboard
-          const messagesContainer = getElementById('messages');
-          if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          if (messagesContainer && wasAtBottom) {
+            programmaticScrollToBottom(messagesContainer);
           }
         });
       }

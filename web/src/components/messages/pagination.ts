@@ -125,11 +125,13 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
   // Set loading state
   store.setLoadingOlderMessages(conversationId, true);
 
+  // Record the scroll height BEFORE the loader goes in: it is removed again
+  // (finally) before the compensation below runs, so measuring with it
+  // included left the content shifted by the loader's height for good
+  const previousScrollHeight = container.scrollHeight;
+
   // Show loading indicator at top
   showOlderMessagesLoader(container);
-
-  // Record the current scroll height and position to maintain scroll position after prepending
-  const previousScrollHeight = container.scrollHeight;
 
   try {
     const result = await conversations.getMessages(
@@ -154,7 +156,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
     store.prependMessages(conversationId, result.messages, result.pagination);
 
     // Prepend messages to the UI
-    prependMessagesToUI(result.messages, container);
+    const prepended = prependMessagesToUI(result.messages, container);
 
     // Restore scroll position so the user stays at the same place
     // After prepending, scrollHeight increases, so we need to adjust scrollTop
@@ -167,7 +169,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
 
       // Track images in the prepended batch and re-adjust scroll position after they load
       // This prevents scroll drift when lazy-loaded images change the scrollHeight
-      trackPrependedImagesForScrollAdjustment(container, targetScrollTop);
+      trackPrependedImagesForScrollAdjustment(container, prepended);
     });
 
     log.info('Loaded older messages', {
@@ -227,8 +229,9 @@ function hideOlderMessagesLoader(): void {
  * @param messages - Messages to prepend (should be in chronological order, oldest first)
  * @param container - The messages container element
  */
-function prependMessagesToUI(messages: Message[], container: HTMLElement): void {
-  if (messages.length === 0) return;
+function prependMessagesToUI(messages: Message[], container: HTMLElement): HTMLElement[] {
+  if (messages.length === 0) return [];
+  const prepended: HTMLElement[] = [];
 
   // Find the first message element (skip loaders/welcome messages)
   const firstMessage = container.querySelector('.message');
@@ -241,7 +244,8 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): void 
     addMessageToUI(msg, tempContainer);
     const messageEl = tempContainer.firstElementChild;
 
-    if (messageEl) {
+    if (messageEl instanceof HTMLElement) {
+      prepended.push(messageEl);
       if (firstMessage) {
         // Insert before the first existing message
         container.insertBefore(messageEl, firstMessage);
@@ -265,57 +269,45 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): void 
   applyCompactionMarkers(container);
 
   log.debug('Prepended messages to UI', { count: messages.length });
+  return prepended;
 }
 
 /**
- * Track images in prepended messages and re-adjust scroll position after they load.
- * This prevents scroll drift when lazy-loaded images change the scrollHeight.
+ * Keep the reading position while images in the prepended page load: each
+ * image that grows ABOVE the viewport pushes the content the user is reading
+ * down by exactly its own growth, so add that to scrollTop.
  *
- * @param container - The messages container element
- * @param _initialScrollTop - The scroll position to maintain (unused but kept for API compatibility)
+ * Per image, not per scrollHeight: comparing against the container's height
+ * from when the page loaded also counted everything that grew since - a
+ * streamed reply, images below the viewport - and threw the list down by
+ * all of it. Only the prepended page's images are tracked (the whole list's
+ * lazy images used to be, src-less ones included).
  */
-function trackPrependedImagesForScrollAdjustment(container: HTMLElement, _initialScrollTop: number): void {
-  // Find all images that may still be loading (either no src or not complete)
-  const images = container.querySelectorAll<HTMLImageElement>(
-    'img[data-message-id][data-file-index]'
-  );
-
-  if (images.length === 0) return;
-
+function trackPrependedImagesForScrollAdjustment(container: HTMLElement, prepended: HTMLElement[]): void {
   let pendingLoads = 0;
-  let previousScrollHeight = container.scrollHeight;
 
-  const adjustScrollPosition = (): void => {
-    // Calculate how much the scroll height changed and adjust scroll position
-    const currentScrollHeight = container.scrollHeight;
-    const heightDiff = currentScrollHeight - previousScrollHeight;
-    if (heightDiff !== 0) {
-      container.scrollTop = container.scrollTop + heightDiff;
-      previousScrollHeight = currentScrollHeight;
-    }
-  };
-
-  const handleImageLoad = (): void => {
-    pendingLoads--;
-    // Adjust scroll position after each image loads
-    requestAnimationFrame(() => {
-      adjustScrollPosition();
+  prepended.forEach((messageEl) => {
+    messageEl.querySelectorAll<HTMLImageElement>('img[data-message-id][data-file-index]').forEach((img) => {
+      if (img.complete && img.naturalHeight > 0) return; // already laid out
+      const heightBefore = img.offsetHeight;
+      const onSettled = (): void => {
+        requestAnimationFrame(() => {
+          // A conversation switch detached it - never touch the new list
+          if (!img.isConnected) return;
+          const growth = img.offsetHeight - heightBefore;
+          const aboveViewport = img.getBoundingClientRect().top < container.getBoundingClientRect().top;
+          if (growth !== 0 && aboveViewport) {
+            container.scrollTop += growth;
+          }
+        });
+      };
+      pendingLoads++;
+      img.addEventListener('load', onSettled, { once: true });
+      img.addEventListener('error', onSettled, { once: true });
     });
-  };
-
-  images.forEach((img) => {
-    // Skip already-loaded images
-    if (img.complete && img.naturalHeight > 0) return;
-
-    pendingLoads++;
-    img.addEventListener('load', handleImageLoad, { once: true });
-    img.addEventListener('error', handleImageLoad, { once: true });
   });
 
-  // If no images are pending, nothing to do
-  if (pendingLoads === 0) {
-    log.debug('No pending images in prepended batch');
-  } else {
+  if (pendingLoads > 0) {
     log.debug('Tracking prepended images for scroll adjustment', { pendingLoads });
   }
 }

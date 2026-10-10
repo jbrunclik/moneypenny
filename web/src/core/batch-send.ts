@@ -27,7 +27,8 @@ import { updateConversationCost } from './toolbar';
 import { notifyTurnFinished } from './attention';
 import { trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
-import { scrollToBatchReply } from './response-scroll';
+import { scrollToBatchReply, settleAnchoredReply } from './response-scroll';
+import { isTurnAnchored, reserveTurnSpace } from '../components/messages/turn-anchor';
 import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './batch-resume';
 
@@ -85,6 +86,21 @@ function renderBatchReply(assistantMessage: Message): void {
   const hasImagesToLoad = assistantMessage.files?.some(
     (f) => f.type.startsWith('image/') && !f.previewUrl
   ) ?? false;
+
+  // Send-to-top: the reply takes over the loader's reserved space in this
+  // same task (before any layout read would clamp the position) and the
+  // view stays on the turn
+  if (isTurnAnchored()) {
+    addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
+    const replyEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
+    if (replyEl) {
+      reserveTurnSpace(messagesContainer, replyEl);
+      if (assistantMessage.research) renderResearchOffer(replyEl, assistantMessage, { live: true });
+      settleAnchoredReply(messagesContainer, replyEl);
+    }
+    return;
+  }
+
   const wasAtBottom = isScrolledToBottom(messagesContainer);
   // Note: We intentionally don't call enableScrollOnImageLoad() here because
   // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.

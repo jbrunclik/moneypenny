@@ -1,12 +1,11 @@
 /**
  * Scroll handling once an assistant response has finished rendering
- * (streaming done or batch reply): jump to the top of long answers the user
- * was following, stay at the bottom for short ones, and never fight a user
- * who scrolled away in the meantime.
+ * (streaming done or batch reply). Anchored (send-to-top) turns stay put;
+ * a followed stream stays at the bottom; an unanchored batch reply jumps to
+ * the top of a long answer. Never fight a user who scrolled away.
  */
 
 import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO } from '../config';
-import { createLogger } from '../utils/logger';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import {
@@ -17,8 +16,6 @@ import {
   programmaticScrollToBottom,
   programmaticScrollToElementTop,
 } from '../utils/thumbnails';
-
-const log = createLogger('messaging');
 
 /**
  * Watch for a USER scroll between now and a deferred (rAF) scroll of ours.
@@ -115,52 +112,14 @@ function isShortResponse(messageEl: HTMLElement, container: HTMLElement): boolea
 }
 
 /**
- * A finished stream the user was following: scroll to the top of the
- * assistant's response once layout settles (double rAF), unless the user
- * scrolled away while we waited.
+ * A reply finished in an anchored (send-to-top) turn the user didn't
+ * re-follow: the view is already on the turn, so nothing moves - only start
+ * the images now in view and refresh the scroll button.
  */
-export function scrollToFinishedStreamMessage(
-  messagesContainer: HTMLElement,
-  messageEl: HTMLElement
-): void {
-  // Record scroll position to detect if user scrolls away before RAF fires
-  const scrollTopWhenDone = messagesContainer.scrollTop;
-  const userScrolledSinceDone = watchForUserScroll(messagesContainer);
-
-  // Use double RAF to ensure layout is fully settled after finalization
+export function settleAnchoredReply(messagesContainer: HTMLElement, messageEl: HTMLElement): void {
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      // Check if user scrolled away while waiting for RAFs
-      const currentScrollTop = messagesContainer.scrollTop;
-      const scrolledUp = currentScrollTop < scrollTopWhenDone - 100;
-      const nearTop = currentScrollTop < 50;
-      if (userScrolledSinceDone() || scrolledUp || nearTop) {
-        log.info('Scroll aborted - user scrolled away');
-        checkScrollButtonVisibility();
-        return;
-      }
-
-      // Also check distance from bottom
-      const distanceFromBottom =
-        messagesContainer.scrollHeight - currentScrollTop - messagesContainer.clientHeight;
-      if (distanceFromBottom > 500) {
-        log.info('Scroll aborted - user far from bottom');
-        checkScrollButtonVisibility();
-        return;
-      }
-
-      if (isShortResponse(messageEl, messagesContainer)) {
-        log.info('Short response - staying at bottom instead of jumping to top');
-        programmaticScrollToBottom(messagesContainer);
-        checkScrollButtonVisibility();
-        return;
-      }
-
-      log.info('Scrolling to top of message (programmatic)');
-      // Use instant scroll to avoid timing issues with animations
-      programmaticScrollToElementTop(messagesContainer, messageEl, false);
-      checkScrollButtonVisibility();
-    });
+    triggerVisibleImageObservation(messageEl, messagesContainer);
+    checkScrollButtonVisibility();
   });
 }
 

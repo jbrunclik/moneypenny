@@ -6,6 +6,7 @@
 import { CLAIM_FLASH_MS } from '../../config';
 import { useStore } from '../../state/store';
 import type { Message, MessageAction } from '../../types/api';
+import { prefersReducedMotion } from '../../utils/dom';
 import { SEARCH_ICON, SPARKLES_ICON } from '../../utils/icons';
 import { applySendState } from './send-state';
 
@@ -69,7 +70,7 @@ export function addActionRowToUI(message: Message, container: HTMLElement, optio
 
 /** Scroll to an element and flash it for CLAIM_FLASH_MS. */
 export function flashElement(target: HTMLElement, flashClass: string): void {
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
   target.classList.add(flashClass);
   window.setTimeout(() => target.classList.remove(flashClass), CLAIM_FLASH_MS);
 }

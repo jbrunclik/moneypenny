@@ -202,6 +202,25 @@ describe('scrollToBottom', () => {
 
     expect(rafSpy).toHaveBeenCalled();
   });
+
+  it('jumps instead of animating when the user prefers reduced motion', () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn((query: string) => ({ matches: query.includes('reduce') }) as MediaQueryList);
+    try {
+      const div = document.createElement('div');
+      div.scrollTo = vi.fn();
+      Object.defineProperty(div, 'scrollHeight', { value: 1000 });
+      const rafSpy = vi.spyOn(window, 'requestAnimationFrame');
+      rafSpy.mockClear();
+
+      scrollToBottom(div, true);
+
+      expect(div.scrollTo).toHaveBeenCalledWith({ top: 1000, behavior: 'auto' });
+      expect(rafSpy).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
 });
 
 describe('scrollToElementTop', () => {

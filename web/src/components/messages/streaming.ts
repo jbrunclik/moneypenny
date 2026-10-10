@@ -22,6 +22,8 @@ import {
 import { AI_AVATAR } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
 import {
+  SCROLL_BUTTON_SHOW_THRESHOLD_PX,
+  STREAMING_RESUME_THRESHOLD_PX,
   STREAMING_SCROLL_THRESHOLD_PX,
   STREAMING_SCROLL_RESUME_DEBOUNCE_MS,
 } from '../../config';
@@ -36,6 +38,7 @@ import {
   markToolCompletedInTrace,
 } from '../ThinkingIndicator';
 import { createMessageActions } from './actions';
+import { anchorTurn } from './turn-anchor';
 import { renderMessageFiles } from './attachments';
 import { lockOlderQuizBlocks } from './render';
 import type { StreamingMessageContext } from './types';
@@ -88,21 +91,25 @@ export function addStreamingMessage(conversationId: string): HTMLElement {
     contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
   }
 
-  // Check if user is at bottom BEFORE adding the message
-  const wasAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+  // The turn this reply answers: the user's message just sent (or being
+  // regenerated), else the reply itself (Continue appends a new bubble)
+  const previous = container.lastElementChild;
+  const turnEl =
+    previous instanceof HTMLElement && previous.matches('.message.user') ? previous : messageEl;
 
-  // Store context for updates
+  // Send-to-top: the view stays on the turn instead of following the reply
+  // down; scrolling to the bottom (or the pill) re-arms following
   currentStreamingContext = {
     element: messageEl,
     thinkingIndicator,
     thinkingState,
-    shouldAutoScroll: wasAtBottom,
+    shouldAutoScroll: false,
     scrollListenerCleanup: null,
     conversationId,
   };
 
   container.appendChild(messageEl);
-  programmaticScrollToBottom(container);
+  anchorTurn(container, turnEl, messageEl);
   logThinkingBarPosition(thinkingIndicator);
 
   // Set up scroll listener to detect user scroll during streaming
@@ -212,10 +219,12 @@ function setupStreamingScrollListener(container: HTMLElement): void {
       return;
     }
 
-    // Check if at bottom for re-enabling auto-scroll
-    const atBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+    // Re-arm following only when the USER reaches the real bottom: our own
+    // scrolls (the send-to-top glide ends at the reserved bottom) and a
+    // small scroll near it must not start chasing the reply
+    const atBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
 
-    if (atBottom) {
+    if (atBottom && !isProgrammaticScrollActive()) {
       // User scrolled back to bottom - use debounce to re-enable auto-scroll
       // This prevents rapid toggling when user is scrolling around near the bottom
       if (resumeDebounceTimeout) {
@@ -226,7 +235,7 @@ function setupStreamingScrollListener(container: HTMLElement): void {
         if (!currentStreamingContext) return;
 
         // Re-check position after debounce (user might have scrolled away again)
-        const stillAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
+        const stillAtBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
         if (stillAtBottom && !currentStreamingContext.shouldAutoScroll) {
           currentStreamingContext.shouldAutoScroll = true;
           log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
@@ -403,10 +412,20 @@ export function restoreStreamingMessage(conversationId: string, content: string,
  * wheel/touchmove events which only fire on real user input.
  */
 function autoScrollForStreaming(): void {
-  if (!currentStreamingContext?.shouldAutoScroll) return;
+  if (!currentStreamingContext) return;
 
   const messagesContainer = getElementById('messages');
   if (!messagesContainer) return;
+
+  if (!currentStreamingContext.shouldAutoScroll) {
+    // Not following: once the reply runs past the screen, the scroll button
+    // becomes the "New messages" pill
+    if (!isScrolledToBottom(messagesContainer, SCROLL_BUTTON_SHOW_THRESHOLD_PX)) {
+      setStreamingPausedIndicator(true);
+      checkScrollButtonVisibility();
+    }
+    return;
+  }
 
   scrollToBottom(messagesContainer);
   markStreamFollowScroll(messagesContainer.scrollTop);

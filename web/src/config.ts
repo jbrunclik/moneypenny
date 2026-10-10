@@ -249,6 +249,21 @@ export const SCROLL_BUTTON_SHOW_THRESHOLD_PX = 200;
 export const RESPONSE_JUMP_MIN_VIEWPORT_RATIO = 0.9;
 
 /**
+ * Send-to-top: when the user's message is taller than the screen, scroll
+ * only far enough that this much of the reply below it stays in view.
+ */
+export const TURN_REPLY_MIN_VISIBLE_PX = 160;
+
+/**
+ * A paused stream resumes following only once the user is back within this
+ * distance of the real bottom. Tight on purpose: right after a send-to-top
+ * the view already sits at the (reserved) bottom, so the 200px follow
+ * threshold re-armed following on any small scroll and the view then chased
+ * the reply down.
+ */
+export const STREAMING_RESUME_THRESHOLD_PX = 16;
+
+/**
  * Minimum visualViewport overlap treated as an on-screen keyboard.
  * Filters out browser chrome show/hide and iOS accessory-bar-only changes.
  */

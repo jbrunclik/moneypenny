@@ -32,7 +32,14 @@ for (const streaming of [true, false]) {
       // Once answered, the claim links to the look-up's reply
       // The reply is finalized (a streaming bubble counts as .message.assistant too)
       await expect(page.locator('.message.assistant .grounding-footer')).toHaveCount(2, { timeout: 15000 });
-      await page.locator('.message.assistant .claim').first().click();
+      // Send-to-top scrolled the look-up's turn to the top, so the first
+      // reply's claim is above the screen. Bring it into view first: the card
+      // closes on list scroll, and the scroll a click triggers lands after it
+      // opens.
+      const firstClaim = page.locator('.message.assistant .claim').first();
+      await firstClaim.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await page.waitForTimeout(100);
+      await firstClaim.click();
       await page.locator('#claim-card .claim-card__reply').click();
       await expect(page.locator('.message.assistant').last()).toHaveClass(/message--flash/);
     });

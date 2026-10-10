@@ -28,7 +28,8 @@ import {
   addMessageToUI,
   lockOlderQuizBlocks,
 } from '../components/messages';
-import { getElementById, scrollToBottom } from '../utils/dom';
+import { getElementById, isScrolledToBottom } from '../utils/dom';
+import { programmaticScrollToBottom } from '../utils/thumbnails';
 import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
@@ -502,6 +503,8 @@ async function updateUIWithRecoveredMessage(
     // This happens when the context was cleaned up but the DOM element remains
     const container = getElementById<HTMLDivElement>('messages');
     if (container) {
+      // Measured before the recovered content changes the height
+      const wasAtBottom = isScrolledToBottom(container);
       // Try to find the element by ID first (most reliable), then fall back to class selectors
       // The ID is set on the streaming element when we receive expected_assistant_message_id
       const existingEl = (
@@ -536,8 +539,9 @@ async function updateUIWithRecoveredMessage(
         lockOlderQuizBlocks(container);
       }
 
-      // Scroll to show the message
-      scrollToBottom(container);
+      // Keep a reader who was at the bottom there; never yank one who
+      // scrolled up (the anchored send-to-top view included)
+      if (wasAtBottom) programmaticScrollToBottom(container);
 
       // Clean up streaming state
       cleanupStreamingContext();

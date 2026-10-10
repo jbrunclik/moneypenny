@@ -810,89 +810,21 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
   });
 });
 
-test.describe('Chat - End-of-stream repositioning', () => {
-  // A short viewport so a "taller than the viewport" answer needs few streamed
-  // tokens: the mock streams one 10ms token per WORD and re-renders the message
-  // on each, and the 400-line answer this used to send took webkit on a loaded
-  // CI runner longer than the assertion timeout to reach the end of the stream.
-  test.use({ viewport: { width: 1280, height: 520 } });
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
-    await page.click('#new-chat-btn');
-    await enableStreaming(page);
-  });
-
-  test.afterEach(async ({ page }) => {
-    await clearMockResponse(page);
-  });
-
-  test('long responses jump to the top of the message for read-from-start', async ({ page }) => {
-    // Response clearly taller than the (520px) viewport - the jump only
-    // happens above RESPONSE_JUMP_MIN_VIEWPORT_RATIO of it (~468px). Mock
-    // streaming drops the paragraph breaks (tokens are whitespace-split), so
-    // this renders as one wrapped paragraph whose height depends on the font:
-    // 80 sentences (~560px) sat under the cutoff when the web font was not yet
-    // loaded under full-suite load, so the page stayed at the bottom (offset
-    // 150 = 520 - ~370). 120 sentences (~840px) clears it either way.
-    const longResponse = Array.from(
-      { length: 120 },
-      (_, i) => `Line ${i + 1} of a long answer.`
-    ).join('\n\n');
-    await setMockResponse(page, longResponse);
-
-    await page.fill('#message-input', 'Tell me everything');
-    await page.click('#send-btn');
-    // The repositioning runs at the END of the stream, so wait for it to finish
-    const message = page.locator('.message.assistant');
-    await expect(message).toContainText('Line 120', { timeout: 20000 });
-    await expect(message).not.toHaveClass(/streaming/, { timeout: 20000 });
-
-    // Viewport should sit at (near) the top of the assistant message once the
-    // double-RAF repositioning has run
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() => {
-            const container = document.getElementById('messages')!;
-            const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
-            return Math.abs(
-              messageEl.getBoundingClientRect().top - container.getBoundingClientRect().top
-            );
-          }),
-        { timeout: 5000 }
-      )
-      .toBeLessThan(120);
-  });
-
-  test('short responses stay at the bottom instead of jumping', async ({ page }) => {
-    await setMockResponse(page, 'Short and sweet.');
-
-    await page.fill('#message-input', 'Quick question');
-    await page.click('#send-btn');
-    await expect(page.locator('.message.assistant')).toContainText('Short and sweet', { timeout: 20000 });
-
-    await page.waitForTimeout(300);
-
-    const distanceFromBottom = await page.evaluate(() => {
-      const container = document.getElementById('messages')!;
-      return container.scrollHeight - container.scrollTop - container.clientHeight;
-    });
-    expect(distanceFromBottom).toBeLessThan(50);
-  });
-});
-
-/** Gap between the floating header's bottom edge and the reply's top edge. */
-async function replyTopBelowHeader(
+/** Gap between the floating header's bottom edge and the latest user message's top. */
+async function turnTopBelowHeader(
   page: import('@playwright/test').Page,
   headerSelector: string
 ): Promise<number> {
   return page.evaluate((sel) => {
     const header = document.querySelector<HTMLElement>(sel)!;
-    const messageEl = document.querySelector<HTMLElement>('.message.assistant')!;
-    return messageEl.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
+    const turns = document.querySelectorAll<HTMLElement>('.message.user');
+    const turn = turns[turns.length - 1];
+    return turn.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
   }, headerSelector);
+}
+
+async function messagesScrollTop(page: import('@playwright/test').Page): Promise<number> {
+  return page.evaluate(() => document.getElementById('messages')!.scrollTop);
 }
 
 const LONG_RESPONSE = Array.from(
@@ -900,12 +832,15 @@ const LONG_RESPONSE = Array.from(
   (_, i) => `Line ${i + 1} of a long answer.`
 ).join('\n\n');
 
-// The header floats OVER the list (content scrolls under its blur), so the
-// read-from-start jump must land the reply below it, not at the list's top
-// edge - there its first line sat hidden under the header.
-test.describe('Chat - End-of-stream jump clears the floating header', () => {
+// Send-to-top (ChatGPT / Claude.ai): a new turn scrolls up so the user's
+// message sits just under the floating header, the reply grows below it and
+// the view does NOT chase it down - no jump when it finishes either. The
+// header floats over the list, so "under the header" must clear it, not sit
+// at the list's top edge (the first line used to hide under it).
+test.describe('Chat - Send-to-top', () => {
   test.afterEach(async ({ page }) => {
     await clearMockResponse(page);
+    await resetStreamDelay(page);
   });
 
   for (const layout of [
@@ -915,7 +850,8 @@ test.describe('Chat - End-of-stream jump clears the floating header', () => {
     test.describe(layout.name, () => {
       test.use({ viewport: layout.viewport });
 
-      test('the reply\'s first line lands below the header', async ({ page }) => {
+      test.beforeEach(async ({ page }) => {
+        await clearMockResponse(page);
         await page.goto('/');
         if (layout.name === 'phone') {
           await page.waitForSelector('#menu-btn');
@@ -923,17 +859,94 @@ test.describe('Chat - End-of-stream jump clears the floating header', () => {
         }
         await page.click('#new-chat-btn');
         await enableStreaming(page);
+      });
+
+      test('a long reply streams below the message without moving the view', async ({ page }) => {
+        // A first turn so the second has history to scroll past
         await setMockResponse(page, LONG_RESPONSE);
+        await page.fill('#message-input', 'First question');
+        await page.click('#send-btn');
+        await expect(page.locator('.message.assistant').last()).not.toHaveClass(/streaming/, { timeout: 20000 });
 
         await page.fill('#message-input', 'Tell me everything');
         await page.click('#send-btn');
-        const message = page.locator('.message.assistant');
-        await expect(message).toContainText('Line 120', { timeout: 20000 });
-        await expect(message).not.toHaveClass(/streaming/, { timeout: 20000 });
+        const reply = page.locator('.message.assistant').last();
+        await expect(reply).toContainText('Line 3', { timeout: 10000 });
 
-        // Jumped (not still at the bottom), and not under the header
-        await expect.poll(() => replyTopBelowHeader(page, layout.header), { timeout: 5000 }).toBeGreaterThanOrEqual(0);
-        expect(await replyTopBelowHeader(page, layout.header)).toBeLessThan(40);
+        // The new message glides to the top, clear of the header
+        await expect
+          .poll(async () => {
+            const gap = await turnTopBelowHeader(page, layout.header);
+            return gap >= 0 && gap < 40;
+          }, { timeout: 5000 })
+          .toBe(true);
+        await page.waitForTimeout(700); // the glide's last frames
+        const anchored = await messagesScrollTop(page);
+
+        // The reply outgrows the screen: the view stays, the pill offers the rest
+        await expect(page.locator('.scroll-to-bottom.streaming-paused')).toBeVisible({ timeout: 10000 });
+        expect(Math.abs((await messagesScrollTop(page)) - anchored)).toBeLessThan(2);
+
+        // ...and nothing moves when it finishes
+        await expect(reply).not.toHaveClass(/streaming/, { timeout: 20000 });
+        await page.waitForTimeout(300);
+        expect(Math.abs((await messagesScrollTop(page)) - anchored)).toBeLessThan(2);
+        expect(await turnTopBelowHeader(page, layout.header)).toBeGreaterThanOrEqual(0);
+        await expect(page.locator('.scroll-to-bottom')).toBeVisible();
+      });
+
+      test('a short reply in a new chat still puts the message at the top', async ({ page }) => {
+        await setMockResponse(page, 'Short and sweet.');
+        await page.fill('#message-input', 'Quick question');
+        await page.click('#send-btn');
+        const reply = page.locator('.message.assistant');
+        await expect(reply).toContainText('Short and sweet', { timeout: 10000 });
+        await expect(reply).not.toHaveClass(/streaming/, { timeout: 10000 });
+        await page.waitForTimeout(300);
+
+        const gap = await turnTopBelowHeader(page, layout.header);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(40);
+        await expect(reply).toBeInViewport();
+        await expect(page.locator('.scroll-to-bottom')).toBeHidden();
+      });
+
+      test('scrolling to the bottom mid-stream follows the reply again', async ({ page }) => {
+        await setMockResponse(page, LONG_RESPONSE);
+        await page.fill('#message-input', 'Tell me everything');
+        await page.click('#send-btn');
+        const pill = page.locator('.scroll-to-bottom.streaming-paused');
+        await expect(pill).toBeVisible({ timeout: 10000 });
+
+        await pill.click();
+        // Following: the view keeps up with the growing reply
+        await expect
+          .poll(
+            () =>
+              page.evaluate(() => {
+                const c = document.getElementById('messages')!;
+                return c.scrollHeight - c.scrollTop - c.clientHeight;
+              }),
+            { timeout: 5000 }
+          )
+          .toBeLessThan(50);
+        const before = await messagesScrollTop(page);
+        await expect.poll(() => messagesScrollTop(page), { timeout: 5000 }).toBeGreaterThan(before + 50);
+      });
+
+      test('a batch reply lands below the message at the top', async ({ page }) => {
+        // The phone hides the toolbar holding the toggle - press it directly
+        await page.evaluate(() => document.getElementById('stream-btn')!.click());
+        await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
+        await setMockResponse(page, LONG_RESPONSE);
+        await page.fill('#message-input', 'Tell me everything');
+        await page.click('#send-btn');
+        await expect(page.locator('.message.assistant')).toContainText('Line 120', { timeout: 20000 });
+        await page.waitForTimeout(300);
+
+        const gap = await turnTopBelowHeader(page, layout.header);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(40);
       });
     });
   }

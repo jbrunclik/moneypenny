@@ -5,6 +5,7 @@
 import { getElementById } from '../../utils/dom';
 import { programmaticScrollToBottom } from '../../utils/thumbnails';
 import { AI_AVATAR } from '../../utils/icons';
+import { anchorTurn } from './turn-anchor';
 
 /**
  * Show loading indicator in messages
@@ -26,8 +27,15 @@ export function showLoadingIndicator(): void {
       <span></span>
     </div>
   `;
+  // A turn awaiting its reply anchors to the top like a streamed one
+  // (send-to-top); the reply takes over the reserved space (batch-send.ts)
+  const previous = container.lastElementChild;
   container.appendChild(loading);
-  programmaticScrollToBottom(container);
+  if (previous instanceof HTMLElement && previous.matches('.message.user')) {
+    anchorTurn(container, previous, loading);
+  } else {
+    programmaticScrollToBottom(container);
+  }
 }
 
 /**

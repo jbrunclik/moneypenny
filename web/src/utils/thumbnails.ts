@@ -1,5 +1,5 @@
 import { files } from '../api/files';
-import { getElementById, scrollToBottom, scrollToElementTop, isScrolledToBottom, cancelSmoothScroll } from './dom';
+import { getElementById, scrollToBottom, scrollToElementTop, scrollToPosition, isScrolledToBottom, cancelSmoothScroll } from './dom';
 import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
@@ -248,6 +248,25 @@ export function programmaticScrollToElementTop(
         }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
     } else {
         // Instant scroll completes immediately
+        markProgrammaticScrollEnd();
+    }
+}
+
+/**
+ * Programmatic scroll to an absolute position (see programmaticScrollToElementTop).
+ */
+export function programmaticScrollToPosition(
+    container: HTMLElement,
+    targetTop: number,
+    smooth = true
+): void {
+    markProgrammaticScrollStart();
+    scrollToPosition(container, targetTop, smooth);
+    if (smooth) {
+        setTimeout(() => {
+            markProgrammaticScrollEnd();
+        }, SCROLL_SMOOTH_COMPLETION_DELAY_MS);
+    } else {
         markProgrammaticScrollEnd();
     }
 }

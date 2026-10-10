@@ -14,7 +14,7 @@
  * Click handlers are delegated from the #messages container in events.ts.
  */
 
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, prefersReducedMotion } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('QuizBlock');
@@ -230,7 +230,7 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
     if (el.classList.contains('quiz-multiple-choice')) {
       if (!el.querySelector('.quiz-option.selected')) {
         el.classList.add('quiz-incomplete');
-        el.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
         setTimeout(() => el.classList.remove('quiz-incomplete'), 1500);
         return;
       }
@@ -239,7 +239,7 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
       if (!input?.value?.trim()) {
         input?.focus();
         el.classList.add('quiz-incomplete');
-        el.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
         setTimeout(() => el.classList.remove('quiz-incomplete'), 1500);
         return;
       }
