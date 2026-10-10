@@ -137,7 +137,7 @@ def migrate_files_to_blob_store(conn):
         offset += batch_size
         print(f"  Processed {min(offset, total_messages)}/{total_messages} messages...")
 
-    print(f"Migration complete:")
+    print("Migration complete:")
     print(f"  - Migrated {migrated_files} files")
     print(f"  - Migrated {migrated_thumbnails} thumbnails")
     print(f"  - Skipped {skipped_files} files (already in blob store)")

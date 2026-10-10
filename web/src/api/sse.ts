@@ -99,15 +99,10 @@ export async function* readSseEvents(
         log.debug('Stream aborted by user', { conversationId });
         throw error;
       }
-      // Yield an error event for all ApiErrors for consistency with SSE error handling
-      if (error instanceof ApiError) {
-        yield {
-          type: 'error',
-          message: error.message,
-          code: error.code,
-          retryable: error.retryable,
-        } as StreamEvent;
-      }
+      // A read timeout (a silently dropped connection) is thrown as is, not
+      // turned into an `error` event: that event tore the reply bubble down,
+      // and the caller's journal resume then filled a detached element - the
+      // reply stayed invisible until a reload
       throw error;
     }
 }

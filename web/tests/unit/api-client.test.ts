@@ -412,56 +412,16 @@ describe('API Client', () => {
         });
 
         const generator = chat.stream('conv-1', 'Hi');
-        const nextPromise = generator.next();
+        // Throws straight away - no synthetic error event (that event tore the
+        // reply bubble down before the caller's resume could fill it)
+        const rejected = expect(generator.next()).rejects.toMatchObject({ code: 'TIMEOUT', isTimeout: true });
 
         // Advance past the STREAM_READ_TIMEOUT (60 seconds)
         await vi.advanceTimersByTimeAsync(60001);
-
-        // Should yield an error event first, then throw
-        const result = await nextPromise;
-        expect(result.value).toEqual(
-          expect.objectContaining({
-            type: 'error',
-            code: 'TIMEOUT',
-          })
-        );
+        await rejected;
 
         // Verify reader.cancel() was called
         expect(mockCancel).toHaveBeenCalled();
-
-        // Next iteration should throw
-        await expect(generator.next()).rejects.toThrow(ApiError);
-
-        vi.useRealTimers();
-      });
-
-      it('yields error event before throwing on stream timeout', async () => {
-        vi.useFakeTimers();
-
-        const mockCancel = vi.fn().mockResolvedValue(undefined);
-
-        global.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          status: 200,
-          body: {
-            getReader: () => ({
-              read: () => new Promise(() => {}), // Never resolves
-              cancel: mockCancel,
-            }),
-          },
-        });
-
-        const generator = chat.stream('conv-1', 'Hi');
-        const nextPromise = generator.next();
-
-        await vi.advanceTimersByTimeAsync(60001);
-
-        // First should yield error event
-        const errorEvent = await nextPromise;
-        expect(errorEvent.value?.type).toBe('error');
-        expect(errorEvent.value?.code).toBe('TIMEOUT');
-        expect(errorEvent.value?.retryable).toBe(false);
-        expect(errorEvent.done).toBe(false);
 
         vi.useRealTimers();
       });

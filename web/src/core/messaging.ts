@@ -311,7 +311,8 @@ async function sendNewMessage(
   conv: Conversation,
   messageText: string,
   files: FileUpload[],
-  forceTools: string[]
+  forceTools: string[],
+  releaseComposer: () => void
 ): Promise<void> {
   const entry = trackNewMessage(conv, messageText, files, forceTools);
 
@@ -321,6 +322,9 @@ async function sendNewMessage(
   clearPendingFiles();
   useStore.getState().setConversationDraft(conv.id, '');
   resetForceTools();
+  // The composer is consumed: the next send is a new message (a follow-up
+  // while this one streams steers it)
+  releaseComposer();
 
   await dispatchSend(conv.id, entry);
 }
@@ -342,10 +346,32 @@ export async function sendUiMessage(text: string, extras: SendExtras = {}): Prom
   return true;
 }
 
+// A send between reading the composer and clearing it (the awaits in
+// prepareConversationForSend: creating the conversation, unarchiving, loading
+// newer history). A second Enter / tap in that window read the same text and
+// sent it again - a duplicate message, or a second conversation.
+let sendPreparing = false;
+
 /**
  * Send a message.
  */
 export async function sendMessage(): Promise<void> {
+  if (sendPreparing) return;
+  sendPreparing = true;
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    sendPreparing = false;
+  };
+  try {
+    await sendMessageGuarded(release);
+  } finally {
+    release();
+  }
+}
+
+async function sendMessageGuarded(releaseComposer: () => void): Promise<void> {
   // Stop voice recording if active (prevents text from being re-added after send)
   stopVoiceRecording();
 
@@ -391,11 +417,12 @@ export async function sendMessage(): Promise<void> {
       toast.info('Please wait for the current response before sending attachments.');
       return;
     }
+    // (held until it returns: the interject clears the composer only then)
     await interjectIntoActiveTurn(conv.id, messageText);
     return;
   }
 
-  await sendNewMessage(conv, messageText, files, forceTools);
+  await sendNewMessage(conv, messageText, files, forceTools, releaseComposer);
 }
 
 /**

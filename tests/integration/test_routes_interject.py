@@ -365,3 +365,73 @@ class TestSendDuringAnotherDevicesTurn:
         assert data["content"] == "Here is the comparison"
         assert data["user_message_id"] == self.CLIENT_ID
         assert len(test_database.get_messages(test_conversation.id)) == 3
+
+
+class TestInterjectionClearedAtTurnEnd:
+    """Steering is consumed only between tool rounds. One that arrived after
+    the last round was never popped: its kv slot stayed until the
+    conversation's NEXT turn - forever for a deleted one (it showed up on
+    the Data page long after)."""
+
+    def test_stream_turn_end_clears_an_unconsumed_interjection(
+        self,
+        client: FlaskClient,  # patches the global db onto the test database
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        from src.agent.interjection import save_interjection
+        from src.api.helpers.chat_turn import TurnContext
+        from src.api.helpers.stream_producer import stream_events
+
+        saved: list[bool] = []
+
+        class _Agent:
+            def stream_chat_events(self, *args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Answer"}
+                # Arrives while the final answer streams: nothing pops it
+                save_interjection(test_user.id, test_conversation.id, "and the 2025 ones")
+                saved.append(True)
+                yield {"type": "token", "text": " done"}
+
+        q: Any = __import__("queue").Queue()
+        stream_events(
+            _Agent(),  # type: ignore[arg-type]
+            q,
+            {"ready": False, "saved": False},
+            TurnContext(
+                request_id="req-1",
+                conv_id=test_conversation.id,
+                user_id=test_user.id,
+                message_text="hello",
+                user_name="Alice",
+            ),
+        )
+
+        assert saved == [True]
+        assert test_database.kv_get(test_user.id, KV_NAMESPACE, test_conversation.id) is None
+
+    def test_batch_turn_end_clears_an_unconsumed_interjection(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        from src.agent.interjection import save_interjection
+
+        def _chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
+            save_interjection(test_user.id, test_conversation.id, "and the 2025 ones")
+            return ("Answer", [], {"input_tokens": 1, "output_tokens": 1}, [])
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent_class.return_value.chat_batch.side_effect = _chat_batch
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Compare the plans"},
+            )
+
+        assert response.status_code == 200
+        assert test_database.kv_get(test_user.id, KV_NAMESPACE, test_conversation.id) is None

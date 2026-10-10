@@ -25,7 +25,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { notifyTurnFinished } from './attention';
-import { trackRequest, untrackRequest } from './active-requests';
+import { hasTrackedRequestFor, trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { scrollToBatchReply, settleAnchoredReply } from './response-scroll';
 import { isTurnAnchored, reserveTurnSpace, settleTurnFor } from '../components/messages/turn-anchor';
@@ -240,15 +240,17 @@ export async function sendBatchMessage(
     // Propagate: handleSendFailure decides between auto-retry and failed state
     throw error;
   } finally {
-    // A failed turn ends here too (no-op after completeBatchTurn)
-    getSyncManager()?.setConversationStreaming(convId, false);
-    settleTurnFor(convId);
-    // Clean up request tracking
     untrackRequest(requestId);
-    // Remove active request from store
-    useStore.getState().removeActiveRequest(convId);
-    // Ensure upload progress is hidden (safety net)
-    hideUploadProgress();
-    useStore.getState().setUploadProgress(null);
+    // A newer turn already started in this conversation (a follow-up sent
+    // during the cost fetch above): the per-conversation state is its now
+    if (!hasTrackedRequestFor(convId)) {
+      // A failed turn ends here too (no-op after completeBatchTurn)
+      getSyncManager()?.setConversationStreaming(convId, false);
+      settleTurnFor(convId);
+      useStore.getState().removeActiveRequest(convId);
+      // Ensure upload progress is hidden (safety net)
+      hideUploadProgress();
+      useStore.getState().setUploadProgress(null);
+    }
   }
 }

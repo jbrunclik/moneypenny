@@ -510,11 +510,11 @@ async function updateUIWithRecoveredMessage(
 
     // Clean up streaming context
     settleTurnFor(convId);
-    cleanupStreamingContext();
+    cleanupStreamingContext(convId);
 
     // Update streaming state
     const store = useStore.getState();
-    store.setStreamingConversation(null);
+    if (store.streamingConversationId === convId) store.setStreamingConversation(null);
     store.removeActiveRequest(convId);
     getSyncManager()?.setConversationStreaming(convId, false);
 
@@ -580,9 +580,9 @@ async function updateUIWithRecoveredMessage(
 
       // Clean up streaming state
       settleTurnFor(convId);
-    cleanupStreamingContext();
+    cleanupStreamingContext(convId);
       const store = useStore.getState();
-      store.setStreamingConversation(null);
+      if (store.streamingConversationId === convId) store.setStreamingConversation(null);
       store.removeActiveRequest(convId);
       getSyncManager()?.setConversationStreaming(convId, false);
 
@@ -622,9 +622,9 @@ function markStreamingMessageAsIncomplete(convId: string): void {
 
   // Clean up streaming state
   settleTurnFor(convId);
-    cleanupStreamingContext();
+    cleanupStreamingContext(convId);
   const store = useStore.getState();
-  store.setStreamingConversation(null);
+  if (store.streamingConversationId === convId) store.setStreamingConversation(null);
   store.removeActiveRequest(convId);
   getSyncManager()?.setConversationStreaming(convId, false);
 }

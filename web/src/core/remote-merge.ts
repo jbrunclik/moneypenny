@@ -97,6 +97,15 @@ async function mergeOnce(convId: string): Promise<void> {
     if (isLocalOnly(m) && serverIds.has(m.id)) confirmDelivery(convId, m.id);
   }
 
+  // A reply bubble left incomplete here (a stop whose done never came, a
+  // recovery that gave up with partial text) has the reply's id but isn't in
+  // the store: drop it so the server's saved version renders in its place
+  for (const el of container.querySelectorAll<HTMLElement>('.message.message-incomplete[data-message-id]')) {
+    const id = el.dataset.messageId;
+    const saved = id !== undefined && !localById.has(id) ? server.find((m) => m.id === id) : undefined;
+    if (saved && saved.content !== '') el.remove();
+  }
+
   const rendered = new Set(
     [...container.querySelectorAll<HTMLElement>('.message[data-message-id]')].map((el) => el.dataset.messageId)
   );

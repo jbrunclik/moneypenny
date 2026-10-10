@@ -25,6 +25,7 @@ from src.agent.cancellation import (
 )
 from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.deep_research.pipeline import run_deep_research
+from src.agent.interjection import clear_interjection
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
@@ -292,6 +293,8 @@ def stream_events(
         unregister_token(turn.request_id)
         clear_stop_request(user_id, conv_id, stop_key)
         clear_finish_request(user_id, conv_id, stop_key)
+        # Steering that arrived after the last tool round was never popped
+        clear_interjection(user_id, conv_id)
         if journal:
             journal.finish()
         # Close thread-local DB connections so the pool doesn't leak them

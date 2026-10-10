@@ -12,6 +12,7 @@ import json
 
 from yoyo import step
 
+
 def migrate_content_to_files(conn):
     """Extract files from JSON content and move to files column."""
     cursor = conn.cursor()

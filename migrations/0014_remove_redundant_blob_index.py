@@ -6,7 +6,6 @@ a B-tree index that SQLite uses for both exact matches and LIKE prefix queries.
 """
 
 import sqlite3
-from pathlib import Path
 
 from yoyo import step
 

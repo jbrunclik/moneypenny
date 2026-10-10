@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 def detect_message_languages(conn):
     """Detect language for existing assistant messages."""
     try:
-        from langdetect import detect, LangDetectException
+        from langdetect import LangDetectException, detect
     except ImportError:
         print("Warning: langdetect not installed. Run 'pip install langdetect' first.")
         print("Skipping language detection - you can re-run this migration later.")
@@ -86,7 +86,7 @@ def detect_message_languages(conn):
         offset += batch_size
         print(f"  Processed {min(offset, total_messages)}/{total_messages} messages...")
 
-    print(f"Language detection complete:")
+    print("Language detection complete:")
     print(f"  - Detected language for {detected_count} messages")
     print(f"  - Failed to detect for {failed_count} messages")
 

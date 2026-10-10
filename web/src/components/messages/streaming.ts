@@ -297,7 +297,13 @@ function setupStreamingScrollListener(container: HTMLElement): void {
  * Clean up streaming context and scroll listener.
  * Called when streaming ends (success or error).
  */
-export function cleanupStreamingContext(): void {
+export function cleanupStreamingContext(conversationId?: string): void {
+  // A turn ending in another conversation (a background stream finishing)
+  // must not tear down the live reply on screen: its thinking, tool and
+  // autoscroll updates all go through this context
+  if (conversationId !== undefined && currentStreamingContext && currentStreamingContext.conversationId !== conversationId) {
+    return;
+  }
   if (currentStreamingContext) {
     if (currentStreamingContext.scrollListenerCleanup) {
       currentStreamingContext.scrollListenerCleanup();

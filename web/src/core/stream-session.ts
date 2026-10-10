@@ -185,7 +185,7 @@ export function cleanupStreamingRequest(
 
   // However the turn ended, its reserved send-to-top space goes back
   settleTurnFor(convId);
-  cleanupStreamingContext();
+  cleanupStreamingContext(convId);
   useStore.getState().removeActiveRequest(convId);
 
   hideUploadProgress();

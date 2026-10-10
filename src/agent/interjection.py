@@ -10,9 +10,11 @@ kv_store is the carrier because the interject POST may land on a different
 gunicorn worker than the one running the stream - the DB is the only
 bridge (module-level state does not cross workers). Keyed by conversation
 id: the frontend's double-send guard allows exactly one active request per
-conversation, so the key is unambiguous. Entries are popped on consumption
-and cleared at turn end, so a missed interjection cannot bleed into a
-later turn.
+conversation, so the key is unambiguous. Entries are popped on consumption,
+cleared when a turn starts (a missed one cannot bleed into the next turn)
+and when it ends (the stream producer's / batch route's finally): steering
+that arrived after the last tool round used to sit in the store until the
+conversation's next turn - forever for a deleted conversation.
 """
 
 from src.db.models import db

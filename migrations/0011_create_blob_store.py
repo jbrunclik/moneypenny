@@ -10,7 +10,6 @@ migration ensures the database file exists and is properly initialized during
 the standard migration process.
 """
 
-from pathlib import Path
 
 from yoyo import step
 

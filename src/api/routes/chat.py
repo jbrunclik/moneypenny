@@ -12,6 +12,7 @@ from apiflask import APIBlueprint
 from flask import Response, request
 
 from src.agent.cancellation import request_finish_now, request_stop
+from src.agent.interjection import clear_interjection
 from src.api.errors import (
     raise_llm_error,
     raise_not_found_error,
@@ -115,6 +116,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         _raise_chat_error(e)
     finally:
         ctx.clear()
+        # Steering that arrived after the last tool round was never popped
+        clear_interjection(user.id, conv_id)
 
     assistant_msg = db.get_message_by_id(saved.message_id) if saved else None
     if saved is None or assistant_msg is None:
