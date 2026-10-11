@@ -26,6 +26,7 @@ vi.mock('@/components/messages', () => ({
   addMessageToUI: vi.fn(),
   showLoadingIndicator: vi.fn(),
   hideLoadingIndicator: vi.fn(),
+  revealLoadingIndicator: vi.fn(),
   updateUserMessageId: vi.fn(),
 }));
 vi.mock('@/components/ScrollToBottom', () => ({ checkScrollButtonVisibility: vi.fn() }));

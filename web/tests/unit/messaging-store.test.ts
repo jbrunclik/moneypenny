@@ -58,6 +58,7 @@ vi.mock('@/components/messages', () => ({
   getStreamingMessageElement: vi.fn(() => null),
   showLoadingIndicator: vi.fn(),
   hideLoadingIndicator: vi.fn(),
+  revealLoadingIndicator: vi.fn(),
   updateUserMessageId: vi.fn(),
   loadAllRemainingNewerMessages: vi.fn(),
   cleanupNewerMessagesScrollListener: vi.fn(),

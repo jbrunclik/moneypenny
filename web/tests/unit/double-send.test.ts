@@ -28,6 +28,7 @@ vi.mock('@/components/Sidebar', () => ({ renderConversationsList: vi.fn(), setAc
 vi.mock('@/components/messages', () => ({
   addMessageToUI: vi.fn(),
   hideLoadingIndicator: vi.fn(),
+  revealLoadingIndicator: vi.fn(),
   hasPendingApproval: vi.fn(() => false),
   loadAllRemainingNewerMessages: vi.fn(),
   cleanupNewerMessagesScrollListener: vi.fn(),

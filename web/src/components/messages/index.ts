@@ -44,6 +44,7 @@ export {
 export {
   showLoadingIndicator,
   hideLoadingIndicator,
+  revealLoadingIndicator,
   showConversationLoader,
   hideConversationLoader,
 } from './loading';

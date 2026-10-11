@@ -990,18 +990,28 @@ test.describe('Chat - Send-to-top', () => {
         await expect(page.locator('.scroll-to-bottom')).toBeVisible();
       });
 
-      test('a message with an attachment glides to the top too, while it uploads', async ({ page }) => {
+      for (const mode of [
+        { name: 'streamed', endpoint: '**/chat/stream' },
+        // Batch showed no loader while uploading, so it never anchored
+        { name: 'batch', endpoint: '**/chat/batch' },
+      ]) {
+      test(`a ${mode.name} message with an attachment glides to the top too, while it uploads`, async ({ page }) => {
         // The reply bubble is hidden until the server acks the upload; it was
         // display:none, which dropped the room reserved under the turn - the
         // glide clamped at the bottom and the message stayed there (device)
+        if (mode.name === 'batch') {
+          // The phone hides the toolbar holding the toggle - press it directly
+          await page.evaluate(() => document.getElementById('stream-btn')!.click());
+          await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
+        }
         await setMockResponse(page, LONG_RESPONSE);
         await page.fill('#message-input', 'First question');
         await page.click('#send-btn');
-        await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
+        await expect(page.locator('.message.assistant')).toContainText('Line 120', { timeout: 20000 });
 
         let release!: () => void;
         const uploaded = new Promise<void>((resolve) => (release = resolve));
-        await page.route('**/chat/stream', async (route) => {
+        await page.route(mode.endpoint, async (route) => {
           await uploaded;
           await route.continue();
         });
@@ -1031,6 +1041,43 @@ test.describe('Chat - Send-to-top', () => {
         await page.waitForTimeout(300);
         const gap = await turnTopBelowHeader(page, layout.header);
         expect(gap >= 0 && gap < 40).toBe(true);
+      });
+      }
+
+      test('the batch loader stays hidden while an attachment uploads, then shows', async ({ page }) => {
+        await page.evaluate(() => document.getElementById('stream-btn')!.click());
+        await expect(page.locator('#stream-btn')).toHaveAttribute('aria-pressed', 'false');
+        await setMockResponse(page, 'Got it.');
+        // The loader's states as they happen (the upload is over in a blink)
+        await page.evaluate(() => {
+          const states: string[] = [];
+          (window as unknown as { loaderStates: string[] }).loaderStates = states;
+          new MutationObserver(() => {
+            const loader = document.querySelector('.message-loading');
+            const state = loader ? loader.className : 'gone';
+            if (states.at(-1) !== state) states.push(state);
+          }).observe(document.getElementById('messages')!, { subtree: true, attributes: true, childList: true });
+        });
+        const chooser = page.waitForEvent('filechooser');
+        await page.click('#attach-btn');
+        await (await chooser).setFiles({
+          name: 'key.png',
+          mimeType: 'image/png',
+          buffer: Buffer.concat([
+            Buffer.from(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+              'base64'
+            ),
+            Buffer.alloc(300_000),
+          ]),
+        });
+        await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 3000 });
+        await page.fill('#message-input', 'Look at this');
+        await page.click('#send-btn');
+        await expect(page.locator('.message.assistant').last()).toContainText('Got it.', { timeout: 10000 });
+
+        const states = await page.evaluate(() => (window as unknown as { loaderStates: string[] }).loaderStates);
+        expect(states).toEqual(['message-loading awaiting-upload', 'message-loading', 'gone']);
       });
 
       test('a short reply streams under the message at the top, then settles without empty space', async ({

@@ -301,6 +301,8 @@ function requestWithProgress<T>(
           onUploadProgress(progress);
         }
       };
+      // The body is sent: progress events alone may never reach 100%
+      xhr.upload.onload = () => onUploadProgress(100);
     }
 
     xhr.onload = () => {

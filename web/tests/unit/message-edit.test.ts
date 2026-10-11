@@ -17,6 +17,7 @@ vi.mock('@/components/Toast', () => ({
 }));
 vi.mock('@/components/messages', () => ({
   hideLoadingIndicator: vi.fn(),
+  revealLoadingIndicator: vi.fn(),
   removeRenderedMessagesFrom: vi.fn(),
 }));
 const edit = { save: (_text: string): void => {} };

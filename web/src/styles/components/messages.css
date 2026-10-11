@@ -639,7 +639,8 @@
    display:none: the bubble carries the room reserved under the turn for
    send-to-top - without its box the glide clamped at the bottom and a
    message with an attachment stayed there */
-.message.assistant.awaiting-upload {
+.message.assistant.awaiting-upload,
+.message-loading.awaiting-upload {
     visibility: hidden;
 }
 

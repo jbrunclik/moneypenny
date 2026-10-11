@@ -10,6 +10,7 @@ import {
   addMessageToUI,
   showLoadingIndicator,
   hideLoadingIndicator,
+  revealLoadingIndicator,
   updateUserMessageId,
 } from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
@@ -57,12 +58,11 @@ function beginBatchRequest(convId: string, requestId: string, hasFiles: boolean)
     type: 'batch',
   });
 
-  // Show upload progress for requests with files
-  if (hasFiles) {
-    showUploadProgress();
-  } else {
-    showLoadingIndicator();
-  }
+  // The loader anchors the turn (send-to-top) with or without files, as a
+  // streamed turn's bubble does; while files upload it stays invisible and
+  // the send button shows the progress
+  if (hasFiles) showUploadProgress();
+  showLoadingIndicator(hasFiles);
 }
 
 function toAssistantMessage(response: ChatResponse): Message {
@@ -200,6 +200,7 @@ export async function sendBatchMessage(
     const onUploadProgress = hasFiles ? (progress: number) => {
       updateUploadProgress(progress);
       useStore.getState().setUploadProgress(progress);
+      if (progress >= 100) revealLoadingIndicator();
     } : undefined;
 
     // Awaited after the loading indicator is up (beginBatchRequest)

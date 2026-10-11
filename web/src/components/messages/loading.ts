@@ -9,8 +9,11 @@ import { anchorTurn } from './turn-anchor';
 
 /**
  * Show loading indicator in messages
+ * @param awaitingUpload - Attachments are still uploading: the loader is
+ *   invisible (but keeps its box - the reserved send-to-top space) until
+ *   revealLoadingIndicator(), like the streamed bubble's `awaiting-upload`
  */
-export function showLoadingIndicator(): void {
+export function showLoadingIndicator(awaitingUpload = false): void {
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
 
@@ -19,6 +22,7 @@ export function showLoadingIndicator(): void {
 
   const loading = document.createElement('div');
   loading.className = 'message-loading';
+  loading.classList.toggle('awaiting-upload', awaitingUpload);
   loading.innerHTML = `
     <div class="message-avatar">${AI_AVATAR}</div>
     <div class="loading-dots">
@@ -36,6 +40,11 @@ export function showLoadingIndicator(): void {
   } else {
     programmaticScrollToBottom(container);
   }
+}
+
+/** The upload is done and the server is working: show the loader's dots. */
+export function revealLoadingIndicator(): void {
+  document.querySelector('.message-loading')?.classList.remove('awaiting-upload');
 }
 
 /**
