@@ -1,7 +1,20 @@
 /**
  * E2E tests for mobile-specific functionality
  */
+import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
+
+/**
+ * Open the sidebar and wait until its slide-in has finished. The row actions
+ * are force-clicked at a point computed once; mid-slide (Playwright's
+ * stability check passed on a loaded machine) the Delete click landed on the
+ * Archive button next to where Delete would come to rest.
+ */
+async function openSidebar(page: Page, options: { force?: boolean } = {}): Promise<void> {
+  await page.click('#menu-btn', options);
+  await expect(page.locator('#sidebar')).toHaveClass(/open/);
+  await page.waitForFunction(() => document.getElementById('sidebar')?.getAnimations().length === 0);
+}
 
 // iPhone viewport
 test.describe('Mobile - iPhone', () => {
@@ -22,7 +35,7 @@ test.describe('Mobile - iPhone', () => {
     await expect(chip).not.toHaveText('', { timeout: 10000 });
 
     // Delete the conversation from the sidebar
-    await page.click('#menu-btn');
+    await openSidebar(page);
     await page.locator('.conversation-item-wrapper').first().hover();
     page.once('dialog', (d) => void d.accept());
     await page.locator('[data-delete-id]').first().click({ force: true });
@@ -43,14 +56,14 @@ test.describe('Mobile - iPhone', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
 
-    await page.click('#menu-btn');
+    await openSidebar(page);
     await page.locator('.conversation-item-wrapper').first().hover();
     await page.locator('[data-delete-id]').first().click({ force: true });
     await page.locator('.modal-container:not(.modal-hidden) .modal-confirm').click();
     await expect(page.locator('.conversation-item-wrapper[data-conv-id]')).toHaveCount(0);
 
     await page.goto('/#/trash');
-    await page.click('#menu-btn', { force: true });
+    await openSidebar(page, { force: true });
     const row = page.locator('.conversation-item-wrapper[data-trash-id]');
     await expect(row).toHaveCount(1, { timeout: 20000 });
     // Swipe actions only show on (hover: none) touch devices; this viewport

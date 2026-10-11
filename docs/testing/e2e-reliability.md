@@ -178,6 +178,15 @@ by guessing):
   around these animations (pagination re-anchoring, the scroll-to-bottom
   button after loading remaining messages) - "any deviation cancels" broke
   those flows on both browsers.
+- **A forced click into a sidebar still sliding in** (Oct 2026, mobile.spec
+  trash restore, ~1-3% under load). The test opened the mobile sidebar,
+  hovered a row and force-clicked its Delete button; the trace showed hover
+  reporting "stable" 130ms into the 300ms slide and the forced click landing
+  where Delete was mid-slide - on the Archive button once the sidebar came to
+  rest - so the confirm modal never opened. `force` skips every check at
+  click time; wait for the motion to end first (`openSidebar` in
+  mobile.spec waits for `#sidebar.getAnimations()` to drain, like
+  `clickStop` does for the composer).
 - **A test whose premise wasn't true** - conversation.spec:797 ("user scrolled
   up, image loads, don't yank") sent five one-word exchanges that on WebKit
   did not overflow the viewport, so the "scroll to the top" was a 0 -> 0
