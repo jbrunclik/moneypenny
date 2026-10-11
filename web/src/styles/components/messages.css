@@ -1140,6 +1140,14 @@ a.document-name:hover {
     margin: var(--space-3) 0;
 }
 
+/* Wide display math scrolls on its own; KaTeX leaves it overflowing, and
+   .messages clips overflow-x, so on mobile it was cut off (Oct 2026) */
+.message-content .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
 .message-content-scroll-wrapper > table,
 .message-content-scroll-wrapper > pre {
     margin: 0;
