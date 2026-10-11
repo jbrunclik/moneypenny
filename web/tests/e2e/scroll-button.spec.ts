@@ -101,3 +101,35 @@ test('the button appears when content grows below without a scroll', async ({ pa
 
   await expect(page.locator('.scroll-to-bottom')).toBeVisible({ timeout: 2000 });
 });
+
+test('the button does not blink just above the bottom threshold', async ({ page, request }) => {
+  // Oct 11 2026 (iPhone): the button blinked at frame rate. It is an in-flow
+  // sibling of the list (sticky, margin-top -52px), so showing it changed the
+  // list's height by ~16px; parked 200-216px from the bottom, showing it put
+  // the list "at the bottom", hiding it put it back above - every frame.
+  const messages = Array.from({ length: 40 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    content: `Message ${i + 1} ` + 'lorem ipsum '.repeat(30),
+  }));
+  await request.post('/test/seed', { data: { conversations: [{ title: 'Long', messages }] } });
+  await page.goto('/');
+  await page.click('#menu-btn');
+  await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
+  await page.waitForTimeout(800);
+  await expect(page.locator('.scroll-to-bottom')).toBeHidden();
+
+  const toggles = await page.evaluate(async () => {
+    const list = document.getElementById('messages')!;
+    const button = document.querySelector('.scroll-to-bottom')!;
+    // 205px above the bottom as measured with the button hidden
+    list.scrollTop = list.scrollHeight - list.clientHeight - 205;
+    await new Promise((r) => setTimeout(r, 300));
+    let count = 0;
+    const observer = new MutationObserver(() => count++);
+    observer.observe(button, { attributes: true, attributeFilter: ['class'] });
+    await new Promise((r) => setTimeout(r, 1000));
+    observer.disconnect();
+    return count;
+  });
+  expect(toggles).toBeLessThanOrEqual(1);
+});

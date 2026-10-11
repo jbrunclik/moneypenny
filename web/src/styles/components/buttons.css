@@ -422,6 +422,12 @@
     z-index: 20;
     opacity: 1;
     margin-top: -52px;
+    /* Net layout footprint 0 (36px tall, -52px top): the button is an in-flow
+       sibling of the list and .hidden is display: none, so a footprint made
+       showing it change the list's height (~16px). Parked just above the show
+       threshold, showing it put the list "at the bottom" and hiding it put it
+       back - every frame (it blinked, Oct 11 2026). */
+    margin-bottom: 16px;
     align-self: center;
     flex-shrink: 0;
 }
