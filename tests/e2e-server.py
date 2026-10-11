@@ -138,6 +138,10 @@ DEFAULT_CONFIG = {
     # fake pipeline's delay between scripted steps
     "deep_research_offer": None,
     "deep_research_step_ms": 150,
+    # Artifact for the next streamed turn (one-shot): {title, html} creates one,
+    # {html, update: true} adds a version to the conversation's last artifact
+    "artifact_next": None,
+    "last_artifact_id": None,
     "search_results": None,
     "search_total": 0,
     # Planner mock config
@@ -417,6 +421,42 @@ def create_mock_stream_chat() -> Any:
     return mock_stream_chat
 
 
+def _mock_artifact_turn(
+    user_id: str | None, conversation_id: str | None
+) -> tuple[dict[str, Any] | None, list[Any]]:
+    """Run the real artifact tool for the canned artifact (one-shot): the
+    `artifact` event and the turn's result messages, as the real stream has."""
+    spec = MOCK_CONFIG.get("artifact_next")
+    if not spec or not user_id or not conversation_id:
+        return None, []
+    MOCK_CONFIG["artifact_next"] = None
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    from src.agent.artifact_refs import artifact_ref_from_tool_content
+    from src.agent.tools.artifacts import create_artifact, update_artifact
+    from src.agent.tools.context import set_conversation_context
+
+    set_conversation_context(conversation_id, user_id)
+    if spec.get("update"):
+        name, args = (
+            "update_artifact",
+            {"artifact_id": MOCK_CONFIG.get("last_artifact_id"), "html": spec["html"]},
+        )
+        content = update_artifact.invoke(args)
+    else:
+        name, args = "create_artifact", {"title": spec["title"], "html": spec["html"]}
+        content = create_artifact.invoke(args)
+    ref = artifact_ref_from_tool_content(name, content)
+    if ref:
+        MOCK_CONFIG["last_artifact_id"] = ref["id"]
+    call = {"name": name, "args": args, "id": "call-art"}
+    messages = [
+        AIMessage(content="", tool_calls=[call]),
+        ToolMessage(name=name, content=content, tool_call_id="call-art"),
+    ]
+    return ({"type": "artifact", **ref} if ref else None), messages
+
+
 def create_mock_stream_chat_events() -> Any:
     """Create a mock stream_chat_events method that yields structured events.
 
@@ -492,6 +532,10 @@ def create_mock_stream_chat_events() -> Any:
                 time.sleep(delay_s * 2)  # Simulate tool execution
                 yield {"type": "tool_end", "tool": tool}
 
+        artifact_event, artifact_messages = _mock_artifact_turn(user_id, conversation_id)
+        if artifact_event:
+            yield artifact_event
+
         # Stream tokens word-by-word; honour server-side Stop like the real
         # stream_chat_events (checked per chunk, partial text is the reply)
         from src.agent.cancellation import STOP_REASON_USER, is_cancelled
@@ -531,6 +575,8 @@ def create_mock_stream_chat_events() -> Any:
         }
         if stop_reason:
             final["stop_reason"] = stop_reason
+        if artifact_messages:
+            final["result_messages"] = artifact_messages
         offer_args = MOCK_CONFIG.get("deep_research_offer")
         if offer_args:
             # The agent proposed deep research this turn (one-shot)
@@ -1145,6 +1191,15 @@ def main() -> None:
             MOCK_CONFIG["deep_research_offer"] = data.get("offer")
             if "step_ms" in data:
                 MOCK_CONFIG["deep_research_step_ms"] = float(data["step_ms"])
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/set-artifact", methods=["POST"])
+        def set_artifact() -> tuple[dict[str, Any], int]:
+            """The next streamed turn makes an artifact through the real tool:
+            {title, html} creates one, {html, update: true} adds a version."""
+            from flask import request
+
+            MOCK_CONFIG["artifact_next"] = request.get_json(silent=True) or None
             return {"status": "set"}, 200
 
         @test_bp.route("/test/set-search-results", methods=["POST"])

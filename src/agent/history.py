@@ -36,6 +36,7 @@ class MessageMetadata(TypedDict, total=False):
     tool_outputs: str | None  # 'garmin_connect({...}) -> {...}; ...' - non-web tool results
     grounding: str | None  # "unsourced: X (reason); ..." - claims not to repeat as fact
     research: str | None  # "deep research round N: q1; q2" - this reply is a research report
+    artifacts: str | None  # "<id> v<n> '<title>'; ..." - artifacts shown under this reply
 
 
 class EnrichedMessage(TypedDict):
@@ -315,6 +316,11 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
             tool_digest = format_tool_digest(msg.sources)
             if tool_digest:
                 metadata["tool_digest"] = tool_digest
+
+            if msg.artifacts:
+                metadata["artifacts"] = "; ".join(
+                    f"{a['id']} v{a['version']} '{a['title']}'" for a in msg.artifacts
+                )
 
             run = (msg.research or {}).get("run")
             if run:

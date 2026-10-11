@@ -61,6 +61,8 @@ FORWARDED_EVENT_TYPES = (
     "research_sources",
     "research_writing",
     "research_tick",
+    # An artifact version is ready under the reply (journaled for resume)
+    "artifact",
 )
 
 

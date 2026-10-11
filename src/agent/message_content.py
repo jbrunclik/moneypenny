@@ -155,6 +155,9 @@ def format_message_with_metadata(msg: dict[str, Any]) -> str:
     # The reply is a deep-research report: follow-ups can use it as is
     if metadata.get("research"):
         meta_dict["research"] = metadata["research"]
+    # Artifacts under this reply: update_artifact / read_artifact take these ids
+    if metadata.get("artifacts"):
+        meta_dict["artifacts"] = metadata["artifacts"]
 
     # Return with metadata block if we have any metadata
     # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing

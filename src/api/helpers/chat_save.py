@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.agent.artifact_refs import extract_artifact_refs
 from src.agent.cancellation import STOPPED_EMPTY_TEXT
 from src.agent.content import (
     detect_response_language,
@@ -134,6 +135,7 @@ def _persist_assistant_message(
     stop_reason: str | None = None,
     grounding: dict[str, Any] | None = None,
     research: dict[str, Any] | None = None,
+    artifacts: list[dict[str, Any]] | None = None,
 ) -> Any:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent.
 
@@ -154,6 +156,7 @@ def _persist_assistant_message(
         "annotations": (grounding or {}).get("annotations"),
         "grounding": (grounding or {}).get("summary"),
         "research": research,
+        "artifacts": artifacts or None,
     }
     if assistant_message_id:
         assistant_msg = db.update_message_content(assistant_message_id, content, **kwargs)
@@ -359,6 +362,7 @@ def save_message_to_db(
         if stop_reason and not content.strip():
             content = STOPPED_EMPTY_TEXT
         research = _research_for_turn(conv_id, user_id, result_messages, usage, message_text)
+        artifacts = extract_artifact_refs(result_messages)
         if usage.get("research_sources") is not None:
             # A deep-research report cites the run's merged pages, not tool calls
             sources = usage["research_sources"]
@@ -375,7 +379,10 @@ def save_message_to_db(
             stop_reason,
             usage.get("grounding"),
             research,
+            artifacts,
         )
+        # The versions follow this reply (cleanup on delete/regenerate)
+        db.link_artifact_versions(assistant_msg.id, [(a["id"], a["version"]) for a in artifacts])
 
         # Calculate and save cost for streaming (use full_tool_results for image cost)
         cost_usd = calculate_and_save_message_cost(

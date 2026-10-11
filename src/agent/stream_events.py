@@ -14,6 +14,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessageChunk, BaseMessage, ToolMessage
 
+from src.agent.artifact_refs import artifact_ref_from_tool_content
 from src.agent.content import (
     clean_tool_call_json,
     extract_text_content,
@@ -173,6 +174,10 @@ class StreamEventProcessor:
             self.pending_tool_calls.discard(tool_call_id)
             if tool_name:
                 yield {"type": "tool_end", "tool": tool_name}
+            # An artifact version is ready: the client places its frame now
+            ref = artifact_ref_from_tool_content(tool_name, message_chunk.content)
+            if ref:
+                yield {"type": "artifact", **ref}
 
     def _ai_chunk(
         self, message_chunk: AIMessageChunk, source_node: str

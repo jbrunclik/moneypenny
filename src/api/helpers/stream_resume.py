@@ -44,6 +44,8 @@ _JOURNALED_EVENT_TYPES = {
     "research_sources",
     "research_writing",
     "research_tick",
+    # A frame placed mid-turn reappears on resume
+    "artifact",
 }
 
 

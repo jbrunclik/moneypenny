@@ -5419,6 +5419,7 @@ export interface paths {
          *     - `tool_start`: Tool starting - `{"type": "tool_start", "tool": "web_search", "detail": "..."}`
          *     - `tool_end`: Tool completed - `{"type": "tool_end", "tool": "web_search"}`
          *     - `token`: Content token - `{"type": "token", "text": "..."}`
+         *     - `artifact`: An artifact version is ready under the reply - `{"type": "artifact", "id": "...", "version": 1, "title": "..."}`
          *     - `error`: Error occurred - `{"type": "error", "message": "...", "code": "...", "retryable": bool}`
          *     - `done`: Stream complete with metadata - `{"type": "done", "id": "...", "created_at": "...", ...}`
          *     - `interjected`: Another device's turn was running in this conversation: the (plain text)
