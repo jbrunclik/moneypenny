@@ -1,0 +1,68 @@
+<div class="mp-card mp-stack">
+  <div class="mp-hero">
+    <span class="mp-chip">Recipe · 45 min</span>
+    <h2>Svíčková for four</h2>
+    <p class="mp-muted">Slow-braised beef in a creamy root-vegetable sauce.</p>
+    <div class="mp-row">
+      <button id="scale">Scale to 6</button>
+      <button class="secondary" id="more">More like this</button>
+    </div>
+  </div>
+  <div class="mp-grid">
+    <div class="mp-stat"><span>Servings</span><strong id="servings">4</strong></div>
+    <div class="mp-stat"><span>Prep</span><strong>20 min</strong></div>
+    <div class="mp-stat"><span>Cook</span><strong>25 min</strong></div>
+  </div>
+  <h3>Ingredients</h3>
+  <ul class="mp-checklist">
+    <li><label><input type="checkbox"> 800 g beef sirloin</label></li>
+    <li><label><input type="checkbox"> 2 carrots, 1 parsley root</label></li>
+    <li><label><input type="checkbox"> 200 ml cream</label></li>
+  </ul>
+  <div class="mp-divider"></div>
+  <h3>Steps</h3>
+  <ol class="mp-steps">
+    <li>Brown the beef on all sides.</li>
+    <li>Add the vegetables and braise until tender.</li>
+  </ol>
+  <div class="mp-tabs">
+    <input type="radio" name="t" id="t1" checked><label for="t1">Sauce</label>
+    <input type="radio" name="t" id="t2"><label for="t2">Dumplings</label>
+    <div class="mp-tab-panel">Blend the vegetables with the cream.</div>
+    <div class="mp-tab-panel">Steam for 20 minutes.</div>
+  </div>
+  <table>
+    <tr><th>Per serving</th><th>kcal</th></tr>
+    <tr><td>Beef</td><td>410</td></tr>
+  </table>
+  <svg viewBox="0 0 200 60" width="100%" role="img" aria-label="Cooking time">
+    <rect x="0" y="20" width="60" height="20" rx="4" style="fill: var(--mp-accent)"></rect>
+    <rect x="64" y="20" width="136" height="20" rx="4" style="fill: var(--mp-border)"></rect>
+  </svg>
+  <div class="mp-row">
+    <span class="mp-chip">Servings</span>
+    <input type="range" min="1" max="8" value="4" aria-label="Servings">
+  </div>
+  <p class="mp-muted">net: <span id="net">pending</span> · top: <span id="top">pending</span></p>
+</div>
+<script>
+  document.getElementById('scale').addEventListener('click', () => mp.send('Scale to 6'));
+  const boxes = [...document.querySelectorAll('.mp-checklist input')];
+  mp.state.get().then((s) => (s && s.checked ? s.checked : []).forEach((i) => (boxes[i].checked = true)));
+  boxes.forEach((box) =>
+    box.addEventListener('change', () =>
+      mp.state.set({ checked: boxes.flatMap((b, i) => (b.checked ? [i] : [])) })
+    )
+  );
+  // Probes: the frame must not reach the network or navigate the app
+  document.addEventListener('securitypolicyviolation', (e) => {
+    if (e.violatedDirective.startsWith('connect-src')) document.getElementById('net').textContent = 'blocked';
+  });
+  fetch('/api/health').catch(() => {});
+  try {
+    window.top.location.href = '/escaped';
+    document.getElementById('top').textContent = 'open';
+  } catch {
+    document.getElementById('top').textContent = 'blocked';
+  }
+</script>

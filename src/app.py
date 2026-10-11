@@ -39,13 +39,15 @@ _CSP_POLICY = "; ".join(
 # The artifact frame's own policy (docs/features/artifacts.md): an opaque-origin
 # sandbox with scripts but no network, no forms, no navigation of the app, and
 # only embeddable by the app itself. Inline scripts are the artifact's own code.
+# {origin}: WebKit matches nothing against 'self' in an opaque-origin sandbox,
+# so the app's own origin is named explicitly next to it.
 _FRAME_CSP_DIRECTIVES: tuple[tuple[str, str], ...] = (
     ("sandbox", "allow-scripts"),
     ("default-src", "'none'"),
-    ("script-src", "'self' 'unsafe-inline'"),
-    ("style-src", "'self' 'unsafe-inline'"),
-    ("img-src", "'self' data: blob:"),
-    ("font-src", "'self' data:"),
+    ("script-src", "'self' {origin} 'unsafe-inline'"),
+    ("style-src", "'self' {origin} 'unsafe-inline'"),
+    ("img-src", "'self' {origin} data: blob:"),
+    ("font-src", "'self' {origin} data:"),
     ("connect-src", "'none'"),
     ("form-action", "'none'"),
     ("base-uri", "'none'"),
@@ -62,10 +64,11 @@ _FRAME_CSP_DEV_EXTRAS = {
 _FRAME_ENTRY = "src/artifact/frame.ts"
 
 
-def build_frame_csp(dev_mode: bool) -> str:
-    """The artifact frame's Content-Security-Policy."""
+def build_frame_csp(dev_mode: bool, origin: str) -> str:
+    """The artifact frame's Content-Security-Policy (`origin`: the app's)."""
     parts = []
-    for name, value in _FRAME_CSP_DIRECTIVES:
+    for name, template in _FRAME_CSP_DIRECTIVES:
+        value = template.format(origin=origin)
         extra = _FRAME_CSP_DEV_EXTRAS.get(name) if dev_mode else None
         if extra:
             value = extra if value == "'none'" else f"{value} {extra}"
@@ -184,6 +187,11 @@ def create_app() -> APIFlask:
         # HSTS only over TLS (directly or behind the reverse proxy)
         if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
             headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # The sandboxed artifact frame has an opaque ("null") origin, so its
+        # module script and fonts are cross-origin CORS fetches. Built assets
+        # are public, hashed bundle files (no user data, no credentials).
+        if request.path.startswith("/static/assets/"):
+            headers["Access-Control-Allow-Origin"] = "*"
         # CSP only outside dev mode - the Vite dev server needs localhost
         # scripts and HMR websockets that the production policy forbids
         if not Config.is_development():
@@ -334,6 +342,8 @@ def create_app() -> APIFlask:
         if dev_mode or js_file:
             body = render_template(
                 "artifact-frame.html",
+                # Starts in the app's theme so the empty frame matches it
+                light=request.args.get("theme") == "light",
                 dev_mode=dev_mode,
                 js_file=js_file,
                 css_files=collect_entry_css(vite_manifest, _FRAME_ENTRY),
@@ -342,7 +352,9 @@ def create_app() -> APIFlask:
         else:
             logger.error("Artifact frame entry missing from the Vite manifest")
             response = Response("Frontend not built. Run 'make build' first.", status=500)
-        response.headers["Content-Security-Policy"] = build_frame_csp(dev_mode)
+        # Behind the proxy, ProxyFix makes this the public scheme and host
+        origin = f"{request.scheme}://{request.host}"
+        response.headers["Content-Security-Policy"] = build_frame_csp(dev_mode, origin)
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Cache-Control"] = "no-cache"
         return response

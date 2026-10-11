@@ -89,8 +89,7 @@
     width: 100%;
     border: 0;
     background: transparent;
-    /* The frame's page is transparent in both themes */
-    color-scheme: normal;
+    /* color-scheme is set inline to the app theme (artifact-host.ts) */
 }
 
 .artifact-card--failed .artifact-frame {

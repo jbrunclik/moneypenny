@@ -126,6 +126,21 @@ describe('registerFrame', () => {
   });
 });
 
+describe('frames registered before they are in the DOM', () => {
+  it('are served once attached (history renders cards before appending them)', async () => {
+    const frame = document.createElement('iframe');
+    registerFrame(frame, REF, {});
+    document.getElementById('messages')!.appendChild(frame);
+    const posted: unknown[] = [];
+    vi.spyOn(frame.contentWindow!, 'postMessage').mockImplementation((m: unknown) => {
+      posted.push(m);
+    });
+    fromFrame(frame, { type: 'mp:ready' });
+    await flush();
+    expect(posted).toHaveLength(1);
+  });
+});
+
 describe('observeTheme', () => {
   it('pushes theme changes to every frame', async () => {
     const a = makeFrame();
@@ -137,5 +152,8 @@ describe('observeTheme', () => {
     await flush();
     expect(a.posted).toContainEqual({ type: 'mp:theme', theme: 'light' });
     expect(b.posted).toContainEqual({ type: 'mp:theme', theme: 'light' });
+    // The iframe's own colour scheme must match its page, or Chrome paints
+    // an opaque backdrop behind the transparent artifact
+    expect(a.frame.style.colorScheme).toBe('light');
   });
 });

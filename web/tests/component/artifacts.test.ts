@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/core/artifact-host', () => ({
   registerFrame: vi.fn(() => () => {}),
   observeTheme: vi.fn(),
+  currentTheme: vi.fn(() => 'dark'),
+  applyFrameTheme: vi.fn((frame: HTMLIFrameElement, theme: string) => {
+    frame.style.colorScheme = theme;
+  }),
 }));
 import { registerFrame } from '@/core/artifact-host';
 import {
@@ -37,7 +41,9 @@ describe('decorateArtifacts', () => {
     expect(cards(m1).map((c) => c.dataset.artifactKey)).toEqual(['a@1', 'b@1']);
     const frame = m1.querySelector('iframe')!;
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
-    expect(frame.getAttribute('src')).toBe('/artifact-frame');
+    // The starting theme rides on the URL so the empty frame matches the app
+    expect(frame.getAttribute('src')).toBe('/artifact-frame?theme=dark');
+    expect(frame.style.colorScheme).toBe('dark');
     expect(frame.getAttribute('title')).toBe('Tips');
     const list = m1.querySelector('.artifact-list')!;
     expect(list.previousElementSibling?.classList.contains('message-content')).toBe(true);

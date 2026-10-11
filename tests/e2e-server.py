@@ -930,6 +930,15 @@ def main() -> None:
                 _inflight.pop(threading.get_ident(), None)
 
         @app.after_request
+        def _allow_test_header_on_assets(response):  # type: ignore[no-untyped-def]
+            # Playwright adds X-Test-Execution-Id to every request, which turns
+            # the opaque artifact frame's CORS asset fetches into preflights
+            # (production sends no custom header, so no preflight happens)
+            if request.path.startswith("/static/assets/"):
+                response.headers["Access-Control-Allow-Headers"] = "X-Test-Execution-Id"
+            return response
+
+        @app.after_request
         def _log_slow_request(response):  # type: ignore[no-untyped-def]
             start = getattr(g, "_req_start", None)
             if start is not None and not response.is_streamed:

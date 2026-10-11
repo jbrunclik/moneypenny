@@ -6,7 +6,7 @@
  */
 import { fetchArtifactVersion } from '../../api/artifacts';
 import { ARTIFACT_PLACEHOLDER_HEIGHT_PX } from '../../config';
-import { observeTheme, registerFrame } from '../../core/artifact-host';
+import { applyFrameTheme, currentTheme, observeTheme, registerFrame } from '../../core/artifact-host';
 import { getCachedHeight, heightCacheKey, setCachedHeight } from '../../core/artifact-height';
 import type { ArtifactRef } from '../../types/api';
 import { flashElement } from './action-row';
@@ -81,7 +81,10 @@ function mountFrame(card: HTMLElement, ref: ArtifactRef): void {
   const frame = document.createElement('iframe');
   frame.className = 'artifact-frame';
   frame.setAttribute('sandbox', 'allow-scripts');
-  frame.setAttribute('src', '/artifact-frame');
+  // The starting theme rides on the URL so the frame matches before init
+  const theme = currentTheme();
+  frame.setAttribute('src', `/artifact-frame?theme=${theme}`);
+  applyFrameTheme(frame, theme);
   frame.setAttribute('title', ref.title);
   const cacheKey = (): string => heightCacheKey(ref, card.clientWidth);
   frame.style.height = `${getCachedHeight(cacheKey()) ?? ARTIFACT_PLACEHOLDER_HEIGHT_PX}px`;

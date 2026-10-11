@@ -352,6 +352,7 @@ th {
 
 .mp-chip {
     display: inline-flex;
+    align-self: flex-start; /* not stretched in .mp-stack / .mp-hero */
     align-items: center;
     gap: var(--mp-space-1);
     padding: 2px var(--mp-space-2);

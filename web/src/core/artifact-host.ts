@@ -36,7 +36,10 @@ interface Entry {
   pendingState: unknown;
 }
 
-const entries = new Map<Window, Entry>();
+// Keyed by the element, matched to `event.source` per message: a frame can be
+// registered before it is in the DOM (history renders a message, then appends
+// it), when it has no contentWindow yet
+const entries = new Map<HTMLIFrameElement, Entry>();
 let listening = false;
 let themeObserver: MutationObserver | null = null;
 
@@ -126,9 +129,23 @@ function handle(entry: Entry, message: FromFrame): void {
   }
 }
 
+function entryFor(source: MessageEventSource | null): Entry | undefined {
+  if (!source) return undefined;
+  for (const entry of entries.values()) {
+    if (entry.frame.contentWindow === source) return entry;
+  }
+  return undefined;
+}
+
 function onMessage(event: MessageEvent): void {
-  const entry = event.source ? entries.get(event.source as Window) : undefined;
+  const entry = entryFor(event.source);
   if (entry && isFromFrame(event.data)) handle(entry, event.data);
+}
+
+/** The iframe's colour scheme must match its page's, or Chrome paints an
+ * opaque backdrop behind the (transparent) artifact. */
+export function applyFrameTheme(frame: HTMLIFrameElement, theme: ArtifactTheme): void {
+  frame.style.colorScheme = theme;
 }
 
 /**
@@ -140,18 +157,16 @@ export function registerFrame(
   ref: ArtifactRef,
   callbacks: FrameCallbacks
 ): () => void {
-  const win = frame.contentWindow;
-  if (!win) return () => {};
   if (!listening) {
     window.addEventListener('message', onMessage);
     listening = true;
   }
   const entry: Entry = { frame, ref, callbacks, readyTimer: null, saveTimer: null, pendingState: null };
   entry.readyTimer = window.setTimeout(() => fail(entry), ARTIFACT_READY_TIMEOUT_MS);
-  entries.set(win, entry);
+  entries.set(frame, entry);
   return () => {
     if (entry.readyTimer !== null) window.clearTimeout(entry.readyTimer);
-    entries.delete(win);
+    entries.delete(frame);
   };
 }
 
@@ -160,7 +175,15 @@ export function observeTheme(): void {
   if (themeObserver) return;
   themeObserver = new MutationObserver(() => {
     const theme = currentTheme();
-    for (const entry of entries.values()) post(entry, { type: 'mp:theme', theme });
+    for (const [frame, entry] of entries) {
+      // Cards dropped by a re-render without unregistering
+      if (!frame.isConnected) {
+        entries.delete(frame);
+        continue;
+      }
+      applyFrameTheme(frame, theme);
+      post(entry, { type: 'mp:theme', theme });
+    }
   });
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
