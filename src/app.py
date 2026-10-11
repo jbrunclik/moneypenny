@@ -26,13 +26,51 @@ _CSP_POLICY = "; ".join(
         "connect-src 'self' https://accounts.google.com",
         # Push service worker registered from /sw.js
         "worker-src 'self'",
-        "frame-src https://accounts.google.com",
+        # 'self': the sandboxed artifact frame (/artifact-frame)
+        "frame-src https://accounts.google.com 'self'",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
         "object-src 'none'",
     ]
 )
+
+
+# The artifact frame's own policy (docs/features/artifacts.md): an opaque-origin
+# sandbox with scripts but no network, no forms, no navigation of the app, and
+# only embeddable by the app itself. Inline scripts are the artifact's own code.
+_FRAME_CSP_DIRECTIVES: tuple[tuple[str, str], ...] = (
+    ("sandbox", "allow-scripts"),
+    ("default-src", "'none'"),
+    ("script-src", "'self' 'unsafe-inline'"),
+    ("style-src", "'self' 'unsafe-inline'"),
+    ("img-src", "'self' data: blob:"),
+    ("font-src", "'self' data:"),
+    ("connect-src", "'none'"),
+    ("form-action", "'none'"),
+    ("base-uri", "'none'"),
+    ("frame-ancestors", "'self'"),
+)
+# Dev mode loads the frame entry from the Vite dev server (with HMR)
+_FRAME_CSP_DEV_EXTRAS = {
+    "script-src": "http://localhost:5173",
+    "style-src": "http://localhost:5173",
+    "connect-src": "ws://localhost:5173",
+}
+
+
+_FRAME_ENTRY = "src/artifact/frame.ts"
+
+
+def build_frame_csp(dev_mode: bool) -> str:
+    """The artifact frame's Content-Security-Policy."""
+    parts = []
+    for name, value in _FRAME_CSP_DIRECTIVES:
+        extra = _FRAME_CSP_DEV_EXTRAS.get(name) if dev_mode else None
+        if extra:
+            value = extra if value == "'none'" else f"{value} {extra}"
+        parts.append(f"{name} {value}")
+    return "; ".join(parts)
 
 
 def apply_proxy_fix(app: APIFlask) -> None:
@@ -279,6 +317,33 @@ def create_app() -> APIFlask:
         response.headers["Content-Type"] = "text/javascript"
         # The worker is tiny; let browsers re-check it on each load so
         # updates roll out immediately
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+    @app.route("/artifact-frame")
+    def artifact_frame() -> Response:
+        """The sandboxed page every artifact renders in (same for all of them).
+
+        The chat posts the artifact's HTML in after load; the page itself never
+        fetches user data. Its CSP and X-Frame-Options replace the app-wide ones
+        (set before add_security_headers, whose setdefault keeps them).
+        """
+        dev_mode = Config.is_development()
+        entry = vite_manifest.get(_FRAME_ENTRY, {})
+        js_file = str(entry["file"]) if entry.get("file") else None
+        if dev_mode or js_file:
+            body = render_template(
+                "artifact-frame.html",
+                dev_mode=dev_mode,
+                js_file=js_file,
+                css_files=collect_entry_css(vite_manifest, _FRAME_ENTRY),
+            )
+            response = Response(body)
+        else:
+            logger.error("Artifact frame entry missing from the Vite manifest")
+            response = Response("Frontend not built. Run 'make build' first.", status=500)
+        response.headers["Content-Security-Policy"] = build_frame_csp(dev_mode)
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Cache-Control"] = "no-cache"
         return response
 

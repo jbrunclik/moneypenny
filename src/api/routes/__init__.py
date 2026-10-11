@@ -24,6 +24,7 @@ Route Organization:
 - memory.py: User memory management (2 routes)
 - system.py: System routes (5 routes)
 - kv_store.py: K/V store management (6 routes)
+- artifacts.py: Artifact versions and saved state (2 routes)
 - sports.py: Sports tracking (5 routes)
 - language.py: Language learning (5 routes)
 
@@ -43,6 +44,7 @@ from src.api.routes import (
     agent_assist,  # noqa: F401
     agent_command_center,  # noqa: F401
     agents,
+    artifacts,
     auth,
     calendar,
     chat,
@@ -98,6 +100,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(agents.api)
     app.register_blueprint(chat.api)
     app.register_blueprint(files.api)
+    app.register_blueprint(artifacts.api)
     app.register_blueprint(costs.api)
     app.register_blueprint(kv_store.api)
     app.register_blueprint(sports.api)

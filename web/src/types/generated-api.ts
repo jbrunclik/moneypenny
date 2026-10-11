@@ -888,6 +888,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/artifact-frame": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The sandboxed page every artifact renders in (same for all of them).
+         * @description The chat posts the artifact's HTML in after load; the page itself never
+         *     fetches user data. Its CSP and X-Frame-Options replace the app-wide ones
+         *     (set before add_security_headers, whose setdefault keeps them).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/garmin/mfa": {
         parameters: {
             query?: never;
@@ -4412,6 +4453,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/artifacts/{artifact_id}/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the state an artifact saved (ticked items, scores). */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    artifact_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Request Entity Too Large */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sports/{program}/conversation": {
         parameters: {
             query?: never;
@@ -5937,6 +6052,63 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/artifacts/{artifact_id}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One version's HTML plus the artifact's saved state. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    artifact_id: string;
+                    version: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ArtifactVersionResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -10090,6 +10262,40 @@ export interface components {
              * @description Server timestamp in ISO format
              */
             server_time: string;
+        };
+        /**
+         * ArtifactVersionResponse
+         * @description One version of an artifact, with the artifact's current saved state.
+         */
+        ArtifactVersionResponse: {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version number
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
+            /**
+             * Html
+             * @description The version's HTML (rendered in the sandboxed frame)
+             */
+            html: string;
+            /**
+             * State
+             * @description State the artifact saved through the bridge (all versions)
+             * @default null
+             */
+            state: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: never;

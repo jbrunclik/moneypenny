@@ -44,6 +44,9 @@
       "name": "Files"
     },
     {
+      "name": "Artifacts"
+    },
+    {
       "name": "Costs"
     },
     {
@@ -613,6 +616,23 @@
           "Auth"
         ],
         "summary": "Return Google Client ID for frontend initialization."
+      }
+    },
+    "/artifact-frame": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "summary": "The sandboxed page every artifact renders in (same for all of them).",
+        "description": "The chat posts the artifact's HTML in after load; the page itself never\nfetches user data. Its CSP and X-Frame-Options replace the app-wide ones\n(set before add_security_headers, whose setdefault keeps them)."
       }
     },
     "/auth/garmin/mfa": {
@@ -3496,6 +3516,76 @@
         "description": "Updates the last_viewed_at timestamp to reset unread count.\nShould be called when user opens the agent's conversation."
       }
     },
+    "/api/artifacts/{artifact_id}/state": {
+      "put": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          }
+        },
+        "tags": [
+          "Artifacts"
+        ],
+        "summary": "Replace the state an artifact saved (ticked items, scores)."
+      }
+    },
     "/api/sports/{program}/conversation": {
       "get": {
         "parameters": [
@@ -4843,6 +4933,64 @@
           "Language"
         ],
         "summary": "Replace the program's quick actions (create/edit/reorder/delete)."
+      }
+    },
+    "/api/artifacts/{artifact_id}/versions/{version}": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "schema": {
+              "type": "integer"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactVersionResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Artifacts"
+        ],
+        "summary": "One version's HTML plus the artifact's saved state."
       }
     },
     "/api/messages/{message_id}/files/{file_index}/thumbnail": {
@@ -12573,6 +12721,53 @@
           "server_time"
         ],
         "title": "AgentConversationSyncResponse",
+        "type": "object"
+      },
+      "ArtifactVersionResponse": {
+        "description": "One version of an artifact, with the artifact's current saved state.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version number",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          },
+          "html": {
+            "description": "The version's HTML (rendered in the sandboxed frame)",
+            "title": "Html",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "State the artifact saved through the bridge (all versions)",
+            "title": "State"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "html"
+        ],
+        "title": "ArtifactVersionResponse",
         "type": "object"
       }
     }

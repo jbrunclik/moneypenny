@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- The sandboxed page artifacts render in (docs/features/artifacts.md).
+         The chat posts the artifact's HTML in after this loads. -->
+    {% if dev_mode %}
+    <script type="module" src="http://localhost:5173/src/artifact/frame.ts"></script>
+    {% else %}
+    {% for css_file in css_files %}
+    <link rel="stylesheet" href="/static/assets/{{ css_file }}">
+    {% endfor %}
+    <script type="module" src="/static/assets/{{ js_file }}"></script>
+    {% endif %}
+</head>
+<body></body>
+</html>

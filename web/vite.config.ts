@@ -12,7 +12,11 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     manifest: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/main.ts'),
+      input: {
+        main: resolve(__dirname, 'src/main.ts'),
+        // The sandboxed artifact frame (src/templates/artifact-frame.html)
+        'artifact-frame': resolve(__dirname, 'src/artifact/frame.ts'),
+      },
       output: {
         entryFileNames: '[name]-[hash].js',
         chunkFileNames: '[name]-[hash].js',
@@ -48,6 +52,10 @@ export default defineConfig(({ command }) => ({
         changeOrigin: true,
       },
       '/auth': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/artifact-frame': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
