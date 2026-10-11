@@ -163,6 +163,16 @@ The following indexes are defined to optimize common query patterns:
 - `idx_messages_conversation_id` - For filtering by conversation
 - `idx_messages_conversation_id_created_at` - Composite index for `get_messages()` (filter + sort)
 
+### Artifacts Tables
+
+- `idx_artifacts_conversation` - `count_conversation_artifacts()` and the conversation-delete trigger
+- `idx_artifact_versions_message` - The message-delete trigger (`created_by_message_id`)
+
+Foreign keys are not enforced, so [artifact](../features/artifacts.md) cleanup is by
+SQLite triggers in [0065_add_artifacts.py](../../migrations/0065_add_artifacts.py):
+`artifact_versions_message_delete`, `artifacts_version_delete` (recomputes
+`latest_version`, drops an artifact with no versions) and `artifacts_conversation_delete`.
+
 ### Message Costs Table
 
 - `idx_message_costs_message_id` - For cost lookups by message
@@ -368,4 +378,5 @@ CREATE INDEX idx_conversations_user_id_updated_at ON conversations(user_id, upda
 - [File Handling](../features/file-handling.md) - File storage and thumbnails
 - [Cost Tracking](../features/cost-tracking.md) - Message costs table
 - [Search](../features/search.md) - FTS5 search index
+- [Artifacts](../features/artifacts.md) - Artifact tables and cleanup triggers
 - [Logging](../logging.md) - Structured logging with request IDs

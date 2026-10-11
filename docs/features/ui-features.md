@@ -144,6 +144,7 @@ Copy button in message actions copies the entire message content.
 
 **Behavior:**
 - Excludes file attachments, thinking/tool traces, inline copy buttons, and language labels
+- Appends `[Artifact: <title>]` per [artifact](artifacts.md) card (`artifactCopyText()`)
 - Available on both user and assistant messages
 - Shows checkmark feedback for 2 seconds after successful copy
 
@@ -174,6 +175,19 @@ Individual copy buttons on code blocks and tables.
 ### Testing
 
 - E2E tests: "Chat - Copy to Clipboard" describe block in [clipboard.spec.ts](../../web/tests/e2e/chat/clipboard.spec.ts)
+
+---
+
+## Inline Artifacts
+
+An [artifact](artifacts.md) renders as a card under the reply text, in tool-call
+order: a title row ("View source", badges) and a sandboxed frame sized to its
+content (up to 80% of the viewport, then it scrolls inside). A card for an older
+version shows "v{n} · newer below" and flashes the newer card on click; a frame
+that fails shows "Couldn't display" with Retry; a runtime error shows an
+"Artifact error" badge. Frames follow the app theme live. Rendering:
+[components/messages/artifacts.ts](../../web/src/components/messages/artifacts.ts),
+styles: [artifacts.css](../../web/src/styles/components/artifacts.css).
 
 ---
 
@@ -401,6 +415,7 @@ The app supports three color scheme options: Light, Dark, and System (default).
 - [Voice and TTS](voice-and-tts.md) - Voice input button
 - [Search](search.md) - Search input in sidebar
 - [Sync](sync.md) - Unread badges in conversation list
+- [Artifacts](artifacts.md) - Inline artifact cards and frames
 
 ## Program Quick Actions
 

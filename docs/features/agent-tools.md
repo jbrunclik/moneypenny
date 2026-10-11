@@ -43,6 +43,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 | `search_conversations` | Search the user's past conversations | Requires grant |
 | `read_conversation` | Read one past conversation | Requires grant |
 | `delegate_task` | Context-isolated research subagent (spends tokens) | **Must be granted** |
+| `create_artifact`, `update_artifact`, `read_artifact` | Sandboxed HTML/JS [artifact](artifacts.md) under the reply; versions by find/replace edits | Regular chats (incl. anonymous), behind `ARTIFACTS_ENABLED`; not programs; never for agents (`_NON_PERMISSIONED_TOOLS`) |
 | `propose_deep_research` | Offer a [deep research](deep-research.md) run with an editable plan (side-effect free; the offer is read off the call when the reply is saved) | Ordinary chats only, behind `DEEP_RESEARCH_ENABLED`; never for agents, programs, the planner or subagents |
 
 `web_search` and `research` route through a **quota-aware provider chain** ([search_provider.py](../../src/utils/search_provider.py)): Brave → Tavily → Exa → Linkup → DuckDuckGo (unmetered fallback), skipping providers with no API key or an exhausted quota (`SEARCH_QUOTA_*_MONTHLY`). Quotas reset per **billing period** (`SEARCH_BILLING_DAY_*`, default calendar month — which all four metered providers use as of Sep 2026). Usage counters persist in `kv_store` under a `__system__` sentinel user, one key per provider+period, incremented atomically on successful (billed) calls only.
@@ -137,6 +138,15 @@ edits and starts the plan, and parallel subagents with a shared board feed a
 Pro-written report - see [Deep Research](deep-research.md). It is in
 `_NON_PERMISSIONED_TOOLS` and `_CONDITIONAL_TOOLS`; the `product-research`
 skill tells the agent when to offer it.
+
+## Artifacts
+
+`create_artifact(title, html)`, `update_artifact(artifact_id, edits | html,
+title)` and `read_artifact(artifact_id)` build and revise sandboxed HTML/JS
+shown inline under the reply - see [Artifacts](artifacts.md). They are in
+`_NON_PERMISSIONED_TOOLS` (never granted to agents) and
+`_SPORTS_EXCLUDED_TOOLS`; `create_artifact`'s description is the design-system
+guide in [prompt_texts/artifacts.py](../../src/agent/prompt_texts/artifacts.py).
 
 ## Skills
 

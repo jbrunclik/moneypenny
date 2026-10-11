@@ -99,6 +99,12 @@ messages the app sent for the user (Look it up, Start) carry `action`
 (`ChatRequest.action`, `add_action()` on loaded messages) and render as action
 rows.
 
+**Artifacts.** A successful `create_artifact` / `update_artifact` result yields
+an `artifact {id, version, title}` event (forwarded and journaled) that places
+the [artifact](artifacts.md) frame mid-stream. Assistant messages carry
+`artifacts: [{id, version, title}]` (`add_artifacts()`) on loaded messages, the
+batch response, the live `done` and the resume `done`.
+
 
 ## Streaming Architecture
 
@@ -303,7 +309,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Invariants (violating these re-introduces fixed bugs):**
 
-- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`, and the five `research_*` events.) A forwarded agent event must also be in `FORWARDED_EVENT_TYPES` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py), or the consumer drops it live. The synthesized `done` must carry the same decorations as the live one (`add_grounding()`, `add_research()`), or a reload loses the claims and the research chip. The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`, the `research_*` events and `artifact`.) A forwarded agent event must also be in `FORWARDED_EVENT_TYPES` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py), or the consumer drops it live. The synthesized `done` must carry the same decorations as the live one (`add_grounding()`, `add_research()`, `add_artifacts()`), or a reload loses the claims, the research chip and the artifact cards. The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [stream-resume.ts](../../web/src/core/stream-resume.ts) (entries persisted by [inflight-streams.ts](../../web/src/core/inflight-streams.ts)) / [conversation-switch.ts](../../web/src/core/conversation-switch.ts).
 
@@ -469,6 +475,7 @@ Continue / Edit"), [send-failure.spec.ts](../../web/tests/e2e/chat/send-failure.
 - [Agent Graph](../architecture/agent-graph.md) - the agent loop, retries, tool rounds
 - [Conversation Context](../architecture/conversation-context.md) - history enrichment and compaction
 - [Thinking Indicator and Source Chips](thinking-and-sources.md) - streamed trace and sources
+- [Artifacts](artifacts.md) - the `artifact` event, `messages.artifacts`
 - [Deep Research](deep-research.md) - the multi-minute research turn, Finish now, action messages
 - [Streaming Metadata](../architecture/streaming-metadata.md) - MSG_CONTEXT stripping, client-side recovery
 - [File Handling](file-handling.md) - uploads, thumbnails, video

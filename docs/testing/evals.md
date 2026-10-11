@@ -71,6 +71,10 @@ deep_research:                  # optional: run the deep-research pipeline on
   question: Headphones under 7 000 Kč   # this fixed plan instead of a chat
   context: Runs outside, rides the tram # turn (docs/features/deep-research.md);
   sub_questions: [Fit when running?, ANC on a tram?]  # gets the run timeout
+artifacts:                      # optional: seeded in the case's conversation;
+  - title: Tip calculator       # their ids replace {artifact_0}, {artifact_1}...
+    html: <div class="mp-card">...</div>  # in `history` (e.g. metadata
+                                # artifacts: "{artifact_0} v1 'Tip calculator'")
 expect:
   rubric: >                     # required: what the judge grades against
     The answer gives a concrete price, acknowledges fluctuation, and cites
@@ -78,13 +82,17 @@ expect:
   required_tools: [research, web_search]   # optional, any-of
   forbidden_tools: [delegate_task]         # optional
   max_tool_rounds: 4                       # optional, 0 = no limit
+  forbidden_arg_patterns:                  # optional: regexes that must NOT
+    create_artifact.html: ['https?://']    # match a tool argument ("tool.arg")
 ```
 
 The judge sees the response text PLUS the list of tools actually called and
 any formally cited sources — rubrics may reference tool actions ("persists
 via kv_store", "cites a source") and the judge can verify them. It cannot see
-generated file contents; phrase file-output rubrics as "delivered via
-execute_code counts".
+generated file contents or tool arguments; phrase file-output rubrics as
+"delivered via execute_code counts", and check arguments deterministically with
+`forbidden_arg_patterns` (the [artifact](../features/artifacts.md) cases use it
+for hex colours, fixed widths and URLs in `create_artifact.html`).
 
 Grounding verdicts are shown IN PLACE: `annotate_for_judge()` in
 [run.py](../../evals/run.py) inserts each annotation right after its claim -
