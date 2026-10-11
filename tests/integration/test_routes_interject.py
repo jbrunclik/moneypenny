@@ -435,3 +435,142 @@ class TestInterjectionClearedAtTurnEnd:
 
         assert response.status_code == 200
         assert test_database.kv_get(test_user.id, KV_NAMESPACE, test_conversation.id) is None
+
+
+class TestUnansweredSteeringIsFlagged:
+    """Steering that arrives after the last tool round (or into a tool-less
+    reply) is never read by the turn: it used to sit ABOVE a reply that
+    ignored it, and nothing ever answered it. The turn's end moves it after
+    the reply and tells the client, which starts a follow-up turn for it."""
+
+    def _stream_with_late_steering(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        conv_id: str,
+        stop: bool = False,
+    ) -> list[dict[str, Any]]:
+        steering_ids: list[str] = []
+
+        def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+            yield {"type": "token", "text": "Answer"}
+            # Sent while the final answer streams: no tool round reads it
+            response = client.post(
+                f"/api/conversations/{conv_id}/chat/interject",
+                json={"message": "and the 2025 ones"},
+                headers=auth_headers,
+            )
+            assert response.status_code == 200
+            steering_ids.append("sent")
+            yield {
+                "type": "final",
+                "content": "Answer",
+                "result_messages": [],
+                "tool_results": [],
+                "usage_info": {"input_tokens": 5, "output_tokens": 1},
+            }
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent = MagicMock()
+            agent.stream_chat_events = mock_stream_events
+            agent_class.return_value = agent
+            response = client.post(
+                f"/api/conversations/{conv_id}/chat/stream",
+                json={"message": "Compare the plans"},
+                headers=auth_headers,
+            )
+            events = _sse_events(response.data)
+        assert steering_ids == ["sent"]
+        return events
+
+    def test_stream_moves_the_steering_after_the_reply_and_flags_it(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        events = self._stream_with_late_steering(client, auth_headers, test_conversation.id)
+
+        done = next(e for e in events if e["type"] == "done")
+        messages = test_database.get_messages(test_conversation.id)
+        assert [(m.role.value, m.content) for m in messages] == [
+            ("user", "Compare the plans"),
+            ("assistant", "Answer"),
+            ("user", "and the 2025 ones"),
+        ]
+        assert done["unanswered_steering_id"] == messages[2].id
+        assert test_database.kv_get(test_user.id, KV_NAMESPACE, test_conversation.id) is None
+
+    def test_consumed_steering_is_not_flagged(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+        test_conversation: Conversation,
+    ) -> None:
+        def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
+            client.post(
+                f"/api/conversations/{test_conversation.id}/chat/interject",
+                json={"message": "and the 2025 ones"},
+                headers=auth_headers,
+            )
+            # A tool round read it
+            assert pop_interjection(test_user.id, test_conversation.id) == "and the 2025 ones"
+            yield {
+                "type": "final",
+                "content": "Answer with 2025",
+                "result_messages": [],
+                "tool_results": [],
+                "usage_info": {"input_tokens": 5, "output_tokens": 1},
+            }
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent = MagicMock()
+            agent.stream_chat_events = mock_stream_events
+            agent_class.return_value = agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                json={"message": "Compare the plans"},
+                headers=auth_headers,
+            )
+            events = _sse_events(response.data)
+
+        done = next(e for e in events if e["type"] == "done")
+        assert "unanswered_steering_id" not in done
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role.value for m in messages] == ["user", "user", "assistant"]
+
+    def test_batch_moves_the_steering_after_the_reply_and_flags_it(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        def _chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
+            # A batch turn has no placeholder: steering lands via the route
+            steering = test_database.add_message(test_conversation.id, "user", "and the 2025 ones")
+            from src.agent.interjection import save_interjection
+
+            save_interjection(test_conversation.user_id, test_conversation.id, steering.content)
+            return ("Answer", [], {"input_tokens": 1, "output_tokens": 1}, [])
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent_class.return_value.chat_batch.side_effect = _chat_batch
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Compare the plans"},
+            )
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert [(m.role.value, m.content) for m in messages] == [
+            ("user", "Compare the plans"),
+            ("assistant", "Answer"),
+            ("user", "and the 2025 ones"),
+        ]
+        assert response.get_json()["unanswered_steering_id"] == messages[2].id

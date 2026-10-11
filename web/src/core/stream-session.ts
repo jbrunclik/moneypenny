@@ -58,6 +58,8 @@ export interface StreamingState {
   interjectedInto?: string;
   /** The server reported the failure (an `error` event), not the network. */
   serverError?: boolean;
+  /** Steering this turn never read: a follow-up turn answers it */
+  unansweredSteeringId?: string;
 }
 
 export function createStreamingState(

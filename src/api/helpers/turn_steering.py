@@ -121,3 +121,31 @@ def wait_for_reply(message_id: str) -> Message | None:
             return None
         time.sleep(_REPLY_POLL_INTERVAL_SECONDS)
     return None
+
+
+def defer_unanswered_steering(conv_id: str, reply_id: str, text: str | None) -> str | None:
+    """Move steering the turn never read after its reply; its id, or None.
+
+    Steering is read only between tool rounds, so one sent while the final
+    answer was writing sat ABOVE a reply that ignored it, and nothing ever
+    answered it. After the reply, the chat ends on it: the client's
+    follow-up turn (a regenerate, which answers the last user message)
+    replies to it. `text` is the turn's unconsumed interjection.
+    """
+    if not text:
+        return None
+    reply = db.get_message_by_id(reply_id)
+    if reply is None:
+        return None
+    earlier = [m for m in db.get_messages(conv_id) if m.created_at < reply.created_at]
+    steering = next(
+        (m for m in reversed(earlier) if m.role == MessageRole.USER and m.content == text), None
+    )
+    if steering is None:
+        return None
+    db.set_message_created_at(steering.id, reply.created_at + timedelta(microseconds=1))
+    logger.info(
+        "Unanswered steering moved after the reply",
+        extra={"conversation_id": conv_id, "message_id": steering.id},
+    )
+    return steering.id

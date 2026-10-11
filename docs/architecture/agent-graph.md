@@ -104,7 +104,15 @@ and injects **mid-run steering**: a follow-up the user sent while the turn was r
 (`POST /api/conversations/<id>/chat/interject`, stored cross-worker in `kv_store` by
 [interjection.py](../../src/agent/interjection.py)) is popped here and injected as
 guidance before the next round. It is checked first, so a round-cap or nudge early return
-can never swallow it.
+can never swallow it. Steering that arrives after the last round (while the answer writes,
+or into a tool-less reply) is never read: the turn's end pops it
+(`final_results["unanswered_steering"]` in the stream producer, the batch route after its
+save), `defer_unanswered_steering` in [turn_steering.py](../../src/api/helpers/turn_steering.py)
+moves the steering message after the reply, and the `done` event / batch response names it
+(`unanswered_steering_id`, not after Stop). The client mirrors the move and starts a
+`regenerate` re-run that answers it (`answerUnreadSteering` in
+[steering.ts](../../web/src/core/steering.ts), only in the conversation on screen). The E2E
+mock reads steering only with `/test/set-consume-steering`.
 
 The `ToolNode` is created with `handle_tool_errors=_handle_tool_errors` (a callable, **not** `True`) so ordinary tool exceptions become `ToolMessage` errors rather than crashes, while control-flow exceptions still propagate.
 

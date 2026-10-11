@@ -12,7 +12,7 @@ from apiflask import APIBlueprint
 from flask import Response, request
 
 from src.agent.cancellation import request_finish_now, request_stop
-from src.agent.interjection import clear_interjection
+from src.agent.interjection import clear_interjection, pop_interjection
 from src.api.errors import (
     raise_llm_error,
     raise_not_found_error,
@@ -23,6 +23,7 @@ from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.helpers.turn_steering import (
     can_steer,
+    defer_unanswered_steering,
     running_turn_id,
     steer_running_turn,
     wait_for_reply,
@@ -99,6 +100,13 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             client_connected=True,
             mode="batch",
         )
+        # Steering sent while the answer wrote was never read: after the
+        # reply, for the client's follow-up turn
+        unanswered_steering_id = (
+            defer_unanswered_steering(conv_id, saved.message_id, pop_interjection(user.id, conv_id))
+            if saved
+            else None
+        )
     except TimeoutError:
         logger.error(
             "Timeout in chat_batch",
@@ -134,6 +142,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         language=saved.language,
         stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
     )
+    if unanswered_steering_id:
+        response_data["unanswered_steering_id"] = unanswered_steering_id
     if usage_info.get("model_fallback"):
         # The conversation's model was down; the other tier answered
         response_data["model_fallback"] = usage_info["model_fallback"]

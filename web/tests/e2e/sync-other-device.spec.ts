@@ -238,6 +238,7 @@ test.describe("this device's own changes echoing back", () => {
 
   test('a steered turn does not trigger a full re-render on the next poll', async ({ page, request }) => {
     await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    await request.post('/test/set-consume-steering', { data: { consume: true } });
     await page.fill('#message-input', 'Long answer please');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant.streaming');
@@ -375,6 +376,8 @@ test("a send while another device's reply is running steers that reply (one turn
   await expect(page.locator('.message.assistant')).toContainText('a!');
 
   await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+  // The running reply reads the steering (unread, a follow-up answers it)
+  await request.post('/test/set-consume-steering', { data: { consume: true } });
   const phone = await context.newPage();
   await phone.goto(`/#/conversations/${ids.alpha}`);
   await expect(phone.locator('.message.assistant')).toContainText('a!');

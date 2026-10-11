@@ -25,12 +25,13 @@ from src.agent.cancellation import (
 )
 from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.deep_research.pipeline import run_deep_research
-from src.agent.interjection import clear_interjection
+from src.agent.interjection import clear_interjection, pop_interjection
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
 )
 from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES, _StreamJournal
+from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -229,6 +230,9 @@ def stream_events(
             },
         )
 
+        # Steering sent while the final answer wrote was never read: the
+        # save moves it after the reply and the done event flags it
+        final_results["unanswered_steering"] = pop_interjection(user_id, conv_id)
         event_queue.put(None)  # Signal completion
     except ApprovalRequestedException as e:
         # Special handling for approval requests - send approval event instead of error
@@ -365,8 +369,10 @@ def cleanup_and_save(
                         extra={"user_id": user_id, "conversation_id": conv_id},
                     )
                 # Save the message and mark as saved
-                save_func()
+                saved = save_func()
                 final_results["saved"] = True
+                if saved is not None:
+                    defer_final_steering(final_results, conv_id, saved.message_id)
                 # The turn finished but no client was connected to see it
                 # (typically mobile screen lock) - nudge the user's devices.
                 # Not after Stop: the user was there and ended it themselves
@@ -400,3 +406,10 @@ def cleanup_and_save(
     finally:
         # Close thread-local DB connections so the pool doesn't leak them
         _close_thread_db_connections()
+
+
+def defer_final_steering(final_results: dict[str, Any], conv_id: str, reply_id: str) -> None:
+    """Order the turn's unread steering after its saved reply (once)."""
+    text = final_results.pop("unanswered_steering", None)
+    if text:
+        final_results["unanswered_steering_id"] = defer_unanswered_steering(conv_id, reply_id, text)

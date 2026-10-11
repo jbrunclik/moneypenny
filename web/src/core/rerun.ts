@@ -43,17 +43,22 @@ export function initOutboxHandlers(): void {
   });
   // A reply that failed server-side (stream-send's error toast): answer the
   // user's message again
-  document.addEventListener('message:retry-reply', (e) => {
-    const { convId } = (e as CustomEvent<{ convId: string }>).detail;
-    if (useStore.getState().currentConversation?.id !== convId) return;
-    if (useStore.getState().getActiveRequest(convId)) return;
-    void dispatchRerun(convId, 'regenerate');
-  });
+  document.addEventListener('message:retry-reply', answerLastUserMessage);
+  // Steering the turn never read, now the chat's last message (steering.ts)
+  document.addEventListener('message:answer-steering', answerLastUserMessage);
 
   document.addEventListener('message:edit', (e) => {
     const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
     startMessageEdit(messageId);
   });
+}
+
+/** Reply to the conversation's last user message (a regenerate), when idle and on screen. */
+function answerLastUserMessage(e: Event): void {
+  const { convId } = (e as CustomEvent<{ convId: string }>).detail;
+  if (useStore.getState().currentConversation?.id !== convId) return;
+  if (useStore.getState().getActiveRequest(convId)) return;
+  void dispatchRerun(convId, 'regenerate');
 }
 
 /**

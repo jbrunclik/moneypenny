@@ -17,6 +17,7 @@ import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './
 import { handleStreamDone, type StreamDoneEvent } from './stream-done';
 import { processStreamEvent } from './stream-events';
 import { mergeExternalChanges } from './remote-merge';
+import { answerUnreadSteering } from './steering';
 import { handleMissingDoneEvent, tryResumeStream } from './stream-resume';
 import {
   cleanupStreamingRequest,
@@ -79,6 +80,7 @@ async function consumeStream(send: StreamSend, events: AsyncGenerator<StreamEven
 
     // Handle done event specially (async)
     if (event.type === 'done') {
+      state.unansweredSteeringId = event.unanswered_steering_id;
       await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
       continue;
     }
@@ -289,4 +291,5 @@ export async function sendStreamingMessage(
   // (after the cleanup: a merge skips a conversation with a turn of its own)
   // Renders the other device's question in place and follows its reply live
   if (state.interjectedInto) await mergeExternalChanges(convId);
+  if (state.unansweredSteeringId) answerUnreadSteering(convId, state.unansweredSteeringId);
 }

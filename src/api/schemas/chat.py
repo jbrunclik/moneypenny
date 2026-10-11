@@ -236,6 +236,13 @@ class ChatBatchResponse(BaseModel):
         default=None,
         description="Why the reply ended early: 'user' = stopped by the user (offer Continue)",
     )
+    unanswered_steering_id: str | None = Field(
+        default=None,
+        description=(
+            "Steering sent during this turn that it never read, now ordered after the "
+            "reply (the client starts a follow-up turn that answers it)"
+        ),
+    )
     annotations: list[ClaimAnnotationResponse] | None = None
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(

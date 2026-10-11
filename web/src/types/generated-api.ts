@@ -9831,6 +9831,12 @@ export interface components {
              */
             stop_reason: "user" | null;
             /**
+             * Unanswered Steering Id
+             * @description Steering sent during this turn that it never read, now ordered after the reply (the client starts a follow-up turn that answers it)
+             * @default null
+             */
+            unanswered_steering_id: string | null;
+            /**
              * Annotations
              * @default null
              */

@@ -131,6 +131,9 @@ DEFAULT_CONFIG = {
     # The next streamed turn fails before any text (one-shot) - the real
     # route's error path: an error event, the empty reply removed
     "fail_next_stream": False,
+    # The streamed turn reads mid-run steering before its answer ends (the
+    # real graph reads it between tool rounds); off, steering goes unread
+    "consume_steering": False,
     # Deep research: offer args for the next streamed turn (one-shot) and the
     # fake pipeline's delay between scripted steps
     "deep_research_offer": None,
@@ -497,6 +500,11 @@ def create_mock_stream_chat_events() -> Any:
             streamed += token
             yield {"type": "token", "text": token}
             time.sleep(delay_s)
+
+        if MOCK_CONFIG.get("consume_steering") and user_id and conversation_id:
+            from src.agent.interjection import pop_interjection
+
+            pop_interjection(user_id, conversation_id)
 
         # Yield final event
         input_tokens = MOCK_CONFIG["input_tokens"]
@@ -1089,6 +1097,13 @@ def main() -> None:
         @test_bp.route("/test/fail-next-stream", methods=["POST"])
         def fail_next_stream() -> tuple[dict[str, Any], int]:
             MOCK_CONFIG["fail_next_stream"] = True
+            return {"status": "set"}, 200
+
+        @test_bp.route("/test/set-consume-steering", methods=["POST"])
+        def set_consume_steering() -> tuple[dict[str, Any], int]:
+            from flask import request
+
+            MOCK_CONFIG["consume_steering"] = bool((request.get_json() or {}).get("consume", True))
             return {"status": "set"}, 200
 
         @test_bp.route("/test/set-batch-delay", methods=["POST"])

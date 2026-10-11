@@ -12124,6 +12124,19 @@
             "description": "Why the reply ended early: 'user' = stopped by the user (offer Continue)",
             "title": "Stop Reason"
           },
+          "unanswered_steering_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Steering sent during this turn that it never read, now ordered after the reply (the client starts a follow-up turn that answers it)",
+            "title": "Unanswered Steering Id"
+          },
           "annotations": {
             "anyOf": [
               {

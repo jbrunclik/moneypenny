@@ -31,6 +31,7 @@ import { scrollToBatchReply, settleAnchoredReply } from './response-scroll';
 import { isTurnAnchored, reserveTurnSpace, settleTurnFor } from '../components/messages/turn-anchor';
 import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './batch-resume';
+import { answerUnreadSteering } from './steering';
 
 const log = createLogger('messaging');
 
@@ -216,6 +217,7 @@ export async function sendBatchMessage(
     clearInflightBatch(convId, tempUserMessageId);
 
     await completeBatchTurn(convId, tempUserMessageId, response);
+    if (response.unanswered_steering_id) answerUnreadSteering(convId, response.unanswered_steering_id);
   } catch (error) {
     hideBatchProgress();
     // A dropped connection may be the page going away (reload, iOS killing

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import Generator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.agent.tools.request_approval import build_approval_message
 from src.api.helpers.chat_save import save_message_to_db
-from src.api.helpers.stream_producer import _notify_response_ready, push_title
+from src.api.helpers.stream_producer import (
+    _notify_response_ready,
+    defer_final_steering,
+    push_title,
+)
 from src.api.schemas.common import MessageRole
 from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
@@ -53,6 +57,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                     language=assistant_msg.language,
                     stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
                 )
+                _flag_unanswered_steering(done_data, context)
                 try:
                     yield f"data: {json.dumps(done_data)}\n\n"
                 except BrokenPipeError, ConnectionError, OSError:
@@ -77,6 +82,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         # Mark as saved so cleanup thread knows not to save again
         if save_result:
             context.final_results["saved"] = True
+            defer_final_steering(context.final_results, context.conv_id, save_result.message_id)
 
     # Skip done event if save failed (nothing to finalize)
     if not save_result:
@@ -96,6 +102,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
         language=save_result.language,
         stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
     )
+    _flag_unanswered_steering(done_data, context)
 
     # Try to send done event even if client may have disconnected.
     # This ensures the frontend can finalize the message if still connected.
@@ -119,6 +126,14 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                 assistant_msg.content or "",
                 push_title(context.usage_info),
             )
+
+
+def _flag_unanswered_steering(done_data: dict[str, Any], context: _StreamContext) -> None:
+    """Name steering the turn never read: the client answers it with a
+    follow-up turn (not after Stop - the user ended the turn themselves)."""
+    steering_id = context.final_results.get("unanswered_steering_id")
+    if steering_id and not context.stop_reason:
+        done_data["unanswered_steering_id"] = steering_id
 
 
 def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:

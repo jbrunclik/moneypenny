@@ -299,6 +299,7 @@ export type StreamEvent = (
       user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
       stopped_early?: boolean; // Reply cut off by the tool-round cap
       stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
+      unanswered_steering_id?: string; // Steering the turn never read (now after the reply)
     }
   | { type: 'error'; message: string; code?: string; retryable?: boolean }
 ) & {
@@ -404,6 +405,7 @@ export interface ChatResponse {
   model_fallback?: string; // Model that answered when the conversation's model was down
   research?: MessageResearch; // Deep-research offer or run
   message_count?: number; // The conversation's message count after this turn (sync baseline)
+  unanswered_steering_id?: string | null; // Steering the turn never read (now after the reply)
 }
 
 export interface ErrorResponse {

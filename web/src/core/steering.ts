@@ -65,3 +65,24 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
   toast.info('Steering the current response…');
   log.info('Interjection sent', { conversationId: convId, length: messageText.length });
 }
+
+/**
+ * Steering the turn never read (sent while its answer was writing - it is
+ * read only between tool rounds): the server moved it after the reply.
+ * Mirror that and start a reply to it - a regenerate answers the last user
+ * message. Only in the conversation on screen (the reply renders there);
+ * elsewhere the steering stays last for the user's next turn.
+ */
+export function answerUnreadSteering(convId: string, steeringId: string): void {
+  if (useStore.getState().currentConversation?.id !== convId) return;
+  const store = useStore.getState();
+  const steering = store.getMessages(convId).find((m) => m.id === steeringId);
+  if (steering) {
+    store.removeMessage(convId, steeringId);
+    store.appendMessage(convId, steering);
+  }
+  const bubble = document.querySelector(`#messages .message[data-message-id="${steeringId}"]`);
+  if (bubble) bubble.parentElement?.appendChild(bubble);
+  log.info('Answering unread steering', { conversationId: convId, messageId: steeringId });
+  document.dispatchEvent(new CustomEvent('message:answer-steering', { detail: { convId } }));
+}

@@ -424,6 +424,8 @@ test.describe('Chat - Mid-run Steering', () => {
   test('sending while streaming interjects instead of blocking', async ({ page, request }) => {
     // Slow the stream so the turn is reliably still running when we steer
     await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    // The turn reads the steering (the real graph: between tool rounds)
+    await request.post('/test/set-consume-steering', { data: { consume: true } });
 
     await page.fill('#message-input', 'First question - long response please');
     await page.click('#send-btn');
@@ -466,6 +468,44 @@ test.describe('Chat - Mid-run Steering', () => {
     ).toBeVisible({ timeout: 10000 });
     expect(await order()).toEqual(['user', 'user', 'assistant']);
     await expect(page.locator('.message.assistant.message--latest-assistant')).toHaveCount(1);
+  });
+});
+
+test.describe('Chat - Unanswered Steering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+  });
+
+  test('steering the reply never read gets a reply of its own', async ({ page, request }) => {
+    // Steering is read only between tool rounds: one sent while the answer
+    // writes sat above a reply that ignored it, and nothing answered it
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    await page.fill('#message-input', 'First question - long response please');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant.streaming', { timeout: 10000 });
+    await page.fill('#message-input', 'Actually focus on the 2025 season');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.user', { hasText: 'Actually focus on the 2025 season' })).toBeVisible();
+
+    // The first reply, then the steering, then a reply that answers it
+    const followUp = page.locator('.message.assistant').nth(1);
+    await expect(followUp).toContainText('mock response to: Actually focus on the 2025 season', { timeout: 30000 });
+    await expect(followUp).not.toHaveClass(/streaming/, { timeout: 20000 });
+    const order = (): Promise<string[]> =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('#messages .message')].map((el) =>
+          el.classList.contains('user') ? `U:${(el.textContent ?? '').trim().slice(0, 5)}` : 'A'
+        )
+      );
+    expect(await order()).toEqual(['U:First', 'A', 'U:Actua', 'A']);
+    await expect(page.locator('.message.assistant')).toHaveCount(2);
+
+    await page.reload();
+    await expect(page.locator('.message.assistant')).toHaveCount(2, { timeout: 10000 });
+    expect(await order()).toEqual(['U:First', 'A', 'U:Actua', 'A']);
   });
 });
 
