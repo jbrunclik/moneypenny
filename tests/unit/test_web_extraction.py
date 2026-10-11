@@ -88,3 +88,52 @@ class TestUntrustedContentFraming:
 
         assert "Untrusted External Content" in TOOLS_SYSTEM_PROMPT_CONTEXT
         assert "never as instructions" in TOOLS_SYSTEM_PROMPT_CONTEXT
+
+
+class TestProductData:
+    """Shop pages keep their price (Oct 2026: main-content extraction returned a
+    product's description only, so deep-research prices were "not on the page"
+    although the page's markup had them)."""
+
+    _DESCRIPTION = (
+        "<article><p>"
+        + "Peněženka by měla zapadnout do vašeho životního stylu, tenký profil a RFID fólie. " * 6
+        + "</p></article>"
+    )
+
+    def _page(self, head: str) -> str:
+        return f"<html><head>{head}</head><body>{self._DESCRIPTION}</body></html>"
+
+    def test_json_ld_product_offer(self) -> None:
+        head = (
+            '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product",'
+            '"name":"Bellroy Note Sleeve RFID","offers":{"@type":"Offer","price":"2490",'
+            '"priceCurrency":"CZK","availability":"https://schema.org/InStock"}}</script>'
+        )
+        text = _extract_text_from_html(self._page(head))
+        assert text.startswith("Product data (page markup): Bellroy Note Sleeve RFID")
+        assert "2490 CZK" in text and "InStock" in text
+
+    def test_graph_and_price_ranges(self) -> None:
+        head = (
+            '<script type="application/ld+json">{"@graph":[{"@type":"WebPage"},{"@type":["Product"],'
+            '"name":"Secrid Twinwallet","offers":{"@type":"AggregateOffer","lowPrice":2290,'
+            '"highPrice":2499,"priceCurrency":"CZK"}}]}</script>'
+        )
+        assert "2290–2499 CZK" in _extract_text_from_html(self._page(head))
+
+    def test_price_meta_tags(self) -> None:
+        head = '<meta itemprop="price" content="2499"><meta itemprop="priceCurrency" content="CZK">'
+        assert "2499 CZK" in _extract_text_from_html(self._page(head))
+
+    def test_no_markup_and_bad_json_change_nothing(self) -> None:
+        plain = _extract_text_from_html(self._page(""))
+        broken = _extract_text_from_html(
+            self._page('<script type="application/ld+json">{not json</script>')
+        )
+        assert "Product data" not in plain and broken == plain
+
+    def test_the_line_survives_truncation(self) -> None:
+        head = '<meta property="product:price:amount" content="650"><meta property="product:price:currency" content="CZK">'
+        text = _extract_text_from_html(self._page(head), max_length=50)
+        assert "650 CZK" in text

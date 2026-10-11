@@ -1,5 +1,6 @@
 """The deep-research pipeline: events in order, a final event the save path stores."""
 
+import json
 import time
 from typing import Any
 from unittest.mock import MagicMock
@@ -261,3 +262,34 @@ def test_stop_while_writing_prices_the_partial_report_at_the_writer(
 
     assert final["stop_reason"] == "user"
     assert final["usage_info"]["answer_model"] == Config.DEEP_RESEARCH_WRITER_MODEL
+
+
+def test_the_runs_search_snippets_reach_the_verifier(
+    fakes: dict[str, MagicMock], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Subagents' digests carry facts from search snippets; the verifier got
+    # none of them (uncited=""), so they were all "not on the pages" (Oct 2026)
+    original_run = FakeOrchestrator.run
+
+    def run_with_search(self: FakeOrchestrator) -> list[ItemResult]:
+        results = original_run(self)
+        snippet = {
+            "title": "Bellroy",
+            "url": "https://shop.cz/b",
+            "snippet": "Bellroy Note Sleeve 2 490 Kč",
+        }
+        self.board.record_search('{"query": "q"}', json.dumps({"query": "q", "results": [snippet]}))
+        return results
+
+    monkeypatch.setattr(FakeOrchestrator, "run", run_with_search)
+    _events()
+    uncited = fakes["check"].call_args.args[2]
+    assert "Bellroy Note Sleeve 2 490 Kč" in uncited and "https://shop.cz/b" in uncited
+
+
+def test_the_users_question_and_context_count_as_known(fakes: dict[str, MagicMock]) -> None:
+    # "7 000 Kč" - the user's own budget, from the question - was marked
+    # "not on the pages" (Oct 2026): KNOWN held only today's date
+    _events()
+    known = fakes["check"].call_args.kwargs["known"]
+    assert "Which agency?" in known and "Praha" in known

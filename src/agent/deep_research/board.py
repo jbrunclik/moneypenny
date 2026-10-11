@@ -123,6 +123,22 @@ class ResearchBoard:
         with self._lock:
             return self._searches.get(key)
 
+    def search_snippets(self) -> str:
+        """Every search result the run saw (title, URL, snippet), one per URL - the
+        verifier's unnumbered text: digests carry facts first seen in snippets."""
+        with self._lock:
+            raw = list(self._searches.values())
+        lines: dict[str, str] = {}
+        for result in raw:
+            data = _json_object(result) or {}
+            groups = data.get("searches") or [data]
+            for group in groups if isinstance(groups, list) else []:
+                for hit in (group or {}).get("results") or []:
+                    url = str(hit.get("url") or "") if isinstance(hit, dict) else ""
+                    if url and url not in lines:
+                        lines[url] = f"{hit.get('title', '')} ({url}): {hit.get('snippet', '')}"
+        return "\n".join(lines.values())
+
     def record_search(self, key: str, result: str) -> None:
         with self._lock:
             self._searches.setdefault(key, result)

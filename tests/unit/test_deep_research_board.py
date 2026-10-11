@@ -216,3 +216,27 @@ def test_a_subagent_search_says_snippets_are_leads(board: ResearchBoard) -> None
     out = json.loads(search.invoke({"query": "ceny"}))
 
     assert "leads" in out["_note"] and "fetch_url" in out["_note"]
+
+
+def test_search_snippets_are_deduplicated_text() -> None:
+    import json
+
+    board = ResearchBoard()
+    hit = {"title": "T", "url": "https://a.cz", "snippet": "S1"}
+    board.record_search("k1", json.dumps({"query": "a", "results": [hit]}))
+    board.record_search(
+        "k2",
+        json.dumps(
+            {
+                "searches": [
+                    {
+                        "query": "b",
+                        "results": [hit, {"title": "U", "url": "https://b.cz", "snippet": "S2"}],
+                    }
+                ]
+            }
+        ),
+    )
+    board.record_search("k3", "not json")
+    text = board.search_snippets()
+    assert text.count("https://a.cz") == 1 and "S2" in text

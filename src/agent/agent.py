@@ -53,6 +53,7 @@ class ChatAgent:
         language_context: dict[str, Any] | None = None,
         enable_context_cache: bool = True,
         system_prompt_override: str | None = None,
+        memoize_graph: bool = True,
     ) -> None:
         from src.agent.context_cache import get_cached_content_name
 
@@ -129,6 +130,8 @@ class ChatAgent:
             tools=active_tools,
             is_autonomous=is_autonomous,
             cached_content=self._cached_content_name,
+            # False for per-run tool closures (deep research subagents)
+            memoize=memoize_graph,
         )
 
     def _freshness_decision(self, messages: list[BaseMessage]) -> FreshnessDecision | None:

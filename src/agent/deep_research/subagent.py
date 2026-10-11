@@ -43,6 +43,9 @@ def run_subagent(brief: str, board: ResearchBoard, index: int, request_id: str) 
                 tools=tools,
                 enable_context_cache=False,
                 system_prompt_override=DEEP_RESEARCH_SUBAGENT_PROMPT,
+                # The tools are this run's board closures: a memoized graph
+                # (keyed by tool names) would run an earlier run's board
+                memoize_graph=False,
             )
             text, _tools, usage, messages = agent.chat_batch(text=brief)
     finally:

@@ -158,8 +158,11 @@ def _report(
     outcome = check_grounding_pages(
         report,
         pages,
-        "",
-        known=f"Today is {today}.",
+        # Search snippets the subagents saw: unnumbered, so a fact found only in
+        # a snippet is supported without a source number, as in a chat turn
+        orchestrator.board.search_snippets(),
+        # The user's own words (a budget, a place) are not claims to source
+        known=f"Today is {today}.\nThe user's question: {plan.question}\nTheir context: {plan.context}",
         max_source_chars=Config.DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS,
         max_claims=Config.DEEP_RESEARCH_GROUNDING_MAX_CLAIMS,
         timeout_seconds=Config.DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS,

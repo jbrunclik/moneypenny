@@ -987,13 +987,30 @@ def get_compiled_graph(
     tools: list[Any] | None = None,
     is_autonomous: bool = False,
     cached_content: str | None = None,
+    memoize: bool = True,
 ) -> Any:
     """Return a compiled chat graph for this signature, building it once.
+
+    `memoize=False` for tools that are per-run closures (deep research wraps
+    its tools around each run's board, with the same names every run): the
+    signature knows only tool names, so a memoized graph would run an earlier
+    run's tools.
 
     Bounded LRU (Config.AGENT_GRAPH_CACHE_SIZE): the cached_content name rotates
     hourly, so stale entries are evicted rather than accumulating unbounded.
     """
     active_tools = tools if tools is not None else get_available_tools()
+    if not memoize:
+        return compile_graph(
+            create_chat_graph(
+                model_name,
+                with_tools=with_tools,
+                include_thoughts=include_thoughts,
+                tools=active_tools,
+                is_autonomous=is_autonomous,
+                cached_content=cached_content,
+            )
+        )
     key = _graph_signature(
         model_name, with_tools, include_thoughts, active_tools, is_autonomous, cached_content
     )

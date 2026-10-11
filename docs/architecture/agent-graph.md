@@ -27,6 +27,9 @@ implementation if it's ever needed again.
 
 Compiled graphs are cached per signature (model, tools, thinking, autonomous, context
 cache name) in a bounded LRU (`get_compiled_graph()`, `AGENT_GRAPH_CACHE_SIZE`).
+The signature knows tool NAMES only: callers whose tools are per-run closures
+(deep research subagents) pass `memoize_graph=False`, or a later run executes an
+earlier run's tool instances.
 Context-cache names rotate when a Gemini cache lapses or is recreated, so each
 otherwise-identical signature keeps only its 3 most-recently-used names (the
 uncached fallback plus SPORTS and LANGUAGE, which bind the same tools). Without

@@ -161,7 +161,11 @@ agent loop:
    citation markers. A writer that is unavailable before its first token falls
    back to the other tier (`other_model_tier()`).
 8. **Check**: `check_grounding_pages()` ([grounding_check.py](../../src/agent/grounding_check.py))
-   on the report with the merged pages, "Today is ..." as known facts, and
+   on the report with the merged pages, the run's search snippets as
+   unnumbered text (`board.search_snippets()`: digests carry facts first seen
+   in snippets; they count as supported without a source number, as in a chat
+   turn), today's date plus the user's question and context as known facts
+   (a budget from the question is not a claim to source), and
    `DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS` / `DEEP_RESEARCH_GROUNDING_MAX_CLAIMS`
    and its own `DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS` (45 s; a chat turn's
    check gets 10 s, too short for up to 200 000 chars of pages).
@@ -432,6 +436,19 @@ prints. Baseline (Oct 3 2026): precision 4/4,
 recall 4/6, end-to-end failing (see TODO).
 
 ## Pitfalls
+
+- **Subagent graphs must not be memoized** (`ChatAgent(memoize_graph=False)`).
+  The compiled-graph cache is keyed by tool names, and the subagents' tools are
+  this run's board closures with the same names every run. Until Oct 11 2026
+  every later run in a worker reused the first run's graphs: its pages and
+  findings went to the first run's board (`pages_read 0`, `board_entries 0`,
+  the verifier saw almost nothing and flagged most claims), and the board
+  digest a subagent was shown could carry another run's (another user's)
+  findings.
+- **Shop pages lose their prices in main-content extraction.** `fetch_url`
+  prepends the page markup's product line (JSON-LD `Product`/`Offer`, price
+  meta tags; [product_data.py](../../src/agent/tools/product_data.py)) so the
+  price survives extraction and every length cap.
 
 - **A new SSE event type must join `_JOURNALED_EVENT_TYPES` and the consumer's
   `FORWARDED_EVENT_TYPES`**, or it is dropped live or missing after a reload.
