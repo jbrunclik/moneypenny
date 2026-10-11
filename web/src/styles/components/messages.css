@@ -635,9 +635,12 @@
 
 /* Assistant bubble stays hidden while the user's attachments upload -
    nothing is thinking server-side until the first stream event arrives
-   (messaging.ts removes the class on server ack) */
+   (stream-send.ts removes the class on server ack). Invisible, not
+   display:none: the bubble carries the room reserved under the turn for
+   send-to-top - without its box the glide clamped at the bottom and a
+   message with an attachment stayed there */
 .message.assistant.awaiting-upload {
-    display: none;
+    visibility: hidden;
 }
 
 /* Attachment chips pulse (opacity only - scroll-safe) while the

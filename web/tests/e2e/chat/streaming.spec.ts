@@ -990,6 +990,49 @@ test.describe('Chat - Send-to-top', () => {
         await expect(page.locator('.scroll-to-bottom')).toBeVisible();
       });
 
+      test('a message with an attachment glides to the top too, while it uploads', async ({ page }) => {
+        // The reply bubble is hidden until the server acks the upload; it was
+        // display:none, which dropped the room reserved under the turn - the
+        // glide clamped at the bottom and the message stayed there (device)
+        await setMockResponse(page, LONG_RESPONSE);
+        await page.fill('#message-input', 'First question');
+        await page.click('#send-btn');
+        await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
+
+        let release!: () => void;
+        const uploaded = new Promise<void>((resolve) => (release = resolve));
+        await page.route('**/chat/stream', async (route) => {
+          await uploaded;
+          await route.continue();
+        });
+        const chooser = page.waitForEvent('filechooser');
+        await page.click('#attach-btn');
+        await (await chooser).setFiles({
+          name: 'key.png',
+          mimeType: 'image/png',
+          buffer: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'base64'
+          ),
+        });
+        await expect(page.locator('#file-preview')).not.toHaveClass(/hidden/, { timeout: 3000 });
+        await page.fill('#message-input', 'This will be cool');
+        await page.click('#send-btn');
+
+        // Still uploading: the message is already at the top
+        await expect
+          .poll(async () => {
+            const gap = await turnTopBelowHeader(page, layout.header);
+            return gap >= 0 && gap < 40;
+          }, { timeout: 5000 })
+          .toBe(true);
+        release();
+        await expect(page.locator('.message.assistant').last()).toContainText('Line 3', { timeout: 10000 });
+        await page.waitForTimeout(300);
+        const gap = await turnTopBelowHeader(page, layout.header);
+        expect(gap >= 0 && gap < 40).toBe(true);
+      });
+
       test('a short reply streams under the message at the top, then settles without empty space', async ({
         page,
       }) => {
