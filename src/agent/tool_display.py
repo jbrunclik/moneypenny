@@ -148,6 +148,21 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "icon": "map-pin",
     },
     # Files
+    "create_artifact": {
+        "label": "Building an artifact",
+        "label_past": "Built an artifact",
+        "icon": "sparkles",
+    },
+    "update_artifact": {
+        "label": "Updating the artifact",
+        "label_past": "Updated the artifact",
+        "icon": "sparkles",
+    },
+    "read_artifact": {
+        "label": "Reading the artifact",
+        "label_past": "Read the artifact",
+        "icon": "file",
+    },
     "create_file": {
         "label": "Creating a file",
         "label_past": "Created a file",
@@ -546,6 +561,8 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     """
     if tool_name == "research" and tool_args.get("question"):
         return str(tool_args["question"])
+    elif tool_name in ("create_artifact", "update_artifact") and tool_args.get("title"):
+        return str(tool_args["title"])
     elif tool_name == "delegate_task" and tool_args.get("task"):
         return str(tool_args["task"])[:200]
     elif tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):

@@ -7,6 +7,7 @@ from typing import Any
 
 # Import tools from submodules
 from src.agent.tools.agent_kv import kv_store
+from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
 from src.agent.tools.attachment import create_file
 from src.agent.tools.browser import browser, is_browser_available
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
@@ -98,6 +99,10 @@ _SPORTS_EXCLUDED_TOOLS = {
     "delete_place",
     "list_places",
     "get_route",
+    # Artifacts: programs answer in text and trim tool declarations for tokens
+    "create_artifact",
+    "update_artifact",
+    "read_artifact",
 }
 
 _LANGUAGE_EXCLUDED_TOOLS = _SPORTS_EXCLUDED_TOOLS | {
@@ -126,6 +131,11 @@ def get_available_tools() -> list[Any]:
         search_conversations,
         read_conversation,
     ]
+
+    # Inline artifacts (sandboxed HTML/JS under the reply); never granted to
+    # autonomous agents - their output is push and digest text
+    if Config.ARTIFACTS_ENABLED:
+        tools.extend([create_artifact, update_artifact, read_artifact])
 
     # Only add browser if enabled and Playwright is installed
     if Config.BROWSER_ENABLED and is_browser_available():
@@ -342,6 +352,10 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "refresh_planner_dashboard",  # planner mode only
         "request_approval",  # autonomous agents only
         "propose_deep_research",  # ordinary chats only, never for agents
+        # Inline artifacts: chats only, never granted to agents
+        "create_artifact",
+        "update_artifact",
+        "read_artifact",
     }
 )
 
