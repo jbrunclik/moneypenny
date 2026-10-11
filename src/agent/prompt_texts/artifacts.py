@@ -12,7 +12,7 @@ Use it only when interacting or seeing it beats reading - NEVER for plain answer
 It runs sandboxed: no network, no external URLs (images only inline SVG or data: URIs), no localStorage. Write a fragment (no <html>/<head> needed). The app's design system is already loaded:
 - Bare elements are styled: h1-h3, p, a, button (add class "secondary"), input, select, input[type=range], table, ul/ol, code/pre.
 - Layout: .mp-stack (vertical gap), .mp-row (horizontal, wraps), .mp-grid (auto columns), .mp-divider.
-- Components: .mp-card, .mp-hero (title block), .mp-stat (<div class="mp-stat"><span>Label</span><strong>42</strong></div>), .mp-chip, .mp-checklist (ul of <li><label><input type=checkbox> text</label></li>), .mp-steps (ol), .mp-tabs (radio-based), .mp-muted, .mp-accent.
+- Components: .mp-card, .mp-hero (title block), .mp-stat (<div class="mp-stat"><span>Label</span><strong>42</strong></div>), .mp-chip, .mp-checklist (ul of <li><label><input type=checkbox> text</label></li>), .mp-steps (ol), .mp-tabs (radio+label pairs, then one .mp-tab-panel div per tab in the same order), .mp-muted, .mp-accent.
 - Colours only via var(--mp-text|--mp-muted|--mp-accent|--mp-surface|--mp-border|--mp-success|--mp-warning|--mp-error) or currentColor - never hex. It must look right in light and dark.
 - Sizing: fluid only (%, fr, minmax, flex). No fixed widths or heights. SVG: viewBox plus width="100%". It must work from 320px phone width to desktop.
 

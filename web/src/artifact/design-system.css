@@ -1,0 +1,499 @@
+/* ============================================
+   Artifact design system - loaded in every artifact frame
+   ============================================
+
+   The agent writes plain HTML plus the classes below (the list it is given:
+   src/agent/prompt_texts/artifacts.py). Tokens alias the app's own
+   (styles/variables.css), so artifacts follow the brand and both themes:
+   the frame's <html> gets the app's data-theme.
+
+   Sizing is fluid only. The frame is as wide as the message column, so the
+   layout adapts to the frame's width (container queries), not the screen.
+*/
+
+@import '../styles/variables.css';
+
+:root {
+    --mp-bg: transparent;
+    --mp-surface: var(--bg-secondary);
+    --mp-surface-2: var(--bg-tertiary);
+    --mp-text: var(--text-primary);
+    --mp-muted: var(--text-muted);
+    --mp-accent: var(--accent);
+    --mp-accent-text: var(--accent-text);
+    --mp-accent-soft: var(--accent-muted);
+    --mp-border: var(--border-light);
+    --mp-border-strong: var(--border);
+    --mp-success: var(--success);
+    --mp-warning: var(--warning-text);
+    --mp-error: var(--error);
+    --mp-radius: var(--radius-md);
+    --mp-radius-sm: var(--radius-sm);
+    --mp-space-1: var(--space-1);
+    --mp-space-2: var(--space-2);
+    --mp-space-3: var(--space-3);
+    --mp-space-4: var(--space-4);
+    --mp-space-5: var(--space-5);
+    --mp-space-6: var(--space-6);
+    --mp-text-xs: var(--font-size-xs);
+    --mp-text-sm: var(--font-size-sm);
+    --mp-text-md: var(--font-size-md);
+    --mp-text-lg: var(--font-size-xl);
+    --mp-text-xl: var(--font-size-2xl);
+    --mp-text-2xl: var(--font-size-3xl);
+    --mp-font: var(--font-family);
+    --mp-font-display: var(--font-family-display);
+    --mp-font-mono: var(--font-family-mono);
+    --mp-shadow: var(--shadow-sm);
+    --mp-ease: var(--ease-out);
+    --mp-duration: var(--duration-base);
+    color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+    color-scheme: light;
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    background: var(--mp-bg);
+}
+
+body {
+    margin: 0;
+    padding: 2px; /* room for focus rings at the frame's edge */
+    container-type: inline-size;
+    font-family: var(--mp-font);
+    font-size: var(--mp-text-md);
+    line-height: var(--line-height-relaxed);
+    color: var(--mp-text);
+    background: transparent;
+    overflow-wrap: anywhere;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 var(--mp-space-2);
+    font-family: var(--mp-font-display);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+h1 { font-size: var(--mp-text-2xl); }
+h2 { font-size: var(--mp-text-xl); }
+h3 { font-size: var(--mp-text-lg); }
+
+p {
+    margin: 0 0 var(--mp-space-3);
+}
+
+p:last-child {
+    margin-bottom: 0;
+}
+
+a {
+    color: var(--mp-accent-text);
+    text-underline-offset: 2px;
+}
+
+img,
+svg,
+canvas,
+video {
+    max-width: 100%;
+    height: auto;
+}
+
+svg {
+    color: inherit;
+    fill: currentColor;
+}
+
+ul,
+ol {
+    margin: 0 0 var(--mp-space-3);
+    padding-left: var(--mp-space-5);
+}
+
+li + li {
+    margin-top: var(--mp-space-1);
+}
+
+code,
+pre {
+    font-family: var(--mp-font-mono);
+    font-size: 0.9em;
+}
+
+code {
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    background: var(--code-inline-bg);
+}
+
+pre {
+    margin: 0 0 var(--mp-space-3);
+    padding: var(--mp-space-3);
+    overflow-x: auto;
+    border-radius: var(--mp-radius-sm);
+    background: var(--code-bg);
+}
+
+pre code {
+    padding: 0;
+    background: none;
+}
+
+hr,
+.mp-divider {
+    height: 1px;
+    margin: var(--mp-space-4) 0;
+    border: 0;
+    background: var(--mp-border);
+}
+
+/* ---------- Controls ---------- */
+
+button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mp-space-2);
+    min-height: 40px;
+    padding: 0 var(--mp-space-4);
+    border: 1px solid transparent;
+    border-radius: var(--mp-radius-sm);
+    font: inherit;
+    font-size: var(--mp-text-sm);
+    font-weight: 600;
+    color: var(--color-user-text);
+    background: var(--mp-accent);
+    cursor: pointer;
+    transition: background var(--mp-duration) var(--mp-ease),
+        transform var(--mp-duration) var(--mp-ease);
+}
+
+button:hover {
+    background: var(--accent-hover);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button.secondary {
+    color: var(--mp-text);
+    background: var(--mp-surface-2);
+    border-color: var(--mp-border);
+}
+
+button.secondary:hover {
+    background: var(--bg-hover);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    min-height: 40px;
+    padding: var(--mp-space-2) var(--mp-space-3);
+    border: 1px solid var(--mp-border-strong);
+    border-radius: var(--mp-radius-sm);
+    font: inherit;
+    font-size: max(16px, var(--mp-text-md)); /* no iOS zoom on focus */
+    color: var(--mp-text);
+    background: var(--mp-surface);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+    width: 18px;
+    min-height: 0;
+    height: 18px;
+    padding: 0;
+    accent-color: var(--mp-accent);
+}
+
+input[type='range'] {
+    padding: 0;
+    border: 0;
+    background: none;
+    accent-color: var(--mp-accent);
+}
+
+label {
+    font-size: var(--mp-text-sm);
+    color: var(--mp-muted);
+}
+
+:focus-visible {
+    outline: 2px solid var(--mp-accent);
+    outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline-offset: 0;
+    border-color: var(--mp-accent);
+}
+
+/* ---------- Tables ---------- */
+
+table {
+    width: 100%;
+    margin: 0 0 var(--mp-space-3);
+    border-collapse: collapse;
+    font-size: var(--mp-text-sm);
+}
+
+th,
+td {
+    padding: var(--mp-space-2) var(--mp-space-3);
+    border-bottom: 1px solid var(--mp-border);
+    text-align: left;
+}
+
+th {
+    font-weight: 600;
+    color: var(--mp-muted);
+}
+
+/* ---------- Layout ---------- */
+
+.mp-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mp-space-3);
+}
+
+.mp-stack > * {
+    margin: 0;
+}
+
+.mp-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mp-space-3);
+}
+
+.mp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    gap: var(--mp-space-3);
+}
+
+/* ---------- Components ---------- */
+
+.mp-card {
+    padding: var(--mp-space-5);
+    border: 1px solid var(--mp-border);
+    border-radius: var(--mp-radius);
+    background: var(--mp-surface);
+    box-shadow: var(--mp-shadow);
+}
+
+.mp-hero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mp-space-1);
+    padding-bottom: var(--mp-space-4);
+    margin-bottom: var(--mp-space-4);
+    border-bottom: 1px solid var(--mp-border);
+}
+
+.mp-hero > * {
+    margin: 0;
+}
+
+.mp-hero h1,
+.mp-hero h2 {
+    font-size: var(--mp-text-2xl);
+}
+
+.mp-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--mp-space-3) var(--mp-space-4);
+    border-radius: var(--mp-radius-sm);
+    background: var(--mp-surface-2);
+}
+
+.mp-stat > span {
+    font-size: var(--mp-text-xs);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--mp-muted);
+}
+
+.mp-stat > strong {
+    font-family: var(--mp-font-display);
+    font-size: var(--mp-text-xl);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.mp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mp-space-1);
+    padding: 2px var(--mp-space-2);
+    border-radius: var(--radius-full);
+    font-size: var(--mp-text-xs);
+    font-weight: 500;
+    color: var(--mp-accent-text);
+    background: var(--mp-accent-soft);
+}
+
+.mp-checklist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.mp-checklist li + li {
+    margin-top: 0;
+    border-top: 1px solid var(--mp-border);
+}
+
+.mp-checklist label {
+    display: flex;
+    align-items: center;
+    gap: var(--mp-space-3);
+    min-height: 44px;
+    font-size: var(--mp-text-md);
+    color: var(--mp-text);
+    cursor: pointer;
+}
+
+.mp-checklist label:has(input:checked) {
+    color: var(--mp-muted);
+    text-decoration: line-through;
+}
+
+.mp-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: mp-step;
+}
+
+.mp-steps > li {
+    position: relative;
+    padding-left: calc(28px + var(--mp-space-3));
+    counter-increment: mp-step;
+}
+
+.mp-steps > li + li {
+    margin-top: var(--mp-space-4);
+}
+
+.mp-steps > li::before {
+    content: counter(mp-step);
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    font-size: var(--mp-text-sm);
+    font-weight: 600;
+    color: var(--mp-accent-text);
+    background: var(--mp-accent-soft);
+}
+
+/* Tabs without script: <div class="mp-tabs"><input type=radio name=t id=a checked>
+   <label for=a>A</label>...<div class="mp-tab-panel">...</div>...</div> -
+   the panel after the checked radio's label set is shown in order. */
+.mp-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mp-space-1);
+}
+
+.mp-tabs > input[type='radio'] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mp-tabs > label {
+    padding: var(--mp-space-2) var(--mp-space-3);
+    border-radius: var(--mp-radius-sm);
+    font-weight: 500;
+    color: var(--mp-muted);
+    cursor: pointer;
+}
+
+.mp-tabs > input[type='radio']:checked + label {
+    color: var(--mp-text);
+    background: var(--mp-surface-2);
+}
+
+.mp-tabs > input[type='radio']:focus-visible + label {
+    outline: 2px solid var(--mp-accent);
+}
+
+.mp-tabs > .mp-tab-panel {
+    display: none;
+    width: 100%;
+    padding-top: var(--mp-space-3);
+}
+
+.mp-tabs > input:nth-of-type(1):checked ~ .mp-tab-panel:nth-of-type(1),
+.mp-tabs > input:nth-of-type(2):checked ~ .mp-tab-panel:nth-of-type(2),
+.mp-tabs > input:nth-of-type(3):checked ~ .mp-tab-panel:nth-of-type(3),
+.mp-tabs > input:nth-of-type(4):checked ~ .mp-tab-panel:nth-of-type(4),
+.mp-tabs > input:nth-of-type(5):checked ~ .mp-tab-panel:nth-of-type(5) {
+    display: block;
+}
+
+.mp-muted {
+    color: var(--mp-muted);
+}
+
+.mp-accent {
+    color: var(--mp-accent-text);
+}
+
+/* ---------- Narrow frames (phone width, future side panel) ---------- */
+
+@container (max-width: 480px) {
+    .mp-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .mp-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mp-card {
+        padding: var(--mp-space-4);
+    }
+
+    h1,
+    .mp-hero h1,
+    .mp-hero h2 {
+        font-size: var(--mp-text-xl);
+    }
+}
