@@ -196,8 +196,11 @@ export function processStreamEvent(
 
     case 'artifact':
       // A version is ready: its frame loads while the reply keeps streaming
-      if (isCurrentConversation && state.messageEl && isArtifactRef(event)) {
-        addLiveArtifact(state.messageEl, { id: event.id, version: event.version, title: event.title });
+      if (isArtifactRef(event)) {
+        const ref = { id: event.id, version: event.version, title: event.title };
+        // Kept with the turn, so switching away and back restores the card
+        useStore.getState().addActiveRequestArtifact(convId, ref);
+        if (isCurrentConversation && state.messageEl) addLiveArtifact(state.messageEl, ref);
       }
       break;
 

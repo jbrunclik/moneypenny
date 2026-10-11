@@ -8,8 +8,13 @@ vi.mock('@/api/artifacts', () => ({
 vi.mock('@/core/messaging', () => ({ sendUiMessage: vi.fn(() => Promise.resolve(true)) }));
 import { fetchArtifactVersion, saveArtifactState } from '@/api/artifacts';
 import { sendUiMessage } from '@/core/messaging';
-import { _resetArtifactHost, observeTheme, registerFrame } from '@/core/artifact-host';
-import { ARTIFACT_MAX_HEIGHT_VH, ARTIFACT_READY_TIMEOUT_MS, ARTIFACT_STATE_SAVE_DEBOUNCE_MS } from '@/config';
+import { _registeredFrameCount, _resetArtifactHost, observeTheme, registerFrame } from '@/core/artifact-host';
+import {
+  ARTIFACT_MAX_HEIGHT_VH,
+  ARTIFACT_MIN_HEIGHT_PX,
+  ARTIFACT_READY_TIMEOUT_MS,
+  ARTIFACT_STATE_SAVE_DEBOUNCE_MS,
+} from '@/config';
 
 const REF = { id: 'a', version: 1, title: 'Tips' };
 
@@ -200,6 +205,32 @@ describe('registerFrame', () => {
     stop();
     fromFrame(frame, { type: 'mp:send', text: 'hi' });
     expect(sendUiMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('housekeeping', () => {
+  it('a frame that reports no height keeps a visible minimum', () => {
+    const { frame } = makeFrame();
+    registerFrame(frame, REF, {});
+    fromFrame(frame, { type: 'mp:height', height: 0 });
+    expect(frame.style.height).toBe(`${ARTIFACT_MIN_HEIGHT_PX}px`);
+  });
+
+  it('frames not yet attached are kept (history builds a message, then appends it)', () => {
+    const first = document.createElement('iframe');
+    const second = document.createElement('iframe');
+    registerFrame(first, REF, {});
+    registerFrame(second, { ...REF, id: 'b' }, {});
+    expect(_registeredFrameCount()).toBe(2);
+  });
+
+  it('frames dropped by a re-render are forgotten on the next registration', () => {
+    const a = makeFrame();
+    registerFrame(a.frame, REF, {});
+    a.frame.remove();
+    const b = makeFrame();
+    registerFrame(b.frame, { ...REF, id: 'b' }, {});
+    expect(_registeredFrameCount()).toBe(1);
   });
 });
 

@@ -30,6 +30,10 @@ const fakeRunner: ScriptRunner = async (script, insert) => {
 beforeEach(() => {
   document.head.innerHTML = '';
   document.body.innerHTML = '';
+  document.body.removeAttribute('class');
+  document.body.removeAttribute('data-servings');
+  document.documentElement.removeAttribute('lang');
+  document.documentElement.removeAttribute('class');
   for (const key of ['__a', '__b', '__order', '__ready']) delete win()[key];
 });
 
@@ -47,6 +51,22 @@ describe('loadArtifact', () => {
     expect(document.head.querySelector('style')?.textContent).toBe('.a{color:red}');
     expect(document.body.querySelector('p.a')?.textContent).toBe('hi');
     expect(document.body.querySelector('title')).toBeNull();
+  });
+
+  it('keeps a full document’s <html> and <body> attributes', async () => {
+    const html = '<html lang="cs" class="x"><body class="recipe" data-servings="4"><p>hi</p></body></html>';
+    await loadArtifact(document, html, fakeRunner);
+    expect(document.body.classList.contains('recipe')).toBe(true);
+    expect(document.body.dataset.servings).toBe('4');
+    expect(document.documentElement.getAttribute('lang')).toBe('cs');
+    expect(document.documentElement.classList.contains('x')).toBe(true);
+  });
+
+  it('never lets the artifact replace the theme attribute', async () => {
+    document.documentElement.dataset.theme = 'light';
+    await loadArtifact(document, '<html data-theme="dark"><body></body></html>', fakeRunner);
+    expect(document.documentElement.dataset.theme).toBe('light');
+    delete document.documentElement.dataset.theme;
   });
 
   it('runs inline scripts in document order', async () => {

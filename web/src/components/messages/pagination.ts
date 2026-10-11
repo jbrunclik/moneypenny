@@ -14,6 +14,7 @@ import {
   INFINITE_SCROLL_DEBOUNCE_MS,
 } from '../../config';
 import { PaginationDirection } from '../../types/api';
+import { refreshVersionBadges } from './artifacts';
 import { addMessageToUI, lockOlderQuizBlocks } from './render';
 import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { Message } from '../../types/api';
@@ -266,6 +267,8 @@ function prependMessagesToUI(messages: Message[], container: HTMLElement): HTMLE
   });
 
   lockOlderQuizBlocks(container);
+  // Older cards were built detached: their "newer below" needs the whole list
+  refreshVersionBadges(container);
   // The boundary message may have just been loaded
   applyCompactionMarkers(container);
 

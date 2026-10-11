@@ -20,7 +20,9 @@ import {
   hasActiveStreamingContext,
   getStreamingContextConversationId,
   cleanupStreamingContext,
+  getStreamingMessageElement,
 } from '../components/messages';
+import { addLiveArtifact } from '../components/messages/artifacts';
 import {
   focusMessageInput,
   ensureInputAreaVisible,
@@ -110,6 +112,11 @@ function restoreActiveRequestUi(convId: string): void {
       activeRequest.content || '',
       activeRequest.thinkingState
     );
+    // Artifacts the turn made while this conversation was not shown
+    const streamingEl = getStreamingMessageElement(convId);
+    if (streamingEl) {
+      for (const ref of activeRequest.artifacts ?? []) addLiveArtifact(streamingEl, ref);
+    }
   } else if (activeRequest.type === 'batch') {
     // Show loading indicator for batch requests
     showLoadingIndicator();

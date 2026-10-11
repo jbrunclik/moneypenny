@@ -7,14 +7,15 @@ from flask.testing import FlaskClient
 from src.app import build_frame_csp
 from src.config import Config
 
-# WebKit matches nothing against 'self' in an opaque-origin sandbox, so the
-# app's origin is named explicitly next to it
+# Only the app's explicit origin, never 'self': in an opaque-origin sandbox
+# WebKit matched nothing against 'self' for scripts, yet let images from ANY
+# origin through (Oct 11 2026 probe); an explicit origin is enforced by both
 _ORIGIN = "https://app.example"
 _PROD_CSP = (
     "sandbox allow-scripts; default-src 'none'; "
-    "script-src 'self' https://app.example 'unsafe-inline'; "
-    "style-src 'self' https://app.example 'unsafe-inline'; "
-    "img-src 'self' https://app.example data: blob:; font-src 'self' https://app.example data:; "
+    "script-src https://app.example 'unsafe-inline'; "
+    "style-src https://app.example 'unsafe-inline'; "
+    "img-src https://app.example data: blob:; font-src https://app.example data:; "
     "connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"
 )
 
@@ -25,13 +26,14 @@ def test_production_frame_csp_is_exact() -> None:
 
 def test_dev_frame_csp_allows_only_the_vite_server_on_top() -> None:
     csp = build_frame_csp(dev_mode=True, origin=_ORIGIN)
-    assert "script-src 'self' https://app.example 'unsafe-inline' http://localhost:5173" in csp
+    assert "script-src https://app.example 'unsafe-inline' http://localhost:5173" in csp
     assert "connect-src ws://localhost:5173" in csp
     assert "http://localhost:5173" not in build_frame_csp(dev_mode=False, origin=_ORIGIN)
 
 
 def test_frame_route_headers_in_production(client: FlaskClient) -> None:
-    with patch.object(Config, "FLASK_ENV", "production"):
+    # No APP_URL: the request's own origin (the local .env may set one)
+    with patch.object(Config, "FLASK_ENV", "production"), patch.object(Config, "APP_URL", ""):
         response = client.get("/artifact-frame")
     # 500 when the frontend is not built; the headers hold either way
     assert response.status_code in (200, 500)
@@ -81,3 +83,15 @@ def test_frame_starts_in_the_requested_theme(client: FlaskClient) -> None:
         dark = client.get("/artifact-frame?theme=evil%22").get_data(as_text=True)
     assert '<html lang="en" data-theme="light">' in light
     assert "data-theme" not in dark.split("<head>")[0]
+
+
+def test_frame_csp_uses_the_configured_public_origin(client: FlaskClient) -> None:
+    # APP_URL, when set, wins over the request's Host header
+    with (
+        patch.object(Config, "FLASK_ENV", "production"),
+        patch.object(Config, "APP_URL", "https://app.example/"),
+    ):
+        response = client.get("/artifact-frame", headers={"Host": "evil.example"})
+    csp = response.headers["Content-Security-Policy"]
+    assert "script-src https://app.example 'unsafe-inline'" in csp
+    assert "evil.example" not in csp

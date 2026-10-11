@@ -39,6 +39,9 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
+# The server's own origin (a local .env may point APP_URL at the Vite dev
+# server): the artifact frame's CSP names it, and WebKit needs it to match
+os.environ["APP_URL"] = "http://localhost:8001"
 # The post-answer grounding check must never call the live API from tests;
 # its own tests opt back in via monkeypatch on Config.
 os.environ["GROUNDING_CHECK_ENABLED"] = "false"

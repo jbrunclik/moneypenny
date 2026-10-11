@@ -24,6 +24,14 @@ export const runScript: ScriptRunner = (script, insert) => {
 };
 
 const HEAD_STYLE_SELECTOR = 'style, link[rel="stylesheet"]';
+/** The bridge owns the theme attribute; an artifact cannot pin one */
+const RESERVED_ROOT_ATTRIBUTES = new Set(['data-theme']);
+
+function copyAttributes(from: Element, to: Element): void {
+  for (const attr of Array.from(from.attributes)) {
+    if (!RESERVED_ROOT_ATTRIBUTES.has(attr.name)) to.setAttribute(attr.name, attr.value);
+  }
+}
 
 function freshScript(doc: Document, parsed: HTMLScriptElement): HTMLScriptElement {
   const script = doc.createElement('script');
@@ -40,6 +48,9 @@ export async function loadArtifact(
   run: ScriptRunner = runScript
 ): Promise<void> {
   const parsed = new DOMParser().parseFromString(html, 'text/html');
+  // A full document's <html lang class> and <body class data-* onload> apply
+  copyAttributes(parsed.documentElement, doc.documentElement);
+  copyAttributes(parsed.body, doc.body);
   for (const node of Array.from(parsed.head.querySelectorAll(HEAD_STYLE_SELECTOR))) {
     doc.head.appendChild(doc.adoptNode(node));
   }

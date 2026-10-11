@@ -2,6 +2,7 @@ import json
 import sys
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from apiflask import APIFlask
 from flask import Response, render_template, request, send_from_directory
@@ -39,15 +40,17 @@ _CSP_POLICY = "; ".join(
 # The artifact frame's own policy (docs/features/artifacts.md): an opaque-origin
 # sandbox with scripts but no network, no forms, no navigation of the app, and
 # only embeddable by the app itself. Inline scripts are the artifact's own code.
-# {origin}: WebKit matches nothing against 'self' in an opaque-origin sandbox,
-# so the app's own origin is named explicitly next to it.
+# {origin}: the app's own origin, named explicitly and NEVER as 'self'. In an
+# opaque-origin sandbox WebKit matches nothing against 'self' for scripts, yet
+# lets images from any origin through on it (Oct 11 2026 probe); an explicit
+# origin is enforced correctly by WebKit and Chromium.
 _FRAME_CSP_DIRECTIVES: tuple[tuple[str, str], ...] = (
     ("sandbox", "allow-scripts"),
     ("default-src", "'none'"),
-    ("script-src", "'self' {origin} 'unsafe-inline'"),
-    ("style-src", "'self' {origin} 'unsafe-inline'"),
-    ("img-src", "'self' {origin} data: blob:"),
-    ("font-src", "'self' {origin} data:"),
+    ("script-src", "{origin} 'unsafe-inline'"),
+    ("style-src", "{origin} 'unsafe-inline'"),
+    ("img-src", "{origin} data: blob:"),
+    ("font-src", "{origin} data:"),
     ("connect-src", "'none'"),
     ("form-action", "'none'"),
     ("base-uri", "'none'"),
@@ -62,6 +65,12 @@ _FRAME_CSP_DEV_EXTRAS = {
 
 
 _FRAME_ENTRY = "src/artifact/frame.ts"
+
+
+def _public_origin() -> str | None:
+    """scheme://host[:port] of Config.APP_URL, or None when it is not set."""
+    parsed = urlsplit(Config.APP_URL)
+    return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
 
 
 def build_frame_csp(dev_mode: bool, origin: str) -> str:
@@ -352,8 +361,9 @@ def create_app() -> APIFlask:
         else:
             logger.error("Artifact frame entry missing from the Vite manifest")
             response = Response("Frontend not built. Run 'make build' first.", status=500)
-        # Behind the proxy, ProxyFix makes this the public scheme and host
-        origin = f"{request.scheme}://{request.host}"
+        # The configured public origin; else (dev, tests) the request's, which
+        # ProxyFix makes the public scheme and host behind the proxy
+        origin = _public_origin() or f"{request.scheme}://{request.host}"
         response.headers["Content-Security-Policy"] = build_frame_csp(dev_mode, origin)
         response.headers["X-Frame-Options"] = "SAMEORIGIN"
         response.headers["Cache-Control"] = "no-cache"

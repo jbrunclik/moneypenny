@@ -8,6 +8,7 @@ import { fetchArtifactVersion, saveArtifactState } from '../api/artifacts';
 import { type ArtifactTheme, type FromFrame, isFromFrame, type ToFrame } from '../artifact/protocol';
 import {
   ARTIFACT_MAX_HEIGHT_VH,
+  ARTIFACT_MIN_HEIGHT_PX,
   ARTIFACT_READY_TIMEOUT_MS,
   ARTIFACT_SEND_MAX_CHARS,
   ARTIFACT_SEND_MIN_INTERVAL_MS,
@@ -39,6 +40,8 @@ interface Entry {
   pendingState: unknown;
   /** When this frame last sent a message (one send per click burst) */
   lastSendAt: number;
+  /** Seen in the document: only then does "not connected" mean dropped */
+  attached: boolean;
 }
 
 // Keyed by the element, matched to `event.source` per message: a frame can be
@@ -77,7 +80,7 @@ async function initFrame(entry: Entry): Promise<void> {
 
 function applyHeight(entry: Entry, reported: number): void {
   const cap = Math.round((window.innerHeight * ARTIFACT_MAX_HEIGHT_VH) / 100);
-  const height = Math.max(0, Math.min(Math.ceil(reported), cap));
+  const height = Math.max(ARTIFACT_MIN_HEIGHT_PX, Math.min(Math.ceil(reported), cap));
   const before = entry.frame.getBoundingClientRect();
   entry.frame.style.height = `${height}px`;
   // A frame above the viewport changing height would shift what the user
@@ -164,7 +167,10 @@ function handle(entry: Entry, message: FromFrame): void {
 function entryFor(source: MessageEventSource | null): Entry | undefined {
   if (!source) return undefined;
   for (const entry of entries.values()) {
-    if (entry.frame.contentWindow === source) return entry;
+    if (entry.frame.contentWindow === source) {
+      entry.attached = true; // it posts, so it is in the document
+      return entry;
+    }
   }
   return undefined;
 }
@@ -193,6 +199,7 @@ export function registerFrame(
     window.addEventListener('message', onMessage);
     listening = true;
   }
+  sweepDisconnected();
   const entry: Entry = {
     frame,
     ref,
@@ -201,6 +208,7 @@ export function registerFrame(
     saveTimer: null,
     pendingState: null,
     lastSendAt: 0,
+    attached: frame.isConnected,
   };
   entry.readyTimer = window.setTimeout(() => fail(entry), ARTIFACT_READY_TIMEOUT_MS);
   entries.set(frame, entry);
@@ -210,17 +218,33 @@ export function registerFrame(
   };
 }
 
+/** Forget cards a re-render or conversation switch dropped without unregistering.
+ * A frame never seen attached is kept: history and pagination build a message
+ * (with all its cards) in a detached container, then append it. */
+function sweepDisconnected(): void {
+  for (const [frame, entry] of entries) {
+    if (frame.isConnected) {
+      entry.attached = true;
+      continue;
+    }
+    if (!entry.attached) continue;
+    if (entry.readyTimer !== null) window.clearTimeout(entry.readyTimer);
+    entries.delete(frame);
+  }
+}
+
+/** Tests: how many frames are being served. */
+export function _registeredFrameCount(): number {
+  return entries.size;
+}
+
 /** Push app theme changes to every live frame (installed once). */
 export function observeTheme(): void {
   if (themeObserver) return;
   themeObserver = new MutationObserver(() => {
     const theme = currentTheme();
+    sweepDisconnected();
     for (const [frame, entry] of entries) {
-      // Cards dropped by a re-render without unregistering
-      if (!frame.isConnected) {
-        entries.delete(frame);
-        continue;
-      }
       applyFrameTheme(frame, theme);
       post(entry, { type: 'mp:theme', theme });
     }

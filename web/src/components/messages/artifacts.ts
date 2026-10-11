@@ -5,7 +5,7 @@
  * same live frame instead of reloading it.
  */
 import { fetchArtifactVersion } from '../../api/artifacts';
-import { ARTIFACT_PLACEHOLDER_HEIGHT_PX } from '../../config';
+import { ARTIFACT_PLACEHOLDER_HEIGHT_PX, ARTIFACT_SOURCE_URL_TTL_MS } from '../../config';
 import { applyFrameTheme, currentTheme, observeTheme, registerFrame } from '../../core/artifact-host';
 import { getCachedHeight, heightCacheKey, setCachedHeight } from '../../core/artifact-height';
 import type { ArtifactRef } from '../../types/api';
@@ -49,11 +49,19 @@ function header(ref: ArtifactRef): HTMLElement {
 }
 
 async function viewSource(ref: ArtifactRef): Promise<void> {
-  // Plain text in a new tab: readable at any length, never rendered
+  // Plain text in a new tab: readable at any length, never rendered. The tab
+  // opens synchronously (still inside the click, or popup blockers refuse it)
   const tab = window.open('', '_blank');
-  const version = await fetchArtifactVersion(ref.id, ref.version);
-  const url = URL.createObjectURL(new Blob([version.html], { type: 'text/plain;charset=utf-8' }));
+  let html: string;
+  try {
+    html = (await fetchArtifactVersion(ref.id, ref.version)).html;
+  } catch {
+    tab?.close();
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/plain;charset=utf-8' }));
   if (tab) tab.location.href = url;
+  window.setTimeout(() => URL.revokeObjectURL(url), ARTIFACT_SOURCE_URL_TTL_MS);
 }
 
 function setBadge(card: HTMLElement, kind: string, text: string | null, onClick?: () => void): void {
@@ -168,6 +176,12 @@ export function decorateArtifacts(
 export function addLiveArtifact(messageEl: HTMLElement, ref: ArtifactRef): void {
   const list = ensureList(messageEl);
   if (!list) return;
+  // An update later in the same turn replaces the card it revises (done
+  // lists only the turn's last version of each artifact)
+  for (const card of Array.from(list.querySelectorAll<HTMLElement>(CARD_SELECTOR))) {
+    const older = Number(card.dataset.artifactVersion) < ref.version;
+    if (card.dataset.artifactId === ref.id && older) removeCard(card);
+  }
   addCard(list, ref);
   refreshVersionBadges();
 }

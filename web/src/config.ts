@@ -673,6 +673,10 @@ export const ARTIFACT_MAX_HEIGHT_VH = 80;
 export const ARTIFACT_READY_TIMEOUT_MS = 5000;
 /** Quick mp.state.set calls (ticking several items) save once */
 export const ARTIFACT_STATE_SAVE_DEBOUNCE_MS = 400;
+/** Shortest a frame gets: one that reports no height stays visible and clickable */
+export const ARTIFACT_MIN_HEIGHT_PX = 32;
+/** How long a View source tab has to read its blob before the URL is freed */
+export const ARTIFACT_SOURCE_URL_TTL_MS = 60_000;
 /** Reserved before the first height report when this device has none cached */
 export const ARTIFACT_PLACEHOLDER_HEIGHT_PX = 160;
 /** Longest text an artifact's mp.send may post as the user's message */

@@ -1,4 +1,4 @@
-import type { FileUpload, Model, ThinkingState, UploadConfig } from '../../types/api';
+import type { ArtifactRef, FileUpload, Model, ThinkingState, UploadConfig } from '../../types/api';
 import type { AppSlice } from '../store';
 
 /**
@@ -24,6 +24,8 @@ export interface ActiveRequestState {
   thinkingState?: ThinkingState;
   /** Stop was sent to the server; the turn ends at its next checkpoint */
   stopping?: boolean;
+  /** Artifacts the turn made so far (restored after a conversation switch) */
+  artifacts?: ArtifactRef[];
 }
 
 export type ActiveView = 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language';
@@ -83,6 +85,8 @@ export interface UiSlice extends UiSessionData {
   setPendingAnonymousMode: (enabled: boolean) => void;
   setActiveRequest: (convId: string, state: ActiveRequestState) => void;
   updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
+  /** Record a version the running turn made (one per artifact, the latest) */
+  addActiveRequestArtifact: (convId: string, ref: ArtifactRef) => void;
   removeActiveRequest: (convId: string) => void;
   getActiveRequest: (convId: string) => ActiveRequestState | undefined;
   setUploadProgress: (progress: number | null) => void;
@@ -188,6 +192,18 @@ function conversationFlagActions(set: UiSet, get: UiGet) {
         if (!existing) return s;
         const newMap = new Map(s.activeRequests);
         newMap.set(convId, { ...existing, content, thinkingState: thinkingState ?? existing.thinkingState });
+        return { activeRequests: newMap };
+      }),
+    addActiveRequestArtifact: (convId: string, ref: ArtifactRef) =>
+      set((s) => {
+        const existing = s.activeRequests.get(convId);
+        if (!existing) return s;
+        const others = (existing.artifacts ?? []).filter((a) => a.id !== ref.id);
+        const index = (existing.artifacts ?? []).findIndex((a) => a.id === ref.id);
+        const artifacts = [...others];
+        artifacts.splice(index === -1 ? artifacts.length : index, 0, ref);
+        const newMap = new Map(s.activeRequests);
+        newMap.set(convId, { ...existing, artifacts });
         return { activeRequests: newMap };
       }),
     removeActiveRequest: (convId: string) =>

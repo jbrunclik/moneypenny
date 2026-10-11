@@ -69,16 +69,18 @@ ones use `setdefault`, so these win:
 - `Content-Security-Policy` from `build_frame_csp(dev_mode, origin)`:
 
 ```
-sandbox allow-scripts; default-src 'none'; script-src 'self' {origin} 'unsafe-inline';
-style-src 'self' {origin} 'unsafe-inline'; img-src 'self' {origin} data: blob:;
-font-src 'self' {origin} data:; connect-src 'none'; form-action 'none';
+sandbox allow-scripts; default-src 'none'; script-src {origin} 'unsafe-inline';
+style-src {origin} 'unsafe-inline'; img-src {origin} data: blob:;
+font-src {origin} data:; connect-src 'none'; form-action 'none';
 base-uri 'none'; frame-ancestors 'self'
 ```
 
-`{origin}` is the app's own origin, `request.scheme://request.host` (behind the
-reverse proxy `ProxyFix` makes it the public one). It sits next to `'self'`
-because WebKit matches nothing against `'self'` in an opaque-origin sandbox, so
-Safari loaded a blank frame. Dev mode adds the Vite dev server to `script-src` /
+`{origin}` is the app's own origin: the scheme and host of `APP_URL` when it is
+set (production), else `request.scheme://request.host` (dev and tests; behind the
+reverse proxy `ProxyFix` makes it the public one) - never taken from a Host
+header when `APP_URL` is configured. It is named explicitly and there is no
+`'self'` (see Pitfalls). Consequence: the frame works only when the app is opened
+at `APP_URL`'s origin - opened by another hostname or IP, frames stay blank. Dev mode adds the Vite dev server to `script-src` /
 `style-src` and its websocket to `connect-src` (`_FRAME_CSP_DEV_EXTRAS`).
 
 What this gives: an opaque origin (no app cookies, storage or DOM), no network
@@ -88,6 +90,14 @@ top navigation, and only the app can embed the frame. The app CSP gained
 artifact's own code. Built assets under `/static/assets/` send
 `Access-Control-Allow-Origin: *` (public hashed bundles); the API still sends no
 CORS headers.
+
+**Accepted risk - side channels.** A sandbox with `allow-scripts` can still
+reach the network through channels CSP does not govern in every browser
+(WebRTC ICE/STUN candidates, DNS prefetch of link hostnames). We accept them: a
+prompt-injected agent can already send data anywhere with its own `fetch_url` /
+`web_search` tools, so the frame's lock is defence in depth, not the only
+barrier. The frame's real job is keeping artifact code away from the app's
+origin, storage and the user's identity, which the opaque origin does.
 
 The host trusts a message only by `event.source` (a frame it created); the
 frame's origin is `"null"` and says nothing. The frame listens only to
@@ -306,8 +316,11 @@ Client constants in [config.ts](../../web/src/config.ts):
   In E2E, Playwright's `X-Test-Execution-Id` header turns those into preflights,
   so the E2E server allows that header on asset responses (production sends no
   custom header and sees no preflight).
-- **WebKit matches nothing against `'self'` in an opaque-origin sandbox**: the
-  frame CSP names the app origin explicitly, or Safari shows blank frames.
+- **Never use `'self'` in the frame CSP.** In an opaque-origin sandbox WebKit
+  matches nothing against `'self'` for scripts (blank frames on Safari), yet lets
+  images from ANY origin through on it (found Oct 11 2026 by the E2E probe "more
+  escapes are blocked": the remote image got a response on WebKit only). An
+  explicit origin is enforced correctly by both engines.
 - **History renders a message before appending it**, so a frame registered then
   has no `contentWindow`. The host keys frames by element and matches
   `event.source` per message; keying by `contentWindow` lost the init after a

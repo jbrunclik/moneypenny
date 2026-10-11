@@ -14,7 +14,7 @@ It runs sandboxed: no network, no external URLs (images only inline SVG or data:
 - Layout: .mp-stack (vertical gap), .mp-row (horizontal, wraps), .mp-grid (auto columns), .mp-divider.
 - Components: .mp-card, .mp-hero (title block), .mp-stat (<div class="mp-stat"><span>Label</span><strong>42</strong></div>), .mp-chip, .mp-checklist (ul of <li><label><input type=checkbox> text</label></li>), .mp-steps (ol), .mp-tabs (radio+label pairs, then one .mp-tab-panel div per tab in the same order), .mp-muted, .mp-accent.
 - Colours only via var(--mp-text|--mp-muted|--mp-accent|--mp-surface|--mp-border|--mp-success|--mp-warning|--mp-error) or currentColor - never hex. It must look right in light and dark.
-- Sizing: fluid only (%, fr, minmax, flex). No fixed widths or heights. SVG: viewBox plus width="100%". It must work from 320px phone width to desktop.
+- Sizing: fluid only (%, fr, minmax, flex). No fixed widths or heights, no vh/vw units (the frame grows to fit its content, so 100vh keeps growing). SVG: viewBox plus width="100%". It must work from 320px phone width to desktop.
 
 Bridge (global mp):
 - mp.send(text): send text as the user's next message (only from a click handler).
