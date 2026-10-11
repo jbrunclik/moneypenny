@@ -277,3 +277,52 @@ def test_parallel_searches_keep_the_request_id() -> None:
         request_id_var.reset(token)
 
     assert seen == ["req-abc", "req-abc", "req-abc"]
+
+
+class TestRecencyNote:
+    """Undated or old results for a question about something recent were
+    presented as this month's news (Oct 2026: a September keynote answered from
+    2024 articles). The result now says when nothing it found is recent."""
+
+    @staticmethod
+    def _result(published: str | None) -> dict[str, str]:
+        result = {"title": "T", "url": "https://a.example", "snippet": "S"}
+        return {**result, "published": published} if published else result
+
+    def _search(self, *published: str | None, batch: bool = False) -> dict[str, Any]:
+        from datetime import date
+
+        results = [self._result(p) for p in published]
+        with (
+            patch("src.agent.tools.web.search_web_detailed", return_value=(results, "brave")),
+            patch("src.agent.tools.web._today", return_value=date(2026, 10, 10)),
+        ):
+            args = {"queries": ["a", "b"]} if batch else {"query": "q"}
+            parsed: dict[str, Any] = json.loads(web_search.invoke(args))
+        return parsed
+
+    def test_only_old_results_get_a_note_to_search_with_the_date(self) -> None:
+        parsed = self._search("2024-06-10", "2025-01-02")
+        assert "month and year" in parsed["_recency"]
+
+    def test_a_recent_result_means_no_note(self) -> None:
+        assert "_recency" not in self._search("2024-06-10", "2026-09-12")
+
+    def test_undated_results_mean_no_note(self) -> None:
+        assert "_recency" not in self._search(None, None)
+
+    def test_batches_are_judged_across_all_searches(self) -> None:
+        assert "month and year" in self._search("2024-06-10", batch=True)["_recency"]
+
+
+class TestSnippetsAreNotVerification:
+    @patch("src.agent.tools.web.search_web_detailed")
+    def test_the_directive_rules_out_calling_snippets_verified(
+        self, mock_search: MagicMock
+    ) -> None:
+        mock_search.return_value = (
+            [{"title": "T", "url": "https://a.example", "snippet": "S"}],
+            "brave",
+        )
+        parsed = json.loads(web_search.invoke({"query": "q"}))
+        assert "verified" in parsed["_grounding"] and "research" in parsed["_grounding"]

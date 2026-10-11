@@ -308,6 +308,7 @@ def turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, An
     from src.api.utils import (
         calculate_deep_research_cost,
         calculate_delegate_cost_from_tool_results,
+        calculate_freshness_cost,
         calculate_grounding_cost,
         calculate_image_generation_cost_from_tool_results,
     )
@@ -321,6 +322,7 @@ def turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, An
         image_generation_cost=calculate_image_generation_cost_from_tool_results(tool_results),
         tool_llm_cost=calculate_delegate_cost_from_tool_results(tool_results)
         + calculate_grounding_cost(usage)
+        + calculate_freshness_cost(usage)
         + calculate_deep_research_cost(usage),
     )
 

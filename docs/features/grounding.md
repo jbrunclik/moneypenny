@@ -125,6 +125,11 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `usage_info["grounding_usage"]` and is priced at the verifier's rates by
   `calculate_grounding_cost()` ([utils.py](../../src/api/utils.py)) into
   `message_costs`.
+- **Scope**: practical, current specifics (businesses, prices, hours, upcoming
+  dates) and, since Oct 11 2026, RECENT NEWS facts from the last 12 months
+  before TODAY (announcements, approvals, who holds a role now) - the prompt is
+  formatted with today's date. History and older events stay out of scope.
+  See [Current Facts](freshness.md).
 - **Fail-open**: on timeout, API or schema error it logs "Grounding check
   failed" and the message is saved without annotations.
 - **Telemetry**: one "Grounding check" log line per check with

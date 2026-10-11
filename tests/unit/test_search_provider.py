@@ -1110,3 +1110,74 @@ def test_tests_never_hold_a_metered_search_key() -> None:
 
     keyed = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None and p.api_key()]
     assert keyed == []
+
+
+class TestPublishedDates:
+    """Each result carries its publish date when the provider gives one, so
+    the model can tell a 2024 article from this month's news."""
+
+    @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
+    @patch("src.utils.search_provider.httpx.get")
+    def test_brave_page_age(self, mock_get: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "web": {
+                "results": [
+                    {
+                        "title": "T1",
+                        "url": "https://a.example",
+                        "description": "D1",
+                        "page_age": "2026-09-09T17:00:00",
+                    },
+                ]
+            }
+        }
+        mock_get.return_value = mock_response
+        with patch("src.utils.search_provider.db", _fake_db()):
+            [result] = search_web("q", 1)
+        assert result["published"] == "2026-09-09"
+
+    @patch("src.utils.search_provider.httpx.post")
+    def test_tavily_and_exa_dates(self, mock_post: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "results": [
+                {
+                    "title": "T1",
+                    "url": "https://a.example",
+                    "content": "C1",
+                    "published_date": "Wed, 15 Jul 2026 08:00:00 GMT",
+                },
+                {
+                    "title": "T2",
+                    "url": "https://b.example",
+                    "text": "X",
+                    "publishedDate": "2024-06-10T00:00:00.000Z",
+                },
+                {"title": "T3", "url": "https://c.example", "content": "C3"},
+            ]
+        }
+        mock_post.return_value = mock_response
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="",
+                TAVILY_API_KEY="tvly-key",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+            ),
+            patch("src.utils.search_provider.db", _fake_db()),
+        ):
+            results = search_web("q", 3)
+        assert results[0]["published"] == "2026-07-15"
+        assert "published" not in results[2]
+
+    def test_unparseable_dates_are_dropped(self) -> None:
+        from src.utils.search_provider import normalize_published
+
+        assert normalize_published("2026-09-09T17:00:00") == "2026-09-09"
+        assert normalize_published("Wed, 15 Jul 2026 08:00:00 GMT") == "2026-07-15"
+        assert normalize_published("2 days ago") is None
+        assert normalize_published(None) is None

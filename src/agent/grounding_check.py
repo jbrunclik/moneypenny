@@ -12,7 +12,7 @@ See docs/superpowers/specs/2026-10-03-grounding-annotations-design.md.
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
@@ -78,6 +78,11 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
     return "\n".join(lines)
 
 
+def _today() -> date:
+    """Seam for tests: recent news is judged against today's date."""
+    return date.today()
+
+
 def _run_verifier(
     answer: str, sources: str, known: str, *, timeout_seconds: float | None = None
 ) -> tuple[GroundingVerdict | None, dict[str, Any] | None]:
@@ -92,7 +97,9 @@ def _run_verifier(
     )
     structured = model.with_structured_output(GroundingVerdict, include_raw=True)
     out = structured.invoke(
-        GROUNDING_CHECK_PROMPT.format(known=known, sources=sources, answer=answer)
+        GROUNDING_CHECK_PROMPT.format(
+            known=known, sources=sources, answer=answer, today=_today().isoformat()
+        )
     )
     if not isinstance(out, dict):  # include_raw=True always returns a dict
         return None, None

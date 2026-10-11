@@ -39,12 +39,15 @@ os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
-# The server's own origin (a local .env may point APP_URL at the Vite dev
-# server): the artifact frame's CSP names it, and WebKit needs it to match
-os.environ["APP_URL"] = "http://localhost:8001"
+# No APP_URL: the artifact frame's CSP then names the origin each request
+# came to (localhost or 127.0.0.1 - CI's baseline job uses the latter). A
+# local .env may point APP_URL at the Vite dev server, which matches neither.
+os.environ["APP_URL"] = ""
 # The post-answer grounding check must never call the live API from tests;
 # its own tests opt back in via monkeypatch on Config.
 os.environ["GROUNDING_CHECK_ENABLED"] = "false"
+# No live freshness-gate calls (src/agent/freshness.py); tests enable it explicitly
+os.environ["FRESHNESS_GATE_ENABLED"] = "false"
 # Metered search providers must never be billed from tests (src/config.py
 # loads the real .env); evals blank the same keys (evals/run.py)
 for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_API_KEY"):

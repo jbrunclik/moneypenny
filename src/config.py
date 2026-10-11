@@ -379,6 +379,9 @@ class Config:
     SEARCH_BREAKER_PROBE_SECONDS = int(os.getenv("SEARCH_BREAKER_PROBE_SECONDS", "86400"))
     WEB_SEARCH_DEFAULT_RESULTS = 3
     WEB_SEARCH_MAX_RESULTS = 10
+    # A web_search whose dated results are all older than this gets a note to
+    # search again with the month and year (stale news shown as current)
+    WEB_SEARCH_RECENT_DAYS: int = int(os.getenv("WEB_SEARCH_RECENT_DAYS", "365"))
     # Max queries per batched web_search call (the tool encourages the model
     # to bundle independent searches into one round instead of sequential
     # rounds that each re-send the whole conversation)
@@ -407,6 +410,14 @@ class Config:
     # pages the turn read; the claims are stored as annotations beside the answer.
     GROUNDING_CHECK_ENABLED: bool = os.getenv("GROUNDING_CHECK_ENABLED", "true").lower() == "true"
     GROUNDING_CHECK_MODEL: str = os.getenv("GROUNDING_CHECK_MODEL") or "gemini-3.5-flash-lite"
+    # Freshness gate (src/agent/freshness.py): before a regular chat turn, a
+    # small model decides whether the answer needs current facts; if so,
+    # research runs first with dated queries. Fails open on errors/timeouts.
+    FRESHNESS_GATE_ENABLED: bool = os.getenv("FRESHNESS_GATE_ENABLED", "true").lower() == "true"
+    FRESHNESS_GATE_MODEL: str = os.getenv("FRESHNESS_GATE_MODEL") or "gemini-3.5-flash-lite"
+    # It runs before every regular turn: past this the turn goes ahead without it
+    FRESHNESS_GATE_TIMEOUT_SECONDS: float = float(os.getenv("FRESHNESS_GATE_TIMEOUT_SECONDS", "3"))
+    FRESHNESS_GATE_MAX_QUERIES: int = int(os.getenv("FRESHNESS_GATE_MAX_QUERIES", "3"))
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
     )

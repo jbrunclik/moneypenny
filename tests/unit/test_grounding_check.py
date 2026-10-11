@@ -2,7 +2,7 @@
 
 import json
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -525,3 +525,28 @@ class TestShopNet:
         )
 
         assert "Citybikes.cz" not in [a["quote"] for a in anns]
+
+
+class TestRecentNewsScope:
+    """Oct 2026: answers about a September keynote and a council reshuffle got
+    no verdicts at all - "past events" were out of scope. Recent news facts
+    (last 12 months) are claims now, judged against TODAY."""
+
+    def test_prompt_is_dated_and_covers_recent_news(self) -> None:
+        from datetime import date
+
+        from src.agent import grounding_check
+
+        captured: list[str] = []
+        structured = MagicMock()
+        structured.invoke.side_effect = lambda prompt: captured.append(prompt)
+        model = MagicMock()
+        model.with_structured_output.return_value = structured
+        with (
+            patch.object(grounding_check, "ChatGoogleGenerativeAI", return_value=model),
+            patch.object(grounding_check, "_today", return_value=date(2026, 10, 10)),
+        ):
+            grounding_check._run_verifier("answer", "sources", "known")
+
+        assert "TODAY: 2026-10-10" in captured[0]
+        assert "RECENT NEWS" in captured[0]

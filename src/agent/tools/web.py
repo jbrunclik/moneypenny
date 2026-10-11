@@ -4,6 +4,7 @@ import base64
 import contextvars
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date, timedelta
 from typing import Any
 from urllib.parse import urljoin
 
@@ -391,8 +392,35 @@ _SEARCH_WARNING = (
 GROUNDING_DIRECTIVE = (
     "Only state specifics (prices, stock, opening hours, dates, schedules, "
     "results, names, figures) that appear in these results. For anything you "
-    "did not see here, say you could not verify it, or leave it out."
+    "did not see here, say you could not verify it, or leave it out. Snippets "
+    "are not verification: never say something is verified or confirmed, or "
+    "quote a page, unless you read it (research)."
 )
+
+# Old results for a recent question were presented as current (Oct 2026: a
+# September keynote answered from 2024 articles); the date rides on the result
+RECENCY_NOTE = (
+    "None of these results is from the last {days} days (see each 'published'). "
+    "If the question is about something recent - an event, who holds a role now, "
+    "a new product, a current price - search again with the month and year in "
+    "the query (e.g. 'září 2026') before answering; do not present these as current."
+)
+
+
+def _today() -> date:
+    """Seam for tests (patching time would shift date.today() everywhere)."""
+    return date.today()
+
+
+def _recency_note(searches: list[dict[str, Any]]) -> str | None:
+    """The note when results carry dates and none of them is recent."""
+    dates = [r["published"] for s in searches for r in s.get("results", []) if r.get("published")]
+    if not dates:
+        return None
+    cutoff = (_today() - timedelta(days=Config.WEB_SEARCH_RECENT_DAYS)).isoformat()
+    if max(dates) >= cutoff:
+        return None
+    return RECENCY_NOTE.format(days=Config.WEB_SEARCH_RECENT_DAYS)
 
 
 _ESCALATED_NOTE = (
@@ -576,6 +604,9 @@ def web_search(
         degraded = _degraded_notice(_take_served_by([single]))
         if degraded:
             single["_degraded"] = degraded
+        recency = _recency_note([single])
+        if recency:
+            single["_recency"] = recency
         return json.dumps(single)
 
     # Batched queries run concurrently - a batch that fanned out serially would
@@ -589,6 +620,9 @@ def web_search(
     }
     if degraded:
         response["_degraded"] = degraded
+    recency = _recency_note(searches)
+    if recency:
+        response["_recency"] = recency
     if dropped > 0:
         response["note"] = (
             f"{dropped} queries were dropped (max {Config.WEB_SEARCH_MAX_BATCH_QUERIES} "

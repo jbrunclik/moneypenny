@@ -12,10 +12,11 @@ from typing import Any, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from src.agent import grounding_check
+from src.agent import freshness, grounding_check
 from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
 from src.agent.context_cache import CacheProfile
+from src.agent.freshness import FreshnessDecision, freshness_tool_event
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import get_system_prompt
 from src.agent.stream_events import StreamEventProcessor, iter_token_stream
@@ -85,6 +86,15 @@ class ChatAgent:
                 anonymous_mode, is_planning, is_sports=is_sports, is_language=is_language
             )
 
+        # Look current facts up before the turn (src/agent/freshness.py) - regular
+        # chats that can research; never agents, programs, the planner or subagents
+        self.freshness_gate = (
+            with_tools
+            and not (is_autonomous or is_sports or is_language or is_planning)
+            and system_prompt_override is None
+            and any(t.name == "research" for t in active_tools)
+        )
+
         # Determine cache profile and get cached content name
         self._cached_content_name: str | None = None
         if enable_context_cache and system_prompt_override is None:
@@ -120,6 +130,22 @@ class ChatAgent:
             is_autonomous=is_autonomous,
             cached_content=self._cached_content_name,
         )
+
+    def _freshness_decision(self, messages: list[BaseMessage]) -> FreshnessDecision | None:
+        """The gate's decision for this turn, or None where the gate does not run."""
+        if not getattr(self, "freshness_gate", False):
+            return None
+        return freshness.decide_freshness(messages)
+
+    @staticmethod
+    def _prefetch(decision: FreshnessDecision, messages: list[BaseMessage]) -> list[BaseMessage]:
+        """The research round the gate asked for (none when it fails)."""
+        user_text, _ = freshness.latest_exchange(messages)
+        try:
+            return freshness.prefetch_messages(decision, user_text)
+        except Exception:
+            logger.warning("Freshness prefetch failed", exc_info=True)
+            return []
 
     def _get_cache_profile(self) -> CacheProfile | None:
         """Determine the cache profile based on agent mode.
@@ -303,6 +329,9 @@ class ChatAgent:
 
         config = get_graph_config()
         turn_started = time.monotonic()
+        decision = self._freshness_decision(messages)
+        if decision and decision.lookup:
+            messages = [*messages, *self._prefetch(decision, messages)]
         result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
         turn_duration_ms = round((time.monotonic() - turn_started) * 1000)
         result_messages: list[BaseMessage] = result["messages"]
@@ -322,6 +351,8 @@ class ChatAgent:
 
         # Aggregate usage metadata from all AIMessages
         usage_info = batch_usage_info(result_messages, turn_duration_ms)
+        if decision and decision.usage:
+            usage_info["freshness_usage"] = decision.usage
         grounding_check.apply_grounding(response_text, result_messages, usage_info)
 
         return response_text, tool_results, usage_info, result_messages
@@ -451,6 +482,12 @@ class ChatAgent:
             language_context=language_context,
             conversation_title=conversation_title,
         )
+        decision = self._freshness_decision(messages)
+        if decision and decision.lookup:
+            # Shown like any tool call while it runs (it takes seconds)
+            yield freshness_tool_event("tool_start", decision)
+            messages = [*messages, *self._prefetch(decision, messages)]
+            yield freshness_tool_event("tool_end", decision)
         processor = StreamEventProcessor(messages)
 
         # Stream the graph execution with messages mode for token-level streaming
@@ -506,6 +543,8 @@ class ChatAgent:
 
         for event in processor.finish(turn_started, stop_reason=stop_reason):
             if event.get("type") == "final":
+                if decision and decision.usage:
+                    event["usage_info"]["freshness_usage"] = decision.usage
                 args = (event["content"], event["result_messages"])
                 stop = event.get("stop_reason")
                 # The verifier runs between the last token and done (~1 s)

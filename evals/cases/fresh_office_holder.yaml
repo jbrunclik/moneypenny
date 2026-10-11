@@ -1,0 +1,10 @@
+id: fresh_office_holder
+description: Who holds a role now is looked up (Prague council, Oct 2026 report)
+user: Kdo je teď v Praze náměstek primátora pro dopravu?
+expect:
+  rubric: >
+    Answers in Czech that Prague's deputy mayor for transport is Jaromír
+    Beránek (Piráti), who took over from Zdeněk Hřib in December 2025 - or
+    names a successor if a newer city council has since been formed and its
+    sources say so. It does not present Zdeněk Hřib as the current holder.
+  required_tools: [research, web_search]

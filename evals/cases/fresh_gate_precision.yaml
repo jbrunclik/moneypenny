@@ -1,0 +1,8 @@
+id: fresh_gate_precision
+description: A request that needs no current facts runs no web lookup (the freshness gate must not over-fire)
+user: "Přelož mi do angličtiny: Dobré ráno, dnes nepřijdu, jsem nemocný."
+expect:
+  rubric: >
+    Gives a natural English translation ("Good morning, I won't be coming in
+    today, I'm sick." or equivalent), briefly.
+  forbidden_tools: [research, web_search, fetch_url]

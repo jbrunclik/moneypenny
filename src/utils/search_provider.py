@@ -19,7 +19,8 @@ import time
 from calendar import monthrange
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -430,17 +431,41 @@ def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:
         response.raise_for_status()
         items = _decoded_json(response, "Brave Search").get("web", {}).get("results", [])
         return [
-            {
-                "title": item.get("title", "No title"),
-                "url": item.get("url", ""),
-                "snippet": item.get("description", ""),
-            }
+            _dated(
+                {
+                    "title": item.get("title", "No title"),
+                    "url": item.get("url", ""),
+                    "snippet": item.get("description", ""),
+                },
+                item.get("page_age"),
+            )
             for item in items[:num_results]
         ]
     except httpx.TimeoutException as e:
         raise SearchProviderError("Brave Search timed out", retriable=True) from e
     except httpx.HTTPError as e:
         raise SearchProviderError(f"Brave Search failed: {e}") from e
+
+
+def normalize_published(value: Any) -> str | None:
+    """A provider's publish date as YYYY-MM-DD (ISO 8601 or RFC 2822), else None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        pass
+    try:
+        return parsedate_to_datetime(text).date().isoformat()
+    except TypeError, ValueError, IndexError:
+        return None
+
+
+def _dated(result: dict[str, str], published: Any) -> dict[str, str]:
+    """The result plus its publish date, when the provider gave a usable one."""
+    day = normalize_published(published)
+    return {**result, "published": day} if day else result
 
 
 def _search_tavily(query: str, num_results: int) -> list[dict[str, str]]:
@@ -465,11 +490,14 @@ def _search_tavily(query: str, num_results: int) -> list[dict[str, str]]:
         response.raise_for_status()
         items = _decoded_json(response, "Tavily").get("results", [])
         return [
-            {
-                "title": item.get("title", "No title"),
-                "url": item.get("url", ""),
-                "snippet": item.get("content", ""),
-            }
+            _dated(
+                {
+                    "title": item.get("title", "No title"),
+                    "url": item.get("url", ""),
+                    "snippet": item.get("content", ""),
+                },
+                item.get("published_date"),
+            )
             for item in items[:num_results]
         ]
     except httpx.TimeoutException as e:
@@ -503,11 +531,14 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
         response.raise_for_status()
         items = _decoded_json(response, "Exa").get("results", [])
         return [
-            {
-                "title": item.get("title") or "No title",
-                "url": item.get("url", ""),
-                "snippet": item.get("text", ""),
-            }
+            _dated(
+                {
+                    "title": item.get("title") or "No title",
+                    "url": item.get("url", ""),
+                    "snippet": item.get("text", ""),
+                },
+                item.get("publishedDate"),
+            )
             for item in items[:num_results]
         ]
     except httpx.TimeoutException as e:

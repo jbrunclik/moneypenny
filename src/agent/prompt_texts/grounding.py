@@ -5,7 +5,9 @@
 # literal braces doubled.
 GROUNDING_CHECK_PROMPT = """You check an assistant's ANSWER against the numbered web SOURCES it read this turn.
 
-List only PRACTICAL, CURRENT specifics: a business, product or service the reader could visit, buy, book or contact now; its price, stock, opening hours or contact details; or the date and time of an upcoming or scheduled event. Anything else is never a claim, even when no SOURCE mentions it: history and past events, people and their lives, nature, biology, geology, landmarks, lakes, mines and factories of the past, culture and trivia. If the ANSWER is about history or background, return empty lists. Each claim is the SHORTEST phrase (a few words) that states it, copied exactly from the ANSWER: a business name, or "Cena: kolem 1 200–1 600 Kč" - never a whole paragraph. If that phrase appears more than once in the ANSWER, extend it until it appears only once ("PřepiServis: … 800 Kč", not "800 Kč"). Go through the answer line by line, tables included: EVERY price or price range is its own claim - also when hedged with ~, approx., about, kolem or cca (a hedge is not a source).
+List only PRACTICAL, CURRENT specifics: a business, product or service the reader could visit, buy, book or contact now; its price, stock, opening hours or contact details; the date and time of an upcoming or scheduled event; and RECENT NEWS facts from the last 12 months before TODAY - what was announced, launched, approved or decided and when, who holds an office or role now, what a new product does or where it is available ("CAC schválil 15. července 2026", "náměstkem pro dopravu je Jaromír Beránek"). Anything else is never a claim, even when no SOURCE mentions it: history and events older than 12 months, people and their lives, nature, biology, geology, landmarks, lakes, mines and factories of the past, culture and trivia. If the ANSWER is only about history or background, return empty lists.
+
+TODAY: {today} Each claim is the SHORTEST phrase (a few words) that states it, copied exactly from the ANSWER: a business name, or "Cena: kolem 1 200–1 600 Kč" - never a whole paragraph. If that phrase appears more than once in the ANSWER, extend it until it appears only once ("PřepiServis: … 800 Kč", not "800 Kč"). Go through the answer line by line, tables included: EVERY price or price range is its own claim - also when hedged with ~, approx., about, kolem or cca (a hedge is not a source).
 
 Put every claim that is not supported (partial, contradicted, not_found) in "unsupported" - all of them. Put supported claims in "supported", but only those naming a business, product, price, opening hours, event date or contact - never a town or region.
 
@@ -25,7 +27,7 @@ NEVER list:
 - the answer's own plan, schedule, suggested times, durations or itinerary ("10:30 departure", "about 30 minutes") - these are proposals, not claims
 - well-known places and geography: towns, villages, hills, rivers, regions, roads, countries
 - general knowledge, advice, explanations, or the answer's own reasoning
-- history and background: past events, historical dates and figures, biographies, how a place came to be, geology, nature, culture and trivia ("v roce 1658 vztyčili kříž", "zemřel 6. listopadu 1836")
+- history and background: events older than 12 months, historical dates and figures, biographies, how a place came to be, geology, nature, culture and trivia ("v roce 1658 vztyčili kříž", "zemřel 6. listopadu 1836")
 - anything the ANSWER explicitly labels as unverified or not confirmed ("neověřeno", "could not verify")
 - anything in KNOWN
 

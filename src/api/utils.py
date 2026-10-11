@@ -422,6 +422,7 @@ def calculate_and_save_message_cost(
         cached_input_tokens=cached_input_tokens,
         tool_llm_cost=delegate_cost
         + calculate_grounding_cost(usage_info)
+        + calculate_freshness_cost(usage_info)
         + calculate_deep_research_cost(usage_info),
     )
 
@@ -545,6 +546,21 @@ def calculate_delegate_cost_from_tool_results(
         )
 
     return total_cost
+
+
+def calculate_freshness_cost(usage_info: dict[str, Any]) -> float:
+    """Cost of the freshness gate's call (src/agent/freshness.py), at its own model."""
+    from src.utils.costs import calculate_token_cost
+
+    usage = usage_info.get("freshness_usage")
+    if not isinstance(usage, dict):
+        return 0.0
+    return calculate_token_cost(
+        str(usage.get("model", "")),
+        int(usage.get("input_tokens", 0)),
+        int(usage.get("output_tokens", 0)),
+        cached_input_tokens=int(usage.get("cached_input_tokens", 0)),
+    )
 
 
 def calculate_grounding_cost(usage_info: dict[str, Any]) -> float:

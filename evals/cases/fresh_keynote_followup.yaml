@@ -1,0 +1,19 @@
+id: fresh_keynote_followup
+description: A follow-up about a recent keynote is looked up, not answered from training data (Oct 2026 report)
+history:
+  - role: user
+    content: Sleduju zářijovou Apple keynote. Jak funguje Siri AI?
+  - role: assistant
+    content: >-
+      Siri AI kombinuje lokální model na zařízení s Private Cloud Compute a
+      externími modely pro obecné dotazy. Na zařízení běží menší model pro
+      osobní kontext, složitější požadavky jdou do cloudu.
+user: Jaký externí modely maj?
+expect:
+  rubric: >
+    Answers in Czech which external/third-party AI models Apple's Siri uses or
+    offers as of the September 2026 event, from what it looked up this turn
+    (a web tool was called). It does not present 2024-era facts (e.g. ChatGPT
+    as the only partner) as the current state without a source from 2026, and
+    it does not claim something is verified that its sources do not show.
+  required_tools: [research, web_search]
