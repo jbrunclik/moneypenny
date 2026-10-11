@@ -191,14 +191,51 @@ export function createThinkingIndicator(): HTMLElement {
       setLiveExpanded(container, !expanded);
     }
   });
+  // After the toggle above: it reads the tapped node before the held update lands
+  holdUpdatesWhilePressed(container);
   return container;
 }
 
 const LIVE_EXPANDED_CLASS = 'live-expanded';
+// A tap whose click never comes (a drag) still releases the held update
+const PRESS_RELEASE_FALLBACK_MS = 400;
+
+// Pressed live lines and the trace markup held back while pressed. WebKit
+// fires no click when the pressed node is replaced before the finger lifts,
+// and every thinking event re-rendered the line: taps were lost (Oct 2026)
+const pressedLines = new WeakSet<HTMLElement>();
+const heldTraceHtml = new WeakMap<HTMLElement, string>();
+// Markup last written (the browser's innerHTML re-serializes differently)
+const renderedTraceHtml = new WeakMap<HTMLElement, string>();
+
+function holdUpdatesWhilePressed(container: HTMLElement): void {
+  const release = (): void => {
+    pressedLines.delete(container);
+    const held = heldTraceHtml.get(container);
+    heldTraceHtml.delete(container);
+    // The answer may have started meanwhile: never write the live trace
+    // into the finished summary
+    const content = container.querySelector('.thinking-indicator-content');
+    if (held !== undefined && content && !container.classList.contains('finalized')) {
+      writeTrace(container, content, held);
+    }
+  };
+  let fallback: number | undefined;
+  container.addEventListener('pointerdown', () => {
+    window.clearTimeout(fallback);
+    pressedLines.add(container);
+  });
+  container.addEventListener('pointercancel', release);
+  container.addEventListener('pointerup', () => {
+    fallback = window.setTimeout(release, PRESS_RELEASE_FALLBACK_MS);
+  });
+  container.addEventListener('click', release);
+}
 
 /** The live (streaming) markup: the expand control and the trace. */
 function renderLiveSkeleton(container: HTMLElement): void {
   container.classList.remove('finalized');
+  renderedTraceHtml.delete(container);
   const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
   container.innerHTML = `
     <button class="thinking-live-expand" type="button" aria-expanded="${expanded}" aria-label="Show the full trace">
@@ -291,11 +328,17 @@ export function updateThinkingIndicator(
     `);
   }
 
-  content.innerHTML = `
-    <div class="thinking-trace">
-      ${traceItems.join('')}
-    </div>
-  `;
+  const html = `<div class="thinking-trace">${traceItems.join('')}</div>`;
+  if (pressedLines.has(container)) {
+    heldTraceHtml.set(container, html);
+  } else if (renderedTraceHtml.get(container) !== html) {
+    writeTrace(container, content, html);
+  }
+}
+
+function writeTrace(container: HTMLElement, content: Element, html: string): void {
+  content.innerHTML = html;
+  renderedTraceHtml.set(container, html);
 }
 
 /**

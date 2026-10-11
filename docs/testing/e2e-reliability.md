@@ -201,6 +201,21 @@ by guessing):
   (moved up AND not at the bottom) between the insert and the frame;
   finalization clamps and scroll anchoring don't count.
 
+- **Hold live states with a gate, not the clock** (Oct 2026,
+  thinking-indicator.spec "while thinking", ~1/250 WebKit under load). The
+  test tapped the live thinking line inside a fixed 4s `hold_ms`, then asserted
+  the collapsed toggle "while the reply still writes" during a 1.4s reply. The
+  server log showed the mock's tokens on time, yet WebKit handed the first token,
+  the rest and `done` to the page in one burst 3s late, so the streaming state
+  never existed for the assertion. The thinking is now held until
+  `POST /test/release-thinking` (`until_released` on `/test/set-emit-thinking`)
+  and the reply is far longer than the test, which ends it with Stop. Two
+  related pitfalls: re-sending thinking re-renders the live line, and WebKit
+  fires no click when the node pressed is replaced before release (the tap is
+  lost, for real users too). The app now holds the line's updates while it is
+  pressed and applies them after the tap (`holdUpdatesWhilePressed` in
+  ThinkingIndicator.ts), so one tap is enough.
+
 ## E2E Gotchas (Streaming, Service Workers, Media)
 
 - **E2E serves BUILT assets** — `make test-fe-e2e` runs `make build` first, but a

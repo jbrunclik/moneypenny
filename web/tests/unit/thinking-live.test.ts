@@ -92,6 +92,34 @@ describe('the live line', () => {
     toggle().click();
     expect(indicator.classList.contains('live-expanded')).toBe(false);
   });
+
+  it('a thinking update during a tap does not replace the pressed line', () => {
+    // WebKit fires no click when the pressed node is replaced before the
+    // finger lifts: taps on the live line were lost while thoughts streamed
+    addThinkingToTrace(state, THOUGHTS);
+    updateThinkingIndicator(indicator, state);
+    const pressed = indicator.querySelector('.thinking-heading')!;
+
+    pressed.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    addThinkingToTrace(state, `${THOUGHTS}\n\n**Checking the Grinder**\n\nIt is a Sage.`);
+    updateThinkingIndicator(indicator, state);
+    expect(pressed.isConnected).toBe(true);
+
+    pressed.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    (pressed as HTMLElement).click();
+    expect(indicator.classList.contains('live-expanded')).toBe(true);
+    // The held update lands once the tap is over
+    expect(indicator.querySelector('.thinking-heading')?.textContent).toBe('Checking the Grinder');
+  });
+
+  it('a repeated identical update leaves the line alone', () => {
+    addThinkingToTrace(state, THOUGHTS);
+    updateThinkingIndicator(indicator, state);
+    const line = indicator.querySelector('.thinking-trace-item')!;
+
+    updateThinkingIndicator(indicator, state);
+    expect(line.isConnected).toBe(true);
+  });
 });
 
 describe('collapseThinkingIndicator (the answer started)', () => {

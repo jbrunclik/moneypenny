@@ -132,6 +132,10 @@ DEFAULT_CONFIG = {
     # Custom thinking text and a hold before the answer's tokens start
     "thinking_text": "Let me think about this...",
     "thinking_hold_ms": 0,
+    # Hold the thinking until the test calls /test/release-thinking instead of
+    # for a fixed time (a test acting on the live state is never raced by it)
+    "thinking_until_released": False,
+    "thinking_released": False,
     # Emit a transient-error "retry" status first and hold it this long (ms)
     "emit_retry_hold_ms": 0,
     # The next streamed turn fails before any text (one-shot) - the real
@@ -160,6 +164,11 @@ DEFAULT_CONFIG = {
     # Agents mock config
     "agents_command_center": None,  # Custom command center data
 }
+
+# Release-gated thinking (thinking_until_released): flush re-send, poll, cap
+THINKING_RESEND_DELAY_SECONDS = 0.3
+THINKING_RELEASE_POLL_SECONDS = 0.05
+THINKING_RELEASE_MAX_SECONDS = 25
 
 # Global storage for isolated configs
 _isolated_configs = {}
@@ -523,6 +532,19 @@ def create_mock_stream_chat_events() -> Any:
                 time.sleep(half_hold_s)
                 yield thinking_event
                 time.sleep(half_hold_s)
+            elif MOCK_CONFIG.get("thinking_until_released"):
+                # Re-sent once to flush WebKit's held chunk (each re-send
+                # re-renders the live line under the test's taps), then held
+                # silently; capped so an unreleased test cannot wedge the thread
+                from src.agent.cancellation import is_cancelled as _cancelled
+
+                time.sleep(THINKING_RESEND_DELAY_SECONDS)
+                yield thinking_event
+                held_until = time.monotonic() + THINKING_RELEASE_MAX_SECONDS
+                while not MOCK_CONFIG.get("thinking_released") and not _cancelled():
+                    if time.monotonic() > held_until:
+                        break
+                    time.sleep(THINKING_RELEASE_POLL_SECONDS)
 
         # Optionally yield tool events (if force_tools specified)
         if force_tools:
@@ -1152,7 +1174,15 @@ def main() -> None:
             MOCK_CONFIG["emit_thinking"] = emit
             MOCK_CONFIG["thinking_text"] = data.get("text", "Let me think about this...")
             MOCK_CONFIG["thinking_hold_ms"] = int(data.get("hold_ms", 0))
+            MOCK_CONFIG["thinking_until_released"] = bool(data.get("until_released", False))
+            MOCK_CONFIG["thinking_released"] = False
             return {"status": "set", "emit_thinking": emit}, 200
+
+        @test_bp.route("/test/release-thinking", methods=["POST"])
+        def release_thinking() -> tuple[dict[str, Any], int]:
+            # The held stream thread reads this same per-test config dict
+            MOCK_CONFIG["thinking_released"] = True
+            return {"status": "released"}, 200
 
         @test_bp.route("/test/set-emit-retry", methods=["POST"])
         def set_emit_retry() -> tuple[dict[str, Any], int]:

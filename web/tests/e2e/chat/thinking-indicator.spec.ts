@@ -1,7 +1,7 @@
 /**
  * E2E tests for thinking indicator collapse/expand behavior
  */
-import { test, expect, enableStreaming } from './fixtures';
+import { test, expect, enableStreaming, clickStop } from './fixtures';
 
 test.describe('Chat - Thinking Indicator', () => {
   test.beforeEach(async ({ page }) => {
@@ -82,8 +82,13 @@ test.describe('Chat - Thinking Indicator', () => {
     const thoughts =
       "**Understanding the User's Intent**\n\nI'm now focusing on the Sage.\n\n" +
       "**Reframing the User's Needs**\n\nI now suggest single-dosing for the grinder.";
-    await request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 4000 } });
+    // Both phases are held by the test, not by the clock: the thinking until
+    // it is released, the reply (far longer than the test) until Stop. Fixed
+    // holds raced a loaded runner - WebKit got the first token, the rest and
+    // `done` in one chunk 3s late, so the answer never looked live
+    await request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, until_released: true } });
     await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    await request.post('/test/set-mock-response', { data: { response: 'Single-dose it. '.repeat(150) } });
     await page.fill('#message-input', 'Help me choose');
     await page.click('#send-btn');
 
@@ -93,7 +98,7 @@ test.describe('Chat - Thinking Indicator', () => {
     await expect(current.locator('.thinking-markdown')).toBeHidden();
     expect((await indicator.boundingBox())!.height).toBeLessThan(60);
 
-    // A tap opens the full text
+    // A tap opens the full text (one tap: updates are held while it is pressed)
     await current.click();
     await expect(current.locator('.thinking-markdown')).toBeVisible();
     await expect(current.locator('.thinking-markdown')).toContainText('single-dosing');
@@ -101,9 +106,11 @@ test.describe('Chat - Thinking Indicator', () => {
     await expect(current.locator('.thinking-markdown')).toBeHidden();
 
     // The answer starts: the summary toggle, closed, while the reply still writes
+    await request.post('/test/release-thinking');
     await expect(indicator.locator('.thinking-toggle')).toBeVisible({ timeout: 10000 });
     await expect(indicator.locator('.thinking-toggle')).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator('.message.assistant.streaming')).toHaveCount(1);
+    await clickStop(page);
     await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
     await expect(page.locator('.message.assistant .thinking-toggle')).toHaveAttribute('aria-expanded', 'false');
   });
