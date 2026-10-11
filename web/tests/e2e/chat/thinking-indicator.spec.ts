@@ -82,7 +82,7 @@ test.describe('Chat - Thinking Indicator', () => {
     const thoughts =
       "**Understanding the User's Intent**\n\nI'm now focusing on the Sage.\n\n" +
       "**Reframing the User's Needs**\n\nI now suggest single-dosing for the grinder.";
-    await request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 2500 } });
+    await request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 4000 } });
     await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
     await page.fill('#message-input', 'Help me choose');
     await page.click('#send-btn');

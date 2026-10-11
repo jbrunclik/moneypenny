@@ -466,9 +466,17 @@ def create_mock_stream_chat_events() -> Any:
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):
             time.sleep(delay_s)
-            yield {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
+            thinking_event = {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
+            yield thinking_event
             if MOCK_CONFIG["thinking_hold_ms"]:
-                time.sleep(MOCK_CONFIG["thinking_hold_ms"] / 1000)
+                # WebKit (Linux CI) holds an SSE chunk until the next one
+                # arrives: re-send the (accumulated, unchanged) thinking
+                # halfway, so the page sees it while the hold still runs -
+                # not together with the first answer token
+                half_hold_s = MOCK_CONFIG["thinking_hold_ms"] / 2000
+                time.sleep(half_hold_s)
+                yield thinking_event
+                time.sleep(half_hold_s)
 
         # Optionally yield tool events (if force_tools specified)
         if force_tools:

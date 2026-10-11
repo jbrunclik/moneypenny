@@ -40,6 +40,17 @@ the test's setup, never in the baseline. Root-caused examples (Sep 2026):
   for the state BOTH engines reach (the first finding in) before capturing.
   Watch for content landing below a clip in a bottom-pinned list - it moves
   the clip even though nothing inside it changed.
+- **Live thinking line never seen on WebKit** (Oct 2026, CI WebKit 4/4, local
+  WebKit fine). The mock sent one `thinking` event, held it, then the tokens;
+  WebKit holds an SSE chunk until the next one arrives, so the thinking landed
+  with the first token and the line collapsed at once. The mock now re-sends
+  the (unchanged) thinking halfway through `thinking_hold_ms`. A live state
+  that lasts exactly one SSE chunk is invisible on WebKit - put a later chunk
+  inside the window you assert on.
+- **Scroll tests must send input** (Oct 2026): since only real input counts as
+  the user (see [Scroll Behavior](../ui/scroll-behavior.md#outside-forces-oct-10-2026-ios)),
+  a bare `scrollTo` reads as layout - the image chase re-pinned "the user" who
+  had scrolled up, depending on timing. Dispatch a `wheel` on `#messages` first.
 - **Agent editor: "the Name field holds the description"** (Oct 2026, WebKit).
   Not a fill race - the editor body was scrolled by about one field (filling
   the last field scrolls it into view, settling at varying offsets), so the

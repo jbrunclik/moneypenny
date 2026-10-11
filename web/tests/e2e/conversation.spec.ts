@@ -809,6 +809,8 @@ test.describe('Scroll to bottom behavior', () => {
     // Simulate user scrolling up (not programmatic scroll)
     // We scroll up significantly to trigger the "user is browsing history" detection
     await messagesContainer.evaluate((el) => {
+      // The user's input first (a bare scrollTop write reads as layout)
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       // Scroll to top - use scrollTo with 'instant' behavior for reliable cross-browser support
       el.scrollTo({ top: 0, behavior: 'instant' });
     });
@@ -876,7 +878,7 @@ test.describe('Scroll to bottom behavior', () => {
     });
     const dumpScrollLog = async (label: string): Promise<void> => {
       const log = await page.evaluate(() => (window as unknown as { __scrollLog: string[] }).__scrollLog);
-      const text = `${label}\n${log.slice(-20).join('\n')}`;
+      const text = `${label}\n${(log ?? ['(no scroll log)']).slice(-20).join('\n')}`;
       console.log(text);
       await test.info().attach('scroll-log', { body: text, contentType: 'text/plain' });
     };
@@ -924,8 +926,11 @@ test.describe('Scroll to bottom behavior', () => {
     // Wait for initial scroll to complete and image to be rendered
     await page.waitForTimeout(300);
 
-    // Scroll to the top of the conversation (user browsing history)
+    // Scroll to the top of the conversation (user browsing history). The
+    // user's input comes first: a bare scrollTop write is layout to the app
+    // (a keyboard clamp, a re-fit), and the image chase rightly ignores it
     await messagesContainer.evaluate((el) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       el.scrollTo({ top: 0, behavior: 'instant' });
     });
 
@@ -948,6 +953,7 @@ test.describe('Scroll to bottom behavior', () => {
     const scrollPosition = scrollInfo.scrollHeight - scrollInfo.clientHeight - 100; // 100px from bottom
 
     await messagesContainer.evaluate((el, pos) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: 400, bubbles: true }));
       el.scrollTo({ top: pos, behavior: 'instant' });
     }, scrollPosition);
 
@@ -1036,8 +1042,9 @@ test.describe('Scroll to bottom behavior', () => {
     // Wait for initial render
     await page.waitForTimeout(500);
 
-    // Scroll to top (user browsing history)
+    // Scroll to top (user browsing history; input first - see above)
     await messagesContainer.evaluate((el) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       el.scrollTo({ top: 0, behavior: 'instant' });
     });
 
@@ -1054,6 +1061,7 @@ test.describe('Scroll to bottom behavior', () => {
     const scrollPosition = scrollInfo.scrollHeight - scrollInfo.clientHeight - 80; // Close to bottom
 
     await messagesContainer.evaluate((el, pos) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: 400, bubbles: true }));
       el.scrollTo({ top: pos, behavior: 'instant' });
     }, scrollPosition);
 
