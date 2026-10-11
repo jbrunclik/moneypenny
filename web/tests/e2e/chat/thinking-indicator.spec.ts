@@ -72,4 +72,39 @@ test.describe('Chat - Thinking Indicator', () => {
     // Either indicator exists (showing tool usage) or was removed (no content)
     expect(count).toBeLessThanOrEqual(1);
   });
+
+  test('while thinking: one line with the latest heading; the answer starting collapses it', async ({
+    page,
+    request,
+  }) => {
+    // The full thinking text streamed in, filled the screen and pushed the
+    // answer out of view (it wrote below it, under a "New messages" pill)
+    const thoughts =
+      "**Understanding the User's Intent**\n\nI'm now focusing on the Sage.\n\n" +
+      "**Reframing the User's Needs**\n\nI now suggest single-dosing for the grinder.";
+    await request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 2500 } });
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
+    await page.fill('#message-input', 'Help me choose');
+    await page.click('#send-btn');
+
+    const indicator = page.locator('.message.assistant.streaming .thinking-indicator');
+    const current = indicator.locator('.thinking-trace-item.current');
+    await expect(current.locator('.thinking-heading')).toHaveText("Reframing the User's Needs", { timeout: 10000 });
+    await expect(current.locator('.thinking-markdown')).toBeHidden();
+    expect((await indicator.boundingBox())!.height).toBeLessThan(60);
+
+    // A tap opens the full text
+    await current.click();
+    await expect(current.locator('.thinking-markdown')).toBeVisible();
+    await expect(current.locator('.thinking-markdown')).toContainText('single-dosing');
+    await indicator.locator('.thinking-live-expand').click();
+    await expect(current.locator('.thinking-markdown')).toBeHidden();
+
+    // The answer starts: the summary toggle, closed, while the reply still writes
+    await expect(indicator.locator('.thinking-toggle')).toBeVisible({ timeout: 10000 });
+    await expect(indicator.locator('.thinking-toggle')).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(1);
+    await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
+    await expect(page.locator('.message.assistant .thinking-toggle')).toHaveAttribute('aria-expanded', 'false');
+  });
 });

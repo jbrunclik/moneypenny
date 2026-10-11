@@ -967,8 +967,19 @@ test.describe('Chat - Send-to-top', () => {
         await page.waitForTimeout(700); // the glide's last frames
         const anchored = await messagesScrollTop(page);
 
-        // The reply outgrows the screen: the view stays, the pill offers the rest
+        // The reply outgrows the screen: the view stays, the button offers the
+        // rest - a plain chevron, no "New messages" (it is the same reply)
         await expect(page.locator('.scroll-to-bottom.streaming-paused')).toBeVisible({ timeout: 10000 });
+        // (read at once - an auto-waiting check passes once the stream ends)
+        const pill = await page.evaluate(() => {
+          const button = document.querySelector('.scroll-to-bottom.streaming-paused');
+          const label = button?.querySelector('.scroll-to-bottom-label');
+          return button && label
+            ? { width: button.getBoundingClientRect().width, label: getComputedStyle(label).display }
+            : null;
+        });
+        expect(pill?.label).toBe('none');
+        expect(pill!.width).toBeLessThan(50);
         expect(Math.abs((await messagesScrollTop(page)) - anchored)).toBeLessThan(2);
 
         // ...and nothing moves when it finishes

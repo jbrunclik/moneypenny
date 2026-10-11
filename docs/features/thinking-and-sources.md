@@ -11,9 +11,10 @@ During streaming responses, the app shows a thinking indicator at the top of ass
 - **Streaming only**: The indicator only appears during streaming mode, not when loading historical messages
 - **No persistence**: Thinking state and tool activity are NOT stored in the database
 - **Singleton thinking**: There's exactly ONE thinking item that accumulates all thinking text, updated in real-time
-- **Live updates**: Thinking text is visible and updates during streaming, not just in finalized view
+- **One live line** (Oct 2026): while the reply is worked on, the indicator shows only the current step - the running tool (label + detail), else the last tool, else the thinking as its latest heading (`latestThoughtHeading`: the last `**bold**` or `#` heading line of the thought summary, else the last line shortened). The chevron or a tap on the line opens the full live trace (the open state survives re-renders). The full trace used to stream in, fill the screen and push the answer out of view, under a "New messages" pill
 - **Full trace**: Shows thinking (singleton) + all tool events with details
 - **Rich details**: Shows full thinking text, search queries, URLs, and image prompts
+- **Collapse when the answer starts**: the first answer token collapses the line to the summary toggle (`collapseThinkingIndicator`), so the answer starts right under the user's message; a live view the user opened stays open. A later round's thinking or tool reopens the live line; an empty trace is hidden, not removed, so later rounds can still show
 - **Auto-collapse**: When the message finishes, the indicator collapses into a quiet one-line summary toggle naming what happened ("Thought · Searched ×3 · Fetched": past-tense labels from `TOOL_METADATA`, repeats counted, more than three steps fold into "+N more"); the tinted panel appears only when expanded
 
 ### How it works
@@ -76,7 +77,8 @@ interface ThinkingTraceItem {
 
 ### Display States
 
-- **Streaming**: Shows full trace with active item at the bottom (for auto-scroll). Active items show animated dots
+- **Streaming**: one line - the `.current` trace item (the others and the thinking's full markdown are hidden unless `.live-expanded`). Active items show animated dots
+- **Answer writing**: the summary toggle (collapsed)
 - **Finalized**: Collapses into toggle button. Clicking expands to show full trace with thinking first, then tools
 
 ### Trace Ordering

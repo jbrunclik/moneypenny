@@ -31,6 +31,7 @@ import {
   createThinkingIndicator,
   updateThinkingIndicator,
   finalizeThinkingIndicator,
+  collapseThinkingIndicator,
   createThinkingState,
   addThinkingToTrace,
   addToolStartToTrace,
@@ -406,6 +407,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
 
   // Update thinking indicator with the restored state
   updateThinkingIndicator(thinkingIndicator, restoredThinkingState);
+  if (content.trim()) collapseThinkingIndicator(thinkingIndicator, restoredThinkingState);
 
   container.appendChild(messageEl);
   programmaticScrollToBottom(container);
@@ -440,7 +442,7 @@ function autoScrollForStreaming(): void {
 
   if (!currentStreamingContext.shouldAutoScroll) {
     // Not following: once the ANSWER runs past the screen, the scroll button
-    // becomes the "New messages" pill (see hasReplyText)
+    // pulses - more of this reply is below (see hasReplyText)
     if (
       currentStreamingContext.hasReplyText &&
       !isScrolledToBottom(messagesContainer, SCROLL_BUTTON_SHOW_THRESHOLD_PX)
@@ -593,11 +595,13 @@ export function updateStreamingMessage(
     contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
   }
 
-  // When content starts flowing, mark thinking as done
+  // When the answer starts: thinking is done, and its line collapses to
+  // the summary so the answer starts right under the user's message (a
+  // later round's thinking or tool reopens it)
   if (content && currentStreamingContext) {
     currentStreamingContext.hasReplyText = true;
     currentStreamingContext.thinkingState.isThinking = false;
-    updateThinkingIndicator(
+    collapseThinkingIndicator(
       currentStreamingContext.thinkingIndicator,
       currentStreamingContext.thinkingState
     );

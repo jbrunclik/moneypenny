@@ -50,9 +50,9 @@ export function initScrollToBottom(): void {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (!messagesContainer) return;
 
-  // Create scroll-to-bottom button. The label renders only in the
-  // streaming-paused state (CSS), turning the chevron into a labeled pill
-  // so new content below is announced, not just hinted at.
+  // Create scroll-to-bottom button. The label renders only for messages
+  // that are new (has-new-messages, CSS), turning the chevron into a
+  // labeled pill; a reply still writing below only pulses it.
   scrollButton = document.createElement('button');
   scrollButton.className = 'scroll-to-bottom hidden';
   scrollButton.setAttribute('aria-label', 'Scroll to bottom');
@@ -208,7 +208,7 @@ export function checkScrollButtonVisibility(): void {
 /**
  * Set the streaming paused state for the scroll button.
  * When streaming is active and auto-scroll is paused (user scrolled up),
- * the button gets a highlighted appearance to indicate new content is available.
+ * the button pulses: more of the reply is below.
  * @param paused - Whether streaming auto-scroll is paused
  */
 export function setStreamingPausedIndicator(paused: boolean): void {

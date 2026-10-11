@@ -121,11 +121,16 @@ function truncateText(text: string, maxLength: number): string {
  * @param isActive Whether this item is currently active (shows dots animation)
  * @param showFullDetail If true, don't truncate detail text (used in finalized view)
  */
-function renderTraceItem(item: ThinkingTraceItem, isActive: boolean, showFullDetail = false): string {
+function renderTraceItem(
+  item: ThinkingTraceItem,
+  isActive: boolean,
+  showFullDetail = false,
+  isCurrent = false
+): string {
   const icon = getToolIcon(item);
   const displayLabel = getToolLabel(item);
 
-  const statusClass = item.completed ? 'completed' : (isActive ? 'active' : '');
+  const statusClass = (item.completed ? 'completed' : (isActive ? 'active' : '')) + (isCurrent ? ' current' : '');
   const dots = isActive && !item.completed
     ? '<span class="thinking-dots"><span></span><span></span><span></span></span>'
     : '';
@@ -137,8 +142,11 @@ function renderTraceItem(item: ThinkingTraceItem, isActive: boolean, showFullDet
   let detailHtml = '';
   if (item.detail) {
     if (item.type === 'thinking') {
-      // Render thinking text as markdown for better readability
-      detailHtml = `<div class="thinking-detail thinking-markdown">${renderMarkdown(item.detail)}</div>`;
+      // Render thinking text as markdown for better readability; the live
+      // one-line view shows only its latest heading
+      const heading = latestThoughtHeading(item.detail);
+      const headingHtml = heading ? `<span class="thinking-heading">${escapeHtml(heading)}</span>` : '';
+      detailHtml = `${headingHtml}<div class="thinking-detail thinking-markdown">${renderMarkdown(item.detail)}</div>`;
     } else {
       // Show full detail for generate_image (prompts are creative content worth showing)
       const isImagePrompt = item.label === 'generate_image';
@@ -171,11 +179,34 @@ export function createThinkingIndicator(): HTMLElement {
   container.setAttribute('aria-live', 'polite');
   container.setAttribute('aria-label', 'AI is processing');
 
-  // Inner content will be updated dynamically
+  renderLiveSkeleton(container);
+  // One listener for the container's life: the live line re-renders on
+  // every event, and a collapse/reopen swaps its markup
+  container.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element) || container.classList.contains('finalized')) return;
+    const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
+    // The chevron toggles; a tap anywhere on the collapsed line opens it
+    // (open, the text stays selectable)
+    if (event.target.closest('.thinking-live-expand') || (!expanded && event.target.closest('.thinking-indicator-content'))) {
+      setLiveExpanded(container, !expanded);
+    }
+  });
+  return container;
+}
+
+const LIVE_EXPANDED_CLASS = 'live-expanded';
+
+/** The live (streaming) markup: the expand control and the trace. */
+function renderLiveSkeleton(container: HTMLElement): void {
+  container.classList.remove('finalized');
+  const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
   container.innerHTML = `
+    <button class="thinking-live-expand" type="button" aria-expanded="${expanded}" aria-label="Show the full trace">
+      ${CHEVRON_RIGHT_ICON}
+    </button>
     <div class="thinking-indicator-content">
       <div class="thinking-trace">
-        <div class="thinking-trace-item active">
+        <div class="thinking-trace-item active current">
           <span class="thinking-icon">${BRAIN_ICON}</span>
           <span class="thinking-label">Thinking</span>
           <span class="thinking-dots"><span></span><span></span><span></span></span>
@@ -183,8 +214,41 @@ export function createThinkingIndicator(): HTMLElement {
       </div>
     </div>
   `;
+}
 
-  return container;
+function setLiveExpanded(container: HTMLElement, expanded: boolean): void {
+  container.classList.toggle(LIVE_EXPANDED_CLASS, expanded);
+  container.querySelector('.thinking-live-expand')?.setAttribute('aria-expanded', String(expanded));
+}
+
+const HEADING_MAX_CHARS = 80;
+
+/**
+ * The latest heading of a thought summary ("**Checking the docs**" lines,
+ * or `#` headings) for the one-line live view; without one, the last line
+ * as plain text, shortened.
+ */
+export function latestThoughtHeading(text: string | undefined): string {
+  const lines = (text ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const heading = /^(?:\*\*|__)(.+?)(?:\*\*|__):?$/.exec(lines[i]) ?? /^#{1,6}\s+(.+)$/.exec(lines[i]);
+    if (heading) return heading[1].trim();
+  }
+  const last = (lines.at(-1) ?? '').replace(/[*_`#>]/g, '').trim();
+  return last.length > HEADING_MAX_CHARS ? `${last.slice(0, HEADING_MAX_CHARS).trimEnd()}…` : last;
+}
+
+/**
+ * The step the one-line view shows: the running one, else the last tool
+ * (just finished), else the last item.
+ */
+function currentTraceIndex(state: ThinkingState): number {
+  const active = state.trace.findIndex((item) =>
+    item.type === 'thinking' ? state.isThinking && !state.activeTool : state.activeTool === item.label && !item.completed
+  );
+  if (active !== -1) return active;
+  const lastTool = state.trace.map((item) => item.type).lastIndexOf('tool');
+  return lastTool !== -1 ? lastTool : state.trace.length - 1;
 }
 
 /**
@@ -194,11 +258,15 @@ export function updateThinkingIndicator(
   container: HTMLElement,
   state: ThinkingState
 ): void {
+  // A later round after the answer started (collapsed or hidden): live again
+  container.hidden = false;
+  if (!container.querySelector('.thinking-indicator-content')) renderLiveSkeleton(container);
   const content = container.querySelector('.thinking-indicator-content');
   if (!content) return;
 
   // Build trace from state
   const traceItems: string[] = [];
+  const current = currentTraceIndex(state);
 
   // Render all trace items
   for (let i = 0; i < state.trace.length; i++) {
@@ -209,13 +277,13 @@ export function updateThinkingIndicator(
       item.type === 'thinking'
         ? state.isThinking && !state.activeTool
         : state.activeTool === item.label && !item.completed;
-    traceItems.push(renderTraceItem(item, isActive));
+    traceItems.push(renderTraceItem(item, isActive, false, i === current));
   }
 
   // If trace is empty but we're thinking, show the initial thinking state
   if (traceItems.length === 0 && state.isThinking) {
     traceItems.push(`
-      <div class="thinking-trace-item active">
+      <div class="thinking-trace-item active current">
         <span class="thinking-icon">${BRAIN_ICON}</span>
         <span class="thinking-label">Thinking</span>
         <span class="thinking-dots"><span></span><span></span><span></span></span>
@@ -228,6 +296,21 @@ export function updateThinkingIndicator(
       ${traceItems.join('')}
     </div>
   `;
+}
+
+/**
+ * The answer started: collapse the live line into the finished summary
+ * (the answer then starts right under the user's message). A later round's
+ * thinking or tool reopens it (updateThinkingIndicator). An empty trace is
+ * hidden, not removed - the indicator must stay for those later rounds.
+ */
+export function collapseThinkingIndicator(container: HTMLElement, state: ThinkingState): void {
+  if (!container.querySelector('.thinking-indicator-content')) return;
+  if (!state.thinkingText && state.completedTools.length === 0 && state.trace.length === 0) {
+    container.hidden = true;
+    return;
+  }
+  finalizeThinkingIndicator(container, state);
 }
 
 /**
@@ -244,6 +327,9 @@ export function finalizeThinkingIndicator(
     container.remove();
     return;
   }
+
+  // Already collapsed when the answer started, and no round since
+  if (container.classList.contains('finalized')) return;
 
   // Add finalized class for styling
   container.classList.add('finalized');
@@ -286,13 +372,17 @@ export function finalizeThinkingIndicator(
   const scrollContainer = document.getElementById('messages');
   const heightBefore = container.offsetHeight;
 
+  // Opened by the user while live: stays open
+  const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
+  container.classList.toggle('expanded', expanded);
+
   // Create collapsible structure
   container.innerHTML = `
-    <button class="thinking-toggle" aria-expanded="false" type="button">
+    <button class="thinking-toggle" aria-expanded="${expanded}" type="button">
       <span class="thinking-toggle-icon">${CHEVRON_RIGHT_ICON}</span>
       <span class="thinking-toggle-summary">${escapeHtml(summarizeTrace(summaryItems))}</span>
     </button>
-    <div class="thinking-details" hidden>
+    <div class="thinking-details"${expanded ? '' : ' hidden'}>
       <div class="thinking-trace">
         ${traceItems.join('')}
       </div>

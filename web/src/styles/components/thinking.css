@@ -334,3 +334,75 @@
     font-size: var(--font-size-xs);
     color: var(--warning-text);
 }
+
+/* ----------------------------------------
+   Live one-line view (Oct 2026)
+   While a reply is worked on, only the current step shows - for thinking,
+   its latest heading. The full trace streamed in, filled the screen and
+   pushed the answer out of view. The chevron (or a tap on the line) opens
+   the full trace; the answer starting collapses it to the summary toggle.
+   ---------------------------------------- */
+
+.thinking-indicator:not(.finalized) {
+    position: relative;
+}
+
+.thinking-live-expand {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.thinking-live-expand svg {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--duration-base) var(--ease-out);
+}
+
+.thinking-indicator.live-expanded .thinking-live-expand svg {
+    transform: rotate(90deg);
+}
+
+/* Room for the chevron on the line it sits on */
+.thinking-indicator-content .thinking-trace-item.current,
+.thinking-indicator.live-expanded .thinking-indicator-content .thinking-trace-item:first-child {
+    padding-right: 36px;
+}
+
+.thinking-indicator:not(.live-expanded) .thinking-indicator-content {
+    cursor: pointer;
+}
+
+.thinking-indicator:not(.live-expanded) .thinking-indicator-content .thinking-trace-item:not(.current),
+.thinking-indicator:not(.live-expanded) .thinking-indicator-content .thinking-markdown,
+.thinking-indicator.live-expanded .thinking-heading {
+    display: none;
+}
+
+/* One line: a long tool detail ellipsizes instead of wrapping */
+.thinking-indicator:not(.live-expanded) .thinking-indicator-content .thinking-detail {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thinking-heading {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+    line-height: 18px;
+}

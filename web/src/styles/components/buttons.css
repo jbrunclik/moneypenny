@@ -446,7 +446,8 @@
     pointer-events: none;
 }
 
-/* Label shown only while streaming is paused (chevron becomes a pill) */
+/* Label shown only for messages that are actually new (merged in from
+   another device) - the chevron becomes a "New messages" pill */
 .scroll-to-bottom-label {
     display: none;
     font-size: var(--font-size-sm);
@@ -454,9 +455,14 @@
     white-space: nowrap;
 }
 
-/* Streaming paused indicator - highlighted state when user scrolled up during
-   streaming; the same pill announces messages merged in from another device */
-.scroll-to-bottom.streaming-paused,
+/* The reply below is still writing: the plain chevron with a soft pulse
+   ring - "more is coming" without claiming anything new arrived (it said
+   "New messages" for the reply the user was watching) */
+.scroll-to-bottom.streaming-paused:not(.has-new-messages) {
+    border-color: var(--accent);
+    animation: scroll-button-pulse 1.5s ease-in-out infinite;
+}
+
 .scroll-to-bottom.has-new-messages {
     background-color: var(--accent);
     border-color: var(--accent);
@@ -468,12 +474,10 @@
     gap: var(--space-1);
 }
 
-.scroll-to-bottom.streaming-paused .scroll-to-bottom-label,
 .scroll-to-bottom.has-new-messages .scroll-to-bottom-label {
     display: inline;
 }
 
-.scroll-to-bottom.streaming-paused:hover,
 .scroll-to-bottom.has-new-messages:hover {
     background-color: var(--accent-hover);
     border-color: var(--accent-hover);
