@@ -49,6 +49,9 @@ class GateVerdict(BaseModel):
     lookup: bool = Field(description="True when the answer needs a fresh web lookup first")
     queries: list[str] = Field(default_factory=list, description="1-3 dated web search queries")
     reason: str = Field(default="", description="Why, in a few words")
+    disputed: bool = Field(
+        default=False, description="True when the user disputes or corrects a stated fact"
+    )
 
 
 @dataclass
@@ -59,6 +62,8 @@ class FreshnessDecision:
     queries: list[str] = field(default_factory=list)
     reason: str = ""
     usage: dict[str, Any] | None = None
+    # The user disputed a fact: the lookup's result says how to decide
+    disputed: bool = False
 
 
 def _today() -> date:
@@ -149,11 +154,14 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
     queries = queries[: Config.FRESHNESS_GATE_MAX_QUERIES]
     lookup = bool(verdict and verdict.lookup and queries)
     reason = verdict.reason if verdict else ""
+    disputed = bool(verdict and verdict.disputed)
     logger.info(
         "Freshness gate",
-        extra={"lookup": lookup, "queries": queries, "reason": reason},
+        extra={"lookup": lookup, "queries": queries, "reason": reason, "disputed": disputed},
     )
-    return FreshnessDecision(lookup=lookup, queries=queries, reason=reason, usage=usage)
+    return FreshnessDecision(
+        lookup=lookup, queries=queries, reason=reason, usage=usage, disputed=disputed
+    )
 
 
 def freshness_tool_event(kind: str, decision: FreshnessDecision) -> dict[str, Any]:
@@ -187,6 +195,26 @@ def _failed_lookup_note(content: str) -> str:
     return json.dumps({"error": "The web lookup failed.", "_freshness": LOOKUP_FAILED_NOTE})
 
 
+# Pushback: a lookup alone still ended in "Máš pravdu" for a user who was
+# wrong (eval fresh_pushback_holds); the decision rule rides on the result
+DISPUTE_NOTE = (
+    "The user disputes a fact from the conversation. Decide from these sources, "
+    "not from the user's confidence: if they confirm what was said, keep it and "
+    "say so politely with the evidence - do not apologise for a correct answer; "
+    "if they show it was wrong, correct it plainly; if they settle nothing, say so."
+)
+
+
+def _with_dispute_note(content: str) -> str:
+    try:
+        body = json.loads(content)
+    except ValueError:
+        return content
+    if not isinstance(body, dict):
+        return content
+    return json.dumps({**body, "_dispute": DISPUTE_NOTE}, ensure_ascii=False)
+
+
 def _run_research(args: dict[str, Any]) -> str:
     """Seam for tests (a tool object's invoke cannot be patched)."""
     return str(research.invoke(args))
@@ -198,6 +226,8 @@ def prefetch_messages(decision: FreshnessDecision, user_text: str) -> list[BaseM
     args = {"question": user_text[:_USER_MAX_CHARS], "queries": decision.queries}
     call_id = f"freshness-{uuid.uuid4().hex[:12]}"
     content = _failed_lookup_note(_run_research(args))
+    if decision.disputed:
+        content = _with_dispute_note(content)
     call = AIMessage(content="", tool_calls=[{"name": "research", "args": args, "id": call_id}])
     result = ToolMessage(
         content=strip_full_result_from_tool_content(content),

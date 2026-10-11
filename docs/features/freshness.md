@@ -46,6 +46,11 @@ So every measure below rides on code or on tool results.
 3. A failed lookup is re-labelled (`LOOKUP_FAILED_NOTE`): say that current
    information could not be looked up, never present memory as current (the
    research error itself says "answer from what you know").
+4. When the user disputes a fact (`disputed`), the research result also carries
+   `DISPUTE_NOTE`: decide from the sources, not the user's confidence - keep a
+   correct answer politely without apologising, correct a wrong one plainly.
+   A lookup alone still ended in agreement with a user who was wrong
+   (`fresh_pushback_holds` 1 of 3 before, 3 of 3 after).
 
 Why before the turn and not after a draft: the chat model streams tokens to the
 client as it writes, and it runs on a Gemini context cache whose tools and tool

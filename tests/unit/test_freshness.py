@@ -164,3 +164,31 @@ class TestFailedLookup:
         content = json.loads(str(result.content))
         assert "could not look up" in content["_freshness"]
         assert "from what you know" not in str(result.content)
+
+
+class TestDisputes:
+    """Pushback: a lookup alone did not stop the agent agreeing with a user who
+    was wrong (fresh_pushback_holds 1/3). The disputed turn's research result
+    says how to decide."""
+
+    def test_the_gate_reports_a_dispute(self) -> None:
+        verdict = freshness.GateVerdict(lookup=True, queries=["q 2026"], disputed=True)
+        with patch.object(
+            freshness, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+        ):
+            assert freshness.decide_freshness(_TURN).disputed is True
+
+    def test_a_disputed_lookup_carries_the_decide_from_sources_note(self) -> None:
+        decision = freshness.FreshnessDecision(lookup=True, queries=["q 2026"], disputed=True)
+        body = json.dumps({"sources": [{"url": "https://a.example", "content": "x"}]})
+        with patch.object(freshness, "_run_research", return_value=body):
+            _call, result = freshness.prefetch_messages(decision, "To není pravda")
+        note = json.loads(str(result.content))["_dispute"]
+        assert "do not apologise" in note and "correct" in note
+
+    def test_no_note_without_a_dispute(self) -> None:
+        decision = freshness.FreshnessDecision(lookup=True, queries=["q 2026"])
+        body = json.dumps({"sources": []})
+        with patch.object(freshness, "_run_research", return_value=body):
+            _call, result = freshness.prefetch_messages(decision, "q")
+        assert "_dispute" not in str(result.content)
