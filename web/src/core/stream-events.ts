@@ -25,12 +25,23 @@ import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-stat
 import { showGroundingChecking } from '../components/messages/grounding';
 import { notifyModelFallback } from './model-fallback';
 import { handleResearchEvent } from './research-stream';
+import { addLiveArtifact } from '../components/messages/artifacts';
 
 const log = createLogger('messaging');
 
 type StreamEventPayload = { type: string; [key: string]: unknown };
 
 /** Mirror the stream's progress into the store (restored on conversation switch). */
+function isArtifactRef(
+  event: Record<string, unknown>
+): event is { id: string; version: number; title: string } {
+  return (
+    typeof event.id === 'string' &&
+    typeof event.version === 'number' &&
+    typeof event.title === 'string'
+  );
+}
+
 function snapshotToStore(state: StreamingState, convId: string): void {
   useStore.getState().updateActiveRequestContent(
     convId,
@@ -181,6 +192,13 @@ export function processStreamEvent(
     case 'research_sources':
     case 'research_writing':
       handleResearchEvent(event, state, convId, isCurrentConversation);
+      break;
+
+    case 'artifact':
+      // A version is ready: its frame loads while the reply keeps streaming
+      if (isCurrentConversation && state.messageEl && isArtifactRef(event)) {
+        addLiveArtifact(state.messageEl, { id: event.id, version: event.version, title: event.title });
+      }
       break;
 
     case 'stopping':

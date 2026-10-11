@@ -16,6 +16,7 @@ import {
 import { getElementById } from '../utils/dom';
 import { toast } from '../components/Toast';
 import type {
+  ArtifactRef,
   ClaimAnnotation,
   FileMetadata,
   GeneratedImage,
@@ -24,6 +25,7 @@ import type {
   MessageResearch,
   Source,
 } from '../types/api';
+import { decorateArtifacts } from '../components/messages/artifacts';
 import { decorateGrounding } from '../components/messages/grounding';
 import { finishResearchMessage } from '../components/messages/research-progress';
 import { updateConversationTitle } from './conversation-actions';
@@ -53,6 +55,7 @@ export interface StreamDoneEvent {
   annotations?: ClaimAnnotation[];
   grounding?: GroundingSummary;
   research?: MessageResearch;
+  artifacts?: ArtifactRef[];
   /** The conversation's message count after this turn (sync baseline) */
   message_count?: number;
 }
@@ -77,6 +80,7 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     annotations: event.annotations,
     grounding: event.grounding,
     research: event.research,
+    artifacts: event.artifacts,
   };
 }
 
@@ -84,7 +88,8 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
 export function hasVisibleContent(event: StreamDoneEvent): boolean {
   return Boolean(
     event.content?.trim() ||
-    event.files?.length || event.generated_images?.length || event.sources?.length
+    event.files?.length || event.generated_images?.length || event.sources?.length ||
+    event.artifacts?.length
   );
 }
 
@@ -149,6 +154,8 @@ function finalizeDoneBubble(
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
   // Underlines, source numbers and the footer (replaces "checking")
   decorateGrounding(messageEl, event);
+  // Keeps frames placed during the stream; adds any it missed
+  decorateArtifacts(messageEl, event);
   // The progress panel becomes the report chip; an offer shows under the answer
   finishResearchMessage(messageEl, event, { live: true });
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;

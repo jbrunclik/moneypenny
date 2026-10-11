@@ -104,9 +104,24 @@ export interface Message {
   research?: MessageResearch;
   /** A user message the app sent on the user's behalf */
   action?: MessageAction;
+  /** Artifact versions shown under the reply (server-set; src/agent/tools/artifacts.py) */
+  artifacts?: ArtifactRef[];
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
   status?: 'pending' | 'failed';
+}
+
+/** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
+export interface ArtifactRef {
+  id: string;
+  version: number;
+  title: string;
+}
+
+/** One artifact version's HTML and the artifact's saved state (GET /api/artifacts/<id>/versions/<v>) */
+export interface ArtifactVersion extends ArtifactRef {
+  html: string;
+  state: unknown;
 }
 
 /** What the client needs to recompute an offer's estimate while it is edited */
@@ -404,6 +419,7 @@ export interface ChatResponse {
   stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
   model_fallback?: string; // Model that answered when the conversation's model was down
   research?: MessageResearch; // Deep-research offer or run
+  artifacts?: ArtifactRef[]; // Artifact versions shown under the reply
   message_count?: number; // The conversation's message count after this turn (sync baseline)
   unanswered_steering_id?: string | null; // Steering the turn never read (now after the reply)
 }

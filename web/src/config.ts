@@ -662,3 +662,22 @@ export const DEEP_RESEARCH_MAX_ITEM_CHARS = 300;
 export const DEEP_RESEARCH_MAX_CONTEXT_CHARS = 600;
 /** An explicitly requested deep research starts after this countdown (editing the plan pauses it) */
 export const DEEP_RESEARCH_AUTOSTART_SECONDS = 8;
+
+// =============================================================================
+// Artifacts
+// =============================================================================
+
+/** Tallest an inline artifact frame grows (% of the viewport); taller ones scroll inside */
+export const ARTIFACT_MAX_HEIGHT_VH = 80;
+/** A frame that has not said "ready" by now shows the failed card (Retry, View source) */
+export const ARTIFACT_READY_TIMEOUT_MS = 5000;
+/** Quick mp.state.set calls (ticking several items) save once */
+export const ARTIFACT_STATE_SAVE_DEBOUNCE_MS = 400;
+/** Reserved before the first height report when this device has none cached */
+export const ARTIFACT_PLACEHOLDER_HEIGHT_PX = 160;
+/** Longest text an artifact's mp.send may post as the user's message */
+export const ARTIFACT_SEND_MAX_CHARS = 2000;
+/** Frame widths within one bucket share a cached height (phone vs laptop differ) */
+export const ARTIFACT_HEIGHT_WIDTH_BUCKET_PX = 80;
+/** Cached heights kept on this device (oldest dropped) */
+export const ARTIFACT_HEIGHT_CACHE_MAX_ENTRIES = 200;

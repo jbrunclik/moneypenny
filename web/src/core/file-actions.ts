@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '../utils/logger';
+import { artifactCopyText } from '../components/messages/artifacts';
 import { files } from '../api/files';
 import { showToast, toast } from '../components/Toast';
 import { CHECK_ICON } from '../utils/icons';
@@ -134,7 +135,9 @@ export async function copyMessageContent(button: HTMLButtonElement): Promise<voi
   clone.querySelectorAll('sup.claim-cite').forEach((el) => el.remove());
   const textClone = clone.cloneNode(true) as HTMLElement;
   textClone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-  const textContent = textClone.textContent?.trim();
+  // Artifacts live outside the text: name them so the copy is complete
+  const artifacts = messageEl ? artifactCopyText(messageEl) : '';
+  const textContent = [textClone.textContent?.trim(), artifacts].filter(Boolean).join('\n\n');
   if (!textContent) return;
 
   try {

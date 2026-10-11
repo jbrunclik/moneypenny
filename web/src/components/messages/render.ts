@@ -29,6 +29,7 @@ import { setInputBlockedForApproval } from '../MessageInput';
 import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { RenderMessagesOptions } from './types';
 import type { Message } from '../../types/api';
+import { decorateArtifacts } from './artifacts';
 import { decorateGrounding } from './grounding';
 import { finishResearchMessage } from './research-progress';
 import { addActionRowToUI } from './action-row';
@@ -465,6 +466,8 @@ export function addMessageToUI(
   if (message.role === 'assistant') {
     // Grounding-check underlines, source numbers and footer
     decorateGrounding(messageEl, message);
+    // Sandboxed artifact frames under the text
+    decorateArtifacts(messageEl, message);
     // Report chip and open research offer
     finishResearchMessage(messageEl, message);
   }

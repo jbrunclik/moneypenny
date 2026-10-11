@@ -1,0 +1,123 @@
+/* ============================================
+   Artifacts - sandboxed HTML/JS under a reply
+   (components/messages/artifacts.ts; the frame's own styles are
+   artifact/design-system.css)
+   ============================================ */
+
+.artifact-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin: var(--space-3) 0 var(--space-1);
+}
+
+.artifact-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-slow);
+}
+
+.artifact-card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 28px;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.artifact-card__title {
+    overflow: hidden;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.artifact-card__badges {
+    display: inline-flex;
+    flex: 1;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.artifact-card__newer,
+.artifact-card__error {
+    padding: 1px var(--space-2);
+    border: 0;
+    border-radius: var(--radius-full);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.artifact-card__newer {
+    color: var(--accent-text);
+    background: var(--accent-muted);
+    cursor: pointer;
+}
+
+.artifact-card__error {
+    color: var(--warning-text);
+    background: var(--color-warning-900);
+}
+
+.artifact-card__source,
+.artifact-card__failed button {
+    min-height: 28px;
+    padding: 0 var(--space-2);
+    border: 0;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    background: transparent;
+    cursor: pointer;
+}
+
+.artifact-card__source:hover,
+.artifact-card__failed button:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.artifact-frame {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    /* The frame's page is transparent in both themes */
+    color-scheme: normal;
+}
+
+.artifact-card--failed .artifact-frame {
+    display: none;
+}
+
+.artifact-card__failed {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* Jumped to from "newer below" */
+.artifact-card--flash {
+    background: var(--claim-highlight);
+}
+
+@media (hover: none) {
+    .artifact-card__source,
+    .artifact-card__newer,
+    .artifact-card__failed button {
+        min-height: 44px;
+    }
+}
