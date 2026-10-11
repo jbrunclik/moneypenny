@@ -100,6 +100,8 @@ class Message:
     # A user message the app sent on the user's behalf: {"type": "verify_claim"
     # | "deep_research", ...} (docs/features/deep-research.md "Action messages")
     action: dict[str, Any] | None = None
+    # Artifact versions shown under the reply: [{id, version, title}]
+    artifacts: list[dict[str, Any]] | None = None
 
 
 @dataclass

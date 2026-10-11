@@ -8275,6 +8275,33 @@
         "title": "KVKeysResponse",
         "type": "object"
       },
+      "PlannerConversationResponse.ArtifactRef": {
+        "description": "One artifact version shown under a message.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version shown in this message",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
       "PlannerConversationResponse.ClaimAnnotationResponse": {
         "description": "A grounding-check claim in an assistant message.",
         "properties": {
@@ -8635,6 +8662,22 @@
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
           },
+          "artifacts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.ArtifactRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Artifact versions shown under the reply",
+            "title": "Artifacts"
+          },
           "action": {
             "anyOf": [
               {
@@ -8787,6 +8830,33 @@
           "messages"
         ],
         "title": "PlannerConversationResponse",
+        "type": "object"
+      },
+      "MessageResponse.ArtifactRef": {
+        "description": "One artifact version shown under a message.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version shown in this message",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title"
+        ],
+        "title": "ArtifactRef",
         "type": "object"
       },
       "MessageResponse.ClaimAnnotationResponse": {
@@ -9213,6 +9283,22 @@
             "default": null,
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
+          },
+          "artifacts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessageResponse.ArtifactRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Artifact versions shown under the reply",
+            "title": "Artifacts"
           },
           "action": {
             "anyOf": [
@@ -10098,6 +10184,33 @@
         "title": "SportsResetResponse",
         "type": "object"
       },
+      "ConversationDetailPaginatedResponse.ArtifactRef": {
+        "description": "One artifact version shown under a message.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version shown in this message",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
       "ConversationDetailPaginatedResponse.ClaimAnnotationResponse": {
         "description": "A grounding-check claim in an assistant message.",
         "properties": {
@@ -10457,6 +10570,22 @@
             "default": null,
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
+          },
+          "artifacts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ArtifactRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Artifact versions shown under the reply",
+            "title": "Artifacts"
           },
           "action": {
             "anyOf": [
@@ -11279,6 +11408,33 @@
         "title": "TruncateConversationResponse",
         "type": "object"
       },
+      "MessagesListResponse.ArtifactRef": {
+        "description": "One artifact version shown under a message.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version shown in this message",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
       "MessagesListResponse.ClaimAnnotationResponse": {
         "description": "A grounding-check claim in an assistant message.",
         "properties": {
@@ -11639,6 +11795,22 @@
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
           },
+          "artifacts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.ArtifactRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Artifact versions shown under the reply",
+            "title": "Artifacts"
+          },
           "action": {
             "anyOf": [
               {
@@ -11817,6 +11989,33 @@
           "pagination"
         ],
         "title": "MessagesListResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.ArtifactRef": {
+        "description": "One artifact version shown under a message.",
+        "properties": {
+          "id": {
+            "description": "Artifact id",
+            "title": "Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version shown in this message",
+            "title": "Version",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Artifact title",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title"
+        ],
+        "title": "ArtifactRef",
         "type": "object"
       },
       "ChatBatchResponse.ClaimAnnotationResponse": {
@@ -12176,6 +12375,22 @@
             "default": null,
             "description": "Deep-research offer ({offer}) or run ({run}) data",
             "title": "Research"
+          },
+          "artifacts": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.ArtifactRef"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Artifact versions shown under the reply",
+            "title": "Artifacts"
           },
           "created_at": {
             "title": "Created At",

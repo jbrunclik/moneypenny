@@ -122,6 +122,13 @@ def add_research(data: dict[str, Any], msg: Any) -> None:
         data["research"] = research
 
 
+def add_artifacts(data: dict[str, Any], msg: Any) -> None:
+    """Artifacts shown under the message ([{id, version, title}]), when it has any."""
+    artifacts = getattr(msg, "artifacts", None)
+    if artifacts:
+        data["artifacts"] = artifacts
+
+
 def build_chat_response(
     assistant_msg: Any,
     content: str,
@@ -174,6 +181,7 @@ def build_chat_response(
         response_data["stop_reason"] = stop_reason
     add_grounding(response_data, assistant_msg)
     add_research(response_data, assistant_msg)
+    add_artifacts(response_data, assistant_msg)
     response_data["message_count"] = conversation_message_count(assistant_msg)
 
     return response_data
@@ -280,6 +288,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
             msg_data["stop_reason"] = m.stop_reason
         add_grounding(msg_data, m)
         add_research(msg_data, m)
+        add_artifacts(msg_data, m)
         add_action(msg_data, m)
 
         optimized_messages.append(msg_data)
@@ -338,6 +347,7 @@ def build_stream_done_event(
         done_data["stop_reason"] = stop_reason
     add_grounding(done_data, assistant_msg)
     add_research(done_data, assistant_msg)
+    add_artifacts(done_data, assistant_msg)
     done_data["message_count"] = conversation_message_count(assistant_msg)
 
     return done_data

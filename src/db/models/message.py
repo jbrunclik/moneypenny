@@ -194,6 +194,7 @@ class MessageMixin:
         grounding: dict[str, Any] | None = None,
         research: dict[str, Any] | None = None,
         action: dict[str, Any] | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -215,6 +216,7 @@ class MessageMixin:
             grounding: Optional grounding summary for the footer
             research: Optional deep-research offer or run data
             action: What a user message sent on the user's behalf was
+            artifacts: Artifact versions shown under the reply ([{id, version, title}])
 
         Returns:
             The created Message
@@ -245,8 +247,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action, artifacts)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -263,6 +265,7 @@ class MessageMixin:
                     _json_or_none(grounding),
                     _json_or_none(research),
                     _json_or_none(action),
+                    _json_or_none(artifacts),
                 ),
             )
             # Update conversation's updated_at
@@ -292,6 +295,7 @@ class MessageMixin:
             grounding=grounding,
             research=research,
             action=action,
+            artifacts=artifacts,
         )
 
     def get_streaming_placeholder_id(
@@ -434,6 +438,7 @@ class MessageMixin:
         annotations: list[dict[str, Any]] | None = None,
         grounding: dict[str, Any] | None = None,
         research: dict[str, Any] | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
@@ -452,6 +457,7 @@ class MessageMixin:
             annotations: Optional grounding-check claim annotations
             grounding: Optional grounding summary for the footer
             research: Optional deep-research offer or run data
+            artifacts: Artifact versions shown under the reply ([{id, version, title}])
 
         Returns:
             The updated Message, or None if the message no longer exists
@@ -469,7 +475,7 @@ class MessageMixin:
                 """UPDATE messages
                    SET content = ?, files = ?, sources = ?, generated_images = ?, language = ?,
                        tool_outputs = ?, stop_reason = ?, annotations = ?, grounding = ?,
-                       research = ?
+                       research = ?, artifacts = ?
                    WHERE id = ?""",
                 (
                     content,
@@ -482,6 +488,7 @@ class MessageMixin:
                     _json_or_none(annotations),
                     _json_or_none(grounding),
                     _json_or_none(research),
+                    _json_or_none(artifacts),
                     message_id,
                 ),
             )

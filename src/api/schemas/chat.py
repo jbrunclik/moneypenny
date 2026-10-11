@@ -187,6 +187,14 @@ class GroundingSummaryResponse(BaseModel):
     )
 
 
+class ArtifactRef(BaseModel):
+    """One artifact version shown under a message."""
+
+    id: str = Field(description="Artifact id")
+    version: int = Field(description="Version shown in this message")
+    title: str = Field(description="Artifact title")
+
+
 class MessageResponse(BaseModel):
     """Message in a conversation."""
 
@@ -210,6 +218,9 @@ class MessageResponse(BaseModel):
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(
         default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+    )
+    artifacts: list[ArtifactRef] | None = Field(
+        default=None, description="Artifact versions shown under the reply"
     )
     action: MessageAction | None = Field(
         default=None, description="What a message sent on the user's behalf was"
@@ -247,6 +258,9 @@ class ChatBatchResponse(BaseModel):
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(
         default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+    )
+    artifacts: list[ArtifactRef] | None = Field(
+        default=None, description="Artifact versions shown under the reply"
     )
     created_at: str
     title: str | None = Field(

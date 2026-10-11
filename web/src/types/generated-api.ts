@@ -7872,6 +7872,27 @@ export interface components {
             keys: components["schemas"]["KVKeysResponse.KVKeyItem"][];
         };
         /**
+         * ArtifactRef
+         * @description One artifact version shown under a message.
+         */
+        "PlannerConversationResponse.ArtifactRef": {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version shown in this message
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
+        };
+        /**
          * ClaimAnnotationResponse
          * @description A grounding-check claim in an assistant message.
          */
@@ -8053,6 +8074,12 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Artifacts
+             * @description Artifact versions shown under the reply
+             * @default null
+             */
+            artifacts: components["schemas"]["PlannerConversationResponse.ArtifactRef"][] | null;
+            /**
              * Action
              * @description What a message sent on the user's behalf was
              * @default null
@@ -8117,6 +8144,27 @@ export interface components {
              * @default false
              */
             was_reset: boolean;
+        };
+        /**
+         * ArtifactRef
+         * @description One artifact version shown under a message.
+         */
+        "MessageResponse.ArtifactRef": {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version shown in this message
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
         };
         /**
          * ClaimAnnotationResponse
@@ -8332,6 +8380,12 @@ export interface components {
             research: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Artifacts
+             * @description Artifact versions shown under the reply
+             * @default null
+             */
+            artifacts: components["schemas"]["MessageResponse.ArtifactRef"][] | null;
             /**
              * Action
              * @description What a message sent on the user's behalf was
@@ -8813,6 +8867,27 @@ export interface components {
             message: string;
         };
         /**
+         * ArtifactRef
+         * @description One artifact version shown under a message.
+         */
+        "ConversationDetailPaginatedResponse.ArtifactRef": {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version shown in this message
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
+        };
+        /**
          * ClaimAnnotationResponse
          * @description A grounding-check claim in an assistant message.
          */
@@ -8993,6 +9068,12 @@ export interface components {
             research: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Artifacts
+             * @description Artifact versions shown under the reply
+             * @default null
+             */
+            artifacts: components["schemas"]["ConversationDetailPaginatedResponse.ArtifactRef"][] | null;
             /**
              * Action
              * @description What a message sent on the user's behalf was
@@ -9412,6 +9493,27 @@ export interface components {
             deleted: number;
         };
         /**
+         * ArtifactRef
+         * @description One artifact version shown under a message.
+         */
+        "MessagesListResponse.ArtifactRef": {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version shown in this message
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
+        };
+        /**
          * ClaimAnnotationResponse
          * @description A grounding-check claim in an assistant message.
          */
@@ -9593,6 +9695,12 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Artifacts
+             * @description Artifact versions shown under the reply
+             * @default null
+             */
+            artifacts: components["schemas"]["MessagesListResponse.ArtifactRef"][] | null;
+            /**
              * Action
              * @description What a message sent on the user's behalf was
              * @default null
@@ -9675,6 +9783,27 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["MessagesListResponse.MessageResponse"][];
             pagination: components["schemas"]["MessagesListResponse.MessagesPaginationResponse"];
+        };
+        /**
+         * ArtifactRef
+         * @description One artifact version shown under a message.
+         */
+        "ChatBatchResponse.ArtifactRef": {
+            /**
+             * Id
+             * @description Artifact id
+             */
+            id: string;
+            /**
+             * Version
+             * @description Version shown in this message
+             */
+            version: number;
+            /**
+             * Title
+             * @description Artifact title
+             */
+            title: string;
         };
         /**
          * ClaimAnnotationResponse
@@ -9851,6 +9980,12 @@ export interface components {
             research: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Artifacts
+             * @description Artifact versions shown under the reply
+             * @default null
+             */
+            artifacts: components["schemas"]["ChatBatchResponse.ArtifactRef"][] | null;
             /** Created At */
             created_at: string;
             /**
