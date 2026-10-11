@@ -1,0 +1,17 @@
+id: artifact_calculator
+description: An interactive tool request gets a sandboxed artifact styled by the design system
+user: Udělej mi kalkulačku spropitného, ať si můžu zadat účet a počet lidí.
+expect:
+  rubric: >
+    Replies in Czech and builds the calculator as an artifact (create_artifact
+    was called). The text reply stays short - one or two sentences saying
+    what the calculator does - and does not repeat the calculator's contents
+    or paste its code.
+  required_tools: [create_artifact]
+  # The judge never sees the HTML: design-system rules checked on the argument
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      - '(?<![-\w])width\s*[:=]\s*["'']?\d{3,}(px)?(?![\d%])'
+      - 'https?://'
+  max_tool_rounds: 2

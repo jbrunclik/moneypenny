@@ -1,0 +1,26 @@
+id: artifact_revision
+description: Changing an earlier artifact edits it into a new version instead of recreating it
+artifacts:
+  - title: Kalkulačka spropitného
+    html: >-
+      <div class="mp-card mp-stack"><h2>Spropitné</h2>
+      <input id="bill" type="number" placeholder="Účet (Kč)">
+      <div class="mp-row"><button id="p10">10 %</button></div>
+      <div class="mp-stat"><span>Spropitné</span><strong id="tip">0 Kč</strong></div></div>
+      <script>p10.onclick=()=>{tip.textContent=Math.round(bill.value*0.1)+' Kč'}</script>
+history:
+  - role: user
+    content: Udělej mi kalkulačku spropitného.
+  - role: assistant
+    content: Tady je kalkulačka spropitného - zadej účet a klikni na procenta.
+    metadata:
+      artifacts: "{artifact_0} v1 'Kalkulačka spropitného'"
+user: Přidej tam i tlačítko na 15 %.
+expect:
+  rubric: >
+    Replies in Czech that the 15 % option was added to the existing
+    calculator. It changed the existing artifact (update_artifact), not a
+    new one.
+  required_tools: [update_artifact]
+  forbidden_tools: [create_artifact]
+  max_tool_rounds: 3

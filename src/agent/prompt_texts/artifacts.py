@@ -7,7 +7,7 @@ Keep it near 400 tokens; the class list must match web/src/artifact/design-syste
 
 CREATE_ARTIFACT_DESCRIPTION = """Show the user a small interactive or visual page (HTML/CSS/JS) inline below your reply: calculators, converters, recipe cards with ingredient checklists, trackers, charts, timelines, small games.
 
-Use it only when interacting or seeing it beats reading - NEVER for plain answers, lists, tables or code the user asked to read. To change an existing artifact use update_artifact (call read_artifact first if it was made in an earlier turn).
+Use it only when interacting or seeing it beats reading - NEVER for plain answers, lists, tables or code the user asked to read. A recipe is always a card (ingredient checklist + numbered steps): the user cooks from it. To change an existing artifact use update_artifact (call read_artifact first if it was made in an earlier turn).
 
 It runs sandboxed: no network, no external URLs (images only inline SVG or data: URIs), no localStorage. Write a fragment (no <html>/<head> needed). The app's design system is already loaded:
 - Bare elements are styled: h1-h3, p, a, button (add class "secondary"), input, select, input[type=range], table, ul/ol, code/pre.

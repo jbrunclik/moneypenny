@@ -151,6 +151,53 @@ class TestDeterministicFailures:
         assert deterministic_failures(case, set(), tool_rounds=3)
         assert deterministic_failures(case, set(), tool_rounds=2) == []
 
+    def test_forbidden_arg_patterns_check_the_named_tool_argument(self) -> None:
+        case = self._case()
+        case.forbidden_arg_patterns = {"create_artifact.html": [r"#[0-9a-fA-F]{3,8}\b"]}
+        hex_call = {"name": "create_artifact", "args": {"html": "<p style='color:#fff'>x</p>"}}
+        token_call = {
+            "name": "create_artifact",
+            "args": {"html": "<p style='color:var(--mp-text)'>x</p>"},
+        }
+        other_tool = {"name": "create_file", "args": {"html": "#fff"}}
+
+        failures = deterministic_failures(case, set(), tool_rounds=1, tool_calls=[hex_call])
+        assert failures and "create_artifact.html" in failures[0]
+        assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[token_call]) == []
+        assert deterministic_failures(case, set(), tool_rounds=1, tool_calls=[other_tool]) == []
+
+    def test_forbidden_arg_patterns_parse_from_yaml(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "art.yaml",
+            r"""
+id: art
+description: d
+user: q
+expect:
+  rubric: r
+  forbidden_arg_patterns:
+    create_artifact.html: ['#[0-9a-f]{6}', 'width:\s*\d+px']
+""",
+        )
+        [case] = load_cases(tmp_path)
+        assert case.forbidden_arg_patterns == {
+            "create_artifact.html": ["#[0-9a-f]{6}", r"width:\s*\d+px"]
+        }
+
+    def test_tool_calls_in_reads_names_and_args(self) -> None:
+        from langchain_core.messages import AIMessage
+
+        from evals.run import tool_calls_in
+
+        messages = [
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "create_artifact", "args": {"html": "x"}, "id": "1"}],
+            )
+        ]
+        assert tool_calls_in(messages) == [{"name": "create_artifact", "args": {"html": "x"}}]
+
 
 class TestHistorySupport:
     def test_case_with_history_parses(self, tmp_path: Path) -> None:
@@ -524,3 +571,35 @@ def test_judge_text_unchanged_without_annotations() -> None:
     from evals.run import annotate_for_judge
 
     assert annotate_for_judge("Plain answer.", None) == "Plain answer."
+
+
+class TestArtifactSeeding:
+    def test_artifacts_parse_and_ids_fill_the_history(self, tmp_path: Path) -> None:
+        from evals.run import with_artifact_ids
+
+        _write_case(
+            tmp_path,
+            "rev.yaml",
+            """
+id: rev
+description: d
+user: add 15 %
+artifacts:
+  - title: Tips
+    html: "<p>10 %</p>"
+history:
+  - role: assistant
+    content: Here is your calculator.
+    metadata:
+      artifacts: "{artifact_0} v1 'Tips'"
+expect:
+  rubric: r
+""",
+        )
+        [case] = load_cases(tmp_path)
+        assert case.artifacts == [{"title": "Tips", "html": "<p>10 %</p>"}]
+
+        history = with_artifact_ids(case.history, ["abc123"])
+
+        assert history[0]["metadata"]["artifacts"] == "abc123 v1 'Tips'"
+        assert case.history[0]["metadata"]["artifacts"] == "{artifact_0} v1 'Tips'"

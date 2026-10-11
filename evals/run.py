@@ -83,6 +83,9 @@ class EvalCase:
     # load_skill must have been called with THIS skill name (required_tools
     # only proves some load_skill call happened)
     required_skill: str | None = None
+    # Regexes that must NOT match a tool argument, keyed "tool.arg" (e.g.
+    # create_artifact.html: hex colours) - the judge never sees tool args
+    forbidden_arg_patterns: dict[str, list[str]] = field(default_factory=dict)
     # Prior turns for multi-turn cases: [{role, content[, metadata]}] - metadata
     # is the enriched-history dict (e.g. tool_outputs) the model sees in MSG_CONTEXT
     history: list[dict[str, Any]] = field(default_factory=list)
@@ -99,6 +102,9 @@ class EvalCase:
     files: list[str] = field(default_factory=list)
     # Memories seeded before the case (soft-deleted after): [{content, category}]
     memories: list[dict[str, str]] = field(default_factory=list)
+    # Artifacts seeded in the case's conversation: [{title, html}]; their ids
+    # replace {artifact_0}, {artifact_1}... in the history (revision cases)
+    artifacts: list[dict[str, str]] = field(default_factory=list)
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
@@ -166,6 +172,10 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 forbidden_tools=list(expect.get("forbidden_tools") or []),
                 max_tool_rounds=int(expect.get("max_tool_rounds") or 0),
                 required_skill=expect.get("required_skill"),
+                forbidden_arg_patterns={
+                    str(k): [str(p) for p in v]
+                    for k, v in (expect.get("forbidden_arg_patterns") or {}).items()
+                },
                 history=[
                     {
                         "role": str(h["role"]),
@@ -182,12 +192,31 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     {"content": str(m["content"]), "category": str(m.get("category", "fact"))}
                     for m in (data.get("memories") or [])
                 ],
+                artifacts=[
+                    {"title": str(a["title"]), "html": str(a["html"])}
+                    for a in (data.get("artifacts") or [])
+                ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
                 deep_research=dict(data.get("deep_research") or {}),
             )
         )
     return cases
+
+
+def with_artifact_ids(history: list[dict[str, Any]], ids: list[str]) -> list[dict[str, Any]]:
+    """The history with {artifact_N} replaced by the seeded artifacts' ids."""
+
+    def fill(value: Any) -> Any:
+        if isinstance(value, str):
+            for i, art_id in enumerate(ids):
+                value = value.replace(f"{{artifact_{i}}}", art_id)
+            return value
+        if isinstance(value, dict):
+            return {k: fill(v) for k, v in value.items()}
+        return value
+
+    return [fill(turn) for turn in history]
 
 
 def select_cases(cases: list[EvalCase], patterns: list[str]) -> list[EvalCase]:
@@ -340,14 +369,36 @@ def skills_loaded_in(messages: list[Any]) -> set[str]:
     }
 
 
+def tool_calls_in(messages: list[Any]) -> list[dict[str, Any]]:
+    """Every tool call ({name, args}) requested in the turn's messages."""
+    return [
+        {"name": call.get("name"), "args": call.get("args") or {}}
+        for msg in messages
+        for call in getattr(msg, "tool_calls", None) or []
+    ]
+
+
+def _arg_pattern_failures(case: EvalCase, tool_calls: list[dict[str, Any]]) -> list[str]:
+    failures: list[str] = []
+    for key, patterns in case.forbidden_arg_patterns.items():
+        tool_name, _, arg = key.partition(".")
+        for call in tool_calls:
+            value = str(call["args"].get(arg, "")) if call["name"] == tool_name else ""
+            hits = [p for p in patterns if value and re.search(p, value)]
+            if hits:
+                failures.append(f"{key} matched forbidden pattern(s) {hits}")
+    return failures
+
+
 def deterministic_failures(
     case: EvalCase,
     tools_used: set[str],
     tool_rounds: int,
     skills_loaded: set[str] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     """Rule-based checks that need no LLM. required_tools is any-of."""
-    failures: list[str] = []
+    failures: list[str] = _arg_pattern_failures(case, tool_calls or [])
     if case.required_skill and case.required_skill not in (skills_loaded or set()):
         failures.append(
             f"skill {case.required_skill!r} was not loaded ({sorted(skills_loaded or set()) or 'none'})"
@@ -567,7 +618,12 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         }
         set_sports_context("cycling")
 
-    history = case.history or None
+    # Seed artifacts for revision cases (they go with the eval conversation)
+    artifact_ids = [
+        db.create_artifact(conversation.id, user.id, a["title"], a["html"])[0].id
+        for a in case.artifacts
+    ]
+    history = with_artifact_ids(case.history, artifact_ids) or None
     summarizer_usage = {"input": 0.0, "output": 0.0}
     if case.compact_history:
         history, summarizer_usage = _compacted_history(case, user, db, conversation.id)
@@ -626,7 +682,11 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
 
     tool_rounds = int(usage.get("tool_rounds", 0))
     failures = deterministic_failures(
-        case, tools_used, tool_rounds, skills_loaded=skills_loaded_in(result_messages)
+        case,
+        tools_used,
+        tool_rounds,
+        skills_loaded=skills_loaded_in(result_messages),
+        tool_calls=tool_calls_in(result_messages),
     )
 
     from langchain_google_genai import ChatGoogleGenerativeAI

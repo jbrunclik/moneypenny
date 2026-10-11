@@ -1,0 +1,15 @@
+id: artifact_recipe
+description: A recipe becomes a card with an ingredient checklist
+user: Dej mi recept na svíčkovou pro 4 osoby.
+expect:
+  rubric: >
+    Replies in Czech with a svíčková recipe for 4 shown as an artifact
+    (create_artifact was called): ingredients and steps for four servings.
+    The text reply is brief and does not duplicate the whole recipe that the
+    artifact shows.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      - '(?<![-\w])width\s*[:=]\s*["'']?\d{3,}(px)?(?![\d%])'
+      - 'https?://'
