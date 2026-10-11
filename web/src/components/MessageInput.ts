@@ -83,17 +83,11 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
 
   // Auto-resize on input; persist the draft (debounced) so switching
   // conversations or reloading never loses typed text
-  let draftSaveTimeout: number | undefined;
   input.addEventListener('input', () => {
     autoResizeTextarea(input);
     updateSendButtonState();
     if (draftSaveTimeout) clearTimeout(draftSaveTimeout);
-    draftSaveTimeout = window.setTimeout(() => {
-      const convId = useStore.getState().currentConversation?.id;
-      if (convId) {
-        useStore.getState().setConversationDraft(convId, input.value);
-      }
-    }, DRAFT_SAVE_DEBOUNCE_MS);
+    draftSaveTimeout = window.setTimeout(() => saveDraftNow(input), DRAFT_SAVE_DEBOUNCE_MS);
   });
 
   // Send on Enter (desktop only - mobile users must tap Send button)
@@ -320,15 +314,58 @@ export function recallLastSentMessage(): boolean {
   return true;
 }
 
+let draftSaveTimeout: number | undefined;
+// The conversation being loaded: text typed while it loads belongs to it,
+// not to the conversation still current (Oct 2026: it was saved there and
+// the switch-in restore then wiped it from the composer)
+let loadingDraftOwnerId: string | null = null;
+
+function saveDraftNow(input: HTMLTextAreaElement): void {
+  clearTimeout(draftSaveTimeout);
+  draftSaveTimeout = undefined;
+  const convId = loadingDraftOwnerId ?? useStore.getState().currentConversation?.id;
+  if (convId) {
+    useStore.getState().setConversationDraft(convId, input.value);
+  }
+}
+
+function showDraft(input: HTMLTextAreaElement, text: string): void {
+  input.value = text;
+  autoResizeTextarea(input);
+  updateSendButtonState();
+}
+
+/**
+ * A conversation starts loading: save the outgoing draft and show this
+ * conversation's draft, so what the user types meanwhile is kept for it.
+ */
+export function beginDraftForLoadingConversation(convId: string): void {
+  const input = getElementById<HTMLTextAreaElement>('message-input');
+  if (!input) return;
+  if (draftSaveTimeout !== undefined) saveDraftNow(input);
+  loadingDraftOwnerId = convId;
+  showDraft(input, useStore.getState().getConversationDraft(convId));
+}
+
+/** A load ended without switching in (failed, or the user went elsewhere). */
+export function endDraftForLoadingConversation(convId: string): void {
+  if (loadingDraftOwnerId !== convId) return;
+  const input = getElementById<HTMLTextAreaElement>('message-input');
+  if (input && draftSaveTimeout !== undefined) saveDraftNow(input);
+  loadingDraftOwnerId = null;
+}
+
 /**
  * Restore the persisted composer draft for a conversation (on switch-in).
+ * Text typed while that same conversation loaded stays in the composer.
  */
 export function restoreDraftForConversation(convId: string): void {
   const input = getElementById<HTMLTextAreaElement>('message-input');
   if (!input) return;
-  input.value = useStore.getState().getConversationDraft(convId);
-  autoResizeTextarea(input);
-  updateSendButtonState();
+  if (draftSaveTimeout !== undefined) saveDraftNow(input);
+  const typedWhileLoading = loadingDraftOwnerId === convId;
+  loadingDraftOwnerId = null;
+  showDraft(input, typedWhileLoading ? input.value : useStore.getState().getConversationDraft(convId));
 }
 
 /**

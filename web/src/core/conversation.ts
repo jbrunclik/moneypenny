@@ -27,10 +27,13 @@ import {
   cleanupNewerMessagesScrollListener,
 } from '../components/messages';
 import {
+  beginDraftForLoadingConversation,
+  endDraftForLoadingConversation,
   focusMessageInput,
   ensureInputAreaVisible,
   restoreDraftForConversation,
   shouldAutoFocusInput,
+  updateSendButtonState,
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById } from '../utils/dom';
@@ -211,6 +214,7 @@ export async function selectConversation(convId: string): Promise<void> {
 
   store.setLoading(true);
   showConversationLoader();
+  beginDraftForLoadingConversation(convId);
 
   try {
     const response = await conversations.get(convId);
@@ -248,6 +252,9 @@ export async function selectConversation(convId: string): Promise<void> {
     });
   } finally {
     store.setLoading(false);
+    endDraftForLoadingConversation(convId);
+    // Text typed during the load set the button while isLoading was true
+    updateSendButtonState();
   }
 }
 
