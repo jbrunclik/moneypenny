@@ -592,6 +592,16 @@ class Config:
         os.getenv("CODE_SANDBOX_SESSION_TTL_SECONDS", "900")
     )
 
+    # Inline artifacts (docs/features/artifacts.md): sandboxed HTML/JS the agent
+    # shows under its reply
+    ARTIFACTS_ENABLED: bool = os.getenv("ARTIFACTS_ENABLED", "true").lower() == "true"
+    # One version's HTML - the model writes it, so it is output tokens per edit
+    ARTIFACT_MAX_BYTES: int = int(os.getenv("ARTIFACT_MAX_BYTES", "200000"))
+    # State an artifact saves through the bridge (ticked items, scores)
+    ARTIFACT_STATE_MAX_BYTES: int = int(os.getenv("ARTIFACT_STATE_MAX_BYTES", "50000"))
+    # Past this, the agent must update an existing artifact instead
+    ARTIFACT_MAX_PER_CONVERSATION: int = int(os.getenv("ARTIFACT_MAX_PER_CONVERSATION", "30"))
+
     # Autonomous agent settings
     # Timeout for considering an execution "stuck" (used for locking)
     # Executions running longer than this are ignored when checking for overlapping runs

@@ -24,6 +24,7 @@ from src.db.models.agent_conversation import AgentConversationMixin
 from src.db.models.agent_executions import AgentExecutionMixin
 from src.db.models.agent_schedule import AgentScheduleMixin
 from src.db.models.agent_stats import AgentStatsMixin
+from src.db.models.artifacts import ArtifactMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
 from src.db.models.conversation import ConversationMixin
@@ -101,6 +102,7 @@ class Database(
     PushSubscriptionMixin,
     StreamJournalMixin,
     SyncChangesMixin,
+    ArtifactMixin,
 ):
     """Main database class combining all mixins.
 

@@ -103,6 +103,33 @@ class Message:
 
 
 @dataclass
+class Artifact:
+    """Agent-made HTML/JS shown inline under a reply (docs/features/artifacts.md)."""
+
+    id: str
+    conversation_id: str
+    user_id: str
+    title: str
+    latest_version: int
+    # Saved by the artifact through the bridge (mp.state); shared by all versions
+    state: dict[str, Any] | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass
+class ArtifactVersion:
+    """One version of an artifact's HTML."""
+
+    artifact_id: str
+    version: int
+    html: str
+    # The reply that made this version (None until the turn is saved)
+    created_by_message_id: str | None
+    created_at: datetime
+
+
+@dataclass
 class Memory:
     """A user memory entry for context retention."""
 
