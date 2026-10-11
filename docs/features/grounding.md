@@ -28,6 +28,18 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `delegate_task` sources; at most 10), else the top 5 search results
   rank-interleaved. `uncited_web_text()` is web text the verifier may use but
   cannot cite (search snippets when pages were read, unparsed web output).
+  It also gets the claims **earlier replies** had verified (`earlier_verified()`:
+  quote, page title and URL, and the page's quote, from the history's
+  `verified_claims` metadata, which the chat model does not see). Before this,
+  a follow-up restating a fact sourced two turns earlier was flagged red
+  whenever this turn's pages lacked it (Oct 11 2026, a senate-election
+  conversation: 3-7 false flags in a replay, 0 after). Only supported claims
+  carry over, never an earlier reply's own text, so an unverified claim never
+  becomes evidence. The same conversation once got "the source says
+  otherwise" for a claim the page merely did not cover ("Kuba's man Tomáš
+  Fiala"); a stricter `contradicted` definition in the prompt did not help in
+  a replay (new wording 1 false contradiction in 3, old 0 in 3) and was not
+  kept - the earlier-turn evidence cleared that claim instead.
   `format_sources()` gives each page a fair share of
   `GROUNDING_CHECK_MAX_SOURCE_CHARS`.
 - **Verifier**: one structured call (`GroundingVerdict`, temperature 0) to

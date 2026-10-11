@@ -550,3 +550,40 @@ class TestRecentNewsScope:
 
         assert "TODAY: 2026-10-10" in captured[0]
         assert "RECENT NEWS" in captured[0]
+
+
+class TestEarlierVerifiedClaims:
+    """Facts sourced in an earlier turn are not 'unverified' when restated
+    (Oct 2026: a follow-up flagged red what the previous turns had verified)."""
+
+    _HISTORY: list[dict[str, Any]] = [
+        {"role": "user", "content": "Kdo vyhrál?", "metadata": {}},
+        {
+            "role": "assistant",
+            "content": "Grolich vyhrál v 1. kole.",
+            "metadata": {
+                "verified_claims": [
+                    {
+                        "quote": "vyhrál v 1. kole",
+                        "source_quote": "Grolich se stal už v prvním kole senátorem",
+                        "title": "ČT24",
+                        "url": "https://ct24.cz/grolich",
+                    }
+                ]
+            },
+        },
+    ]
+
+    def test_the_verifier_sees_earlier_evidence(self, fake_verifier: MagicMock) -> None:
+        check_grounding(_ANSWER, _WEB_TURN, history=self._HISTORY)
+
+        sources = fake_verifier.call_args.args[1]
+        assert "Grolich se stal už v prvním kole senátorem" in sources
+        assert "https://ct24.cz/grolich" in sources
+        # Context, not a numbered page: the reply cannot cite it
+        assert sources.index("UNNUMBERED") < sources.index("prvním kole senátorem")
+
+    def test_no_history_no_earlier_block(self, fake_verifier: MagicMock) -> None:
+        check_grounding(_ANSWER, _WEB_TURN)
+
+        assert "earlier in this conversation" not in fake_verifier.call_args.args[1]

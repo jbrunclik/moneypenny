@@ -774,3 +774,47 @@ class TestGroundingContext:
         )
 
         assert "grounding" not in enrich_history([msg])[0]["metadata"]
+
+
+class TestVerifiedClaims:
+    """Claims verified against a page ride along for later turns' grounding check."""
+
+    def _msg(self) -> Message:
+        return Message(
+            id="msg-1",
+            conversation_id="conv-1",
+            role=MessageRole.ASSISTANT,
+            content="Grolich vyhrál Senát v 1. kole.",
+            created_at=datetime.now(),
+            sources=[{"title": "ČT24", "url": "https://ct24.cz/grolich"}],
+            annotations=[
+                {
+                    "type": "claim",
+                    "verdict": "supported",
+                    "quote": "vyhrál Senát v 1. kole",
+                    "source": 1,
+                    "source_quote": "Grolich se stal už v prvním kole senátorem",
+                },
+                {"type": "claim", "verdict": "not_found", "quote": "Grolich"},
+            ],
+        )
+
+    def test_supported_claims_carry_their_source(self) -> None:
+        [enriched] = enrich_history([self._msg()])
+
+        assert enriched["metadata"]["verified_claims"] == [
+            {
+                "quote": "vyhrál Senát v 1. kole",
+                "source_quote": "Grolich se stal už v prvním kole senátorem",
+                "title": "ČT24",
+                "url": "https://ct24.cz/grolich",
+            }
+        ]
+
+    def test_the_chat_model_does_not_see_them(self) -> None:
+        from src.agent.message_content import format_message_with_metadata
+
+        [enriched] = enrich_history([self._msg()])
+
+        assert "verified_claims" not in format_message_with_metadata(enriched)
+        assert "prvním kole senátorem" not in format_message_with_metadata(enriched)

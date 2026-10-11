@@ -356,7 +356,7 @@ class ChatAgent:
         usage_info = batch_usage_info(result_messages, turn_duration_ms)
         if decision and decision.usage:
             usage_info["freshness_usage"] = decision.usage
-        grounding_check.apply_grounding(response_text, result_messages, usage_info)
+        grounding_check.apply_grounding(response_text, result_messages, usage_info, None, history)
 
         return response_text, tool_results, usage_info, result_messages
 
@@ -553,5 +553,5 @@ class ChatAgent:
                 # The verifier runs between the last token and done (~1 s)
                 if grounding_check.should_check(*args, stop):
                     yield {"type": "grounding_started"}
-                grounding_check.apply_grounding(*args, event["usage_info"], stop)
+                grounding_check.apply_grounding(*args, event["usage_info"], stop, history)
             yield event

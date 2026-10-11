@@ -240,3 +240,26 @@ def format_grounding_context(annotations: list[dict[str, Any]] | None) -> str | 
         return None
     text = "; ".join(f"{label}: {', '.join(items)}" for label, items in groups.items())
     return _clip(text.replace("-->", ""), Config.GROUNDING_CONTEXT_MAX_CHARS)
+
+
+def verified_claims(
+    annotations: list[dict[str, Any]] | None, sources: list[dict[str, Any]] | None
+) -> list[dict[str, str]]:
+    """The answer's claims a page supported, with that page and its quote: a
+    later turn restating them is not unverified (its own pages may lack them)."""
+    pages = sources or []
+    claims: list[dict[str, str]] = []
+    for ann in annotations or []:
+        if ann.get("verdict") != "supported" or not ann.get("source_quote"):
+            continue
+        index = ann.get("source")
+        page = pages[index - 1] if isinstance(index, int) and 0 < index <= len(pages) else {}
+        claims.append(
+            {
+                "quote": str(ann["quote"]),
+                "source_quote": str(ann["source_quote"]),
+                "title": str(page.get("title", "")),
+                "url": str(page.get("url", "")),
+            }
+        )
+    return claims

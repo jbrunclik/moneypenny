@@ -7,7 +7,7 @@ adding timestamps, session gap indicators, file metadata, and tool summaries.
 from datetime import UTC, datetime, timedelta
 from typing import Any, NotRequired, TypedDict
 
-from src.agent.grounding_annotations import format_grounding_context
+from src.agent.grounding_annotations import format_grounding_context, verified_claims
 from src.agent.tool_outputs import format_tool_outputs
 from src.config import Config
 from src.db.models.dataclasses import Message
@@ -36,6 +36,9 @@ class MessageMetadata(TypedDict, total=False):
     tool_outputs: str | None  # 'garmin_connect({...}) -> {...}; ...' - non-web tool results
     grounding: str | None  # "unsourced: X (reason); ..." - claims not to repeat as fact
     research: str | None  # "deep research round N: q1; q2" - this reply is a research report
+    # Claims a page supported (quote, source_quote, title, url): the grounding
+    # check's evidence for follow-ups; not serialized into MSG_CONTEXT
+    verified_claims: list[dict[str, str]]
     artifacts: str | None  # "<id> v<n> '<title>'; ..." - artifacts shown under this reply
 
 
@@ -330,6 +333,10 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
             grounding = format_grounding_context(msg.annotations)
             if grounding:
                 metadata["grounding"] = grounding
+            # For the grounding check only (not serialized into MSG_CONTEXT)
+            verified = verified_claims(msg.annotations, msg.sources)
+            if verified:
+                metadata["verified_claims"] = verified
 
             tool_outputs = format_tool_outputs(msg.tool_outputs)
             if tool_outputs:

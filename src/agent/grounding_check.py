@@ -36,6 +36,8 @@ _KNOWN_USER_TEXT_MAX_CHARS = 4000
 # This turn's non-web tool results (calendar, Garmin, memory...) are facts the
 # answer may state; capped like the user's message
 _KNOWN_TOOL_TEXT_MAX_CHARS = 8000
+# Earlier replies' verified claims (quote + page + its quote), newest first
+_EARLIER_VERIFIED_MAX_CHARS = 6000
 
 
 def _now() -> datetime:
@@ -76,6 +78,25 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
     if tool_facts:
         lines.append(f"Other tools returned this turn:\n{tool_facts}")
     return "\n".join(lines)
+
+
+def earlier_verified(history: list[dict[str, Any]] | None) -> str:
+    """Claims earlier replies had verified against a page, newest first, capped:
+    the turn's own pages often lack what a follow-up restates."""
+    lines: list[str] = []
+    total = 0
+    for msg in reversed(history or []):
+        for claim in (msg.get("metadata") or {}).get("verified_claims") or []:
+            line = (
+                f'"{claim["quote"]}" - {claim["title"]} ({claim["url"]}): "{claim["source_quote"]}"'
+            )
+            if total + len(line) > _EARLIER_VERIFIED_MAX_CHARS:
+                break
+            lines.append(line)
+            total += len(line)
+    if not lines:
+        return ""
+    return "Verified earlier in this conversation against these pages:\n" + "\n".join(lines)
 
 
 def _today() -> date:
@@ -151,7 +172,10 @@ def should_check(
 
 
 def check_grounding(
-    answer: str, result_messages: list[BaseMessage], stop_reason: str | None = None
+    answer: str,
+    result_messages: list[BaseMessage],
+    stop_reason: str | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> GroundingOutcome:
     """Every specific claim in a web-tool answer, judged against its pages.
 
@@ -159,10 +183,13 @@ def check_grounding(
     """
     if not should_check(answer, result_messages, stop_reason):
         return GroundingOutcome()
+    uncited = "\n\n".join(
+        part for part in (uncited_web_text(result_messages), earlier_verified(history)) if part
+    )
     return check_grounding_pages(
         answer,
         turn_pages(result_messages),
-        uncited_web_text(result_messages),
+        uncited,
         known=known_facts(result_messages),
         max_source_chars=Config.GROUNDING_CHECK_MAX_SOURCE_CHARS,
         max_claims=Config.GROUNDING_CHECK_MAX_CLAIMS,
@@ -218,6 +245,7 @@ def apply_grounding(
     result_messages: list[BaseMessage],
     usage_info: dict[str, Any],
     stop_reason: str | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> None:
     """Check the answer and record the outcome in usage_info for the save path.
 
@@ -225,7 +253,7 @@ def apply_grounding(
     the batch and the stream path, so the annotations ride along with it.
     `check_grounding` is looked up on the module at call time (patchable).
     """
-    outcome = check_grounding(answer, result_messages, stop_reason)
+    outcome = check_grounding(answer, result_messages, stop_reason, history)
     if outcome.usage:
         usage_info["grounding_usage"] = outcome.usage
     if outcome.annotations:

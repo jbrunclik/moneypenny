@@ -720,7 +720,9 @@ def mock_should_check(answer: str, result_messages: Any, stop_reason: str | None
     return bool(MOCK_CONFIG.get("grounding_result")) and not stop_reason
 
 
-def mock_check_grounding(answer: str, result_messages: Any, stop_reason: str | None = None) -> Any:
+def mock_check_grounding(
+    answer: str, result_messages: Any, stop_reason: str | None = None, history: Any = None
+) -> Any:
     """The canned grounding outcome a test set via /test/set-grounding-result."""
     from src.agent.grounding_check import GroundingOutcome
 
