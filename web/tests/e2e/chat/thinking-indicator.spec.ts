@@ -114,4 +114,29 @@ test.describe('Chat - Thinking Indicator', () => {
     await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
     await expect(page.locator('.message.assistant .thinking-toggle')).toHaveAttribute('aria-expanded', 'false');
   });
+
+  for (const [name, width] of [['desktop', 1280], ['mobile', 390]] as const) {
+    test(`the live line's chevron is centred on its row (${name})`, async ({ page, request }) => {
+      // Oct 2026: on mobile the row is 30px (6px padding) and the chevron button
+      // stayed 34px tall, so the chevron sat 2px below the icon and the text
+      await page.setViewportSize({ width, height: 844 });
+      await request.post('/test/set-emit-thinking', {
+        data: { emit: true, text: '**Inspecting the file**\n\nLooking at it.', until_released: true },
+      });
+      await page.fill('#message-input', 'Look at it');
+      await page.click('#send-btn');
+
+      const indicator = page.locator('.message.assistant.streaming .thinking-indicator');
+      await expect(indicator.locator('.thinking-heading')).toBeVisible({ timeout: 10000 });
+      const centre = async (selector: string): Promise<number> => {
+        const box = (await indicator.locator(selector).first().boundingBox())!;
+        return box.y + box.height / 2;
+      };
+      const icon = await centre('.thinking-trace-item.current .thinking-icon svg');
+      expect(Math.abs((await centre('.thinking-live-expand svg')) - icon)).toBeLessThanOrEqual(0.5);
+
+      await request.post('/test/release-thinking');
+      await clickStop(page);
+    });
+  }
 });

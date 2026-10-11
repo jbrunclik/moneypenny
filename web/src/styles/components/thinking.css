@@ -318,6 +318,12 @@
         padding: var(--space-1-5) var(--space-2);
     }
 
+    /* The row's first line: its padding + the 18px line (the desktop 34px
+       sat the chevron 2px below the line here, Oct 2026) */
+    .thinking-indicator .thinking-live-expand {
+        height: calc(2 * var(--space-1-5) + 18px);
+    }
+
     .thinking-toggle {
         padding: var(--space-1-5) var(--space-2);
     }
