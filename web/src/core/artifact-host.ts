@@ -10,6 +10,7 @@ import {
   ARTIFACT_MAX_HEIGHT_VH,
   ARTIFACT_READY_TIMEOUT_MS,
   ARTIFACT_SEND_MAX_CHARS,
+  ARTIFACT_SEND_MIN_INTERVAL_MS,
   ARTIFACT_STATE_SAVE_DEBOUNCE_MS,
 } from '../config';
 import type { ArtifactRef } from '../types/api';
@@ -25,6 +26,8 @@ export interface FrameCallbacks {
   onFailed?: () => void;
   /** The artifact reported a runtime error (it keeps running) */
   onError?: (message: string) => void;
+  /** The frame said ready (also after a timeout already reported failure) */
+  onReady?: () => void;
 }
 
 interface Entry {
@@ -34,6 +37,8 @@ interface Entry {
   readyTimer: number | null;
   saveTimer: number | null;
   pendingState: unknown;
+  /** When this frame last sent a message (one send per click burst) */
+  lastSendAt: number;
 }
 
 // Keyed by the element, matched to `event.source` per message: a frame can be
@@ -95,6 +100,32 @@ function scheduleStateSave(entry: Entry, state: unknown): void {
   }, ARTIFACT_STATE_SAVE_DEBOUNCE_MS);
 }
 
+/**
+ * Whether the user just clicked or typed IN THIS FRAME. Checked here, never
+ * trusted from the frame: artifact code runs in the frame's realm and can post
+ * mp:send / mp:link itself. A click inside a frame activates its ancestors
+ * (so the chat sees isActive) and focuses the iframe element. Focus is what
+ * ties the activation to this frame: a click on the chat's own Send button
+ * stays "active" for seconds, long enough for a fresh artifact to fire.
+ */
+function userJustActed(entry: Entry): boolean {
+  if (document.activeElement !== entry.frame) return false;
+  const activation = (navigator as Navigator & { userActivation?: { isActive: boolean } })
+    .userActivation;
+  // Without the API (older Safari) focus alone has to do
+  return activation ? activation.isActive : true;
+}
+
+function send(entry: Entry, text: string): void {
+  const now = Date.now();
+  if (!text.trim() || !userJustActed(entry) || now - entry.lastSendAt < ARTIFACT_SEND_MIN_INTERVAL_MS) {
+    log.warn('Artifact send refused', { artifactId: entry.ref.id });
+    return;
+  }
+  entry.lastSendAt = now;
+  void sendUiMessage(text.slice(0, ARTIFACT_SEND_MAX_CHARS));
+}
+
 function openLink(href: string): void {
   try {
     if (new URL(href).protocol === 'https:') window.open(href, '_blank', 'noopener');
@@ -106,19 +137,20 @@ function openLink(href: string): void {
 function handle(entry: Entry, message: FromFrame): void {
   switch (message.type) {
     case 'mp:ready':
+      entry.callbacks.onReady?.();
       void initFrame(entry);
       break;
     case 'mp:height':
       applyHeight(entry, message.height);
       break;
     case 'mp:send':
-      if (message.text.trim()) void sendUiMessage(message.text.slice(0, ARTIFACT_SEND_MAX_CHARS));
+      send(entry, message.text);
       break;
     case 'mp:state':
       scheduleStateSave(entry, message.state);
       break;
     case 'mp:link':
-      openLink(message.href);
+      if (userJustActed(entry)) openLink(message.href);
       break;
     case 'mp:error':
       log.warn('Artifact error', { artifactId: entry.ref.id, message: message.message });
@@ -161,7 +193,15 @@ export function registerFrame(
     window.addEventListener('message', onMessage);
     listening = true;
   }
-  const entry: Entry = { frame, ref, callbacks, readyTimer: null, saveTimer: null, pendingState: null };
+  const entry: Entry = {
+    frame,
+    ref,
+    callbacks,
+    readyTimer: null,
+    saveTimer: null,
+    pendingState: null,
+    lastSendAt: 0,
+  };
   entry.readyTimer = window.setTimeout(() => fail(entry), ARTIFACT_READY_TIMEOUT_MS);
   entries.set(frame, entry);
   return () => {

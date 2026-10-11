@@ -95,3 +95,13 @@ def test_state_over_the_limit_is_refused(
 
 def test_requires_auth(client: FlaskClient, artifact_id: str) -> None:
     assert client.get(f"/api/artifacts/{artifact_id}/versions/1").status_code == 401
+
+
+def test_state_may_be_any_json_value(
+    client: FlaskClient, auth_headers: dict[str, str], artifact_id: str
+) -> None:
+    # mp.state.set takes any JSON (an artifact may save a plain list)
+    url = f"/api/artifacts/{artifact_id}/state"
+    assert client.put(url, headers=auth_headers, json={"state": [0, 2]}).status_code == 200
+    got = client.get(f"/api/artifacts/{artifact_id}/versions/2", headers=auth_headers)
+    assert got.get_json()["state"] == [0, 2]

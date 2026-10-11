@@ -677,6 +677,8 @@ export const ARTIFACT_STATE_SAVE_DEBOUNCE_MS = 400;
 export const ARTIFACT_PLACEHOLDER_HEIGHT_PX = 160;
 /** Longest text an artifact's mp.send may post as the user's message */
 export const ARTIFACT_SEND_MAX_CHARS = 2000;
+/** One artifact send per click burst: a script cannot fire many on one click */
+export const ARTIFACT_SEND_MIN_INTERVAL_MS = 1500;
 /** Frame widths within one bucket share a cached height (phone vs laptop differ) */
 export const ARTIFACT_HEIGHT_WIDTH_BUCKET_PX = 80;
 /** Cached heights kept on this device (oldest dropped) */

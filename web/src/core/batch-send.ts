@@ -65,7 +65,8 @@ function beginBatchRequest(convId: string, requestId: string, hasFiles: boolean)
   showLoadingIndicator(hasFiles);
 }
 
-function toAssistantMessage(response: ChatResponse): Message {
+/** The store Message for a batch reply - the same fields a streamed done carries. */
+export function toAssistantMessage(response: ChatResponse): Message {
   return {
     id: response.id,
     role: 'assistant',
@@ -79,6 +80,7 @@ function toAssistantMessage(response: ChatResponse): Message {
     annotations: response.annotations,
     grounding: response.grounding,
     research: response.research,
+    artifacts: response.artifacts,
   };
 }
 

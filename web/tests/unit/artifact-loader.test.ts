@@ -69,6 +69,13 @@ describe('loadArtifact', () => {
     expect(win().__b).toBe(3);
   });
 
+  it('fires DOMContentLoaded for code listening on window too', async () => {
+    const html =
+      '<script>window.addEventListener("DOMContentLoaded", () => { window.__ready = true })</script>';
+    await loadArtifact(document, html, fakeRunner);
+    expect(win().__ready).toBe(true);
+  });
+
   it('fires DOMContentLoaded for agent code that waits for it', async () => {
     const html =
       '<script>document.addEventListener("DOMContentLoaded", () => { window.__ready = true })</script>';

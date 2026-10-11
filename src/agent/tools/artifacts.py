@@ -78,6 +78,14 @@ def _too_big(html: str) -> str | None:
     return None
 
 
+def _revised(latest: str, edits: list[dict[str, str]], html: str | None) -> str:
+    """The new version's html (raises EditError on a bad edit or an oversized result)."""
+    result = html if html is not None else apply_edits(latest, edits)
+    if error := _too_big(result):
+        raise EditError(error)
+    return result
+
+
 def _own_artifact(artifact_id: str) -> Artifact | None:
     """The artifact when it belongs to the current conversation."""
     conv_id, _ = get_conversation_context()
@@ -138,17 +146,16 @@ def update_artifact(
         return _fail("Unknown artifact id.")
     if (edits is None) == (html is None):
         return _fail("Pass edits or html (exactly one).")
-    if html is None:
-        current = db.get_artifact_version(art.id, art.latest_version)
-        plain = [ArtifactEdit.model_validate(e).model_dump() for e in edits or []]
-        try:
-            html = apply_edits(current.html if current else "", plain)
-        except EditError as e:
-            return _fail(str(e))
-    if error := _too_big(html):
-        return _fail(error)
+    plain = [ArtifactEdit.model_validate(e).model_dump() for e in edits or []]
     new_title = title.strip() if title and title.strip() else None
-    version = db.add_artifact_version(art.id, html, new_title)
+    try:
+        # Edits apply to the latest html inside the write lock: parallel
+        # updates of one artifact each build on the other's result
+        version = db.revise_artifact(
+            art.id, lambda latest: _revised(latest, plain, html), new_title
+        )
+    except EditError as e:
+        return _fail(str(e))
     logger.info(
         "Artifact updated",
         extra={

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -94,23 +95,50 @@ class ArtifactMixin:
         self, artifact_id: str, html: str, title: str | None = None
     ) -> ArtifactVersion:
         """Add the next version; also renames the artifact when `title` is given."""
+        return self.revise_artifact(artifact_id, lambda _latest: html, title)
+
+    def revise_artifact(
+        self,
+        artifact_id: str,
+        revise: Callable[[str], str],
+        title: str | None = None,
+    ) -> ArtifactVersion:
+        """Write the next version as `revise(latest html)`, atomically.
+
+        BEGIN IMMEDIATE holds the write lock from the read to the insert: two
+        parallel tool calls on one artifact otherwise both take the same next
+        version number (UNIQUE failure) or both edit the same base (the first
+        edit is lost). An exception from `revise` writes nothing.
+        """
         now = utcnow_naive()
         with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                "SELECT MAX(version) AS v FROM artifact_versions WHERE artifact_id = ?",
-                (artifact_id,),
-            ).fetchone()
-            version = int(row["v"] or 0) + 1
-            self._insert_version(conn, artifact_id, version, html, now)
-            self._execute_with_timing(
-                conn,
-                """UPDATE artifacts SET latest_version = ?, updated_at = ?,
-                   title = COALESCE(?, title) WHERE id = ?""",
-                (version, now.isoformat(), title, artifact_id),
-            )
+            self._execute_with_timing(conn, "BEGIN IMMEDIATE")
+            try:
+                version, html = self._next_version(conn, artifact_id, revise)
+                self._insert_version(conn, artifact_id, version, html, now)
+                self._execute_with_timing(
+                    conn,
+                    """UPDATE artifacts SET latest_version = ?, updated_at = ?,
+                       title = COALESCE(?, title) WHERE id = ?""",
+                    (version, now.isoformat(), title, artifact_id),
+                )
+            except BaseException:
+                conn.rollback()
+                raise
             conn.commit()
         return ArtifactVersion(artifact_id, version, html, None, now)
+
+    def _next_version(
+        self, conn: sqlite3.Connection, artifact_id: str, revise: Callable[[str], str]
+    ) -> tuple[int, str]:
+        row = self._execute_with_timing(
+            conn,
+            """SELECT version, html FROM artifact_versions WHERE artifact_id = ?
+               ORDER BY version DESC LIMIT 1""",
+            (artifact_id,),
+        ).fetchone()
+        latest_version, latest_html = (int(row["version"]), row["html"]) if row else (0, "")
+        return latest_version + 1, revise(latest_html)
 
     def get_artifact(self, artifact_id: str) -> Artifact | None:
         """An artifact by id, or None."""
@@ -151,8 +179,8 @@ class ArtifactMixin:
             ).fetchone()
         return int(row["n"])
 
-    def set_artifact_state(self, artifact_id: str, state: dict[str, Any] | None) -> None:
-        """Replace an artifact's saved state (None clears it)."""
+    def set_artifact_state(self, artifact_id: str, state: Any) -> None:
+        """Replace an artifact's saved state: any JSON value (None clears it)."""
         payload = json.dumps(state) if state is not None else None
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -163,7 +191,12 @@ class ArtifactMixin:
             conn.commit()
 
     def link_artifact_versions(self, message_id: str, refs: list[tuple[str, int]]) -> None:
-        """Record which reply made these versions (their cleanup follows the message)."""
+        """Record which reply made these versions (their cleanup follows the message).
+
+        A ref names the turn's LAST version of each artifact; the turn's earlier
+        unlinked versions of it (create then update, two updates) are adopted
+        too, or a regenerate would leave them behind as the latest version.
+        """
         if not refs:
             return
         with self._pool.get_connection() as conn:
@@ -171,7 +204,8 @@ class ArtifactMixin:
                 self._execute_with_timing(
                     conn,
                     """UPDATE artifact_versions SET created_by_message_id = ?
-                       WHERE artifact_id = ? AND version = ?""",
-                    (message_id, artifact_id, version),
+                       WHERE artifact_id = ? AND (version = ?
+                         OR (version < ? AND created_by_message_id IS NULL))""",
+                    (message_id, artifact_id, version, version),
                 )
             conn.commit()

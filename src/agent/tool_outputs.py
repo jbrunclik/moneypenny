@@ -41,6 +41,11 @@ _EXCLUDED_TOOLS = EXTRACT_ONLY_TOOL_NAMES | frozenset(
         "retrieve_file",
         "request_approval",
         "load_skill",  # repo-authored instructions, not user data
+        # Artifacts: messages.artifacts names them in MSG_CONTEXT; their html
+        # args/results would crowd out the digests that matter
+        "create_artifact",
+        "update_artifact",
+        "read_artifact",
     }
 )
 

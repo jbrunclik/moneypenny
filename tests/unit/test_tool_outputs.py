@@ -143,3 +143,18 @@ class TestCallShapes:
         outputs = build_tool_outputs(messages)
         assert outputs is not None
         assert outputs[0]["tool"] == "kv_store"
+
+
+class TestArtifactToolsNotDigested:
+    def test_artifact_calls_leave_the_digest_to_other_tools(self) -> None:
+        # messages.artifacts already names them; their html would crowd the budget
+        html = "<div>" + "x" * 2000 + "</div>"
+        outputs = build_tool_outputs(
+            _turn(
+                ("create_artifact", {"title": "T", "html": html}, json.dumps({"success": True})),
+                ("update_artifact", {"artifact_id": "a", "html": html}, "{}"),
+                ("read_artifact", {"artifact_id": "a"}, json.dumps({"html": html})),
+                ("garmin_connect", {"action": "hrv"}, json.dumps({"hrv": 62})),
+            )
+        )
+        assert [o["tool"] for o in outputs] == ["garmin_connect"]

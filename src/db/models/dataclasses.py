@@ -113,8 +113,9 @@ class Artifact:
     user_id: str
     title: str
     latest_version: int
-    # Saved by the artifact through the bridge (mp.state); shared by all versions
-    state: dict[str, Any] | None
+    # Saved by the artifact through the bridge (mp.state; any JSON value);
+    # shared by all versions
+    state: Any
     created_at: datetime
     updated_at: datetime
 

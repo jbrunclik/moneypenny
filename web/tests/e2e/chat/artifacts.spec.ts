@@ -76,6 +76,16 @@ test.describe('Artifacts', () => {
     await expect(page.locator('.message.user').last()).toContainText('Scale to 6');
   });
 
+  test('artifact code cannot send a message without a click', async ({ page, request }) => {
+    // Skips mp.send's own check by posting the bridge message directly
+    const html =
+      '<p id="ok">ready</p><script>setTimeout(() => parent.postMessage({ type: "mp:send", text: "forged send" }, "*"), 300)</script>';
+    await artifactTurn(page, request, { title: 'Forged', html });
+    await expect(frameOf(page).locator('#ok')).toHaveText('ready', { timeout: 15000 });
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.message.user', { hasText: 'forged send' })).toHaveCount(0);
+  });
+
   test('ticked items survive a reload', async ({ page, request }) => {
     await artifactTurn(page, request, { title: 'Svíčková', html: KITCHEN_SINK });
     const boxes = frameOf(page).locator('.mp-checklist input');

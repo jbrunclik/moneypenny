@@ -99,10 +99,15 @@ who receives it).
 
 The global `mp` inside the frame ([bridge-client.ts](../../web/src/artifact/bridge-client.ts)):
 
-- `mp.send(text)` posts `mp:send` only while `navigator.userActivation.isActive`
-  (fallback: a pointer/key/click gesture in the last second), so scripts cannot
-  post unprompted. The host sends it through `sendUiMessage()` (outbox and sync
-  rules apply), trimmed to `ARTIFACT_SEND_MAX_CHARS`.
+- `mp.send(text)` posts `mp:send`; the host sends it through `sendUiMessage()`
+  (outbox and sync rules apply), trimmed to `ARTIFACT_SEND_MAX_CHARS`, but only
+  when the user just acted IN THIS FRAME: the iframe is the parent's
+  `document.activeElement` (a click into a frame focuses it) and the parent's
+  `navigator.userActivation.isActive` (a click inside a frame activates its
+  ancestors; focus alone where the API is missing). At most one send per
+  `ARTIFACT_SEND_MIN_INTERVAL_MS`. `mp:link` passes the same gate. The frame's
+  own check in `mp.send` is only a convenience: artifact code shares the
+  frame's realm and can post `mp:send` itself, so the host decides.
 - `mp.state.get()` (a promise, resolved after init) / `mp.state.set(obj)`: JSON
   per artifact, shared by all its versions (an edit keeps ticked items). The host
   debounces writes (`ARTIFACT_STATE_SAVE_DEBOUNCE_MS`) and PUTs
@@ -248,6 +253,7 @@ Client constants in [config.ts](../../web/src/config.ts):
 | `ARTIFACT_STATE_SAVE_DEBOUNCE_MS` | `400` | Quick `mp.state.set` calls save once |
 | `ARTIFACT_PLACEHOLDER_HEIGHT_PX` | `160` | Reserved height without a cached one |
 | `ARTIFACT_SEND_MAX_CHARS` | `2000` | Longest `mp.send` text |
+| `ARTIFACT_SEND_MIN_INTERVAL_MS` | `1500` | One artifact send per click burst |
 | `ARTIFACT_HEIGHT_WIDTH_BUCKET_PX` | `80` | Frame widths sharing a cached height |
 | `ARTIFACT_HEIGHT_CACHE_MAX_ENTRIES` | `200` | Cached heights kept per device |
 
@@ -317,6 +323,11 @@ Client constants in [config.ts](../../web/src/config.ts):
   the tool's visible JSON; anything the save path needs must be there.
 - **Foreign keys are not enforced**, hence the triggers; any new artifact-linked
   table needs its own cleanup trigger.
+- **Never trust a gesture check inside the frame**, and `isActive` alone is not
+  enough: a click on the chat's Send button keeps the page "active" for
+  seconds, long enough for a fresh artifact to post `mp:send` on load. The host
+  also requires the frame to be focused (E2E: "artifact code cannot send a
+  message without a click").
 - **`mp.send` during an active reply is refused**: `sendUiMessage()` shows
   "Please wait for the current response to finish." and returns false.
 - **A new SSE event joins `_JOURNALED_EVENT_TYPES` and `FORWARDED_EVENT_TYPES`,

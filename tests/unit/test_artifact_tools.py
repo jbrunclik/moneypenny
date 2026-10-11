@@ -131,3 +131,26 @@ def test_bound_in_chats_but_not_programs_or_agents(monkeypatch: pytest.MonkeyPat
     assert not _NAMES & names(get_tools_for_request(agent_tool_permissions=sorted(_NAMES)))
     monkeypatch.setattr(Config, "ARTIFACTS_ENABLED", False)
     assert not _NAMES & names(get_tools_for_request())
+
+
+def test_parallel_edits_both_land(ctx: Any) -> None:
+    import threading
+
+    art = _call(create_artifact, title="T", html="<p>A</p><p>B</p>")["artifact"]
+    conv_id, user_id = ctx.id, ctx.user_id
+
+    def edit(find: str, replace: str) -> None:
+        set_conversation_context(conv_id, user_id)
+        _call(update_artifact, artifact_id=art["id"], edits=[{"find": find, "replace": replace}])
+
+    threads = [
+        threading.Thread(target=edit, args=("<p>A</p>", "<p>A2</p>")),
+        threading.Thread(target=edit, args=("<p>B</p>", "<p>B2</p>")),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    html = _call(read_artifact, artifact_id=art["id"])["html"]
+    assert "<p>A2</p>" in html and "<p>B2</p>" in html

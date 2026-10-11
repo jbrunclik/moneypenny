@@ -12,12 +12,13 @@ class ArtifactVersionResponse(BaseModel):
     version: int = Field(description="Version number")
     title: str = Field(description="Artifact title")
     html: str = Field(description="The version's HTML (rendered in the sandboxed frame)")
-    state: dict[str, Any] | None = Field(
-        default=None, description="State the artifact saved through the bridge (all versions)"
+    state: Any = Field(
+        default=None,
+        description="JSON value the artifact saved through the bridge (all versions)",
     )
 
 
 class ArtifactStateRequest(BaseModel):
     """Replace an artifact's saved state (null clears it)."""
 
-    state: dict[str, Any] | None = Field(description="JSON state; null clears it")
+    state: Any = Field(description="Any JSON value; null clears it")

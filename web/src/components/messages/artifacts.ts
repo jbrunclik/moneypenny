@@ -76,8 +76,7 @@ function setBadge(card: HTMLElement, kind: string, text: string | null, onClick?
 
 function mountFrame(card: HTMLElement, ref: ArtifactRef): void {
   stops.get(card)?.();
-  card.classList.remove('artifact-card--failed');
-  card.querySelector('.artifact-card__failed')?.remove();
+  clearFailed(card);
   const frame = document.createElement('iframe');
   frame.className = 'artifact-frame';
   frame.setAttribute('sandbox', 'allow-scripts');
@@ -95,9 +94,16 @@ function mountFrame(card: HTMLElement, ref: ArtifactRef): void {
     registerFrame(frame, ref, {
       onHeight: (px) => setCachedHeight(cacheKey(), px),
       onFailed: () => showFailed(card, ref),
+      // A slow frame (cold start, cellular) that gets ready after the timeout
+      onReady: () => clearFailed(card),
       onError: () => setBadge(card, 'error', 'Artifact error'),
     })
   );
+}
+
+function clearFailed(card: HTMLElement): void {
+  card.classList.remove('artifact-card--failed');
+  card.querySelector('.artifact-card__failed')?.remove();
 }
 
 function showFailed(card: HTMLElement, ref: ArtifactRef): void {

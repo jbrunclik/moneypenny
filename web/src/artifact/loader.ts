@@ -56,6 +56,7 @@ export async function loadArtifact(
     const fresh = freshScript(doc, script);
     await run(fresh, () => script.replaceWith(fresh));
   }
-  doc.dispatchEvent(new Event('DOMContentLoaded'));
+  // Bubbles like the real one, so window listeners get it too
+  doc.dispatchEvent(new Event('DOMContentLoaded', { bubbles: true }));
   doc.defaultView?.dispatchEvent(new Event('load'));
 }
