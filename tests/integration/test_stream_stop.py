@@ -103,8 +103,17 @@ def test_stale_stop_flag_does_not_cancel_the_next_turn(
 
 
 def _placeholder_id(test_database: Database, conv_id: str) -> str:
-    """The streaming turn's assistant message id (placeholder saved before streaming)."""
-    return [m for m in test_database.get_messages(conv_id) if m.role.value == "assistant"][-1].id
+    """The streaming turn's assistant message id.
+
+    The producer thread starts before the route saves the placeholder, so the
+    fake stream can run first - wait for the save instead of racing it.
+    """
+    for _ in range(200):
+        assistant = [m for m in test_database.get_messages(conv_id) if m.role.value == "assistant"]
+        if assistant:
+            return assistant[-1].id
+        time.sleep(0.01)
+    raise AssertionError("the assistant placeholder was never saved")
 
 
 def test_stop_flag_cancels_the_running_turn(
