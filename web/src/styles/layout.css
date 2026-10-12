@@ -360,9 +360,15 @@
        replaces the welcome. Transform only - no layout change, so
        composer-height.ts (which measures the pill against its own box) and
        the list's scroll anchoring are untouched. Never moves it DOWN on a
-       short window. No fade scrim mid-screen. */
+       short window. No fade scrim mid-screen. Half the app's REAL height
+       (the #app formula), not 50vh: iPad Safari's 100vh exceeds the visible
+       height, and a hardware keyboard's shortcut bar sets --keyboard-inset
+       on focus - either lifted the composer onto the greeting (Oct 2026). */
     .main:has(.welcome-message) .input-area {
-        transform: translateY(min(0px, calc(var(--welcome-composer-lift-px) - 50vh)));
+        transform: translateY(min(0px, calc(
+            var(--welcome-composer-lift-px)
+            - (var(--app-vh, 100vh) - var(--keyboard-inset, 0px)) / 2
+        )));
         background: transparent;
     }
 
