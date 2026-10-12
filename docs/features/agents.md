@@ -353,6 +353,13 @@ async function navigateToAgents(): Promise<void> {
 - When first Agents load completes (token was 1, current is 3) → cancelled
 - Only the final navigation renders
 
+A navigation with nothing to load must still take a token: `createConversation()`
+(New Chat) calls `startNavigation()` first. Without it a New Chat clicked while
+the planner was loading (its loading placeholder already carries
+`#planner-dashboard`) let the planner render its dashboard over the new chat -
+the intermittent `UI state is properly reset when leaving planner` E2E failure
+(Oct 2026, 2 of 10 runs).
+
 ### Adding New Screens
 
 When adding a new screen:

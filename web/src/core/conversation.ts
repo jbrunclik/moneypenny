@@ -344,6 +344,10 @@ function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean 
 export function createConversation(): void {
   log.debug('Creating new conversation');
 
+  // A navigation of its own, like a switch: a view still loading (planner,
+  // agents, sports...) checks its token and must not render over the new chat
+  useStore.getState().startNavigation();
+
   if (reuseEmptyConversation()) return;
 
   // Leave any special view before creating new conversation

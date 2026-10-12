@@ -463,6 +463,30 @@ test.describe('Planner - UI State Management', () => {
     await expect(modelSelector).toContainText('Fast');
   });
 
+  test('New Chat during the planner load is not overwritten by the planner', async ({ page }) => {
+    // The planner's loading placeholder already carries #planner-dashboard,
+    // so a click can land mid-load; the load must not render over the new chat
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/planner/conversation', async (route) => {
+      await held;
+      await route.continue();
+    });
+
+    await page.goto('/#/planner');
+    await expect(page.locator('#planner-dashboard.loading')).toBeVisible();
+    await page.click('#new-chat-btn');
+    await expect(page.locator('.welcome-message')).toBeVisible();
+
+    release();
+    await page.waitForResponse('**/api/planner/conversation');
+    await page.waitForTimeout(500);
+    await expect(page.locator('#planner-dashboard')).toHaveCount(0);
+    await expect(page.locator('.welcome-message')).toBeVisible();
+  });
+
   test('UI state is properly reset when leaving planner', async ({ page }) => {
     await page.goto('/#/planner');
 
