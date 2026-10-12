@@ -1,0 +1,25 @@
+id: fresh_opinion_current_politics
+description: Advice about a current political situation looks up who is where now (Oct 2026 rebrand turn answered from stale training data)
+history:
+  - role: user
+    content: "Uz se blizime v roce 29 prevalcovat vladu. Vzdyt vis, ze spolu se rozpadlo."
+  - role: assistant
+    content: >
+      Přesně tak, díváš se na horizont voleb 2029. STAN roste na 16-18 % a
+      začíná fungovat jako hlavní gravitační pole opozice, ANO se stahuje
+      pod 30 %. Rozpad SPOLU ale znamená, že TOP 09 (kolem 3,5 %) a KDU-ČSL
+      (kolem 2,5 %) mohou samostatně propadnout pod 5 % a jejich hlasy
+      přerozdělí D'Hondt hlavně silným stranám.
+user: "Za me by melo vzniknout neco jako spolu, ale rebrand. Lidi to spojujou s Fialou, kterymu se to uplne nepovedlo. Kdo by to mel tahnout?"
+expect:
+  rubric: >
+    Gives an opinion in Czech on how a SPOLU-like rebrand could work and who
+    could lead it, based on the CURRENT situation (October 2026): Martin
+    Kupka has led ODS since January 2026 (Petr Fiala stepped down), Martin
+    Kuba left ODS in November 2025 and leads his own movement Naše Česko,
+    and TOP 09 is led by Matěj Ondřej Havel. It need not name all of them,
+    but every leader it names must match this. It FAILS if it presents
+    Martin Kuba as an ODS politician (e.g. as a candidate to lead ODS or
+    rivalling Kupka inside ODS), Petr Fiala as the current ODS leader, or
+    Markéta Pekarová Adamová as the current TOP 09 leader.
+  required_tools: [research, web_search, fetch_url]

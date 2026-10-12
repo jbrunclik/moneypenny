@@ -35,9 +35,15 @@ So every measure below rides on code or on tool results.
    message, the reply before it (MSG_CONTEXT stripped) and TODAY: does the
    answer need current facts? Yes for recent or upcoming events, who holds a
    role now, current products/prices/rules/schedules, follow-ups about such an
-   event, and **whenever the user disputes a fact or asks to check it**. No for
-   chit-chat, writing/translating, maths, code, timeless knowledge, history,
-   the user's own data.
+   event, opinions or strategy about a current situation (politics, a company,
+   a market - "who should lead it?"), and **whenever the user disputes a fact
+   or asks to check it**. No for chit-chat, writing/translating, maths, code,
+   timeless knowledge, history, the user's own data. The opinion rule came from
+   an Oct 2026 conversation whose rebrand-strategy turn was judged "an opinion"
+   and answered from stale memory (Kuba still in ODS, Fiala its face):
+   `fresh_opinion_current_politics` went from 0 of 3 lookups to firing every
+   time, but the answer can still name people the queries never asked about -
+   the case passes 1 of 3 and stays a baseline target.
 2. A yes comes with 1-3 queries, each anchored in time (month and year, or the
    year). `prefetch_messages()` runs `research` with them and appends the call
    and its result to the turn, so the chat model starts from current pages and
@@ -110,7 +116,8 @@ older than 12 months stay out of scope (the Oct 3 noise lesson).
   (dated verifier prompt).
 - Evals: `fresh_keynote_followup`, `fresh_office_holder`,
   `fresh_pushback_holds`, `fresh_gate_precision` (the gate must not fire on a
-  translation). Evals search with ddgs only, which gives no dates and is
+  translation), `fresh_opinion_current_politics` (advice about current
+  politics looks up who leads which party now). Evals search with ddgs only, which gives no dates and is
   sometimes blocked from a machine after many runs ("No results found") - a
   run with a blocked ddgs measures the failed-lookup path, not the gate.
 
