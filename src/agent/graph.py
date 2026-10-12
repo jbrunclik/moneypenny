@@ -201,6 +201,10 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
     needs to analyze exactly once. Anything older has already been consumed:
     multimodal content becomes a stub and long text is truncated, in place,
     so the savings persist for the rest of the turn.
+
+    A round that only set the title consumed nothing: the model still has to
+    answer from the results before it (Oct 2026: 48 turns in 14 days lost
+    their research this way and answered with no sources).
     """
     max_chars = Config.AGENT_AGED_TOOL_RESULT_MAX_CHARS
     if max_chars <= 0:
@@ -209,7 +213,11 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
     last_tool_call_idx = len(messages)
     for i in range(len(messages) - 1, -1, -1):
         msg = messages[i]
-        if isinstance(msg, AIMessage) and msg.tool_calls:
+        if (
+            isinstance(msg, AIMessage)
+            and msg.tool_calls
+            and not all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in msg.tool_calls)
+        ):
             last_tool_call_idx = i
             break
 

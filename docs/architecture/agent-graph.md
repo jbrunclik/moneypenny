@@ -71,7 +71,10 @@ is no writer and the call is a no-op. `retry` is deliberately **not** journaled 
 Before each model call, tool results the model has already consumed are **aged**
 (`_age_consumed_tool_messages`): multimodal content (fetched PDFs/images, screenshots)
 becomes a stub and long text is cut to `AGENT_AGED_TOOL_RESULT_MAX_CHARS` (2000), since
-every `ToolMessage` is otherwise re-sent on each loop iteration.
+every `ToolMessage` is otherwise re-sent on each loop iteration. A round that only
+called extract-only tools (`set_conversation_title`, sent without answer text) does
+not count as consuming: aging after it cut research to 2000 chars before the model
+wrote a word, and the answer lost its sources (48 prod turns in 14 days, Oct 2026).
 
 ## Tool Node
 

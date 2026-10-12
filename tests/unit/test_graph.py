@@ -744,6 +744,26 @@ class TestAgeConsumedToolMessages:
 
         assert messages[1].content == "short result"
 
+    def test_title_only_round_does_not_age_unanswered_results(self) -> None:
+        """Oct 2026 prod: the model answered a research round with only
+        set_conversation_title (no text); the research was cut to 2000 chars
+        before it wrote a word, and the answer lost its sources."""
+        from src.agent.graph import _age_consumed_tool_messages
+
+        long_text = "a" * 10_000
+        messages = [
+            AIMessage(content="", tool_calls=[{"name": "research", "args": {}, "id": "c1"}]),
+            ToolMessage(content=long_text, tool_call_id="c1", name="research"),
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "set_conversation_title", "args": {}, "id": "c2"}],
+            ),
+            ToolMessage(content="Title set", tool_call_id="c2", name="set_conversation_title"),
+        ]
+        _age_consumed_tool_messages(messages)
+
+        assert messages[1].content == long_text
+
     @patch("src.agent.graph.Config")
     def test_disabled_when_zero(self, mock_config: MagicMock) -> None:
         from src.agent.graph import _age_consumed_tool_messages
