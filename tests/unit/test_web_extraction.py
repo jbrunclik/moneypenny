@@ -137,3 +137,46 @@ class TestProductData:
         head = '<meta property="product:price:amount" content="650"><meta property="product:price:currency" content="CZK">'
         text = _extract_text_from_html(self._page(head), max_length=50)
         assert "650 CZK" in text
+
+
+class TestPublishedDate:
+    """News pages carry their publish date (Oct 2026: a pre-departure article
+    from Oct 2025 "supported" a politician's old party as current - neither
+    the model nor the grounding check could tell the page was a year old, and
+    the search providers in use return no dates)."""
+
+    _BODY = (
+        "<article><p>"
+        + "Koalice SPOLU po volbách řeší, kdo povede pravici a jak dál s ODS. " * 6
+        + "</p></article>"
+    )
+
+    def _page(self, head: str) -> str:
+        return f"<html><head>{head}</head><body>{self._BODY}</body></html>"
+
+    def test_an_article_starts_with_its_publish_date(self) -> None:
+        head = (
+            '<meta property="og:type" content="article">'
+            '<meta property="article:published_time" content="2025-10-06T08:00:00+02:00">'
+        )
+        assert _extract_text_from_html(self._page(head)).startswith("Published: 2025-10-06")
+
+    def test_a_page_that_is_not_an_article_gets_no_date(self) -> None:
+        # Wikipedia and hub pages: their only dates are creation or copyright
+        # years, which would make a maintained page look stale
+        head = (
+            '<meta property="og:type" content="website">'
+            '<meta property="article:published_time" content="2009-06-11">'
+        )
+        assert "Published:" not in _extract_text_from_html(self._page(head))
+
+    def test_an_undated_article_gets_no_line(self) -> None:
+        head = '<meta property="og:type" content="article">'
+        assert "Published:" not in _extract_text_from_html(self._page(head))
+
+    def test_the_date_survives_truncation(self) -> None:
+        head = (
+            '<meta property="og:type" content="article">'
+            '<meta property="article:published_time" content="2025-10-06">'
+        )
+        assert "Published: 2025-10-06" in _extract_text_from_html(self._page(head), max_length=50)

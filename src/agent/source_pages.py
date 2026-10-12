@@ -6,6 +6,7 @@ the same page in both places.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -17,6 +18,10 @@ from src.agent.content import extract_text_content
 WEB_TOOL_NAMES = frozenset({"research", "web_search", "fetch_url", "browser"})
 _MAX_READ_SOURCES = 10
 _MAX_SEARCH_SOURCES = 5
+# The date line fetched articles start with (src/agent/tools/page_date.py),
+# after the untrusted-content header
+_PUBLISHED = re.compile(r"^Published: (\d{4}-\d{2}-\d{2})$", re.MULTILINE)
+_PUBLISHED_SEARCH_CHARS = 400
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,12 @@ class SourcePage:
     title: str
     url: str
     text: str
+
+    @property
+    def published(self) -> str | None:
+        """The article's publish date (YYYY-MM-DD), when its text states one."""
+        match = _PUBLISHED.search(self.text[:_PUBLISHED_SEARCH_CHARS])
+        return match.group(1) if match else None
 
 
 def _json_object(content: Any) -> dict[str, Any] | None:

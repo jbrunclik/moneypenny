@@ -598,6 +598,14 @@ class TestRecentNewsScope:
         assert "TODAY: 2026-10-10" in captured[0]
         assert "RECENT NEWS" in captured[0]
 
+    def test_present_tense_claims_are_marked_for_the_age_check(self) -> None:
+        # Oct 2026: an Oct 2025 article "supported" a politician's party after
+        # he had left it; the verifier marks such claims and the server judges
+        # the article's age (TestStalePresentTense)
+        from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
+
+        assert "about_present=true" in GROUNDING_CHECK_PROMPT
+
 
 class TestEarlierVerifiedClaims:
     """Facts sourced in an earlier turn are not 'unverified' when restated
@@ -634,3 +642,30 @@ class TestEarlierVerifiedClaims:
         check_grounding(_ANSWER, _WEB_TURN)
 
         assert "earlier in this conversation" not in fake_verifier.call_args.args[1]
+
+
+def test_an_old_article_cannot_back_a_present_tense_claim(
+    fake_verifier: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import date
+
+    monkeypatch.setattr(grounding_check, "_today", lambda: date(2026, 10, 12))
+    turn = _research_turn("Published: 2025-10-05\n\nV ODS jsou lidé jako třeba pan Kuba.")
+    fake_verifier.return_value = (
+        GroundingVerdict(
+            supported=[
+                ClaimVerdict(
+                    quote="Martin Kuba (ODS)",
+                    verdict="supported",
+                    source=1,
+                    source_quote="V ODS jsou lidé jako třeba pan Kuba",
+                    about_present=True,
+                )
+            ]
+        ),
+        _USAGE,
+    )
+
+    outcome = check_grounding("Martin Kuba (ODS) vede jižní Čechy.", turn)
+
+    assert outcome.annotations[0]["verdict"] == "partial"

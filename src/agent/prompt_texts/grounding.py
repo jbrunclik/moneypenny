@@ -9,7 +9,7 @@ List only PRACTICAL, CURRENT specifics: a business, product or service the reade
 
 TODAY: {today} Each claim is the SHORTEST phrase (a few words) that states it, copied exactly from the ANSWER: a business name, or "Cena: kolem 1 200–1 600 Kč" - never a whole paragraph. If that phrase appears more than once in the ANSWER, extend it until it appears only once ("PřepiServis: … 800 Kč", not "800 Kč"). Go through the answer line by line, tables included: EVERY price or price range is its own claim - also when hedged with ~, approx., about, kolem or cca (a hedge is not a source).
 
-Put every claim that is not supported (partial, contradicted, not_found) in "unsupported" - all of them. Put supported claims in "supported", but only those naming a business, product, price, opening hours, event date or contact - never a town or region.
+Put every claim that is not supported (partial, contradicted, not_found) in "unsupported" - all of them. Put supported claims in "supported", but only those naming a business, product, price, opening hours, event date or contact, or stating who holds a role now (about_present) - never a town or region.
 
 For each claim give a verdict:
 - supported: a numbered SOURCE states it (in any wording or language). Give its number as source and copy the supporting passage exactly from that source as source_quote.
@@ -18,6 +18,8 @@ For each claim give a verdict:
 - not_found: no SOURCE supports it. Give a reason.
 
 If only the UNNUMBERED text supports a claim, it is supported with no source.
+
+Set about_present=true on a claim that states how things are NOW - who holds an office or role, which party or company someone belongs to, who leads or owns something - however the ANSWER phrases it ("Martin Novák (ODS)", "ředitelka Jana Malá").
 
 A reason is one short sentence in the ANSWER's language, about the sources ("Stránky popisují jen SPZ Služby; PřepiServis v nich není.").
 

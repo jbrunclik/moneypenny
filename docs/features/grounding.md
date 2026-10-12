@@ -74,7 +74,14 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `source_quote` must be literally (whitespace- and case-normalised) in the
   cited page, or the claim is downgraded to `not_found` and loses its source;
   a supported claim with no number at all is backed by uncited text and stays
-  supported. Reasons and passages are clipped to
+  supported. A supported claim the verifier marks `about_present` (who holds a
+  role, belongs to a party, leads something now) whose cited page is an
+  article published more than `GROUNDING_PRESENT_MAX_AGE_DAYS` before today
+  becomes `partial` with `STALE_REASON` ("That article is from ..."). The
+  verifier only judges whether a claim is about the present; the date maths is
+  the server's, because the Lite model ignored a date rule in its prompt (an
+  Oct 2025 article "supported" a politician's old party 6 of 6 times; with the
+  split, 8 of 8 replays were partial). Reasons and passages are clipped to
   `GROUNDING_CHECK_MAX_REASON_CHARS` / `GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS`.
   If 3+ unsupported claims are bare times or time ranges they are the
   answer's own timeline and are dropped. Each annotation carries a `prefix`
@@ -156,6 +163,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
 | `GROUNDING_CHECK_MAX_CLAIMS` | `20` | Max annotations per answer |
 | `GROUNDING_CHECK_MAX_QUOTE_CHARS` | `60` | Longer quotes are dropped (claims are short phrases; 120 let whole sentences through) |
 | `GROUNDING_CHECK_MAX_REASON_CHARS` | `160` | Reason clip |
+| `GROUNDING_PRESENT_MAX_AGE_DAYS` | `183` | An article older than this cannot support a present-tense claim (`partial`) |
 | `GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS` | `240` | Source passage clip |
 | `GROUNDING_CONTEXT_MAX_CHARS` | `400` | `MSG_CONTEXT` `grounding` entry cap |
 | `GROUNDING_CHECK_TIMEOUT_SECONDS` | `10` | Floored at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS` (10); a deep research report uses `DEEP_RESEARCH_GROUNDING_TIMEOUT_SECONDS` (`check_grounding_pages(timeout_seconds=...)`) |

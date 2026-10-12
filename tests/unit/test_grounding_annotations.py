@@ -241,3 +241,46 @@ def test_a_claim_across_list_items_keeps_its_first_line() -> None:
     )
 
     assert ann["quote"] == "Brno"
+
+
+class TestStalePresentTense:
+    """Oct 2026: "Martin Kuba (ODS)" was marked supported by a CNN Prima article
+    from 5 Oct 2025 - he left ODS a month later. The Lite verifier ignored a
+    prompt rule on dates, so it only says whether a claim is about the PRESENT
+    and the server judges the cited article's age."""
+
+    _ANSWER = "Martin Kuba (ODS) vede jižní Čechy."
+    _QUOTE = "Martin Kuba (ODS)"
+    _PASSAGE = "V ODS jsou lidé jako třeba pan Kuba"
+
+    def _page(self, published: str | None) -> SourcePage:
+        line = f"Published: {published}\n\n" if published else ""
+        text = f"[UNTRUSTED WEB CONTENT from https://cnn.cz]\n{line}{self._PASSAGE}, silný lídr."
+        return SourcePage("CNN Prima", "https://cnn.cz", text)
+
+    def _validate(self, published: str | None, about_present: bool = True) -> dict[str, object]:
+        from datetime import date
+
+        claim = _claim(
+            quote=self._QUOTE, source=1, source_quote=self._PASSAGE, about_present=about_present
+        )
+        [ann] = validate_claims(
+            [claim], self._ANSWER, [self._page(published)], today=date(2026, 10, 12)
+        )
+        return ann
+
+    def test_an_old_article_cannot_support_how_things_are_now(self) -> None:
+        ann = self._validate("2025-10-05")
+
+        assert ann["verdict"] == "partial"
+        assert "2025-10-05" in str(ann["reason"])
+        assert ann["source"] == 1
+
+    def test_a_recent_article_still_supports_it(self) -> None:
+        assert self._validate("2026-09-01")["verdict"] == "supported"
+
+    def test_an_undated_page_still_supports_it(self) -> None:
+        assert self._validate(None)["verdict"] == "supported"
+
+    def test_an_old_article_still_supports_a_claim_about_the_past(self) -> None:
+        assert self._validate("2025-10-05", about_present=False)["verdict"] == "supported"

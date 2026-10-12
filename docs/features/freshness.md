@@ -42,8 +42,10 @@ So every measure below rides on code or on tool results.
    an Oct 2026 conversation whose rebrand-strategy turn was judged "an opinion"
    and answered from stale memory (Kuba still in ODS, Fiala its face):
    `fresh_opinion_current_politics` went from 0 of 3 lookups to firing every
-   time, but the answer can still name people the queries never asked about -
-   the case passes 1 of 3 and stays a baseline target.
+   time, but the answer can still name people the queries never asked about
+   from memory - the case passes about a third of the time and stays a
+   baseline target. Such a claim is now flagged when its only support is an old
+   article (the grounding age rule) or no page at all.
 2. A yes comes with 1-3 queries, each anchored in time (month and year, or the
    year). `prefetch_messages()` runs `research` with them and appends the call
    and its result to the turn, so the chat model starts from current pages and
@@ -79,6 +81,13 @@ Providers' publish dates ride on each `web_search` result as `published`
 Linkup and ddgs give none). When results carry dates and none is from the last
 `WEB_SEARCH_RECENT_DAYS`, the result gets a `_recency` note: search again with
 the month and year before answering, and do not present these as current.
+
+Since the providers in use give no dates, every fetched page that declares
+itself an article (trafilatura metadata, `pagetype == "article"`) starts with
+`Published: YYYY-MM-DD` ([page_date.py](../../src/agent/tools/page_date.py)),
+in research and fetch_url results alike. Other pages get no date: Wikipedia
+and hubs only carry creation or copyright years. `SourcePage.published` reads
+the line back for the grounding check's age rule.
 
 ## Snippets are not verification
 

@@ -260,7 +260,7 @@ def check_grounding_pages(
         # history/background answer, where old prices are not shop claims
         missed = missed_specifics(answer, sources, pages, claims)
         claims = [*verdict.unsupported, *missed, *verdict.supported] if verdict else claims
-    annotations = validate_claims(claims, answer, pages, max_claims=max_claims)
+    annotations = validate_claims(claims, answer, pages, max_claims=max_claims, today=_today())
     counts = Counter(a["verdict"] for a in annotations)
     logger.info(
         "Grounding check",

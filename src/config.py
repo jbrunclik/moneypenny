@@ -434,6 +434,9 @@ class Config:
     GROUNDING_CHECK_MAX_REASON_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_REASON_CHARS", "160")
     )
+    # An article older than this cannot support how things stand NOW (who
+    # holds a role, belongs to a party): its claim shows as partly sourced
+    GROUNDING_PRESENT_MAX_AGE_DAYS: int = int(os.getenv("GROUNDING_PRESENT_MAX_AGE_DAYS", "183"))
     GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS", "240")
     )

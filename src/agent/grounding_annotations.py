@@ -8,6 +8,7 @@ docs/superpowers/specs/2026-10-03-grounding-annotations-design.md.
 """
 
 import re
+from datetime import date, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -39,6 +40,11 @@ class ClaimVerdict(BaseModel):
         default=None, description="Passage copied exactly from that page"
     )
     reason: str | None = Field(default=None, description="One sentence, in the ANSWER's language")
+    about_present: bool = Field(
+        default=False,
+        description="True when the claim states how things are NOW: who holds an office "
+        "or role, which party or company someone belongs to, who leads or owns something",
+    )
 
 
 class GroundingVerdict(BaseModel):
@@ -74,8 +80,27 @@ def _passage_in_page(claim: ClaimVerdict, pages: list[SourcePage]) -> bool:
     return passage in _norm(pages[claim.source - 1].text)
 
 
+# Oct 2026: a CNN Prima article from 5 Oct 2025 "supported" a politician's
+# party a month before he left it; the Lite verifier ignored a date rule in
+# its prompt, so it only flags present-tense claims and the age is judged here
+STALE_REASON = "That article is from {published}; it does not show how things stand now."
+
+
+def _stale_source(claim: ClaimVerdict, pages: list[SourcePage], today: date | None) -> str | None:
+    """The cited article's date when it is too old for a claim about the present."""
+    if today is None or not claim.about_present or claim.source is None:
+        return None
+    published = pages[claim.source - 1].published
+    cutoff = today - timedelta(days=Config.GROUNDING_PRESENT_MAX_AGE_DAYS)
+    return published if published and published < cutoff.isoformat() else None
+
+
 def _annotation(
-    claim: ClaimVerdict, answer: str, start: int, pages: list[SourcePage]
+    claim: ClaimVerdict,
+    answer: str,
+    start: int,
+    pages: list[SourcePage],
+    today: date | None = None,
 ) -> dict[str, Any]:
     quote = claim.quote.strip()
     ann: dict[str, Any] = {
@@ -97,6 +122,10 @@ def _annotation(
     # A downgraded claim's reason explains its old verdict, not this one
     if ann["verdict"] == claim.verdict != "supported" and claim.reason:
         ann["reason"] = _clip(claim.reason.strip(), Config.GROUNDING_CHECK_MAX_REASON_CHARS)
+    stale = _stale_source(claim, pages, today) if ann["verdict"] == "supported" else None
+    if stale:
+        ann["verdict"] = "partial"
+        ann["reason"] = STALE_REASON.format(published=stale)
     return ann
 
 
@@ -201,15 +230,17 @@ def validate_claims(
     answer: str,
     pages: list[SourcePage],
     max_claims: int | None = None,
+    today: date | None = None,
 ) -> list[dict[str, Any]]:
     """Annotations for the claims that can be shown, in answer order.
 
     Claims arrive problems first (GroundingVerdict), so the cap keeps them.
+    With `today`, a present-tense claim cited to an old article is partial.
     """
     cap = Config.GROUNDING_CHECK_MAX_CLAIMS if max_claims is None else max_claims
     placed = _locate(claims, answer)[:cap]
     placed.sort(key=lambda item: item[0])
-    anns = [_annotation(claim, answer, start, pages) for start, claim in placed]
+    anns = [_annotation(claim, answer, start, pages, today) for start, claim in placed]
     return _drop_schedule_times(anns)
 
 

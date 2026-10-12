@@ -14,6 +14,7 @@ import trafilatura
 from bs4 import BeautifulSoup
 from langchain_core.tools import tool
 
+from src.agent.tools.page_date import page_date_line
 from src.agent.tools.product_data import product_data_line
 from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import check_host, validate_public_url
@@ -126,9 +127,9 @@ def _extract_text_from_html(html: str, max_length: int | None = None) -> str:
     if len(text) > limit:
         text = text[:limit] + "\n\n[Content truncated...]"
 
-    # The page's own price markup, first (extraction drops price blocks)
-    product = product_data_line(html)
-    return f"{product}\n\n{text.strip()}" if product else text.strip()
+    # The page's own date and price markup, first (extraction drops both)
+    header = "\n".join(line for line in (page_date_line(html), product_data_line(html)) if line)
+    return f"{header}\n\n{text.strip()}" if header else text.strip()
 
 
 # Supported binary MIME types for fetch_url
