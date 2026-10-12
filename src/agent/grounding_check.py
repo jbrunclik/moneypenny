@@ -62,11 +62,31 @@ def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
     return "\n".join(reversed(parts))
 
 
+def user_images(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
+    """Image blocks the user attached to the latest message.
+
+    Oct 2026 prod: seat counts read off a user's poll screenshot were marked
+    "contradicted" by a stale article - the verifier never saw the image.
+    """
+    for msg in reversed(result_messages):
+        if isinstance(msg, HumanMessage):
+            if not isinstance(msg.content, list):
+                return []
+            return [
+                block
+                for block in msg.content
+                if isinstance(block, dict)
+                and block.get("type") == "image"
+                and str(block.get("mime_type", "")).startswith("image/")
+            ]
+    return []
+
+
 def known_facts(result_messages: list[BaseMessage]) -> str:
     """What the answer may state without a web source: today's date, the user's
-    own message, and this turn's non-web tool results (the system prompt gives
-    the model the date, so a verifier without it flags "today" as unsupported;
-    a calendar event's time is not a web fact either)."""
+    own message and attached images, and this turn's non-web tool results (the
+    system prompt gives the model the date, so a verifier without it flags
+    "today" as unsupported; a calendar event's time is not a web fact either)."""
     lines = [f"Today is {_now().strftime('%A %Y-%m-%d %H:%M %Z')}."]
     for msg in reversed(result_messages):
         if isinstance(msg, HumanMessage):
@@ -74,6 +94,12 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
             if text:
                 lines.append(f"The user wrote: {text[:_KNOWN_USER_TEXT_MAX_CHARS]}")
             break
+    images = len(user_images(result_messages))
+    if images:
+        lines.append(
+            f"The user attached {images} image(s), shown after this prompt: "
+            "whatever they show is known."
+        )
     tool_facts = _turn_tool_facts(result_messages)
     if tool_facts:
         lines.append(f"Other tools returned this turn:\n{tool_facts}")
@@ -105,7 +131,12 @@ def _today() -> date:
 
 
 def _run_verifier(
-    answer: str, sources: str, known: str, *, timeout_seconds: float | None = None
+    answer: str,
+    sources: str,
+    known: str,
+    *,
+    images: list[dict[str, Any]] | None = None,
+    timeout_seconds: float | None = None,
 ) -> tuple[GroundingVerdict | None, dict[str, Any] | None]:
     """One structured call to the checker model. Raises on API errors/timeouts."""
     timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
@@ -117,10 +148,11 @@ def _run_verifier(
         max_retries=0,
     )
     structured = model.with_structured_output(GroundingVerdict, include_raw=True)
+    prompt = GROUNDING_CHECK_PROMPT.format(
+        known=known, sources=sources, answer=answer, today=_today().isoformat()
+    )
     out = structured.invoke(
-        GROUNDING_CHECK_PROMPT.format(
-            known=known, sources=sources, answer=answer, today=_today().isoformat()
-        )
+        [HumanMessage(content=[{"type": "text", "text": prompt}, *images])] if images else prompt
     )
     if not isinstance(out, dict):  # include_raw=True always returns a dict
         return None, None
@@ -193,6 +225,7 @@ def check_grounding(
         known=known_facts(result_messages),
         max_source_chars=Config.GROUNDING_CHECK_MAX_SOURCE_CHARS,
         max_claims=Config.GROUNDING_CHECK_MAX_CLAIMS,
+        images=user_images(result_messages),
     )
 
 
@@ -205,6 +238,7 @@ def check_grounding_pages(
     max_source_chars: int,
     max_claims: int,
     timeout_seconds: float | None = None,
+    images: list[dict[str, Any]] | None = None,
 ) -> GroundingOutcome:
     """Check an answer against given numbered pages (deep research passes its
     merged pages and larger limits, and a longer timeout). Fails open."""
@@ -212,7 +246,9 @@ def check_grounding_pages(
     started = time.monotonic()
     timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
     try:
-        verdict, usage = _run_verifier(answer, sources, known, timeout_seconds=timeout)
+        verdict, usage = _run_verifier(
+            answer, sources, known, images=images, timeout_seconds=timeout
+        )
     except Exception:
         logger.warning(
             "Grounding check failed", exc_info=True, extra={"source_chars": len(sources)}

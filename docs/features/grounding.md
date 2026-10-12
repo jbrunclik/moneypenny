@@ -46,8 +46,9 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `GROUNDING_CHECK_MODEL`, prompt in
   [grounding.py](../../src/agent/prompt_texts/grounding.py). Inputs: the
   numbered sources, the answer, and known facts (`known_facts()`: today's
-  date, the user's message, this turn's non-web tool results such as calendar
-  or Garmin) that always count as supported. Output is two lists of
+  date, the user's message, the images attached to it (`user_images()`, sent
+  with the prompt as one multimodal message), this turn's non-web tool results
+  such as calendar or Garmin) that always count as supported. Output is two lists of
   `ClaimVerdict` (`quote`, `verdict`, `source`, `source_quote`, `reason`):
   `unsupported` first (every partial, contradicted or not_found claim), then
   `supported` (only businesses, products, prices, hours, event dates, contacts).
@@ -172,6 +173,10 @@ Pitfalls learned:
   check fail open (silently, apart from the warning).
 - Without known facts the verifier flagged today's date (which the model gets
   from the system prompt) under a fully sourced answer.
+- Without the user's images it flagged seat counts read off a user's poll
+  screenshot as "contradicted" by a stale article (Oct 2026); the user's "Look
+  it up" on that false flag then set off a turn defending a correct figure.
+  Eval `cz_screenshot_poll_grounding`.
 - The verifier's passages are not trusted: a passage not found in the cited
   page downgrades the claim to `not_found` rather than showing a source it
   lacks.

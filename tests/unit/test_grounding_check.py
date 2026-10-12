@@ -304,6 +304,53 @@ class TestKnownFacts:
         assert "kde koupit brompton" in fake_verifier.call_args.args[2]
 
 
+_IMAGE = {"type": "image", "base64": "aW1n", "mime_type": "image/jpeg"}
+
+
+class TestUserImages:
+    """Oct 2026 prod: a user's poll screenshot (STEM, 10 Oct: STAN 45, ODS 31,
+    Piráti 19) was invisible to the verifier, which marked the seat counts
+    read off it "contradicted" by a stale 2025 article - and the user's
+    "Look it up" on that false flag set off a turn defending a correct figure."""
+
+    def test_images_of_the_latest_user_message(self) -> None:
+        old = {"type": "image", "base64": "b2xk", "mime_type": "image/png"}
+        messages = [
+            HumanMessage(content=[{"type": "text", "text": "earlier"}, old]),
+            AIMessage(content="earlier answer"),
+            HumanMessage(content=[_IMAGE]),
+            *_WEB_TURN,
+        ]
+
+        assert grounding_check.user_images(messages) == [_IMAGE]
+
+    def test_text_only_message_has_no_images(self) -> None:
+        assert grounding_check.user_images([HumanMessage(content="hi"), *_WEB_TURN]) == []
+
+    def test_known_facts_say_the_images_are_known(self) -> None:
+        known = grounding_check.known_facts([HumanMessage(content=[_IMAGE]), *_WEB_TURN])
+
+        assert "attached 1 image" in known
+
+    def test_the_verifier_sees_the_users_images(self, fake_verifier: MagicMock) -> None:
+        check_grounding(_ANSWER, [HumanMessage(content=[_IMAGE]), *_WEB_TURN])
+
+        assert fake_verifier.call_args.kwargs["images"] == [_IMAGE]
+
+    def test_images_ride_in_one_multimodal_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        llm_cls = MagicMock()
+        structured = llm_cls.return_value.with_structured_output.return_value
+        structured.invoke.return_value = {"raw": MagicMock(usage_metadata={}), "parsed": None}
+        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+
+        grounding_check._run_verifier("the answer", "s", "k", images=[_IMAGE])
+
+        (message,) = structured.invoke.call_args.args[0]
+        assert isinstance(message, HumanMessage)
+        assert "the answer" in message.content[0]["text"]
+        assert message.content[1:] == [_IMAGE]
+
+
 class TestPrompt:
     def test_prompt_excludes_own_plan_and_geography(self) -> None:
         from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT

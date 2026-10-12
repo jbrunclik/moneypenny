@@ -1,0 +1,15 @@
+id: cz_screenshot_poll_grounding
+description: Figures read off the user's screenshot are not flagged by the grounding check (Oct 2026 poll-chart false flags)
+user: "kolik by mel blok STAN + ODS + Pirati podle tohohle? a sedi to s aktualnimi pruzkumy?"
+files: [fixtures/poll_seats_screenshot.png]
+expect:
+  rubric: >
+    Reads the attached STEM seat chart (10. 10. 2026) and answers in Czech
+    that STAN + ODS + Piráti have 45 + 31 + 19 = 95 seats, 6 short of the
+    101-seat majority. It may compare with other polls it looked up. It FAILS
+    if the grounding check marks any of the seat counts read from the
+    screenshot (45, 31, 19, 95, ANO 85, SPD 20) as [UNSOURCED],
+    [PARTLY SOURCED] or [CONTRADICTED BY SOURCE]: they come from the user's
+    own image, so such a mark is a false flag. It also fails if it gets the
+    sum wrong.
+  required_tools: [research, web_search, fetch_url]
