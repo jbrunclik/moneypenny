@@ -61,7 +61,7 @@ User interface patterns and implementations:
 ### General
 
 - **[setup.md](setup.md)** - Operator setup guides: code-execution sandbox, browser automation, Google Sign In, Todoist, Google Calendar, Garmin Connect, WhatsApp
-- **[deployment.md](deployment.md)** - Production operations: systemd maintenance timers (backup, vacuum, currency, memory defrag), nginx reverse-proxy config, log rotation
+- **[deployment.md](deployment.md)** - Production operations: systemd maintenance timers (backup, vacuum, currency, memory defrag), nginx reverse-proxy config, log rotation, worker memory profiling (tracemalloc snapshots on SIGUSR2)
 - **[testing.md](testing.md)** - Testing index: commands, TDD, isolation and mocking rules, flaky-test prevention, lint/coverage/audit gates
 - **[testing/backend.md](testing/backend.md)** - pytest layout, fixtures, chat-path mock return shapes, writing backend tests
 - **[testing/frontend.md](testing/frontend.md)** - Vitest unit/component tests, Playwright E2E, the E2E mock server and `/test/*` endpoints, planner tests

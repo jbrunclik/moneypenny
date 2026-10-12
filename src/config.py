@@ -119,6 +119,12 @@ class Config:
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
+    # Worker memory profiling (opt-in; tracemalloc slows the worker and adds
+    # memory per traced block): `kill -USR2 <worker pid>` dumps a snapshot
+    MEMORY_PROFILE_ENABLED: bool = os.getenv("MEMORY_PROFILE_ENABLED", "false").lower() == "true"
+    MEMORY_PROFILE_FRAMES: int = int(os.getenv("MEMORY_PROFILE_FRAMES", "10"))
+    MEMORY_PROFILE_DIR: Path = BASE_DIR / os.getenv("MEMORY_PROFILE_DIR", "data/memory-profiles")
+
     # Slow query logging (only active in development/debug mode)
     SLOW_QUERY_THRESHOLD_MS: int = int(os.getenv("SLOW_QUERY_THRESHOLD_MS", "100"))
 

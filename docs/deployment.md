@@ -41,6 +41,31 @@ several deploys; uploads kept failing with the stale allow-list until a
 restart. Verify what the live process actually sees with:
 `cat /proc/$(systemctl --user show moneypenny -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
 
+## Profiling Worker Memory
+
+Check a worker's memory with `grep ^Pss: /proc/<pid>/smaps_rollup` (PSS counts
+pages shared with the master once, unlike RSS). To find what a growing worker
+accumulates, trace it with tracemalloc (`src/utils/memory_profile.py`):
+
+1. Set `MEMORY_PROFILE_ENABLED=true` in `.env` and **restart** (see above).
+   Each worker traces from its start; expect it to be slower and larger while
+   on.
+2. Soon after the restart, and again after hours of real use, dump a snapshot
+   of the same worker: `kill -USR2 <worker pid>` (a worker, not the master -
+   the master ignores the profiler). Snapshots land in `MEMORY_PROFILE_DIR`
+   as `<pid>-<timestamp>.tracemalloc`; each dump logs a `Memory snapshot
+   written` line with `traced_bytes` and `pss_bytes`.
+3. Diff them: `.venv/bin/python scripts/memory_profile_diff.py OLD NEW`
+   (`--group-by traceback` shows the call chain).
+4. Compare the two log lines first: if `pss_bytes` grew much more than
+   `traced_bytes`, the growth is outside the Python allocator (C extensions,
+   fragmentation) and the diff will not explain it.
+5. Turn the flag off and restart when done.
+
+Workers are recycled after `GUNICORN_MAX_REQUESTS` requests, so both
+snapshots must come from the same pid - check it is still alive before the
+second dump.
+
 ## Database Vacuum
 
 A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.

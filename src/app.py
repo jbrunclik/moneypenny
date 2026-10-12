@@ -12,6 +12,7 @@ from src.api.routes import register_blueprints
 from src.config import Config
 from src.utils.assets import collect_entry_css
 from src.utils.logging import get_logger, set_request_id, setup_logging
+from src.utils.memory_profile import install_memory_profiler
 
 # Production CSP (S10). Notes on the non-obvious sources:
 # - script-src/frame-src/connect-src accounts.google.com: Google Identity Services
@@ -111,6 +112,8 @@ def create_app() -> APIFlask:
             "log_level": Config.LOG_LEVEL,
         },
     )
+    # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
+    install_memory_profiler()
 
     app = APIFlask(
         __name__,
