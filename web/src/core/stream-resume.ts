@@ -17,6 +17,7 @@ import { clearInflightStream, readInflightStream } from './inflight-streams';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
 import { handleStreamDone, type StreamDoneEvent } from './stream-done';
 import { processStreamEvent } from './stream-events';
+import { hasInflightBatch } from './batch-resume';
 import {
   cleanupStreamingRequest,
   createStreamingState,
@@ -291,14 +292,15 @@ export async function resumeInflightStreamIfAny(
  * Follow a reply that ANOTHER device is streaming into this conversation:
  * replay its journal into a live bubble here (the server journal is shared
  * per user, not per device). Used when a merge or a conversation open finds
- * the reply's empty placeholder. No-op while this tab runs its own turn.
+ * the reply's empty placeholder. No-op while this tab runs its own turn -
+ * a batch turn's placeholder included (batch-resume.ts waits for that reply).
  */
 export async function followRemoteStream(
   convId: string,
   messageId: string,
   { anchor }: { anchor?: boolean } = {}
 ): Promise<void> {
-  if (useStore.getState().getActiveRequest(convId)) return;
+  if (useStore.getState().getActiveRequest(convId) || hasInflightBatch(convId)) return;
   const container = getElementById<HTMLDivElement>('messages');
   const placeholder = container?.querySelector(`[data-message-id="${messageId}"]`) ?? null;
   log.info('Following a stream from another device', { conversationId: convId, messageId });

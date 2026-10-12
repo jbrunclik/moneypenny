@@ -48,5 +48,9 @@ test.describe('Batch turn after reload', () => {
     });
     await expect(page.locator('.message-loading')).toHaveCount(0);
     await expect(page.locator('.message.user')).toHaveCount(1);
+    // The turn's in-flight placeholder must not also be followed as another
+    // device's reply (one reply, not two)
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.message.assistant')).toHaveCount(1);
   });
 });

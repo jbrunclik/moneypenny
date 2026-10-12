@@ -53,9 +53,17 @@ streaming producer re-set a hand-picked subset of them):
    both methods - see [Agent Tools](agent-tools.md#three-layers-decide-tool-availability).
 4. `create_agent()` + `agent_call_kwargs()` build the `ChatAgent` and its arguments.
 
-**Batch** (`chat_batch`): `apply()` → `ChatAgent.chat_batch()` → `save_message_to_db()`
-([chat_save.py](../../src/api/helpers/chat_save.py)) → `build_chat_response()` →
-`clear()` in `finally`.
+**Batch** (`chat_batch`): `apply()` → `mark_turn_in_flight()` (the reply's empty
+placeholder, as a stream saves one) → `ChatAgent.chat_batch()` → `save_message_to_db()`
+([chat_save.py](../../src/api/helpers/chat_save.py), filling that placeholder) →
+`build_chat_response()` → `clear()` in `finally`, which deletes the placeholder of a
+turn that saved nothing. Before Oct 2026 a batch turn left no trace while it ran:
+during a ~170 s stall each new send from the phone started a parallel turn, and the
+stale reply - inserted at the end - landed after all of them. The placeholder makes
+the turn steerable, lets other devices follow it, and keeps the reply under its
+question. The page that sent it does not follow it as another device's turn
+(`followRemoteStream` skips a conversation with an `inflight-batch-turns` entry;
+`resumeInflightBatchIfAny` waits for that reply).
 
 **Streaming** (`chat_stream`): `create_stream_generator(user, turn, ctx)` returns the SSE
 generator. The work is split three ways:

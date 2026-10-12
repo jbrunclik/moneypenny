@@ -71,6 +71,11 @@ export function clearInflightBatch(convId: string, messageId?: string): void {
   }
 }
 
+/** Whether this page sent a batch turn here that has not been answered yet. */
+export function hasInflightBatch(convId: string): boolean {
+  return convId in readInflightBatches();
+}
+
 /** Drop every entry (logout: another account must not wait on these turns). */
 export function clearAllInflightBatches(): void {
   writeInflightBatches({});

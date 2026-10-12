@@ -551,11 +551,12 @@ class TestUnansweredSteeringIsFlagged:
         test_conversation: Conversation,
     ) -> None:
         def _chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
-            # A batch turn has no placeholder: steering lands via the route
-            steering = test_database.add_message(test_conversation.id, "user", "and the 2025 ones")
-            from src.agent.interjection import save_interjection
+            # Steering arrives the way the routes save it, while the answer writes
+            from src.api.helpers.turn_steering import steer_running_turn
 
-            save_interjection(test_conversation.user_id, test_conversation.id, steering.content)
+            steer_running_turn(
+                test_conversation.user_id, test_conversation.id, "and the 2025 ones", None
+            )
             return ("Answer", [], {"input_tokens": 1, "output_tokens": 1}, [])
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
@@ -574,3 +575,82 @@ class TestUnansweredSteeringIsFlagged:
             ("user", "and the 2025 ones"),
         ]
         assert response.get_json()["unanswered_steering_id"] == messages[2].id
+
+
+class TestBatchTurnInFlight:
+    """Oct 2026 prod: a batch turn hung ~170 s; meanwhile the phone sent three
+    more messages, each starting a parallel turn (a batch turn left no
+    placeholder, so nothing knew it was running), and its stale reply landed
+    after all of them. A batch turn now marks itself in flight like a stream."""
+
+    def _batch(
+        self,
+        client: FlaskClient,
+        headers: dict[str, str],
+        conv_id: str,
+        chat_batch: Any,
+    ) -> Any:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+            agent_class.return_value.chat_batch.side_effect = chat_batch
+            return client.post(
+                f"/api/conversations/{conv_id}/chat/batch",
+                headers=headers,
+                json={"message": "Už se blížíme"},
+            )
+
+    def test_a_running_batch_turn_can_be_steered(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+    ) -> None:
+        from src.api.helpers.turn_steering import running_turn_id
+
+        seen: list[str | None] = []
+
+        def _chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
+            seen.append(running_turn_id(test_conversation.id))
+            return ("Answer", [], {"input_tokens": 1, "output_tokens": 1}, [])
+
+        response = self._batch(client, auth_headers, test_conversation.id, _chat_batch)
+
+        assert response.status_code == 200
+        assert seen == [response.get_json()["id"]]
+
+    def test_the_reply_stays_under_its_question(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        def _chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
+            # A photo from another device needs a turn of its own
+            test_database.add_message(test_conversation.id, "user", "[photo]")
+            return ("Answer", [], {"input_tokens": 1, "output_tokens": 1}, [])
+
+        response = self._batch(client, auth_headers, test_conversation.id, _chat_batch)
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert [(m.role.value, m.content) for m in messages] == [
+            ("user", "Už se blížíme"),
+            ("assistant", "Answer"),
+            ("user", "[photo]"),
+        ]
+
+    def test_a_failed_turn_leaves_no_empty_reply(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        def _chat_batch(**_: Any) -> Any:
+            raise RuntimeError("model down")
+
+        response = self._batch(client, auth_headers, test_conversation.id, _chat_batch)
+
+        assert response.status_code >= 500
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role.value for m in messages] == ["user"]

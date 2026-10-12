@@ -24,6 +24,8 @@ from src.api.helpers.chat_turn import build_turn_context, prepare_turn
 from src.api.helpers.turn_steering import (
     can_steer,
     defer_unanswered_steering,
+    discard_unused_placeholder,
+    mark_turn_in_flight,
     running_turn_id,
     steer_running_turn,
     wait_for_reply,
@@ -72,6 +74,9 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     turn = prepare_turn(user, data, conv_id)
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     ctx.apply()
+    # After the history was read: the empty reply must not be part of it
+    placeholder_id = mark_turn_in_flight(conv_id)
+    saved = None
     try:
         raw_response, tool_results, usage_info, result_messages = ctx.create_agent().chat_batch(
             **ctx.agent_call_kwargs()
@@ -98,6 +103,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             turn.message_text,
             ctx.request_id,
             client_connected=True,
+            assistant_message_id=placeholder_id,
             mode="batch",
         )
         # Steering sent while the answer wrote was never read: after the
@@ -126,6 +132,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         ctx.clear()
         # Steering that arrived after the last tool round was never popped
         clear_interjection(user.id, conv_id)
+        if saved is None:
+            discard_unused_placeholder(placeholder_id)
 
     assistant_msg = db.get_message_by_id(saved.message_id) if saved else None
     if saved is None or assistant_msg is None:

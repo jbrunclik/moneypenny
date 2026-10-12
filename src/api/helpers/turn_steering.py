@@ -52,6 +52,39 @@ def running_turn_id(conv_id: str) -> str | None:
     return placeholder_id
 
 
+def mark_turn_in_flight(conv_id: str) -> str | None:
+    """Save a batch turn's empty reply now, as a stream saves its placeholder.
+
+    Oct 2026: a batch turn left no trace while it ran, so sends from the
+    phone during a ~170 s stall each started a parallel turn, and its reply -
+    inserted at the end - landed after all of them. The placeholder makes the
+    turn steerable (running_turn_id), lets other devices follow it, and keeps
+    the reply under its question. None when it cannot be saved: the turn then
+    runs untracked and its reply is inserted at the end, as before.
+    """
+    try:
+        return db.add_message(conv_id, MessageRole.ASSISTANT, "").id
+    except Exception:
+        logger.warning(
+            "Failed to save batch placeholder", extra={"conversation_id": conv_id}, exc_info=True
+        )
+        return None
+
+
+def discard_unused_placeholder(message_id: str | None) -> None:
+    """Delete a failed turn's empty reply (a chat must not end on an empty row)."""
+    if message_id is None:
+        return
+    try:
+        db.delete_message_by_id(message_id)
+    except Exception:
+        logger.warning(
+            "Failed to delete unused placeholder message",
+            extra={"message_id": message_id},
+            exc_info=True,
+        )
+
+
 def can_steer(data: ChatRequest) -> bool:
     """Whether a send can become steering: plain text the agent reads mid-turn.
 
