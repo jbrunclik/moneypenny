@@ -150,7 +150,10 @@ Memories and messages are embedded at write time (`db.add_message` /
 `update_message_content` hook and `manage_memory`) via fire-and-forget daemon
 threads into the `embeddings` table (packed float32 blobs; brute-force cosine -
 family scale needs no vector index). Config: `EMBEDDINGS_ENABLED` (true),
-`EMBEDDING_MODEL` (`gemini-embedding-001`), `EMBEDDING_DIM` (768). Tests and the
+`EMBEDDING_MODEL` (`gemini-embedding-001`), `EMBEDDING_DIM` (768),
+`EMBEDDING_TIMEOUT_SECONDS` (10; the SDK default is no deadline, and one hung
+call stalled a chat turn ~165 s inside `search_conversations`, Oct 2026 - past
+it the search is keyword-only). Tests and the
 E2E server run with `EMBEDDINGS_ENABLED=false` so no live API calls happen
 outside production. Backfill for pre-existing rows:
 [scripts/backfill_embeddings.py](../../scripts/backfill_embeddings.py). See

@@ -520,6 +520,10 @@ class Config:
     EMBEDDINGS_ENABLED: bool = os.getenv("EMBEDDINGS_ENABLED", "true").lower() == "true"
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL") or "gemini-embedding-001"
     EMBEDDING_DIM: int = int(os.getenv("EMBEDDING_DIM", "768"))
+    # Per-call deadline: the SDK default is none, and one hung call stalled a
+    # chat turn for ~165 s inside search_conversations (Oct 2026). Past it the
+    # search falls back to keyword-only. The API refuses deadlines under 10 s.
+    EMBEDDING_TIMEOUT_SECONDS: int = int(os.getenv("EMBEDDING_TIMEOUT_SECONDS", "10"))
 
     # HTML processing
     HTML_TEXT_MAX_LENGTH = 15000

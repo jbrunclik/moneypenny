@@ -31,8 +31,12 @@ def _get_client() -> Any:
         with _client_lock:
             if _client is None:
                 from google import genai
+                from google.genai import types
 
-                _client = genai.Client(api_key=Config.GEMINI_API_KEY)
+                _client = genai.Client(
+                    api_key=Config.GEMINI_API_KEY,
+                    http_options=types.HttpOptions(timeout=Config.EMBEDDING_TIMEOUT_SECONDS * 1000),
+                )
     return _client
 
 
