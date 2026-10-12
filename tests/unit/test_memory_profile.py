@@ -54,6 +54,16 @@ def test_snapshot_file_is_named_by_worker_pid(tmp_path: Path) -> None:
     assert path.name.startswith(f"{memory_profile.os.getpid()}-")
 
 
+def test_snapshots_are_private_to_the_service_user(tmp_path: Path) -> None:
+    """Snapshots are pickles: a writable directory would let another user plant one."""
+    directory = tmp_path / "profiles"
+    directory.mkdir(mode=0o775)
+    tracemalloc.start()
+    path = memory_profile.write_snapshot(directory)
+    assert directory.stat().st_mode & 0o777 == 0o700
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
 def test_top_growth_reports_memory_allocated_between_snapshots(tmp_path: Path) -> None:
     tracemalloc.start()
     old = memory_profile.write_snapshot(tmp_path)

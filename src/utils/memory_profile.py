@@ -54,10 +54,16 @@ def _handle_dump_signal(_signum: int, _frame: FrameType | None) -> None:
 
 
 def write_snapshot(directory: Path) -> Path:
-    """Dump the current tracemalloc snapshot to `<pid>-<timestamp>.tracemalloc`."""
-    directory.mkdir(parents=True, exist_ok=True)
+    """Dump the current tracemalloc snapshot to `<pid>-<timestamp>.tracemalloc`.
+
+    Snapshots are pickles (loading one runs its code), so the directory and
+    files are private to the service user: nobody else can plant one.
+    """
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    directory.chmod(0o700)  # also tightens a directory that already existed
     path = directory / f"{os.getpid()}-{time.strftime('%Y%m%d-%H%M%S')}{SNAPSHOT_SUFFIX}"
     tracemalloc.take_snapshot().dump(str(path))
+    path.chmod(0o600)
     traced_bytes, peak_bytes = tracemalloc.get_traced_memory()
     logger.info(
         "Memory snapshot written",

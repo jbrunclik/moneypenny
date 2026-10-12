@@ -62,6 +62,9 @@ accumulates, trace it with tracemalloc (`src/utils/memory_profile.py`):
    fragmentation) and the diff will not explain it.
 5. Turn the flag off and restart when done.
 
+Snapshots are pickles - loading one runs its code - so the directory is
+`0700` and files `0600`. Only diff snapshots this service wrote.
+
 Workers are recycled after `GUNICORN_MAX_REQUESTS` requests, so both
 snapshots must come from the same pid - check it is still alive before the
 second dump.

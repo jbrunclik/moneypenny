@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Show what grew between two tracemalloc snapshots of the same worker.
 
-Snapshots come from a worker running with MEMORY_PROFILE_ENABLED=true:
+Snapshots come from a worker running with MEMORY_PROFILE_ENABLED=true (they are
+pickles: only load ones this service wrote):
 `kill -USR2 <worker pid>` writes one to MEMORY_PROFILE_DIR.
 
 Usage:
