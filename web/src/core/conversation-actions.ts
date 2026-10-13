@@ -1,5 +1,5 @@
 /**
- * Conversation and message actions: delete, rename, auto-title, pin.
+ * Conversation and message actions: delete (one or in bulk), rename, auto-title, pin.
  */
 
 import { useStore } from '../state/store';
@@ -17,19 +17,22 @@ import { MS_PER_DAY } from '../constants';
 import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost } from './toolbar';
 import { isTempConversation } from './conversation';
-import { restoreConversation } from './trash';
+import { loadTrashedConversations, restoreConversation, restoreConversations } from './trash';
+import { buildBulkTrashRequest, selectedLoadedIds } from '../state/slices/selection';
+import { renderSelectionChrome } from '../components/SidebarSelection';
 
 const log = createLogger('conversation');
 
 /**
- * Remove conversation from UI and clear if it was current.
+ * Remove conversations from the UI; clears the open chat if it was one of them.
  */
-export function removeConversationFromUI(convId: string): void {
+export function removeConversationsFromUI(ids: string[]): void {
   const store = useStore.getState();
-  store.removeConversation(convId);
+  ids.forEach((id) => store.removeConversation(id));
   renderConversationsList();
 
-  if (store.currentConversation?.id === convId) {
+  const currentId = store.currentConversation?.id;
+  if (currentId && ids.includes(currentId)) {
     store.setCurrentConversation(null);
     renderMessages([]);
     updateChatTitle(APP_NAME);
@@ -41,6 +44,11 @@ export function removeConversationFromUI(convId: string): void {
     // Clear the hash since conversation no longer exists
     clearConversationHash();
   }
+}
+
+/** Remove one conversation from the UI (see removeConversationsFromUI). */
+export function removeConversationFromUI(convId: string): void {
+  removeConversationsFromUI([convId]);
 }
 
 /**
@@ -106,6 +114,53 @@ export async function deleteConversation(convId: string): Promise<void> {
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });
     toast.error('Failed to delete conversation. Please try again.');
+  }
+}
+
+const chatsLabel = (n: number): string => (n === 1 ? '1 chat' : `${n} chats`);
+
+/**
+ * Bulk delete: move the sidebar selection to the trash in one request, no
+ * confirm (it is restorable), one Undo for the batch. Like single delete,
+ * rows leave only once the server confirms; on failure the selection stays.
+ */
+export async function bulkDeleteConversations(): Promise<void> {
+  const store = useStore.getState();
+  if (store.isBulkDeleting) return;
+
+  const body = buildBulkTrashRequest(store);
+  const loadedIds = selectedLoadedIds(store);
+  const tempIds = loadedIds.filter((id) => isTempConversation(id));
+  const snapshot = store.conversations.filter(
+    (c) => loadedIds.includes(c.id) && !isTempConversation(c.id)
+  );
+  const sync = getSyncManager();
+
+  store.setBulkDeleting(true);
+  renderSelectionChrome();
+  try {
+    let trashedIds: string[] = [];
+    if (body) {
+      loadedIds.forEach((id) => sync?.noteLocalChange(id));
+      trashedIds = await conversations.bulkTrash(body);
+      // Again once it's committed (see deleteConversation)
+      trashedIds.forEach((id) => sync?.noteLocalChange(id));
+    }
+    store.endSelection();
+    removeConversationsFromUI([...trashedIds, ...tempIds]);
+    if (body) void loadTrashedConversations();
+
+    const count = trashedIds.length + tempIds.length;
+    if (count === 0) return;
+    const restorable = snapshot.filter((c) => trashedIds.includes(c.id));
+    const undo = { label: 'Undo', onClick: () => void restoreConversations(trashedIds, restorable) };
+    toast.success(`Moved ${chatsLabel(count)} to trash.`, trashedIds.length ? { action: undo } : {});
+  } catch (error) {
+    log.error('Failed to bulk delete conversations', { error });
+    toast.error('Failed to move chats to trash. Please try again.');
+  } finally {
+    useStore.getState().setBulkDeleting(false);
+    renderSelectionChrome();
   }
 }
 

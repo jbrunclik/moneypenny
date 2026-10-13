@@ -1,5 +1,5 @@
 /**
- * Conversation trash: restore, delete forever, empty trash, and the trash view.
+ * Conversation trash: restore (one or in bulk), delete forever, empty trash, and the trash view.
  *
  * Deleting a conversation (conversation-actions.ts) moves it here; the server
  * purges it for good after its retention window.
@@ -17,6 +17,7 @@ import { cleanupTrashInfiniteScroll } from '../components/TrashView';
 import { setTrashHash, setConversationHash, clearConversationHash } from '../router/deeplink';
 import type { Conversation } from '../types/api';
 import { isTempConversation } from './conversation';
+import { CONVERSATIONS_BULK_MAX_IDS } from '../config';
 
 const log = createLogger('conversation');
 
@@ -57,6 +58,40 @@ export async function restoreConversation(convId: string, conv?: Conversation): 
     log.error('Failed to restore conversation', { error, conversationId: convId });
     toast.error('Failed to restore conversation.');
   }
+}
+
+/**
+ * Restore many conversations (Undo of a bulk delete), in chunks of the
+ * server's bulk cap. Rows not in the snapshot (unloaded pages of a
+ * select-all delete) come back through sync: restore bumped updated_at.
+ */
+export async function restoreConversations(ids: string[], snapshot: Conversation[]): Promise<void> {
+  const store = useStore.getState();
+  const sync = getSyncManager();
+  const byId = new Map(snapshot.map((c) => [c.id, c]));
+  const restored: string[] = [];
+
+  try {
+    for (let i = 0; i < ids.length; i += CONVERSATIONS_BULK_MAX_IDS) {
+      const chunk = ids.slice(i, i + CONVERSATIONS_BULK_MAX_IDS);
+      chunk.forEach((id) => sync?.noteLocalChange(id));
+      restored.push(...(await conversations.bulkRestore(chunk)));
+    }
+  } catch (error) {
+    log.error('Failed to bulk restore conversations', { error, count: ids.length });
+    toast.error('Failed to restore chats.');
+    return;
+  }
+
+  restored.forEach((id) => {
+    sync?.noteLocalChange(id);
+    store.removeTrashedConversation(id);
+    const source = byId.get(id);
+    if (source) store.addConversation({ ...source, deleted_at: null, purge_at: null });
+  });
+  if (restored.some((id) => !byId.has(id))) void sync?.incrementalSync();
+  renderConversationsList();
+  toast.success(restored.length === 1 ? 'Conversation restored.' : `Restored ${restored.length} chats.`);
 }
 
 /**
