@@ -3,7 +3,10 @@
 import json
 from typing import TYPE_CHECKING
 
+import pytest
 from flask.testing import FlaskClient
+
+from src.config import Config
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database
@@ -185,6 +188,29 @@ class TestGetConversation:
 
         assert data["streaming_message_id"] == placeholder.id
         assert [m["content"] for m in data["messages"]] == ["Hello"]
+
+    def test_no_streaming_reply_when_its_journal_stalled(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Oct 2026: a deploy killed the worker mid-turn; its placeholder kept
+        being reported for 16 minutes, and every open of the chat followed the
+        dead turn - replay, a 3-minute stall, an error, again."""
+        test_database.add_message(test_conversation.id, "user", "Hello")
+        placeholder = test_database.add_message(test_conversation.id, "assistant", "")
+        test_database.journal_append_events(placeholder.id, [(1, '{"type": "token", "seq": 1}')])
+        # Every journal row is now older than the stall window
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["streaming_message_id"] is None
 
     def test_no_streaming_reply_when_the_last_one_is_finished(
         self,

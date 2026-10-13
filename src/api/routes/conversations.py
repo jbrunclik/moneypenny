@@ -14,6 +14,7 @@ from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.sync import cursor_sync, sync_summary
+from src.api.helpers.turn_steering import running_turn_id
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.common import PaginationDirection, StatusResponse
 from src.api.schemas.conversations import (
@@ -25,7 +26,7 @@ from src.api.schemas.conversations import (
     UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
-from src.api.utils import serialize_messages_for_response, streaming_message_id
+from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -239,8 +240,9 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         "archived": conv.archived,
         "anonymous_mode": conv.anonymous_mode,
         "messages": optimized_messages,
-        # Only the newest page holds the turn in flight
-        "streaming_message_id": streaming_message_id(conv_id),
+        # Only the newest page holds the turn in flight, and only a live one:
+        # a dead worker's placeholder sent every open into a doomed follow
+        "streaming_message_id": running_turn_id(conv_id),
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
             "newer_cursor": pagination.newer_cursor,
