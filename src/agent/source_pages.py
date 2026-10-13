@@ -161,6 +161,18 @@ def _unique(pages: list[SourcePage], limit: int) -> list[SourcePage]:
     return out
 
 
+def _newest_longest(pages: list[SourcePage], limit: int) -> list[SourcePage]:
+    """One page per URL with its longest text (the model re-fetches a research
+    page to read past its first 6000 chars), the newest `limit` of them
+    (prefetched and broad pages come first, the targeted fetch last)."""
+    by_url: dict[str, SourcePage] = {}
+    for page in pages:
+        kept = by_url.get(page.url)
+        if kept is None or len(page.text) > len(kept.text):
+            by_url[page.url] = page if kept is None else SourcePage(kept.title, page.url, page.text)
+    return list(by_url.values())[-limit:]
+
+
 def _interleave(searched: list[list[SourcePage]]) -> list[SourcePage]:
     longest = max((len(r) for r in searched), default=0)
     return [results[rank] for rank in range(longest) for results in searched if rank < len(results)]
@@ -183,7 +195,7 @@ def turn_pages(messages: list[BaseMessage]) -> list[SourcePage]:
     """
     read, searched, _ = _read_and_searched(messages)
     if read:
-        return _unique(read, _MAX_READ_SOURCES)
+        return _newest_longest(read, _MAX_READ_SOURCES)
     return _unique(_interleave(searched), _MAX_SEARCH_SOURCES)
 
 

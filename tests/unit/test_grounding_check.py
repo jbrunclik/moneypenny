@@ -61,6 +61,47 @@ class TestFormatSources:
         assert text.count("a") <= 100
         assert text.count("b") <= 100
 
+    def test_short_pages_leave_their_share_to_long_ones(self) -> None:
+        """A 15k fetch_url page was cut to an equal share while short research
+        pages left theirs unused - facts the model read fell off the end."""
+        text = format_sources(
+            [SourcePage("A", "u", "a" * 100), SourcePage("B", "v", "b" * 900)], "", 600
+        )
+
+        assert text.count("a") == 100
+        assert text.count("b") == 500
+
+    def test_earlier_verified_claims_outlast_snippets(self, fake_verifier: MagicMock) -> None:
+        snippets = json.dumps(
+            {"results": [{"title": "S", "url": "https://s.cz", "snippet": "s" * 5000}]}
+        )
+        messages = [
+            *_WEB_TURN,
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "w1"}]),
+            ToolMessage(content=snippets, tool_call_id="w1", name="web_search"),
+        ]
+        history = [
+            {
+                "role": "assistant",
+                "content": "x",
+                "metadata": {
+                    "verified_claims": [
+                        {
+                            "quote": "Q",
+                            "source_quote": "EARLIER",
+                            "title": "T",
+                            "url": "https://t.cz",
+                        }
+                    ]
+                },
+            }
+        ]
+
+        with patch.object(Config, "GROUNDING_CHECK_MAX_SOURCE_CHARS", 3000):
+            check_grounding(_ANSWER, messages, history=history)
+
+        assert "EARLIER" in fake_verifier.call_args.args[1]
+
 
 class TestCheckGrounding:
     def test_returns_validated_annotations_and_summary(self, fake_verifier: MagicMock) -> None:

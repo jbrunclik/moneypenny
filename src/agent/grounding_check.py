@@ -223,13 +223,26 @@ class GroundingOutcome:
 _UNCITED_HEADER = "UNNUMBERED (may support a claim, cannot be cited):"
 
 
+def _shares(lengths: list[int], budget: int) -> list[int]:
+    """Per-part caps that spend the budget: short parts keep all their text and
+    leave the rest to long ones (an equal split cut a 15k fetch_url page to a
+    fifth while short research pages left their shares unused)."""
+    caps = [0] * len(lengths)
+    remaining = budget
+    order = sorted(range(len(lengths)), key=lambda i: lengths[i])
+    for done, i in enumerate(order):
+        caps[i] = min(lengths[i], remaining // (len(order) - done))
+        remaining -= caps[i]
+    return caps
+
+
 def format_sources(pages: list[SourcePage], uncited: str, max_chars: int) -> str:
-    """Numbered pages, each capped to a fair share of max_chars, then uncited text."""
-    parts = 1 + len(pages) if uncited else len(pages)
-    share = max_chars // max(parts, 1)
-    blocks = [f"[{i}] {p.title} ({p.url})\n{p.text[:share]}" for i, p in enumerate(pages, 1)]
+    """Numbered pages, then uncited text, sharing max_chars between them."""
+    texts = [p.text for p in pages] + ([uncited] if uncited else [])
+    caps = _shares([len(t) for t in texts], max_chars)
+    blocks = [f"[{i}] {p.title} ({p.url})\n{p.text[: caps[i - 1]]}" for i, p in enumerate(pages, 1)]
     if uncited:
-        blocks.append(f"{_UNCITED_HEADER}\n{uncited[:share]}")
+        blocks.append(f"{_UNCITED_HEADER}\n{uncited[: caps[-1]]}")
     return "\n\n".join(blocks)
 
 
@@ -258,8 +271,9 @@ def check_grounding(
     """
     if not should_check(answer, result_messages, stop_reason):
         return GroundingOutcome()
+    # Earlier verified claims first: a cut takes the snippets' tail instead
     uncited = "\n\n".join(
-        part for part in (uncited_web_text(result_messages), earlier_verified(history)) if part
+        part for part in (earlier_verified(history), uncited_web_text(result_messages)) if part
     )
     return check_grounding_pages(
         answer,

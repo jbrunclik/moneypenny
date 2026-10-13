@@ -25,7 +25,8 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   (`extract_read_sources()` in [content.py](../../src/agent/content.py)) and
   the verifier, so claim source `[2]` is popup entry 2: pages the turn read
   (research pages with content, successful `fetch_url`, `browser` pages,
-  `delegate_task` sources; at most 10), else the top 5 search results
+  `delegate_task` sources; one per URL with its longest text, the newest 10),
+  else the top 5 search results
   rank-interleaved. `research`'s snippet-only results (failed fetches, then
   `unfetched` candidates) count as search results: the model reads them too,
   and a turn whose fetches mostly failed (403/429) otherwise had its products
@@ -43,8 +44,10 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   Fiala"); a stricter `contradicted` definition in the prompt did not help in
   a replay (new wording 1 false contradiction in 3, old 0 in 3) and was not
   kept - the earlier-turn evidence cleared that claim instead.
-  `format_sources()` gives each page a fair share of
-  `GROUNDING_CHECK_MAX_SOURCE_CHARS`.
+  `format_sources()` shares `GROUNDING_CHECK_MAX_SOURCE_CHARS` by
+  water-filling: short pages keep all their text and leave the rest to long
+  ones (an equal split cut long `fetch_url` pages the model had read). Claims
+  earlier replies verified come before the snippets in the unnumbered text.
 - **Verifier**: one structured call (`GroundingVerdict`, temperature 0) to
   `GROUNDING_CHECK_MODEL`, prompt in
   [grounding.py](../../src/agent/prompt_texts/grounding.py). Inputs: the

@@ -131,3 +131,32 @@ def test_research_snippets_are_pages_when_no_fetch_succeeded() -> None:
         ),
         SourcePage("Bike", "https://bike.org", "WetCoat on a bike frame"),
     ]
+
+
+def test_a_page_read_twice_keeps_its_longest_text() -> None:
+    # The model re-fetches a research page to read past its first 6000 chars
+    messages = [
+        _call("research", "r1"),
+        _result("research", "r1", _research(("Ceník", "https://shop.cz/cenik", "short"))),
+        _call("fetch_url", "f1", {"url": "https://shop.cz/cenik"}),
+        _result("fetch_url", "f1", "short, and the price list further down"),
+    ]
+
+    assert turn_pages(messages) == [
+        SourcePage("Ceník", "https://shop.cz/cenik", "short, and the price list further down")
+    ]
+
+
+def test_over_ten_pages_keeps_the_newest() -> None:
+    # Prefetched and broad research pages come first; the targeted fetch is last
+    pages = [(f"P{i}", f"https://p{i}.cz", "text") for i in range(10)]
+    messages = [
+        _call("research", "r1"),
+        _result("research", "r1", _research(*pages)),
+        _call("fetch_url", "f1", {"url": "https://target.cz"}),
+        _result("fetch_url", "f1", "the answer"),
+    ]
+
+    urls = [p.url for p in turn_pages(messages)]
+    assert len(urls) == 10
+    assert urls[-1] == "https://target.cz" and "https://p0.cz" not in urls
