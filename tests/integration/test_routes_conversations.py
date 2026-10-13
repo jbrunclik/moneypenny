@@ -212,6 +212,43 @@ class TestGetConversation:
 
         assert data["streaming_message_id"] is None
 
+    def test_reports_a_lost_reply(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A chat opened after its turn died ended on the question with no
+        word: the client offers the retry from this flag."""
+        test_database.add_message(test_conversation.id, "user", "Hello")
+        placeholder = test_database.add_message(test_conversation.id, "assistant", "")
+        test_database.journal_append_events(placeholder.id, [(1, '{"type": "token", "seq": 1}')])
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["lost_reply"] is True
+
+    def test_a_live_reply_is_not_lost(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "Hello")
+        test_database.add_message(test_conversation.id, "assistant", "")
+
+        data = json.loads(
+            client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers).data
+        )
+
+        assert data["lost_reply"] is False
+
     def test_no_streaming_reply_when_the_last_one_is_finished(
         self,
         client: FlaskClient,

@@ -18,7 +18,7 @@ import { handleStreamDone, type StreamDoneEvent } from './stream-done';
 import { processStreamEvent } from './stream-events';
 import { mergeExternalChanges } from './remote-merge';
 import { answerUnreadSteering } from './steering';
-import { handleMissingDoneEvent, tryResumeStream } from './stream-resume';
+import { handleMissingDoneEvent, offerReplyRetry, tryResumeStream } from './stream-resume';
 import {
   cleanupStreamingRequest,
   initStreamingRequest,
@@ -134,7 +134,7 @@ async function recoverAfterStreamError(
   // Resume from the journal first: replays missed events and continues live
   // (resumeViaAbort stays set on a proactive abort: tryResumeStream uses it
   // to tell the aborted main reader apart from a user stop)
-  let resumed: boolean;
+  let resumed: boolean | 'dead';
   try {
     resumed = await tryResumeStream(state, convId, tempUserMessageId);
   } catch (resumeError) {
@@ -145,7 +145,7 @@ async function recoverAfterStreamError(
     }
     throw resumeError;
   }
-  if (resumed) return 'delivered';
+  if (resumed === true) return 'delivered';
 
   const reason = (error instanceof ApiError && error.isTimeout) ? 'timeout' : 'network';
   markStreamForRecovery(convId, state.expectedAssistantMessageId, state.fullContent, reason);
@@ -188,13 +188,7 @@ async function handleStreamFailure(send: StreamSend, error: unknown): Promise<vo
   if (state.serverError && !state.fullContent.trim()) {
     state.messageEl.remove();
     clearPendingRecovery(convId);
-    const message = error instanceof ApiError ? error.message : 'Failed to generate a response.';
-    toast.error(message, {
-      action: {
-        label: 'Retry',
-        onClick: () => document.dispatchEvent(new CustomEvent('message:retry-reply', { detail: { convId } })),
-      },
-    });
+    offerReplyRetry(convId, error instanceof ApiError ? error.message : undefined);
     return;
   }
 

@@ -5,6 +5,7 @@
  */
 
 import { useStore } from '../state/store';
+import type { Conversation } from '../types/api';
 import { createLogger } from '../utils/logger';
 import { chat } from '../api/chat';
 import { ApiError } from '../api/http';
@@ -33,8 +34,9 @@ const MAX_RESUME_ATTEMPTS = 3;
 
 /**
  * Read one resume stream to its end. Returns true when the turn completed
- * (done), false when it is not resumable, null when the stream ended
- * without a verdict (retry - the save may still be in flight).
+ * (done), 'dead' when the server says it failed and nothing was saved, false
+ * when it is not resumable, null when the stream ended without a verdict
+ * (retry - the save may still be in flight).
  */
 async function readResumeStream(
   state: StreamingState,
@@ -42,7 +44,7 @@ async function readResumeStream(
   messageId: string,
   controller: AbortController,
   tempUserMessageId: string
-): Promise<boolean | null> {
+): Promise<boolean | 'dead' | null> {
   for await (const event of chat.resumeStream(convId, messageId, state.lastSeq, controller)) {
     if (typeof event.seq === 'number') {
       state.lastSeq = event.seq;
@@ -53,8 +55,8 @@ async function readResumeStream(
     }
     if (event.type === 'error') {
       if (event.code === 'RESUME_FAILED') {
-        // Turn failed server-side and nothing was saved - not retryable
-        return false;
+        // Turn failed server-side (or its worker died) and nothing was saved
+        return 'dead';
       }
       throw new Error(event.message);
     }
@@ -79,12 +81,14 @@ async function readResumeStream(
  *
  * Throws AbortError when the user stops the stream mid-resume; a proactive
  * (foreground/pageshow) abort retries from the journal offset instead.
+ * 'dead': the server says the turn failed and nothing was saved - there is
+ * nothing to poll for.
  */
 export async function tryResumeStream(
   state: StreamingState,
   convId: string,
   tempUserMessageId: string
-): Promise<boolean> {
+): Promise<boolean | 'dead'> {
   if (!state.expectedAssistantMessageId) return false;
   const messageId = state.expectedAssistantMessageId;
 
@@ -139,6 +143,30 @@ export async function tryResumeStream(
 }
 
 /**
+ * The turn is gone with nothing saved (a failed turn, or a worker killed
+ * mid-turn): offer to answer the user's message again. Oct 2026: a dead
+ * turn's bubble was dropped without a word, the chat ending on the question.
+ */
+export function offerReplyRetry(convId: string, message = 'Failed to generate a response.'): void {
+  toast.error(message, {
+    action: {
+      label: 'Retry',
+      onClick: () => document.dispatchEvent(new CustomEvent('message:retry-reply', { detail: { convId } })),
+    },
+  });
+}
+
+/**
+ * Opening a chat whose last turn died (the server's lost_reply - its empty
+ * reply is filtered out): the chat would end on the question with no word.
+ * Skipped while this tab is answering it (the retry is already running).
+ */
+export function offerLostReplyRetry(conv: Conversation): void {
+  if (!conv.lost_reply || useStore.getState().getActiveRequest(conv.id)) return;
+  offerReplyRetry(conv.id, 'The response was lost.');
+}
+
+/**
  * The live stream ended without a done event: resume from the journal, then
  * fall back to poll recovery.
  */
@@ -169,6 +197,12 @@ export async function handleMissingDoneEvent(
 
   // Resume from the journal first: replays missed events and continues live
   const resumed = await tryResumeStream(state, convId, tempUserMessageId);
+  if (resumed === 'dead') {
+    state.messageEl.remove();
+    clearPendingRecovery(convId);
+    offerReplyRetry(convId, 'The response was lost.');
+    return;
+  }
   if (resumed) {
     state.messageSuccessful = true;
     return;
@@ -217,9 +251,9 @@ export async function deliverResumedTurn(
   messageEl: HTMLElement,
   { remote = false }: { remote?: boolean } = {}
 ): Promise<boolean | 'stopped'> {
-  let delivered: boolean;
+  let resumed: boolean | 'dead';
   try {
-    delivered = await tryResumeStream(state, convId, '');
+    resumed = await tryResumeStream(state, convId, '');
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       // User stopped the resumed turn - terminal, no recovery
@@ -238,7 +272,13 @@ export async function deliverResumedTurn(
     }
     throw error;
   }
-  if (delivered) return true;
+  if (resumed === true) return true;
+  if (resumed === 'dead') {
+    messageEl.remove();
+    // Another device's turn: that device offers the retry
+    if (!remote) offerReplyRetry(convId, 'The response was lost.');
+    return false;
+  }
   if (remote) {
     // Another device's turn: no "Recovering response..." toasts on a device
     // that never sent anything - drop the live bubble; the change log brings
@@ -248,7 +288,7 @@ export async function deliverResumedTurn(
   }
   // Journal gone or turn dead - poll recovery handles saved-but-swept
   markStreamForRecovery(convId, messageId, '', 'network');
-  delivered = await attemptRecovery(convId);
+  const delivered = await attemptRecovery(convId);
   if (!delivered) {
     messageEl.remove();
   }

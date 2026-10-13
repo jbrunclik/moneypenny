@@ -6,7 +6,7 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { resumeInflightStreamIfAny } from './stream-resume';
+import { offerLostReplyRetry, resumeInflightStreamIfAny } from './stream-resume';
 import { followRemoteStreamOnOpen } from './remote-merge';
 import { resumeInflightBatchIfAny } from './batch-resume';
 import { renderConversationsList, setActiveConversation, closeSidebar } from '../components/Sidebar';
@@ -208,6 +208,8 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   // an active request already exists, so the two paths are mutually exclusive).
   void resumeInflightStreamIfAny(conv.id, conv.streaming_message_id);
   followRemoteStreamOnOpen(conv);
+  // A turn that died before this open (past the resume window): offer the retry
+  offerLostReplyRetry(conv);
   // Same for a batch turn: wait for its reply instead of showing none
   void resumeInflightBatchIfAny(conv.id, conv.messages || []);
 

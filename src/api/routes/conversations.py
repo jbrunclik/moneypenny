@@ -14,7 +14,7 @@ from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.sync import cursor_sync, sync_summary
-from src.api.helpers.turn_steering import running_turn_id
+from src.api.helpers.turn_steering import has_lost_reply, running_turn_id
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.common import PaginationDirection, StatusResponse
 from src.api.schemas.conversations import (
@@ -243,6 +243,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
         # Only the newest page holds the turn in flight, and only a live one:
         # a dead worker's placeholder sent every open into a doomed follow
         "streaming_message_id": running_turn_id(conv_id),
+        "lost_reply": has_lost_reply(conv_id),
         "message_pagination": {
             "older_cursor": pagination.older_cursor,
             "newer_cursor": pagination.newer_cursor,

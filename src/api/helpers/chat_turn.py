@@ -40,6 +40,7 @@ from src.agent.tools import (
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.program_context import load_language_context, load_sports_context
+from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.common import MessageRole
 from src.config import Config
@@ -107,6 +108,9 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         _dedupe_client_message_id(conv_id, data.client_message_id)
         plan = _start_deep_research(conv_id, data.deep_research)
 
+    # A worker killed mid-turn left its empty reply: out of the history, and
+    # out of the regenerate's way
+    discard_dead_placeholders(conv_id)
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:

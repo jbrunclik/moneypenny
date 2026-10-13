@@ -5,7 +5,10 @@ import time
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 from flask.testing import FlaskClient
+
+from src.config import Config
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database, User
@@ -1712,6 +1715,79 @@ class TestTruncateAndRerun:
         assert "Regenerated" in body
         messages = test_database.get_messages(test_conversation.id)
         assert [m.role for m in messages] == ["user", "assistant"]
+
+
+class TestDeadTurnPlaceholder:
+    """Oct 2026: a restart killed a worker mid-turn. Its empty reply stayed:
+    hidden by the UI, it blocked the regenerate (the chat no longer ended on
+    the user's message) and went into the next turn's history."""
+
+    @staticmethod
+    def _batch(
+        client: FlaskClient, auth_headers: dict[str, str], conv_id: str, body: dict[str, Any]
+    ) -> Any:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "Answer",
+                [],
+                {"input_tokens": 10, "output_tokens": 5},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+            return client.post(
+                f"/api/conversations/{conv_id}/chat/batch", headers=auth_headers, json=body
+            )
+
+    @staticmethod
+    def _dead_stream_placeholder(
+        test_database: Database, conv_id: str, monkeypatch: pytest.MonkeyPatch
+    ) -> str:
+        placeholder = test_database.add_message(conv_id, "assistant", "")
+        test_database.journal_append_events(placeholder.id, [(1, '{"type": "token", "seq": 1}')])
+        # Its journal is now older than the stall window: the producer is gone
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+        return placeholder.id
+
+    def test_regenerate_answers_after_a_dead_turn(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        self._dead_stream_placeholder(test_database, test_conversation.id, monkeypatch)
+
+        response = self._batch(
+            client, auth_headers, test_conversation.id, {"rerun_mode": "regenerate"}
+        )
+
+        assert response.status_code == 200
+        messages = test_database.get_messages(test_conversation.id)
+        assert [(m.role, m.content) for m in messages] == [("user", "q1"), ("assistant", "Answer")]
+
+    def test_next_send_drops_a_dead_turn(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "q1")
+        dead_id = self._dead_stream_placeholder(test_database, test_conversation.id, monkeypatch)
+
+        response = self._batch(client, auth_headers, test_conversation.id, {"message": "q2"})
+
+        assert response.status_code == 200
+        assert test_database.get_message_by_id(dead_id) is None
+        messages = test_database.get_messages(test_conversation.id)
+        assert [m.role for m in messages] == ["user", "user", "assistant"]
+
+    def test_keeps_a_young_reply_with_no_journal(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        """A batch turn journals nothing: past the stall window it may still
+        be running (up to CHAT_TIMEOUT) - only its age proves it dead."""
+        test_database.add_message(test_conversation.id, "user", "q1")
+        batch_reply = test_database.add_message(test_conversation.id, "assistant", "")
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+
+        self._batch(client, auth_headers, test_conversation.id, {"message": "q2"})
+
+        assert test_database.get_message_by_id(batch_reply.id) is not None
 
 
 class TestStreamModelErrorLeavesNoPlaceholder:

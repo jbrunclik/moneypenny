@@ -9479,6 +9479,12 @@ export interface components {
              * @default null
              */
             streaming_message_id: string | null;
+            /**
+             * Lost Reply
+             * @description The last turn died (its worker was killed) with nothing saved - offer a retry
+             * @default false
+             */
+            lost_reply: boolean;
         };
         /**
          * BulkTrashResponse

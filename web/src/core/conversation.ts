@@ -116,6 +116,7 @@ export function toConversation(
     has_pending_approval: response.has_pending_approval,
     archived: response.archived,
     streaming_message_id: response.streaming_message_id,
+    lost_reply: response.lost_reply,
   };
 }
 

@@ -258,6 +258,10 @@ class ConversationDetailPaginatedResponse(BaseModel):
         default=None,
         description="Reply still being generated (e.g. on another device) - follow it via resume",
     )
+    lost_reply: bool = Field(
+        default=False,
+        description="The last turn died (its worker was killed) with nothing saved - offer a retry",
+    )
 
 
 class MessagesListResponse(BaseModel):

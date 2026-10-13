@@ -85,6 +85,64 @@ def discard_unused_placeholder(message_id: str | None) -> None:
         )
 
 
+def _is_dead_placeholder(message: Message) -> bool:
+    """An empty reply no turn will fill: its worker died mid-turn.
+
+    Proof is its age past the longest a turn runs, or a journal that stalled
+    without an end marker (the resume endpoint's rule). A reply with no
+    journal - a batch turn's - may still be running past the stall window.
+    """
+    longest = max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS) + 60
+    if datetime.now() - message.created_at > timedelta(seconds=longest):
+        return True
+    last = db.journal_last_event(message.id)
+    if last is None:
+        return False
+    event, recorded_at = last
+    return (
+        json.loads(event).get("type") != "stream_end"
+        and time.time() - recorded_at >= Config.STREAM_RESUME_STALL_SECONDS
+    )
+
+
+def _dead_placeholders(conv_id: str) -> list[Message]:
+    """The conversation's empty replies left by killed workers.
+
+    Only the tail is scanned: steering saved after a placeholder sits
+    behind it.
+    """
+    return [
+        m
+        for m in db.get_messages(conv_id)[-3:]
+        if is_empty_placeholder(m) and _is_dead_placeholder(m)
+    ]
+
+
+def has_lost_reply(conv_id: str) -> bool:
+    """Whether the conversation's last turn died with nothing saved.
+
+    Its empty reply is filtered from responses, so a chat opened after the
+    turn died ended on the question with no word; the client offers the
+    retry from this.
+    """
+    return bool(_dead_placeholders(conv_id))
+
+
+def discard_dead_placeholders(conv_id: str) -> None:
+    """Delete empty replies a killed worker left behind, before a new turn.
+
+    Oct 2026: a restart killed a turn mid-stream. Its empty reply - hidden
+    by the UI - blocked the regenerate (the chat no longer ended on the
+    user's message) and went into every later turn's history.
+    """
+    for message in _dead_placeholders(conv_id):
+        logger.info(
+            "Discarding a dead turn's empty reply",
+            extra={"conversation_id": conv_id, "message_id": message.id},
+        )
+        discard_unused_placeholder(message.id)
+
+
 def can_steer(data: ChatRequest) -> bool:
     """Whether a send can become steering: plain text the agent reads mid-turn.
 

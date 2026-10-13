@@ -13,7 +13,8 @@
  *    no incomplete state.
  * 2. Resume endpoint unavailable (404) -> instant fallback to poll recovery
  *    -> message recovered.
- * 3. Resume reports RESUME_FAILED and the message is gone -> incomplete UX.
+ * 3. Resume reports RESUME_FAILED (the turn died, nothing saved) -> bubble
+ *    dropped, Retry offered at once (no poll recovery).
  *
  * Server-side timeout/crash paths (producer deadline, consumer backstop,
  * dead-producer stall) are covered by unit tests in
@@ -263,7 +264,7 @@ test.describe('Resumable streams', () => {
     await expect(page.locator('.toast-info:has-text("Response stopped")')).toHaveCount(0);
   });
 
-  test('dead turn (RESUME_FAILED + message gone) shows incomplete state', async ({ page }) => {
+  test('dead turn (RESUME_FAILED) drops the bubble and offers Retry', async ({ page }) => {
     await truncateNextStream(page, 3);
 
     // Resume says the turn is unrecoverable...
@@ -292,14 +293,38 @@ test.describe('Resumable streams', () => {
     await page.fill('#message-input', 'This turn is going to die');
     await page.click('#send-btn');
 
-    // The client must surface the failure instead of hanging: either the
-    // incomplete-styled bubble (partial tokens were rendered) or the
-    // "may be incomplete" toast from the recovery module
-    await expect(
-      page
-        .locator('.message.assistant.message-incomplete')
-        .or(page.locator('.toast-error:has-text("incomplete")'))
-        .first()
-    ).toBeVisible({ timeout: 30000 });
+    // The client must surface the failure instead of hanging, with a way to
+    // answer the question again (Oct 2026: a worker killed mid-turn left the
+    // chat ending on the question, the bubble dropped without a word)
+    await expect(page.locator('.toast-error', { hasText: 'The response was lost' })).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.locator('.toast .toast-action', { hasText: 'Retry' })).toBeVisible();
+    await expect(page.locator('.message.assistant.streaming')).toHaveCount(0);
+  });
+
+  test('opening a chat whose turn died offers Retry', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await page.fill('#message-input', 'Hello there');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({ timeout: 20000 });
+    const convId = await page.locator('.conversation-item-wrapper.active').getAttribute('data-conv-id');
+
+    // The server reports the last turn dead (a stalled journal needs a
+    // server-wide config change that would race other specs)
+    await page.route(`**/api/conversations/${convId}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      return route.fulfill({ response, json: { ...body, lost_reply: true } });
+    });
+    await page.reload();
+
+    await expect(page.locator('.toast-error', { hasText: 'The response was lost' })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.locator('.toast .toast-action', { hasText: 'Retry' })).toBeVisible();
   });
 });

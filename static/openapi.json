@@ -11053,6 +11053,12 @@
             "default": null,
             "description": "Reply still being generated (e.g. on another device) - follow it via resume",
             "title": "Streaming Message Id"
+          },
+          "lost_reply": {
+            "default": false,
+            "description": "The last turn died (its worker was killed) with nothing saved - offer a retry",
+            "title": "Lost Reply",
+            "type": "boolean"
           }
         },
         "required": [

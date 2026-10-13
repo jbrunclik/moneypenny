@@ -59,6 +59,7 @@ export interface Conversation {
   archived?: boolean; // True if conversation is archived (hidden from main list)
   pinned?: boolean; // Pinned to the top of the sidebar
   streaming_message_id?: string | null; // Reply still being generated (another device) - from the detail response
+  lost_reply?: boolean; // The last turn died with nothing saved - from the detail response
   // Trash state (only set on conversations from the trash listing)
   deleted_at?: string | null; // When it was moved to the trash
   purge_at?: string | null; // When the server deletes it for good
@@ -390,6 +391,7 @@ export interface ConversationDetailResponse {
   messages: Message[];
   message_pagination: MessagesPagination;
   streaming_message_id?: string | null; // Reply still being generated (e.g. on another device)
+  lost_reply?: boolean; // The last turn died (its worker was killed) with nothing saved
 }
 
 export interface MessagesResponse {
