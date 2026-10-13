@@ -19,6 +19,7 @@ import { createConversation, selectConversation } from './conversation';
 import { deleteConversation, renameConversation, togglePinConversation } from './conversation-actions';
 import { archiveConversation, unarchiveConversation, navigateToArchive, leaveArchiveView } from './archive';
 import { restoreConversation, deleteConversationForever, emptyTrash, navigateToTrash, leaveTrashView } from './trash';
+import { enterSelectionMode } from '../components/SidebarSelection';
 import { navigateToPlanner } from './planner';
 import { navigateToAgents } from './agents';
 import { navigateToSports } from './sports';
@@ -128,6 +129,11 @@ export function setupEventListeners(): void {
     if (target.closest('.user-menu-trash')) {
       closeUserMenu();
       navigateToTrash();
+      return;
+    }
+    if (target.closest('#select-chats-btn')) {
+      closeUserMenu();
+      enterSelectionMode();
       return;
     }
     if (target.closest('#settings-btn')) {

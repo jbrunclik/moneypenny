@@ -889,3 +889,73 @@
     color: var(--accent);
     background-color: var(--accent-muted);
 }
+
+/* Bulk delete selection mode (SidebarSelection.ts): the bar and footer
+   replace the header and footer; rows get a round checkbox */
+.selection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.selection-bar-btn {
+    background: none;
+    border: none;
+    padding: var(--space-1) var(--space-2);
+    color: var(--accent-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.selection-count {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.selection-footer {
+    padding: var(--space-2) var(--space-3);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.selection-footer .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.sidebar.selecting .sidebar-header,
+.sidebar.selecting #search-container,
+.sidebar.selecting .sidebar-footer,
+.sidebar.selecting .sidebar-nav-row,
+.sidebar.selecting .sidebar-nav-row + .sidebar-divider,
+.sidebar.selecting .conversation-actions,
+.sidebar.selecting .conversation-actions-swipe {
+    display: none;
+}
+
+.conversation-select {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-right: var(--space-2);
+    border: 1.5px solid var(--text-muted);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.conversation-item-wrapper.selected .conversation-select {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.conversation-select svg {
+    width: 14px;
+    height: 14px;
+}

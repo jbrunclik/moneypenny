@@ -2,7 +2,7 @@ import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ARCHIVE_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -12,6 +12,8 @@ import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
 import { isSearchResultsVisible, renderSearchResults } from './SearchResults';
 import { renderTrashEntry, renderTrashView } from './TrashView';
+import { renderSelectionCheckbox } from './SidebarSelection';
+import { isConversationSelected } from '../state/slices/selection';
 import {
   LOAD_MORE_THRESHOLD_PX,
   INFINITE_SCROLL_DEBOUNCE_MS,
@@ -351,9 +353,14 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
       ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
       : '';
 
+  // Bulk delete selection mode: a checkbox per row (empty outside it)
+  const state = useStore.getState();
+  const selected = state.isSelecting && isConversationSelected(state, conv);
+
   return `
-    <div class="conversation-item-wrapper ${isActive ? 'active' : ''}" data-conv-id="${conv.id}">
+    <div class="conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}" data-conv-id="${conv.id}">
       <div class="conversation-item" role="button" tabindex="${isActive ? '0' : '-1'}"${isActive ? ' aria-current="true"' : ''}>
+        ${renderSelectionCheckbox(conv)}
         <div class="conversation-text">
           <div class="conversation-title">${title}</div>
           ${preview}
@@ -478,6 +485,9 @@ export function renderUserInfo(): void {
       </button>
       <button class="user-menu-item user-menu-trash hidden" role="menuitem" data-route="trash">
         ${DELETE_ICON}<span>Trash</span><span class="archive-count trash-count">0</span>
+      </button>
+      <button id="select-chats-btn" class="user-menu-item" role="menuitem">
+        ${CHECK_ICON}<span>Select chats</span>
       </button>
       <button id="cost-history-btn" class="user-menu-item" role="menuitem">
         ${COST_ICON}<span>Cost history</span>

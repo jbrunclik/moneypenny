@@ -7,6 +7,7 @@ import { toggleSidebar, closeSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
+import { useStore } from '../state/store';
 
 /**
  * Setup touch gestures for mobile devices.
@@ -32,6 +33,8 @@ export function setupTouchGestures(): void {
   const conversationSwipe = createSwipeHandler({
     shouldStart: (e) => {
       if (activeSwipeType === 'sidebar') return false;
+      // Selection mode (bulk delete): rows toggle on tap, no swipe actions
+      if (useStore.getState().isSelecting) return false;
       const wrapper = (e.target as HTMLElement).closest('.conversation-item-wrapper');
       if (!wrapper) {
         resetSwipeStates();

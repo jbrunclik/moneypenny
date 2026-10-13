@@ -69,7 +69,7 @@ import {
   getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CHEVRON_DOWN_ICON, CHEVRON_LEFT_ICON, CHEVRON_RIGHT_ICON, SLIDERS_ICON, CLOSE_ICON, DOWNLOAD_ICON, MAXIMIZE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON } from '../utils/icons';
+import { ATTACH_ICON, CHEVRON_DOWN_ICON, CHEVRON_LEFT_ICON, CHEVRON_RIGHT_ICON, SLIDERS_ICON, CLOSE_ICON, DOWNLOAD_ICON, MAXIMIZE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON, DELETE_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -82,6 +82,7 @@ import { handleStopStreaming, abortAllStreamingRequests } from './active-request
 import { initOutboxHandlers } from './rerun';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
+import { initSidebarSelection } from '../components/SidebarSelection';
 import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
@@ -114,10 +115,18 @@ export function renderAppShell(): string {
         </div>
         <button id="new-chat-btn" class="btn btn-primary btn-new-chat">${PLUS_ICON} New Chat</button>
       </div>
+      <div id="selection-bar" class="selection-bar hidden" role="toolbar" aria-label="Select chats">
+        <button id="selection-cancel" type="button" class="selection-bar-btn">Cancel</button>
+        <span class="selection-count" aria-live="polite">0 selected</span>
+        <button id="selection-all" type="button" class="selection-bar-btn">Select all</button>
+      </div>
       <div id="search-container" class="search-container"></div>
       <div id="conversations-list" class="conversations-list"></div>
       <div class="sidebar-footer">
         <div id="user-info" class="user-info"></div>
+      </div>
+      <div id="selection-footer" class="selection-footer hidden">
+        <button id="selection-trash" type="button" class="btn btn-primary" disabled>${DELETE_ICON} Move 0 to trash</button>
       </div>
     </aside>
 
@@ -564,6 +573,7 @@ export async function init(): Promise<void> {
   subscribeToSearchChanges(handleSearchResultClick);
   initTTSVoices();
   setupEventListeners();
+  initSidebarSelection();
   setupTouchGestures();
 
   // Initialize toolbar buttons
