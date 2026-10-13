@@ -23,6 +23,13 @@ _PRICE = re.compile(
     rf"(?<![\w.,])(?:€\s?{_RANGE}|{_RANGE}\s?(?:Kč|CZK|EUR|€)(?![\w]))",
 )
 _NUMBER = re.compile(_NUM)
+# Decimal zeros: the product-data line prints "6490.0 CZK" for "6 490 Kč"
+_DECIMAL_ZEROS = re.compile(r"[.,]0{1,2}$")
+# An amount right after another number and "(", "=" (optionally hedged) is
+# the answer's own conversion or split of it - "43 300 Kč (cca 1 730 €)",
+# "~490 bodů = 20 €" - not a new price (Oct 2026: a third of the net's flags)
+_DERIVED = re.compile(r"\d[^\n\d]{0,25}[(=]\s*(?:\*\*)?(?:(?:cca|tj\.|zhruba|asi|ca\.|~|≈)\s*)*$")
+_DERIVED_WINDOW_CHARS = 40
 _UNVERIFIED = re.compile(
     r"neověřen|nepodařilo (?:se )?ověřit|neověřil|unverified|not verified|could not (?:be )?(?:verif|confirm)",
     re.IGNORECASE,
@@ -37,7 +44,7 @@ _DOMAIN = re.compile(
 
 
 def _digits(number: str) -> str:
-    return re.sub(r"\D", "", number)
+    return re.sub(r"\D", "", _DECIMAL_ZEROS.sub("", number))
 
 
 def _numbers(text: str) -> set[str]:
@@ -62,11 +69,22 @@ def _covered(text: str, claims: list[ClaimVerdict]) -> bool:
     return any(folded in c.quote.casefold() or c.quote.casefold() in folded for c in claims)
 
 
+def _mentioned_sites(text: str) -> set[str]:
+    """Sites a text names: link targets, URLs and bare domains."""
+    hosts = re.findall(r"https?://([^/\s)\]]+)", text) + _DOMAIN.findall(text)
+    return {_site(host) for host in hosts}
+
+
 def missed_sites(
-    answer: str, pages: list[SourcePage], claims: list[ClaimVerdict]
+    answer: str, pages: list[SourcePage], claims: list[ClaimVerdict], mentioned: str = ""
 ) -> list[ClaimVerdict]:
-    """not_found claims for linked or named sites the turn never read."""
-    read = {_site(p.url) for p in pages}
+    """not_found claims for linked or named sites the turn never read.
+
+    A site the turn's own text names is no invention: the domain a read page
+    was about, one in a search snippet, one the user wrote (Oct 2026 prod:
+    aicom.com in a domain-auction answer, cesko.cz the user had asked about).
+    """
+    read = {_site(p.url) for p in pages} | _mentioned_sites(mentioned)
     found: list[tuple[int, int, str, str]] = []  # start, end, quote, site
     for link in _LINK.finditer(answer):
         found.append((link.start(), link.end(), link.group(1).strip(), _site(link.group(2))))
@@ -86,10 +104,16 @@ def missed_sites(
 
 
 def missed_specifics(
-    answer: str, sources: str, pages: list[SourcePage], claims: list[ClaimVerdict]
+    answer: str,
+    sources: str,
+    pages: list[SourcePage],
+    claims: list[ClaimVerdict],
+    known: str = "",
 ) -> list[ClaimVerdict]:
-    """Prices and sites the verifier left unlisted that no page read backs."""
-    return missed_prices(answer, sources, claims) + missed_sites(answer, pages, claims)
+    """Prices and sites the verifier left unlisted that neither a page read
+    nor KNOWN (the user's message, other tools) backs."""
+    context = f"{sources}\n{known}"
+    return missed_prices(answer, context, claims) + missed_sites(answer, pages, claims, context)
 
 
 def missed_prices(answer: str, sources: str, claims: list[ClaimVerdict]) -> list[ClaimVerdict]:
@@ -99,7 +123,13 @@ def missed_prices(answer: str, sources: str, claims: list[ClaimVerdict]) -> list
     missed: list[ClaimVerdict] = []
     for match in _PRICE.finditer(answer):
         numbers = [_digits(n) for n in _NUMBER.findall(match.group())]
-        if not numbers or all(n in covered for n in numbers):
+        if (
+            not numbers
+            or all(n in covered for n in numbers)
+            or not any(n.strip("0") for n in numbers)
+        ):
+            continue
+        if _DERIVED.search(answer[max(0, match.start() - _DERIVED_WINDOW_CHARS) : match.start()]):
             continue
         if all(n in on_pages for n in numbers):
             continue

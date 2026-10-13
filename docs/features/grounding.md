@@ -93,6 +93,14 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   answer's own timeline and are dropped. Each annotation carries a `prefix`
   (the 32 answer characters before the quote) so the client can anchor the
   right occurrence. Annotations are in answer order.
+- **Safety net** ([specifics_net.py](../../src/agent/specifics_net.py)): when
+  the verifier returned any claim, prices and sites it skipped are added as
+  `not_found` - a price whose numbers are neither in the sources nor in KNOWN
+  (decimal zeros folded: "6490.0 CZK" is 6 490), and a linked or named site
+  whose domain no page read, snippet or KNOWN text names. Not flagged: 0, an
+  explicitly unverified one, and an amount right after another number and
+  "(" or "=" - the answer's own conversion or split ("43 300 Kč (cca
+  1 730 €)"), a third of its price flags in Oct 2026 prod.
 - **Storage and API**: `apply_grounding()` puts `{"annotations", "summary"}`
   into `usage_info["grounding"]` (summary: `{"checked": true,
   "source_count": N}`), which `save_message_to_db`

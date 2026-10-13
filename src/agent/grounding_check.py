@@ -258,7 +258,7 @@ def check_grounding_pages(
     if claims:
         # The verifier skips a price now and then; an empty verdict means a
         # history/background answer, where old prices are not shop claims
-        missed = missed_specifics(answer, sources, pages, claims)
+        missed = missed_specifics(answer, sources, pages, claims, known)
         claims = [*verdict.unsupported, *missed, *verdict.supported] if verdict else claims
     annotations = validate_claims(claims, answer, pages, max_claims=max_claims, today=_today())
     counts = Counter(a["verdict"] for a in annotations)

@@ -515,6 +515,73 @@ class TestPriceNet:
 
         assert [a["quote"] for a in anns] == ["Bazoš"]
 
+    def _only_bazos(self, fake_verifier: MagicMock, answer: str, **kw: Any) -> list[str]:
+        from src.agent.grounding_check import check_grounding_pages
+
+        fake_verifier.return_value = (
+            GroundingVerdict(
+                unsupported=[ClaimVerdict(quote="Bazoš", verdict="not_found", reason="r")]
+            ),
+            _USAGE,
+        )
+        args: dict[str, Any] = {"known": "", "max_source_chars": 10_000, "max_claims": 20}
+        pages = kw.pop("pages", self._PAGES)
+        anns = check_grounding_pages(answer, pages, "", **{**args, **kw}).annotations
+        return [a["quote"] for a in anns]
+
+    def test_a_markup_price_with_decimals_is_the_page_price(self, fake_verifier: MagicMock) -> None:
+        """Oct 2026 prod: the product-data line reads "price 6490.0 CZK"; its
+        digits 64900 never matched "6 490 Kč"."""
+        pages = [
+            SourcePage(
+                "Apple",
+                "https://apple.com/cz",
+                "Product data (page markup): AirPods Pro 3 - price 6490.0 CZK",
+            )
+        ]
+
+        quotes = self._only_bazos(
+            fake_verifier, "AirPods Pro 3 za 6 490 Kč. Na Bazoši.", pages=pages
+        )
+
+        assert quotes == ["Bazoš"]
+
+    def test_a_price_from_known_facts_is_not_flagged(self, fake_verifier: MagicMock) -> None:
+        quotes = self._only_bazos(
+            fake_verifier,
+            "Do rozpočtu 30 000 Kč se C Line vejde. Na Bazoši.",
+            known="The user wrote: mám rozpočet 30 000 Kč",
+        )
+
+        assert quotes == ["Bazoš"]
+
+    @pytest.mark.parametrize(
+        "answer",
+        [
+            "C Line za 43 300 Kč (cca 1 730 €). Na Bazoši.",
+            "C Line za 43 300 Kč (tj. zhruba 1 730 €). Na Bazoši.",
+            "Kurz: ~490 bodů = 20 €. Na Bazoši.",
+        ],
+    )
+    def test_a_conversion_of_an_amount_is_not_a_new_price(
+        self, fake_verifier: MagicMock, answer: str
+    ) -> None:
+        """Oct 2026 prod: about a third of the net's 35 price flags were the
+        model's own conversions or per-unit splits of a nearby amount."""
+        assert self._only_bazos(fake_verifier, answer) == ["Bazoš"]
+
+    def test_the_amount_a_conversion_follows_is_still_checked(
+        self, fake_verifier: MagicMock
+    ) -> None:
+        quotes = self._only_bazos(
+            fake_verifier, "Apartmán 800–900 EUR za 4 noci (cca 200–225 EUR za noc). Na Bazoši."
+        )
+
+        assert quotes == ["800–900 EUR", "Bazoš"]
+
+    def test_a_zero_price_is_not_a_claim(self, fake_verifier: MagicMock) -> None:
+        assert self._only_bazos(fake_verifier, "Náklad na pokus: 0 Kč. Na Bazoši.") == ["Bazoš"]
+
 
 class TestShopNet:
     """Linked or named sites the turn never read are marked (honesty probe:
@@ -529,7 +596,12 @@ class TestShopNet:
     ]
 
     def _check(
-        self, answer: str, fake_verifier: MagicMock, claims: list[ClaimVerdict] | None = None
+        self,
+        answer: str,
+        fake_verifier: MagicMock,
+        claims: list[ClaimVerdict] | None = None,
+        uncited: str = "",
+        known: str = "",
     ) -> list[dict[str, Any]]:
         from src.agent.grounding_check import check_grounding_pages
 
@@ -543,8 +615,38 @@ class TestShopNet:
         ]
         fake_verifier.return_value = (GroundingVerdict(supported=listed), _USAGE)
         return check_grounding_pages(
-            answer, self._PAGES, "", known="", max_source_chars=10_000, max_claims=20
+            answer, self._PAGES, uncited, known=known, max_source_chars=10_000, max_claims=20
         ).annotations
+
+    @pytest.mark.parametrize(
+        ("answer", "uncited", "known"),
+        [
+            # Oct 2026 prod: the domain a read page was about (a domain auction)
+            ("U Cyklospeciality. Doménu aicom.com prodali.", "", ""),
+            # a site the user named in their message
+            (
+                "U Cyklospeciality, viz cesko.cz.",
+                "",
+                "The user wrote: kolik kandiduje cesko(cesko.cz)",
+            ),
+            # a site from a search snippet the model read
+            ("U Cyklospeciality, nebo booking.com.", "Booking.com: Hotel Alfa from 120 €", ""),
+        ],
+    )
+    def test_a_site_the_turn_already_mentions_is_left_alone(
+        self, fake_verifier: MagicMock, answer: str, uncited: str, known: str
+    ) -> None:
+        self._PAGES = [
+            SourcePage(
+                "Cyklospeciality",
+                "https://www.cyklospeciality.cz/brompton",
+                "Cyklospeciality. aicom.com expired closed at $51,000.",
+            )
+        ]
+
+        anns = self._check(answer, fake_verifier, uncited=uncited, known=known)
+
+        assert [a["verdict"] for a in anns] == ["supported"]
 
     def test_an_unread_linked_shop_is_marked(self, fake_verifier: MagicMock) -> None:
         answer = "Prodává [Cyklospeciality](https://cyklospeciality.cz) a ojeté [Cyklobazar.cz](https://www.cyklobazar.cz/brompton)."
