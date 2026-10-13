@@ -185,6 +185,9 @@ function handleToastClick(e: MouseEvent): void {
   const actionBtn = target.closest('.toast-action');
   if (actionBtn) {
     const toastEl = actionBtn.closest('[data-toast-id]');
+    // Still clickable during its exit animation: a double tap on Undo
+    // would run the action twice
+    if (toastEl?.classList.contains('toast-exit')) return;
     const id = toastEl?.getAttribute('data-toast-id');
     if (id) {
       const notification = useStore

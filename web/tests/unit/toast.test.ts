@@ -393,4 +393,20 @@ describe('Toast - Convenience Functions', () => {
     const notification = store.getState().notifications[0];
     expect(notification.action?.label).toBe('Retry');
   });
+
+  it('runs an action once even when tapped again during the exit animation', async () => {
+    // A double tap on Undo restored twice ("Restored 0 chats.") - the toast
+    // stays clickable for the 200ms exit animation
+    const { initToast, toast } = await import('@/components/Toast');
+    initToast();
+    const onUndo = vi.fn();
+    toast.success('Moved 3 chats to trash.', { action: { label: 'Undo', onClick: onUndo } });
+    await vi.waitFor(() => expect(document.querySelector('.toast-action')).not.toBeNull());
+
+    const button = document.querySelector<HTMLButtonElement>('.toast-action')!;
+    button.click();
+    button.click();
+
+    expect(onUndo).toHaveBeenCalledTimes(1);
+  });
 });
