@@ -130,6 +130,30 @@ describe('bulkDeleteConversations', () => {
     expect(s().isSelecting).toBe(false);
   });
 
+  it('removes a large batch in one store update', async () => {
+    // Select all over hundreds of chats: one set() per id froze the page
+    const many = Array.from({ length: 300 }, (_, i) => conv(`m${i}`));
+    useStore.setState({
+      conversations: [...many, conv('keep')],
+      conversationsPagination: { ...emptyPagination, totalCount: 301 },
+    });
+    api.bulkTrash.mockResolvedValue(many.map((c) => c.id));
+    s().startSelection();
+    many.forEach((c) => s().toggleSelected(c));
+    let listChanges = 0;
+    const unsubscribe = useStore.subscribe(
+      (state) => state.conversations,
+      () => listChanges++
+    );
+
+    await bulkDeleteConversations();
+    unsubscribe();
+
+    expect(s().conversations.map((c) => c.id)).toEqual(['keep']);
+    expect(s().conversationsPagination.totalCount).toBe(1);
+    expect(listChanges).toBe(1);
+  });
+
   it('says "1 chat" for one', async () => {
     api.bulkTrash.mockResolvedValue(['a']);
     pick('a');

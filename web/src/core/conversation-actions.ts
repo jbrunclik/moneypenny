@@ -28,7 +28,7 @@ const log = createLogger('conversation');
  */
 export function removeConversationsFromUI(ids: string[]): void {
   const store = useStore.getState();
-  ids.forEach((id) => store.removeConversation(id));
+  store.removeConversations(ids);
   renderConversationsList();
 
   const currentId = store.currentConversation?.id;

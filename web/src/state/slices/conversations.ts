@@ -26,6 +26,8 @@ export interface ConversationsSlice extends ConversationsData {
   updateConversation: (id: string, updates: Partial<Conversation>) => void;
   bumpConversationActivity: (id: string, preview?: string) => void;
   removeConversation: (id: string) => void;
+  /** Remove many in one update (bulk delete); same per-id effect as removeConversation */
+  removeConversations: (ids: string[]) => void;
   setCurrentConversation: (conversation: Conversation | null) => void;
   setLoadingMoreConversations: (loading: boolean) => void;
 
@@ -172,6 +174,20 @@ export const createConversationsSlice: AppSlice<ConversationsSlice> = (set, get)
         totalCount: Math.max(0, state.conversationsPagination.totalCount - 1),
       },
     })),
+  removeConversations: (ids) =>
+    set((state) => {
+      const removed = new Set(ids);
+      const currentId = state.currentConversation?.id;
+      return {
+        conversations: state.conversations.filter((c) => !removed.has(c.id)),
+        currentConversation:
+          currentId && removed.has(currentId) ? null : state.currentConversation,
+        conversationsPagination: {
+          ...state.conversationsPagination,
+          totalCount: Math.max(0, state.conversationsPagination.totalCount - removed.size),
+        },
+      };
+    }),
   setCurrentConversation: (currentConversation) => set({ currentConversation }),
   setLoadingMoreConversations: (loading) =>
     set((state) => ({
