@@ -1,9 +1,10 @@
 """Integration tests for the conversation trash routes."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask.testing import FlaskClient
 
+from src.config import Config
 from src.db.models import Conversation, Database, User
 
 
@@ -123,3 +124,99 @@ class TestTrashRoutes:
         ][0]
 
         assert (item["archived"], item["pinned"]) == (True, True)
+
+
+class TestBulkTrashRoutes:
+    def test_bulk_trash_ids(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        a = test_database.create_conversation(test_user.id, "A")
+        b = test_database.create_conversation(test_user.id, "B")
+        keep = test_database.create_conversation(test_user.id, "Keep")
+
+        response = client.post(
+            "/api/conversations/bulk-trash", json={"ids": [a.id, b.id]}, headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        assert sorted(response.get_json()["trashed_ids"]) == sorted([a.id, b.id])
+        listed = client.get("/api/conversations", headers=auth_headers).get_json()
+        assert [c["id"] for c in listed["conversations"]] == [keep.id]
+
+    def test_bulk_trash_all_with_exclusions(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        a = test_database.create_conversation(test_user.id, "A")
+        keep = test_database.create_conversation(test_user.id, "Keep")
+        body = {
+            "all": True,
+            "exclude_ids": [keep.id],
+            "created_before": (datetime.now() + timedelta(seconds=5)).isoformat(),
+        }
+
+        response = client.post("/api/conversations/bulk-trash", json=body, headers=auth_headers)
+
+        assert response.get_json() == {"trashed_ids": [a.id]}
+
+    def test_trash_all_accepts_utc_created_before(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        # The browser sends toISOString() (UTC, "Z"); the DB stores naive local time
+        conv = test_database.create_conversation(test_user.id, "A")
+        utc_now = datetime.now(UTC) + timedelta(seconds=5)
+        body = {"all": True, "created_before": utc_now.isoformat().replace("+00:00", "Z")}
+
+        response = client.post("/api/conversations/bulk-trash", json=body, headers=auth_headers)
+
+        assert response.get_json() == {"trashed_ids": [conv.id]}
+
+    def test_bulk_trash_rejects_bad_shapes(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        url = "/api/conversations/bulk-trash"
+        too_many = [f"id-{i}" for i in range(Config.CONVERSATIONS_BULK_MAX_IDS + 1)]
+        for body in (
+            {},
+            {"ids": []},
+            {"all": True},
+            {"ids": ["a"], "exclude_ids": ["b"]},
+            {"ids": ["a"], "created_before": "2026-01-01T00:00:00"},
+            {"ids": too_many},
+        ):
+            response = client.post(url, json=body, headers=auth_headers)
+            assert response.status_code == 400, body
+
+    def test_bulk_restore(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "A")
+        test_database.trash_conversation(conv.id, test_user.id)
+
+        response = client.post(
+            "/api/conversations/bulk-restore", json={"ids": [conv.id]}, headers=auth_headers
+        )
+
+        assert response.get_json() == {"restored_ids": [conv.id]}
+        assert client.get(f"/api/conversations/{conv.id}", headers=auth_headers).status_code == 200
+
+    def test_bulk_routes_require_auth(self, client: FlaskClient) -> None:
+        assert client.post("/api/conversations/bulk-trash", json={"ids": ["a"]}).status_code == 401
+        assert (
+            client.post("/api/conversations/bulk-restore", json={"ids": ["a"]}).status_code == 401
+        )

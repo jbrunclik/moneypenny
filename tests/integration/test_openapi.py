@@ -43,6 +43,8 @@ class TestOpenAPISpec:
         assert "/api/conversations/{conv_id}" in paths
         assert "/api/conversations/{conv_id}/messages" in paths
         assert "/api/conversations/sync" in paths
+        assert "/api/conversations/bulk-trash" in paths
+        assert "/api/conversations/bulk-restore" in paths
 
         # Chat endpoints
         assert "/api/conversations/{conv_id}/chat/batch" in paths

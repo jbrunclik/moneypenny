@@ -3488,6 +3488,60 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/conversations/bulk-trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move many conversations to the trash in one transaction (bulk delete). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkTrashResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ai-assist/parse-schedule": {
         parameters: {
             query?: never;
@@ -3851,6 +3905,60 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/bulk-restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore many conversations from the trash (Undo of a bulk delete). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BulkRestoreResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -9373,6 +9481,17 @@ export interface components {
             streaming_message_id: string | null;
         };
         /**
+         * BulkTrashResponse
+         * @description Result of a bulk trash.
+         */
+        BulkTrashResponse: {
+            /**
+             * Trashed Ids
+             * @description Conversations this call moved to the trash
+             */
+            trashed_ids: string[];
+        };
+        /**
          * ParseScheduleResponse
          * @description Response from schedule parsing endpoint.
          */
@@ -9482,6 +9601,17 @@ export interface components {
         KVSetRequest: {
             /** Value */
             value: string;
+        };
+        /**
+         * BulkRestoreResponse
+         * @description Result of a bulk restore.
+         */
+        BulkRestoreResponse: {
+            /**
+             * Restored Ids
+             * @description Conversations this call restored
+             */
+            restored_ids: string[];
         };
         /**
          * MessageCostResponse
@@ -10290,12 +10420,10 @@ export interface components {
             html: string;
             /**
              * State
-             * @description State the artifact saved through the bridge (all versions)
+             * @description JSON value the artifact saved through the bridge (all versions)
              * @default null
              */
-            state: {
-                [key: string]: unknown;
-            } | null;
+            state: unknown;
         };
     };
     responses: never;

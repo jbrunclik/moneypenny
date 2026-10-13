@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.api.schemas.chat import MessageResponse
 from src.config import Config
@@ -79,6 +80,57 @@ class EmptyTrashResponse(BaseModel):
     """Result of emptying the trash."""
 
     deleted: int = Field(..., description="Number of conversations permanently deleted")
+
+
+class BulkTrashRequest(BaseModel):
+    """Move many conversations to the trash: hand-picked ids, or every
+    unpinned main-list chat (all) minus exclude_ids plus ids."""
+
+    all: bool = Field(default=False, description="Every unpinned main-list chat")
+    ids: list[str] = Field(
+        default_factory=list,
+        max_length=Config.CONVERSATIONS_BULK_MAX_IDS,
+        description="Chats to trash; with all, extra chats (pinned ones picked by hand)",
+    )
+    exclude_ids: list[str] = Field(
+        default_factory=list,
+        max_length=Config.CONVERSATIONS_BULK_MAX_IDS,
+        description="With all: chats to keep",
+    )
+    created_before: datetime | None = Field(
+        default=None, description="With all: only chats created before this moment"
+    )
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> BulkTrashRequest:
+        """ids alone, or all with created_before."""
+        if self.all:
+            if self.created_before is None:
+                raise ValueError("created_before is required with all")
+            return self
+        if not self.ids:
+            raise ValueError("ids or all is required")
+        if self.exclude_ids or self.created_before is not None:
+            raise ValueError("exclude_ids and created_before need all")
+        return self
+
+
+class BulkTrashResponse(BaseModel):
+    """Result of a bulk trash."""
+
+    trashed_ids: list[str] = Field(..., description="Conversations this call moved to the trash")
+
+
+class BulkRestoreRequest(BaseModel):
+    """Restore many conversations from the trash (Undo of a bulk delete)."""
+
+    ids: list[str] = Field(..., min_length=1, max_length=Config.CONVERSATIONS_BULK_MAX_IDS)
+
+
+class BulkRestoreResponse(BaseModel):
+    """Result of a bulk restore."""
+
+    restored_ids: list[str] = Field(..., description="Conversations this call restored")
 
 
 class ConversationDetailResponse(BaseModel):

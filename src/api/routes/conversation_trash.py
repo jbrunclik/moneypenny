@@ -1,11 +1,11 @@
-"""Conversation trash routes: list, restore, permanent delete, empty.
+"""Conversation trash routes: list, restore, permanent delete, empty, bulk trash/restore.
 
 Attached to conversations.api (one shared "Conversations" blueprint keeps a
 single OpenAPI tag). DELETE /conversations/<id> itself (move to trash) lives
 in conversations.py.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import request
@@ -15,9 +15,14 @@ from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
+    BulkRestoreRequest,
+    BulkRestoreResponse,
+    BulkTrashRequest,
+    BulkTrashResponse,
     ConversationsListPaginatedResponse,
     EmptyTrashResponse,
 )
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Conversation, User, db
@@ -114,3 +119,52 @@ def delete_conversation_permanently(user: User, conv_id: str) -> tuple[dict[str,
         extra={"user_id": user.id, "conversation_id": conv_id},
     )
     return {"status": "deleted"}, 200
+
+
+def _naive_local(moment: datetime) -> datetime:
+    """Conversation timestamps are stored as naive local time (datetime.now());
+    the browser sends UTC. Compare like with like."""
+    if moment.tzinfo is None:
+        return moment
+    return moment.astimezone().replace(tzinfo=None)
+
+
+@api.route("/conversations/bulk-trash", methods=["POST"])
+@api.output(BulkTrashResponse)
+@api.doc(responses=[400, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(BulkTrashRequest)
+def bulk_trash_conversations(user: User, data: BulkTrashRequest) -> dict[str, list[str]]:
+    """Move many conversations to the trash in one transaction (bulk delete)."""
+    # The schema guarantees created_before with all; the check narrows the type
+    if data.all and data.created_before is not None:
+        trashed = db.trash_all_conversations(
+            user.id,
+            exclude_ids=data.exclude_ids,
+            created_before=_naive_local(data.created_before),
+            extra_ids=data.ids,
+        )
+    else:
+        trashed = db.trash_conversations(user.id, data.ids)
+    logger.info(
+        "Conversations bulk trashed",
+        extra={"user_id": user.id, "count": len(trashed), "mode": "all" if data.all else "ids"},
+    )
+    return {"trashed_ids": trashed}
+
+
+@api.route("/conversations/bulk-restore", methods=["POST"])
+@api.output(BulkRestoreResponse)
+@api.doc(responses=[400, 429])
+@rate_limit_conversations
+@require_auth
+@validate_request(BulkRestoreRequest)
+def bulk_restore_conversations(user: User, data: BulkRestoreRequest) -> dict[str, list[str]]:
+    """Restore many conversations from the trash (Undo of a bulk delete)."""
+    restored = db.restore_conversations(user.id, data.ids)
+    logger.info(
+        "Conversations bulk restored",
+        extra={"user_id": user.id, "count": len(restored), "mode": "restore"},
+    )
+    return {"restored_ids": restored}

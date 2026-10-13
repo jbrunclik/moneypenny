@@ -1,6 +1,7 @@
 # Bulk Delete Conversations - Design
 
-Status: approved design, Oct 13 2026.
+Status: approved design, Oct 13 2026. Amended the same day during planning - see
+[Amendments](#amendments).
 
 ## Problem
 
@@ -49,13 +50,14 @@ entry point on mobile (it would compete with row swipe).
   pinned row by hand includes it.
 - A sticky **Move N to trash** button replaces the sidebar footer; disabled at N = 0.
 
-**Deleting.** No confirm modal. The selected rows disappear optimistically, selection
+**Deleting.** No confirm modal. While the request runs the button reads "Moving…" and
+is disabled; once the server confirms (as single delete does), the rows leave, selection
 mode closes, and a toast reads "Moved 23 chats to trash." with **Undo**. If the open
 chat was in the batch, the view switches to a new chat (as single delete does). Undo
 restores the batch with one call. After the toast is gone, the chats remain
 restorable one by one from the Trash view.
 
-**Failure.** On a request error the rows are restored, an error toast is shown, and
+**Failure.** On a request error nothing was removed: an error toast is shown and
 selection mode stays open with the selection intact so the user can retry.
 
 **Exiting.** Cancel, Escape (desktop), or a completed delete.
@@ -69,19 +71,22 @@ Schemas in `src/api/schemas/conversations.py`; client types regenerated with
 
 ### `POST /api/conversations/bulk-trash`
 
-Request body - exactly one of:
+Request body - one of:
 
 ```json
 { "ids": ["c1", "c2"] }
 ```
 
 ```json
-{ "all": true, "exclude_ids": ["c3"], "created_before": "2026-10-13T09:12:00+00:00" }
+{ "all": true, "exclude_ids": ["c3"], "ids": ["pinned-picked"], "created_before": "2026-10-13T09:12:00Z" }
 ```
 
+- Without `all`: `ids` is required and non-empty; `exclude_ids` / `created_before` are not allowed.
+- With `all`: `created_before` is required; `ids` (optional) are extra chats to trash too -
+  pinned chats ticked by hand.
 - `ids` and `exclude_ids` hold at most `CONVERSATIONS_BULK_MAX_IDS` entries.
-- `all` must be `true` when present, and `created_before` is required with it.
-- Any other shape (both forms, neither form, over the cap) is a 400 validation error.
+- Any other shape is a 400 validation error. An aware `created_before` is converted to
+  the server's naive local time (how `created_at` is stored) before comparing.
 
 Response: `{ "trashed_ids": [...] }` - only the rows this call changed. Unknown,
 foreign, already-trashed and non-trashable ids are skipped silently; the response is
@@ -89,7 +94,8 @@ the source of truth.
 
 Eligible rows: owned by the user, `deleted_at IS NULL`, and a regular chat (not
 `is_agent`, `is_planning`, `is_sports`, `is_language`). In `all` mode additionally:
-`pinned = 0`, `archived = 0`, `created_at < created_before`, and `id NOT IN exclude_ids`.
+`pinned = 0`, `archived = 0`, `created_at < created_before`, and `id NOT IN exclude_ids` -
+or the row is in `ids`.
 
 ### `POST /api/conversations/bulk-restore`
 
@@ -165,3 +171,17 @@ pinned count to the list response instead.
 - `docs/features/ui-features.md`: new "Bulk delete" subsection under Delete; bulk
   routes added to the Trash API table.
 - `CONVERSATIONS_BULK_MAX_IDS` documented on that page.
+
+## Amendments
+
+Made while planning against the code (Oct 13 2026):
+
+1. **Not optimistic.** Single delete removes rows only after the server confirms; bulk
+   delete matches it ("Moving…" while the request runs; on failure nothing was removed).
+2. **`ids` is allowed with `all`.** A pinned chat ticked by hand in select-all mode rides
+   in the same request.
+3. **Undo restores in chunks** of `CONVERSATIONS_BULK_MAX_IDS`: a select-all batch can
+   exceed the cap.
+4. **List `total_count` excludes sports and language chats** (it counted them though the
+   list never shows them). The select-all counter is `total_count` minus loaded pinned chats.
+5. **A streaming chat in the batch** gets no special handling - single delete does none.

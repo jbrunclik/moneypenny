@@ -268,6 +268,8 @@ class Config:
     FILE_RETENTION_DAYS: int = int(os.getenv("FILE_RETENTION_DAYS", "30"))  # PDFs, text, etc.
     # Deleted conversations stay restorable in the trash this long
     TRASH_RETENTION_DAYS: int = int(os.getenv("TRASH_RETENTION_DAYS", "14"))
+    # Most ids one bulk trash / restore request may carry (bulk delete in the sidebar)
+    CONVERSATIONS_BULK_MAX_IDS: int = int(os.getenv("CONVERSATIONS_BULK_MAX_IDS", "500"))
     MAX_FILES_PER_MESSAGE: int = int(os.getenv("MAX_FILES_PER_MESSAGE", "10"))
     DEFAULT_ALLOWED_FILE_TYPES: str = (
         "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,"

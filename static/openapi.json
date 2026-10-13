@@ -2612,6 +2612,47 @@
         "description": "Agent and program conversations (planner, sports, language) have no\ntrash view and are deleted immediately, as before."
       }
     },
+    "/api/conversations/bulk-trash": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTrashResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Move many conversations to the trash in one transaction (bulk delete)."
+      }
+    },
     "/api/ai-assist/parse-schedule": {
       "post": {
         "parameters": [],
@@ -2991,6 +3032,47 @@
           "KV Store"
         ],
         "summary": "Delete a key."
+      }
+    },
+    "/api/conversations/bulk-restore": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkRestoreResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Restore many conversations from the trash (Undo of a bulk delete)."
       }
     },
     "/api/messages/{message_id}/cost": {
@@ -10985,6 +11067,24 @@
         "title": "ConversationDetailPaginatedResponse",
         "type": "object"
       },
+      "BulkTrashResponse": {
+        "description": "Result of a bulk trash.",
+        "properties": {
+          "trashed_ids": {
+            "description": "Conversations this call moved to the trash",
+            "items": {
+              "type": "string"
+            },
+            "title": "Trashed Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "trashed_ids"
+        ],
+        "title": "BulkTrashResponse",
+        "type": "object"
+      },
       "ParseScheduleResponse": {
         "description": "Response from schedule parsing endpoint.",
         "properties": {
@@ -11184,6 +11284,24 @@
           "value"
         ],
         "title": "KVSetRequest",
+        "type": "object"
+      },
+      "BulkRestoreResponse": {
+        "description": "Result of a bulk restore.",
+        "properties": {
+          "restored_ids": {
+            "description": "Conversations this call restored",
+            "items": {
+              "type": "string"
+            },
+            "title": "Restored Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "restored_ids"
+        ],
+        "title": "BulkRestoreResponse",
         "type": "object"
       },
       "MessageCostResponse": {
@@ -12747,17 +12865,8 @@
             "type": "string"
           },
           "state": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
             "default": null,
-            "description": "State the artifact saved through the bridge (all versions)",
+            "description": "JSON value the artifact saved through the bridge (all versions)",
             "title": "State"
           }
         },
