@@ -1,8 +1,10 @@
 """Web tools for fetching URLs and searching the web."""
 
 import base64
+import codecs
 import contextvars
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from typing import Any
@@ -164,6 +166,26 @@ def _get_content_type_category(content_type: str) -> str:
     return "unsupported"
 
 
+_META_CHARSET = re.compile(rb"""<meta[^>]+charset\s*=\s*["']?([\w-]+)""", re.IGNORECASE)
+_META_SNIFF_BYTES = 4096
+
+
+def _sniffed_encoding(content: bytes) -> str:
+    """Encoding for a body whose header names none: its <meta charset>, else UTF-8.
+
+    Oct 2026: an old Czech page declared windows-1250 only in a meta tag and
+    httpx's UTF-8 fallback turned "Břve" into "B�ve" for the model.
+    """
+    match = _META_CHARSET.search(content[:_META_SNIFF_BYTES])
+    if match:
+        name = match.group(1).decode("ascii", "ignore")
+        try:
+            return codecs.lookup(name).name
+        except LookupError:
+            pass
+    return "utf-8"
+
+
 def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
     """Fetch a URL with SSRF validation and manual, re-validated redirects.
 
@@ -183,6 +205,7 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
             timeout=float(Config.TOOL_TIMEOUT),
             follow_redirects=False,
             transport=_SSRFSafeTransport(),
+            default_encoding=_sniffed_encoding,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
             },

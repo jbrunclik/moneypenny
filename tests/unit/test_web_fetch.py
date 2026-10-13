@@ -409,3 +409,49 @@ class TestFetchPageText:
         assert text is None
         assert error is not None
         assert "fetch_url" in error  # points the model at the right tool
+
+
+class TestPageEncoding:
+    """Oct 2026: an old Czech page declares windows-1250 only in a <meta> tag;
+    httpx fell back to UTF-8 and the model read "B�ve" for "Břve"."""
+
+    @pytest.fixture(autouse=True)
+    def _public_dns(self):
+        addrinfo = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 0))
+        ]
+        with patch("src.agent.tools.url_safety.socket.getaddrinfo", return_value=addrinfo):
+            yield
+
+    def _fetch(self, body: bytes, content_type: str) -> str:
+        from src.agent.tools.web import fetch_page_text
+
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, headers={"content-type": content_type}, content=body
+            )
+        )
+        with patch("src.agent.tools.web._SSRFSafeTransport", return_value=transport):
+            text, error = fetch_page_text("https://hostivice.cz/brve.htm")
+        assert error is None and text is not None
+        return text
+
+    def test_meta_charset_decodes_a_page_without_a_header_charset(self) -> None:
+        html = (
+            '<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1250">'
+            "</head><body><p>Vojenský areál na Břvích, Hostivice.</p></body></html>"
+        )
+
+        text = self._fetch(html.encode("cp1250"), "text/html")
+
+        assert "Vojenský areál na Břvích" in text
+
+    def test_the_header_charset_still_wins(self) -> None:
+        html = '<html><head><meta charset="windows-1250"></head><body><p>Břve</p></body></html>'
+
+        assert "Břve" in self._fetch(html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def test_utf8_is_the_fallback(self) -> None:
+        html = "<html><body><p>Břve</p></body></html>"
+
+        assert "Břve" in self._fetch(html.encode("utf-8"), "text/html")

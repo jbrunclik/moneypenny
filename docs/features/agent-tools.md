@@ -107,6 +107,10 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   and re-validates each hop, plus re-checks the host at connect time via an
   SSRF-safe transport. Residual DNS-rebinding risk is narrowed but not
   eliminated; network-level egress filtering is the complete control.
+- **Page encoding**: a page whose `Content-Type` names no charset is decoded
+  by its `<meta charset>` (`_sniffed_encoding` in
+  [web.py](../../src/agent/tools/web.py)), else UTF-8 - httpx's UTF-8
+  fallback turned an old windows-1250 Czech page into "B�ve" for the model.
 - **Untrusted content**: text from `fetch_url`/`browser` is wrapped in
   `[UNTRUSTED WEB CONTENT ...]` markers and `web_search` carries a `_warning`
   field; the system prompt instructs the model to treat all such content
