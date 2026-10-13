@@ -119,6 +119,14 @@ class Config:
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
+    # Languages a reply's `language` is detected among (langdetect profile codes,
+    # at least two). Each profile costs ~1 MB per worker; all 55 cost ~55 MB
+    LANGDETECT_LANGUAGES: list[str] = [
+        code.strip()
+        for code in os.getenv("LANGDETECT_LANGUAGES", "cs,en").split(",")
+        if code.strip()
+    ]
+
     # Worker memory profiling (opt-in; tracemalloc slows the worker and adds
     # memory per traced block): `kill -USR2 <worker pid>` dumps a snapshot
     MEMORY_PROFILE_ENABLED: bool = os.getenv("MEMORY_PROFILE_ENABLED", "false").lower() == "true"
@@ -925,6 +933,23 @@ class Config:
     RATE_LIMIT_FILES: str = os.getenv("RATE_LIMIT_FILES", "120 per minute")
 
     @classmethod
+    def _langdetect_language_errors(cls) -> list[str]:
+        from langdetect.detector_factory import PROFILES_DIRECTORY
+
+        if len(cls.LANGDETECT_LANGUAGES) < 2:
+            return ["LANGDETECT_LANGUAGES needs at least two language codes (e.g. cs,en)"]
+        unknown = [
+            code
+            for code in cls.LANGDETECT_LANGUAGES
+            if not (Path(PROFILES_DIRECTORY) / code).is_file()
+        ]
+        if unknown:
+            return [
+                f"LANGDETECT_LANGUAGES has codes with no langdetect profile: {', '.join(unknown)}"
+            ]
+        return []
+
+    @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""
         errors: list[str] = []
@@ -960,6 +985,8 @@ class Config:
                     f"JWT_SECRET_KEY must be at least 32 characters for security (got {len(cls.JWT_SECRET_KEY)}). "
                     'Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
+
+        errors.extend(cls._langdetect_language_errors())
 
         # Validate numeric ranges
         if cls.PORT < 1 or cls.PORT > 65535:

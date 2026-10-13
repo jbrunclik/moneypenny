@@ -65,6 +65,16 @@ The `getTextContentForTTS()` function excludes from reading:
 - Click stop button to stop reading - button transforms back to speaker icon
 - Starting a new message's speech automatically stops the current one
 
+### Detected Languages
+
+The reply's `language` is detected only among `LANGDETECT_LANGUAGES` (default
+`cs,en`; langdetect profile codes, at least two, checked at startup). Text in
+any other language comes back as the closest configured one, so its voice is
+wrong - add the code when a new language is in real use. Each profile costs
+~1 MB per worker; langdetect's own `detect()` loads all 55 (~55 MB per worker,
+found by the Oct 2026 memory profiling), which is why `detect_response_language`
+builds its own factory.
+
 ### Language Migration
 
 For existing messages without language data:

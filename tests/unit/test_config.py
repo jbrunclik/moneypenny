@@ -282,3 +282,26 @@ def reset_config_after_test() -> None:
     import src.config
 
     reload(src.config)
+
+
+class TestLangdetectLanguages:
+    """LANGDETECT_LANGUAGES must name at least two shipped langdetect profiles."""
+
+    def test_default_is_valid(self) -> None:
+        from src.config import Config
+
+        assert not [e for e in Config.validate() if "LANGDETECT_LANGUAGES" in e]
+
+    def test_unknown_code_is_rejected(self) -> None:
+        from src.config import Config
+
+        with patch.object(Config, "LANGDETECT_LANGUAGES", ["cs", "xx"]):
+            errors = Config.validate()
+        assert any("LANGDETECT_LANGUAGES" in e and "xx" in e for e in errors)
+
+    def test_single_language_is_rejected(self) -> None:
+        from src.config import Config
+
+        with patch.object(Config, "LANGDETECT_LANGUAGES", ["cs"]):
+            errors = Config.validate()
+        assert any("LANGDETECT_LANGUAGES" in e for e in errors)

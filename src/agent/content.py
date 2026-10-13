@@ -4,12 +4,16 @@ This module handles extracting text, thinking content, and structured metadata
 from various response formats (strings, dicts, lists).
 """
 
+import functools
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
+from langdetect.detector_factory import PROFILES_DIRECTORY, DetectorFactory
 
+from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -187,6 +191,19 @@ def strip_full_result_from_tool_content(content: str) -> str:
 # performs its own writes and reports the outcome to the model.
 
 
+@functools.cache
+def _language_factory(languages: tuple[str, ...]) -> DetectorFactory:
+    """A langdetect factory holding only `languages`' profiles, built once per worker.
+
+    langdetect's own `detect` loads all 55 profiles (~55 MB per worker).
+    """
+    factory = DetectorFactory()
+    factory.load_json_profile(
+        [(Path(PROFILES_DIRECTORY) / code).read_text(encoding="utf-8") for code in languages]
+    )
+    return factory
+
+
 def detect_response_language(text: str) -> str | None:
     """Detect the language of a response using langdetect.
 
@@ -200,9 +217,9 @@ def detect_response_language(text: str) -> str | None:
         return None
 
     try:
-        from langdetect import detect
-
-        lang = detect(text)
+        detector = _language_factory(tuple(Config.LANGDETECT_LANGUAGES)).create()
+        detector.append(text)
+        lang = detector.detect()
         # langdetect returns codes like "en", "cs", "zh-cn" etc.
         # Normalize to 2-char ISO 639-1
         return str(lang).lower().split("-")[0][:2]

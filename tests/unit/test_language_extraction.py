@@ -1,5 +1,8 @@
 """Unit tests for language detection from response content."""
 
+from unittest.mock import patch
+
+from src.agent import content
 from src.agent.content import detect_response_language
 
 
@@ -29,12 +32,25 @@ class TestDetectResponseLanguage:
         )
         assert result == "cs"
 
-    def test_detects_german(self) -> None:
-        """Should detect German text correctly."""
-        result = detect_response_language(
-            "Dies ist ein längerer deutscher Satz, der korrekt erkannt werden sollte."
-        )
+    def test_detects_a_configured_extra_language(self) -> None:
+        """German is detected once it is in LANGDETECT_LANGUAGES."""
+        with patch.object(content.Config, "LANGDETECT_LANGUAGES", ["cs", "en", "de"]):
+            result = detect_response_language(
+                "Dies ist ein längerer deutscher Satz, der korrekt erkannt werden sollte."
+            )
         assert result == "de"
+
+    def test_unconfigured_language_maps_to_a_configured_one(self) -> None:
+        """Only the configured profiles compete, so German text cannot come back as de."""
+        with patch.object(content.Config, "LANGDETECT_LANGUAGES", ["cs", "en"]):
+            result = detect_response_language(
+                "Dies ist ein längerer deutscher Satz, der korrekt erkannt werden sollte."
+            )
+        assert result in ("cs", "en")
+
+    def test_loads_only_the_configured_profiles(self) -> None:
+        """All 55 profiles cost ~55 MB per worker; load just the configured ones."""
+        assert content._language_factory(("cs", "en")).get_lang_list() == ["cs", "en"]
 
     def test_returns_two_char_code(self) -> None:
         """Should return ISO 639-1 (2-char) language codes."""
