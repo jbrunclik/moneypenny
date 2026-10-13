@@ -55,6 +55,8 @@ def _now() -> datetime:
 # check_tool_results (graph.py) sends its round nudges, retries and
 # interjections as HumanMessages in cached mode, wrapped in this marker
 _GUIDANCE_MARKER = "[SYSTEM GUIDANCE]"
+# A delegated subagent's answer is checked as unnumbered evidence (source_pages)
+_NOT_KNOWN_TOOLS = WEB_TOOL_NAMES | {"delegate_task"}
 
 
 def _is_user_message(msg: BaseMessage) -> bool:
@@ -72,7 +74,11 @@ def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
     for msg in reversed(result_messages):
         if _is_user_message(msg):
             break  # history holds no ToolMessages, but stop at this turn anyway
-        if not isinstance(msg, ToolMessage) or msg.name in WEB_TOOL_NAMES or msg.status == "error":
+        if (
+            not isinstance(msg, ToolMessage)
+            or msg.name in _NOT_KNOWN_TOOLS
+            or msg.status == "error"
+        ):
             continue
         text = extract_text_content(msg.content).strip()
         remaining = _KNOWN_TOOL_TEXT_MAX_CHARS - total

@@ -160,3 +160,20 @@ def test_over_ten_pages_keeps_the_newest() -> None:
     urls = [p.url for p in turn_pages(messages)]
     assert len(urls) == 10
     assert urls[-1] == "https://target.cz" and "https://p0.cz" not in urls
+
+
+def test_a_delegated_result_is_checked_not_known() -> None:
+    """The subagent's answer went to KNOWN ("never list"), so its claims were
+    never checked - and as escaped JSON. It is now unnumbered evidence."""
+    from src.agent.grounding_check import known_facts
+
+    payload = json.dumps(
+        {
+            "result": "Bistro Alfa má polévku za 89 Kč.",
+            "sources": [{"title": "Bistro Alfa", "url": "https://alfa.cz"}],
+        }
+    )
+    messages = [_call("delegate_task", "d1"), _result("delegate_task", "d1", payload)]
+
+    assert "Bistro Alfa má polévku za 89 Kč." in uncited_web_text(messages)
+    assert "89 Kč" not in known_facts(messages)

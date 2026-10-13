@@ -117,7 +117,11 @@ def _read_and_searched(
                     page = _page(source, str(source.get("content") or ""))
                     if page:
                         read.append(page)
-            if name != "delegate_task":
+            if name == "delegate_task":
+                # The subagent's answer is evidence to check against, not KNOWN
+                if data.get("result"):
+                    loose.append(str(data["result"]))
+            else:
                 searched.append(_research_snippets(data))
         elif name == "fetch_url":
             url = args.get("url")

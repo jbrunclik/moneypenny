@@ -31,7 +31,9 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `unfetched` candidates) count as search results: the model reads them too,
   and a turn whose fetches mostly failed (403/429) otherwise had its products
   flagged as unsourced. `uncited_web_text()` is web text the verifier may use but
-  cannot cite (search snippets when pages were read, unparsed web output).
+  cannot cite (search snippets when pages were read, unparsed web output, a
+  `delegate_task` subagent's answer - which used to sit in KNOWN, exempt
+  from the check).
   It also gets the claims **earlier replies** had verified (`earlier_verified()`:
   quote, page title and URL, and the page's quote, from the history's
   `verified_claims` metadata, which the chat model does not see). Before this,
