@@ -937,6 +937,20 @@
     display: none;
 }
 
+/* No action buttons to make room for while selecting: hover keeps the
+   row as it is (timestamp, unread badge, full title width) */
+.sidebar.selecting .conversation-item:hover .conversation-time {
+    display: inline;
+}
+
+.sidebar.selecting .conversation-item:hover .unread-badge {
+    display: inline-flex;
+}
+
+.sidebar.selecting .conversation-item:hover .conversation-text {
+    margin-right: 0;
+}
+
 .conversation-select {
     flex-shrink: 0;
     width: 20px;

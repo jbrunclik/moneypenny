@@ -212,6 +212,31 @@ The sidebar displays a list of conversations with hover actions for rename and d
   conversation to the trash? You can restore it for 14 days.", and a "Moved to trash." toast offers **Undo**
 - Cost data is intentionally preserved after deletion for accurate reporting
 
+### Bulk delete
+
+Clearing out many chats at once, without a confirm per chat (they stay restorable in the
+[trash](#trash)).
+
+- **Entering**: user menu → **Select chats**. The sidebar header and footer give way to a
+  selection bar (**Cancel** · "N selected" · **Select all**) and a **Move N to trash** button;
+  the nav entries, search box, hover actions and swipe are hidden while selecting.
+- **Picking**: tapping or clicking a row ticks it instead of opening it.
+- **Select all** selects every unpinned chat in the main list, including pages not loaded yet,
+  resolved server-side. Unticking a row excludes it; a pinned chat counts only when ticked by
+  hand. The count is the list's `total_count` minus loaded pinned chats (all pinned chats load
+  up front), minus exclusions. Chats created after **Select all** was pressed (on another
+  device) are never swept up: the request carries `created_before`.
+- **Deleting**: no confirm. The button reads "Moving…" while the one request runs; once the
+  server confirms, the rows leave, selection mode closes, and a "Moved N chats to trash." toast
+  offers one **Undo** for the batch (restored in chunks of `CONVERSATIONS_BULK_MAX_IDS`; chats
+  from unloaded pages come back through sync). On failure nothing is removed and the selection
+  stays for a retry.
+- **Exiting**: Cancel, Escape, or a completed delete.
+- Code: selection state in [selection.ts](../../web/src/state/slices/selection.ts), UI in
+  [SidebarSelection.ts](../../web/src/components/SidebarSelection.ts), actions
+  `bulkDeleteConversations` ([conversation-actions.ts](../../web/src/core/conversation-actions.ts))
+  and `restoreConversations` ([core/trash.ts](../../web/src/core/trash.ts)).
+
 ### Trash
 
 Regular chats are soft-deleted: `DELETE /api/conversations/<id>` sets `conversations.deleted_at`
@@ -235,6 +260,7 @@ alone on trash/restore (search filters at query time), so restore needs no reind
 | `list_trashed_conversations_paginated()` | Most recently deleted first, cursor-paginated |
 | `delete_trashed_conversation()` / `empty_trash()` | Permanent delete of one / all trashed rows (rows, then blobs) |
 | `purge_trashed_conversations(retention_days)` | Deletes rows trashed longer ago than the retention window |
+| `trash_conversations()` / `trash_all_conversations()` / `restore_conversations()` | [Bulk delete](#bulk-delete): one `BEGIN IMMEDIATE` transaction each, return the ids changed; only regular chats (not agent / planner / sports / language) |
 
 **API** - [conversation_trash.py](../../src/api/routes/conversation_trash.py), on the shared `Conversations` blueprint:
 
@@ -244,6 +270,8 @@ alone on trash/restore (search filters at query time), so restore needs no reind
 | `POST /api/conversations/<id>/restore` | Restore (404 if not in the trash) |
 | `DELETE /api/conversations/<id>/permanent` | Delete one trashed conversation forever |
 | `DELETE /api/conversations/trash` | Empty the trash; returns `{"deleted": n}` |
+| `POST /api/conversations/bulk-trash` | Bulk delete: `{"ids": [...]}`, or `{"all": true, "exclude_ids": [...], "ids": [...], "created_before": ts}`; returns `{"trashed_ids": [...]}` |
+| `POST /api/conversations/bulk-restore` | Undo of a bulk delete: `{"ids": [...]}`; returns `{"restored_ids": [...]}` |
 
 **Purge**: the daily file-cleanup sweep (`cleanup_expired_files()` in
 [file_retention.py](../../src/utils/file_retention.py)) also calls `purge_trashed_conversations()`, reported
@@ -252,6 +280,7 @@ as `conversations_purged`. It runs on a timer in production and via the dev sche
 
 ```bash
 TRASH_RETENTION_DAYS=14   # days a deleted conversation stays restorable
+CONVERSATIONS_BULK_MAX_IDS=500   # most ids one bulk trash / restore request may carry
 ```
 
 **Frontend**: the user menu has a **Trash** entry with a count (hidden while the trash is empty); it opens a sidebar full-view like the archive

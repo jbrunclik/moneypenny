@@ -41,6 +41,27 @@ test.describe('Visual: Mobile iPhone', () => {
     });
   });
 
+  test('mobile sidebar in selection mode', async ({ page, request }) => {
+    await request.post('/test/seed', {
+      data: {
+        conversations: ['Trip ideas', 'Grocery list', 'Homework help'].map((title) => ({
+          title,
+          messages: [{ role: 'user', content: 'Hi' }, { role: 'assistant', content: 'Hello!' }],
+        })),
+      },
+    });
+    await page.goto('/');
+    await page.click('#menu-btn');
+    await page.waitForSelector('.sidebar-overlay.visible');
+    await expect(page.locator('#conversations-list .conversation-item')).toHaveCount(3);
+    await page.click('#user-menu-btn');
+    await page.click('#select-chats-btn');
+    await page.locator('#conversations-list .conversation-item').first().click();
+    await page.waitForTimeout(300);
+
+    await expect(page).toHaveScreenshot('mobile-sidebar-selection.png', { fullPage: true });
+  });
+
   test('mobile with conversation', async ({ page }) => {
     await page.goto('/');
     await createNewConversation(page);
