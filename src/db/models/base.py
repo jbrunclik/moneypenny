@@ -67,13 +67,21 @@ class DatabaseBase:
         backend = get_backend(f"sqlite:///{self.db_path}")
         migrations = read_migrations(str(MIGRATIONS_DIR))
         try:
-            with backend.lock():
-                migrations_to_apply = backend.to_apply(migrations)
-                if migrations_to_apply:
-                    logger.info(
-                        "Applying database migrations", extra={"count": len(migrations_to_apply)}
-                    )
-                backend.apply_migrations(migrations_to_apply)
+            # Lock only when something is pending: every process that opens
+            # the database (web workers, scheduler timers) ran this, and a run
+            # that died while SQLite was busy left yoyo's lock row behind -
+            # the next deploy's workers then crash-looped on LockTimeout
+            # (Oct 13 2026). Re-checked under the lock, so two processes never
+            # apply the same migration.
+            if backend.to_apply(migrations):
+                with backend.lock():
+                    migrations_to_apply = backend.to_apply(migrations)
+                    if migrations_to_apply:
+                        logger.info(
+                            "Applying database migrations",
+                            extra={"count": len(migrations_to_apply)},
+                        )
+                    backend.apply_migrations(migrations_to_apply)
             # Switch the file to WAL once, here, while nothing else holds it.
             # The pool sets WAL on every new connection too, but two first
             # connections switching a fresh rollback-journal file at the same

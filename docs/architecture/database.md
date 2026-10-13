@@ -238,6 +238,16 @@ At startup, the application verifies database connectivity before starting the F
 - **Database locked**: Indicates another process is using it
 - **Disk I/O errors**: Suggests checking disk health
 
+### Migration lock
+
+Every process that opens the database (web workers, scheduler timers, scripts) runs
+`Database._init_db`. It takes yoyo's migration lock (a `yoyo_lock` row) **only when a
+migration is pending**, and re-checks under the lock. Before Oct 13 2026 it locked on every
+start: a scheduler run that died while SQLite was busy left the row behind, and the next
+deploy's workers crash-looped on `LockTimeout`. If that ever recurs (`yoyo_lock` holds a pid
+that no longer runs, and `_yoyo_migration` has the newest migration), clear it with
+`.venv/bin/yoyo break-lock --batch --database sqlite:///chatbot.db` and restart the service.
+
 ### Key Files
 
 - [models/helpers.py](../../src/db/models/helpers.py) - `check_database_connectivity()`
