@@ -32,6 +32,18 @@ _TRASH_LIST_SELECT = """SELECT c.id, c.user_id, c.title, c.model, c.created_at, 
                    LEFT JOIN messages m ON m.conversation_id = c.id
                    WHERE c.user_id = ? AND c.deleted_at IS NOT NULL"""
 
+# Rows the chat list shows and bulk delete may trash: regular, live chats.
+# Agent / planner / sports / language chats are owned by their feature.
+_TRASHABLE_WHERE = """user_id = ? AND deleted_at IS NULL
+    AND (is_agent = 0 OR is_agent IS NULL)
+    AND (is_planning = 0 OR is_planning IS NULL)
+    AND (is_sports = 0 OR is_sports IS NULL)
+    AND (is_language = 0 OR is_language IS NULL)"""
+
+
+def _placeholders(values: list[str]) -> str:
+    return ",".join("?" * len(values))
+
 
 class ConversationTrashMixin:
     """Mixin providing conversation trash, restore and purge operations."""
@@ -89,6 +101,71 @@ class ConversationTrashMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def trash_conversations(self, user_id: str, ids: list[str]) -> list[str]:
+        """Move the eligible rows among ids to the trash; returns the ids trashed."""
+        if not ids:
+            return []
+        where = f"{_TRASHABLE_WHERE} AND id IN ({_placeholders(ids)})"
+        return self._trash_where(where, (user_id, *ids))
+
+    def trash_all_conversations(
+        self,
+        user_id: str,
+        exclude_ids: list[str],
+        created_before: datetime,
+        extra_ids: list[str],
+    ) -> list[str]:
+        """Trash every unpinned main-list chat created before created_before,
+        except exclude_ids, plus the eligible extra_ids (pinned chats picked by
+        hand). created_before stops a chat started on another device after the
+        user pressed Select all from being swept up."""
+        all_set = f"""(pinned = 0 OR pinned IS NULL) AND (archived = 0 OR archived IS NULL)
+            AND created_at < ? AND id NOT IN ({_placeholders(exclude_ids)})"""
+        where = f"{_TRASHABLE_WHERE} AND (({all_set}) OR id IN ({_placeholders(extra_ids)}))"
+        params = (user_id, created_before.isoformat(), *exclude_ids, *extra_ids)
+        return self._trash_where(where, params)
+
+    def restore_conversations(self, user_id: str, ids: list[str]) -> list[str]:
+        """Take the user's trashed rows among ids out of the trash; returns them."""
+        if not ids:
+            return []
+        now = datetime.now().isoformat()
+        where = f"user_id = ? AND deleted_at IS NOT NULL AND id IN ({_placeholders(ids)})"
+        return self._update_where(
+            where, (user_id, *ids), "deleted_at = NULL, updated_at = ?", (now,)
+        )
+
+    def _trash_where(self, where: str, params: tuple[Any, ...]) -> list[str]:
+        now = datetime.now().isoformat()
+        return self._update_where(where, params, "deleted_at = ?, updated_at = ?", (now, now))
+
+    def _update_where(
+        self,
+        where: str,
+        params: tuple[Any, ...],
+        set_clause: str,
+        set_params: tuple[Any, ...],
+    ) -> list[str]:
+        """SELECT the matching ids, then UPDATE the same rows, under one write
+        lock (BEGIN IMMEDIATE) so a concurrent change cannot slip between."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(conn, "BEGIN IMMEDIATE")
+            try:
+                rows = self._execute_with_timing(
+                    conn, f"SELECT id FROM conversations WHERE {where}", params
+                ).fetchall()
+                if rows:
+                    self._execute_with_timing(
+                        conn,
+                        f"UPDATE conversations SET {set_clause} WHERE {where}",
+                        (*set_params, *params),
+                    )
+            except BaseException:
+                conn.rollback()
+                raise
+            conn.commit()
+        return [row["id"] for row in rows]
 
     def list_trashed_conversations_paginated(
         self,

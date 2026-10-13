@@ -219,3 +219,118 @@ class TestTrashedHiddenEverywhere:
         msg = test_database.add_message(conv.id, "user", "remember me")
         test_database.trash_conversation(conv.id, test_user.id)
         assert test_database.get_message_rows_for_ids(test_user.id, [msg.id]) == []
+
+
+def _set_column(db: Database, conv_id: str, column: str, value: object) -> None:
+    with db._pool.get_connection() as conn:
+        conn.execute(f"UPDATE conversations SET {column} = ? WHERE id = ?", (value, conv_id))
+        conn.commit()
+
+
+class TestBulkTrash:
+    def test_trash_conversations_trashes_only_eligible_own_rows(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        a = test_database.create_conversation(test_user.id, "A")
+        b = test_database.create_conversation(test_user.id, "B")
+        agent = test_database.create_conversation(test_user.id, "Agent")
+        _set_column(test_database, agent.id, "is_agent", 1)
+        foreign = test_database.create_conversation(other.id, "Foreign")
+
+        trashed = test_database.trash_conversations(
+            test_user.id, [a.id, b.id, agent.id, foreign.id, "missing"]
+        )
+
+        assert sorted(trashed) == sorted([a.id, b.id])
+        assert test_database.get_conversation(agent.id, test_user.id) is not None
+        assert test_database.get_conversation(foreign.id, other.id) is not None
+
+    def test_trash_conversations_skips_already_trashed(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        conv = test_database.create_conversation(test_user.id, "Once")
+        earlier = datetime.now() - timedelta(days=3)
+        test_database.trash_conversation(conv.id, test_user.id)
+        _set_deleted_at(test_database, conv.id, earlier)
+
+        assert test_database.trash_conversations(test_user.id, [conv.id]) == []
+        rows, _, _, _ = test_database.list_trashed_conversations_paginated(test_user.id)
+        assert rows[0][0].deleted_at == earlier
+
+    def test_trash_conversations_empty_list_is_noop(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        assert test_database.trash_conversations(test_user.id, []) == []
+
+    def test_trash_all_skips_pinned_archived_excluded_special_and_new(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        cutoff = datetime.now()
+        plain = test_database.create_conversation(test_user.id, "Plain")
+        excluded = test_database.create_conversation(test_user.id, "Excluded")
+        pinned = test_database.create_conversation(test_user.id, "Pinned")
+        test_database.set_conversation_pinned(pinned.id, test_user.id, True)
+        archived = test_database.create_conversation(test_user.id, "Archived")
+        test_database.archive_conversation(archived.id, test_user.id)
+        sports = test_database.create_conversation(test_user.id, "Sports")
+        _set_column(test_database, sports.id, "is_sports", 1)
+        newer = test_database.create_conversation(test_user.id, "Newer")
+        for conv in (plain, excluded, pinned, archived, sports):
+            _set_column(
+                test_database, conv.id, "created_at", (cutoff - timedelta(hours=1)).isoformat()
+            )
+        _set_column(
+            test_database, newer.id, "created_at", (cutoff + timedelta(hours=1)).isoformat()
+        )
+
+        trashed = test_database.trash_all_conversations(
+            test_user.id, exclude_ids=[excluded.id], created_before=cutoff, extra_ids=[]
+        )
+
+        assert trashed == [plain.id]
+
+    def test_trash_all_includes_hand_picked_pinned(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        cutoff = datetime.now() + timedelta(seconds=1)
+        pinned = test_database.create_conversation(test_user.id, "Pinned")
+        test_database.set_conversation_pinned(pinned.id, test_user.id, True)
+
+        trashed = test_database.trash_all_conversations(
+            test_user.id, exclude_ids=[], created_before=cutoff, extra_ids=[pinned.id]
+        )
+
+        assert trashed == [pinned.id]
+
+    def test_trash_all_is_scoped_to_user(self, test_database: Database, test_user: User) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        foreign = test_database.create_conversation(other.id, "Foreign")
+        cutoff = datetime.now() + timedelta(seconds=1)
+
+        assert (
+            test_database.trash_all_conversations(
+                test_user.id, exclude_ids=[], created_before=cutoff, extra_ids=[foreign.id]
+            )
+            == []
+        )
+
+
+class TestBulkRestore:
+    def test_restore_conversations_returns_only_trashed_own_rows(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        trashed = test_database.create_conversation(test_user.id, "Trashed")
+        live = test_database.create_conversation(test_user.id, "Live")
+        foreign = test_database.create_conversation(other.id, "Foreign")
+        test_database.trash_conversation(trashed.id, test_user.id)
+        test_database.trash_conversation(foreign.id, other.id)
+
+        restored = test_database.restore_conversations(
+            test_user.id, [trashed.id, live.id, foreign.id]
+        )
+
+        assert restored == [trashed.id]
+        assert test_database.get_conversation(trashed.id, test_user.id) is not None
+        assert test_database.get_conversation(foreign.id, other.id) is None

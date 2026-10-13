@@ -48,6 +48,8 @@ class TestChangeLog:
             "pin",
             "trash",
             "restore",
+            "bulk_trash",
+            "bulk_restore",
             "anonymous",
             "delete_message",
             "edit_message",
@@ -61,7 +63,7 @@ class TestChangeLog:
         msg = db.add_message(conv.id, MessageRole.USER, "hi")
         if write == "unarchive":
             db.archive_conversation(conv.id, test_user.id)
-        if write == "restore":
+        if write in ("restore", "bulk_restore"):
             db.trash_conversation(conv.id, test_user.id)
 
         writes: dict[str, Callable[[], object]] = {
@@ -72,6 +74,8 @@ class TestChangeLog:
             "pin": lambda: db.set_conversation_pinned(conv.id, test_user.id, True),
             "trash": lambda: db.trash_conversation(conv.id, test_user.id),
             "restore": lambda: db.restore_conversation(conv.id, test_user.id),
+            "bulk_trash": lambda: db.trash_conversations(test_user.id, [conv.id]),
+            "bulk_restore": lambda: db.restore_conversations(test_user.id, [conv.id]),
             "anonymous": lambda: db.set_conversation_anonymous_mode(conv.id, test_user.id, True),
             "delete_message": lambda: db.delete_message(msg.id, test_user.id),
             "edit_message": lambda: db.update_message_content(msg.id, "edited"),
