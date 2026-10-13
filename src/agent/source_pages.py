@@ -82,6 +82,19 @@ def _page(item: dict[str, Any], text: str) -> SourcePage | None:
     return SourcePage(str(item.get("title") or _title_from_url(url)), url, text)
 
 
+def _research_snippets(data: dict[str, Any]) -> list[SourcePage]:
+    """research's snippet-only results: failed fetches, then unfetched candidates.
+
+    The model reads these too. Oct 2026: 3 of 5 fetches failed (403/429),
+    among them a "complete Gyeon product guide", and the verifier - seeing
+    only the 2 read pages, both about one rim coating - flagged every other
+    Gyeon product in the answer as unsourced.
+    """
+    items = [s for s in data.get("sources") or [] if isinstance(s, dict) and "content" not in s]
+    items += [u for u in data.get("unfetched") or [] if isinstance(u, dict)]
+    return [p for item in items if (p := _page(item, str(item.get("snippet") or "")))]
+
+
 def _read_and_searched(
     messages: list[BaseMessage],
 ) -> tuple[list[SourcePage], list[list[SourcePage]], list[str]]:
@@ -104,6 +117,8 @@ def _read_and_searched(
                     page = _page(source, str(source.get("content") or ""))
                     if page:
                         read.append(page)
+            if name != "delegate_task":
+                searched.append(_research_snippets(data))
         elif name == "fetch_url":
             url = args.get("url")
             failed = data is not None and bool(data.get("error"))

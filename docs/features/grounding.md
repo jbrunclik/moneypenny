@@ -26,7 +26,10 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   the verifier, so claim source `[2]` is popup entry 2: pages the turn read
   (research pages with content, successful `fetch_url`, `browser` pages,
   `delegate_task` sources; at most 10), else the top 5 search results
-  rank-interleaved. `uncited_web_text()` is web text the verifier may use but
+  rank-interleaved. `research`'s snippet-only results (failed fetches, then
+  `unfetched` candidates) count as search results: the model reads them too,
+  and a turn whose fetches mostly failed (403/429) otherwise had its products
+  flagged as unsourced. `uncited_web_text()` is web text the verifier may use but
   cannot cite (search snippets when pages were read, unparsed web output).
   It also gets the claims **earlier replies** had verified (`earlier_verified()`:
   quote, page title and URL, and the page's quote, from the history's

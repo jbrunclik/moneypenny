@@ -85,3 +85,49 @@ def test_unparsed_web_tool_text_is_uncited() -> None:
 
     assert turn_pages(messages) == []
     assert uncited_web_text(messages) == "Kolo stojí 32 990 Kč u Bike Prague."
+
+
+def _research_with_snippets() -> str:
+    """Oct 2026 Gyeon turn: one page read, one fetch 429'd, one candidate unfetched."""
+    return json.dumps(
+        {
+            "sources": [
+                {"title": "Rim EVO", "url": "https://shop.cz/rim", "content": "Q2 Rim EVO 30 ml"},
+                {
+                    "title": "Gyeon guide",
+                    "url": "https://guide.com/gyeon",
+                    "snippet": "Every Gyeon product: Q2M WetCoat, Q2 CanCoat EVO",
+                    "error": "HTTP 429",
+                },
+            ],
+            "unfetched": [
+                {"title": "Bike", "url": "https://bike.org", "snippet": "WetCoat on a bike frame"}
+            ],
+        }
+    )
+
+
+def test_research_snippets_inform_the_verifier_uncited() -> None:
+    # The model reads research's snippets too; the verifier used to see only
+    # the fetched pages and flagged products named in the snippets
+    messages = [_call("research", "r1"), _result("research", "r1", _research_with_snippets())]
+
+    assert [p.url for p in turn_pages(messages)] == ["https://shop.cz/rim"]
+    uncited = uncited_web_text(messages)
+    assert "Every Gyeon product: Q2M WetCoat, Q2 CanCoat EVO" in uncited
+    assert "WetCoat on a bike frame" in uncited
+
+
+def test_research_snippets_are_pages_when_no_fetch_succeeded() -> None:
+    data = json.loads(_research_with_snippets())
+    data["sources"] = data["sources"][1:]
+    messages = [_call("research", "r1"), _result("research", "r1", json.dumps(data))]
+
+    assert turn_pages(messages) == [
+        SourcePage(
+            "Gyeon guide",
+            "https://guide.com/gyeon",
+            "Every Gyeon product: Q2M WetCoat, Q2 CanCoat EVO",
+        ),
+        SourcePage("Bike", "https://bike.org", "WetCoat on a bike frame"),
+    ]
