@@ -284,7 +284,8 @@ CONVERSATIONS_BULK_MAX_IDS=500   # most ids one bulk trash / restore request may
 ```
 
 **Frontend**: the user menu has a **Trash** entry with a count (hidden while the trash is empty); it opens a sidebar full-view like the archive
-(`#/trash` deep link) with per-row Restore / Delete forever, "N days left" labels, and Empty trash.
+(`#/trash` deep link) with per-row Restore / Delete forever, "N days left" labels, and Empty trash
+(disabled, reading "Emptying…", while the request runs - repeated taps used to start a purge each).
 State lives in the trash slice ([trash.ts](../../web/src/state/slices/trash.ts)), actions in
 [core/trash.ts](../../web/src/core/trash.ts), rendering in [TrashView.ts](../../web/src/components/TrashView.ts).
 

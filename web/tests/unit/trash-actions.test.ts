@@ -230,6 +230,24 @@ describe('emptyTrash', () => {
     expect(useStore.getState().trashPagination.totalCount).toBe(0);
   });
 
+  it('ignores taps while emptying (no second confirm or request)', async () => {
+    // A big trash took minutes; tapping Empty 8x started 8 purges (Oct 13 2026)
+    useStore.setState({ trashedConversations: [conv('a')], isEmptyingTrash: false });
+    let finish: (n: number) => void = () => {};
+    api.emptyTrash.mockReturnValue(new Promise<number>((r) => (finish = r)));
+
+    const first = emptyTrash();
+    await vi.waitFor(() => expect(api.emptyTrash).toHaveBeenCalledTimes(1));
+    expect(useStore.getState().isEmptyingTrash).toBe(true);
+    await emptyTrash();
+    finish(1);
+    await first;
+
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(api.emptyTrash).toHaveBeenCalledTimes(1);
+    expect(useStore.getState().isEmptyingTrash).toBe(false);
+  });
+
   it('does nothing when cancelled', async () => {
     useStore.setState({ trashedConversations: [conv('a')] });
     confirmMock.mockResolvedValue(false);

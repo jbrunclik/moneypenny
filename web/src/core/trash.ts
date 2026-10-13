@@ -130,6 +130,8 @@ export async function deleteConversationForever(convId: string): Promise<void> {
  * Permanently delete everything in the trash (after confirmation).
  */
 export async function emptyTrash(): Promise<void> {
+  // A big trash takes a while: repeated taps started a purge each
+  if (useStore.getState().isEmptyingTrash) return;
   const confirmed = await showConfirm({
     title: 'Empty trash',
     message: 'Permanently delete all conversations in the trash? This cannot be undone.',
@@ -137,15 +139,19 @@ export async function emptyTrash(): Promise<void> {
     cancelLabel: 'Cancel',
     danger: true,
   });
-  if (!confirmed) return;
+  if (!confirmed || useStore.getState().isEmptyingTrash) return;
 
+  useStore.getState().setEmptyingTrash(true);
+  renderConversationsList();
   try {
     await conversations.emptyTrash();
     useStore.getState().clearTrash();
-    renderConversationsList();
   } catch (error) {
     log.error('Failed to empty trash', { error });
     toast.error('Failed to empty trash.');
+  } finally {
+    useStore.getState().setEmptyingTrash(false);
+    renderConversationsList();
   }
 }
 

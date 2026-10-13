@@ -79,9 +79,11 @@ function renderTrashedConversationItem(conv: Conversation): string {
 }
 
 function renderTrashHeader(totalCount: number, hasItems: boolean): string {
-  const emptyBtn = hasItems
-    ? '<button class="trash-empty-btn" data-empty-trash>Empty</button>'
-    : '';
+  const emptyBtn = !hasItems
+    ? ''
+    : useStore.getState().isEmptyingTrash
+      ? '<button class="trash-empty-btn" data-empty-trash disabled>Emptying…</button>'
+      : '<button class="trash-empty-btn" data-empty-trash>Empty</button>';
   return `
     <div class="archive-view-header trash-view-header">
       <button class="archive-back-btn" data-trash-back aria-label="Back to conversations">

@@ -60,6 +60,17 @@ describe('renderTrashView', () => {
     expect(container.querySelector('.trash-days-left')?.textContent).toMatch(/days left/);
   });
 
+  it('shows a disabled Emptying… button while the trash is being emptied', () => {
+    setTrash([trashed('c1', 'Gone', '2099-01-01T00:00:00')]);
+    useStore.setState({ isEmptyingTrash: true });
+    renderTrashView(container);
+
+    const btn = container.querySelector<HTMLButtonElement>('[data-empty-trash]')!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.textContent).toBe('Emptying…');
+    useStore.setState({ isEmptyingTrash: false });
+  });
+
   it('rows do not open the conversation', () => {
     setTrash([trashed('c1', 'Gone', '2099-01-01T00:00:00')]);
     renderTrashView(container);

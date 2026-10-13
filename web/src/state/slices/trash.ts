@@ -12,6 +12,8 @@ export interface TrashData {
   trashedConversations: Conversation[];
   trashPagination: ConversationsPaginationState;
   isTrashView: boolean;
+  /** Empty trash request in flight (a big trash takes a while) */
+  isEmptyingTrash: boolean;
 }
 
 export interface TrashSlice extends TrashData {
@@ -22,6 +24,7 @@ export interface TrashSlice extends TrashData {
   clearTrash: () => void;
   setIsTrashView: (active: boolean) => void;
   setLoadingMoreTrash: (loading: boolean) => void;
+  setEmptyingTrash: (busy: boolean) => void;
 }
 
 /** Initial trash state; also what logout resets to. */
@@ -30,6 +33,7 @@ export function initialTrashData(): TrashData {
     trashedConversations: [],
     trashPagination: emptyConversationsPagination(),
     isTrashView: false,
+    isEmptyingTrash: false,
   };
 }
 
@@ -68,6 +72,7 @@ export const createTrashSlice: AppSlice<TrashSlice> = (set) => ({
     })),
   clearTrash: () => set({ trashedConversations: [], trashPagination: emptyConversationsPagination() }),
   setIsTrashView: (isTrashView) => set({ isTrashView }),
+  setEmptyingTrash: (isEmptyingTrash) => set({ isEmptyingTrash }),
   setLoadingMoreTrash: (loading) =>
     set((state) => ({
       trashPagination: {
