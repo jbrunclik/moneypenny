@@ -21,7 +21,7 @@ unrestricted agents (`tool_permissions=null`) or when listed explicitly.
 | Tool | Description | Availability |
 |------|-------------|--------------|
 | `web_search` | Web search queries; a repeat single-query call in a turn runs as `research` | Always available |
-| `research` | Composite search + fetch top pages in one round | Always available |
+| `research` | Composite search + fetch top pages in one round; a failed fetch (403/429) is replaced by the next candidate, in one extra wave | Always available |
 | `fetch_url` | Fetch content from URLs | Always available |
 | `browser` | Full browser automation (JS rendering, clicks, forms, screenshots) | Requires `BROWSER_ENABLED` + Playwright |
 | `retrieve_file` | Retrieve files from conversations | Always available |

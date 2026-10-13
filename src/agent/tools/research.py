@@ -90,6 +90,15 @@ def _fetch_source(candidate: dict[str, str]) -> dict[str, str]:
     }
 
 
+def _fetch_sources(candidates: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Fetch candidates in parallel, in order."""
+    if not candidates:
+        return []
+    contexts = [contextvars.copy_context() for _ in candidates]  # logs keep the request id
+    with ThreadPoolExecutor(max_workers=Config.RESEARCH_FETCH_WORKERS) as pool:
+        return list(pool.map(lambda ctx, c: ctx.run(_fetch_source, c), contexts, candidates))
+
+
 @tool
 def research(question: str = "", queries: list[str] | None = None, max_sources: int = 0) -> str:
     """Research a question: search the web AND read the top sources in one call.
@@ -175,20 +184,28 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
             }
         )
 
-    to_fetch = candidates[:n_sources]
-    contexts = [contextvars.copy_context() for _ in to_fetch]  # logs keep the request id
-    with ThreadPoolExecutor(max_workers=Config.RESEARCH_FETCH_WORKERS) as pool:
-        sources = list(pool.map(lambda ctx, c: ctx.run(_fetch_source, c), contexts, to_fetch))
+    sources = _fetch_sources(candidates[:n_sources])
+    # One wave of replacements: a page that failed (403/429) gives its place
+    # to the next candidate (Oct 2026 prod: 62 of 210 research calls had a
+    # failed fetch and answered from the pages left - 2 of 5 in one turn)
+    failed_count = sum(1 for s in sources if "content" not in s)
+    spare = candidates[n_sources : n_sources + failed_count]
+    sources += _fetch_sources(spare)
+    used = n_sources + len(spare)
 
     unfetched = [
         {"title": c.get("title", ""), "url": c["url"], "snippet": c.get("snippet", "")}
-        for c in candidates[n_sources : n_sources + _UNFETCHED_CANDIDATES]
+        for c in candidates[used : used + _UNFETCHED_CANDIDATES]
     ]
 
     fetched_ok = sum(1 for s in sources if "content" in s)
     logger.info(
         "research completed",
-        extra={"fetched_ok": fetched_ok, "fetch_failures": len(sources) - fetched_ok},
+        extra={
+            "fetched_ok": fetched_ok,
+            "fetch_failures": len(sources) - fetched_ok,
+            "replacements": len(spare),
+        },
     )
 
     response: dict[str, Any] = {

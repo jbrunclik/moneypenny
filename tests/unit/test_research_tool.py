@@ -78,6 +78,41 @@ class TestResearchTool:
         assert by_url["https://broken"]["error"] == "HTTP 403 when fetching https://broken"
         assert "snippet" in by_url["https://broken"]
 
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_a_failed_fetch_is_replaced_by_the_next_candidate(
+        self, mock_search: MagicMock, mock_fetch: MagicMock
+    ) -> None:
+        """Oct 2026 prod: 3 of 5 fetches failed (403/429) and the answer rested
+        on the 2 pages left - 62 of 210 research calls in 30 days had a failure
+        while untried candidates sat in "unfetched"."""
+        mock_search.return_value = [_result(f"https://{c}") for c in "abcdef"]
+        failing = {"https://b": "HTTP 429 when fetching https://b"}
+        mock_fetch.side_effect = lambda url, _max: (
+            (None, failing[url]) if url in failing else (f"page {url}", None)
+        )
+
+        parsed = json.loads(research.invoke({"question": "q", "max_sources": 2}))
+
+        read = [s["url"] for s in parsed["sources"] if "content" in s]
+        assert read == ["https://a", "https://c"]
+        assert [s["url"] for s in parsed["sources"] if "error" in s] == ["https://b"]
+        assert parsed["unfetched"][0]["url"] == "https://d"
+
+    @patch("src.agent.tools.research.fetch_page_text")
+    @patch("src.agent.tools.research.search_web")
+    def test_replacements_are_fetched_once(
+        self, mock_search: MagicMock, mock_fetch: MagicMock
+    ) -> None:
+        mock_search.return_value = [_result(f"https://{c}") for c in "abcdef"]
+        mock_fetch.return_value = (None, "HTTP 403")
+
+        parsed = json.loads(research.invoke({"question": "q", "max_sources": 2}))
+
+        # One replacement wave, not a crawl: a, b, then c, d
+        assert mock_fetch.call_count == 4
+        assert [u["url"] for u in parsed["unfetched"]][:1] == ["https://e"]
+
     @patch("src.agent.tools.research.search_web")
     def test_all_searches_failed_returns_retriable_error(self, mock_search: MagicMock) -> None:
         from src.utils.search_provider import SearchProviderError
