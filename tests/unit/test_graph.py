@@ -1,5 +1,6 @@
 """Unit tests for graph behavior: self-correction, routing, and stateless compilation."""
 
+import json
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -763,6 +764,30 @@ class TestAgeConsumedToolMessages:
         _age_consumed_tool_messages(messages)
 
         assert messages[1].content == long_text
+
+    def test_turn_state_keeps_the_full_results(self) -> None:
+        """Oct 2026 prod: aging cut a research JSON in the turn's own state, so
+        it no longer parsed - its pages vanished from the source chips and the
+        grounding check (52 of 156 research turns in 30 days). Only the copy
+        sent to the model is aged."""
+        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
+        from src.agent.source_pages import turn_pages
+
+        research = json.dumps(
+            {"sources": [{"title": "Shop", "url": "https://shop.cz", "content": "x" * 10_000}]}
+        )
+        state = [
+            AIMessage(content="", tool_calls=[{"name": "research", "args": {}, "id": "c1"}]),
+            ToolMessage(content=research, tool_call_id="c1", name="research"),
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}]),
+            ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
+        ]
+        sent = list(state)
+        _age_consumed_tool_messages(sent)
+
+        assert sent[1].content.endswith(AGED_TRUNCATION_MARKER)
+        assert state[1].content == research
+        assert [p.url for p in turn_pages(state)] == ["https://shop.cz"]
 
     @patch("src.agent.graph.Config")
     def test_disabled_when_zero(self, mock_config: MagicMock) -> None:

@@ -75,6 +75,10 @@ every `ToolMessage` is otherwise re-sent on each loop iteration. A round that on
 called extract-only tools (`set_conversation_title`, sent without answer text) does
 not count as consuming: aging after it cut research to 2000 chars before the model
 wrote a word, and the answer lost its sources (48 prod turns in 14 days, Oct 2026).
+Only the list sent to the model gets aged copies; the turn's state keeps the full
+results, because the source chips and the grounding check parse them after the turn
+(aging in place left research JSON unparseable: 52 of 156 research turns in 30 days
+lost their pages, Oct 2026).
 
 ## Tool Node
 

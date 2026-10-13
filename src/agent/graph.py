@@ -199,8 +199,13 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
     model has not seen them yet) and must pass through untouched - especially
     multimodal content (fetched PDFs/images, screenshots) which the model
     needs to analyze exactly once. Anything older has already been consumed:
-    multimodal content becomes a stub and long text is truncated, in place,
-    so the savings persist for the rest of the turn.
+    multimodal content becomes a stub and long text is truncated.
+
+    Aged results are copies put into `messages` (the list sent to the model):
+    the turn's state keeps the full results, which the source chips and the
+    grounding check read after the turn (Oct 2026: aging a research JSON in
+    place left it unparseable, and 52 of 156 research turns in 30 days lost
+    their pages).
 
     A round that only set the title consumed nothing: the model still has to
     answer from the results before it (Oct 2026: 48 turns in 14 days lost
@@ -221,7 +226,7 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
             last_tool_call_idx = i
             break
 
-    for msg in messages[:last_tool_call_idx]:
+    for i, msg in enumerate(messages[:last_tool_call_idx]):
         # A loaded skill is instructions for the whole turn, not consumed data:
         # truncating it would drop exactly the guidance later rounds need
         if not isinstance(msg, ToolMessage) or msg.name == "load_skill":
@@ -231,13 +236,14 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
                 "Aged multimodal tool result",
                 extra={"tool": getattr(msg, "name", None)},
             )
-            msg.content = AGED_MULTIMODAL_STUB
+            messages[i] = msg.model_copy(update={"content": AGED_MULTIMODAL_STUB})
         elif isinstance(msg.content, str) and len(msg.content) > max_chars:
             logger.info(
                 "Aged oversized tool result",
                 extra={"tool": getattr(msg, "name", None), "chars_before": len(msg.content)},
             )
-            msg.content = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
+            aged = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
+            messages[i] = msg.model_copy(update={"content": aged})
 
 
 def _emit_retry_status(error: Exception, attempt: int) -> None:
