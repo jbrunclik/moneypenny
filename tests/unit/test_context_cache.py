@@ -587,10 +587,13 @@ class TestContextCacheManager:
         tool = self._make_mock_tool()
         create_count = 0
         create_lock = threading.Lock()
+        # The build finishes only after every worker returned: a sleep let a
+        # late worker on a loaded run see the warm cache (flaky in make test)
+        workers_done = threading.Event()
 
         def slow_create(*args: object, **kwargs: object) -> str:
             nonlocal create_count
-            time.sleep(0.01)  # Simulate slow API call
+            workers_done.wait(timeout=5)
             with create_lock:
                 create_count += 1
             return "cachedContents/thread-safe"
@@ -617,6 +620,7 @@ class TestContextCacheManager:
                 t.start()
             for t in threads:
                 t.join()
+            workers_done.set()
 
             # Cold miss: every concurrent caller serves uncached (None) while a
             # single background build runs - no thundering herd of create()s.
