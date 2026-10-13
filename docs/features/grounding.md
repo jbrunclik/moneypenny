@@ -58,7 +58,10 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   multimodal message (`verifier_files()`), each group under a label: the
   user's are KNOWN; the newest 4 the turn's tools returned (`fetched_files()`:
   fetched PDFs and images, browser screenshots) are unnumbered sources - a
-  fetched menu PDF used to reach the verifier as one line of text. Output is two lists of
+  fetched menu PDF used to reach the verifier as one line of text. "The
+  user's message" skips the graph's cached-mode guidance (round nudges and
+  retries are `[SYSTEM GUIDANCE]` HumanMessages), which KNOWN used to quote
+  in its place, losing the user's text, files and earlier tool results. Output is two lists of
   `ClaimVerdict` (`quote`, `verdict`, `source`, `source_quote`, `reason`):
   `unsupported` first (every partial, contradicted or not_found claim), then
   `supported` (only businesses, products, prices, hours, event dates, contacts).

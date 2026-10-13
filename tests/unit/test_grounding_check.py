@@ -448,6 +448,34 @@ class TestTurnFiles:
         assert not fake_verifier.call_args.kwargs.get("images")
 
 
+class TestGuidanceIsNotTheUser:
+    """In cached mode the graph's round nudges and retries are HumanMessages
+    ("[SYSTEM GUIDANCE] ..."): KNOWN quoted the nudge as the user's message
+    and lost the user's images and the turn's earlier tool results."""
+
+    def _messages(self) -> list[Any]:
+        return [
+            HumanMessage(content=[{"type": "text", "text": "kolik stojí brompton"}, _IMAGE]),
+            AIMessage(content="", tool_calls=[{"name": "google_calendar", "args": {}, "id": "c1"}]),
+            ToolMessage(content="Schůzka v 15:00", tool_call_id="c1", name="google_calendar"),
+            HumanMessage(
+                content="[SYSTEM GUIDANCE]\nYou have used 4 tool rounds.\n[/SYSTEM GUIDANCE]"
+            ),
+            *_WEB_TURN,
+        ]
+
+    def test_known_facts_skip_guidance(self) -> None:
+        known = grounding_check.known_facts(self._messages())
+
+        assert "The user wrote: kolik stojí brompton" in known
+        assert "SYSTEM GUIDANCE" not in known
+        assert "Schůzka v 15:00" in known
+        assert "attached 1 file" in known
+
+    def test_the_users_files_survive_guidance(self) -> None:
+        assert grounding_check.user_files(self._messages()) == [_IMAGE]
+
+
 class TestPrompt:
     def test_prompt_excludes_own_plan_and_geography(self) -> None:
         from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT

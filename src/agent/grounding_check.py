@@ -52,12 +52,25 @@ def _now() -> datetime:
     return datetime.now().astimezone()
 
 
+# check_tool_results (graph.py) sends its round nudges, retries and
+# interjections as HumanMessages in cached mode, wrapped in this marker
+_GUIDANCE_MARKER = "[SYSTEM GUIDANCE]"
+
+
+def _is_user_message(msg: BaseMessage) -> bool:
+    """A HumanMessage the user wrote, not the graph's cached-mode guidance
+    (KNOWN quoted a round nudge as the user's message and lost their images)."""
+    if not isinstance(msg, HumanMessage):
+        return False
+    return not extract_text_content(msg.content).lstrip().startswith(_GUIDANCE_MARKER)
+
+
 def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
     """Text of this turn's successful non-web tool results, newest first, capped."""
     parts: list[str] = []
     total = 0
     for msg in reversed(result_messages):
-        if isinstance(msg, HumanMessage):
+        if _is_user_message(msg):
             break  # history holds no ToolMessages, but stop at this turn anyway
         if not isinstance(msg, ToolMessage) or msg.name in WEB_TOOL_NAMES or msg.status == "error":
             continue
@@ -92,7 +105,7 @@ def user_files(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
     "contradicted" by a stale article - the verifier never saw the image.
     """
     for msg in reversed(result_messages):
-        if isinstance(msg, HumanMessage):
+        if _is_user_message(msg):
             return _file_blocks(msg.content)
     return []
 
@@ -105,7 +118,7 @@ def fetched_files(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
     """
     files: list[dict[str, Any]] = []
     for msg in reversed(result_messages):
-        if isinstance(msg, HumanMessage):
+        if _is_user_message(msg):
             break
         if isinstance(msg, ToolMessage) and msg.status != "error":
             files = _file_blocks(msg.content) + files
@@ -132,7 +145,7 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
     "today" as unsupported; a calendar event's time is not a web fact either)."""
     lines = [f"Today is {_now().strftime('%A %Y-%m-%d %H:%M %Z')}."]
     for msg in reversed(result_messages):
-        if isinstance(msg, HumanMessage):
+        if _is_user_message(msg):
             text = strip_echoed_msg_context(extract_text_content(msg.content)).strip()
             if text:
                 lines.append(f"The user wrote: {text[:_KNOWN_USER_TEXT_MAX_CHARS]}")
