@@ -322,20 +322,20 @@ class TestUserImages:
             *_WEB_TURN,
         ]
 
-        assert grounding_check.user_images(messages) == [_IMAGE]
+        assert grounding_check.user_files(messages) == [_IMAGE]
 
     def test_text_only_message_has_no_images(self) -> None:
-        assert grounding_check.user_images([HumanMessage(content="hi"), *_WEB_TURN]) == []
+        assert grounding_check.user_files([HumanMessage(content="hi"), *_WEB_TURN]) == []
 
     def test_known_facts_say_the_images_are_known(self) -> None:
         known = grounding_check.known_facts([HumanMessage(content=[_IMAGE]), *_WEB_TURN])
 
-        assert "attached 1 image" in known
+        assert "attached 1 file" in known
 
     def test_the_verifier_sees_the_users_images(self, fake_verifier: MagicMock) -> None:
         check_grounding(_ANSWER, [HumanMessage(content=[_IMAGE]), *_WEB_TURN])
 
-        assert fake_verifier.call_args.kwargs["images"] == [_IMAGE]
+        assert _IMAGE in fake_verifier.call_args.kwargs["images"]
 
     def test_images_ride_in_one_multimodal_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
         llm_cls = MagicMock()
@@ -349,6 +349,62 @@ class TestUserImages:
         assert isinstance(message, HumanMessage)
         assert "the answer" in message.content[0]["text"]
         assert message.content[1:] == [_IMAGE]
+
+
+_PDF = {"type": "image", "base64": "cGRm", "mime_type": "application/pdf"}
+
+
+def _fetched_pdf_turn() -> list[Any]:
+    url = "https://bistro.cz/menu.pdf"
+    return [
+        AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {"url": url}, "id": "f1"}]),
+        ToolMessage(
+            content=[{"type": "text", "text": f"Here is the content from {url}:"}, _PDF],
+            tool_call_id="f1",
+            name="fetch_url",
+        ),
+    ]
+
+
+class TestTurnFiles:
+    """Oct 2026: a fetched menu PDF (6 in 30 days) or a PDF the user attached
+    never reached the verifier, so every fact from it was NO SOURCE."""
+
+    def _labels(self, media: list[dict[str, Any]]) -> list[str]:
+        return [b["text"] for b in media if b.get("type") == "text"]
+
+    def test_a_fetched_pdf_reaches_the_verifier_as_unnumbered(
+        self, fake_verifier: MagicMock
+    ) -> None:
+        check_grounding(
+            "Polévka stojí 89 Kč.", [HumanMessage(content="menu?"), *_fetched_pdf_turn()]
+        )
+
+        media = fake_verifier.call_args.kwargs["images"]
+        assert media[-1] == _PDF
+        assert "UNNUMBERED" in self._labels(media)[-1]
+
+    def test_a_users_pdf_is_known(self, fake_verifier: MagicMock) -> None:
+        user = HumanMessage(content=[{"type": "text", "text": "tady je ceník"}, _PDF])
+
+        check_grounding(_ANSWER, [user, *_WEB_TURN])
+
+        media = fake_verifier.call_args.kwargs["images"]
+        assert media[-1] == _PDF and "KNOWN" in self._labels(media)[0]
+        assert "attached 1 file" in fake_verifier.call_args.args[2]
+
+    def test_files_of_earlier_turns_are_not_sent(self, fake_verifier: MagicMock) -> None:
+        messages = [
+            HumanMessage(content="menu?"),
+            *_fetched_pdf_turn(),
+            AIMessage(content="Polévka 89 Kč."),
+            HumanMessage(content="a v neděli?"),
+            *_WEB_TURN,
+        ]
+
+        check_grounding(_ANSWER, messages)
+
+        assert not fake_verifier.call_args.kwargs.get("images")
 
 
 class TestPrompt:

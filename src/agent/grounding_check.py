@@ -36,6 +36,13 @@ _KNOWN_USER_TEXT_MAX_CHARS = 4000
 # This turn's non-web tool results (calendar, Garmin, memory...) are facts the
 # answer may state; capped like the user's message
 _KNOWN_TOOL_TEXT_MAX_CHARS = 8000
+# Fetched files are up to FETCH_URL_MAX_FILE_SIZE each; the newest few go along
+_MAX_FETCHED_FILES = 4
+_USER_FILES_LABEL = "The user's attached files (KNOWN - always supported):"
+_FETCHED_FILES_LABEL = (
+    "Files this turn read (fetched PDFs and images, browser screenshots) - "
+    "UNNUMBERED: may support a claim, cannot be cited:"
+)
 # Earlier replies' verified claims (quote + page + its quote), newest first
 _EARLIER_VERIFIED_MAX_CHARS = 6000
 
@@ -62,24 +69,60 @@ def _turn_tool_facts(result_messages: list[BaseMessage]) -> str:
     return "\n".join(reversed(parts))
 
 
-def user_images(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
-    """Image blocks the user attached to the latest message.
+def _file_blocks(content: Any) -> list[dict[str, Any]]:
+    """Image and PDF blocks of a message (LangChain types both as "image")."""
+    if not isinstance(content, list):
+        return []
+    return [
+        block
+        for block in content
+        if isinstance(block, dict)
+        and block.get("type") == "image"
+        and (
+            str(block.get("mime_type", "")).startswith("image/")
+            or block.get("mime_type") == "application/pdf"
+        )
+    ]
+
+
+def user_files(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
+    """Images and PDFs the user attached to the latest message.
 
     Oct 2026 prod: seat counts read off a user's poll screenshot were marked
     "contradicted" by a stale article - the verifier never saw the image.
     """
     for msg in reversed(result_messages):
         if isinstance(msg, HumanMessage):
-            if not isinstance(msg.content, list):
-                return []
-            return [
-                block
-                for block in msg.content
-                if isinstance(block, dict)
-                and block.get("type") == "image"
-                and str(block.get("mime_type", "")).startswith("image/")
-            ]
+            return _file_blocks(msg.content)
     return []
+
+
+def fetched_files(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
+    """Images and PDFs this turn's tools returned (fetch_url, browser screenshots).
+
+    Oct 2026: a fetched menu PDF reached the verifier as one line of text, so
+    every fact from it was NO SOURCE.
+    """
+    files: list[dict[str, Any]] = []
+    for msg in reversed(result_messages):
+        if isinstance(msg, HumanMessage):
+            break
+        if isinstance(msg, ToolMessage) and msg.status != "error":
+            files = _file_blocks(msg.content) + files
+    return files[-_MAX_FETCHED_FILES:]
+
+
+def verifier_files(result_messages: list[BaseMessage]) -> list[dict[str, Any]]:
+    """The turn's files for the verifier, each group under a label saying how
+    it counts: the user's are KNOWN, fetched ones are unnumbered sources."""
+    blocks: list[dict[str, Any]] = []
+    for label, files in (
+        (_USER_FILES_LABEL, user_files(result_messages)),
+        (_FETCHED_FILES_LABEL, fetched_files(result_messages)),
+    ):
+        if files:
+            blocks += [{"type": "text", "text": label}, *files]
+    return blocks
 
 
 def known_facts(result_messages: list[BaseMessage]) -> str:
@@ -94,10 +137,10 @@ def known_facts(result_messages: list[BaseMessage]) -> str:
             if text:
                 lines.append(f"The user wrote: {text[:_KNOWN_USER_TEXT_MAX_CHARS]}")
             break
-    images = len(user_images(result_messages))
-    if images:
+    files = len(user_files(result_messages))
+    if files:
         lines.append(
-            f"The user attached {images} image(s), shown after this prompt: "
+            f"The user attached {files} file(s), shown after this prompt: "
             "whatever they show is known."
         )
     tool_facts = _turn_tool_facts(result_messages)
@@ -225,7 +268,7 @@ def check_grounding(
         known=known_facts(result_messages),
         max_source_chars=Config.GROUNDING_CHECK_MAX_SOURCE_CHARS,
         max_claims=Config.GROUNDING_CHECK_MAX_CLAIMS,
-        images=user_images(result_messages),
+        images=verifier_files(result_messages),
     )
 
 

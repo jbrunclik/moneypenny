@@ -49,9 +49,13 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `GROUNDING_CHECK_MODEL`, prompt in
   [grounding.py](../../src/agent/prompt_texts/grounding.py). Inputs: the
   numbered sources, the answer, and known facts (`known_facts()`: today's
-  date, the user's message, the images attached to it (`user_images()`, sent
-  with the prompt as one multimodal message), this turn's non-web tool results
-  such as calendar or Garmin) that always count as supported. Output is two lists of
+  date, the user's message, the images and PDFs attached to it
+  (`user_files()`), this turn's non-web tool results such as calendar or
+  Garmin) that always count as supported. Files ride with the prompt as one
+  multimodal message (`verifier_files()`), each group under a label: the
+  user's are KNOWN; the newest 4 the turn's tools returned (`fetched_files()`:
+  fetched PDFs and images, browser screenshots) are unnumbered sources - a
+  fetched menu PDF used to reach the verifier as one line of text. Output is two lists of
   `ClaimVerdict` (`quote`, `verdict`, `source`, `source_quote`, `reason`):
   `unsupported` first (every partial, contradicted or not_found claim), then
   `supported` (only businesses, products, prices, hours, event dates, contacts).
