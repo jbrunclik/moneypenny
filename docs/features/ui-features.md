@@ -258,7 +258,7 @@ alone on trash/restore (search filters at query time), so restore needs no reind
 | `trash_conversation()` | Idempotent; a retried delete keeps the original `deleted_at` |
 | `restore_conversation()` | Idempotent; `archived`/`pinned` untouched, so an archived chat returns to the archive |
 | `list_trashed_conversations_paginated()` | Most recently deleted first, cursor-paginated |
-| `delete_trashed_conversation()` / `empty_trash()` | Permanent delete of one / all trashed rows (rows, then blobs) |
+| `delete_trashed_conversation()` / `empty_trash()` | Permanent delete of one / all trashed rows (rows, then blobs); `empty_trash` and the purge delete in chunks of 25 per transaction (one commit per chat made a 1000-chat trash take minutes) |
 | `purge_trashed_conversations(retention_days)` | Deletes rows trashed longer ago than the retention window |
 | `trash_conversations()` / `trash_all_conversations()` / `restore_conversations()` | [Bulk delete](#bulk-delete): one `BEGIN IMMEDIATE` transaction each, return the ids changed; only regular chats (not agent / planner / sports / language) |
 

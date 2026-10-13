@@ -389,3 +389,48 @@ class TestRestoreKeepsListPosition:
         test_database.trash_conversations(test_user.id, [old_id])
 
         assert self._updated_at(test_database, old_id) > before
+
+
+class TestEmptyTrashInChunks:
+    """Emptying a big trash (bulk delete made 1000-chat trashes real) deletes
+    in chunked transactions; behavior must match the one-by-one delete."""
+
+    def test_empty_trash_across_chunks(
+        self, test_database: Database, test_user: User, test_blob_store: BlobStore
+    ) -> None:
+        other = test_database.get_or_create_user("other@example.com", "Other")
+        foreign = test_database.create_conversation(other.id, "Foreign trash")
+        test_database.trash_conversation(foreign.id, other.id)
+        live = test_database.create_conversation(test_user.id, "Live")
+        trashed = []
+        for i in range(250):
+            conv = test_database.create_conversation(test_user.id, f"T{i}")
+            test_database.add_message(conv.id, "user", f"hi {i}")
+            trashed.append(conv.id)
+        msg = test_database.add_message(
+            trashed[-1],
+            "user",
+            "with file",
+            files=[{"name": "a.png", "type": "image/png", "size": 5, "data": "aGVsbG8="}],
+        )
+        test_database.trash_conversations(test_user.id, trashed)
+
+        assert test_database.empty_trash(test_user.id) == 250
+
+        assert test_database.list_trashed_conversations_paginated(test_user.id)[3] == 0
+        assert test_database.get_conversation(live.id, test_user.id) is not None
+        assert test_database.list_trashed_conversations_paginated(other.id)[3] == 1
+        assert test_blob_store.get(make_blob_key(msg.id, 0)) is None
+        with test_database._pool.get_connection() as conn:
+            placeholders = ",".join("?" * len(trashed))
+            left = conn.execute(
+                f"SELECT COUNT(*) AS n FROM messages WHERE conversation_id IN ({placeholders})",
+                trashed,
+            ).fetchone()["n"]
+        assert left == 0
+
+    def test_empty_trash_twice_is_zero(self, test_database: Database, test_user: User) -> None:
+        conv = test_database.create_conversation(test_user.id, "Once")
+        test_database.trash_conversation(conv.id, test_user.id)
+        assert test_database.empty_trash(test_user.id) == 1
+        assert test_database.empty_trash(test_user.id) == 0

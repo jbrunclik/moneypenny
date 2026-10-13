@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.db.models.conversation_rows import page_rows, row_to_conversation_summary
 from src.db.models.dataclasses import Conversation
-from src.db.models.helpers import parse_cursor
+from src.db.models.helpers import delete_messages_blobs, parse_cursor
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -50,6 +50,14 @@ _TRASH_SET = """trashed_updated_at = CASE WHEN deleted_at IS NULL
 _RESTORE_SET = """updated_at = CASE WHEN deleted_at IS NULL THEN updated_at
                      ELSE COALESCE(trashed_updated_at, updated_at) END,
     deleted_at = NULL, trashed_updated_at = NULL"""
+
+
+# Trashed conversations hard-deleted per transaction when emptying the trash
+# or purging. One commit per chat took ~0.1 s each (a 1000-chat trash ran for
+# minutes, Oct 13 2026); 25 per chunk measured ~4x faster while each write-lock
+# hold stays ~0.6 s at production index size, so chat saves interleave. Most
+# of the remaining cost is the search-index delete triggers (full FTS scans).
+_PURGE_CHUNK = 25
 
 
 def _placeholders(values: list[str]) -> str:
@@ -230,7 +238,7 @@ class ConversationTrashMixin:
                 "SELECT id FROM conversations WHERE user_id = ? AND deleted_at IS NOT NULL",
                 (user_id,),
             ).fetchall()
-        return sum(1 for row in rows if self.delete_conversation(row["id"], user_id))
+        return self._purge_trashed(user_id, [row["id"] for row in rows])
 
     def purge_trashed_conversations(self, retention_days: int) -> int:
         """Permanently delete conversations trashed over retention_days ago (all users)."""
@@ -242,7 +250,53 @@ class ConversationTrashMixin:
                    WHERE deleted_at IS NOT NULL AND deleted_at < ?""",
                 (cutoff,),
             ).fetchall()
-        purged = sum(1 for row in rows if self.delete_conversation(row["id"], row["user_id"]))
+        by_user: dict[str, list[str]] = {}
+        for row in rows:
+            by_user.setdefault(row["user_id"], []).append(row["id"])
+        purged = sum(self._purge_trashed(user_id, ids) for user_id, ids in by_user.items())
         if purged:
             logger.info("Purged trashed conversations", extra={"purged": purged})
         return purged
+
+    def _purge_trashed(self, user_id: str, conv_ids: list[str]) -> int:
+        """Hard-delete the user's conversations among conv_ids that are still
+        in the trash, in chunks: rows first and committed, then blobs - a
+        crash in between leaves only harmless orphaned blobs (as
+        delete_conversation does). A chat restored meanwhile is skipped."""
+        deleted = 0
+        for start in range(0, len(conv_ids), _PURGE_CHUNK):
+            chunk = conv_ids[start : start + _PURGE_CHUNK]
+            with self._pool.get_connection() as conn:
+                trashed = [
+                    row["id"]
+                    for row in self._execute_with_timing(
+                        conn,
+                        f"""SELECT id FROM conversations WHERE user_id = ?
+                            AND deleted_at IS NOT NULL AND id IN ({_placeholders(chunk)})""",
+                        (user_id, *chunk),
+                    ).fetchall()
+                ]
+                if not trashed:
+                    continue
+                ids_sql = _placeholders(trashed)
+                message_ids = [
+                    row["id"]
+                    for row in self._execute_with_timing(
+                        conn,
+                        f"SELECT id FROM messages WHERE conversation_id IN ({ids_sql})",
+                        tuple(trashed),
+                    ).fetchall()
+                ]
+                self._execute_with_timing(
+                    conn,
+                    f"DELETE FROM messages WHERE conversation_id IN ({ids_sql})",
+                    tuple(trashed),
+                )
+                deleted += self._execute_with_timing(
+                    conn,
+                    f"DELETE FROM conversations WHERE user_id = ? AND id IN ({ids_sql})",
+                    (user_id, *trashed),
+                ).rowcount
+                conn.commit()
+            delete_messages_blobs(message_ids)
+        return deleted
