@@ -646,6 +646,9 @@ export const COMPACTION_DEEP_GENERATION = 3;
 /** Days a deleted conversation stays restorable (mirrors the server's TRASH_RETENTION_DAYS default; the trash view shows the server's purge_at) */
 export const TRASH_RETENTION_DAYS = 14;
 
+/** Most ids one bulk trash / restore request may carry (mirrors the server's CONVERSATIONS_BULK_MAX_IDS default) */
+export const CONVERSATIONS_BULK_MAX_IDS = 500;
+
 /** Hover delay before a grounding claim's card opens (devices that hover) */
 export const CLAIM_CARD_HOVER_DELAY_MS = 250;
 

@@ -637,6 +637,14 @@ export interface SelectedCalendarsResponse {
   calendar_ids: string[];
 }
 
+/** POST /api/conversations/bulk-trash: hand-picked ids, or all (minus exclude_ids, plus ids) */
+export interface BulkTrashRequest {
+  all?: boolean;
+  ids?: string[];
+  exclude_ids?: string[];
+  created_before?: string;
+}
+
 export interface UpdateSelectedCalendarsRequest {
   calendar_ids: string[];
 }

@@ -3,6 +3,7 @@
  */
 import {
   PaginationDirection,
+  type BulkTrashRequest,
   type Conversation,
   type ConversationDetailResponse,
   type ConversationsResponse,
@@ -233,6 +234,26 @@ export const conversations = {
       method: 'DELETE',
     });
     return data.deleted;
+  },
+
+  async bulkTrash(body: BulkTrashRequest): Promise<string[]> {
+    // Idempotent server-side (already-trashed rows are skipped), safe to retry
+    const data = await request<{ trashed_ids: string[] }>('/api/conversations/bulk-trash', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      retry: true,
+    });
+    return data.trashed_ids;
+  },
+
+  async bulkRestore(ids: string[]): Promise<string[]> {
+    // Idempotent server-side (live rows are skipped), safe to retry
+    const data = await request<{ restored_ids: string[] }>('/api/conversations/bulk-restore', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+      retry: true,
+    });
+    return data.restored_ids;
   },
 
   /** Ask the running turn (named by its assistant message id) to stop server-side. */

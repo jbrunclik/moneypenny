@@ -3,6 +3,7 @@ import type { AppSlice } from '../store';
 import { initialAgentsData } from './agents';
 import { initialArchiveData } from './archive';
 import { initialTrashData } from './trash';
+import { initialSelectionData } from './selection';
 import { initialConversationsData } from './conversations';
 import { initialLanguageData } from './language';
 import { initialMessagesData } from './messages';
@@ -48,6 +49,7 @@ export const createAuthSlice: AppSlice<AuthSlice> = (set) => ({
       ...initialAgentsData(),
       ...initialArchiveData(),
       ...initialTrashData(),
+      ...initialSelectionData(),
       ...initialStorageData(),
       ...initialSportsData(),
       ...initialLanguageData(),
