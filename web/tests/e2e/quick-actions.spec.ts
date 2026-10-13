@@ -149,9 +149,13 @@ test.describe('Quick actions - desktop', () => {
 
   test('save as quick action prefills the editor with the message', async ({ page }) => {
     await openProgram(page);
+    const replies = page.locator('.message.assistant:not(.streaming)');
+    const before = await replies.count();
     await page.fill('#message-input', 'Business as usual please');
     await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
+    // THIS send's reply, not the session-start one already on screen: that
+    // wait passed at once and the click landed mid-turn (done's re-render)
+    await expect(replies).toHaveCount(before + 1, { timeout: 15000 });
     const userMsg = page.locator('.message.user').last();
     await userMsg.hover();
     await userMsg.locator('.message-save-quick-action-btn').click({ force: true });
