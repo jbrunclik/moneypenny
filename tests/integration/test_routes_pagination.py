@@ -209,6 +209,26 @@ class TestConversationsPagination:
         assert "message_count" in conv_data
         assert conv_data["message_count"] == 2
 
+    def test_total_count_excludes_sports_and_language(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """total_count counts only chats the list shows (bulk delete's select-all counter)."""
+        test_database.create_conversation(test_user.id, "Plain")
+        for column in ("is_sports", "is_language"):
+            conv = test_database.create_conversation(test_user.id, column)
+            with test_database._pool.get_connection() as conn:
+                conn.execute(f"UPDATE conversations SET {column} = 1 WHERE id = ?", (conv.id,))
+                conn.commit()
+
+        data = client.get("/api/conversations", headers=auth_headers).get_json()
+
+        assert [c["title"] for c in data["conversations"]] == ["Plain"]
+        assert data["pagination"]["total_count"] == 1
+
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
         response = client.get("/api/conversations")

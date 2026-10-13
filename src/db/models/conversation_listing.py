@@ -54,7 +54,7 @@ class ConversationListingMixin:
             - List of Conversation objects
             - Next cursor (None if no more pages)
             - has_more: True if there are more pages
-            - total_count: Total number of conversations for this user (excluding planner)
+            - total_count: Total number of conversations the list shows
         """
         with self._pool.get_connection() as conn:
             # Get total count for this user (excluding planning, agent, and archived conversations)
@@ -65,7 +65,9 @@ class ConversationListingMixin:
                      AND (is_planning = 0 OR is_planning IS NULL)
                      AND (is_agent = 0 OR is_agent IS NULL)
                      AND (archived = 0 OR archived IS NULL)
-                     AND deleted_at IS NULL""",
+                     AND deleted_at IS NULL
+                     AND (is_sports = 0 OR is_sports IS NULL)
+                     AND (is_language = 0 OR is_language IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
@@ -131,7 +133,7 @@ class ConversationListingMixin:
             - List of (Conversation, message_count) tuples
             - Next cursor (None if no more pages)
             - has_more: True if there are more pages
-            - total_count: Total number of conversations for this user (excluding planner)
+            - total_count: Total number of conversations the list shows
         """
         with self._pool.get_connection() as conn:
             # Get total count for this user (excluding planning, agent, and archived conversations)
@@ -142,7 +144,9 @@ class ConversationListingMixin:
                      AND (is_planning = 0 OR is_planning IS NULL)
                      AND (is_agent = 0 OR is_agent IS NULL)
                      AND (archived = 0 OR archived IS NULL)
-                     AND deleted_at IS NULL""",
+                     AND deleted_at IS NULL
+                     AND (is_sports = 0 OR is_sports IS NULL)
+                     AND (is_language = 0 OR is_language IS NULL)""",
                 (user_id,),
             ).fetchone()
             total_count = int(total_row["count"]) if total_row else 0
