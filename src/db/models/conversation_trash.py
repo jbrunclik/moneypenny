@@ -41,6 +41,17 @@ _TRASHABLE_WHERE = """user_id = ? AND deleted_at IS NULL
     AND (is_language = 0 OR is_language IS NULL)"""
 
 
+# Trash bumps updated_at (the trash list sorts by it) and remembers the old
+# value once; restore puts it back. A re-trash keeps the first deleted_at and
+# the original updated_at. Params: (deleted_at, updated_at).
+_TRASH_SET = """trashed_updated_at = CASE WHEN deleted_at IS NULL
+                                       THEN updated_at ELSE trashed_updated_at END,
+    deleted_at = COALESCE(deleted_at, ?), updated_at = ?"""
+_RESTORE_SET = """updated_at = CASE WHEN deleted_at IS NULL THEN updated_at
+                     ELSE COALESCE(trashed_updated_at, updated_at) END,
+    deleted_at = NULL, trashed_updated_at = NULL"""
+
+
 def _placeholders(values: list[str]) -> str:
     return ",".join("?" * len(values))
 
@@ -68,15 +79,14 @@ class ConversationTrashMixin:
 
         Idempotent: trashing an already-trashed conversation succeeds and
         keeps the original deleted_at, so a retried DELETE neither 404s nor
-        extends the retention window. updated_at is bumped so incremental
-        sync on other devices sees the change.
+        extends the retention window. updated_at is bumped (the trash list
+        sorts by it); the old value is kept in trashed_updated_at for restore.
         """
         now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE conversations
-                   SET deleted_at = COALESCE(deleted_at, ?), updated_at = ?
+                f"""UPDATE conversations SET {_TRASH_SET}
                    WHERE id = ? AND user_id = ?""",
                 (now, now, conv_id, user_id),
             )
@@ -87,17 +97,16 @@ class ConversationTrashMixin:
         """Take a conversation out of the trash, back where it was.
 
         archived/pinned are untouched, so an archived chat returns to the
-        archive. Idempotent for live conversations (True, no change).
+        archive, and updated_at goes back to its pre-trash value, so the chat
+        returns to its place in the list. Idempotent for live conversations
+        (True, no change).
         """
-        now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE conversations
-                   SET updated_at = CASE WHEN deleted_at IS NULL THEN updated_at ELSE ? END,
-                       deleted_at = NULL
+                f"""UPDATE conversations SET {_RESTORE_SET}
                    WHERE id = ? AND user_id = ?""",
-                (now, conv_id, user_id),
+                (conv_id, user_id),
             )
             conn.commit()
             return cursor.rowcount > 0
@@ -130,15 +139,12 @@ class ConversationTrashMixin:
         """Take the user's trashed rows among ids out of the trash; returns them."""
         if not ids:
             return []
-        now = datetime.now().isoformat()
         where = f"user_id = ? AND deleted_at IS NOT NULL AND id IN ({_placeholders(ids)})"
-        return self._update_where(
-            where, (user_id, *ids), "deleted_at = NULL, updated_at = ?", (now,)
-        )
+        return self._update_where(where, (user_id, *ids), _RESTORE_SET, ())
 
     def _trash_where(self, where: str, params: tuple[Any, ...]) -> list[str]:
         now = datetime.now().isoformat()
-        return self._update_where(where, params, "deleted_at = ?, updated_at = ?", (now, now))
+        return self._update_where(where, params, _TRASH_SET, (now, now))
 
     def _update_where(
         self,

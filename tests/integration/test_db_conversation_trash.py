@@ -334,3 +334,58 @@ class TestBulkRestore:
         assert restored == [trashed.id]
         assert test_database.get_conversation(trashed.id, test_user.id) is not None
         assert test_database.get_conversation(foreign.id, other.id) is None
+
+
+class TestRestoreKeepsListPosition:
+    """Undo must put chats back where they were, not lump them at the top."""
+
+    def _three_dated(self, db: Database, user: User) -> list[str]:
+        ids = []
+        for days_ago, title in ((3, "Old"), (2, "Mid"), (1, "New")):
+            conv = db.create_conversation(user.id, title)
+            when = (datetime.now() - timedelta(days=days_ago)).isoformat()
+            _set_column(db, conv.id, "updated_at", when)
+            ids.append(conv.id)
+        return ids
+
+    def _updated_at(self, db: Database, conv_id: str) -> str:
+        with db._pool.get_connection() as conn:
+            return str(
+                conn.execute(
+                    "SELECT updated_at FROM conversations WHERE id = ?", (conv_id,)
+                ).fetchone()["updated_at"]
+            )
+
+    def test_bulk_restore_puts_back_original_updated_at(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        ids = self._three_dated(test_database, test_user)
+        before = {i: self._updated_at(test_database, i) for i in ids}
+
+        test_database.trash_conversations(test_user.id, ids)
+        test_database.restore_conversations(test_user.id, ids)
+
+        assert {i: self._updated_at(test_database, i) for i in ids} == before
+        listed = [c.id for c in test_database.list_conversations(test_user.id)]
+        assert listed == list(reversed(ids))
+
+    def test_single_restore_puts_back_original_updated_at(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        old_id = self._three_dated(test_database, test_user)[0]
+        before = self._updated_at(test_database, old_id)
+
+        test_database.trash_conversation(old_id, test_user.id)
+        test_database.restore_conversation(old_id, test_user.id)
+
+        assert self._updated_at(test_database, old_id) == before
+
+    def test_trash_still_bumps_updated_at_for_trash_ordering(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        old_id = self._three_dated(test_database, test_user)[0]
+        before = self._updated_at(test_database, old_id)
+
+        test_database.trash_conversations(test_user.id, [old_id])
+
+        assert self._updated_at(test_database, old_id) > before

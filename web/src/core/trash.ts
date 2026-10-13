@@ -48,8 +48,8 @@ export async function restoreConversation(convId: string, conv?: Conversation): 
       }
       renderConversationsList();
     } else {
-      // No local copy to re-insert: pull it back from the server (restore
-      // bumped updated_at, so incremental sync returns a main-list chat)
+      // No local copy to re-insert: pull it back from the server (the
+      // restore is in the sync change log, so incremental sync returns it)
       void loadArchivedConversations();
       void getSyncManager()?.incrementalSync();
     }
@@ -63,7 +63,8 @@ export async function restoreConversation(convId: string, conv?: Conversation): 
 /**
  * Restore many conversations (Undo of a bulk delete), in chunks of the
  * server's bulk cap. Rows not in the snapshot (unloaded pages of a
- * select-all delete) come back through sync: restore bumped updated_at.
+ * select-all delete) come back through sync (the restore is in the change
+ * log), at their original place: restore puts back the pre-trash updated_at.
  */
 export async function restoreConversations(ids: string[], snapshot: Conversation[]): Promise<void> {
   const store = useStore.getState();
