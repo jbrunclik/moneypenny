@@ -343,15 +343,10 @@ update:
 	# no sudo - system libs come from the one-time `make browser-setup`).
 	$(PYTHON) -m playwright install chromium
 	cd web && npm ci && npm run build
-	systemctl --user reload moneypenny
-	@echo "Reload triggered, waiting for workers to boot (migrations apply on startup)..."
-	@for i in $$(seq 1 24); do \
-		if curl -sf -o /dev/null http://localhost:8000/api/health; then \
-			echo "Deploy healthy."; exit 0; \
-		fi; \
-		sleep 5; \
-	done; \
-	echo "DEPLOY UNHEALTHY after 120s - check: journalctl --user -u moneypenny -n 50"; exit 1
+	# Reloads, then waits for the NEW workers: right after a reload the old
+	# workers still answer, so a plain health curl passed while the new ones
+	# crash-looped (Oct 13 2026)
+	$(PYTHON) scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/health
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
