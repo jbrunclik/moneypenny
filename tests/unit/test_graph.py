@@ -789,6 +789,29 @@ class TestAgeConsumedToolMessages:
         assert state[1].content == research
         assert [p.url for p in turn_pages(state)] == ["https://shop.cz"]
 
+    def test_each_result_is_logged_as_aged_once(self) -> None:
+        """Aging re-runs on every model call now that the state keeps the full
+        results; the log must still count each aged result once."""
+        from src.agent.graph import _age_consumed_tool_messages
+
+        state = [
+            AIMessage(content="", tool_calls=[{"name": "research", "args": {}, "id": "c1"}]),
+            ToolMessage(content="a" * 10_000, tool_call_id="c1", name="research"),
+            AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}]),
+            ToolMessage(content="b" * 10_000, tool_call_id="c2", name="fetch_url"),
+        ]
+        later_round = [
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c3"}]),
+            ToolMessage(content="fresh", tool_call_id="c3", name="web_search"),
+        ]
+
+        with patch("src.agent.graph.logger") as log:
+            _age_consumed_tool_messages(list(state))
+            _age_consumed_tool_messages([*state, *later_round])
+
+        aged = [c.kwargs["extra"]["tool"] for c in log.info.call_args_list]
+        assert aged == ["research", "fetch_url"]
+
     @patch("src.agent.graph.Config")
     def test_disabled_when_zero(self, mock_config: MagicMock) -> None:
         from src.agent.graph import _age_consumed_tool_messages

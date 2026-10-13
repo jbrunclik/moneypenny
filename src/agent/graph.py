@@ -215,30 +215,28 @@ def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
     if max_chars <= 0:
         return
 
-    last_tool_call_idx = len(messages)
-    for i in range(len(messages) - 1, -1, -1):
-        msg = messages[i]
-        if (
-            isinstance(msg, AIMessage)
-            and msg.tool_calls
-            and not all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in msg.tool_calls)
-        ):
-            last_tool_call_idx = i
-            break
+    rounds = [
+        i
+        for i, msg in enumerate(messages)
+        if isinstance(msg, AIMessage)
+        and msg.tool_calls
+        and not all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in msg.tool_calls)
+    ]
+    last_tool_call_idx = rounds[-1] if rounds else len(messages)
+    # Results before the previous round were aged (and logged) by an earlier call
+    first_new_idx = rounds[-2] if len(rounds) > 1 else -1
 
     for i, msg in enumerate(messages[:last_tool_call_idx]):
         # A loaded skill is instructions for the whole turn, not consumed data:
         # truncating it would drop exactly the guidance later rounds need
         if not isinstance(msg, ToolMessage) or msg.name == "load_skill":
             continue
+        log = logger.info if i > first_new_idx else logger.debug
         if isinstance(msg.content, list):
-            logger.info(
-                "Aged multimodal tool result",
-                extra={"tool": getattr(msg, "name", None)},
-            )
+            log("Aged multimodal tool result", extra={"tool": getattr(msg, "name", None)})
             messages[i] = msg.model_copy(update={"content": AGED_MULTIMODAL_STUB})
         elif isinstance(msg.content, str) and len(msg.content) > max_chars:
-            logger.info(
+            log(
                 "Aged oversized tool result",
                 extra={"tool": getattr(msg, "name", None), "chars_before": len(msg.content)},
             )
