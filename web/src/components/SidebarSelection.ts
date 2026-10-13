@@ -11,12 +11,16 @@ import { renderConversationsList } from './Sidebar';
 import { clearSearch } from './SearchInput';
 import { isSearchResultsVisible } from './SearchResults';
 import { bulkDeleteConversations } from '../core/conversation-actions';
+import { leaveTrashView } from '../core/trash';
+import { leaveArchiveView } from '../core/archive';
 
 export function enterSelectionMode(): void {
   const store = useStore.getState();
   if (isSearchResultsVisible()) clearSearch();
-  store.setIsArchiveView(false);
-  store.setIsTrashView(false);
+  // Leave like the back button does: restores the hash and drops the
+  // view's infinite-scroll listener
+  if (store.isTrashView) leaveTrashView();
+  if (store.isArchiveView) leaveArchiveView();
   store.startSelection();
   renderSelectionChrome();
   renderConversationsList();

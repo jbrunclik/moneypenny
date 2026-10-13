@@ -17,6 +17,9 @@ vi.mock('@/api/costs', () => ({
 }));
 const bulkDelete = vi.hoisted(() => vi.fn());
 vi.mock('@/core/conversation-actions', () => ({ bulkDeleteConversations: bulkDelete }));
+const leaveViews = vi.hoisted(() => ({ trash: vi.fn(), archive: vi.fn() }));
+vi.mock('@/core/trash', () => ({ leaveTrashView: leaveViews.trash }));
+vi.mock('@/core/archive', () => ({ leaveArchiveView: leaveViews.archive }));
 
 function conv(id: string, extra: Partial<Conversation> = {}): Conversation {
   return { id, title: id, model: 'm', created_at: '', updated_at: new Date().toISOString(), ...extra };
@@ -110,6 +113,17 @@ describe('sidebar selection mode', () => {
     const btn = document.querySelector<HTMLButtonElement>('#selection-trash')!;
     expect(btn.disabled).toBe(true);
     expect(btn.textContent).toContain('Moving…');
+  });
+
+  it('entering from the trash or archive view leaves it properly (hash, scroll listener)', () => {
+    useStore.setState({ isTrashView: true });
+    enterSelectionMode();
+    expect(leaveViews.trash).toHaveBeenCalledTimes(1);
+    exitSelectionMode();
+
+    useStore.setState({ isArchiveView: true });
+    enterSelectionMode();
+    expect(leaveViews.archive).toHaveBeenCalledTimes(1);
   });
 
   it('outside selection mode, rows render no checkbox', () => {
