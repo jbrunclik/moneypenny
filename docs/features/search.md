@@ -37,6 +37,15 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 
 Database triggers keep the search index in sync when conversations/messages are created, updated, or deleted. See [migrations/0015_add_full_text_search.py](../../migrations/0015_add_full_text_search.py).
 
+**Lookup table** ([migration 0067](../../migrations/0067_add_search_index_keys.py)): the id columns are
+`UNINDEXED`, so a trigger that deleted by `message_id` / `conversation_id` scanned the whole index -
+once per deleted message, which made bulk deletes quadratic (a 1000-chat empty trash took minutes).
+`search_index_keys(fts_rowid INTEGER PRIMARY KEY, conversation_id, message_id)` maps every index row
+to its ids with ordinary b-tree indexes (`message_id` unique); the triggers insert the key first and
+use its id as the FTS rowid, and delete through it. Its rowid is an explicit INTEGER PRIMARY KEY, so
+VACUUM cannot renumber it (an implicit `messages.rowid` could). Any new trigger or code that writes
+`search_index` must keep the two tables in step.
+
 Moving a conversation to the [trash](ui-features.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
 
 ## How It Works
@@ -64,7 +73,7 @@ Moving a conversation to the [trash](ui-features.md#trash) does not touch the in
 
 ### Deduplication
 
-The search index may contain duplicate entries due to trigger timing. Deduplication is handled in Python after fetching from the database because FTS5's `bm25()` and `snippet()` functions don't work with `GROUP BY`.
+The search index could contain duplicate entries due to trigger timing (migration 0067 removed them and keys each message to one row; titles are re-keyed on rename). Deduplication is handled in Python after fetching from the database because FTS5's `bm25()` and `snippet()` functions don't work with `GROUP BY`.
 
 **Process:**
 1. Fetch all matching results from FTS5 (ordered by relevance)

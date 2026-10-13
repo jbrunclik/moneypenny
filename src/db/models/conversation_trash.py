@@ -54,9 +54,9 @@ _RESTORE_SET = """updated_at = CASE WHEN deleted_at IS NULL THEN updated_at
 
 # Trashed conversations hard-deleted per transaction when emptying the trash
 # or purging. One commit per chat took ~0.1 s each (a 1000-chat trash ran for
-# minutes, Oct 13 2026); 25 per chunk measured ~4x faster while each write-lock
-# hold stays ~0.6 s at production index size, so chat saves interleave. Most
-# of the remaining cost is the search-index delete triggers (full FTS scans).
+# minutes, Oct 13 2026); 25 per chunk keeps each write-lock hold short so
+# chat saves interleave (1000 chats: ~6 s in all since the search index
+# deletes by key, migration 0067).
 _PURGE_CHUNK = 25
 
 
