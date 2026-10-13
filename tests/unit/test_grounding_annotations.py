@@ -131,6 +131,71 @@ def test_a_quote_copied_without_markdown_still_matches() -> None:
     assert ann["prefix"].endswith("+ 800 Kč.\n**")
 
 
+# Oct 2026 prod replay: 24% of the passages the verifier cited were not found
+# verbatim in their page, and each such claim showed as NO SOURCE. These are
+# the real mismatches: the page is markdown/HTML, the verifier copies plain text
+@pytest.mark.parametrize(
+    ("page_text", "passage"),
+    [
+        (
+            "Zaujalo také streetfoodové **bistro Rezavá** v Litoměřicích.",
+            "zaujalo také streetfoodové bistro Rezavá v Litoměřicích.",
+        ),
+        ("Cena služby od **1 500 Kč** (+ správní poplatek).", "Cena služby od 1 500 Kč"),
+        ("pozemků (23 756 m<sup>2</sup>) v místě", "pozemků (23 756 m2) v místě"),
+        ("Výrobce „Gyeon“ – Korea", 'Výrobce "Gyeon" - Korea'),
+        ("Tom &amp; Jerry Bistro", "Tom & Jerry Bistro"),
+        (
+            "the iPhone 16, iPhone 17, and iPhone Air all saw their prices go up by $100",
+            "the iPhone 16... saw their prices go up by $100",
+        ),
+    ],
+)
+def test_a_passage_copied_as_plain_text_still_cites(page_text: str, passage: str) -> None:
+    pages = [SourcePage("Page", "https://page.cz", page_text)]
+    [ann] = validate_claims(
+        [_claim(quote="cena 1 590 Kč", source=1, source_quote=passage)], _ANSWER, pages
+    )
+
+    assert ann["verdict"] == "supported" and ann["source"] == 1
+
+
+def test_a_passage_from_the_page_title_cites() -> None:
+    # The verifier sees "[1] <title> (<url>)" above the text and quotes it
+    pages = [SourcePage("Assos Mille GT Bib Shorts S11 review", "https://bike.cz/r", "Body.")]
+    [ann] = validate_claims(
+        [
+            _claim(
+                quote="cena 1 590 Kč", source=1, source_quote="Assos Mille GT Bib Shorts S11 review"
+            )
+        ],
+        _ANSWER,
+        pages,
+    )
+
+    assert ann["verdict"] == "supported"
+
+
+@pytest.mark.parametrize(
+    "passage",
+    [
+        "saw their prices go up by $100... the iPhone 16",  # fragments out of order
+        "the iPhone 16... prices fell by $100",  # a fragment the page lacks
+    ],
+)
+def test_ellipsis_fragments_must_all_be_on_the_page_in_order(passage: str) -> None:
+    pages = [
+        SourcePage(
+            "P", "https://p.cz", "the iPhone 16 and iPhone Air saw their prices go up by $100"
+        )
+    ]
+    [ann] = validate_claims(
+        [_claim(quote="cena 1 590 Kč", source=1, source_quote=passage)], _ANSWER, pages
+    )
+
+    assert ann["verdict"] == "not_found"
+
+
 def test_caps_claims_reasons_and_passages(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_CLAIMS", 1)
     monkeypatch.setattr(Config, "GROUNDING_CHECK_MAX_REASON_CHARS", 10)

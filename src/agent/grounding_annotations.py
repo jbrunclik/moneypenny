@@ -7,6 +7,7 @@ in the cited page, or the claim loses its source. Spec:
 docs/superpowers/specs/2026-10-03-grounding-annotations-design.md.
 """
 
+import html
 import re
 from datetime import date, timedelta
 from typing import Any, Literal
@@ -23,7 +24,11 @@ _WITH_SOURCE: frozenset[str] = frozenset({"supported", "partial", "contradicted"
 # ones are the answer's own timeline, which the verifier flags despite the prompt
 _BARE_TIME = re.compile(r"~?\d{1,2}[:.]\d{2}(?:\s*[–—-]\s*\d{1,2}[:.]\d{2})?")
 _SCHEDULE_MIN_TIMES = 3
-_SPACE = re.compile(r"\s+")
+_HTML_TAG = re.compile(r"</?[a-zA-Z][^<>\n]{0,40}>")
+_ELLIPSIS = re.compile(r"\.\.\.|…")
+_TYPOGRAPHY = str.maketrans(
+    {"„": '"', "“": '"', "”": '"', "‚": "'", "‘": "'", "’": "'", "–": "-", "—": "-", "\u2212": "-"}
+)
 
 
 class ClaimVerdict(BaseModel):
@@ -65,19 +70,37 @@ class GroundingVerdict(BaseModel):
     )
 
 
-def _norm(text: str) -> str:
-    return _SPACE.sub(" ", text).strip().casefold()
-
-
 def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _plain(text: str) -> str:
+    """Text as the verifier copies it: no markdown or HTML, plain quotes and dashes."""
+    return _match_index(html.unescape(_HTML_TAG.sub("", text)).translate(_TYPOGRAPHY))[0]
+
+
 def _passage_in_page(claim: ClaimVerdict, pages: list[SourcePage]) -> bool:
-    passage = _norm(claim.source_quote or "")
-    if claim.source is None or not passage or not 1 <= claim.source <= len(pages):
+    """Whether the cited page (its title, URL or text) holds the passage.
+
+    Oct 2026 prod replay: 24% of the passages the verifier cited failed a
+    verbatim match - the page is markdown and HTML, the verifier copies plain
+    text, quotes the title it sees above the page, or joins two fragments
+    with "..." - and each claim showed as NO SOURCE (5% with this matching,
+    mostly passages the verifier made up). Fragments must appear in order.
+    """
+    if claim.source is None or not 1 <= claim.source <= len(pages):
         return False
-    return passage in _norm(pages[claim.source - 1].text)
+    fragments = [f.strip(" .,;:") for f in _ELLIPSIS.split(_plain(claim.source_quote or ""))]
+    fragments = [f for f in fragments if f]
+    page = pages[claim.source - 1]
+    haystack = _plain(f"{page.title}\n{page.url}\n{page.text}")
+    at = 0
+    for fragment in fragments:
+        found = haystack.find(fragment, at)
+        if found < 0:
+            return False
+        at = found + len(fragment)
+    return bool(fragments)
 
 
 # Oct 2026: a CNN Prima article from 5 Oct 2025 "supported" a politician's

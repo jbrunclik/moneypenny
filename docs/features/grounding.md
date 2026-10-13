@@ -74,8 +74,11 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   `validate_claims()`). A claim is kept only if its `quote` is literally in the
   answer (case-insensitive) and at most `GROUNDING_CHECK_MAX_QUOTE_CHARS`;
   duplicates are dropped and at most `GROUNDING_CHECK_MAX_CLAIMS` are kept. A
-  `source_quote` must be literally (whitespace- and case-normalised) in the
-  cited page, or the claim is downgraded to `not_found` and loses its source;
+  `source_quote` must be in the cited page's title, URL or text, compared as
+  plain text (markdown, HTML tags and entities, typographic quotes and dashes,
+  case and whitespace folded; "..." may join fragments that appear in order),
+  or the claim is downgraded to `not_found` and loses its source - a verbatim
+  match failed on 24% of real citations (Oct 2026 replay), 5% after this;
   a supported claim with no number at all is backed by uncited text and stays
   supported. A supported claim the verifier marks `about_present` (who holds a
   role, belongs to a party, leads something now) whose cited page is an
