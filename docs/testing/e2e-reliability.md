@@ -229,7 +229,14 @@ by guessing):
   ([src/app.py](../../src/app.py)), and `page.route()` does **not** intercept
   service-worker-mediated fetches. Any spec that mocks API responses must opt out
   with `test.use({ serviceWorkers: 'block' })` (see
-  `web/tests/e2e/chat/attachments.spec.ts`).
+  `web/tests/e2e/chat/attachments.spec.ts`), or route on the context
+  (`page.context().route(...)`), which also sees the worker's own fetches -
+  needed for `/static/assets/*` chunks, which the worker serves cache-first
+  (`web/tests/e2e/chat/pdf-viewer.spec.ts`).
+- **WebKit reuses a failed module load**: after a lazy `import()` of a URL
+  fails, WebKit fails the same URL again without a network request, even after
+  a reload and `unroute`. A test cannot fail a chunk and then load that same
+  chunk successfully.
 - **Config-shrinking route mocks race app init**: after `goto`, await the config
   response (e.g. `waitForResponse('**/api/config/upload')`) before acting, or the
   store still holds defaults.

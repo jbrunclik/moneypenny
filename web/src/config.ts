@@ -64,6 +64,12 @@ export const SEND_CONFLICT_REPLY_POLL_DELAYS_MS = [
   1_000, 2_000, 3_000, 5_000, 5_000, 10_000, 10_000, 10_000, 15_000, 15_000, 15_000, 30_000, 30_000, 30_000,
 ];
 
+/**
+ * A failed lazy chunk within this long after a stale-chunk reload is a real
+ * outage, not a page from before a deploy: no second reload (prevents a loop)
+ */
+export const STALE_CHUNK_RELOAD_GUARD_MS = 30 * MS_PER_SECOND;
+
 /** Debounce for persisting the composer draft while typing */
 export const DRAFT_SAVE_DEBOUNCE_MS = 300;
 

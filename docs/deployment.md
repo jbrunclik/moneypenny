@@ -41,6 +41,17 @@ several deploys; uploads kept failing with the stale allow-list until a
 restart. Verify what the live process actually sees with:
 `cat /proc/$(systemctl --user show moneypenny -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
 
+## Deploys Delete the Previous Build's Chunks
+
+`make build` empties `static/assets/` (`emptyOutDir`), so a page loaded before
+a deploy (an installed PWA resumed from the background, a tab left open) still
+references the old hashed chunks, and its first lazy import (PDF viewer,
+settings, agent editor) 404s. Vite reports that as a `vite:preloadError` event;
+[web/src/core/stale-chunks.ts](../web/src/core/stale-chunks.ts) reloads the page
+once (the composer draft is persisted), and a second failure within
+`STALE_CHUNK_RELOAD_GUARD_MS` surfaces the error instead of looping. (Oct 14
+2026: PDF attachments did nothing on click after the previous evening's deploy.)
+
 ## Profiling Worker Memory
 
 Check a worker's memory with `grep ^Pss: /proc/<pid>/smaps_rollup` (PSS counts

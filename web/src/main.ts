@@ -29,6 +29,10 @@ import 'highlight.js/styles/github-dark.css';
 import 'katex/dist/katex.min.css';
 
 import { init } from './core/init';
+import { initStaleChunkReload } from './core/stale-chunks';
+
+// Registered before init so no lazy import can fail unhandled
+initStaleChunkReload();
 
 // Start the app
 document.addEventListener('DOMContentLoaded', init);
