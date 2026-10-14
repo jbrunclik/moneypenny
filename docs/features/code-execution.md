@@ -46,6 +46,11 @@ This builds `moneypenny-sandbox:local` with:
   variables do NOT (each run is a fresh Python process); `/output/` is cleared
   at the start of every run. Without a conversation context the session is
   ephemeral (created and destroyed per call, the old behavior).
+- **Orphan reaping**: Pooled containers are otherwise closed only by `atexit`,
+  which a killed process (SIGTERM/SIGKILL of a test run, dev server or worker)
+  skips. Every container is labelled `moneypenny.owner_pid`; when the pool
+  starts it removes containers whose owner process is gone. Tests close the
+  pool after each test (`close_pooled_sandbox_sessions` in `tests/conftest.py`).
 
 ## Configuration
 

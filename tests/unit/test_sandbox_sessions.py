@@ -1,8 +1,14 @@
 """Tests for the per-conversation sandbox session pool."""
 
+import os
+
 import pytest
 
-from src.agent.tools.sandbox_sessions import SandboxSessionPool
+from src.agent.tools.sandbox_sessions import (
+    OWNER_PID_LABEL,
+    SandboxSessionPool,
+    reap_orphaned_containers,
+)
 
 
 class FakeSession:
@@ -92,3 +98,53 @@ class TestSandboxSessionPool:
         pool.close_all()
         assert sa.closed
         assert sb.closed
+
+
+class FakeContainer:
+    def __init__(self, name: str, owner_pid: str) -> None:
+        self.name = name
+        self.labels = {OWNER_PID_LABEL: owner_pid}
+        self.removed = False
+
+    def remove(self, force: bool = False) -> None:
+        self.removed = force
+
+
+class FakeDockerClient:
+    def __init__(self, containers: list[FakeContainer]) -> None:
+        self._containers = containers
+        self.list_kwargs: dict[str, object] = {}
+        self.containers = self
+
+    def list(self, **kwargs: object) -> list[FakeContainer]:
+        self.list_kwargs = kwargs
+        return self._containers
+
+
+class TestOrphanReaping:
+    """A killed process (SIGTERM/SIGKILL skip atexit) strands its pooled
+    containers; the next pool start removes those whose owner is gone."""
+
+    def test_containers_are_labelled_with_owner_pid(self) -> None:
+        from src.agent.tools.code_execution import _sandbox_runtime_configs
+
+        labels = _sandbox_runtime_configs()["labels"]
+        assert labels[OWNER_PID_LABEL] == str(os.getpid())
+
+    def test_removes_containers_whose_owner_died(self) -> None:
+        dead = FakeContainer("dead", "111")
+        alive = FakeContainer("alive", "222")
+        client = FakeDockerClient([dead, alive])
+
+        removed = reap_orphaned_containers(client, pid_alive=lambda pid: pid == 222)
+
+        assert removed == 1
+        assert dead.removed
+        assert not alive.removed
+        assert client.list_kwargs == {"all": True, "filters": {"label": OWNER_PID_LABEL}}
+
+    def test_keeps_container_with_unparseable_owner(self) -> None:
+        odd = FakeContainer("odd", "not-a-pid")
+
+        assert reap_orphaned_containers(FakeDockerClient([odd]), pid_alive=lambda _: False) == 0
+        assert not odd.removed

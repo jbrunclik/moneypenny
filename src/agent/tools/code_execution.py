@@ -13,7 +13,7 @@ from langchain_core.tools import tool
 from src.agent.cancellation import TurnCancelled, on_cancel, raise_if_cancelled
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.permission_check import check_autonomous_permission
-from src.agent.tools.sandbox_sessions import get_sandbox_pool
+from src.agent.tools.sandbox_sessions import OWNER_PID_LABEL, get_sandbox_pool
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -48,6 +48,7 @@ def _sandbox_runtime_configs() -> dict[str, Any]:
         # before SIGKILL - on EVERY execute_code call. With init, SIGTERM is
         # handled and teardown drops from ~10s to ~0.1s (measured).
         "init": True,
+        "labels": {OWNER_PID_LABEL: str(local_os.getpid())},
     }
 
 

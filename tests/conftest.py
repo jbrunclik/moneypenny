@@ -67,6 +67,20 @@ def no_leaked_deep_research_threads() -> Generator[None]:
         pytest.fail(f"test left deep-research threads running: {leaked}", pytrace=False)
 
 
+@pytest.fixture(autouse=True)
+def close_pooled_sandbox_sessions() -> Generator[None]:
+    """Remove a test's pooled sandbox containers when it ends, not at exit.
+
+    The pool otherwise closes them only via atexit, which a killed run skips -
+    leaving idle containers behind (the pool start also reaps such orphans).
+    """
+    yield
+    from src.agent.tools import sandbox_sessions
+
+    if sandbox_sessions._pool is not None:
+        sandbox_sessions._pool.close_all()
+
+
 # -----------------------------------------------------------------------------
 # Global cleanup fixture
 # -----------------------------------------------------------------------------

@@ -11,6 +11,7 @@ worker and get a fresh session - correctness never depends on reuse).
 """
 
 import atexit
+import os
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -24,6 +25,11 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _CLEANUP_INTERVAL_SECONDS = 60
+
+# Every sandbox container carries its creator's PID. atexit (close_all) never
+# runs when the process is killed - SIGTERM/SIGKILL of a test run, dev server
+# or worker - so the next pool start reaps containers whose owner is gone.
+OWNER_PID_LABEL = "moneypenny.owner_pid"
 
 
 @dataclass
@@ -143,7 +149,44 @@ def _make_docker_session() -> Any:
     )
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by another user
+    return True
+
+
+def reap_orphaned_containers(client: Any, pid_alive: Callable[[int], bool] = _pid_alive) -> int:
+    """Remove sandbox containers whose owner process has died; returns the count."""
+    removed = 0
+    for container in client.containers.list(all=True, filters={"label": OWNER_PID_LABEL}):
+        try:
+            owner_pid = int(container.labels[OWNER_PID_LABEL])
+        except KeyError, ValueError:
+            continue
+        if pid_alive(owner_pid):
+            continue
+        container.remove(force=True)
+        removed += 1
+    if removed:
+        logger.info("Removed orphaned sandbox containers", extra={"count": removed})
+    return removed
+
+
+def _reap_orphans_quietly() -> None:
+    try:
+        # An unopened session holds a ready Docker client (no container yet);
+        # importing `docker` here would resolve to the repo's docker/ dir in mypy
+        reap_orphaned_containers(_make_docker_session().client)
+    except Exception:
+        logger.warning("Orphaned sandbox container cleanup failed", exc_info=True)
+
+
 def _cleanup_loop(pool: SandboxSessionPool) -> None:
+    _reap_orphans_quietly()
     while True:
         time.sleep(_CLEANUP_INTERVAL_SECONDS)
         try:
