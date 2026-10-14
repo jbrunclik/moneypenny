@@ -1,10 +1,18 @@
 """Unit tests for HTML extraction and untrusted-content framing in src/agent/tools/web.py."""
 
+import gc
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from unittest.mock import patch
 
+import pytest
+from bs4.element import NavigableString, Tag
+
+from src.agent.tools.product_data import product_data_line
 from src.agent.tools.web import (
     _extract_main_content,
     _extract_text_from_html,
+    _html_to_markdown,
 )
 
 
@@ -180,3 +188,49 @@ class TestPublishedDate:
             '<meta property="article:published_time" content="2025-10-06">'
         )
         assert "Published: 2025-10-06" in _extract_text_from_html(self._page(head), max_length=50)
+
+
+@contextmanager
+def _gc_paused() -> Iterator[None]:
+    was_enabled = gc.isenabled()
+    gc.collect()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+def _live_tree_nodes() -> int:
+    """Parsed-page nodes in memory, the root soup included (it is a Tag)."""
+    return sum(1 for o in gc.get_objects() if isinstance(o, (Tag, NavigableString)))
+
+
+class TestParsedTreesAreFreed:
+    """A parsed page is freed when its function returns (Oct 14 2026: soups are
+    reference cycles, so each fetched page waited for the cyclic GC - workers
+    held dozens of whole pages at a time, and the heap they grew never shrank)."""
+
+    _PRODUCT = (
+        '<html><head><script type="application/ld+json">{"@type":"Product","name":"Wallet",'
+        '"offers":{"price":"2490","priceCurrency":"CZK"}}</script></head>'
+        "<body><nav>Menu</nav><p>Body text</p><script>x()</script></body></html>"
+    )
+    _PLAIN = "<html><body><nav>Menu</nav><p>Body text</p></body></html>"
+
+    @pytest.mark.parametrize(
+        ("parse", "html"),
+        [
+            (product_data_line, _PRODUCT),
+            (product_data_line, _PLAIN),
+            (_html_to_markdown, _PRODUCT),
+        ],
+        ids=["product-data-found", "product-data-absent", "markdown-fallback"],
+    )
+    def test_no_tree_outlives_the_call(self, parse: Callable[[str], str], html: str) -> None:
+        with _gc_paused():
+            before = _live_tree_nodes()
+            result = parse(html)
+            assert _live_tree_nodes() == before
+        assert isinstance(result, str)

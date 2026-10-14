@@ -12,6 +12,8 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+from src.agent.tools.html_soup import parsed_html
+
 _MAX_PRODUCTS = 3
 _SCHEMA_PREFIX = "https://schema.org/"
 _PRICE_META = (
@@ -80,10 +82,12 @@ def product_data_line(html: str) -> str:
     """'Product data (page markup): <name> - price <amount> <currency>, <stock>'
     or '' when the page carries no product price."""
     try:
-        soup = BeautifulSoup(html, "html.parser")
+        with parsed_html(html) as soup:
+            products = _json_ld_products(soup)[:_MAX_PRODUCTS] or [
+                p for p in [_meta_price(soup)] if p
+            ]
     except Exception:
         return ""
-    products = _json_ld_products(soup)[:_MAX_PRODUCTS] or [p for p in [_meta_price(soup)] if p]
     if not products:
         return ""
     return "Product data (page markup): " + "; ".join(products)

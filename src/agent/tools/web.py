@@ -13,9 +13,9 @@ from urllib.parse import urljoin
 import html2text
 import httpx
 import trafilatura
-from bs4 import BeautifulSoup
 from langchain_core.tools import tool
 
+from src.agent.tools.html_soup import parsed_html
 from src.agent.tools.page_date import page_date_line
 from src.agent.tools.product_data import product_data_line
 from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
@@ -98,11 +98,11 @@ def _extract_main_content(html: str) -> str:
 
 def _html_to_markdown(html: str) -> str:
     """Broad fallback: strip boilerplate tags and convert the rest to markdown."""
-    soup = BeautifulSoup(html, "html.parser")
-
-    # Remove script, style, nav, footer, header elements
-    for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
-        element.decompose()
+    with parsed_html(html) as soup:
+        # Remove script, style, nav, footer, header elements
+        for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
+            element.decompose()
+        cleaned = str(soup)
 
     converter = html2text.HTML2Text()
     converter.ignore_links = False
@@ -110,7 +110,7 @@ def _html_to_markdown(html: str) -> str:
     converter.ignore_emphasis = False
     converter.body_width = 0  # No wrapping
 
-    return converter.handle(str(soup))
+    return converter.handle(cleaned)
 
 
 def _extract_text_from_html(html: str, max_length: int | None = None) -> str:

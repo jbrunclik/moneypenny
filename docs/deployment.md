@@ -54,8 +54,9 @@ once (the composer draft is persisted), and a second failure within
 
 ## Profiling Worker Memory
 
-Check a worker's memory with `grep ^Pss: /proc/<pid>/smaps_rollup` (PSS counts
-pages shared with the master once, unlike RSS). To find what a growing worker
+Check a worker's memory with `grep -E '^(Pss|SwapPss):' /proc/<pid>/smaps_rollup`
+and add the two (PSS counts pages shared with the master once, unlike RSS; the
+host swaps, and Pss alone hid most of a 424 MB worker on Oct 14 2026). To find what a growing worker
 accumulates, trace it with tracemalloc (`src/utils/memory_profile.py`):
 
 1. Set `MEMORY_PROFILE_ENABLED=true` in `.env` and **restart** (see above).
@@ -76,9 +77,22 @@ accumulates, trace it with tracemalloc (`src/utils/memory_profile.py`):
 Snapshots are pickles - loading one runs its code - so the directory is
 `0700` and files `0600`. Only diff snapshots this service wrote.
 
-Workers are recycled after `GUNICORN_MAX_REQUESTS` requests, so both
-snapshots must come from the same pid - check it is still alive before the
-second dump.
+Workers are recycled after `GUNICORN_MAX_REQUESTS` requests (about every
+6-7 hours of normal polling traffic), so both snapshots must come from the
+same pid - check it is still alive before the second dump.
+
+**Inspecting a live worker without a restart** (Python 3.14): write a script
+that writes its findings to a file, then
+`.venv/bin/python -c 'import sys; sys.remote_exec(<pid>, "<script>")'`. It
+runs in the worker's main thread at its next safe point. `sys._debugmallocstats()`
+(it prints to fd 2 - redirect that into the file) shows CPython's arenas
+against the bytes in live blocks, and `gc.get_objects()` gives counts by
+type. The unit has `PrivateTmp=yes`, so the script and its output go in the
+home directory, not `/tmp`. Pick workers with
+`pgrep -P $(pgrep -o -f "bin/gunicorn --bind")`; a plain `pgrep -f` also
+matches the shell running the command. Print type names and counts only -
+the heap holds conversation text. (Oct 14 2026: this found parsed web pages
+left as cyclic garbage - see `src/agent/tools/html_soup.py`.)
 
 ## Database Vacuum
 
