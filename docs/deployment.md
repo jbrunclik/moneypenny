@@ -103,6 +103,13 @@ garbage from live data, compare `mallinfo2()` in-use against free bytes
 (ctypes) before and after one `malloc_trim(0)`: Oct 15 2026, two 13h workers
 went from 296/387 MB to 246/299 MB with only 2-3 MB of large strings live.
 
+**Lazy one-time loads count too.** Live Python objects that grow but are not
+garbage are often a library loading data on first use: compare
+`sorted(sys.modules)` from the worker (via `remote_exec`) with a fresh
+`create_app()`, then measure the extra imports with tracemalloc locally. Oct 15
+2026: htmldate's prose date search loaded dateparser's ~200 languages (~30 MB
+per worker); `page_date.py` now reads dates from markup only.
+
 ## Database Vacuum
 
 A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.

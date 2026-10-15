@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from unittest.mock import patch
 
+import dateparser
 import pytest
 from bs4.element import NavigableString, Tag
 
@@ -188,6 +189,16 @@ class TestPublishedDate:
             '<meta property="article:published_time" content="2025-10-06">'
         )
         assert "Published: 2025-10-06" in _extract_text_from_html(self._page(head), max_length=50)
+
+    def test_dates_in_prose_are_not_parsed(self) -> None:
+        # htmldate's prose search runs dateparser over all its ~200 languages,
+        # ~30 MB that each worker kept for life (Oct 15 2026); articles state
+        # their date in markup (21 of 21 sampled news articles)
+        head = '<meta property="og:type" content="article">'
+        page = self._page(head).replace("<article>", "<article><p>Vydáno 6. října 2025 v 8:00</p>")
+        with patch.object(dateparser.DateDataParser, "get_date_data") as dateparser_call:
+            _extract_text_from_html(page)
+        dateparser_call.assert_not_called()
 
 
 @contextmanager

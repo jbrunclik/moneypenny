@@ -9,6 +9,11 @@ text, like the product line, so no length cap can cut it.
 Only pages that declare themselves articles get a date: the only dates on
 Wikipedia and hub pages are creation or copyright years, which would make a
 maintained page look stale.
+
+Dates come from the markup only (`extensive=False`): htmldate's search of the
+page prose runs dateparser across all its ~200 languages, which each worker
+then kept for life (Oct 15 2026: ~30 MB per worker). The sampled news articles
+all state their date in markup.
 """
 
 import trafilatura
@@ -21,7 +26,7 @@ logger = get_logger(__name__)
 def page_date_line(html: str) -> str:
     """'Published: YYYY-MM-DD' for an article that states its date, else ""."""
     try:
-        metadata = trafilatura.extract_metadata(html)
+        metadata = trafilatura.extract_metadata(html, extensive=False)
     except Exception:
         logger.debug("Page metadata extraction failed", exc_info=True)
         return ""
