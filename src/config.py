@@ -133,6 +133,10 @@ class Config:
     MEMORY_PROFILE_FRAMES: int = int(os.getenv("MEMORY_PROFILE_FRAMES", "10"))
     MEMORY_PROFILE_DIR: Path = BASE_DIR / os.getenv("MEMORY_PROFILE_DIR", "data/memory-profiles")
 
+    # Seconds between glibc malloc_trim(0) calls in each worker (0 disables;
+    # no-op off glibc): returns freed heap pages glibc would otherwise keep
+    MALLOC_TRIM_INTERVAL_SECONDS: float = float(os.getenv("MALLOC_TRIM_INTERVAL_SECONDS", "300"))
+
     # Slow query logging (only active in development/debug mode)
     SLOW_QUERY_THRESHOLD_MS: int = int(os.getenv("SLOW_QUERY_THRESHOLD_MS", "100"))
 

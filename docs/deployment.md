@@ -94,6 +94,15 @@ matches the shell running the command. Print type names and counts only -
 the heap holds conversation text. (Oct 14 2026: this found parsed web pages
 left as cyclic garbage - see `src/agent/tools/html_soup.py`.)
 
+**glibc keeps freed memory.** Large short-lived buffers (page HTML, LLM
+payloads, TLS/gRPC buffers) are freed back to glibc, not to the OS, and its
+fragmented heap only shrinks from the top - so PSS sits at the worker's
+high-water mark. Each worker therefore calls `malloc_trim(0)` every
+`MALLOC_TRIM_INTERVAL_SECONDS` (`src/utils/malloc_trim.py`). To tell retained
+garbage from live data, compare `mallinfo2()` in-use against free bytes
+(ctypes) before and after one `malloc_trim(0)`: Oct 15 2026, two 13h workers
+went from 296/387 MB to 246/299 MB with only 2-3 MB of large strings live.
+
 ## Database Vacuum
 
 A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.
