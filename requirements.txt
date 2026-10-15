@@ -11,7 +11,7 @@ google-genai>=2.15.0
 google-api-core>=2.36.0
 langgraph>=1.2.12
 langchain-google-genai>=4.4.1
-langchain-core>=1.6.6
+langchain-core>=1.6.9
 pyjwt>=2.15.1
 requests>=2.34.2
 
