@@ -1,5 +1,7 @@
 """Unit tests for generate_title in src/agent/title.py."""
 
+from src.agent import gemini_clients
+
 
 class TestGenerateTitle:
     """Tests for the conversation title generation contract.
@@ -25,7 +27,7 @@ class TestGenerateTitle:
                     "Error calling model 'gemini-3-flash-preview' (RESOURCE_EXHAUSTED): 429"
                 )
 
-        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", _RaisingModel)
         assert title_mod.generate_title("hello", "world") is None
 
     def test_returns_none_on_unexpected_exception(self, monkeypatch) -> None:
@@ -39,7 +41,7 @@ class TestGenerateTitle:
             def invoke(self, *args, **kwargs):
                 raise RuntimeError("network blew up")
 
-        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _RaisingModel)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", _RaisingModel)
         assert title_mod.generate_title("hi", "there") is None
 
     def test_returns_title_on_success(self, monkeypatch) -> None:
@@ -56,7 +58,7 @@ class TestGenerateTitle:
             def invoke(self, *args, **kwargs):
                 return _Resp()
 
-        monkeypatch.setattr(title_mod, "ChatGoogleGenerativeAI", _StubModel)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", _StubModel)
         assert title_mod.generate_title("how do I sort?", "use sorted()") == (
             "🐍 Python List Sorting"
         )

@@ -821,15 +821,15 @@ def main() -> None:
     with contextlib.ExitStack() as stack:
         # Apply external service mocks
         stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
-        stack.enter_context(patch("src.agent.title.ChatGoogleGenerativeAI", create_mock_llm()))
+        stack.enter_context(
+            patch("src.agent.gemini_clients.ChatGoogleGenerativeAI", create_mock_llm())
+        )
         stack.enter_context(
             patch("src.agent.tools.web.search_web_detailed", mock_search_web_detailed)
         )
         stack.enter_context(patch("src.agent.tools.research.search_web", mock_search_web))
         stack.enter_context(patch("src.agent.tools.web.httpx.Client", create_mock_httpx()))
-        stack.enter_context(
-            patch("src.agent.tools.image_generation.genai.Client", create_mock_genai())
-        )
+        stack.enter_context(patch("src.agent.gemini_clients.genai.Client", create_mock_genai()))
         stack.enter_context(
             patch("src.agent.gemini_files._get_client", create_mock_gemini_files_client())
         )

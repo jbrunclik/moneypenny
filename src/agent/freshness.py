@@ -24,10 +24,10 @@ from datetime import date
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 from src.agent.content import strip_full_result_from_tool_content
+from src.agent.gemini_clients import chat_model
 from src.agent.prompt_texts.freshness import FRESHNESS_GATE_PROMPT
 from src.agent.tools.research import research
 from src.config import Config
@@ -109,9 +109,8 @@ def _usage(raw: Any) -> dict[str, Any]:
 
 
 def _ask_gate(user: str, previous: str) -> tuple[GateVerdict | None, dict[str, Any] | None]:
-    model = ChatGoogleGenerativeAI(
-        model=Config.FRESHNESS_GATE_MODEL,
-        google_api_key=Config.GEMINI_API_KEY,
+    model = chat_model(
+        Config.FRESHNESS_GATE_MODEL,
         temperature=0,
         # The API refuses shorter deadlines; the turn's own cap is the wall-clock
         # wait in decide_freshness

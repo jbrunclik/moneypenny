@@ -118,6 +118,10 @@ an hour or more after the last full collection. Oct 16 2026: httpx clients
 (made per page fetch and per search call) each held an SSLContext with its own
 CA bundle (~0.8 MB); they now share one (`src/utils/tls.py`) - pass
 `verify=shared_ssl_context()` to any new short-lived httpx client.
+The same holds for Gemini: a `ChatGoogleGenerativeAI` or `genai.Client` built
+per call kept ~0.8 MB each (three CA-bundle loads). Side calls use
+`chat_model(...)` and `shared_genai_client()` from `src/agent/gemini_clients.py`;
+the agent graph caches its own model with the compiled graph.
 
 ## Database Vacuum
 

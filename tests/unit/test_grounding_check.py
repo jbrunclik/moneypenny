@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.agent import grounding_check
+from src.agent import gemini_clients, grounding_check
 from src.agent.grounding_annotations import ClaimVerdict, GroundingVerdict
 from src.agent.grounding_check import check_grounding, format_sources, should_check
 from src.agent.source_pages import SourcePage
@@ -259,7 +259,7 @@ class TestRunVerifier:
         model = MagicMock()
         model.with_structured_output.return_value = structured
         llm_cls = MagicMock(return_value=model)
-        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", llm_cls)
 
         verdict, usage = grounding_check._run_verifier(
             "the answer", "the sources", "the known facts"
@@ -293,7 +293,7 @@ class TestRunVerifier:
             "raw": MagicMock(usage_metadata={}),
             "parsed": None,
         }
-        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", llm_cls)
 
         grounding_check._run_verifier("a", "s", "k")
 
@@ -382,7 +382,7 @@ class TestUserImages:
         llm_cls = MagicMock()
         structured = llm_cls.return_value.with_structured_output.return_value
         structured.invoke.return_value = {"raw": MagicMock(usage_metadata={}), "parsed": None}
-        monkeypatch.setattr(grounding_check, "ChatGoogleGenerativeAI", llm_cls)
+        monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", llm_cls)
 
         grounding_check._run_verifier("the answer", "s", "k", images=[_IMAGE])
 
@@ -817,7 +817,7 @@ class TestRecentNewsScope:
         model = MagicMock()
         model.with_structured_output.return_value = structured
         with (
-            patch.object(grounding_check, "ChatGoogleGenerativeAI", return_value=model),
+            patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model),
             patch.object(grounding_check, "_today", return_value=date(2026, 10, 10)),
         ):
             grounding_check._run_verifier("answer", "sources", "known")

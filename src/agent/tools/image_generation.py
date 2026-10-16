@@ -4,11 +4,11 @@ import base64
 import json
 from typing import Any
 
-from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 from langchain_core.tools import tool
 
+from src.agent.gemini_clients import shared_genai_client
 from src.agent.tools.context import (
     get_conversation_context,
     get_current_message_files,
@@ -115,8 +115,7 @@ def generate_image(
                 "has_history_image": history_image_message_id is not None,
             },
         )
-        # Create client with API key
-        client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        client = shared_genai_client()
 
         # Build contents - either text-only or multimodal with reference images
         contents: Any = prompt  # Default: text-only

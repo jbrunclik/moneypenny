@@ -16,6 +16,7 @@ from src.agent.content import extract_text_content
 from src.agent.deep_research.board import ResearchBoard, agent_label
 from src.agent.deep_research.plan import DeepResearchPlan
 from src.agent.deep_research.subagent import ItemResult
+from src.agent.gemini_clients import chat_model
 from src.agent.prompt_texts.deep_research import FOLLOWUP_PROMPT, REPORT_PROMPT
 from src.agent.source_pages import SourcePage
 from src.agent.tools.web import wrap_untrusted_content
@@ -118,9 +119,8 @@ def extract_followups(report: str) -> tuple[list[str], dict[str, int]]:
     ([], {}) on any failure.
     """
     try:
-        llm = ChatGoogleGenerativeAI(
-            model=Config.DEEP_RESEARCH_SUBAGENT_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
+        llm = chat_model(
+            Config.DEEP_RESEARCH_SUBAGENT_MODEL,
             temperature=0,
             max_retries=Config.AGENT_MODEL_SDK_MAX_RETRIES,
         )

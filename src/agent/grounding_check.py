@@ -16,9 +16,9 @@ from datetime import date, datetime
 from typing import Any
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.agent.content import extract_text_content, strip_echoed_msg_context
+from src.agent.gemini_clients import chat_model
 from src.agent.grounding_annotations import GroundingVerdict, summarize, validate_claims
 from src.agent.prompt_texts.grounding import GROUNDING_CHECK_PROMPT
 from src.agent.source_pages import WEB_TOOL_NAMES, SourcePage, turn_pages, uncited_web_text
@@ -202,9 +202,8 @@ def _run_verifier(
 ) -> tuple[GroundingVerdict | None, dict[str, Any] | None]:
     """One structured call to the checker model. Raises on API errors/timeouts."""
     timeout = timeout_seconds or Config.GROUNDING_CHECK_TIMEOUT_SECONDS
-    model = ChatGoogleGenerativeAI(
-        model=Config.GROUNDING_CHECK_MODEL,
-        google_api_key=Config.GEMINI_API_KEY,
+    model = chat_model(
+        Config.GROUNDING_CHECK_MODEL,
         temperature=0,
         timeout=max(timeout, GEMINI_MIN_REQUEST_DEADLINE_SECONDS),
         max_retries=0,

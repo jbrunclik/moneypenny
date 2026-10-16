@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.content import extract_text_content
+from src.agent.gemini_clients import chat_model
 from src.agent.tools.google_calendar import is_google_calendar_available
 from src.agent.tools.todoist import is_todoist_available
 from src.agent.tools.whatsapp import is_whatsapp_available
@@ -156,7 +157,6 @@ def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any
     import re
 
     from langchain_core.messages import HumanMessage
-    from langchain_google_genai import ChatGoogleGenerativeAI
 
     logger.info(
         "Parsing schedule",
@@ -166,11 +166,7 @@ def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any
     try:
         # Use direct LLM call without system prompt overhead
         # This is a simple task that doesn't need tools or memory
-        model = ChatGoogleGenerativeAI(
-            model=Config.DEFAULT_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.1,  # Low temperature for consistent parsing
-        )
+        model = chat_model(Config.DEFAULT_MODEL, temperature=0.1)  # consistent parsing
 
         prompt = f"""Convert this natural language schedule description to a cron expression.
 
@@ -231,7 +227,6 @@ def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any
     improvements for clarity, completeness, and effectiveness.
     """
     from langchain_core.messages import HumanMessage
-    from langchain_google_genai import ChatGoogleGenerativeAI
 
     logger.info(
         "Enhancing prompt",
@@ -243,11 +238,7 @@ def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any
 
         # Use direct LLM call without system prompt overhead
         # This is a simple task that doesn't need tools or memory
-        model = ChatGoogleGenerativeAI(
-            model=Config.DEFAULT_MODEL,
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=0.7,  # Moderate temperature for creative improvement
-        )
+        model = chat_model(Config.DEFAULT_MODEL, temperature=0.7)  # creative improvement
 
         tool_section = _format_tool_prompt_section(user, json_data.tool_permissions)
         tool_section_text = (

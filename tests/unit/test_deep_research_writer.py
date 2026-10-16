@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from langchain_core.messages import AIMessageChunk
 
+from src.agent import gemini_clients
 from src.agent.deep_research import writer
 from src.agent.deep_research.board import ResearchBoard
 from src.agent.deep_research.plan import DeepResearchPlan
@@ -61,7 +62,7 @@ def test_extract_followups_uses_structured_output_and_fails_soft(monkeypatch) ->
     }
     llm = MagicMock()
     llm.with_structured_output.return_value = structured
-    monkeypatch.setattr(writer, "ChatGoogleGenerativeAI", MagicMock(return_value=llm))
+    monkeypatch.setattr(gemini_clients, "ChatGoogleGenerativeAI", MagicMock(return_value=llm))
 
     questions, usage = writer.extract_followups("report")
     assert questions == ["a?", "b?"]

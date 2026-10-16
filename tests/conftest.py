@@ -68,6 +68,17 @@ def no_leaked_deep_research_threads() -> Generator[None]:
 
 
 @pytest.fixture(autouse=True)
+def fresh_gemini_clients() -> Generator[None]:
+    """Each test builds its own Gemini clients: a model cached by an earlier
+    test (possibly a patched mock) must not answer for this one."""
+    from src.agent import gemini_clients
+
+    gemini_clients.clear_cached_clients()
+    yield
+    gemini_clients.clear_cached_clients()
+
+
+@pytest.fixture(autouse=True)
 def close_pooled_sandbox_sessions() -> Generator[None]:
     """Remove a test's pooled sandbox containers when it ends, not at exit.
 

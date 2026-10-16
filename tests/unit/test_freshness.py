@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from src.agent import freshness
+from src.agent import freshness, gemini_clients
 from src.config import Config
 
 
@@ -69,7 +69,7 @@ class TestDecide:
             reason="keynote follow-up",
         )
         with patch.object(
-            freshness, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
         ):
             decision = freshness.decide_freshness(_TURN)
         assert decision.lookup is True
@@ -84,7 +84,7 @@ class TestDecide:
 
     def test_the_prompt_is_dated_and_carries_the_exchange(self) -> None:
         model = _verdict_model(freshness.GateVerdict(lookup=False))
-        with patch.object(freshness, "ChatGoogleGenerativeAI", return_value=model):
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
             freshness.decide_freshness(_TURN)
         prompt = model.with_structured_output.return_value.invoke.call_args.args[0]
         assert "TODAY: 2026-10-10" in prompt
@@ -92,19 +92,19 @@ class TestDecide:
 
     def test_fails_open_on_any_error(self) -> None:
         model = _verdict_model(None, raises=TimeoutError("slow"))
-        with patch.object(freshness, "ChatGoogleGenerativeAI", return_value=model):
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
             assert freshness.decide_freshness(_TURN).lookup is False
 
     def test_a_lookup_without_queries_is_no_lookup(self) -> None:
         verdict = freshness.GateVerdict(lookup=True, queries=[" "])
         with patch.object(
-            freshness, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
         ):
             assert freshness.decide_freshness(_TURN).lookup is False
 
     def test_disabled_makes_no_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(Config, "FRESHNESS_GATE_ENABLED", False)
-        with patch.object(freshness, "ChatGoogleGenerativeAI") as model_class:
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI") as model_class:
             assert freshness.decide_freshness(_TURN).lookup is False
         model_class.assert_not_called()
 
@@ -130,7 +130,7 @@ class TestDeadlines:
         from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
 
         with patch.object(
-            freshness,
+            gemini_clients,
             "ChatGoogleGenerativeAI",
             return_value=_verdict_model(freshness.GateVerdict(lookup=False)),
         ) as model_class:
@@ -174,7 +174,7 @@ class TestDisputes:
     def test_the_gate_reports_a_dispute(self) -> None:
         verdict = freshness.GateVerdict(lookup=True, queries=["q 2026"], disputed=True)
         with patch.object(
-            freshness, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
         ):
             assert freshness.decide_freshness(_TURN).disputed is True
 

@@ -1,9 +1,9 @@
 """Conversation title generation."""
 
 from langchain_core.messages import HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.agent.content import extract_text_content
+from src.agent.gemini_clients import chat_model
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -25,10 +25,8 @@ def generate_title(user_message: str, assistant_response: str) -> str | None:
     """
     logger.debug("Generating conversation title")
     # Use Flash model for fast, cheap title generation
-    model = ChatGoogleGenerativeAI(
-        model=Config.TITLE_GENERATION_MODEL,
-        google_api_key=Config.GEMINI_API_KEY,
-        temperature=Config.TITLE_GENERATION_TEMPERATURE,
+    model = chat_model(
+        Config.TITLE_GENERATION_MODEL, temperature=Config.TITLE_GENERATION_TEMPERATURE
     )
 
     # Truncate context to avoid sending too much data

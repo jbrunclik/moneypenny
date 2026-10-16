@@ -16,7 +16,7 @@ from typing import Any
 from google import genai
 from google.genai import types as genai_types
 
-from src.config import Config
+from src.agent.gemini_clients import shared_genai_client
 from src.db.models import db
 from src.utils.datetime_utils import utcnow_naive
 from src.utils.logging import get_logger
@@ -35,7 +35,7 @@ class GeminiFileError(Exception):
 
 
 def _get_client() -> genai.Client:
-    return genai.Client(api_key=Config.GEMINI_API_KEY)
+    return shared_genai_client()
 
 
 def _cache_key(message_id: str, file_index: int) -> str:

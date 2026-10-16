@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from src.agent.gemini_clients import shared_genai_client
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -58,11 +59,10 @@ def run_summary_model(prompt: str) -> str | None:
     or raised. Callers supply their own fallback text.
     """
     # Import here to avoid circular imports
-    from google import genai
     from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
 
     try:
-        client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        client = shared_genai_client()
         response = client.models.generate_content(
             model=Config.AI_ASSIST_MODEL,
             contents=prompt,

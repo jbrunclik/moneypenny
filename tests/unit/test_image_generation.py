@@ -38,7 +38,7 @@ class TestGenerateImage:
         expected_ratios = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"}
         assert VALID_ASPECT_RATIOS == expected_ratios
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_successful_generation(self, mock_client_class: MagicMock) -> None:
         """Should return image data on successful generation."""
         # Mock the response structure
@@ -71,7 +71,7 @@ class TestGenerateImage:
         assert "image" in parsed["_full_result"]
         assert "data" in parsed["_full_result"]["image"]
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_includes_usage_metadata(self, mock_client_class: MagicMock) -> None:
         """Should include usage metadata for cost tracking."""
         mock_part = MagicMock()
@@ -102,7 +102,7 @@ class TestGenerateImage:
         assert parsed["usage_metadata"]["prompt_token_count"] == 100
         assert parsed["usage_metadata"]["candidates_token_count"] == 200
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_usage_metadata_splits_image_output_tokens(self, mock_client_class: MagicMock) -> None:
         """Image-modality output tokens are reported separately (billed at a higher rate)."""
         from google.genai import types
@@ -137,7 +137,7 @@ class TestGenerateImage:
         assert parsed["usage_metadata"]["candidates_token_count"] == 1177
         assert parsed["usage_metadata"]["image_output_token_count"] == 1120
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_handles_no_candidates(self, mock_client_class: MagicMock) -> None:
         """Should return error when no candidates in response."""
         mock_response = MagicMock()
@@ -154,7 +154,7 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "No image generated" in parsed["error"]
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_handles_safety_block(self, mock_client_class: MagicMock) -> None:
         """Should return friendly error for safety blocks."""
         mock_client = MagicMock()
@@ -179,7 +179,7 @@ class TestGenerateImage:
         assert "error" in parsed
         assert "too long" in parsed["error"].lower()
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_all(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -222,7 +222,7 @@ class TestGenerateImage:
         assert contents[1]["inline_data"]["data"] == "base64data1"
         assert contents[2]["inline_data"]["data"] == "base64data2"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_specific_index(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -261,7 +261,7 @@ class TestGenerateImage:
         assert len(contents) == 2  # prompt + 1 image
         assert contents[1]["inline_data"]["data"] == "base64data1"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_multiple_indices(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -303,7 +303,7 @@ class TestGenerateImage:
         assert contents[1]["inline_data"]["data"] == "base64data1"
         assert contents[2]["inline_data"]["data"] == "base64data3"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_filters_non_images(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -342,7 +342,7 @@ class TestGenerateImage:
         assert len(contents) == 2  # prompt + 1 image
         assert contents[1]["inline_data"]["data"] == "imagedata"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_no_files_in_context(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -377,7 +377,7 @@ class TestGenerateImage:
         # Falls back to list with just prompt when reference_images specified but no files
         assert contents == ["Generate something"]
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     @patch("src.agent.tools.image_generation.get_current_message_files")
     def test_reference_images_invalid_index_ignored(
         self, mock_get_files: MagicMock, mock_client_class: MagicMock
@@ -435,14 +435,14 @@ def _mock_image_client(mock_client_class: MagicMock) -> MagicMock:
 class TestGenerateImageOptions:
     """Tests for image_size and use_search options of generate_image."""
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_default_image_size_is_1k(self, mock_client_class: MagicMock) -> None:
         mock_client = _mock_image_client(mock_client_class)
         generate_image.invoke({"prompt": "test"})
         config = mock_client.models.generate_content.call_args.kwargs["config"]
         assert config.image_config.image_size == "1K"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_image_size_passed_to_api(self, mock_client_class: MagicMock) -> None:
         mock_client = _mock_image_client(mock_client_class)
         parsed = json.loads(generate_image.invoke({"prompt": "test", "image_size": "4K"}))
@@ -450,7 +450,7 @@ class TestGenerateImageOptions:
         config = mock_client.models.generate_content.call_args.kwargs["config"]
         assert config.image_config.image_size == "4K"
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_image_size_is_case_insensitive(self, mock_client_class: MagicMock) -> None:
         """The API rejects lowercase 'k'; the tool normalizes it."""
         mock_client = _mock_image_client(mock_client_class)
@@ -462,14 +462,14 @@ class TestGenerateImageOptions:
         parsed = json.loads(generate_image.invoke({"prompt": "test", "image_size": "8K"}))
         assert "Invalid image size" in parsed["error"]
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_search_grounding_off_by_default(self, mock_client_class: MagicMock) -> None:
         mock_client = _mock_image_client(mock_client_class)
         generate_image.invoke({"prompt": "test"})
         config = mock_client.models.generate_content.call_args.kwargs["config"]
         assert not config.tools
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_use_search_enables_google_search_tool(self, mock_client_class: MagicMock) -> None:
         mock_client = _mock_image_client(mock_client_class)
         parsed = json.loads(generate_image.invoke({"prompt": "test", "use_search": True}))
@@ -478,7 +478,7 @@ class TestGenerateImageOptions:
         assert len(config.tools) == 1
         assert config.tools[0].google_search is not None
 
-    @patch("src.agent.tools.image_generation.genai.Client")
+    @patch("src.agent.gemini_clients.genai.Client")
     def test_new_aspect_ratios_accepted(self, mock_client_class: MagicMock) -> None:
         mock_client = _mock_image_client(mock_client_class)
         for ratio in ("4:5", "5:4", "21:9"):
