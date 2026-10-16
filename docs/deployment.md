@@ -110,6 +110,15 @@ garbage are often a library loading data on first use: compare
 2026: htmldate's prose date search loaded dateparser's ~200 languages (~30 MB
 per worker); `page_date.py` now reads dates from markup only.
 
+**Cyclic garbage can hold native memory.** Busy workers almost never run a
+full collection on their own (`gc.get_stats()` shows the gen-2 count), so a
+cycle that owns a C buffer keeps it for hours. To see what the garbage is,
+collect with `gc.set_debug(gc.DEBUG_SAVEALL)` and count `gc.garbage` by type,
+an hour or more after the last full collection. Oct 16 2026: httpx clients
+(made per page fetch and per search call) each held an SSLContext with its own
+CA bundle (~0.8 MB); they now share one (`src/utils/tls.py`) - pass
+`verify=shared_ssl_context()` to any new short-lived httpx client.
+
 ## Database Vacuum
 
 A weekly systemd timer is automatically configured to run VACUUM on both SQLite databases (main database and blob storage). This reclaims disk space from deleted records and optimizes database performance.

@@ -30,6 +30,7 @@ from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
+from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)
 
@@ -419,6 +420,7 @@ def _search_brave(query: str, num_results: int) -> list[dict[str, str]]:
                 "Accept": "application/json",
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
+            verify=shared_ssl_context(),
         )
         if response.status_code == 402:
             raise SearchProviderError(
@@ -478,6 +480,7 @@ def _search_tavily(query: str, num_results: int) -> list[dict[str, str]]:
                 "Content-Type": "application/json",
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
+            verify=shared_ssl_context(),
         )
         if response.status_code == 432:  # Tavily's plan-limit code
             raise SearchProviderError(
@@ -521,6 +524,7 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
                 "Content-Type": "application/json",
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
+            verify=shared_ssl_context(),
         )
         if response.status_code == 402:
             raise SearchProviderError(
@@ -562,6 +566,7 @@ def _search_linkup(query: str, num_results: int) -> list[dict[str, str]]:
                 "Content-Type": "application/json",
             },
             timeout=_HTTP_TIMEOUT_SECONDS,
+            verify=shared_ssl_context(),
         )
         # Linkup returns 429 for rate limiting AND for exhausted credits with
         # nothing in the response distinguishing them, so this one genuinely

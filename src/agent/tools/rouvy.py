@@ -33,6 +33,7 @@ from src.auth import rouvy_auth
 from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
+from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)
 
@@ -56,7 +57,12 @@ def _client_request(
     method: str, url: str, kwargs: dict[str, Any], jar: dict[str, str]
 ) -> httpx.Response:
     """Single httpx request with the given cookie jar. Isolated for test seams."""
-    with httpx.Client(cookies=jar, timeout=Config.ROUVY_HTTP_TIMEOUT, follow_redirects=False) as c:
+    with httpx.Client(
+        cookies=jar,
+        timeout=Config.ROUVY_HTTP_TIMEOUT,
+        follow_redirects=False,
+        verify=shared_ssl_context(),
+    ) as c:
         return c.request(method, url, **kwargs)
 
 

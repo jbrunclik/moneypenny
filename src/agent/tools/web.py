@@ -28,6 +28,7 @@ from src.utils.search_provider import (
     has_metered_providers,
     search_web_detailed,
 )
+from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)
 
@@ -204,7 +205,7 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
         with httpx.Client(
             timeout=float(Config.TOOL_TIMEOUT),
             follow_redirects=False,
-            transport=_SSRFSafeTransport(),
+            transport=_SSRFSafeTransport(verify=shared_ssl_context()),
             default_encoding=_sniffed_encoding,
             headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
