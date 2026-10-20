@@ -269,6 +269,8 @@ MaxRetentionSec=7day
 MaxFiles=10
 ```
 
+`SystemMaxUse` is shared by every account on the host, and journald deletes the oldest files first, whoever wrote them. A 500M cap on a host where another account logs heavily kept only ~2 days of Moneypenny's logs (it writes ~25 MB a day), too little for the multi-week log reviews. Size the cap for the whole host.
+
 After modifying journald configuration:
 ```bash
 sudo systemctl restart systemd-journald
