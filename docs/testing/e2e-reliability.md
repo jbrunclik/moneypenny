@@ -242,6 +242,12 @@ by guessing):
   (`page.context().route(...)`), which also sees the worker's own fetches -
   needed for `/static/assets/*` chunks, which the worker serves cache-first
   (`web/tests/e2e/chat/pdf-viewer.spec.ts`).
+- **Push is stubbed in every E2E test**: Playwright's WebKit has no push
+  service, so `pushManager.getSubscription()` on a page the service worker
+  controls never resolves (1.61) or freezes the whole page (1.64+: every
+  webkit test timed out on `page.goto` or its first selector). The app calls
+  it on every signed-in load (`resyncPushSubscription`), so the shared
+  `context` fixture in `web/tests/global-setup.ts` makes it resolve `null`.
 - **WebKit reuses a failed module load**: after a lazy `import()` of a URL
   fails, WebKit fails the same URL again without a network request, even after
   a reload and `unroute`. A test cannot fail a chunk and then load that same

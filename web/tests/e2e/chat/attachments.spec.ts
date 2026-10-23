@@ -539,6 +539,10 @@ test.describe('Chat - Thinking Gated on Upload', () => {
 });
 
 test.describe('Chat - Client-side Image Compression', () => {
+  // Service-worker-mediated fetches bypass page.route — block the SW (newer
+  // WebKit, Playwright 1.64+, routes the batch POST through it too)
+  test.use({ serviceWorkers: 'block' });
+
   test('large images are downscaled and re-encoded before upload', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
