@@ -215,9 +215,12 @@ function clearSearchText(): void {
 
   currentSearchQuery = '';
 
-  // Clear results but keep search active
+  // Clear results but keep search active. An in-flight search no longer
+  // owns the loading state (its finally skips a superseded query), so end
+  // it here - or the panel stays on "Searching..." until the next keystroke
   useStore.getState().setSearchQuery('');
   useStore.getState().setSearchResults([], 0);
+  useStore.getState().setIsSearching(false);
 
   // Update input
   const input = getElementById<HTMLInputElement>('search-input');
