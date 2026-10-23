@@ -93,6 +93,8 @@ them. E2E browsers run inside the `mcr.microsoft.com/playwright` image like
 the visual tests: `playwright install --with-deps` fetched ~100 media
 packages from the runner's apt mirror, which intermittently crawled at KB/s
 and hung shards until the 30-min job timeout. Python deps install with `uv`.
+Playwright shards by test count in file order, so chromium runs as 2 shards
+and webkit as 6 to keep the streaming-heavy slice off the critical path.
 
 Races found and fixed in that pass (all reproduced from CI artifacts, not
 by guessing):
@@ -130,7 +132,7 @@ by guessing):
   log showed `/test/reset` taking up to 12s on the webkit runner at only
   4-10 server threads (a reset is ~6ms in isolation; even `GET /` took
   3.8s). Four webkit contexts saturate a 2-vCPU runner. WebKit now runs as
-  four shards of two workers; the server also prints `INFLIGHT` lines for
+  shards of two workers (six since Oct 2026); the server also prints `INFLIGHT` lines for
   requests still running after 3s. (Running the browsers under `nice` was
   tried and reverted - chromium went from 0 to 6 retries.)
 - **WebKit flakes under sustained load (settled Sep 2026)** - two specs

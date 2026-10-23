@@ -128,25 +128,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Playwright shards by test COUNT in file order, so a shard that
+          # draws streaming.spec.ts (many 10-20s tests) runs long. Smaller
+          # slices even that out (Oct 2026: the 1-shard chromium job and the
+          # streaming-heavy webkit shard were the critical path at ~6.5 min).
           - project: chromium
-            shard: 1/1
+            shard: 1/2
+            workers: 4
+          - project: chromium
+            shard: 2/2
             workers: 4
           # WebKit is the CPU hog: with 4 webkit contexts on one runner the mock
           # server's /test/reset took up to 12s (starved Python, not a lock -
           # a reset is ~6ms in isolation) and streams stalled on "Thinking";
-          # 3 contexts still produced 9s stalls. Two contexts per runner, four
-          # shards - runner minutes are free for a public repo, retries aren't.
+          # 3 contexts still produced 9s stalls. Two contexts per runner -
+          # runner minutes are free for a public repo, retries aren't.
           - project: webkit
-            shard: 1/4
+            shard: 1/6
             workers: 2
           - project: webkit
-            shard: 2/4
+            shard: 2/6
             workers: 2
           - project: webkit
-            shard: 3/4
+            shard: 3/6
             workers: 2
           - project: webkit
-            shard: 4/4
+            shard: 4/6
+            workers: 2
+          - project: webkit
+            shard: 5/6
+            workers: 2
+          - project: webkit
+            shard: 6/6
             workers: 2
     # Fail fast instead of burning ~6h of runner time if the browser/app hangs
     # (e.g. a Playwright bump whose webkit build never completes page load).
