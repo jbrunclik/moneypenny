@@ -79,6 +79,30 @@ def fresh_gemini_clients() -> Generator[None]:
 
 
 @pytest.fixture(autouse=True)
+def reset_turn_contextvars() -> Generator[None]:
+    """Clear the turn contextvars a test leaves set on the main thread.
+
+    Production runs a turn's producer (which calls TurnContext.apply()) on a
+    fresh thread whose context dies with it; tests that call it directly
+    leave e.g. the request id set, so a later test's web_search counted as
+    a repeat search and escalated to research - depending on which tests
+    shared an xdist worker.
+    """
+    yield
+    from src.agent.tool_results import set_current_request_id
+    from src.agent.tools import (
+        set_conversation_context,
+        set_current_message_files,
+        set_location_context,
+    )
+
+    set_current_request_id(None)
+    set_current_message_files(None)
+    set_conversation_context(None, None)
+    set_location_context(None)
+
+
+@pytest.fixture(autouse=True)
 def close_pooled_sandbox_sessions() -> Generator[None]:
     """Remove a test's pooled sandbox containers when it ends, not at exit.
 
