@@ -82,8 +82,7 @@ test.describe('Chat - Inline PDF viewer', () => {
     const docLink = await sendPdf(page);
 
     // A page loaded before a deploy asks for the previous build's chunk, which
-    // the rebuild deleted: the server answers 404. Routed on the context: the
-    // service worker fetches assets itself, and page routes miss its requests
+    // the rebuild deleted: the server answers 404
     await page.context().route(PDF_VIEWER_CHUNK, (route) => route.fulfill(CHUNK_GONE));
     await markPage(page);
     const reloaded = page.waitForEvent('load');

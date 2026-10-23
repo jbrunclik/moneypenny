@@ -34,16 +34,6 @@ export const test = base.extend<{
         new MutationObserver(pin).observe(document, { childList: true, subtree: true });
       });
     }
-    // Playwright's WebKit has no push service: getSubscription() on a
-    // service-worker-controlled page never resolves (1.61) or freezes the
-    // whole page (1.64+, every webkit test timed out). The app calls it on
-    // every signed-in load to re-sync the subscription; no test needs a real
-    // one, so report "not subscribed" everywhere.
-    await context.addInitScript(() => {
-      if ('PushManager' in window) {
-        PushManager.prototype.getSubscription = () => Promise.resolve(null);
-      }
-    });
     // The web fonts ship as unicode-range subsets with font-display: swap, so
     // a face only starts loading the first time text uses it. A visual test
     // that injects a popup with the first display-font heading on the page

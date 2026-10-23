@@ -434,9 +434,6 @@ test.describe('Chat - Video Upload', () => {
   });
 
   test.describe('with route mocking', () => {
-    // Service-worker-mediated fetches bypass page.route — block the SW
-    test.use({ serviceWorkers: 'block' });
-
     test('oversized video is rejected with a toast', async ({ page }) => {
       // Shrink the server-driven limit below the fixture size via route mock
       await page.route('**/api/config/upload', async (route) => {
@@ -467,9 +464,6 @@ test.describe('Chat - Video Upload', () => {
 });
 
 test.describe('Chat - Thinking Gated on Upload', () => {
-  // Service-worker-mediated fetches bypass page.route — block the SW
-  test.use({ serviceWorkers: 'block' });
-
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
@@ -539,10 +533,6 @@ test.describe('Chat - Thinking Gated on Upload', () => {
 });
 
 test.describe('Chat - Client-side Image Compression', () => {
-  // Service-worker-mediated fetches bypass page.route — block the SW (newer
-  // WebKit, Playwright 1.64+, routes the batch POST through it too)
-  test.use({ serviceWorkers: 'block' });
-
   test('large images are downscaled and re-encoded before upload', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');

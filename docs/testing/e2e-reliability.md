@@ -125,9 +125,8 @@ by guessing):
 - **Check-then-act on a loader** - the sidebar load-more test waited for
   the loader, then counted its dots in a second call. Hold the request with
   `page.route` (and the sync request, which delivers every conversation at
-  boot) so the loading state is observable; note `page.route` cannot see
-  requests that pass through the service worker on WebKit - that describe
-  uses `test.use({ serviceWorkers: 'block' })`.
+  boot) so the loading state is observable (this relies on service workers
+  being blocked suite-wide - see below).
 - **Runner CPU starvation, not the mock server** - the e2e-server's SLOW
   log showed `/test/reset` taking up to 12s on the webkit runner at only
   4-10 server threads (a reset is ~6ms in isolation; even `GET /` took
@@ -234,20 +233,16 @@ by guessing):
   so the stream finishes before any mid-stream click/assertion. Specs that must
   observe streaming state set a larger delay via `POST /test/set-stream-delay`
   (per-execution-id isolated).
-- **Service worker blocks route mocks**: the app registers `/sw.js`
-  ([src/app.py](../../src/app.py)), and `page.route()` does **not** intercept
-  service-worker-mediated fetches. Any spec that mocks API responses must opt out
-  with `test.use({ serviceWorkers: 'block' })` (see
-  `web/tests/e2e/chat/attachments.spec.ts`), or route on the context
-  (`page.context().route(...)`), which also sees the worker's own fetches -
-  needed for `/static/assets/*` chunks, which the worker serves cache-first
-  (`web/tests/e2e/chat/pdf-viewer.spec.ts`).
-- **Push is stubbed in every E2E test**: Playwright's WebKit has no push
-  service, so `pushManager.getSubscription()` on a page the service worker
-  controls never resolves (1.61) or freezes the whole page (1.64+: every
-  webkit test timed out on `page.goto` or its first selector). The app calls
-  it on every signed-in load (`resyncPushSubscription`), so the shared
-  `context` fixture in `web/tests/global-setup.ts` makes it resolve `null`.
+- **Service workers are blocked for the whole suite** (`serviceWorkers:
+  'block'` in `web/playwright.config.ts`, Oct 2026). The app registers `/sw.js`
+  ([src/app.py](../../src/app.py)), and with a worker active WebKit breaks the
+  harness two ways: `page.route()` misses requests that pass through the
+  worker (Playwright 1.64 sends even more through it - 27 webkit tests that
+  mock or fail requests broke), and Playwright's WebKit has no push service,
+  so the app's `pushManager.getSubscription()` on a controlled page never
+  resolves (1.61) or freezes the page outright (1.64+: every webkit test timed
+  out). No test exercises the worker itself; specs used to opt out one
+  describe at a time.
 - **WebKit reuses a failed module load**: after a lazy `import()` of a URL
   fails, WebKit fails the same URL again without a network request, even after
   a reload and `unroute`. A test cannot fail a chunk and then load that same

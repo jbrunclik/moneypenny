@@ -132,11 +132,6 @@ test.describe('Conversations Pagination', () => {
 });
 
 test.describe('Conversations Pagination - Load More', () => {
-  // page.route() cannot intercept requests that pass through a service
-  // worker on WebKit (the app's SW has a fetch listener, even though it lets
-  // /api/ through untouched), and the loader test below holds a request.
-  test.use({ serviceWorkers: 'block' });
-
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');

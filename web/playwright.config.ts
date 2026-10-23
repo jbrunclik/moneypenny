@@ -29,6 +29,12 @@ export default defineConfig({
     baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // No test needs the app's service worker, and with it WebKit breaks the
+    // harness: page.route() misses requests that pass through a worker (even
+    // ones its fetch listener lets through), and Playwright's WebKit has no
+    // push service - the app's pushManager.getSubscription() on a controlled
+    // page never resolves (1.61) or freezes the page outright (1.64+)
+    serviceWorkers: 'block',
   },
 
   // Only run on chromium by default - mobile tests use viewport emulation

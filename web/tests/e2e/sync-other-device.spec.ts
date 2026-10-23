@@ -163,7 +163,11 @@ test('a rename on another device updates the open chat\'s header too', async ({ 
 test('the planner merges messages from another device in place', async ({ page, request }) => {
   await request.post('/test/set-planner-integrations', { data: { todoist: true, calendar: false } });
   await page.goto('/#/planner');
-  await expect(page.locator('#planner-dashboard')).toBeVisible({ timeout: 10000 });
+  // Wait for the LOADED dashboard (the loading placeholder shares its id):
+  // the page's own GET creates the planner on first visit, and a concurrent
+  // GET from here could create a second one (no uniqueness, see TODO.md) -
+  // the phone's message then went to a planner this page wasn't showing
+  await expect(page.locator('#planner-dashboard:not(.loading)')).toBeVisible({ timeout: 10000 });
   const planner = await (await request.get('/api/planner/conversation')).json();
   const plannerId = (planner.id ?? planner.conversation?.id) as string;
   await page.evaluate(() => document.getElementById('planner-dashboard')!.setAttribute('data-kept', '1'));
