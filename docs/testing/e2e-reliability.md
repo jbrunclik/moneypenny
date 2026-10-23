@@ -87,6 +87,13 @@ isolation. Retries are still configured as a safety net, but the goal is
 zero `flaky` in the Playwright summary; when a test needs a retry, treat
 it as a bug and diff the first-attempt `error-context.md` against the code.
 
+**CI layout (Oct 2026):** the browser jobs (E2E + visual) are gated only on
+lint, so they run alongside the backend and unit suites instead of after
+them. E2E browsers run inside the `mcr.microsoft.com/playwright` image like
+the visual tests: `playwright install --with-deps` fetched ~100 media
+packages from the runner's apt mirror, which intermittently crawled at KB/s
+and hung shards until the 30-min job timeout. Python deps install with `uv`.
+
 Races found and fixed in that pass (all reproduced from CI artifacts, not
 by guessing):
 

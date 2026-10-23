@@ -143,13 +143,13 @@ run:
 	$(PYTHON) -m src.app
 
 test:
-	$(PYTHON) -m pytest tests/ -v
+	$(PYTHON) -m pytest tests/ -v -n auto
 
 eval: ## Run agent eval harness (golden cases, hits live Gemini API)
 	$(PYTHON) evals/run.py
 
 test-cov:
-	$(PYTHON) -m pytest tests/ -v --cov=src --cov-report=html --cov-report=term
+	$(PYTHON) -m pytest tests/ -v -n auto --cov=src --cov-report=html --cov-report=term
 
 test-unit:
 	$(PYTHON) -m pytest tests/unit/ -v
