@@ -637,7 +637,7 @@ export async function init(): Promise<void> {
     }
   });
 
-  window.addEventListener('auth:logout', () => {
+  window.addEventListener('auth:logout', async () => {
     // Kill in-flight readers and persisted resume entries before anything
     // else - they would keep writing into the logged-out UI, and another
     // account on this browser must not resume the previous user's turns
@@ -660,7 +660,10 @@ export async function init(): Promise<void> {
     renderConversationsList();
     renderMessages([]);
 
-    // Re-render Google Sign-In button
+    // Re-render Google Sign-In button. A session that started signed in
+    // never initialized sign-in (Google's script loads on demand), so
+    // initialize first - the button used to render empty here
+    await initGoogleSignIn();
     const loginBtn = getElementById<HTMLDivElement>('google-login-btn');
     if (loginBtn) {
       clearElement(loginBtn);

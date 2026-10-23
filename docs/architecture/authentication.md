@@ -17,7 +17,11 @@ In development mode:
 
 ### Production Mode
 
-1. **Frontend loads GIS library** and renders "Sign in with Google" button
+1. **Frontend loads GIS library** and renders "Sign in with Google" button. The
+   script is injected on demand by `initGoogleSignIn()` (`web/src/auth/google.ts`),
+   only when the login screen is shown - signed-in page loads never fetch it
+   (Oct 2026). This includes logging out mid-session, which initializes sign-in
+   before rendering the button.
 2. **User clicks** → Google popup opens
 3. **Google returns ID token** to frontend
 4. **Frontend sends token** to `POST /auth/google`

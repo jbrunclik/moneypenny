@@ -16,6 +16,9 @@ let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 // so users can skip a day without getting logged out.
 const TOKEN_REFRESH_BUFFER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
+// Loaded on demand: only the login screen needs it (must come from Google's CDN)
+const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
+
 /**
  * Initialize Google Identity Services
  */
@@ -35,6 +38,7 @@ export async function initGoogleSignIn(): Promise<void> {
 
   // Wait for Google script to load - a blocked/offline script leaves
   // googleInitialized false and renderGoogleButton shows a retry
+  loadGoogleScript();
   if (!(await waitForGoogleScript())) {
     log.warn('Google Sign-In script did not load', { timeoutMs: GOOGLE_SCRIPT_TIMEOUT_MS });
     return;
@@ -170,6 +174,18 @@ export function logout(): void {
 
   // Trigger UI update
   window.dispatchEvent(new CustomEvent('auth:logout'));
+}
+
+/**
+ * Add Google's script to the page (once). Not in index.html: signed-in page
+ * loads - nearly all of them - never need it.
+ */
+function loadGoogleScript(): void {
+  if (document.querySelector(`script[src="${GOOGLE_SCRIPT_URL}"]`)) return;
+  const script = document.createElement('script');
+  script.src = GOOGLE_SCRIPT_URL;
+  script.async = true;
+  document.head.appendChild(script);
 }
 
 /**

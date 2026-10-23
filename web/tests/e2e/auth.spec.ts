@@ -15,6 +15,21 @@ test.describe('Authentication', () => {
     await expect(page.locator('#new-chat-btn')).toBeVisible();
   });
 
+  test('a signed-in load does not fetch Google Sign-In', async ({ page }) => {
+    // Only the login screen needs Google's script; signed-in loads skip it
+    const googleRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().startsWith('https://accounts.google.com/')) {
+        googleRequests.push(request.url());
+      }
+    });
+
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+
+    expect(googleRequests).toEqual([]);
+  });
+
   test('shows user info in sidebar', async ({ page }) => {
     await page.goto('/');
 
