@@ -1674,33 +1674,86 @@ a.document-name:hover {
 }
 
 .message-video-load {
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
+    width: 320px;
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 40%, #2a2a2e, #0c0c0e);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+}
+
+.message-video-load .video-load-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(6px);
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.message-video-load .video-load-icon svg {
+    width: 22px;
+    height: 22px;
+    margin-left: 3px; /* optically center the triangle */
+    fill: currentColor;
+}
+
+@media (hover: hover) {
+    .message-video-load:not(:disabled):hover .video-load-icon {
+        transform: scale(1.06);
+        background: rgba(255, 255, 255, 0.24);
+    }
+}
+
+.message-video-load .video-load-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: baseline;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    cursor: pointer;
-    max-width: 100%;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+    font-size: var(--font-size-xs);
+    text-align: left;
 }
 
 .message-video-load .video-load-name {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .message-video-load .video-load-hint {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
     flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.message-video-load:disabled .video-load-icon {
+    opacity: 0.6;
 }
 
 .message-video-load.expired {
-    opacity: 0.6;
     cursor: default;
+}
+
+.message-video-load.expired .video-load-icon {
+    opacity: 0.35;
 }
 
 /* ----------------------------------------

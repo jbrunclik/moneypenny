@@ -263,6 +263,8 @@ Attachments are not permanent storage: **videos are kept 7 days, images and all 
 
 JWT is header-only, so a bare `<video src>` cannot authenticate. Sent videos render as tap-to-load players ([attachments.ts](../../web/src/components/messages/attachments.ts)): an authenticated fetch loads the blob and plays it via an object URL; a 410 renders an "expired" chip. Just-uploaded videos play directly from their local preview URL.
 
+**Pitfall - blob playback (Oct 2026):** both paths play from `blob:` URLs, so the production CSP needs `media-src 'self' blob:` (`default-src 'self'` alone blocks them; dev mode sends no CSP, so it only breaks in production). And sending must not revoke the pending files' preview URLs (`clearPendingFiles`): `<img>` resolves its blob at once, but `<video>` loads asynchronously and found a dead URL - an empty 0:00 player. The E2E video test asserts the player reaches `HAVE_METADATA`.
+
 ### Configuration
 
 ```bash

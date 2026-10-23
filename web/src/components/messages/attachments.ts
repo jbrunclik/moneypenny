@@ -5,7 +5,7 @@
 import { files as filesApi } from '../../api/files';
 import { escapeHtml } from '../../utils/dom';
 import { observeThumbnail } from '../../utils/thumbnails';
-import { getFileIcon, DOWNLOAD_ICON } from '../../utils/icons';
+import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON } from '../../utils/icons';
 import type { FileMetadata } from '../../types/api';
 
 /**
@@ -178,9 +178,11 @@ function renderVideoAttachment(
   const button = document.createElement('button');
   button.className = 'message-video-load';
 
+  // Poster-shaped like the player it turns into: centered play disc, caption
+  // with the file name and status along the bottom
   const icon = document.createElement('span');
   icon.className = 'video-load-icon';
-  icon.innerHTML = getFileIcon(file.type);
+  icon.innerHTML = PLAY_ICON;
 
   const name = document.createElement('span');
   name.className = 'video-load-name';
@@ -190,7 +192,11 @@ function renderVideoAttachment(
   hint.className = 'video-load-hint';
   hint.textContent = 'Tap to load';
 
-  button.append(icon, name, hint);
+  const caption = document.createElement('span');
+  caption.className = 'video-load-caption';
+  caption.append(name, hint);
+
+  button.append(icon, caption);
 
   button.addEventListener('click', () => {
     void (async () => {

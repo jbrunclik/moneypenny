@@ -26,6 +26,8 @@ _CSP_POLICY = "; ".join(
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
+        # blob:: video attachments play from object URLs (authenticated fetch)
+        "media-src 'self' blob:",
         "connect-src 'self' https://accounts.google.com",
         # Push service worker registered from /sw.js
         "worker-src 'self'",

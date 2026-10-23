@@ -238,18 +238,14 @@ function removeFile(index: number): void {
 }
 
 /**
- * Clear all pending files
+ * Clear all pending files after they were sent.
+ *
+ * Blob URLs are NOT revoked: the sent message (and its outbox entry, for
+ * retries) keeps rendering from them. <video> resolves its src
+ * asynchronously, so revoking here left an empty 0:00 player.
  */
 export function clearPendingFiles(): void {
   const store = useStore.getState();
-
-  // Revoke all blob URLs
-  store.pendingFiles.forEach((file) => {
-    if (file.previewUrl) {
-      URL.revokeObjectURL(file.previewUrl);
-    }
-  });
-
   store.clearPendingFiles();
   renderFilePreview();
   updateSendButtonState();

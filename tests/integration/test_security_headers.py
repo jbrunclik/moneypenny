@@ -41,6 +41,16 @@ class TestSecurityHeaders:
         assert "frame-ancestors 'none'" in csp
         assert "https://accounts.google.com" in csp
 
+    def test_csp_allows_blob_media(self, client: FlaskClient) -> None:
+        """Video attachments play from object URLs (the JWT rides a header, so a
+        bare /api src cannot authenticate); default-src 'self' would block them."""
+        from src.config import Config
+
+        with patch.object(Config, "FLASK_ENV", "production"):
+            response = client.get("/api/health")
+        directives = [d.strip() for d in response.headers["Content-Security-Policy"].split(";")]
+        assert "media-src 'self' blob:" in directives
+
     def test_no_csp_in_development_mode(self, client: FlaskClient) -> None:
         from src.config import Config
 

@@ -398,7 +398,39 @@ test.describe('Chat - Video Upload', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // The sent user message renders a playable video (local preview URL)
-    await expect(page.locator('.message.user .message-video video')).toBeVisible();
+    const video = page.locator('.message.user .message-video video');
+    await expect(video).toBeVisible();
+
+    // The player must actually load its blob source: a CSP without a blob:
+    // media-src (or a revoked preview URL) leaves an empty 0:00 player
+    await expect
+      .poll(() => video.evaluate((el: HTMLVideoElement) => el.readyState))
+      .toBeGreaterThanOrEqual(1); // HAVE_METADATA
+  });
+
+  test('a historical video plays after tap-to-load', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#new-chat-btn');
+    await page.click('#new-chat-btn');
+    await disableStreaming(page);
+
+    await attachVideo(page);
+    await page.fill('#message-input', 'what is in this video?');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant', { timeout: 10000 });
+
+    // After a reload the local preview is gone: the video is tap-to-load
+    await page.reload();
+    const loadButton = page.locator('.message.user .message-video-load');
+    await expect(loadButton).toBeVisible();
+    await loadButton.click();
+
+    // Fetched blob plays from an object URL (needs a blob: media-src)
+    const video = page.locator('.message.user .message-video video');
+    await expect(video).toBeVisible();
+    await expect
+      .poll(() => video.evaluate((el: HTMLVideoElement) => el.readyState))
+      .toBeGreaterThanOrEqual(1); // HAVE_METADATA
   });
 
   test.describe('with route mocking', () => {
