@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -67,6 +67,7 @@ help:
 	@echo "  reload                Graceful reload - zero downtime (backend only)"
 	@echo "  update                Rebuild frontend + graceful reload"
 	@echo "  vacuum                Run database vacuum manually"
+	@echo "  decode-stack          Decode minified E2E/CI stack frames (log on stdin)"
 	@echo "  update-currency       Update currency exchange rates manually"
 	@echo "  backup                Create database backup manually"
 	@echo "  backup-list           List existing database backups"
@@ -354,6 +355,11 @@ update:
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py
+
+# Decode minified E2E/CI stack frames: a sourcemap build of this commit has
+# the same chunk hashes as the tested build (make decode-stack < job.log)
+decode-stack:
+	@node web/scripts/decode-stack.cjs
 
 update-currency:
 	$(PYTHON) scripts/update_currency_rates.py

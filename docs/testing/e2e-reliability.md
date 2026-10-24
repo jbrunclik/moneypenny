@@ -252,8 +252,9 @@ by guessing):
   the worker, which clears it. Don't chase these as app bugs.
 - **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
   label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
-  `#messages` with its app caller (minified bundle frames - decode with a
-  sourcemap build of the same commit), scroll events no logged write explains
+  `#messages` with its app caller (minified bundle frames - `make
+  decode-stack < job.log` at the same commit maps them to source lines; a
+  sourcemap build has the same chunk hashes as the tested build), scroll events no logged write explains
   (anchoring, layout shifts) and real input; attach on the failing branch only.
   Install AFTER navigation counts too: a bare `page.addInitScript` only arms
   the next navigation, which is why an earlier inline hook never logged.
@@ -290,7 +291,13 @@ by guessing):
 - **Stale e2e server after `make build`**: Playwright reuses a running
   server (`reuseExistingServer`). A server started before a rebuild serves
   the old bundle while `/api/version` etc. reflect old state - kill the
-  listener first: `lsof -tiTCP:8001 -sTCP:LISTEN | xargs kill`.
+  listener first: `lsof -tiTCP:8001 -sTCP:LISTEN | xargs kill` (or the port
+  in `E2E_PORT`).
+- **Two suites side by side**: `E2E_PORT=8011` (env or `make test-fe-e2e
+  E2E_PORT=8011`) gives a run its own server, PID file and database files
+  (`tests/e2e-test-<port>-*.db`), so two worktrees or sessions don't kill or
+  wipe each other's server. One checkout still shares `static/assets` - a
+  `make build` in it changes what both runs serve.
 - **Parallel-load setup timeouts**: the mock server (threaded Flask +
   SQLite) sustains ~8 concurrent browser contexts; beyond that, setup
   waits (`waiting for locator('.message.assistant').nth(N)`) time out
