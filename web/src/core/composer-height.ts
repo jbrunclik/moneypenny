@@ -7,7 +7,7 @@
  * above it. The composer grows with multi-line input, so a static value
  * won't do - a ResizeObserver keeps the variable in sync.
  */
-import { getElementById, isScrolledToBottom, scrollDebug } from '../utils/dom';
+import { getElementById, isScrolledToBottom, scrollDebug, userScrolledSince } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
 import { createLogger } from '../utils/logger';
@@ -35,6 +35,7 @@ export function initComposerHeight(): void {
     // padding-bottom) changes.
     const messages = getElementById<HTMLDivElement>('messages');
     const wasAtBottom = messages ? isScrolledToBottom(messages) : false;
+    const seenAt = performance.now();
     const atAnchor = messages ? isAtTurnAnchor(messages) : false;
 
     // The list only needs to clear the VISIBLE composer pill, not the full
@@ -69,7 +70,11 @@ export function initComposerHeight(): void {
         if (atAnchor) holdTurnAnchor(messages);
         else refreshTurnSpace(messages);
       } else if (grew && wasAtBottom && messages) {
-        requestAnimationFrame(() => programmaticScrollToBottom(messages));
+        // The re-pin waits a frame: if the user scrolled in it, wasAtBottom
+        // is stale and re-pinning yanked them back down (E2E scroll log)
+        requestAnimationFrame(() => {
+          if (!userScrolledSince(seenAt)) programmaticScrollToBottom(messages);
+        });
       }
     }
   };

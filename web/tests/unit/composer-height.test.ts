@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { cleanupComposerHeight, initComposerHeight } from '@/core/composer-height';
 import { programmaticScrollToBottom } from '@/utils/thumbnails';
-import { isScrolledToBottom } from '@/utils/dom';
+import { isScrolledToBottom, noteUserScrollIntent } from '@/utils/dom';
 
 vi.mock('@/utils/thumbnails', () => ({ programmaticScrollToBottom: vi.fn() }));
 vi.mock('@/utils/dom', async (importOriginal) => {
@@ -115,6 +115,25 @@ describe('composer height re-pin', () => {
     vi.mocked(programmaticScrollToBottom).mockClear();
     rect = { top: 0, bottom: 120, height: 120 };
     resizeCallback?.();
+    expect(programmaticScrollToBottom).not.toHaveBeenCalled();
+  });
+
+  it('does not re-pin when the user scrolled before the deferred re-pin ran', () => {
+    // The growth is seen at the bottom, the re-pin waits a frame, and the
+    // user scrolls up in that frame: re-pinning then yanked them back down
+    // (E2E scroll log, Oct 24: wheel at 3228ms, this re-pin at 3241ms)
+    initComposerHeight();
+    vi.mocked(programmaticScrollToBottom).mockClear();
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb));
+    rect = { top: 0, bottom: 120, height: 120 };
+    resizeCallback?.();
+    now += 5;
+    noteUserScrollIntent();
+    now += 5;
+    frames.forEach((cb) => cb(0));
     expect(programmaticScrollToBottom).not.toHaveBeenCalled();
   });
 });

@@ -140,8 +140,11 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     const messagesContainer = page.locator('#messages');
 
-    // Scroll up to simulate user browsing history
+    // Scroll up to simulate user browsing history. The user's input comes
+    // first: a bare scrollTop write is layout to the app, and the last reply's
+    // smooth scroll kept running over it (CI scroll log: 0 -> 269)
     await messagesContainer.evaluate((el) => {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       el.scrollTop = 0;
     });
     await page.waitForTimeout(100);
