@@ -162,9 +162,19 @@ test.describe('Artifacts on mobile', () => {
     await artifactTurn(page, request, { title: 'Svíčková', html: KITCHEN_SINK });
     const frame = frameOf(page);
     await expect(frame.locator('h2')).toHaveText('Svíčková for four', { timeout: 15000 });
-    const card = await page.locator('.artifact-card').last().boundingBox();
-    const content = await page.locator('.message.assistant .message-content').last().boundingBox();
-    expect(Math.abs((card?.width ?? 0) - (content?.width ?? 0))).toBeLessThan(2);
+    // Both widths from ONE layout: two boundingBox() calls straddled the
+    // frame growing to its content - the list then turned scrollable, its
+    // 8px styled scrollbar narrowed everything, and one read was 8px wider
+    // than the other (WebKit on Linux CI)
+    const widths = await page.evaluate(() => {
+      const cards = document.querySelectorAll('.artifact-card');
+      const contents = document.querySelectorAll('.message.assistant .message-content');
+      return {
+        card: cards[cards.length - 1].getBoundingClientRect().width,
+        content: contents[contents.length - 1].getBoundingClientRect().width,
+      };
+    });
+    expect(Math.abs(widths.card - widths.content)).toBeLessThan(2);
     const direction = await frame.locator('.mp-row').first().evaluate((el) => getComputedStyle(el).flexDirection);
     expect(direction).toBe('column');
     const overflow = await frame.locator('html').evaluate((el) => el.scrollWidth - el.clientWidth);
