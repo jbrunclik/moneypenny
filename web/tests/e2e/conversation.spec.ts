@@ -1542,6 +1542,35 @@ test.describe('Scroll to bottom behavior', () => {
     }
   });
 
+  test('the column keeps its width when the conversation starts scrolling', async ({ page }) => {
+    // The styled scrollbar takes layout width on desktop (it turns macOS's
+    // overlay scrollbars into classic ones too): without a reserved gutter,
+    // the first overflow - typically mid-reply - narrowed the column by its
+    // width and re-wrapped the text being read
+    await page.click('#new-chat-btn');
+    const messages = page.locator('#messages');
+    await page.fill('#message-input', 'Short');
+    await page.click('#send-btn');
+    await page.waitForSelector('.message.assistant:not(.streaming) >> nth=0', { timeout: 20000 });
+    const before = await messages.evaluate((el) => ({
+      width: el.clientWidth,
+      scrollable: el.scrollHeight > el.clientHeight,
+    }));
+    expect(before.scrollable).toBe(false); // premise: not scrolling yet
+
+    for (let i = 0; i < 6; i++) {
+      await page.fill('#message-input', `Message ${i + 1} - adding more content to ensure the conversation is scrollable`);
+      await page.click('#send-btn');
+      await page.waitForSelector(`.message.assistant:not(.streaming) >> nth=${i + 1}`, { timeout: 20000 });
+    }
+    const after = await messages.evaluate((el) => ({
+      width: el.clientWidth,
+      scrollable: el.scrollHeight > el.clientHeight,
+    }));
+    expect(after.scrollable).toBe(true);
+    expect(after.width).toBe(before.width);
+  });
+
   test('short message that fits in viewport does not cause scroll issues', async ({ page }) => {
     // New conversation
     await page.click('#new-chat-btn');

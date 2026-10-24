@@ -170,6 +170,21 @@
     overflow-anchor: none;
 }
 
+/* The styled scrollbar (base.css) takes layout width on desktop - it turns
+   macOS's overlay scrollbars classic too. Reserve its gutter up front:
+   otherwise the first overflow, typically mid-reply, narrowed the column and
+   re-wrapped the text being read. scrollbar-gutter alone is not enough:
+   WebKit computes it but reserves nothing while the list can't scroll, so
+   scroll (the track is transparent; no thumb until there is something to
+   scroll). Fine pointers only: touch devices use overlay scrollbars, where
+   there is no gutter to reserve. */
+@media (pointer: fine) {
+    .messages {
+        overflow-y: scroll;
+        scrollbar-gutter: stable;
+    }
+}
+
 /* Chat convention: when the conversation is shorter than the viewport,
    bottom-align it so the last message hugs the composer instead of floating
    at the top with a big gap (very visible with the keyboard open). margin-top
