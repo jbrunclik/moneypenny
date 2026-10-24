@@ -243,6 +243,13 @@ by guessing):
   resolves (1.61) or freezes the page outright (1.64+: every webkit test timed
   out). No test exercises the worker itself; specs used to opt out one
   describe at a time.
+- **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
+  label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
+  `#messages` with its app caller (minified bundle frames - decode with a
+  sourcemap build of the same commit), scroll events no logged write explains
+  (anchoring, layout shifts) and real input; attach on the failing branch only.
+  Install AFTER navigation counts too: a bare `page.addInitScript` only arms
+  the next navigation, which is why an earlier inline hook never logged.
 - **WebKit reuses a failed module load**: after a lazy `import()` of a URL
   fails, WebKit fails the same URL again without a network request, even after
   a reload and `unroute`. A test cannot fail a chunk and then load that same

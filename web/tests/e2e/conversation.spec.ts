@@ -4,6 +4,7 @@
 import { deflateSync } from 'zlib';
 import { test, expect } from '../global-setup';
 import { TEST_IMAGES } from '../fixtures/test-images';
+import { attachScrollLog, installScrollLog } from './chat/fixtures';
 
 /**
  * Generate a minimal valid PNG image buffer programmatically.
@@ -844,44 +845,8 @@ test.describe('Scroll to bottom behavior', () => {
   }) => {
     // Diagnostic: record every scroll write to #messages with its caller so a
     // failure on CI (this assertion has had four distinct causes, all only
-    // reproducible under runner load) names the code path that moved it.
-    await page.addInitScript(() => {
-      const w = window as unknown as { __scrollLog: string[] };
-      w.__scrollLog = [];
-      const t0 = performance.now();
-      const log = (m: string): void => {
-        w.__scrollLog.push(`${(performance.now() - t0).toFixed(0)}ms ${m}`);
-      };
-      const origScrollTo = Element.prototype.scrollTo;
-      Element.prototype.scrollTo = function (this: Element, ...args: unknown[]) {
-        if (this.id === 'messages') {
-          log(`scrollTo(${JSON.stringify(args)}) :: ${new Error().stack?.split('\n').slice(2, 6).join(' | ')}`);
-        }
-        return (origScrollTo as (...a: unknown[]) => void).apply(this, args);
-      };
-      const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
-      if (desc?.set && desc.get) {
-        const { get, set } = desc;
-        Object.defineProperty(Element.prototype, 'scrollTop', {
-          get() {
-            return get.call(this);
-          },
-          set(v: number) {
-            if ((this as Element).id === 'messages') {
-              log(`scrollTop=${Math.round(v)} :: ${new Error().stack?.split('\n').slice(2, 5).join(' | ')}`);
-            }
-            set.call(this, v);
-          },
-          configurable: true,
-        });
-      }
-    });
-    const dumpScrollLog = async (label: string): Promise<void> => {
-      const log = await page.evaluate(() => (window as unknown as { __scrollLog: string[] }).__scrollLog);
-      const text = `${label}\n${(log ?? ['(no scroll log)']).slice(-20).join('\n')}`;
-      console.log(text);
-      await test.info().attach('scroll-log', { body: text, contentType: 'text/plain' });
-    };
+    // reproducible under runner load) names the code path that moved it
+    await installScrollLog(page);
     // Create a conversation with several messages to create scrollable content.
     // The messages must actually overflow the (1024px) viewport BEFORE the image
     // message: with five one-word exchanges the list on WebKit only became
@@ -939,7 +904,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Verify we're at the top
     const scrollTopAtTop = await messagesContainer.evaluate((el) => el.scrollTop);
-    if (scrollTopAtTop !== 0) await dumpScrollLog(`scrollTopAtTop=${scrollTopAtTop}`);
+    if (scrollTopAtTop !== 0) await attachScrollLog(page, `scrollTopAtTop=${scrollTopAtTop}`);
     expect(scrollTopAtTop).toBe(0);
 
     // Now scroll down a bit so the image at the bottom becomes visible
@@ -963,7 +928,7 @@ test.describe('Scroll to bottom behavior', () => {
     // Verify we're scrolled up (not at bottom)
     const scrollTopAfterScroll = await messagesContainer.evaluate((el) => el.scrollTop);
     if (scrollTopAfterScroll >= scrollInfo.scrollHeight - scrollInfo.clientHeight - 50) {
-      await dumpScrollLog(`scrollTopAfterScroll=${scrollTopAfterScroll}`);
+      await attachScrollLog(page, `scrollTopAfterScroll=${scrollTopAfterScroll}`);
     }
     expect(scrollTopAfterScroll).toBeGreaterThan(0);
     expect(scrollTopAfterScroll).toBeLessThan(scrollInfo.scrollHeight - scrollInfo.clientHeight - 50);
@@ -983,7 +948,7 @@ test.describe('Scroll to bottom behavior', () => {
     // This is the critical assertion - even though the image loaded, we shouldn't scroll
     const scrollTopAfterImageLoad = await messagesContainer.evaluate((el) => el.scrollTop);
     if (Math.abs(scrollTopAfterImageLoad - scrollTopAfterScroll) >= 100) {
-      await dumpScrollLog(`scrollTopAfterImageLoad=${scrollTopAfterImageLoad}`);
+      await attachScrollLog(page, `scrollTopAfterImageLoad=${scrollTopAfterImageLoad}`);
     }
     // Allow small tolerance for layout shifts, but should be close to previous position
     expect(Math.abs(scrollTopAfterImageLoad - scrollTopAfterScroll)).toBeLessThan(100);

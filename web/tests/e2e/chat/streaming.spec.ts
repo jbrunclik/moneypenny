@@ -12,6 +12,8 @@ import {
   clearMockResponse,
   setEmitRetry,
   clickStop,
+  installScrollLog,
+  attachScrollLog,
 } from './fixtures';
 
 test.describe('Chat - Streaming Mode', () => {
@@ -118,6 +120,10 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
   });
 
   test('scrolls to bottom when sending a new message', async ({ page }) => {
+    // Diagnostic: the scroll-to-top below read 5 once under full-suite load
+    // (TODO.md) - record who moved the list if it happens again
+    await installScrollLog(page);
+
     // First, create some messages to have scrollable content
     // Disable streaming temporarily for faster setup
     const streamBtn = page.locator('#stream-btn');
@@ -142,6 +148,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     // Verify we're at the top
     const scrollTopBefore = await messagesContainer.evaluate((el) => el.scrollTop);
+    if (scrollTopBefore !== 0) await attachScrollLog(page, `scrollTopBefore=${scrollTopBefore}`);
     expect(scrollTopBefore).toBe(0);
 
     // Send a new message
