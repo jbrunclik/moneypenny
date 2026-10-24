@@ -11,6 +11,8 @@ import {
   isProgrammaticScrollActive,
   programmaticScrollToBottom,
 } from '@/utils/thumbnails';
+import { noteUserScrollIntent } from '@/utils/dom';
+import { SCROLL_MODE_GRACE_PERIOD_MS } from '@/config';
 
 // Mock the files API
 vi.mock('@/api/files', () => ({
@@ -212,3 +214,47 @@ describe('programmaticScrollToBottom', () => {
 // The fix ensures that when an image finishes loading, we check scroll position immediately
 // rather than relying solely on the shouldScrollOnImageLoad flag which may not have updated
 // yet due to the scroll listener's debounce delay.
+
+describe('image-load scroll guard', () => {
+  let container: HTMLDivElement;
+
+  /** The list moves to `top` and fires its scroll event. */
+  const scrollListTo = (top: number): void => {
+    container.scrollTop = top;
+    container.dispatchEvent(new Event('scroll'));
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
+    document.body.innerHTML = '<div id="messages"></div>';
+    container = document.getElementById('messages') as HTMLDivElement;
+    Object.defineProperty(container, 'scrollHeight', { configurable: true, value: 3000 });
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 1000 });
+    container.scrollTop = 2000; // pinned to the bottom
+    enableScrollOnImageLoad();
+    vi.advanceTimersByTime(SCROLL_MODE_GRACE_PERIOD_MS + 100);
+  });
+
+  afterEach(() => {
+    disableScrollOnImageLoad();
+    vi.runOnlyPendingTimers(); // expire programmatic-scroll tokens
+    vi.useRealTimers();
+  });
+
+  it('a user scroll-up while one of our scrolls is in flight stops the chase', () => {
+    // The previous reply's settle still holds its programmatic window when the
+    // user wheels up - the chase stayed on and the next image load pulled the
+    // view back down (CI scroll log, Oct 24)
+    beginProgrammaticScroll();
+    noteUserScrollIntent();
+    scrollListTo(0);
+    expect(isScrollOnImageLoadEnabled()).toBe(false);
+  });
+
+  it('a move up inside our programmatic window without user input keeps the chase', () => {
+    vi.advanceTimersByTime(5000); // no recent input
+    beginProgrammaticScroll();
+    scrollListTo(1500);
+    expect(isScrollOnImageLoadEnabled()).toBe(true);
+  });
+});

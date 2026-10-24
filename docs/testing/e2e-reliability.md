@@ -243,6 +243,13 @@ by guessing):
   resolves (1.61) or freezes the page outright (1.64+: every webkit test timed
   out). No test exercises the worker itself; specs used to opt out one
   describe at a time.
+- **Playwright-WebKit navigation stalls (upstream, Oct 2026)**: about 1 in 40
+  under load, a WebKit navigation starts but never commits - `page.goto`
+  waits for `load` with no request issued (microsoft/playwright#42385), and
+  `pdf-viewer.spec.ts` "a chunk deleted by a deploy reloads the page" saw the
+  app's own `location.reload()` fire `beforeunload` and then nothing for 29s.
+  The app side was verified correct with an event log; the CI retry restarts
+  the worker, which clears it. Don't chase these as app bugs.
 - **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
   label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
   `#messages` with its app caller (minified bundle frames - decode with a

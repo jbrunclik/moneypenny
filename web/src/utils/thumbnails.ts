@@ -689,8 +689,12 @@ function setupUserScrollListener(): void {
             maxScrollTopWhileArmed = currentScrollTop;
         }
 
-        // Ignore programmatic scrolls for the disable decision (but we still updated the position above)
-        if (isProgrammaticScrollActive()) {
+        // Ignore programmatic scrolls for the disable decision (but we still
+        // updated the position above) - unless the user is scrolling too: a
+        // window outlives an animation the user's input aborted, and their
+        // scroll-up inside it was dropped, leaving the chase on to pull them
+        // back down at the next image load (CI scroll log, Oct 2026)
+        if (isProgrammaticScrollActive() && !userScrolledRecently()) {
             return;
         }
 

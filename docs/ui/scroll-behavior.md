@@ -171,6 +171,7 @@ The app uses a programmatic scroll wrapper to distinguish between user-initiated
 
 - `programmaticScrollToBottom()` automatically sets programmatic scroll markers before and after scrolling
 - The scroll listener checks `isProgrammaticScroll` flag and ignores programmatic scrolls
+- **User input beats the marker** (Oct 2026): a programmatic window outlives an animation the user's own input aborted (`SCROLL_PROGRAMMATIC_RESET_DELAY_MS`), so the image-load guard only ignores a scroll inside it when the user did not scroll recently (`userScrolledRecently()`). Before, a scroll-up right after a reply settled was dropped, the chase stayed on, and the next image load pulled the user back to the bottom - found with the E2E scroll log (`installScrollLog`)
 - Markers are cleared after a short delay (150ms) to ensure scroll events have fired
 
 ### When to Use
