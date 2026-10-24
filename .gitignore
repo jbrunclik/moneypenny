@@ -48,7 +48,7 @@ test-results/
 web/playwright-report/
 web/test-results/
 web/visual-gallery.html
-.e2e-server.pid
+.e2e-server*.pid
 
 # OS
 .DS_Store

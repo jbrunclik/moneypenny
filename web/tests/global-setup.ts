@@ -60,15 +60,15 @@ export const test = base.extend<{
   page: async ({ page }, use) => {
     // Reset database before each test for isolation
     // page.request uses the browser context which already has the header
-    const response = await page.request.post('http://localhost:8001/test/reset');
+    const response = await page.request.post('/test/reset');
     expect(response.ok()).toBeTruthy();
 
     await use(page);
   },
 
-  request: async ({ playwright, testExecutionId }, use) => {
+  request: async ({ playwright, testExecutionId, baseURL }, use) => {
     const apiContext = await playwright.request.newContext({
-      baseURL: 'http://localhost:8001',
+      baseURL,
       extraHTTPHeaders: {
         'X-Test-Execution-Id': testExecutionId,
       },

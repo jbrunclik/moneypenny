@@ -4,7 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
 // the Playwright Docker container against a server on the host, e.g. for
 // generating/verifying Linux visual baselines). Setting it also disables
 // the managed webServer - the caller owns the server lifecycle.
-const baseURL = process.env.PW_BASE_URL || 'http://localhost:8001';
+// E2E_PORT runs a second suite side by side (another worktree/session); the
+// managed server inherits it from this process's environment
+const e2ePort = process.env.E2E_PORT || '8001';
+const baseURL = process.env.PW_BASE_URL || `http://localhost:${e2ePort}`;
 const manageServer = !process.env.PW_BASE_URL;
 
 export default defineConfig({
@@ -68,7 +71,7 @@ export default defineConfig({
     ? {
         // Use .venv/bin/python if available, otherwise fall back to system python (for CI)
         command: 'cd .. && if [ -f .venv/bin/python ]; then .venv/bin/python tests/e2e-server.py; else python tests/e2e-server.py; fi',
-        url: 'http://localhost:8001',
+        url: `http://localhost:${e2ePort}`,
         reuseExistingServer: !process.env.CI,
         timeout: 30000,
         // Kill any hanging servers before starting

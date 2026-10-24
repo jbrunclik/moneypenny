@@ -60,6 +60,9 @@ make test-fe-component
 # Run only E2E tests (runs `make build` first)
 make test-fe-e2e
 
+# A second E2E run side by side (another worktree/session) on its own port
+make test-fe-e2e E2E_PORT=8011
+
 # Run in watch mode (unit tests)
 make test-fe-watch
 

@@ -55,6 +55,11 @@ for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_AP
 os.environ["EMBEDDINGS_ENABLED"] = "false"  # No live embedding calls from E2E
 os.environ["RATE_LIMITING_ENABLED"] = "false"  # Disable rate limiting for parallel tests
 
+# E2E_PORT lets two servers run side by side (e.g. two worktrees or sessions):
+# the port also scopes the PID file and every database file name below, since
+# the DB directory is shared (tmpfs on Linux) and cleanup globs it.
+E2E_PORT = int(os.environ.get("E2E_PORT", "8001"))
+
 # Template databases are created once at startup with migrations applied
 # Test contexts copy the template instead of running migrations for each test
 # The test databases are disposable, so keep them on tmpfs where one exists
@@ -68,8 +73,8 @@ E2E_DB_DIR = (
     else PROJECT_ROOT / "tests"
 )
 E2E_DB_DIR.mkdir(parents=True, exist_ok=True)
-TEMPLATE_DB_PATH = E2E_DB_DIR / "e2e-template.db"
-TEMPLATE_BLOB_PATH = E2E_DB_DIR / "e2e-template-blobs.db"
+TEMPLATE_DB_PATH = E2E_DB_DIR / f"e2e-template-{E2E_PORT}.db"
+TEMPLATE_BLOB_PATH = E2E_DB_DIR / f"e2e-template-{E2E_PORT}-blobs.db"
 # Set env vars to the template path - migrations will run on template
 os.environ["DATABASE_PATH"] = str(TEMPLATE_DB_PATH)
 os.environ["BLOB_STORAGE_PATH"] = str(TEMPLATE_BLOB_PATH)
@@ -115,7 +120,7 @@ def set_thread_context(db, blob_store, config):
 
 
 # PID file for cleanup
-E2E_PID_FILE = PROJECT_ROOT / ".e2e-server.pid"
+E2E_PID_FILE = PROJECT_ROOT / f".e2e-server-{E2E_PORT}.pid"
 
 
 # Default configuration
@@ -746,7 +751,7 @@ def cleanup_pid_file() -> None:
 def cleanup_databases() -> None:
     """Remove all test database files (including template and test-specific files)."""
     # Clean up template files and all test-specific files
-    patterns = ["e2e-template*.db*", "e2e-test-*.db*"]
+    patterns = [f"e2e-template-{E2E_PORT}*.db*", f"e2e-test-{E2E_PORT}-*.db*"]
     for pattern in patterns:
         for f in E2E_DB_DIR.glob(pattern):
             try:
@@ -1004,8 +1009,8 @@ def main() -> None:
                     if ctx is None:
                         # Copy template databases for this test context (much faster than migrations)
                         safe_id = "".join(c for c in test_id if c.isalnum() or c in "-_")
-                        db_path = E2E_DB_DIR / f"e2e-test-{safe_id}.db"
-                        blob_path = E2E_DB_DIR / f"e2e-test-{safe_id}-blobs.db"
+                        db_path = E2E_DB_DIR / f"e2e-test-{E2E_PORT}-{safe_id}.db"
+                        blob_path = E2E_DB_DIR / f"e2e-test-{E2E_PORT}-{safe_id}-blobs.db"
                         t1 = _time.perf_counter()
                         shutil.copy2(TEMPLATE_DB_PATH, db_path)
                         shutil.copy2(TEMPLATE_BLOB_PATH, blob_path)
@@ -1804,10 +1809,10 @@ def main() -> None:
 
             return None
 
-        print("Starting E2E test server on http://localhost:8001")
+        print(f"Starting E2E test server on http://localhost:{E2E_PORT}")
         print("Press Ctrl+C to stop")
 
-        app.run(host="0.0.0.0", port=8001, debug=False, threaded=True)
+        app.run(host="0.0.0.0", port=E2E_PORT, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

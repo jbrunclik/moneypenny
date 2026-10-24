@@ -14,6 +14,10 @@ RUFF := ruff
 MYPY := mypy
 endif
 NPM := npm
+# E2E server port: override to run a second E2E suite side by side
+# (`make test-fe-e2e E2E_PORT=8011` in another worktree or session)
+E2E_PORT ?= 8001
+export E2E_PORT
 
 # Deploy hosts may pin a newer node than the distro ships (Debian 13 stops at
 # node 20, below what vite will require) - see .nvmrc. That pinned toolchain
@@ -166,14 +170,14 @@ test-fe-component:
 
 test-fe-e2e: build
 	@echo "Cleaning up any hanging e2e servers..."
-	@if [ -f .e2e-server.pid ]; then \
-		PID=$$(cat .e2e-server.pid 2>/dev/null); \
+	@if [ -f .e2e-server-$(E2E_PORT).pid ]; then \
+		PID=$$(cat .e2e-server-$(E2E_PORT).pid 2>/dev/null); \
 		if [ -n "$$PID" ] && kill -0 $$PID 2>/dev/null; then \
 			echo "Killing e2e server (PID: $$PID)..."; \
 			kill $$PID 2>/dev/null || true; \
 			sleep 1; \
 		fi; \
-		rm -f .e2e-server.pid; \
+		rm -f .e2e-server-$(E2E_PORT).pid; \
 	fi
 	@echo "Running E2E tests..."
 	cd web && $(NPM) run test:e2e
