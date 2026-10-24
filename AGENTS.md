@@ -20,6 +20,7 @@ load automatically (API, agent, evals, frontend, migrations, programs, tests).
 - `make pre-commit` — lint + test-all
 - `make eval` — agent-behavior evals against the live API (costs money; report the cost)
 - `make migration NAME=...`, `make openapi`, `make types` (TypeScript types from OpenAPI)
+- `make lock` — after editing `requirements.in` (the ranges); `requirements.txt` is the generated lock
 - `make sandbox-image`, `make browser-setup`, `make audit`; `make` lists everything
 
 ## Hard rules
