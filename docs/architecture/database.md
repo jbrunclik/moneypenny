@@ -117,6 +117,18 @@ with self._pool.get_connection() as conn:
     conn.commit()
 ```
 
+### Gotcha: a write without `conn.commit()` locks the database
+
+`get_connection()` does not commit on exit, and the connection outlives the
+request on its pooled thread. A write that never commits keeps its transaction,
+and the database's write lock, open on an idle thread. Every other writer, in
+any process, then fails with `database is locked` until a later request on that
+same thread happens to commit, or the service restarts. Reads still work, so
+`/api/health` stays 200. This happened twice on Oct 25 2026, both times from
+`record_client_error`. Every write path ends with `conn.commit()`. In
+production, `/proc/locks` shows the culprit: the PID holding a WRITE lock on
+byte 120 of `chatbot.db-shm` is the one with the open write.
+
 ### Gotcha: thread-ident recycling
 
 The pool tracks connections in a dict keyed by `threading.get_ident()`. That ident is **not unique over time** - the OS recycles idents after a thread dies, so a brand-new thread can be handed the same key a dead thread used. Combined with deferred cleanup (a `weakref.finalize` callback that fires when the old `Thread` object is garbage-collected), a naive "pop and close whatever sits under this ident" callback closed a *live* connection belonging to the new thread mid-`execute`, crashing the sqlite3 C extension. This surfaced as CI segfaults ("Segmentation fault (core dumped)") killing the E2E server mid-run.
