@@ -62,9 +62,9 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api` | planned: import-linter |
+| B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api` | import-linter (`pyproject.toml`; known violations in `ignore_imports`) |
 | B2 | No importing another module's `_private` names - make it public or move it | planned: test |
-| B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | planned: import-linter + ruff `PLR0915` on routes |
+| B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | planned: test |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined) |
 | B6 | Typing follows [Typing](#typing) | mypy strict; planned: `Any` ratchet |

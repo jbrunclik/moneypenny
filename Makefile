@@ -7,11 +7,13 @@ PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 RUFF := $(VENV)/bin/ruff
 MYPY := $(VENV)/bin/mypy
+LINT_IMPORTS := $(VENV)/bin/lint-imports
 else
 PYTHON := python
 PIP := pip
 RUFF := ruff
 MYPY := mypy
+LINT_IMPORTS := lint-imports
 endif
 NPM := npm
 # E2E server port: override to run a second E2E suite side by side
@@ -143,6 +145,7 @@ lint:
 	$(RUFF) check src/ tests/ scripts/ evals/
 	$(RUFF) format --check src/ tests/ scripts/ evals/
 	$(MYPY) src/ evals/
+	$(LINT_IMPORTS)
 	cd web && $(NPM) run typecheck && $(NPM) run lint
 
 lint-fix:

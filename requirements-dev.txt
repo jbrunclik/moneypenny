@@ -11,12 +11,20 @@ attrs==26.1.0
     #   -c requirements.txt
     #   jsonschema
     #   referencing
+click==8.5.0
+    # via
+    #   -c requirements.txt
+    #   import-linter
 colorama==0.4.6 ; sys_platform == 'win32'
     # via pytest
 coverage==7.17.0
     # via pytest-cov
 execnet==2.1.2
     # via pytest-xdist
+grimp==3.17
+    # via import-linter
+import-linter==2.15
+    # via -r requirements-dev.in
 iniconfig==2.3.1
     # via pytest
 isodate==0.7.2
@@ -38,10 +46,14 @@ lazy-object-proxy==1.13.0
     # via openapi-spec-validator
 librt==0.16.0 ; platform_python_implementation != 'PyPy'
     # via mypy
+markdown-it-py==4.2.0
+    # via rich
 markupsafe==3.0.4
     # via
     #   -c requirements.txt
     #   werkzeug
+mdurl==0.1.2
+    # via markdown-it-py
 more-itertools==11.2.1
     # via openapi-core
 mypy==2.4.0
@@ -83,7 +95,9 @@ pydantic-settings==2.16.1
     #   openapi-schema-validator
     #   openapi-spec-validator
 pygments==2.21.0
-    # via pytest
+    # via
+    #   pytest
+    #   rich
 pytest==9.1.1
     # via
     #   -r requirements-dev.in
@@ -112,6 +126,8 @@ referencing==0.37.0
     #   openapi-schema-validator
 rfc3339-validator==0.1.4
     # via openapi-schema-validator
+rich==15.0.0
+    # via import-linter
 rpds-py==2026.9.1
     # via
     #   jsonschema
@@ -131,6 +147,7 @@ types-requests==2.33.0.20261006
 typing-extensions==4.16.0
     # via
     #   -c requirements.txt
+    #   import-linter
     #   mypy
     #   openapi-core
     #   pydantic

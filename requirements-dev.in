@@ -14,3 +14,6 @@ pytest-cov>=4.0
 pytest-mock>=3.16.0
 pytest-xdist>=3.8.0
 openapi-core>=0.23.1
+
+# Architecture contracts (B1)
+import-linter>=2.3
