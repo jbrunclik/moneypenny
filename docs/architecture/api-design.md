@@ -120,7 +120,7 @@ approximate - check the module when it matters.
 
 ## Request Validation
 
-The API uses Pydantic v2 for request validation. All validation follows a consistent pattern using the `@validate_request` decorator. The decorator also puts the schema in the OpenAPI spec as the request body (as APIFlask's `@api.input` would), so `make openapi && make types` generates the frontend request type.
+The API uses Pydantic v2 for request validation. All validation follows a consistent pattern using the `@validate_request` decorator. The decorator also puts the schema in the OpenAPI spec as the request body (as APIFlask's `@api.input` would), so `make openapi && make types` generates the frontend request type. Request schemas inherit `RequestModel` and response schemas `ResponseModel` (`src/api/schemas/base.py`): a response lists every property as required (the server always sends it), a request leaves defaulted fields optional, and `make types` runs openapi-typescript with `--default-non-nullable false` so the types follow `required` alone.
 
 ### Schema Location
 

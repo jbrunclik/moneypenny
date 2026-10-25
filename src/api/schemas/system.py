@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import ResponseModel
 
 
-class ModelResponse(BaseModel):
+class ModelResponse(ResponseModel):
     """Available model info."""
 
     id: str
@@ -15,14 +17,14 @@ class ModelResponse(BaseModel):
     )
 
 
-class ModelsListResponse(BaseModel):
+class ModelsListResponse(ResponseModel):
     """List of available models."""
 
     models: list[ModelResponse]
     default: str = Field(..., description="Default model ID")
 
 
-class UploadConfigResponse(BaseModel):
+class UploadConfigResponse(ResponseModel):
     """File upload configuration."""
 
     maxFileSize: int = Field(..., description="Maximum file size in bytes")  # noqa: N815
@@ -31,27 +33,27 @@ class UploadConfigResponse(BaseModel):
     allowedFileTypes: list[str] = Field(..., description="Allowed MIME types")  # noqa: N815
 
 
-class VersionResponse(BaseModel):
+class VersionResponse(ResponseModel):
     """App version info."""
 
     version: str | None = Field(default=None, description="App version (JS bundle hash)")
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(ResponseModel):
     """Liveness probe response."""
 
     status: str
     version: str | None = None
 
 
-class HealthCheckDetail(BaseModel):
+class HealthCheckDetail(ResponseModel):
     """Individual health check result."""
 
     status: str
     message: str | None = None
 
 
-class ReadinessResponse(BaseModel):
+class ReadinessResponse(ResponseModel):
     """Readiness probe response."""
 
     status: str = Field(..., description="'ready' or 'not_ready'")

@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from src.api.schemas.base import RequestModel, ResponseModel
 from src.api.schemas.chat import MessageResponse
 from src.config import Config
 
 
-class CreateConversationRequest(BaseModel):
+class CreateConversationRequest(RequestModel):
     """Schema for POST /api/conversations."""
 
     model: str | None = None  # Defaults to Config.DEFAULT_MODEL in route
@@ -26,7 +27,7 @@ class CreateConversationRequest(BaseModel):
         return v
 
 
-class UpdateConversationRequest(BaseModel):
+class UpdateConversationRequest(RequestModel):
     """Schema for PATCH /api/conversations/<conv_id>."""
 
     title: str | None = Field(None, min_length=1, max_length=200)
@@ -42,7 +43,7 @@ class UpdateConversationRequest(BaseModel):
         return v
 
 
-class TruncateConversationRequest(BaseModel):
+class TruncateConversationRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/truncate."""
 
     message_id: str = Field(..., min_length=1)
@@ -51,13 +52,13 @@ class TruncateConversationRequest(BaseModel):
     inclusive: bool = Field(default=True)
 
 
-class TruncateConversationResponse(BaseModel):
+class TruncateConversationResponse(ResponseModel):
     """Number of messages removed by a truncate."""
 
     deleted: int
 
 
-class ConversationResponse(BaseModel):
+class ConversationResponse(ResponseModel):
     """Conversation summary (without messages)."""
 
     id: str
@@ -76,13 +77,13 @@ class ConversationResponse(BaseModel):
     purge_at: str | None = None  # When a trashed conversation is deleted for good
 
 
-class EmptyTrashResponse(BaseModel):
+class EmptyTrashResponse(ResponseModel):
     """Result of emptying the trash."""
 
     deleted: int = Field(..., description="Number of conversations permanently deleted")
 
 
-class BulkTrashRequest(BaseModel):
+class BulkTrashRequest(RequestModel):
     """Move many conversations to the trash: hand-picked ids, or every
     unpinned main-list chat (all) minus exclude_ids plus ids."""
 
@@ -115,25 +116,25 @@ class BulkTrashRequest(BaseModel):
         return self
 
 
-class BulkTrashResponse(BaseModel):
+class BulkTrashResponse(ResponseModel):
     """Result of a bulk trash."""
 
     trashed_ids: list[str] = Field(..., description="Conversations this call moved to the trash")
 
 
-class BulkRestoreRequest(BaseModel):
+class BulkRestoreRequest(RequestModel):
     """Restore many conversations from the trash (Undo of a bulk delete)."""
 
     ids: list[str] = Field(..., min_length=1, max_length=Config.CONVERSATIONS_BULK_MAX_IDS)
 
 
-class BulkRestoreResponse(BaseModel):
+class BulkRestoreResponse(ResponseModel):
     """Result of a bulk restore."""
 
     restored_ids: list[str] = Field(..., description="Conversations this call restored")
 
 
-class ConversationDetailResponse(BaseModel):
+class ConversationDetailResponse(ResponseModel):
     """Full conversation with messages."""
 
     id: str
@@ -147,13 +148,13 @@ class ConversationDetailResponse(BaseModel):
     messages: list[MessageResponse]
 
 
-class MarkReadRequest(BaseModel):
+class MarkReadRequest(RequestModel):
     """A device has shown the conversation up to this many messages."""
 
     message_count: int = Field(..., ge=0, description="Messages shown (server clamps)")
 
 
-class UpdateAnonymousModeRequest(BaseModel):
+class UpdateAnonymousModeRequest(RequestModel):
     """Request to turn anonymous mode on or off for a conversation."""
 
     anonymous_mode: bool = Field(
@@ -161,13 +162,13 @@ class UpdateAnonymousModeRequest(BaseModel):
     )
 
 
-class ConversationsListResponse(BaseModel):
+class ConversationsListResponse(ResponseModel):
     """List of conversations."""
 
     conversations: list[ConversationResponse]
 
 
-class SyncConversationResponse(BaseModel):
+class SyncConversationResponse(ResponseModel):
     """Conversation summary for sync endpoint."""
 
     id: str
@@ -187,7 +188,7 @@ class SyncConversationResponse(BaseModel):
     anonymous_mode: bool = Field(default=False, description="Memory and integrations off")
 
 
-class SyncResponse(BaseModel):
+class SyncResponse(ResponseModel):
     """Response from sync endpoint."""
 
     conversations: list[SyncConversationResponse]
@@ -202,7 +203,7 @@ class SyncResponse(BaseModel):
     has_more: bool = Field(default=False, description="More changes after cursor - sync again")
 
 
-class ConversationsPaginationResponse(BaseModel):
+class ConversationsPaginationResponse(ResponseModel):
     """Pagination info for conversations list."""
 
     next_cursor: str | None = Field(
@@ -212,7 +213,7 @@ class ConversationsPaginationResponse(BaseModel):
     total_count: int = Field(..., description="Total number of conversations")
 
 
-class ConversationsListPaginatedResponse(BaseModel):
+class ConversationsListPaginatedResponse(ResponseModel):
     """Paginated list of conversations.
 
     Pinned conversations ride separately: they are excluded from the
@@ -225,7 +226,7 @@ class ConversationsListPaginatedResponse(BaseModel):
     pagination: ConversationsPaginationResponse
 
 
-class MessagesPaginationResponse(BaseModel):
+class MessagesPaginationResponse(ResponseModel):
     """Pagination info for messages list."""
 
     older_cursor: str | None = Field(
@@ -239,7 +240,7 @@ class MessagesPaginationResponse(BaseModel):
     total_count: int = Field(..., description="Total number of messages in conversation")
 
 
-class ConversationDetailPaginatedResponse(BaseModel):
+class ConversationDetailPaginatedResponse(ResponseModel):
     """Full conversation with paginated messages."""
 
     id: str
@@ -264,14 +265,14 @@ class ConversationDetailPaginatedResponse(BaseModel):
     )
 
 
-class MessagesListResponse(BaseModel):
+class MessagesListResponse(ResponseModel):
     """Paginated messages response (for dedicated messages endpoint)."""
 
     messages: list[MessageResponse]
     pagination: MessagesPaginationResponse
 
 
-class SearchResultResponse(BaseModel):
+class SearchResultResponse(ResponseModel):
     """Single search result."""
 
     conversation_id: str = Field(..., description="ID of the conversation containing the match")
@@ -291,7 +292,7 @@ class SearchResultResponse(BaseModel):
     )
 
 
-class SearchResultsResponse(BaseModel):
+class SearchResultsResponse(ResponseModel):
     """Search results response."""
 
     results: list[SearchResultResponse] = Field(

@@ -12,7 +12,8 @@ from enum import StrEnum
 from typing import Any, NoReturn
 
 from apiflask import HTTPError
-from pydantic import BaseModel
+
+from src.api.schemas.base import ResponseModel
 
 
 class ErrorCode(StrEnum):
@@ -72,7 +73,7 @@ def is_retryable(code: ErrorCode) -> bool:
 # =============================================================================
 
 
-class ErrorDetail(BaseModel):
+class ErrorDetail(ResponseModel):
     """Error detail schema for OpenAPI documentation."""
 
     code: str
@@ -81,7 +82,7 @@ class ErrorDetail(BaseModel):
     details: dict[str, Any] | None = None
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(ResponseModel):
     """Error response schema for OpenAPI documentation."""
 
     error: ErrorDetail

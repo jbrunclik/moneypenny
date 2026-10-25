@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import ResponseModel
 
 
-class ConversationCostResponse(BaseModel):
+class ConversationCostResponse(ResponseModel):
     """Cost for a conversation."""
 
     conversation_id: str
@@ -15,7 +17,7 @@ class ConversationCostResponse(BaseModel):
     formatted: str
 
 
-class ConversationCompactionResponse(BaseModel):
+class ConversationCompactionResponse(ResponseModel):
     """How the next turn compacts a conversation's history for the model."""
 
     conversation_id: str
@@ -32,7 +34,7 @@ class ConversationCompactionResponse(BaseModel):
     summary: str | None = Field(None, description="Summary text the model sees")
 
 
-class MessageCostResponse(BaseModel):
+class MessageCostResponse(ResponseModel):
     """Cost breakdown for a message."""
 
     message_id: str
@@ -48,7 +50,7 @@ class MessageCostResponse(BaseModel):
     image_generation_cost_formatted: str | None = None
 
 
-class ModelCostBreakdown(BaseModel):
+class ModelCostBreakdown(ResponseModel):
     """Cost breakdown by model."""
 
     total: float
@@ -57,7 +59,7 @@ class ModelCostBreakdown(BaseModel):
     formatted: str
 
 
-class MonthlyCostResponse(BaseModel):
+class MonthlyCostResponse(ResponseModel):
     """Monthly cost for a user."""
 
     user_id: str
@@ -71,7 +73,7 @@ class MonthlyCostResponse(BaseModel):
     breakdown: dict[str, ModelCostBreakdown]
 
 
-class MonthCostEntry(BaseModel):
+class MonthCostEntry(ResponseModel):
     """Single month in cost history."""
 
     year: int
@@ -83,7 +85,7 @@ class MonthCostEntry(BaseModel):
     message_count: int
 
 
-class CostHistoryResponse(BaseModel):
+class CostHistoryResponse(ResponseModel):
     """Cost history for a user."""
 
     user_id: str

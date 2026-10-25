@@ -2,10 +2,12 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 
-class ArtifactVersionResponse(BaseModel):
+class ArtifactVersionResponse(ResponseModel):
     """One version of an artifact, with the artifact's current saved state."""
 
     id: str = Field(description="Artifact id")
@@ -18,7 +20,7 @@ class ArtifactVersionResponse(BaseModel):
     )
 
 
-class ArtifactStateRequest(BaseModel):
+class ArtifactStateRequest(RequestModel):
     """Replace an artifact's saved state (null clears it)."""
 
     state: Any = Field(description="Any JSON value; null clears it")

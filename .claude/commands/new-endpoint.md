@@ -11,7 +11,8 @@ rules (B1, B3-B5) in `docs/conventions.md`.
    `client`, `test_user` and `auth_headers` fixtures: the happy path, a
    missing/invalid body (400), another user's resource (404), no token (401).
 2. **Schemas.** Request/response Pydantic models in the feature module of
-   `src/api/schemas/`. Query parameters get a schema too (B4).
+   `src/api/schemas/`: requests inherit `RequestModel`, responses `ResponseModel`
+   (`src/api/schemas/base.py`). Query parameters get a schema too (B4).
 3. **Route.** In the feature module of `src/api/routes/`: `@api.output`,
    `@api.doc(responses=[...])`, `@require_auth`, `@validate_request`. Keep it
    thin (B3): logic goes to `src/api/helpers/`, `src/agent/` or

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
+from src.api.schemas.base import RequestModel, ResponseModel
 from src.config import Config
 
 
-class FileAttachment(BaseModel):
+class FileAttachment(RequestModel):
     """Schema for file attachments in chat requests.
 
     Validates structure only. Content validation (base64 decoding, size checking)
@@ -30,7 +31,7 @@ class FileAttachment(BaseModel):
         return v
 
 
-class FileMetadataResponse(BaseModel):
+class FileMetadataResponse(ResponseModel):
     """File metadata in message responses (excludes full data for performance)."""
 
     name: str
@@ -39,21 +40,21 @@ class FileMetadataResponse(BaseModel):
     fileIndex: int | None = None  # noqa: N815
 
 
-class SourceResponse(BaseModel):
+class SourceResponse(ResponseModel):
     """Web search source citation."""
 
     title: str
     url: str
 
 
-class GeneratedImageResponse(BaseModel):
+class GeneratedImageResponse(ResponseModel):
     """Generated image metadata."""
 
     prompt: str
     image_index: int | None = None
 
 
-class ThumbnailPendingResponse(BaseModel):
+class ThumbnailPendingResponse(ResponseModel):
     """Response when thumbnail is still being generated (202)."""
 
     status: Literal["pending"] = "pending"

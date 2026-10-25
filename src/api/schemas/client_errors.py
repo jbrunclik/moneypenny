@@ -2,7 +2,9 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import RequestModel
 
 
 class ClientErrorKind(StrEnum):
@@ -13,7 +15,7 @@ class ClientErrorKind(StrEnum):
     LOGGED = "logged"  # handled, but logged at error level
 
 
-class ClientErrorReport(BaseModel):
+class ClientErrorReport(RequestModel):
     """One error from the browser. Long text is accepted and cut server-side."""
 
     kind: ClientErrorKind

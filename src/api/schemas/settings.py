@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 
-class UpdateDailyBriefingRequest(BaseModel):
+class UpdateDailyBriefingRequest(RequestModel):
     """Daily Briefing opt-in update (nested in UpdateSettingsRequest)."""
 
     enabled: bool
@@ -15,7 +17,7 @@ class UpdateDailyBriefingRequest(BaseModel):
     timezone: str = Field(default="UTC", max_length=64)
 
 
-class UpdateSettingsRequest(BaseModel):
+class UpdateSettingsRequest(RequestModel):
     """Schema for PATCH /api/users/me/settings."""
 
     custom_instructions: str | None = Field(None, max_length=2000)
@@ -59,7 +61,7 @@ class UpdateSettingsRequest(BaseModel):
         return v
 
 
-class DailyBriefingSettings(BaseModel):
+class DailyBriefingSettings(ResponseModel):
     """Daily Briefing opt-in state (backed by a system-managed agent)."""
 
     enabled: bool = False
@@ -67,7 +69,7 @@ class DailyBriefingSettings(BaseModel):
     timezone: str = Field(default="UTC", max_length=64)
 
 
-class UserSettingsResponse(BaseModel):
+class UserSettingsResponse(ResponseModel):
     """User settings."""
 
     custom_instructions: str = Field(default="", description="Custom instructions for the AI")

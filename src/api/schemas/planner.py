@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from src.api.schemas.base import ResponseModel
 from src.api.schemas.chat import MessageResponse
 
 
-class PlannerTaskResponse(BaseModel):
+class PlannerTaskResponse(ResponseModel):
     """A task from Todoist for the planner dashboard."""
 
     id: str
@@ -27,7 +28,7 @@ class PlannerTaskResponse(BaseModel):
     url: str | None = Field(default=None, description="Direct URL to task in Todoist")
 
 
-class PlannerEventAttendeeResponse(BaseModel):
+class PlannerEventAttendeeResponse(ResponseModel):
     """An attendee on a calendar event."""
 
     email: str | None = None
@@ -37,7 +38,7 @@ class PlannerEventAttendeeResponse(BaseModel):
     self: bool = Field(default=False, description="True if this is the current user")
 
 
-class PlannerEventOrganizerResponse(BaseModel):
+class PlannerEventOrganizerResponse(ResponseModel):
     """The organizer/creator of a calendar event."""
 
     email: str | None = None
@@ -45,7 +46,7 @@ class PlannerEventOrganizerResponse(BaseModel):
     self: bool = Field(default=False, description="True if this is the current user")
 
 
-class PlannerEventResponse(BaseModel):
+class PlannerEventResponse(ResponseModel):
     """A calendar event for the planner dashboard."""
 
     id: str
@@ -74,7 +75,7 @@ class PlannerEventResponse(BaseModel):
     calendar_summary: str | None = Field(default=None, description="Source calendar name/title")
 
 
-class PlannerWeatherResponse(BaseModel):
+class PlannerWeatherResponse(ResponseModel):
     """Weather forecast for a single day."""
 
     temperature_high: float | None = None
@@ -84,7 +85,7 @@ class PlannerWeatherResponse(BaseModel):
     summary: str = ""
 
 
-class PlannerHealthSummaryResponse(BaseModel):
+class PlannerHealthSummaryResponse(ResponseModel):
     """Health data summary from Garmin."""
 
     training_readiness: dict[str, Any] | None = None
@@ -96,7 +97,7 @@ class PlannerHealthSummaryResponse(BaseModel):
     recent_activities: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class PlannerDayResponse(BaseModel):
+class PlannerDayResponse(ResponseModel):
     """A single day in the planner dashboard."""
 
     date: str = Field(..., description="Date in YYYY-MM-DD format")
@@ -108,7 +109,7 @@ class PlannerDayResponse(BaseModel):
     )
 
 
-class PlannerDashboardResponse(BaseModel):
+class PlannerDashboardResponse(ResponseModel):
     """Complete planner dashboard data."""
 
     days: list[PlannerDayResponse] = Field(
@@ -142,7 +143,7 @@ class PlannerDashboardResponse(BaseModel):
     server_time: str = Field(..., description="Server timestamp for cache validation")
 
 
-class PlannerConversationResponse(BaseModel):
+class PlannerConversationResponse(ResponseModel):
     """Planner conversation with messages."""
 
     id: str
@@ -156,14 +157,14 @@ class PlannerConversationResponse(BaseModel):
     )
 
 
-class PlannerResetResponse(BaseModel):
+class PlannerResetResponse(ResponseModel):
     """Response from planner reset endpoint."""
 
     success: bool = True
     message: str = "Planner conversation reset"
 
 
-class PlannerConversationSyncData(BaseModel):
+class PlannerConversationSyncData(ResponseModel):
     """Planner conversation data for sync."""
 
     id: str
@@ -172,7 +173,7 @@ class PlannerConversationSyncData(BaseModel):
     last_reset: str | None = Field(default=None, description="Timestamp of last reset")
 
 
-class PlannerSyncResponse(BaseModel):
+class PlannerSyncResponse(ResponseModel):
     """Response from planner sync endpoint for real-time synchronization."""
 
     conversation: PlannerConversationSyncData | None = Field(

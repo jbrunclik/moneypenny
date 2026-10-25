@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 
-class MemoryResponse(BaseModel):
+class MemoryResponse(ResponseModel):
     """Single memory entry."""
 
     id: str
@@ -18,7 +20,7 @@ class MemoryResponse(BaseModel):
     deleted_at: str | None = None
 
 
-class MemoriesListResponse(BaseModel):
+class MemoriesListResponse(ResponseModel):
     """List of memories."""
 
     memories: list[MemoryResponse]
@@ -26,7 +28,7 @@ class MemoriesListResponse(BaseModel):
     limit: int = Field(default=0, description="Maximum memories this user can store")
 
 
-class UpdateMemoryProtectionRequest(BaseModel):
+class UpdateMemoryProtectionRequest(RequestModel):
     """Request to protect or unprotect a memory."""
 
     protected: bool = Field(..., description="Whether the memory is exempt from auto-deletion")

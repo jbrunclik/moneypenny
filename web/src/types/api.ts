@@ -648,16 +648,9 @@ export interface SelectedCalendarsResponse {
 }
 
 /** POST /api/conversations/bulk-trash: hand-picked ids, or all (minus exclude_ids, plus ids) */
-export interface BulkTrashRequest {
-  all?: boolean;
-  ids?: string[];
-  exclude_ids?: string[];
-  created_before?: string;
-}
+export type BulkTrashRequest = Schemas['BulkTrashRequest'];
 
-export interface UpdateSelectedCalendarsRequest {
-  calendar_ids: string[];
-}
+export type UpdateSelectedCalendarsRequest = Schemas['UpdateSelectedCalendarsRequest'];
 
 // =============================================================================
 // Garmin Connect types
@@ -861,31 +854,9 @@ export interface Agent {
   last_execution_status?: string | null;
 }
 
-export interface CreateAgentRequest {
-  name: string;
-  description?: string;
-  system_prompt?: string;
-  schedule?: string;
-  timezone?: string;
-  tool_permissions?: string[];
-  enabled?: boolean;
-  model?: string;
-  budget_limit?: number; // Daily budget limit in USD (null = unlimited)
-  fresh_context?: boolean;
-}
+export type CreateAgentRequest = Schemas['CreateAgentRequest'];
 
-export interface UpdateAgentRequest {
-  name?: string;
-  description?: string;
-  system_prompt?: string;
-  schedule?: string;
-  timezone?: string;
-  tool_permissions?: string[];
-  enabled?: boolean;
-  model?: string;
-  budget_limit?: number; // Daily budget limit in USD (null = unlimited)
-  fresh_context?: boolean;
-}
+export type UpdateAgentRequest = Schemas['UpdateAgentRequest'];
 
 export interface AgentExecution {
   id: string;
@@ -1073,10 +1044,7 @@ export interface LanguageResetResponse {
 // AI Assist types
 // =============================================================================
 
-export interface ParseScheduleRequest {
-  natural_language: string;
-  timezone?: string;
-}
+export type ParseScheduleRequest = Schemas['ParseScheduleRequest'];
 
 export interface ParseScheduleResponse {
   cron?: string | null;
@@ -1084,11 +1052,7 @@ export interface ParseScheduleResponse {
   error?: string | null;
 }
 
-export interface EnhancePromptRequest {
-  prompt: string;
-  agent_name: string;
-  tool_permissions?: string[] | null;
-}
+export type EnhancePromptRequest = Schemas['EnhancePromptRequest'];
 
 export interface EnhancePromptResponse {
   enhanced_prompt?: string | null;

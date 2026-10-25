@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from src.api.schemas.base import RequestModel, ResponseModel
 from src.api.schemas.files import (
     FileAttachment,
     FileMetadataResponse,
@@ -16,7 +17,7 @@ from src.api.schemas.files import (
 from src.config import Config
 
 
-class ClientLocation(BaseModel):
+class ClientLocation(RequestModel):
     """Device GPS fix sent by the frontend when location sharing is enabled."""
 
     lat: float = Field(ge=-90, le=90)
@@ -25,7 +26,7 @@ class ClientLocation(BaseModel):
     timestamp_ms: int | None = Field(default=None, ge=0)
 
 
-class StopChatRequest(BaseModel):
+class StopChatRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/chat/stop.
 
     Names the turn to stop by its assistant message id (from the stream's
@@ -35,7 +36,7 @@ class StopChatRequest(BaseModel):
     message_id: str = Field(..., min_length=1, max_length=64)
 
 
-class InterjectRequest(BaseModel):
+class InterjectRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/chat/interject.
 
     Mid-run steering: guidance for a turn that is currently streaming,
@@ -58,7 +59,7 @@ class InterjectRequest(BaseModel):
         return v
 
 
-class DeepResearchStart(BaseModel):
+class DeepResearchStart(RequestModel):
     """Start a deep-research run from an offer, with the user's final plan."""
 
     offer_message_id: str
@@ -66,7 +67,7 @@ class DeepResearchStart(BaseModel):
     context: str = ""
 
 
-class VerifyClaimAction(BaseModel):
+class VerifyClaimAction(RequestModel):
     """Look it up on a claim card: verify one claim of an earlier answer."""
 
     type: Literal["verify_claim"]
@@ -75,7 +76,7 @@ class VerifyClaimAction(BaseModel):
     quote: str = Field(..., max_length=500)
 
 
-class DeepResearchAction(BaseModel):
+class DeepResearchAction(RequestModel):
     """Start on a deep-research offer (the server fills it from the started plan)."""
 
     type: Literal["deep_research"]
@@ -88,13 +89,13 @@ class DeepResearchAction(BaseModel):
 MessageAction = Annotated[VerifyClaimAction | DeepResearchAction, Field(discriminator="type")]
 
 
-class ResearchOfferUpdate(BaseModel):
+class ResearchOfferUpdate(RequestModel):
     """The user's decision on an offer (starting goes through the chat stream)."""
 
     status: Literal["declined"]
 
 
-class ChatRequest(BaseModel):
+class ChatRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
 
     Validates structure. File content validation happens separately via
@@ -163,7 +164,7 @@ class ChatRequest(BaseModel):
         return self
 
 
-class ClaimAnnotationResponse(BaseModel):
+class ClaimAnnotationResponse(ResponseModel):
     """A grounding-check claim in an assistant message."""
 
     type: Literal["claim"]
@@ -177,7 +178,7 @@ class ClaimAnnotationResponse(BaseModel):
     source_quote: str | None = Field(default=None, description="Literal passage from that source")
 
 
-class GroundingSummaryResponse(BaseModel):
+class GroundingSummaryResponse(ResponseModel):
     """Footer summary of a grounding-checked message."""
 
     checked: bool
@@ -187,7 +188,7 @@ class GroundingSummaryResponse(BaseModel):
     )
 
 
-class ArtifactRef(BaseModel):
+class ArtifactRef(ResponseModel):
     """One artifact version shown under a message."""
 
     id: str = Field(description="Artifact id")
@@ -195,7 +196,7 @@ class ArtifactRef(BaseModel):
     title: str = Field(description="Artifact title")
 
 
-class MessageResponse(BaseModel):
+class MessageResponse(ResponseModel):
     """Message in a conversation."""
 
     id: str
@@ -228,7 +229,7 @@ class MessageResponse(BaseModel):
     created_at: str
 
 
-class ChatBatchResponse(BaseModel):
+class ChatBatchResponse(ResponseModel):
     """Response from batch chat endpoint."""
 
     id: str

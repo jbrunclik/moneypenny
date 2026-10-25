@@ -7310,53 +7310,53 @@ export interface components {
              * Description
              * @default null
              */
-            description: string | null;
+            description?: string | null;
             /**
              * System Prompt
              * @default null
              */
-            system_prompt: string | null;
+            system_prompt?: string | null;
             /**
              * Schedule
              * @description Cron expression (e.g., '0 9 * * *' for daily at 9am)
              * @default null
              */
-            schedule: string | null;
+            schedule?: string | null;
             /**
              * Timezone
              * @description IANA timezone for schedule
              * @default UTC
              */
-            timezone: string;
+            timezone?: string;
             /**
              * Tool Permissions
              * @description List of allowed tool names
              * @default null
              */
-            tool_permissions: string[] | null;
+            tool_permissions?: string[] | null;
             /**
              * Enabled
              * @default true
              */
-            enabled: boolean;
+            enabled?: boolean;
             /**
              * Model
              * @description LLM model for the agent (defaults to Fast)
              * @default null
              */
-            model: string | null;
+            model?: string | null;
             /**
              * Budget Limit
              * @description Daily budget limit in USD (null = unlimited)
              * @default null
              */
-            budget_limit: number | null;
+            budget_limit?: number | null;
             /**
              * Fresh Context
              * @description Run each execution without prior conversation history
              * @default true
              */
-            fresh_context: boolean;
+            fresh_context?: boolean;
         };
         /**
          * UserResponse
@@ -7428,9 +7428,9 @@ export interface components {
              */
             day_name: string;
             /** Events */
-            events?: components["schemas"]["PlannerDashboardResponse.PlannerEventResponse"][];
+            events: components["schemas"]["PlannerDashboardResponse.PlannerEventResponse"][];
             /** Tasks */
-            tasks?: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
+            tasks: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
             /**
              * @description Weather forecast for this day
              * @default null
@@ -7538,7 +7538,7 @@ export interface components {
              */
             is_all_day: boolean;
             /** Attendees */
-            attendees?: components["schemas"]["PlannerDashboardResponse.PlannerEventAttendeeResponse"][];
+            attendees: components["schemas"]["PlannerDashboardResponse.PlannerEventAttendeeResponse"][];
             /**
              * @description Event organizer/creator
              * @default null
@@ -7597,7 +7597,7 @@ export interface components {
              */
             steps_today: number | null;
             /** Recent Activities */
-            recent_activities?: {
+            recent_activities: {
                 [key: string]: unknown;
             }[];
         };
@@ -7644,7 +7644,7 @@ export interface components {
              */
             section_name: string | null;
             /** Labels */
-            labels?: string[];
+            labels: string[];
             /**
              * Is Recurring
              * @default false
@@ -7702,7 +7702,7 @@ export interface components {
              * Overdue Tasks
              * @description Tasks that are past their due date
              */
-            overdue_tasks?: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
+            overdue_tasks: components["schemas"]["PlannerDashboardResponse.PlannerTaskResponse"][];
             /**
              * Todoist Connected
              * @description Whether Todoist is connected
@@ -8064,7 +8064,7 @@ export interface components {
             /** Conversations */
             conversations: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
             /** Pinned Conversations */
-            pinned_conversations?: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
+            pinned_conversations: components["schemas"]["ConversationsListPaginatedResponse.ConversationResponse"][];
             pagination: components["schemas"]["ConversationsListPaginatedResponse.ConversationsPaginationResponse"];
         };
         /**
@@ -8128,7 +8128,7 @@ export interface components {
              * Model
              * @default null
              */
-            model: string | null;
+            model?: string | null;
         };
         /**
          * PlannerResetResponse
@@ -8164,18 +8164,18 @@ export interface components {
              * Stack
              * @default null
              */
-            stack: string | null;
+            stack?: string | null;
             /**
              * Path
              * @description Route path, no query
              * @default null
              */
-            path: string | null;
+            path?: string | null;
             /**
              * App Version
              * @default null
              */
-            app_version: string | null;
+            app_version?: string | null;
         };
         /**
          * GarminStatusResponse
@@ -8541,7 +8541,7 @@ export interface components {
              */
             has_conversation: boolean;
             /** Quick Actions */
-            quick_actions?: components["schemas"]["SportsProgramsResponse.QuickActionItem"][];
+            quick_actions: components["schemas"]["SportsProgramsResponse.QuickActionItem"][];
         };
         /**
          * SportsProgramsResponse
@@ -8672,7 +8672,7 @@ export interface components {
              * Pending Approvals
              * @description All pending approval requests
              */
-            pending_approvals?: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
+            pending_approvals: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
         };
         /**
          * TodoistAuthUrlResponse
@@ -8773,7 +8773,7 @@ export interface components {
              * @default null
              */
             preferred_language: string | null;
-            daily_briefing?: components["schemas"]["UserSettingsResponse.DailyBriefingSettings"];
+            daily_briefing: components["schemas"]["UserSettingsResponse.DailyBriefingSettings"];
         };
         /**
          * UpdateDailyBriefingRequest
@@ -8788,7 +8788,7 @@ export interface components {
              * Timezone
              * @default UTC
              */
-            timezone: string;
+            timezone?: string;
         };
         /**
          * UpdateSettingsRequest
@@ -8799,21 +8799,21 @@ export interface components {
              * Custom Instructions
              * @default null
              */
-            custom_instructions: string | null;
+            custom_instructions?: string | null;
             /** @default null */
-            daily_briefing: components["schemas"]["UpdateSettingsRequest.UpdateDailyBriefingRequest"] | null;
+            daily_briefing?: components["schemas"]["UpdateSettingsRequest.UpdateDailyBriefingRequest"] | null;
             /**
              * Preferred Language
              * @description Primary response language (English name); empty string = auto
              * @default null
              */
-            preferred_language: string | null;
+            preferred_language?: string | null;
             /**
              * Whatsapp Phone
              * @description WhatsApp phone number in E.164 format (e.g., +1234567890). Must start with + followed by country code and at least 7 digits total. Send empty string to clear.
              * @default null
              */
-            whatsapp_phone: string | null;
+            whatsapp_phone?: string | null;
         };
         /**
          * UpdateAgentRequest
@@ -8824,52 +8824,52 @@ export interface components {
              * Name
              * @default null
              */
-            name: string | null;
+            name?: string | null;
             /**
              * Description
              * @default null
              */
-            description: string | null;
+            description?: string | null;
             /**
              * System Prompt
              * @default null
              */
-            system_prompt: string | null;
+            system_prompt?: string | null;
             /**
              * Schedule
              * @default null
              */
-            schedule: string | null;
+            schedule?: string | null;
             /**
              * Timezone
              * @default null
              */
-            timezone: string | null;
+            timezone?: string | null;
             /**
              * Tool Permissions
              * @default null
              */
-            tool_permissions: string[] | null;
+            tool_permissions?: string[] | null;
             /**
              * Enabled
              * @default null
              */
-            enabled: boolean | null;
+            enabled?: boolean | null;
             /**
              * Model
              * @default null
              */
-            model: string | null;
+            model?: string | null;
             /**
              * Budget Limit
              * @default null
              */
-            budget_limit: number | null;
+            budget_limit?: number | null;
             /**
              * Fresh Context
              * @default null
              */
-            fresh_context: boolean | null;
+            fresh_context?: boolean | null;
         };
         /**
          * LanguageProgramItem
@@ -8890,7 +8890,7 @@ export interface components {
              */
             has_conversation: boolean;
             /** Quick Actions */
-            quick_actions?: components["schemas"]["LanguageProgramsResponse.QuickActionItem"][];
+            quick_actions: components["schemas"]["LanguageProgramsResponse.QuickActionItem"][];
         };
         /**
          * QuickActionItem
@@ -9026,7 +9026,7 @@ export interface components {
              * Removed Ids
              * @description Conversations permanently deleted since the cursor
              */
-            removed_ids?: string[];
+            removed_ids: string[];
             /**
              * Has More
              * @description More changes after cursor - sync again
@@ -9112,7 +9112,7 @@ export interface components {
              * Calendars
              * @description List of available calendars
              */
-            calendars?: components["schemas"]["CalendarListResponse.Calendar"][];
+            calendars: components["schemas"]["CalendarListResponse.Calendar"][];
             /**
              * Error
              * @description Error message if fetch failed
@@ -9232,12 +9232,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes: number;
+            minutes?: number;
         };
         /**
          * FileMetadataResponse
@@ -9392,12 +9392,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id: string | null;
+            source_message_id?: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index: number | null;
+            claim_index?: number | null;
             /** Quote */
             quote: string;
         };
@@ -9506,12 +9506,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes: number;
+            minutes?: number;
         };
         /**
          * FileMetadataResponse
@@ -9589,12 +9589,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id: string | null;
+            source_message_id?: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index: number | null;
+            claim_index?: number | null;
             /** Quote */
             quote: string;
         };
@@ -9906,7 +9906,7 @@ export interface components {
              */
             total_cost_display: string;
             /** Per Agent */
-            per_agent?: components["schemas"]["CommandCenterResponse.AgentWindowStats"][];
+            per_agent: components["schemas"]["CommandCenterResponse.AgentWindowStats"][];
         };
         /**
          * AgentStatus
@@ -10023,12 +10023,12 @@ export interface components {
              * Pending Approvals
              * @description All pending approval requests
              */
-            pending_approvals?: components["schemas"]["CommandCenterResponse.ApprovalRequestResponse"][];
+            pending_approvals: components["schemas"]["CommandCenterResponse.ApprovalRequestResponse"][];
             /**
              * Recent Executions
              * @description Recent execution history across all agents
              */
-            recent_executions?: components["schemas"]["CommandCenterResponse.AgentExecutionResponse"][];
+            recent_executions: components["schemas"]["CommandCenterResponse.AgentExecutionResponse"][];
             /**
              * Total Unread
              * @description Total unread messages across all agents
@@ -10042,7 +10042,7 @@ export interface components {
              */
             agents_waiting: number;
             /** @description Run/cost aggregates over the trailing window */
-            stats?: components["schemas"]["CommandCenterResponse.AgentStatsBlock"];
+            stats: components["schemas"]["CommandCenterResponse.AgentStatsBlock"];
             /**
              * Agents With Errors
              * @description Number of agents whose last execution failed
@@ -10248,12 +10248,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes: number;
+            minutes?: number;
         };
         /**
          * FileMetadataResponse
@@ -10441,12 +10441,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id: string | null;
+            source_message_id?: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index: number | null;
+            claim_index?: number | null;
             /** Quote */
             quote: string;
         };
@@ -10515,12 +10515,12 @@ export interface components {
              * Title
              * @default null
              */
-            title: string | null;
+            title?: string | null;
             /**
              * Model
              * @default null
              */
-            model: string | null;
+            model?: string | null;
         };
         /**
          * BulkTrashResponse
@@ -10544,7 +10544,7 @@ export interface components {
              * @description Every unpinned main-list chat
              * @default false
              */
-            all: boolean;
+            all?: boolean;
             /**
              * Ids
              * @description Chats to trash; with all, extra chats (pinned ones picked by hand)
@@ -10560,7 +10560,7 @@ export interface components {
              * @description With all: only chats created before this moment
              * @default null
              */
-            created_before: string | null;
+            created_before?: string | null;
         };
         /**
          * ParseScheduleResponse
@@ -10601,7 +10601,7 @@ export interface components {
              * @description IANA timezone for interpreting the schedule
              * @default UTC
              */
-            timezone: string;
+            timezone?: string;
         };
         /**
          * EnhancePromptResponse
@@ -10641,7 +10641,7 @@ export interface components {
              * @description List of optional tool names the agent can use (excludes always-available tools).
              * @default null
              */
-            tool_permissions: string[] | null;
+            tool_permissions?: string[] | null;
         };
         /**
          * LanguageResetResponse
@@ -10918,7 +10918,7 @@ export interface components {
              * Inclusive
              * @default true
              */
-            inclusive: boolean;
+            inclusive?: boolean;
         };
         /**
          * ArtifactRef
@@ -11001,12 +11001,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes: number;
+            minutes?: number;
         };
         /**
          * FileMetadataResponse
@@ -11194,12 +11194,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id: string | null;
+            source_message_id?: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index: number | null;
+            claim_index?: number | null;
             /** Quote */
             quote: string;
         };
@@ -11465,12 +11465,12 @@ export interface components {
              * Accuracy M
              * @default null
              */
-            accuracy_m: number | null;
+            accuracy_m?: number | null;
             /**
              * Timestamp Ms
              * @default null
              */
-            timestamp_ms: number | null;
+            timestamp_ms?: number | null;
         };
         /**
          * DeepResearchAction
@@ -11488,12 +11488,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items: number;
+            items?: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes: number;
+            minutes?: number;
         };
         /**
          * DeepResearchStart
@@ -11508,7 +11508,7 @@ export interface components {
              * Context
              * @default
              */
-            context: string;
+            context?: string;
         };
         /**
          * FileAttachment
@@ -11539,12 +11539,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id: string | null;
+            source_message_id?: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index: number | null;
+            claim_index?: number | null;
             /** Quote */
             quote: string;
         };
@@ -11560,7 +11560,7 @@ export interface components {
              * Message
              * @default
              */
-            message: string;
+            message?: string;
             /** Files */
             files?: components["schemas"]["ChatRequest.FileAttachment"][];
             /** Force Tools */
@@ -11569,30 +11569,30 @@ export interface components {
              * Anonymous Mode
              * @default false
              */
-            anonymous_mode: boolean;
+            anonymous_mode?: boolean;
             /** @default null */
-            client_location: components["schemas"]["ChatRequest.ClientLocation"] | null;
+            client_location?: components["schemas"]["ChatRequest.ClientLocation"] | null;
             /**
              * Client Message Id
              * @default null
              */
-            client_message_id: string | null;
+            client_message_id?: string | null;
             /**
              * Rerun Mode
              * @default null
              */
-            rerun_mode: ("regenerate" | "continue") | null;
+            rerun_mode?: ("regenerate" | "continue") | null;
             /**
              * @description Run deep research from this offer (stream endpoint only)
              * @default null
              */
-            deep_research: components["schemas"]["ChatRequest.DeepResearchStart"] | null;
+            deep_research?: components["schemas"]["ChatRequest.DeepResearchStart"] | null;
             /**
              * Action
              * @description What this message is, when the app sent it for the user
              * @default null
              */
-            action: (components["schemas"]["ChatRequest.VerifyClaimAction"] | components["schemas"]["ChatRequest.DeepResearchAction"]) | null;
+            action?: (components["schemas"]["ChatRequest.VerifyClaimAction"] | components["schemas"]["ChatRequest.DeepResearchAction"]) | null;
         };
         /**
          * ConversationCompactionResponse
@@ -11708,7 +11708,7 @@ export interface components {
              * @description Id of the bubble the client rendered (saved under it; UUID)
              * @default null
              */
-            client_message_id: string | null;
+            client_message_id?: string | null;
         };
         /**
          * QuickActionItem

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 QUICK_ACTIONS_MAX_PER_PROGRAM = 12
 
@@ -12,7 +14,7 @@ QUICK_ACTIONS_MAX_PER_PROGRAM = 12
 QUICK_ACTION_MAX_FIELDS = 6
 
 
-class QuickActionItem(BaseModel):
+class QuickActionItem(RequestModel):
     """A one-tap saved prompt for a program conversation."""
 
     id: str = Field(..., min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$")
@@ -30,7 +32,7 @@ class QuickActionItem(BaseModel):
         return cleaned
 
 
-class UpdateQuickActionsRequest(BaseModel):
+class UpdateQuickActionsRequest(RequestModel):
     """Replace a program's full ordered quick-action list."""
 
     quick_actions: list[QuickActionItem] = Field(
@@ -38,7 +40,7 @@ class UpdateQuickActionsRequest(BaseModel):
     )
 
 
-class SportsProgramItem(BaseModel):
+class SportsProgramItem(ResponseModel):
     """A single sports training program."""
 
     id: str
@@ -49,20 +51,20 @@ class SportsProgramItem(BaseModel):
     quick_actions: list[QuickActionItem] = Field(default_factory=list)
 
 
-class SportsProgramsResponse(BaseModel):
+class SportsProgramsResponse(ResponseModel):
     """List of user's sports programs."""
 
     programs: list[SportsProgramItem]
 
 
-class CreateSportsProgramRequest(BaseModel):
+class CreateSportsProgramRequest(RequestModel):
     """Request to create a new sports program."""
 
     name: str = Field(..., min_length=1, max_length=100)
     emoji: str = Field(..., min_length=1, max_length=10)
 
 
-class SportsConversationResponse(BaseModel):
+class SportsConversationResponse(ResponseModel):
     """Sports program conversation with messages."""
 
     id: str
@@ -74,14 +76,14 @@ class SportsConversationResponse(BaseModel):
     messages: list[dict[str, Any]]
 
 
-class SportsResetResponse(BaseModel):
+class SportsResetResponse(ResponseModel):
     """Response from resetting a sports conversation."""
 
     success: bool
     message: str
 
 
-class LanguageProgramItem(BaseModel):
+class LanguageProgramItem(ResponseModel):
     """A single language learning program."""
 
     id: str
@@ -92,20 +94,20 @@ class LanguageProgramItem(BaseModel):
     quick_actions: list[QuickActionItem] = Field(default_factory=list)
 
 
-class LanguageProgramsResponse(BaseModel):
+class LanguageProgramsResponse(ResponseModel):
     """List of user's language programs."""
 
     programs: list[LanguageProgramItem]
 
 
-class CreateLanguageProgramRequest(BaseModel):
+class CreateLanguageProgramRequest(RequestModel):
     """Request to create a new language program."""
 
     name: str = Field(..., min_length=1, max_length=100)
     emoji: str = Field(..., min_length=1, max_length=10)
 
 
-class LanguageConversationResponse(BaseModel):
+class LanguageConversationResponse(ResponseModel):
     """Language program conversation with messages."""
 
     id: str
@@ -117,7 +119,7 @@ class LanguageConversationResponse(BaseModel):
     messages: list[dict[str, Any]]
 
 
-class LanguageResetResponse(BaseModel):
+class LanguageResetResponse(ResponseModel):
     """Response from resetting a language conversation."""
 
     success: bool

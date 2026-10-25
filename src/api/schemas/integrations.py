@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 
-class TodoistConnectRequest(BaseModel):
+class TodoistConnectRequest(RequestModel):
     """Schema for POST /auth/todoist/connect - Exchange OAuth code for token."""
 
     code: str = Field(..., min_length=1, description="OAuth authorization code from Todoist")
     state: str = Field(..., min_length=1, description="CSRF state token for validation")
 
 
-class GarminConnectRequest(BaseModel):
+class GarminConnectRequest(RequestModel):
     """Schema for POST /auth/garmin/connect - Login with email and password."""
 
     email: str = Field(..., min_length=1, description="Garmin Connect email address")
     password: str = Field(..., min_length=1, description="Garmin Connect password (never stored)")
 
 
-class GarminMfaRequest(BaseModel):
+class GarminMfaRequest(RequestModel):
     """Schema for POST /auth/garmin/mfa - Complete MFA login.
 
     The full login flow runs in a single backend request so no MFA session
@@ -33,7 +35,7 @@ class GarminMfaRequest(BaseModel):
     mfa_code: str = Field(..., min_length=1, description="MFA verification code")
 
 
-class RouvyConnectRequest(BaseModel):
+class RouvyConnectRequest(RequestModel):
     """Schema for POST /auth/rouvy/connect - headless login with email/password.
 
     Unlike Garmin, the password is stored (Fernet-encrypted) so the short-lived
@@ -46,28 +48,28 @@ class RouvyConnectRequest(BaseModel):
     )
 
 
-class GoogleCalendarConnectRequest(BaseModel):
+class GoogleCalendarConnectRequest(RequestModel):
     """Schema for POST /auth/calendar/connect - Exchange OAuth code for token."""
 
     code: str = Field(..., min_length=1, description="OAuth authorization code from Google")
     state: str = Field(..., min_length=1, description="CSRF state token for validation")
 
 
-class TodoistAuthUrlResponse(BaseModel):
+class TodoistAuthUrlResponse(ResponseModel):
     """Response containing Todoist OAuth authorization URL."""
 
     auth_url: str = Field(..., description="URL to redirect user for Todoist authorization")
     state: str = Field(..., description="CSRF state token to validate on callback")
 
 
-class TodoistConnectResponse(BaseModel):
+class TodoistConnectResponse(ResponseModel):
     """Response from successful Todoist connection."""
 
     connected: bool = Field(..., description="Whether connection was successful")
     todoist_email: str | None = Field(None, description="Email of connected Todoist account")
 
 
-class TodoistStatusResponse(BaseModel):
+class TodoistStatusResponse(ResponseModel):
     """Response containing Todoist connection status."""
 
     connected: bool = Field(..., description="Whether Todoist is connected")
@@ -78,7 +80,7 @@ class TodoistStatusResponse(BaseModel):
     )
 
 
-class GarminConnectResponse(BaseModel):
+class GarminConnectResponse(ResponseModel):
     """Response from Garmin Connect login attempt."""
 
     connected: bool = Field(..., description="Whether connection was successful")
@@ -86,7 +88,7 @@ class GarminConnectResponse(BaseModel):
     display_name: str | None = Field(None, description="Display name of connected Garmin account")
 
 
-class GarminStatusResponse(BaseModel):
+class GarminStatusResponse(ResponseModel):
     """Response containing Garmin connection status."""
 
     connected: bool = Field(..., description="Whether Garmin is connected")
@@ -96,13 +98,13 @@ class GarminStatusResponse(BaseModel):
     )
 
 
-class RouvyConnectResponse(BaseModel):
+class RouvyConnectResponse(ResponseModel):
     """Response from a Rouvy connect attempt."""
 
     connected: bool = Field(..., description="Whether connection succeeded")
 
 
-class RouvyStatusResponse(BaseModel):
+class RouvyStatusResponse(ResponseModel):
     """Response containing Rouvy connection status."""
 
     connected: bool = Field(..., description="Whether Rouvy is connected")
@@ -110,14 +112,14 @@ class RouvyStatusResponse(BaseModel):
     needs_reconnect: bool = Field(False, description="True if the stored session looks unusable")
 
 
-class GoogleCalendarAuthUrlResponse(BaseModel):
+class GoogleCalendarAuthUrlResponse(ResponseModel):
     """Response containing Google Calendar OAuth authorization URL."""
 
     auth_url: str = Field(..., description="URL to redirect user for Google authorization")
     state: str = Field(..., description="CSRF state token to validate on callback")
 
 
-class GoogleCalendarConnectResponse(BaseModel):
+class GoogleCalendarConnectResponse(ResponseModel):
     """Response from successful Google Calendar connection."""
 
     connected: bool = Field(..., description="Whether connection was successful")
@@ -126,7 +128,7 @@ class GoogleCalendarConnectResponse(BaseModel):
     )
 
 
-class GoogleCalendarStatusResponse(BaseModel):
+class GoogleCalendarStatusResponse(ResponseModel):
     """Response containing Google Calendar connection status."""
 
     connected: bool = Field(..., description="Whether Google Calendar is connected")
@@ -137,7 +139,7 @@ class GoogleCalendarStatusResponse(BaseModel):
     )
 
 
-class Calendar(BaseModel):
+class Calendar(ResponseModel):
     """A Google Calendar."""
 
     id: str = Field(..., description="Calendar ID")
@@ -147,7 +149,7 @@ class Calendar(BaseModel):
     background_color: str | None = Field(None, description="Calendar background color (hex)")
 
 
-class CalendarListResponse(BaseModel):
+class CalendarListResponse(ResponseModel):
     """Response for listing available calendars."""
 
     calendars: list[Calendar] = Field(
@@ -156,13 +158,13 @@ class CalendarListResponse(BaseModel):
     error: str | None = Field(None, description="Error message if fetch failed")
 
 
-class SelectedCalendarsResponse(BaseModel):
+class SelectedCalendarsResponse(ResponseModel):
     """Response for selected calendars."""
 
     calendar_ids: list[str] = Field(..., description="List of selected calendar IDs")
 
 
-class UpdateSelectedCalendarsRequest(BaseModel):
+class UpdateSelectedCalendarsRequest(RequestModel):
     """Request to update selected calendars."""
 
     calendar_ids: list[str] = Field(..., description="List of calendar IDs to fetch events from")

@@ -5,7 +5,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import ResponseModel
 
 
 class MessageRole(StrEnum):
@@ -33,7 +35,7 @@ class PaginationDirection(StrEnum):
     NEWER = "newer"
 
 
-class ErrorDetail(BaseModel):
+class ErrorDetail(ResponseModel):
     """Error detail structure in error responses."""
 
     code: str = Field(..., description="Error code for programmatic handling")
@@ -42,13 +44,13 @@ class ErrorDetail(BaseModel):
     details: dict[str, Any] | None = Field(default=None, description="Additional error context")
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(ResponseModel):
     """Standard error response structure."""
 
     error: ErrorDetail
 
 
-class StatusResponse(BaseModel):
+class StatusResponse(ResponseModel):
     """Simple status response for operations that don't return data."""
 
     status: str = Field(..., description="Operation status (e.g., 'updated', 'deleted')")

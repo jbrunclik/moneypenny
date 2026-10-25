@@ -5931,7 +5931,9 @@
         "required": [
           "id",
           "email",
-          "name"
+          "name",
+          "picture",
+          "is_admin"
         ],
         "title": "UserResponse",
         "type": "object"
@@ -5970,7 +5972,8 @@
           }
         },
         "required": [
-          "status"
+          "status",
+          "message"
         ],
         "title": "HealthCheckDetail",
         "type": "object"
@@ -6005,7 +6008,8 @@
         },
         "required": [
           "status",
-          "checks"
+          "checks",
+          "version"
         ],
         "title": "ReadinessResponse",
         "type": "object"
@@ -6079,7 +6083,8 @@
           }
         },
         "required": [
-          "status"
+          "status",
+          "version"
         ],
         "title": "HealthResponse",
         "type": "object"
@@ -6149,7 +6154,10 @@
         "required": [
           "conversation_id",
           "conversation_title",
-          "match_type"
+          "message_id",
+          "message_snippet",
+          "match_type",
+          "created_at"
         ],
         "title": "SearchResultResponse",
         "type": "object"
@@ -6389,11 +6397,27 @@
         "required": [
           "id",
           "name",
+          "description",
+          "system_prompt",
+          "schedule",
           "timezone",
           "enabled",
+          "tool_permissions",
           "model",
+          "conversation_id",
+          "last_run_at",
+          "next_run_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "budget_limit",
+          "fresh_context",
+          "system_type",
+          "effective_system_prompt",
+          "daily_spending",
+          "has_pending_approval",
+          "has_error",
+          "unread_count",
+          "last_execution_status"
         ],
         "title": "AgentResponse",
         "type": "object"
@@ -6620,11 +6644,27 @@
         "required": [
           "id",
           "name",
+          "description",
+          "system_prompt",
+          "schedule",
           "timezone",
           "enabled",
+          "tool_permissions",
           "model",
+          "conversation_id",
+          "last_run_at",
+          "next_run_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "budget_limit",
+          "fresh_context",
+          "system_type",
+          "effective_system_prompt",
+          "daily_spending",
+          "has_pending_approval",
+          "has_error",
+          "unread_count",
+          "last_execution_status"
         ],
         "title": "AgentResponse",
         "type": "object"
@@ -6804,7 +6844,9 @@
         "required": [
           "id",
           "email",
-          "name"
+          "name",
+          "picture",
+          "is_admin"
         ],
         "title": "UserResponse",
         "type": "object"
@@ -6860,6 +6902,9 @@
             "title": "Version"
           }
         },
+        "required": [
+          "version"
+        ],
         "title": "VersionResponse",
         "type": "object"
       },
@@ -6905,7 +6950,10 @@
         },
         "required": [
           "date",
-          "day_name"
+          "day_name",
+          "events",
+          "tasks",
+          "weather"
         ],
         "title": "PlannerDayResponse",
         "type": "object"
@@ -6945,6 +6993,11 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "email",
+          "response_status",
+          "self"
+        ],
         "title": "PlannerEventAttendeeResponse",
         "type": "object"
       },
@@ -6983,6 +7036,11 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "email",
+          "display_name",
+          "self"
+        ],
         "title": "PlannerEventOrganizerResponse",
         "type": "object"
       },
@@ -7139,7 +7197,19 @@
         },
         "required": [
           "id",
-          "summary"
+          "summary",
+          "description",
+          "start",
+          "end",
+          "start_date",
+          "end_date",
+          "location",
+          "html_link",
+          "is_all_day",
+          "attendees",
+          "organizer",
+          "calendar_id",
+          "calendar_summary"
         ],
         "title": "PlannerEventResponse",
         "type": "object"
@@ -7230,6 +7300,15 @@
             "type": "array"
           }
         },
+        "required": [
+          "training_readiness",
+          "sleep",
+          "stress_avg",
+          "resting_hr",
+          "body_battery",
+          "steps_today",
+          "recent_activities"
+        ],
         "title": "PlannerHealthSummaryResponse",
         "type": "object"
       },
@@ -7335,7 +7414,16 @@
         },
         "required": [
           "id",
-          "content"
+          "content",
+          "description",
+          "due_date",
+          "due_string",
+          "priority",
+          "project_name",
+          "section_name",
+          "labels",
+          "is_recurring",
+          "url"
         ],
         "title": "PlannerTaskResponse",
         "type": "object"
@@ -7390,6 +7478,13 @@
             "type": "string"
           }
         },
+        "required": [
+          "temperature_high",
+          "temperature_low",
+          "precipitation",
+          "symbol_code",
+          "summary"
+        ],
         "title": "PlannerWeatherResponse",
         "type": "object"
       },
@@ -7521,6 +7616,17 @@
         },
         "required": [
           "days",
+          "overdue_tasks",
+          "todoist_connected",
+          "calendar_connected",
+          "garmin_connected",
+          "weather_connected",
+          "todoist_error",
+          "calendar_error",
+          "garmin_error",
+          "weather_error",
+          "weather_location",
+          "health_summary",
           "server_time"
         ],
         "title": "PlannerDashboardResponse",
@@ -7605,8 +7711,12 @@
         "required": [
           "id",
           "content",
+          "category",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "protected",
+          "source_conversation_id",
+          "deleted_at"
         ],
         "title": "MemoryResponse",
         "type": "object"
@@ -7629,7 +7739,8 @@
           }
         },
         "required": [
-          "memories"
+          "memories",
+          "limit"
         ],
         "title": "MemoriesListResponse",
         "type": "object"
@@ -7692,7 +7803,9 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "mfa_required",
+          "display_name"
         ],
         "title": "GarminConnectResponse",
         "type": "object"
@@ -7759,7 +7872,8 @@
         "required": [
           "id",
           "updated_at",
-          "message_count"
+          "message_count",
+          "last_reset"
         ],
         "title": "PlannerConversationSyncData",
         "type": "object"
@@ -7786,6 +7900,7 @@
           }
         },
         "required": [
+          "conversation",
           "server_time"
         ],
         "title": "PlannerSyncResponse",
@@ -7820,7 +7935,9 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "connected_at",
+          "needs_reconnect"
         ],
         "title": "RouvyStatusResponse",
         "type": "object"
@@ -7975,7 +8092,14 @@
           "title",
           "model",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "message_count",
+          "read_count",
+          "archived",
+          "pinned",
+          "last_message_preview",
+          "deleted_at",
+          "purge_at"
         ],
         "title": "ConversationResponse",
         "type": "object"
@@ -8008,6 +8132,7 @@
           }
         },
         "required": [
+          "next_cursor",
           "has_more",
           "total_count"
         ],
@@ -8037,6 +8162,7 @@
         },
         "required": [
           "conversations",
+          "pinned_conversations",
           "pagination"
         ],
         "title": "ConversationsListPaginatedResponse",
@@ -8156,7 +8282,14 @@
           "title",
           "model",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "message_count",
+          "read_count",
+          "archived",
+          "pinned",
+          "last_message_preview",
+          "deleted_at",
+          "purge_at"
         ],
         "title": "ConversationResponse",
         "type": "object"
@@ -8194,6 +8327,10 @@
             "type": "string"
           }
         },
+        "required": [
+          "success",
+          "message"
+        ],
         "title": "PlannerResetResponse",
         "type": "object"
       },
@@ -8296,7 +8433,9 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "connected_at",
+          "needs_reconnect"
         ],
         "title": "GarminStatusResponse",
         "type": "object"
@@ -8466,6 +8605,9 @@
         "required": [
           "kind",
           "message",
+          "stack",
+          "path",
+          "app_version",
           "count",
           "users",
           "last_seen"
@@ -8548,6 +8690,8 @@
         },
         "required": [
           "turns_7d",
+          "median_ms",
+          "p95_ms",
           "tool_error_rate"
         ],
         "title": "QualitySection",
@@ -8590,6 +8734,7 @@
           "provider",
           "configured",
           "used",
+          "quota",
           "available"
         ],
         "title": "SearchProviderStatus",
@@ -8742,8 +8887,11 @@
           }
         },
         "required": [
+          "version",
           "database_bytes",
           "files_bytes",
+          "last_backup_at",
+          "latest_migration",
           "users"
         ],
         "title": "SystemSection",
@@ -8878,7 +9026,10 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "todoist_email",
+          "connected_at",
+          "needs_reconnect"
         ],
         "title": "TodoistStatusResponse",
         "type": "object"
@@ -8988,7 +9139,9 @@
           "id",
           "name",
           "emoji",
-          "created_at"
+          "created_at",
+          "has_conversation",
+          "quick_actions"
         ],
         "title": "SportsProgramItem",
         "type": "object"
@@ -9056,7 +9209,8 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "todoist_email"
         ],
         "title": "TodoistConnectResponse",
         "type": "object"
@@ -9126,7 +9280,10 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "calendar_email",
+          "connected_at",
+          "needs_reconnect"
         ],
         "title": "GoogleCalendarStatusResponse",
         "type": "object"
@@ -9193,9 +9350,11 @@
           "agent_id",
           "agent_name",
           "tool_name",
+          "tool_args",
           "description",
           "status",
-          "created_at"
+          "created_at",
+          "resolved_at"
         ],
         "title": "ApprovalRequestResponse",
         "type": "object"
@@ -9222,6 +9381,9 @@
             "type": "array"
           }
         },
+        "required": [
+          "pending_approvals"
+        ],
         "title": "PendingApprovalsResponse",
         "type": "object"
       },
@@ -9269,7 +9431,8 @@
           }
         },
         "required": [
-          "connected"
+          "connected",
+          "calendar_email"
         ],
         "title": "GoogleCalendarConnectResponse",
         "type": "object"
@@ -9318,6 +9481,11 @@
             "type": "string"
           }
         },
+        "required": [
+          "enabled",
+          "time",
+          "timezone"
+        ],
         "title": "DailyBriefingSettings",
         "type": "object"
       },
@@ -9366,6 +9534,13 @@
             "$ref": "#/components/schemas/UserSettingsResponse.DailyBriefingSettings"
           }
         },
+        "required": [
+          "custom_instructions",
+          "whatsapp_phone",
+          "whatsapp_available",
+          "preferred_language",
+          "daily_briefing"
+        ],
         "title": "UserSettingsResponse",
         "type": "object"
       },
@@ -9624,7 +9799,9 @@
           "id",
           "name",
           "emoji",
-          "created_at"
+          "created_at",
+          "has_conversation",
+          "quick_actions"
         ],
         "title": "LanguageProgramItem",
         "type": "object"
@@ -9829,8 +10006,16 @@
           "id",
           "title",
           "model",
+          "created_at",
           "updated_at",
-          "message_count"
+          "message_count",
+          "read_count",
+          "last_message_preview",
+          "last_message_id",
+          "archived",
+          "trashed",
+          "pinned",
+          "anonymous_mode"
         ],
         "title": "SyncConversationResponse",
         "type": "object"
@@ -9878,7 +10063,10 @@
         "required": [
           "conversations",
           "server_time",
-          "is_full_sync"
+          "is_full_sync",
+          "cursor",
+          "removed_ids",
+          "has_more"
         ],
         "title": "SyncResponse",
         "type": "object"
@@ -10002,7 +10190,8 @@
           "id",
           "summary",
           "primary",
-          "access_role"
+          "access_role",
+          "background_color"
         ],
         "title": "Calendar",
         "type": "object"
@@ -10032,6 +10221,10 @@
             "title": "Error"
           }
         },
+        "required": [
+          "calendars",
+          "error"
+        ],
         "title": "CalendarListResponse",
         "type": "object"
       },
@@ -10189,7 +10382,11 @@
         "required": [
           "type",
           "verdict",
-          "quote"
+          "quote",
+          "prefix",
+          "reason",
+          "source",
+          "source_quote"
         ],
         "title": "ClaimAnnotationResponse",
         "type": "object"
@@ -10264,7 +10461,9 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "messageId",
+          "fileIndex"
         ],
         "title": "FileMetadataResponse",
         "type": "object"
@@ -10290,7 +10489,8 @@
           }
         },
         "required": [
-          "prompt"
+          "prompt",
+          "image_index"
         ],
         "title": "GeneratedImageResponse",
         "type": "object"
@@ -10329,7 +10529,9 @@
           }
         },
         "required": [
-          "checked"
+          "checked",
+          "source_count",
+          "legacy"
         ],
         "title": "GroundingSummaryResponse",
         "type": "object"
@@ -10530,6 +10732,17 @@
           "id",
           "role",
           "content",
+          "files",
+          "sources",
+          "generated_images",
+          "language",
+          "stopped_early",
+          "stop_reason",
+          "annotations",
+          "grounding",
+          "research",
+          "artifacts",
+          "action",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -10643,7 +10856,8 @@
           "model",
           "created_at",
           "updated_at",
-          "messages"
+          "messages",
+          "was_reset"
         ],
         "title": "PlannerConversationResponse",
         "type": "object"
@@ -10746,7 +10960,11 @@
         "required": [
           "type",
           "verdict",
-          "quote"
+          "quote",
+          "prefix",
+          "reason",
+          "source",
+          "source_quote"
         ],
         "title": "ClaimAnnotationResponse",
         "type": "object"
@@ -10821,7 +11039,9 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "messageId",
+          "fileIndex"
         ],
         "title": "FileMetadataResponse",
         "type": "object"
@@ -10847,7 +11067,8 @@
           }
         },
         "required": [
-          "prompt"
+          "prompt",
+          "image_index"
         ],
         "title": "GeneratedImageResponse",
         "type": "object"
@@ -10886,7 +11107,9 @@
           }
         },
         "required": [
-          "checked"
+          "checked",
+          "source_count",
+          "legacy"
         ],
         "title": "GroundingSummaryResponse",
         "type": "object"
@@ -11152,6 +11375,17 @@
           "id",
           "role",
           "content",
+          "files",
+          "sources",
+          "generated_images",
+          "language",
+          "stopped_early",
+          "stop_reason",
+          "annotations",
+          "grounding",
+          "research",
+          "artifacts",
+          "action",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -11220,7 +11454,10 @@
           "agent_id",
           "status",
           "trigger_type",
-          "started_at"
+          "triggered_by_agent_id",
+          "started_at",
+          "completed_at",
+          "error_message"
         ],
         "title": "AgentExecutionResponse",
         "type": "object"
@@ -11260,7 +11497,8 @@
           }
         },
         "required": [
-          "execution"
+          "execution",
+          "message"
         ],
         "title": "TriggerAgentResponse",
         "type": "object"
@@ -11328,7 +11566,10 @@
           "agent_id",
           "status",
           "trigger_type",
-          "started_at"
+          "triggered_by_agent_id",
+          "started_at",
+          "completed_at",
+          "error_message"
         ],
         "title": "AgentExecutionResponse",
         "type": "object"
@@ -11538,11 +11779,27 @@
         "required": [
           "id",
           "name",
+          "description",
+          "system_prompt",
+          "schedule",
           "timezone",
           "enabled",
+          "tool_permissions",
           "model",
+          "conversation_id",
+          "last_run_at",
+          "next_run_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "budget_limit",
+          "fresh_context",
+          "system_type",
+          "effective_system_prompt",
+          "daily_spending",
+          "has_pending_approval",
+          "has_error",
+          "unread_count",
+          "last_execution_status"
         ],
         "title": "AgentResponse",
         "type": "object"
@@ -11588,6 +11845,15 @@
             "type": "array"
           }
         },
+        "required": [
+          "days",
+          "total_runs",
+          "total_completed",
+          "total_failed",
+          "total_cost_usd",
+          "total_cost_display",
+          "per_agent"
+        ],
         "title": "AgentStatsBlock",
         "type": "object"
       },
@@ -11662,7 +11928,15 @@
           }
         },
         "required": [
-          "agent_id"
+          "agent_id",
+          "runs",
+          "completed",
+          "failed",
+          "waiting_approval",
+          "cost_usd",
+          "cost_display",
+          "input_tokens",
+          "output_tokens"
         ],
         "title": "AgentWindowStats",
         "type": "object"
@@ -11729,9 +12003,11 @@
           "agent_id",
           "agent_name",
           "tool_name",
+          "tool_args",
           "description",
           "status",
-          "created_at"
+          "created_at",
+          "resolved_at"
         ],
         "title": "ApprovalRequestResponse",
         "type": "object"
@@ -11797,7 +12073,13 @@
           }
         },
         "required": [
-          "agents"
+          "agents",
+          "pending_approvals",
+          "recent_executions",
+          "total_unread",
+          "agents_waiting",
+          "stats",
+          "agents_with_errors"
         ],
         "title": "CommandCenterResponse",
         "type": "object"
@@ -11823,7 +12105,8 @@
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "public_key"
         ],
         "title": "PushKeysResponse",
         "type": "object"
@@ -12140,7 +12423,11 @@
         "required": [
           "type",
           "verdict",
-          "quote"
+          "quote",
+          "prefix",
+          "reason",
+          "source",
+          "source_quote"
         ],
         "title": "ClaimAnnotationResponse",
         "type": "object"
@@ -12215,7 +12502,9 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "messageId",
+          "fileIndex"
         ],
         "title": "FileMetadataResponse",
         "type": "object"
@@ -12241,7 +12530,8 @@
           }
         },
         "required": [
-          "prompt"
+          "prompt",
+          "image_index"
         ],
         "title": "GeneratedImageResponse",
         "type": "object"
@@ -12280,7 +12570,9 @@
           }
         },
         "required": [
-          "checked"
+          "checked",
+          "source_count",
+          "legacy"
         ],
         "title": "GroundingSummaryResponse",
         "type": "object"
@@ -12481,6 +12773,17 @@
           "id",
           "role",
           "content",
+          "files",
+          "sources",
+          "generated_images",
+          "language",
+          "stopped_early",
+          "stop_reason",
+          "annotations",
+          "grounding",
+          "research",
+          "artifacts",
+          "action",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -12532,6 +12835,8 @@
           }
         },
         "required": [
+          "older_cursor",
+          "newer_cursor",
           "has_older",
           "has_newer",
           "total_count"
@@ -12695,8 +13000,15 @@
           "model",
           "created_at",
           "updated_at",
+          "is_agent",
+          "agent_id",
+          "has_pending_approval",
+          "archived",
+          "anonymous_mode",
           "messages",
-          "message_pagination"
+          "message_pagination",
+          "streaming_message_id",
+          "lost_reply"
         ],
         "title": "ConversationDetailPaginatedResponse",
         "type": "object"
@@ -12840,6 +13152,11 @@
             "title": "Error"
           }
         },
+        "required": [
+          "cron",
+          "explanation",
+          "error"
+        ],
         "title": "ParseScheduleResponse",
         "type": "object"
       },
@@ -12896,6 +13213,10 @@
             "title": "Error"
           }
         },
+        "required": [
+          "enhanced_prompt",
+          "error"
+        ],
         "title": "EnhancePromptResponse",
         "type": "object"
       },
@@ -13116,7 +13437,10 @@
           "formatted",
           "input_tokens",
           "output_tokens",
-          "model"
+          "model",
+          "image_generation_cost_usd",
+          "image_generation_cost",
+          "image_generation_cost_formatted"
         ],
         "title": "MessageCostResponse",
         "type": "object"
@@ -13236,7 +13560,10 @@
           "agent_id",
           "status",
           "trigger_type",
-          "started_at"
+          "triggered_by_agent_id",
+          "started_at",
+          "completed_at",
+          "error_message"
         ],
         "title": "AgentExecutionResponse",
         "type": "object"
@@ -13571,7 +13898,11 @@
         "required": [
           "type",
           "verdict",
-          "quote"
+          "quote",
+          "prefix",
+          "reason",
+          "source",
+          "source_quote"
         ],
         "title": "ClaimAnnotationResponse",
         "type": "object"
@@ -13646,7 +13977,9 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "messageId",
+          "fileIndex"
         ],
         "title": "FileMetadataResponse",
         "type": "object"
@@ -13672,7 +14005,8 @@
           }
         },
         "required": [
-          "prompt"
+          "prompt",
+          "image_index"
         ],
         "title": "GeneratedImageResponse",
         "type": "object"
@@ -13711,7 +14045,9 @@
           }
         },
         "required": [
-          "checked"
+          "checked",
+          "source_count",
+          "legacy"
         ],
         "title": "GroundingSummaryResponse",
         "type": "object"
@@ -13912,6 +14248,17 @@
           "id",
           "role",
           "content",
+          "files",
+          "sources",
+          "generated_images",
+          "language",
+          "stopped_early",
+          "stop_reason",
+          "annotations",
+          "grounding",
+          "research",
+          "artifacts",
+          "action",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -13963,6 +14310,8 @@
           }
         },
         "required": [
+          "older_cursor",
+          "newer_cursor",
           "has_older",
           "has_newer",
           "total_count"
@@ -14170,7 +14519,11 @@
         "required": [
           "type",
           "verdict",
-          "quote"
+          "quote",
+          "prefix",
+          "reason",
+          "source",
+          "source_quote"
         ],
         "title": "ClaimAnnotationResponse",
         "type": "object"
@@ -14213,7 +14566,9 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "messageId",
+          "fileIndex"
         ],
         "title": "FileMetadataResponse",
         "type": "object"
@@ -14239,7 +14594,8 @@
           }
         },
         "required": [
-          "prompt"
+          "prompt",
+          "image_index"
         ],
         "title": "GeneratedImageResponse",
         "type": "object"
@@ -14278,7 +14634,9 @@
           }
         },
         "required": [
-          "checked"
+          "checked",
+          "source_count",
+          "legacy"
         ],
         "title": "GroundingSummaryResponse",
         "type": "object"
@@ -14532,8 +14890,24 @@
         },
         "required": [
           "id",
+          "role",
           "content",
-          "created_at"
+          "files",
+          "sources",
+          "generated_images",
+          "language",
+          "stopped_early",
+          "stop_reason",
+          "unanswered_steering_id",
+          "annotations",
+          "grounding",
+          "research",
+          "artifacts",
+          "created_at",
+          "title",
+          "user_message_id",
+          "model_fallback",
+          "message_count"
         ],
         "title": "ChatBatchResponse",
         "type": "object"
@@ -14893,7 +15267,9 @@
           "summarized_count",
           "total_count",
           "generation",
-          "generation_estimated"
+          "generation_estimated",
+          "boundary_message_id",
+          "summary"
         ],
         "title": "ConversationCompactionResponse",
         "type": "object"
@@ -14941,6 +15317,7 @@
           }
         },
         "required": [
+          "conversation",
           "server_time"
         ],
         "title": "AgentConversationSyncResponse",
@@ -15099,7 +15476,8 @@
           "id",
           "version",
           "title",
-          "html"
+          "html",
+          "state"
         ],
         "title": "ArtifactVersionResponse",
         "type": "object"

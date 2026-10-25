@@ -5,8 +5,9 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
+from src.api.schemas.base import RequestModel, ResponseModel
 from src.config import Config
 
 
@@ -35,7 +36,7 @@ class ApprovalStatus(StrEnum):
     REJECTED = "rejected"
 
 
-class CreateAgentRequest(BaseModel):
+class CreateAgentRequest(RequestModel):
     """Schema for POST /api/agents."""
 
     name: str = Field(..., min_length=1, max_length=100)
@@ -67,7 +68,7 @@ class CreateAgentRequest(BaseModel):
         return v
 
 
-class UpdateAgentRequest(BaseModel):
+class UpdateAgentRequest(RequestModel):
     """Schema for PATCH /api/agents/<id>."""
 
     name: str | None = Field(None, min_length=1, max_length=100)
@@ -91,7 +92,7 @@ class UpdateAgentRequest(BaseModel):
         return v
 
 
-class AgentResponse(BaseModel):
+class AgentResponse(ResponseModel):
     """Agent information."""
 
     id: str
@@ -136,13 +137,13 @@ class AgentResponse(BaseModel):
     )
 
 
-class AgentsListResponse(BaseModel):
+class AgentsListResponse(ResponseModel):
     """List of agents."""
 
     agents: list[AgentResponse]
 
 
-class ApprovalRequestResponse(BaseModel):
+class ApprovalRequestResponse(ResponseModel):
     """Approval request information."""
 
     id: str
@@ -156,11 +157,11 @@ class ApprovalRequestResponse(BaseModel):
     resolved_at: str | None = None
 
 
-class ApprovalDecisionRequest(BaseModel):
+class ApprovalDecisionRequest(RequestModel):
     """Schema for POST /api/approvals/<id>/approve or reject."""
 
 
-class AgentExecutionResponse(BaseModel):
+class AgentExecutionResponse(ResponseModel):
     """Agent execution record."""
 
     id: str
@@ -173,13 +174,13 @@ class AgentExecutionResponse(BaseModel):
     error_message: str | None = None
 
 
-class AgentExecutionsListResponse(BaseModel):
+class AgentExecutionsListResponse(ResponseModel):
     """List of agent executions."""
 
     executions: list[AgentExecutionResponse]
 
 
-class AgentWindowStats(BaseModel):
+class AgentWindowStats(ResponseModel):
     """One agent's runs and cost over the stats window."""
 
     agent_id: str
@@ -193,7 +194,7 @@ class AgentWindowStats(BaseModel):
     output_tokens: int = 0
 
 
-class AgentStatsBlock(BaseModel):
+class AgentStatsBlock(ResponseModel):
     """Aggregated observability stats for the command center."""
 
     days: int = 7
@@ -205,7 +206,7 @@ class AgentStatsBlock(BaseModel):
     per_agent: list[AgentWindowStats] = Field(default_factory=list)
 
 
-class CommandCenterResponse(BaseModel):
+class CommandCenterResponse(ResponseModel):
     """Complete command center dashboard data."""
 
     agents: list[AgentResponse] = Field(
@@ -228,14 +229,14 @@ class CommandCenterResponse(BaseModel):
     )
 
 
-class TriggerAgentResponse(BaseModel):
+class TriggerAgentResponse(ResponseModel):
     """Response from manually triggering an agent."""
 
     execution: AgentExecutionResponse
     message: str = Field(default="Agent triggered", description="Status message")
 
 
-class PendingApprovalsResponse(BaseModel):
+class PendingApprovalsResponse(ResponseModel):
     """List of pending approval requests."""
 
     pending_approvals: list[ApprovalRequestResponse] = Field(
@@ -243,14 +244,14 @@ class PendingApprovalsResponse(BaseModel):
     )
 
 
-class AgentConversationSyncData(BaseModel):
+class AgentConversationSyncData(ResponseModel):
     """Sync data for an agent's conversation."""
 
     message_count: int = Field(..., description="Total number of messages in conversation")
     updated_at: str = Field(..., description="Conversation updated_at timestamp in ISO format")
 
 
-class AgentConversationSyncResponse(BaseModel):
+class AgentConversationSyncResponse(ResponseModel):
     """Response from agent conversation sync endpoint for real-time synchronization."""
 
     conversation: AgentConversationSyncData | None = Field(
@@ -259,7 +260,7 @@ class AgentConversationSyncResponse(BaseModel):
     server_time: str = Field(..., description="Server timestamp in ISO format")
 
 
-class ParseScheduleRequest(BaseModel):
+class ParseScheduleRequest(RequestModel):
     """Schema for POST /api/ai-assist/parse-schedule."""
 
     natural_language: str = Field(
@@ -274,7 +275,7 @@ class ParseScheduleRequest(BaseModel):
     )
 
 
-class ParseScheduleResponse(BaseModel):
+class ParseScheduleResponse(ResponseModel):
     """Response from schedule parsing endpoint."""
 
     cron: str | None = Field(
@@ -291,7 +292,7 @@ class ParseScheduleResponse(BaseModel):
     )
 
 
-class EnhancePromptRequest(BaseModel):
+class EnhancePromptRequest(RequestModel):
     """Schema for POST /api/ai-assist/enhance-prompt."""
 
     prompt: str = Field(
@@ -314,7 +315,7 @@ class EnhancePromptRequest(BaseModel):
     )
 
 
-class EnhancePromptResponse(BaseModel):
+class EnhancePromptResponse(ResponseModel):
     """Response from prompt enhancement endpoint."""
 
     enhanced_prompt: str | None = Field(

@@ -13,7 +13,7 @@
     "lint": "eslint src tests",
     "lint:fix": "eslint src tests --fix",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
-    "types:generate": "openapi-typescript ../static/openapi.json -o src/types/generated-api.ts",
+    "types:generate": "openapi-typescript ../static/openapi.json -o src/types/generated-api.ts --default-non-nullable false",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:component": "vitest run tests/component",

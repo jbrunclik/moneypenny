@@ -2,37 +2,39 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from src.api.schemas.base import RequestModel, ResponseModel
 
 
-class KVNamespaceItem(BaseModel):
+class KVNamespaceItem(ResponseModel):
     """Single namespace entry."""
 
     namespace: str
     key_count: int
 
 
-class KVNamespacesResponse(BaseModel):
+class KVNamespacesResponse(ResponseModel):
     """List of namespaces with key counts."""
 
     namespaces: list[KVNamespaceItem]
 
 
-class KVKeyItem(BaseModel):
+class KVKeyItem(ResponseModel):
     """Single key-value entry."""
 
     key: str
     value: str
 
 
-class KVKeysResponse(BaseModel):
+class KVKeysResponse(ResponseModel):
     """Keys in a namespace."""
 
     namespace: str
     keys: list[KVKeyItem]
 
 
-class KVValueResponse(BaseModel):
+class KVValueResponse(ResponseModel):
     """Single key value."""
 
     namespace: str
@@ -40,7 +42,7 @@ class KVValueResponse(BaseModel):
     value: str
 
 
-class KVSetRequest(BaseModel):
+class KVSetRequest(RequestModel):
     """Request to set a key value."""
 
     value: str = Field(..., max_length=65536)
