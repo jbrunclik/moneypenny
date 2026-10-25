@@ -68,7 +68,8 @@ Commands in `.claude/commands/` wire the `superpowers` skills to this repo:
 debugging → failing test first), `/new-endpoint` (schema → route → OpenAPI →
 client → tests), `/new-tool` (agent tool checklist), `/split-file`,
 `/update-deps`, `/regen-baselines` (the Linux visual baselines CI compares
-against). Agents in `.claude/agents/`: `test-writer`, `e2e-debugger`,
+against), `/product-review` (the regular review in
+[docs/regular-review.md](docs/regular-review.md)). Agents in `.claude/agents/`: `test-writer`, `e2e-debugger`,
 `docs-updater`.
 
 Hooks: `PostToolUse` formats edited files (ruff format + fixes, keeping unused
