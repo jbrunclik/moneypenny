@@ -61,7 +61,7 @@ jobs:
       - name: Start e2e mock server
         run: |
           python tests/e2e-server.py &
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -sf -o /dev/null http://localhost:8001/ && break
             sleep 1
           done
