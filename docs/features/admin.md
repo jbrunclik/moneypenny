@@ -23,7 +23,7 @@ not a routed view - so there is no `#/admin` link. Sections:
 
 | Section | Shows | Source |
 |---|---|---|
-| Spend | today and this month (family and per person, highlighted past the threshold), 30-day bars, split by feature and by model | `message_costs` |
+| Spend | today and this month (family and per person, highlighted past the threshold; per person also this month's chats - conversations with an answer, any feature - and turns, to judge usage), 30-day bars, split by feature and by model | `message_costs` |
 | Agents | runs and failures over 7 days, the latest 5 failures (local time; only the error's first line, cut to 120 characters - an error can quote content), pending approvals | `agent_executions`, `agent_approval_requests` |
 | Web search | each provider's use against its monthly quota this billing period, whether it's usable now, whether search fell back to the free provider today | `search_provider.quota_status()` |
 | Responses | turns over 7 days, median and 95th-percentile duration, share with tool errors | `message_costs` |

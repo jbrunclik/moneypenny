@@ -8761,6 +8761,16 @@
           "month": {
             "$ref": "#/components/schemas/AdminOverviewResponse.Money"
           },
+          "month_chats": {
+            "description": "Conversations with a billed turn this month",
+            "title": "Month Chats",
+            "type": "integer"
+          },
+          "month_turns": {
+            "description": "Billed turns (answers) this month",
+            "title": "Month Turns",
+            "type": "integer"
+          },
           "over_threshold": {
             "description": "Today's spend is past the warning threshold",
             "title": "Over Threshold",
@@ -8771,6 +8781,8 @@
           "name",
           "today",
           "month",
+          "month_chats",
+          "month_turns",
           "over_threshold"
         ],
         "title": "UserSpend",

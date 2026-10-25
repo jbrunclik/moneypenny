@@ -14,6 +14,8 @@ class UserSpend(BaseModel):
     name: str
     today: Money
     month: Money
+    month_chats: int = Field(..., description="Conversations with a billed turn this month")
+    month_turns: int = Field(..., description="Billed turns (answers) this month")
     over_threshold: bool = Field(..., description="Today's spend is past the warning threshold")
 
 

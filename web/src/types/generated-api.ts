@@ -8426,6 +8426,16 @@ export interface components {
             today: components["schemas"]["AdminOverviewResponse.Money"];
             month: components["schemas"]["AdminOverviewResponse.Money"];
             /**
+             * Month Chats
+             * @description Conversations with a billed turn this month
+             */
+            month_chats: number;
+            /**
+             * Month Turns
+             * @description Billed turns (answers) this month
+             */
+            month_turns: number;
+            /**
              * Over Threshold
              * @description Today's spend is past the warning threshold
              */

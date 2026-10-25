@@ -53,6 +53,18 @@ class TestSpend:
         assert rows[other_user.id]["today_usd"] == 0
         assert rows[other_user.id]["name"] == "Other"
 
+    def test_counts_chats_and_turns_this_month(
+        self, test_database: Database, test_user: User, other_user: User
+    ) -> None:
+        chat = test_database.create_conversation(test_user.id, "Chat")
+        _cost(test_database, test_user, 1.0, NOW, conversation=chat)
+        _cost(test_database, test_user, 1.0, datetime(2026, 10, 3, 9, 0), conversation=chat)
+        _cost(test_database, test_user, 1.0, NOW)  # a second chat
+        _cost(test_database, test_user, 1.0, datetime(2026, 9, 30, 9, 0))  # last month
+        rows = {r["user_id"]: r for r in test_database.admin_spend_per_user(TODAY, MONTH)}
+        assert (rows[test_user.id]["month_chats"], rows[test_user.id]["month_turns"]) == (2, 3)
+        assert (rows[other_user.id]["month_chats"], rows[other_user.id]["month_turns"]) == (0, 0)
+
     def test_user_spend_since(self, test_database: Database, test_user: User) -> None:
         _cost(test_database, test_user, 4.0, NOW)
         _cost(test_database, test_user, 7.0, datetime(2026, 10, 24, 23, 0))

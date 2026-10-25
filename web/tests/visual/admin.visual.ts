@@ -16,9 +16,9 @@ const OVERVIEW = {
     month: money(182.5),
     threshold: money(10),
     users: [
-      { name: 'Jana', today: money(12.1), month: money(71.3), over_threshold: true },
-      { name: 'Petr', today: money(1.6), month: money(64.9), over_threshold: false },
-      { name: 'Ema', today: money(0.5), month: money(46.3), over_threshold: false },
+      { name: 'Jana', today: money(12.1), month: money(71.3), month_chats: 42, month_turns: 518, over_threshold: true },
+      { name: 'Petr', today: money(1.6), month: money(64.9), month_chats: 37, month_turns: 460, over_threshold: false },
+      { name: 'Ema', today: money(0.5), month: money(46.3), month_chats: 19, month_turns: 233, over_threshold: false },
     ],
     daily: Array.from({ length: 30 }, (_, i) => ({
       date: `2026-10-${String(i + 1).padStart(2, '0')}`,

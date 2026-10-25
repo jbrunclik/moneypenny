@@ -14,8 +14,8 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
       month: money(80),
       threshold: money(10),
       users: [
-        { name: 'Jana', today: money(12), month: money(50), over_threshold: true },
-        { name: '<b>Petr</b>', today: money(0.5), month: money(30), over_threshold: false },
+        { name: 'Jana', today: money(12), month: money(50), month_chats: 31, month_turns: 412, over_threshold: true },
+        { name: '<b>Petr</b>', today: money(0.5), month: money(30), month_chats: 8, month_turns: 95, over_threshold: false },
       ],
       daily: Array.from({ length: 30 }, (_, i) => ({
         date: `2026-09-${String(26 + i).padStart(2, '0')}`,
@@ -75,6 +75,11 @@ describe('renderAdminOverview', () => {
     const page = render(overview());
     expect(page.querySelector('.admin-spend-today')?.textContent).toContain('287.50 Kč');
     expect(page.querySelectorAll('.admin-user-row')).toHaveLength(2);
+  });
+
+  it('shows how many chats and turns each person had this month', () => {
+    const cells = [...render(overview()).querySelectorAll('.admin-user-row')[0].querySelectorAll('td')];
+    expect(cells.map((c) => c.textContent)).toEqual(['Jana', expect.any(String), expect.any(String), '31', '412']);
   });
 
   it('highlights a person past the daily threshold', () => {

@@ -58,6 +58,8 @@ def _spend(now: datetime) -> dict[str, Any]:
                 "name": u["name"],
                 "today": money(u["today_usd"]),
                 "month": money(u["month_usd"]),
+                "month_chats": u["month_chats"],
+                "month_turns": u["month_turns"],
                 "over_threshold": u["today_usd"] > Config.SPEND_WARNING_DAILY_USD,
             }
             for u in users

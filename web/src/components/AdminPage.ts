@@ -74,7 +74,7 @@ function renderSpend(spend: Spend): string {
   const users = spend.users
     .map(
       (u) => `<tr class="admin-user-row${u.over_threshold ? ' admin-over-threshold' : ''}">
-        <td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.today.formatted)}</td><td>${escapeHtml(u.month.formatted)}</td></tr>`
+        <td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.today.formatted)}</td><td>${escapeHtml(u.month.formatted)}</td><td>${u.month_chats}</td><td>${u.month_turns}</td></tr>`
     )
     .join('');
   return section(
@@ -83,7 +83,7 @@ function renderSpend(spend: Spend): string {
       <div class="admin-stat admin-spend-today"><span>Today</span><strong>${escapeHtml(spend.today.formatted)}</strong></div>
       <div class="admin-stat"><span>This month</span><strong>${escapeHtml(spend.month.formatted)}</strong></div>
     </div>
-    <table class="admin-table"><thead><tr><th>Person</th><th>Today</th><th>This month</th></tr></thead><tbody>${users}</tbody></table>
+    <table class="admin-table"><thead><tr><th>Person</th><th>Today</th><th>This month</th><th title="Chats with an answer this month">Chats</th><th title="Answers this month">Turns</th></tr></thead><tbody>${users}</tbody></table>
     <p class="admin-note">Highlighted: past ${escapeHtml(spend.threshold.formatted)} today.</p>
     <h3>Last 30 days</h3>${renderChart(spend.daily)}
     <div class="admin-columns">${renderShares('By feature this month', spend.by_feature, FEATURE_LABELS)}${renderShares('By model this month', spend.by_model, {})}</div>`

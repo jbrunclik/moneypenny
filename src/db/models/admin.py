@@ -52,17 +52,29 @@ class AdminMixin:
     def admin_spend_per_user(
         self, day_start: datetime, month_start: datetime
     ) -> list[dict[str, Any]]:
-        """Every user's spend today and this month (users without spend included)."""
+        """Every user's spend today and this month, with this month's chats (any
+        conversation with a billed turn) and turns (users without spend included)."""
         rows = self._rows(
             """SELECT u.id, u.name,
                       COALESCE(SUM(CASE WHEN mc.created_at >= ? THEN mc.cost_usd END), 0),
-                      COALESCE(SUM(mc.cost_usd), 0)
+                      COALESCE(SUM(mc.cost_usd), 0),
+                      COUNT(DISTINCT mc.conversation_id), COUNT(mc.id)
                FROM users u
                LEFT JOIN message_costs mc ON mc.user_id = u.id AND mc.created_at >= ?
                GROUP BY u.id ORDER BY u.name""",
             (day_start.isoformat(), month_start.isoformat()),
         )
-        return [{"user_id": r[0], "name": r[1], "today_usd": r[2], "month_usd": r[3]} for r in rows]
+        return [
+            {
+                "user_id": r[0],
+                "name": r[1],
+                "today_usd": r[2],
+                "month_usd": r[3],
+                "month_chats": r[4],
+                "month_turns": r[5],
+            }
+            for r in rows
+        ]
 
     def user_spend_since(self, user_id: str, since: datetime) -> float:
         """One user's spend since a moment (the spend banner)."""
