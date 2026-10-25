@@ -108,8 +108,14 @@ class ContextCacheManager:
         """Lazy-initialize the google.genai Client."""
         if self._client is None:
             from google import genai  # noqa: PLC0415
+            from google.genai import types  # noqa: PLC0415 - with genai above
 
-            self._client = genai.Client(api_key=Config.GEMINI_API_KEY)
+            self._client = genai.Client(
+                api_key=Config.GEMINI_API_KEY,
+                http_options=types.HttpOptions(
+                    timeout=int(Config.GEMINI_REQUEST_TIMEOUT_SECONDS * 1000)
+                ),
+            )
         return self._client
 
     def get_or_create(

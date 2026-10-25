@@ -14,16 +14,9 @@ _HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "request", "st
 _HTTP_CLIENTS = {"Client", "AsyncClient"}
 # LLM clients and the keyword that bounds their requests
 _LLM_CLIENTS = {"Client": "http_options", "ChatGoogleGenerativeAI": "timeout"}
-# Gemini clients built without a timeout before this check existed. A fixed
-# bound could cut off a long deep-research writer call or stream, so the
-# values wait for measured call durations (TODO); the list only shrinks.
-# utils/embeddings.py shows the pattern: types.HttpOptions(timeout=ms).
-_LLM_BASELINE = {
-    ("agent/context_cache.py", "_get_client"),
-    ("agent/gemini_clients.py", "chat_model"),
-    ("agent/gemini_clients.py", "shared_genai_client"),
-    ("agent/graph.py", "create_chat_model"),
-}
+# LLM clients allowed without a timeout (none since Oct 25 2026: all use
+# GEMINI_REQUEST_TIMEOUT_SECONDS); the list only shrinks
+_LLM_BASELINE: set[tuple[str, str]] = set()
 
 
 def _calls() -> list[tuple[str, str, ast.Call]]:

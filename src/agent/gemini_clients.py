@@ -12,6 +12,7 @@ model behaves like a fresh one.
 from functools import cache, lru_cache
 
 from google import genai
+from google.genai import types
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.config import Config
@@ -23,7 +24,10 @@ _MAX_CACHED_MODELS = 32
 @cache
 def shared_genai_client() -> genai.Client:
     """The google.genai client for direct SDK calls (summaries, images, files)."""
-    return genai.Client(api_key=Config.GEMINI_API_KEY)
+    return genai.Client(
+        api_key=Config.GEMINI_API_KEY,
+        http_options=types.HttpOptions(timeout=int(Config.GEMINI_REQUEST_TIMEOUT_SECONDS * 1000)),
+    )
 
 
 @lru_cache(maxsize=_MAX_CACHED_MODELS)
@@ -35,11 +39,13 @@ def chat_model(
     max_retries: int | None = None,
 ) -> ChatGoogleGenerativeAI:
     """One LangChain chat model per setting. Unset arguments keep the
-    library defaults (e.g. no temperature at all for Gemini 3)."""
-    optional = {"temperature": temperature, "timeout": timeout, "max_retries": max_retries}
+    library defaults (e.g. no temperature at all for Gemini 3); the timeout
+    defaults to GEMINI_REQUEST_TIMEOUT_SECONDS."""
+    optional = {"temperature": temperature, "max_retries": max_retries}
     return ChatGoogleGenerativeAI(
         model=model,
         google_api_key=Config.GEMINI_API_KEY,
+        timeout=timeout or Config.GEMINI_REQUEST_TIMEOUT_SECONDS,
         **{k: v for k, v in optional.items() if v is not None},
     )
 

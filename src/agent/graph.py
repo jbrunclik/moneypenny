@@ -134,9 +134,9 @@ def create_chat_model(
             "Creating model with cached content",
             extra={"cached_content": cached_content, "model": model_name},
         )
-        return ChatGoogleGenerativeAI(**kwargs)
+        return ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
 
-    model = ChatGoogleGenerativeAI(**kwargs)
+    model = ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
 
     active_tools = tools if tools is not None else get_available_tools()
     if with_tools and active_tools:

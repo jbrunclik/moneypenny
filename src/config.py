@@ -773,6 +773,13 @@ class Config:
     # spent ~40 s on a model that was down (Aug 27 2026), times every
     # AGENT_MAX_RETRIES attempt; with_retry handles transient errors anyway.
     AGENT_MODEL_SDK_MAX_RETRIES: int = int(os.getenv("AGENT_MODEL_SDK_MAX_RETRIES", "1"))
+    # Longest silence a Gemini call may have (S5). The SDK applies it per read,
+    # so a streamed answer is never cut while chunks arrive; it ends stalls
+    # (Oct 2026: a 561 s turn produced 318 tokens). The slowest real call -
+    # a 14k-token answer - took 114 s, the grounding verifier at most 9 s.
+    GEMINI_REQUEST_TIMEOUT_SECONDS: float = float(
+        os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "180")
+    )
     # Initial retry delay in seconds (doubles with each retry)
     AGENT_RETRY_BASE_DELAY_SECONDS: float = float(
         os.getenv("AGENT_RETRY_BASE_DELAY_SECONDS", "1.0")
