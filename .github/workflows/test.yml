@@ -81,8 +81,9 @@ jobs:
       # must be a visible decision, so it fails here until this job allows it
       - name: Scanner configuration is not overridden
         run: |
-          if git ls-files --error-unmatch .gitleaks.toml .gitleaksignore >/dev/null 2>&1; then
-            echo "::error::.gitleaks.toml/.gitleaksignore is tracked - review it, then allow it in this job"
+          tracked=$(git ls-files -- .gitleaks.toml gitleaks.toml .gitleaksignore)
+          if [ -n "$tracked" ]; then
+            echo "::error::$tracked tracked - review it, then allow it in this job"
             exit 1
           fi
 
