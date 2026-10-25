@@ -525,7 +525,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["GoogleAuthRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -561,6 +565,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -950,7 +963,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["GarminMfaRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -977,6 +994,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -1178,7 +1204,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateConversationRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 201: {
@@ -1187,6 +1217,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -1338,7 +1377,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["RouvyConnectRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -1365,6 +1408,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -1503,7 +1555,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["GarminConnectRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -1530,6 +1586,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -1595,7 +1660,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateSportsProgramRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -1622,6 +1691,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -1665,7 +1743,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["TodoistConnectRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -1692,6 +1774,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -1897,7 +1988,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["GoogleCalendarConnectRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -1924,6 +2019,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -2020,7 +2124,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSettingsRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -2029,6 +2137,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -2263,7 +2380,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateLanguageProgramRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -2290,6 +2411,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -2471,7 +2601,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["PushSubscribeRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -2480,6 +2614,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PushSubscribeResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -2492,7 +2635,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["PushUnsubscribeRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -2501,6 +2648,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -3554,7 +3710,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateConversationRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3572,6 +3732,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -3604,7 +3773,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BulkTrashRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3622,6 +3795,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -3662,7 +3844,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ParseScheduleRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3689,6 +3875,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -3720,7 +3915,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["EnhancePromptRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3747,6 +3946,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -4000,7 +4208,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["BulkRestoreRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -4018,6 +4230,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -4194,7 +4415,11 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSelectedCalendarsRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -4230,6 +4455,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -4310,7 +4544,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["MarkReadRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -4328,6 +4566,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -4652,7 +4899,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ArtifactStateRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -4697,6 +4948,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -5220,7 +5480,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["TruncateConversationRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5247,6 +5511,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5469,7 +5742,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StopChatRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5496,6 +5773,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -5531,7 +5817,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ChatRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5558,6 +5848,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5733,7 +6032,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ChatRequest"];
+                };
+            };
             responses: {
                 /** @description Not found */
                 404: {
@@ -5742,6 +6045,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5784,7 +6096,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ResearchOfferUpdate"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5820,6 +6136,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5863,7 +6188,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateAnonymousModeRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5881,6 +6210,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5918,7 +6256,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["InterjectRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -5956,6 +6298,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -5986,7 +6337,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["StopChatRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -6015,6 +6370,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -6041,7 +6405,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateQuickActionsRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -6077,6 +6445,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -6184,7 +6561,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateQuickActionsRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -6220,6 +6601,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -6938,6 +7328,14 @@ export interface components {
             user: components["schemas"]["AuthResponse.UserResponse"];
         };
         /**
+         * GoogleAuthRequest
+         * @description Schema for POST /auth/google.
+         */
+        GoogleAuthRequest: {
+            /** Credential */
+            credential: string;
+        };
+        /**
          * VersionResponse
          * @description App version info.
          */
@@ -7407,6 +7805,32 @@ export interface components {
             display_name: string | null;
         };
         /**
+         * GarminMfaRequest
+         * @description Schema for POST /auth/garmin/mfa - Complete MFA login.
+         *
+         *     The full login flow runs in a single backend request so no MFA session
+         *     state needs to persist between requests (which would not survive gunicorn's
+         *     multi-worker dispatch, since the garminconnect Client mid-MFA holds
+         *     non-picklable curl_cffi sessions and thread locks).
+         */
+        GarminMfaRequest: {
+            /**
+             * Email
+             * @description Garmin Connect email address
+             */
+            email: string;
+            /**
+             * Password
+             * @description Garmin Connect password (never stored)
+             */
+            password: string;
+            /**
+             * Mfa Code
+             * @description MFA verification code
+             */
+            mfa_code: string;
+        };
+        /**
          * PlannerConversationSyncData
          * @description Planner conversation data for sync.
          */
@@ -7631,6 +8055,17 @@ export interface components {
             purge_at: string | null;
         };
         /**
+         * CreateConversationRequest
+         * @description Schema for POST /api/conversations.
+         */
+        CreateConversationRequest: {
+            /**
+             * Model
+             * @default null
+             */
+            model: string | null;
+        };
+        /**
          * PlannerResetResponse
          * @description Response from planner reset endpoint.
          */
@@ -7679,6 +8114,25 @@ export interface components {
              * @description Whether connection succeeded
              */
             connected: boolean;
+        };
+        /**
+         * RouvyConnectRequest
+         * @description Schema for POST /auth/rouvy/connect - headless login with email/password.
+         *
+         *     Unlike Garmin, the password is stored (Fernet-encrypted) so the short-lived
+         *     session cookie can be auto-refreshed via headless login.
+         */
+        RouvyConnectRequest: {
+            /**
+             * Email
+             * @description Rouvy account email
+             */
+            email: string;
+            /**
+             * Password
+             * @description Rouvy account password (encrypted at rest)
+             */
+            password: string;
         };
         /** AgentFailure */
         "AdminOverviewResponse.AgentFailure": {
@@ -7887,6 +8341,22 @@ export interface components {
             needs_reconnect: boolean;
         };
         /**
+         * GarminConnectRequest
+         * @description Schema for POST /auth/garmin/connect - Login with email and password.
+         */
+        GarminConnectRequest: {
+            /**
+             * Email
+             * @description Garmin Connect email address
+             */
+            email: string;
+            /**
+             * Password
+             * @description Garmin Connect password (never stored)
+             */
+            password: string;
+        };
+        /**
          * QuickActionItem
          * @description A one-tap saved prompt for a program conversation.
          */
@@ -7932,6 +8402,16 @@ export interface components {
             programs: components["schemas"]["SportsProgramsResponse.SportsProgramItem"][];
         };
         /**
+         * CreateSportsProgramRequest
+         * @description Request to create a new sports program.
+         */
+        CreateSportsProgramRequest: {
+            /** Name */
+            name: string;
+            /** Emoji */
+            emoji: string;
+        };
+        /**
          * TodoistConnectResponse
          * @description Response from successful Todoist connection.
          */
@@ -7947,6 +8427,22 @@ export interface components {
              * @default null
              */
             todoist_email: string | null;
+        };
+        /**
+         * TodoistConnectRequest
+         * @description Schema for POST /auth/todoist/connect - Exchange OAuth code for token.
+         */
+        TodoistConnectRequest: {
+            /**
+             * Code
+             * @description OAuth authorization code from Todoist
+             */
+            code: string;
+            /**
+             * State
+             * @description CSRF state token for validation
+             */
+            state: string;
         };
         /**
          * GoogleCalendarStatusResponse
@@ -8062,6 +8558,22 @@ export interface components {
             calendar_email: string | null;
         };
         /**
+         * GoogleCalendarConnectRequest
+         * @description Schema for POST /auth/calendar/connect - Exchange OAuth code for token.
+         */
+        GoogleCalendarConnectRequest: {
+            /**
+             * Code
+             * @description OAuth authorization code from Google
+             */
+            code: string;
+            /**
+             * State
+             * @description CSRF state token for validation
+             */
+            state: string;
+        };
+        /**
          * DailyBriefingSettings
          * @description Daily Briefing opt-in state (backed by a system-managed agent).
          */
@@ -8112,6 +8624,46 @@ export interface components {
              */
             preferred_language: string | null;
             daily_briefing?: components["schemas"]["UserSettingsResponse.DailyBriefingSettings"];
+        };
+        /**
+         * UpdateDailyBriefingRequest
+         * @description Daily Briefing opt-in update (nested in UpdateSettingsRequest).
+         */
+        "UpdateSettingsRequest.UpdateDailyBriefingRequest": {
+            /** Enabled */
+            enabled: boolean;
+            /** Time */
+            time: string;
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone: string;
+        };
+        /**
+         * UpdateSettingsRequest
+         * @description Schema for PATCH /api/users/me/settings.
+         */
+        UpdateSettingsRequest: {
+            /**
+             * Custom Instructions
+             * @default null
+             */
+            custom_instructions: string | null;
+            /** @default null */
+            daily_briefing: components["schemas"]["UpdateSettingsRequest.UpdateDailyBriefingRequest"] | null;
+            /**
+             * Preferred Language
+             * @description Primary response language (English name); empty string = auto
+             * @default null
+             */
+            preferred_language: string | null;
+            /**
+             * Whatsapp Phone
+             * @description WhatsApp phone number in E.164 format (e.g., +1234567890). Must start with + followed by country code and at least 7 digits total. Send empty string to clear.
+             * @default null
+             */
+            whatsapp_phone: string | null;
         };
         /**
          * UpdateAgentRequest
@@ -8213,6 +8765,16 @@ export interface components {
         LanguageProgramsResponse: {
             /** Programs */
             programs: components["schemas"]["LanguageProgramsResponse.LanguageProgramItem"][];
+        };
+        /**
+         * CreateLanguageProgramRequest
+         * @description Request to create a new language program.
+         */
+        CreateLanguageProgramRequest: {
+            /** Name */
+            name: string;
+            /** Emoji */
+            emoji: string;
         };
         /**
          * GoogleCalendarAuthUrlResponse
@@ -8331,6 +8893,33 @@ export interface components {
             success: boolean;
             /** Subscription Id */
             subscription_id: string;
+        };
+        /**
+         * PushSubscriptionKeys
+         * @description Encryption keys from PushSubscription.toJSON().
+         */
+        "PushSubscribeRequest.PushSubscriptionKeys": {
+            /** P256Dh */
+            p256dh: string;
+            /** Auth */
+            auth: string;
+        };
+        /**
+         * PushSubscribeRequest
+         * @description Browser PushSubscription payload.
+         */
+        PushSubscribeRequest: {
+            /** Endpoint */
+            endpoint: string;
+            keys: components["schemas"]["PushSubscribeRequest.PushSubscriptionKeys"];
+        };
+        /**
+         * PushUnsubscribeRequest
+         * @description Remove a subscription by its endpoint.
+         */
+        PushUnsubscribeRequest: {
+            /** Endpoint */
+            endpoint: string;
         };
         /**
          * Calendar
@@ -9768,6 +10357,22 @@ export interface components {
             lost_reply: boolean;
         };
         /**
+         * UpdateConversationRequest
+         * @description Schema for PATCH /api/conversations/<conv_id>.
+         */
+        UpdateConversationRequest: {
+            /**
+             * Title
+             * @default null
+             */
+            title: string | null;
+            /**
+             * Model
+             * @default null
+             */
+            model: string | null;
+        };
+        /**
          * BulkTrashResponse
          * @description Result of a bulk trash.
          */
@@ -9777,6 +10382,35 @@ export interface components {
              * @description Conversations this call moved to the trash
              */
             trashed_ids: string[];
+        };
+        /**
+         * BulkTrashRequest
+         * @description Move many conversations to the trash: hand-picked ids, or every
+         *     unpinned main-list chat (all) minus exclude_ids plus ids.
+         */
+        BulkTrashRequest: {
+            /**
+             * All
+             * @description Every unpinned main-list chat
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Ids
+             * @description Chats to trash; with all, extra chats (pinned ones picked by hand)
+             */
+            ids?: string[];
+            /**
+             * Exclude Ids
+             * @description With all: chats to keep
+             */
+            exclude_ids?: string[];
+            /**
+             * Created Before
+             * @description With all: only chats created before this moment
+             * @default null
+             */
+            created_before: string | null;
         };
         /**
          * ParseScheduleResponse
@@ -9803,6 +10437,23 @@ export interface components {
             error: string | null;
         };
         /**
+         * ParseScheduleRequest
+         * @description Schema for POST /api/ai-assist/parse-schedule.
+         */
+        ParseScheduleRequest: {
+            /**
+             * Natural Language
+             * @description Natural language description of the schedule (e.g., 'every day at 9am')
+             */
+            natural_language: string;
+            /**
+             * Timezone
+             * @description IANA timezone for interpreting the schedule
+             * @default UTC
+             */
+            timezone: string;
+        };
+        /**
          * EnhancePromptResponse
          * @description Response from prompt enhancement endpoint.
          */
@@ -9819,6 +10470,28 @@ export interface components {
              * @default null
              */
             error: string | null;
+        };
+        /**
+         * EnhancePromptRequest
+         * @description Schema for POST /api/ai-assist/enhance-prompt.
+         */
+        EnhancePromptRequest: {
+            /**
+             * Prompt
+             * @description Current system prompt to enhance
+             */
+            prompt: string;
+            /**
+             * Agent Name
+             * @description Name of the agent (for context)
+             */
+            agent_name: string;
+            /**
+             * Tool Permissions
+             * @description List of optional tool names the agent can use (excludes always-available tools).
+             * @default null
+             */
+            tool_permissions: string[] | null;
         };
         /**
          * LanguageResetResponse
@@ -9860,6 +10533,14 @@ export interface components {
              * @description Conversations this call restored
              */
             restored_ids: string[];
+        };
+        /**
+         * BulkRestoreRequest
+         * @description Restore many conversations from the trash (Undo of a bulk delete).
+         */
+        BulkRestoreRequest: {
+            /** Ids */
+            ids: string[];
         };
         /**
          * MessageCostResponse
@@ -9911,6 +10592,28 @@ export interface components {
              * @description List of selected calendar IDs
              */
             calendar_ids: string[];
+        };
+        /**
+         * UpdateSelectedCalendarsRequest
+         * @description Request to update selected calendars.
+         */
+        UpdateSelectedCalendarsRequest: {
+            /**
+             * Calendar Ids
+             * @description List of calendar IDs to fetch events from
+             */
+            calendar_ids: string[];
+        };
+        /**
+         * MarkReadRequest
+         * @description A device has shown the conversation up to this many messages.
+         */
+        MarkReadRequest: {
+            /**
+             * Message Count
+             * @description Messages shown (server clamps)
+             */
+            message_count: number;
         };
         /**
          * AgentExecutionResponse
@@ -9981,6 +10684,17 @@ export interface components {
             formatted: string;
         };
         /**
+         * ArtifactStateRequest
+         * @description Replace an artifact's saved state (null clears it).
+         */
+        ArtifactStateRequest: {
+            /**
+             * State
+             * @description Any JSON value; null clears it
+             */
+            state: unknown;
+        };
+        /**
          * SportsConversationResponse
          * @description Sports program conversation with messages.
          */
@@ -10042,6 +10756,19 @@ export interface components {
         TruncateConversationResponse: {
             /** Deleted */
             deleted: number;
+        };
+        /**
+         * TruncateConversationRequest
+         * @description Schema for POST /api/conversations/<conv_id>/truncate.
+         */
+        TruncateConversationRequest: {
+            /** Message Id */
+            message_id: string;
+            /**
+             * Inclusive
+             * @default true
+             */
+            inclusive: boolean;
         };
         /**
          * ArtifactRef
@@ -10336,6 +11063,17 @@ export interface components {
             pagination: components["schemas"]["MessagesListResponse.MessagesPaginationResponse"];
         };
         /**
+         * StopChatRequest
+         * @description Schema for POST /api/conversations/<conv_id>/chat/stop.
+         *
+         *     Names the turn to stop by its assistant message id (from the stream's
+         *     user_message_saved event), so a Stop never hits a different turn.
+         */
+        StopChatRequest: {
+            /** Message Id */
+            message_id: string;
+        };
+        /**
          * ArtifactRef
          * @description One artifact version shown under a message.
          */
@@ -10565,6 +11303,148 @@ export interface components {
             message_count: number | null;
         };
         /**
+         * ClientLocation
+         * @description Device GPS fix sent by the frontend when location sharing is enabled.
+         */
+        "ChatRequest.ClientLocation": {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Accuracy M
+             * @default null
+             */
+            accuracy_m: number | null;
+            /**
+             * Timestamp Ms
+             * @default null
+             */
+            timestamp_ms: number | null;
+        };
+        /**
+         * DeepResearchAction
+         * @description Start on a deep-research offer (the server fills it from the started plan).
+         */
+        "ChatRequest.DeepResearchAction": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "deep_research";
+            /** Offer Message Id */
+            offer_message_id: string;
+            /**
+             * Items
+             * @default 0
+             */
+            items: number;
+            /**
+             * Minutes
+             * @default 0
+             */
+            minutes: number;
+        };
+        /**
+         * DeepResearchStart
+         * @description Start a deep-research run from an offer, with the user's final plan.
+         */
+        "ChatRequest.DeepResearchStart": {
+            /** Offer Message Id */
+            offer_message_id: string;
+            /** Sub Questions */
+            sub_questions?: string[];
+            /**
+             * Context
+             * @default
+             */
+            context: string;
+        };
+        /**
+         * FileAttachment
+         * @description Schema for file attachments in chat requests.
+         *
+         *     Validates structure only. Content validation (base64 decoding, size checking)
+         *     is handled by validate_files() in src/utils/files.py.
+         */
+        "ChatRequest.FileAttachment": {
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Data */
+            data: string;
+        };
+        /**
+         * VerifyClaimAction
+         * @description Look it up on a claim card: verify one claim of an earlier answer.
+         */
+        "ChatRequest.VerifyClaimAction": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "verify_claim";
+            /**
+             * Source Message Id
+             * @default null
+             */
+            source_message_id: string | null;
+            /**
+             * Claim Index
+             * @default null
+             */
+            claim_index: number | null;
+            /** Quote */
+            quote: string;
+        };
+        /**
+         * ChatRequest
+         * @description Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
+         *
+         *     Validates structure. File content validation happens separately via
+         *     validate_files() in src/utils/files.py.
+         */
+        ChatRequest: {
+            /**
+             * Message
+             * @default
+             */
+            message: string;
+            /** Files */
+            files?: components["schemas"]["ChatRequest.FileAttachment"][];
+            /** Force Tools */
+            force_tools?: string[];
+            /**
+             * Anonymous Mode
+             * @default false
+             */
+            anonymous_mode: boolean;
+            /** @default null */
+            client_location: components["schemas"]["ChatRequest.ClientLocation"] | null;
+            /**
+             * Client Message Id
+             * @default null
+             */
+            client_message_id: string | null;
+            /**
+             * Rerun Mode
+             * @default null
+             */
+            rerun_mode: ("regenerate" | "continue") | null;
+            /**
+             * @description Run deep research from this offer (stream endpoint only)
+             * @default null
+             */
+            deep_research: components["schemas"]["ChatRequest.DeepResearchStart"] | null;
+            /**
+             * Action
+             * @description What this message is, when the app sent it for the user
+             * @default null
+             */
+            action: (components["schemas"]["ChatRequest.VerifyClaimAction"] | components["schemas"]["ChatRequest.DeepResearchAction"]) | null;
+        };
+        /**
          * ConversationCompactionResponse
          * @description How the next turn compacts a conversation's history for the model.
          */
@@ -10640,6 +11520,69 @@ export interface components {
              * @description Server timestamp in ISO format
              */
             server_time: string;
+        };
+        /**
+         * ResearchOfferUpdate
+         * @description The user's decision on an offer (starting goes through the chat stream).
+         */
+        ResearchOfferUpdate: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "declined";
+        };
+        /**
+         * UpdateAnonymousModeRequest
+         * @description Request to turn anonymous mode on or off for a conversation.
+         */
+        UpdateAnonymousModeRequest: {
+            /**
+             * Anonymous Mode
+             * @description Whether to disable memory and integrations for this conversation
+             */
+            anonymous_mode: boolean;
+        };
+        /**
+         * InterjectRequest
+         * @description Schema for POST /api/conversations/<conv_id>/chat/interject.
+         *
+         *     Mid-run steering: guidance for a turn that is currently streaming,
+         *     injected between the agent's tool rounds.
+         */
+        InterjectRequest: {
+            /** Message */
+            message: string;
+            /**
+             * Client Message Id
+             * @description Id of the bubble the client rendered (saved under it; UUID)
+             * @default null
+             */
+            client_message_id: string | null;
+        };
+        /**
+         * QuickActionItem
+         * @description A one-tap saved prompt for a program conversation.
+         */
+        "UpdateQuickActionsRequest.QuickActionItem": {
+            /** Id */
+            id: string;
+            /** Emoji */
+            emoji: string;
+            /** Label */
+            label: string;
+            /** Body */
+            body: string;
+            /** Fields */
+            fields?: string[];
+        };
+        /**
+         * UpdateQuickActionsRequest
+         * @description Replace a program's full ordered quick-action list.
+         */
+        UpdateQuickActionsRequest: {
+            /** Quick Actions */
+            quick_actions?: components["schemas"]["UpdateQuickActionsRequest.QuickActionItem"][];
         };
         /**
          * ArtifactVersionResponse

@@ -178,8 +178,8 @@ class TestOpenAPISpec:
 
         # But not an unreasonable number (would indicate over-complexity)
         # A rough sanity bound, raised as features land (160 reached with
-        # artifacts, Oct 2026)
-        assert len(schemas) < 200, f"Too many schemas ({len(schemas)}), may indicate issues"
+        # artifacts; 209 once @validate_request bodies joined the spec, Oct 2026)
+        assert len(schemas) < 260, f"Too many schemas ({len(schemas)}), may indicate issues"
 
     def test_spec_path_count(self, app: APIFlask) -> None:
         """OpenAPI spec should document all expected paths."""

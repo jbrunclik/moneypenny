@@ -9,6 +9,8 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+from apiflask.scaffold import _annotate
+from apiflask.schema_adapters import registry
 from flask import request
 from pydantic import BaseModel, ValidationError
 
@@ -139,6 +141,16 @@ def validate_request[T: BaseModel](
             # but before URL parameters (which come via kwargs from Flask)
             return f(*args, validated, **kwargs)
 
+        # Document the body in the OpenAPI spec the way APIFlask's @api.input
+        # does, so the frontend's request types are generated, not hand-written
+        _annotate(
+            wrapper,
+            body=registry.create_adapter(schema_class).schema,
+            body_example=None,
+            body_examples=None,
+            content_type="application/json",
+        )
+        wrapper._validated_body = schema_class  # type: ignore[attr-defined]
         return wrapper
 
     return decorator
