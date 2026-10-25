@@ -17,6 +17,7 @@ import {
   type Point,
 } from './lightbox-gestures';
 import { hapticTick } from '../utils/haptics';
+import { trapTabKey } from '../utils/focus-trap';
 import {
   LIGHTBOX_SWIPE_MIN_PX,
   LIGHTBOX_ZOOM_SCALE,
@@ -98,11 +99,12 @@ export function initLightbox(): void {
   // Register with centralized Escape key handler
   registerPopupEscapeHandler('lightbox', closeLightbox);
 
-  // Arrow-key navigation while open
+  // Arrow-key navigation while open; Tab cycles inside (aria-modal, F9)
   document.addEventListener('keydown', (e) => {
     if (!isOpen()) return;
     if (e.key === 'ArrowLeft') showRelative(-1);
     if (e.key === 'ArrowRight') showRelative(1);
+    trapTabKey(lightbox, e);
   });
 
   // Double-click toggles zoom at the pointer position (desktop; touch

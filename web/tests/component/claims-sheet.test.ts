@@ -76,3 +76,20 @@ describe('ClaimsSheet', () => {
     expect(document.activeElement).toBe(footer);
   });
 });
+
+describe('ClaimsSheet focus', () => {
+  it('keeps Tab inside the open sheet (aria-modal)', () => {
+    setup();
+    (document.querySelector('.grounding-footer') as HTMLElement).click();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+  });
+
+  it('leaves Tab alone when the sheet is closed', () => {
+    setup();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    document.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+  });
+});

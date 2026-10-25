@@ -10,6 +10,7 @@ import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { closeClaimCard, plainQuote } from './ClaimCard';
 import { displayHost, getMessageAnnotations, getMessageGrounding } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
+import { trapTabKey } from '../utils/focus-trap';
 
 const SHEET_ID = 'claims-sheet';
 const ORDER: ClaimVerdict[] = ['contradicted', 'not_found', 'partial', 'supported'];
@@ -117,5 +118,8 @@ export function initClaimsSheet(): void {
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeClaimsSheet(true);
+    // aria-modal: Tab cycles inside the open sheet (F9)
+    const sheet = document.getElementById('claims-sheet');
+    if (sheet) trapTabKey(sheet, e);
   });
 }
