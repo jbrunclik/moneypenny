@@ -846,9 +846,7 @@ def main() -> None:  # noqa: C901, PLR0915
         stack.enter_context(
             patch("src.agent.compaction.run_summary_model", return_value="[mock summary]")
         )
-        stack.enter_context(
-            patch("src.auth.google_auth.httpx.get", create_mock_google_tokeninfo())
-        )
+        stack.enter_context(patch("src.auth.google_auth.httpx.get", create_mock_google_tokeninfo()))
         stack.enter_context(patch("src.agent.grounding_check.should_check", mock_should_check))
         stack.enter_context(
             patch("src.agent.grounding_check.check_grounding", mock_check_grounding)
