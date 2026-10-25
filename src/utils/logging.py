@@ -182,5 +182,5 @@ def log_payload_snippet(
         else:
             snippet = payload_str
         logger.debug("Payload snippet", extra={"payload_snippet": snippet})
-    except Exception:  # noqa: BLE001
-        logger.debug("Failed to serialize payload for logging")
+    except Exception:  # default=str runs arbitrary __str__; logging must not raise
+        logger.debug("Failed to serialize payload for logging", exc_info=True)

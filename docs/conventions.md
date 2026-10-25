@@ -149,7 +149,10 @@ through callbacks or `core/events`, not by importing `core`; `utils` and
 
 - Catch the most specific exception the call can raise. A broad
   `except Exception` needs a reason (`# noqa: BLE001 - <why>`) and logs with
-  `exc_info=True` - or re-raises.
+  `exc_info=True` - or re-raises. Ruff stops flagging a broad except once it
+  logs with `exc_info=True` or `logger.exception()`, and RUF100 then rejects
+  the noqa, so such an except gets a plain `# <why>` comment; keep
+  `# noqa: BLE001 - <why>` only where ruff still flags the line.
 - API errors go through `raise_*_error()` from `src/api/errors.py`. Never
   return `str(e)` to a client, and never return HTTP 200 with an `error`
   field.

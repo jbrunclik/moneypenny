@@ -317,10 +317,11 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
                     )
                     if isinstance(sections, list):
                         section_map = {s["id"]: s["name"] for s in sections if s.get("id")}
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # section names are optional enrichment
                 logger.warning(
                     "Failed to fetch sections for dashboard",
                     extra={"error": str(e)},
+                    exc_info=True,
                 )
 
         # Fetch projects for enrichment
@@ -342,10 +343,11 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
                     )
                     if isinstance(projects, list):
                         project_map = {p["id"]: p["name"] for p in projects if p.get("id")}
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # project names are optional enrichment
                 logger.warning(
                     "Failed to fetch projects for dashboard",
                     extra={"error": str(e)},
+                    exc_info=True,
                 )
 
         # Convert and categorize tasks
@@ -376,10 +378,10 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         return tasks_7_days, overdue_tasks, None
 
     except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error("Todoist API request failed", extra={"error": str(e)})  # noqa: TRY400
+        logger.error("Todoist API request failed", extra={"error": str(e)})  # noqa: TRY400 - network or JSON error; shown on the dashboard
         return [], [], f"Failed to connect to Todoist: {e}"
     except Exception as e:
-        logger.error("Error fetching Todoist data", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Error fetching Todoist data", extra={"error": str(e)})
         return [], [], f"Error fetching Todoist data: {e}"
 
 
@@ -430,8 +432,8 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
                 "Failed to fetch calendar list",
                 extra={"status": response.status_code},
             )
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Failed to fetch calendar names", extra={"error": str(e)})
+    except Exception as e:  # names are optional; events fall back to calendar ids
+        logger.warning("Failed to fetch calendar names", extra={"error": str(e)}, exc_info=True)
 
     # Calculate time range (next 7 days)
     now = datetime.utcnow()
@@ -497,15 +499,14 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
             logger.warning("Calendar fetch timeout", extra={"calendar_id": calendar_id})
             return calendar_id, None, None, "Request timeout", False
         except (httpx.HTTPError, json.JSONDecodeError) as e:
-            logger.error(  # noqa: TRY400
+            logger.error(  # noqa: TRY400 - network or JSON error; shown on the dashboard
                 "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": str(e)}
             )
             return calendar_id, None, None, "Connection error", False
         except Exception as e:
-            logger.error(  # noqa: G201
+            logger.exception(
                 "Unexpected calendar fetch error",
                 extra={"calendar_id": calendar_id, "error": str(e)},
-                exc_info=True,
             )
             return calendar_id, None, None, "Unexpected error", False
 
@@ -732,10 +733,11 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                         current_user = db.get_user_by_id(user_id)
                         if current_user and current_user.google_calendar_selected_ids:
                             selected_calendar_ids = current_user.google_calendar_selected_ids
-                    except Exception as e:  # noqa: BLE001
+                    except Exception as e:  # falls back to the primary calendar
                         logger.warning(
                             "Failed to get user calendar selection, using primary",
                             extra={"user_id": user_id, "error": str(e)},
+                            exc_info=True,
                         )
 
                 return fetch_calendar_dashboard_data(calendar_token, selected_calendar_ids)
@@ -755,10 +757,9 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                     )
                     return forecast, None
                 except Exception as e:
-                    logger.error(  # noqa: G201
+                    logger.exception(
                         "Failed to fetch weather for planner",
                         extra={"error": str(e), "location": Config.WEATHER_LOCATION},
-                        exc_info=True,
                     )
                     return None, f"Weather error: {e}"
             return None, None
@@ -782,8 +783,8 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                     summary.resting_hr = stats.get("restingHeartRate")
                     summary.body_battery = stats.get("bodyBatteryMostRecentValue")
                     summary.stress_avg = stats.get("averageStressLevel")
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin stats fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug("Garmin stats fetch failed", extra={"error": str(e)}, exc_info=True)
 
             # Fetch sleep
             try:
@@ -802,16 +803,16 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                         "duration_hours": round(duration_secs / 3600, 1) if duration_secs else None,
                         "quality": quality,
                     }
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin sleep fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug("Garmin sleep fetch failed", extra={"error": str(e)}, exc_info=True)
 
             # Fetch heart rates
             try:
                 hr_data = garmin.get_heart_rates(today_str)
                 if isinstance(hr_data, dict):
                     summary.resting_hr = summary.resting_hr or hr_data.get("restingHeartRate")
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin HR fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug("Garmin HR fetch failed", extra={"error": str(e)}, exc_info=True)
 
             # Fetch training readiness
             # NOTE: get_training_readiness() returns a list of records (one per sync),
@@ -831,8 +832,10 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                         "score": tr_record.get("score") or tr_record.get("overallScore"),
                         "level": tr_record.get("level") or tr_record.get("overallReadiness"),
                     }
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin training readiness fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug(
+                    "Garmin training readiness fetch failed", extra={"error": str(e)}, exc_info=True
+                )
 
             # Fetch HRV
             try:
@@ -841,8 +844,8 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                     summary.hrv_status = hrv.get("hrvSummary", {}).get("status") or hrv.get(
                         "status"
                     )
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin HRV fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug("Garmin HRV fetch failed", extra={"error": str(e)}, exc_info=True)
 
             # Fetch recent activities (last 3)
             try:
@@ -865,8 +868,10 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
                         }
                         for a in activities[:3]
                     ]
-            except Exception as e:  # noqa: BLE001
-                logger.debug("Garmin activities fetch failed", extra={"error": str(e)})
+            except Exception as e:  # best-effort metric; the dashboard shows the rest
+                logger.debug(
+                    "Garmin activities fetch failed", extra={"error": str(e)}, exc_info=True
+                )
 
             return summary, None
 
@@ -874,7 +879,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
             error_str = str(e).lower()
             if "expired" in error_str or "unauthorized" in error_str:
                 return None, "Garmin session expired. Please reconnect in Settings."
-            logger.error("Garmin dashboard fetch failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+            logger.exception("Garmin dashboard fetch failed", extra={"error": str(e)})
             return None, f"Garmin error: {e}"
 
     # Fetch all resources in parallel

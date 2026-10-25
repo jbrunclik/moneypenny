@@ -144,8 +144,8 @@ def retrieve_file(  # noqa: C901
         if "data" in file_meta:
             try:
                 binary_data = base64.b64decode(file_meta["data"])
-            except Exception:  # noqa: BLE001
-                logger.error(  # noqa: TRY400
+            except ValueError, TypeError:
+                logger.error(  # noqa: TRY400 - corrupt stored data; a traceback adds nothing
                     "retrieve_file: failed to decode legacy base64 data",
                     extra={"message_id": message_id, "file_index": file_index},
                 )

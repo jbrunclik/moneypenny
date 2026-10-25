@@ -247,7 +247,7 @@ def get_weather_for_location(
         return forecast
 
     except (httpx.HTTPError, ValueError) as e:
-        logger.error(  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - network or bad-response error; the dashboard skips weather
             "Failed to fetch weather forecast",
             extra={"location": location, "error": str(e)},
         )

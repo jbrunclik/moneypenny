@@ -57,7 +57,7 @@ def should_skip_thumbnail(file_data: str, file_type: str) -> bool:
     try:
         data_size = len(base64.b64decode(file_data))
         return data_size < Config.THUMBNAIL_SKIP_THRESHOLD_BYTES
-    except Exception:  # noqa: BLE001
+    except ValueError, TypeError:
         # If we can't decode, don't skip - let thumbnail generation handle the error
         return False
 
@@ -148,10 +148,9 @@ def _generate_thumbnail_task(
     try:
         generate_and_save_thumbnail(message_id, file_index, file_data, file_type)
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Thumbnail generation failed",
             extra={"message_id": message_id, "file_index": file_index, "error": str(e)},
-            exc_info=True,
         )
         # Try to mark as failed in database
         try:

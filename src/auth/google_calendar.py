@@ -82,7 +82,7 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
-        logger.error("Google token exchange failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
+        logger.exception("Google token exchange failed", extra={"error": str(exc)})
         raise GoogleCalendarAuthError("Failed to connect to Google") from exc
 
     if response.status_code != 200:
@@ -118,7 +118,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
-        logger.error("Google token refresh failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
+        logger.exception("Google token refresh failed", extra={"error": str(exc)})
         raise GoogleCalendarTransientError("Failed to connect to Google for token refresh") from exc
 
     if response.status_code != 200:
@@ -127,7 +127,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         try:
             error_body = response.json()
             error_code = error_body.get("error", "")
-        except Exception:  # noqa: BLE001
+        except ValueError, AttributeError:
             error_body = response.text
 
         logger.warning(
@@ -174,7 +174,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
             follow_redirects=True,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
-        logger.error("Google userinfo request failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
+        logger.exception("Google userinfo request failed", extra={"error": str(exc)})
         raise GoogleCalendarAuthError("Failed to fetch Google profile") from exc
 
     if response.status_code != 200:
@@ -294,7 +294,7 @@ def get_valid_calendar_access_token(user: User) -> str | None:
     except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
         raise
     except GoogleCalendarAuthError as e:
-        logger.error(  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - handled auth failure; the caller asks to reconnect
             "Failed to refresh calendar token",
             extra={"user_id": user.id, "error": str(e)},
         )
@@ -320,7 +320,7 @@ def fetch_calendar_list(access_token: str) -> list[dict[str, Any]]:
     except httpx.TimeoutException as exc:
         raise GoogleCalendarApiError("Calendar list timed out", timed_out=True) from exc
     except Exception as exc:
-        logger.error("Failed to list calendars", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
+        logger.exception("Failed to list calendars", extra={"error": str(exc)})
         raise GoogleCalendarApiError("Failed to list calendars") from exc
 
     if response.status_code >= 400:

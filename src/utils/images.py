@@ -89,10 +89,9 @@ def generate_thumbnail(  # noqa: C901
         return base64.b64encode(output.read()).decode("utf-8")
 
     except (binascii.Error, UnidentifiedImageError, OSError) as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Error generating thumbnail",
             extra={"mime_type": mime_type, "error": str(e)},
-            exc_info=True,
         )
         return None
 
@@ -122,7 +121,7 @@ def transcode_image_for_browser(binary_data: bytes, mime_type: str) -> tuple[byt
         img.save(output, format="JPEG", quality=90)
         return output.getvalue(), "image/jpeg"
     except (UnidentifiedImageError, OSError) as e:
-        logger.error(  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - unreadable image; serving the original is the fallback
             "Failed to transcode image for browser, serving original",
             extra={"mime_type": mime_type, "error": str(e)},
         )

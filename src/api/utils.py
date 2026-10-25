@@ -39,8 +39,8 @@ def get_request_json(request: Request) -> dict[str, Any] | None:
         # Re-raise HTTP exceptions (e.g., 413 Request Entity Too Large)
         # so Flask's error handler can return the appropriate response
         raise
-    except Exception:  # noqa: BLE001
-        # Catches any JSON parsing errors
+    except ValueError:
+        # JSON parsing errors (silent=True already swallows most of them)
         return None
 
 

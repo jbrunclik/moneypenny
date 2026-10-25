@@ -114,7 +114,9 @@ def todoist_api_request(
         return result
 
     except (httpx.HTTPError, json_module.JSONDecodeError) as e:
-        logger.error("Todoist API request failed", extra={"error": str(e), "endpoint": endpoint})  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - network or JSON error, re-raised with context
+            "Todoist API request failed", extra={"error": str(e), "endpoint": endpoint}
+        )
         raise Exception(f"Failed to connect to Todoist: {e}") from e
 
 
@@ -168,5 +170,7 @@ def todoist_sync_request(
         return result
 
     except (httpx.HTTPError, json_module.JSONDecodeError) as e:
-        logger.error("Todoist Sync API request failed", extra={"error": str(e)})  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - network or JSON error, re-raised with context
+            "Todoist Sync API request failed", extra={"error": str(e)}
+        )
         raise Exception(f"Failed to connect to Todoist Sync API: {e}") from e

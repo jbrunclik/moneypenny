@@ -284,7 +284,7 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
             with open(manifest_path) as f:
                 vite_manifest = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            logger.error(  # noqa: TRY400
+            logger.error(  # noqa: TRY400 - the error names what is wrong with the file
                 "Failed to load Vite manifest",
                 extra={"path": str(manifest_path), "error": str(e)},
             )
@@ -434,8 +434,9 @@ def main() -> None:
 
     app = create_app()
     logger.info(
-        f"Starting {Config.APP_NAME}",  # noqa: G004
+        "Starting app",
         extra={
+            "app_name": Config.APP_NAME,
             "port": Config.PORT,
             "environment": Config.FLASK_ENV,
             "models": list(Config.MODELS.keys()),

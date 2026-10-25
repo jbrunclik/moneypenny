@@ -93,7 +93,7 @@ def extract_file_metadata(file_data: dict[str, Any]) -> dict[str, Any]:
         try:
             data_bytes = base64.b64decode(file_data["data"])
             metadata["size"] = len(data_bytes)
-        except Exception:  # noqa: BLE001
+        except ValueError, TypeError:
             metadata["size"] = 0
 
     # Track whether thumbnail exists
@@ -240,11 +240,11 @@ def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str 
             error = f"Disk I/O error accessing database: {db_path}. Check disk health."
         else:
             error = f"Database error: {error_msg}"
-        logger.error("Database connectivity check failed", extra={"error": error})  # noqa: TRY400
+        logger.error("Database connectivity check failed", extra={"error": error})  # noqa: TRY400 - classified; the message names the cause
         return False, error
     except Exception as e:
         error = f"Unexpected database error: {e}"
-        logger.error("Database connectivity check failed", extra={"error": error}, exc_info=True)  # noqa: G201
+        logger.exception("Database connectivity check failed", extra={"error": error})
         return False, error
 
 
@@ -273,7 +273,7 @@ def check_database_writable(
         if "database is locked" not in str(e):
             return False, f"Database error: {e}"
         error = f"Database write lock is held for over {timeout_s:g}s: writes are failing"
-        logger.error("Database write check failed", extra={"error": error})  # noqa: TRY400
+        logger.error("Database write check failed", extra={"error": error})  # noqa: TRY400 - lock contention; a traceback adds nothing
         return False, error
     finally:
         conn.close()

@@ -270,6 +270,6 @@ def rouvy_workout(  # noqa: C901, PLR0912
     except RouvySessionExpired:
         # Automatic re-login failed: the stored credentials no longer work
         return not_connected_result("rouvy", was_connected=True, success=False)
-    except Exception as e:  # noqa: BLE001 - tool must return, not raise
-        logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})  # noqa: TRY400
+    except Exception as e:  # tool must return, not raise
+        logger.exception("rouvy_workout failed", extra={"action": action, "error": str(e)})
         return tool_error(f"Rouvy request failed: {e}", success=False)

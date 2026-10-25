@@ -125,11 +125,12 @@ def _probe_docker_available() -> bool:
     except FileNotFoundError:
         _docker_available = False
         logger.warning("Docker command not found", extra={"note": "Ensure Docker is installed"})
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # any probe failure disables the tool
         _docker_available = False
         logger.warning(
             "Docker not available for code execution",
             extra={"error": str(e), "note": "Code execution tool will be disabled"},
+            exc_info=True,
         )
 
     return _docker_available
@@ -305,10 +306,11 @@ def _extract_file_from_sandbox(
 
         return full_file_data, file_metadata
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # one unreadable output file must not fail the run
         logger.warning(
             "Failed to extract file from sandbox",
             extra={"filename": filename, "error": str(e)},  # noqa: G101
+            exc_info=True,
         )
         return None, None
     finally:
@@ -617,7 +619,7 @@ def execute_code(code: str) -> str:  # noqa: C901
         )
     except Exception as e:
         error_msg = str(e)
-        logger.error("Code execution error", extra={"error": error_msg}, exc_info=True)  # noqa: G201
+        logger.exception("Code execution error", extra={"error": error_msg})
 
         # Provide helpful error messages for common issues
         if "docker" in error_msg.lower() or "connection" in error_msg.lower():

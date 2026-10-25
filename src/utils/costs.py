@@ -246,8 +246,9 @@ def calculate_and_save_message_cost(
     # Log warning if no usage metadata (should be rare - indicates API issue)
     if input_tokens == 0 and output_tokens == 0:
         logger.warning(
-            f"No token usage metadata found in {mode} mode",  # noqa: G004
+            "No token usage metadata found",
             extra={
+                "mode": mode,
                 "user_id": user_id,
                 "conversation_id": conversation_id,
                 "model": model,
@@ -285,8 +286,9 @@ def calculate_and_save_message_cost(
     )
 
     logger.info(
-        f"{mode.capitalize()} chat cost saved",  # noqa: G004
+        "Chat cost saved",
         extra={
+            "mode": mode,
             "user_id": user_id,
             "conversation_id": conversation_id,
             "message_id": message_id,

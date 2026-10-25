@@ -116,10 +116,9 @@ def _google_calendar_api_request(  # noqa: C901
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
-        logger.error(  # noqa: G201
+        logger.exception(
             "Google Calendar API request failed",
             extra={"endpoint": endpoint, "error": str(exc)},
-            exc_info=True,
         )
         raise Exception("Failed to connect to Google Calendar") from exc
 
@@ -653,10 +652,9 @@ def google_calendar(  # noqa: C901, PLR0912
     except CalendarDisconnectedError:
         return not_connected_result("google_calendar", was_connected=True)
     except Exception as exc:  # pragma: no cover - network interaction
-        logger.error(  # noqa: G201
+        logger.exception(
             "Google Calendar tool error",
             extra={"action": action, "error": str(exc)},
-            exc_info=True,
         )
         return tool_error(str(exc), action=action)
 

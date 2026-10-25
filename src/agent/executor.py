@@ -251,11 +251,11 @@ def execute_agent(  # noqa: PLR0915
 
     try:
         compact_conversation(agent)
-    except Exception as e:  # noqa: BLE001
-        # Log but don't fail execution if compaction fails
+    except Exception as e:  # compaction is best-effort; the run continues
         logger.warning(
             "Conversation compaction failed",
             extra={"agent_id": agent.id, "error": str(e)},
+            exc_info=True,
         )
 
     # Get the agent's conversation
@@ -478,14 +478,13 @@ def execute_agent(  # noqa: PLR0915
         return "waiting_approval", e.description
 
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Agent execution failed",
             extra={
                 "agent_id": agent.id,
                 "execution_id": execution_id,
                 "error": str(e),
             },
-            exc_info=True,
         )
         return False, str(e)
 

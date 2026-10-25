@@ -194,8 +194,10 @@ def _gather(tasks: dict[str, Any]) -> None:
     def _run(label: str, fn: Any) -> None:
         try:
             copy_context().run(fn)
-        except Exception as e:  # noqa: BLE001
-            logger.debug(f"No {label}", extra={"error": str(e)})  # noqa: G004
+        except Exception as e:  # best-effort sub-fetch; the others still run
+            logger.debug(
+                "Garmin sub-fetch failed", extra={"fetch": label, "error": str(e)}, exc_info=True
+            )
 
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         list(pool.map(lambda item: _run(item[0], item[1]), tasks.items()))
@@ -419,7 +421,10 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
         def run() -> None:
             try:
                 payload[key] = _strip_bulky_fields(_safe_api_call(garmin, method, *args))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # best-effort section; the error goes to the model
+                logger.debug(
+                    "Garmin readiness section failed", extra={"section": key}, exc_info=True
+                )
                 payload[key] = {"error": str(e)}
 
         return run
@@ -433,7 +438,12 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
             if isinstance(result, list):
                 result = result[: limit or 5]
             payload["recent_activities"] = _strip_bulky_fields(result, max_list_items=50)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # best-effort section; the error goes to the model
+            logger.debug(
+                "Garmin readiness section failed",
+                extra={"section": "recent_activities"},
+                exc_info=True,
+            )
             payload["recent_activities"] = {"error": str(e)}
 
     _gather(
@@ -704,7 +714,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
         return tool_error(f"Unknown action: {action}", available_actions=sorted(_GARMIN_ACTIONS))
 
     except Exception as e:
-        logger.error("Garmin tool error", extra={"action": action, "error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Garmin tool error", extra={"action": action, "error": str(e)})
         return tool_error(str(e), action=action)
 
 

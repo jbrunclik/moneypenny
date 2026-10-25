@@ -129,7 +129,7 @@ def attach_gemini_file_uris(message_id: str, files: list[dict[str, Any]]) -> Non
             # Broad catch is deliberate: any failure here (upload, DB cache,
             # client construction) must degrade to a text notice for the LLM,
             # never fail the whole chat request.
-            logger.error(  # noqa: TRY400
+            logger.error(  # noqa: TRY400 - traceback only for unexpected errors (exc_info below)
                 "Failed to prepare video for Gemini",
                 extra={"message_id": message_id, "file_index": idx, "error": str(e)},
                 exc_info=not isinstance(e, (GeminiFileError, binascii.Error)),

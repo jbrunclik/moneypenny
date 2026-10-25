@@ -251,7 +251,7 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         items = fetch_calendar_list(calendar_token)
     except GoogleCalendarApiError as e:
         if e.timed_out:
-            logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
+            logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400 - a timeout's traceback adds nothing
             raise_server_error("Google Calendar timed out. Please try again.")
         if e.status_code == 401:
             raise_conflict_error("Google Calendar access expired. Please reconnect.")

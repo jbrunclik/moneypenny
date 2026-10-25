@@ -245,10 +245,9 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
                 results.append(_apply_delete(user_id, op))
         except Exception as e:
             # A failed write must be visible to the model, not just the log.
-            logger.error(  # noqa: G201
+            logger.exception(
                 "Error processing memory operation",
                 extra={"user_id": user_id, "action": action, "error": str(e)},
-                exc_info=True,
             )
             results.append(_reject(str(action), f"storage error: {e}"))
 

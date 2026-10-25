@@ -99,14 +99,14 @@ def create_agent(user: User, data: CreateAgentRequest) -> dict[str, Any]:
     if schedule:
         try:
             croniter(schedule)
-        except Exception:  # noqa: BLE001
+        except ValueError:  # croniter's CroniterError is a ValueError
             raise_validation_error("Invalid cron expression")
 
     # Validate timezone if provided
     timezone = data.timezone
     try:
         ZoneInfo(timezone)
-    except Exception:  # noqa: BLE001
+    except KeyError, ValueError, OSError:  # not found / malformed key / unreadable name
         raise_validation_error(f"Invalid timezone: {timezone}")
 
     # Check for duplicate name
@@ -229,7 +229,7 @@ def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[st
     if schedule is not None and schedule != "":
         try:
             croniter(schedule)
-        except Exception:  # noqa: BLE001
+        except ValueError:  # croniter's CroniterError is a ValueError
             raise_validation_error("Invalid cron expression")
 
     # Validate timezone if provided
@@ -237,7 +237,7 @@ def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[st
     if timezone:
         try:
             ZoneInfo(timezone)
-        except Exception:  # noqa: BLE001
+        except KeyError, ValueError, OSError:  # not found / malformed key / unreadable name
             raise_validation_error(f"Invalid timezone: {timezone}")
 
     # Use model_dump(exclude_unset=True) to see which fields were actually in the JSON

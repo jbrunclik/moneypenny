@@ -151,10 +151,9 @@ def run_scheduled_agents() -> SchedulerResult:  # noqa: C901, PLR0915
         except Exception as e:
             db.update_execution(execution.id, status="failed", error_message=str(e))
             result.failed += 1
-            logger.error(  # noqa: G201
+            logger.exception(
                 "Scheduler: agent execution error",
                 extra={"agent_id": agent.id, "error": str(e)},
-                exc_info=True,
             )
             _update_next_run_on_failure(agent)
 

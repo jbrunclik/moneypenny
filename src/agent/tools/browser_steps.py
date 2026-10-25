@@ -20,6 +20,9 @@ from src.agent.cancellation import is_cancelled
 from src.agent.tools.url_safety import validate_public_url
 from src.agent.tools.web import wrap_untrusted_content
 from src.config import Config
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 VALID_ACTIONS = frozenset(
     {"navigate", "click", "type", "screenshot", "extract", "scroll", "back", "close"}
@@ -180,7 +183,12 @@ def run_batch(worker: _Worker, conversation_id: str, steps: list[BrowserStep]) -
             return _batch_summary(done, last, failed=(index, error))
         try:
             last = worker.execute(step.action, **worker_kwargs(conversation_id, step))
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
+            logger.warning(
+                "Browser batch step failed",
+                extra={"action": step.action, "step_index": index},
+                exc_info=not isinstance(e, TimeoutError),
+            )
             reason = "timed out" if isinstance(e, TimeoutError) else str(e)
             return _batch_summary(done, last, failed=(index, f"{step.action} failed: {reason}"))
         done.append({"action": step.action, **_without_elements(last)})

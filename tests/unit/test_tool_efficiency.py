@@ -22,6 +22,7 @@ from src.agent.tools.turn_usage import (
     reset_turn_usage,
 )
 from src.agent.tools.web import _chained_fetch_nudge
+from src.auth.garmin_auth import GarminAuthError
 
 
 @pytest.fixture
@@ -203,7 +204,8 @@ class TestGarminSessionCache:
             patch("src.db.models.db.get_user_by_id", return_value=self._user("tok-a")),
             patch(
                 "src.auth.garmin_auth.create_client_from_tokens",
-                side_effect=Exception("session expired"),
+                # create_client_from_tokens wraps every failure in GarminAuthError
+                side_effect=GarminAuthError("session expired"),
             ),
         ):
             assert garmin_session.get_client("u1") is None

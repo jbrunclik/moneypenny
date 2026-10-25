@@ -294,9 +294,8 @@ class UserMixin:
             updated = cursor.rowcount > 0
 
         if updated:
-            action = "set" if phone else "removed"
             logger.info(
-                f"User WhatsApp phone {action}",  # noqa: G004
+                "User WhatsApp phone set" if phone else "User WhatsApp phone removed",
                 extra={"user_id": user_id},
             )
         else:

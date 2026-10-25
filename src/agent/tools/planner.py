@@ -39,8 +39,12 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
         calendar_token = (
             get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
         )
-    except Exception:  # noqa: BLE001
-        logger.warning("Failed to get valid calendar token for planner", extra={"user_id": user.id})
+    except Exception:  # the dashboard degrades to no calendar
+        logger.warning(
+            "Failed to get valid calendar token for planner",
+            extra={"user_id": user.id},
+            exc_info=True,
+        )
         calendar_token = None
 
     return user.id, user.todoist_access_token, calendar_token, user.garmin_token
@@ -147,7 +151,7 @@ def refresh_planner_dashboard() -> str:
 
     except Exception as e:
         error_msg = f"Error refreshing dashboard: {e}"
-        logger.error("Dashboard refresh failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Dashboard refresh failed", extra={"error": str(e)})
         return error_msg
 
 

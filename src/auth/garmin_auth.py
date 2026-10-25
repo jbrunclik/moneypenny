@@ -71,7 +71,7 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
 
     except GarminMfaRequired:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 - re-raised as a typed GarminAuthError
         _raise_typed_error(e)
 
 
@@ -118,7 +118,7 @@ def authenticate_with_mfa(email: str, password: str, mfa_code: str) -> tuple[str
             raise GarminAuthError(
                 "Rate limited by Garmin. Please try again in a few minutes."
             ) from e
-        logger.error("Garmin MFA login failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Garmin MFA login failed", extra={"error": str(e)})
         raise GarminAuthError(f"MFA verification failed: {e}") from e
 
 
@@ -134,7 +134,7 @@ def serialize_tokens(garmin: Any) -> str:
     try:
         return str(garmin.client.dumps())
     except Exception as e:
-        logger.error("Failed to serialize Garmin tokens", extra={"error": str(e)})  # noqa: TRY400
+        logger.exception("Failed to serialize Garmin tokens", extra={"error": str(e)})
         raise GarminAuthError("Failed to save session tokens") from e
 
 
@@ -167,9 +167,7 @@ def create_client_from_tokens(tokens_b64: str) -> Any:
             raise GarminAuthError("Session expired. Please reconnect your Garmin account.") from e
         if "assert" in error_str or "oauth1" in error_str:
             raise GarminAuthError("Session expired. Please reconnect your Garmin account.") from e
-        logger.error(  # noqa: G201
-            "Failed to create Garmin client from tokens", extra={"error": str(e)}, exc_info=True
-        )
+        logger.exception("Failed to create Garmin client from tokens", extra={"error": str(e)})
         raise GarminAuthError(f"Failed to restore session: {e}") from e
 
 
@@ -190,7 +188,8 @@ def _get_display_name(garmin: Any, fallback: str) -> str:
     try:
         name = getattr(garmin, "display_name", None) or garmin.get_full_name()
         return name or fallback
-    except Exception:  # noqa: BLE001
+    except Exception:  # cosmetic; any failure falls back
+        logger.debug("Garmin display name unavailable", exc_info=True)
         return fallback
 
 

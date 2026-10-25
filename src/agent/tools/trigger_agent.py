@@ -91,8 +91,8 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
         return f"Agent '{agent_name}' is blocked: {e}"
     except ApprovalRequestedException:
         return f"Agent '{agent_name}' is waiting for user approval"
-    except Exception as e:  # noqa: BLE001
-        logger.error(  # noqa: TRY400
+    except Exception as e:  # a tool must never raise into the graph
+        logger.exception(
             "Failed to trigger agent",
             extra={"target_agent": agent_name, "error": str(e)},
         )

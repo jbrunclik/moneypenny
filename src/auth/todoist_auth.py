@@ -92,9 +92,7 @@ def exchange_code_for_token(code: str) -> str:
         return str(access_token)
 
     except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error(  # noqa: G201
-            "Todoist token exchange request failed", extra={"error": str(e)}, exc_info=True
-        )
+        logger.exception("Todoist token exchange request failed", extra={"error": str(e)})
         raise TodoistAuthError("Failed to connect to Todoist") from e
 
 
@@ -138,5 +136,5 @@ def get_user_info(access_token: str) -> dict[str, Any]:
         return user_data
 
     except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Todoist user info request failed", extra={"error": str(e)})
         raise TodoistAuthError("Failed to connect to Todoist") from e

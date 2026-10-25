@@ -243,8 +243,8 @@ def validate_tool_names() -> None:
     unknown = set(TOOL_METADATA) - get_all_tool_names()
     if unknown:
         logger.warning(
-            f"TOOL_METADATA contains unknown tool names: {sorted(unknown)}. "  # noqa: G004
-            f"Known tools: {sorted(get_all_tool_names())}"
+            "TOOL_METADATA contains unknown tool names",
+            extra={"unknown": sorted(unknown), "known": sorted(get_all_tool_names())},
         )
 
     # Whether an entry is MISSING is config-dependent: only warn about tools
@@ -254,8 +254,9 @@ def validate_tool_names() -> None:
     unlabelled = bindable - set(TOOL_METADATA)
     if unlabelled:
         logger.warning(
-            "Tools missing TOOL_METADATA (they will render as raw function names "  # noqa: G004
-            f"in the thinking trace): {sorted(unlabelled)}"
+            "Tools missing TOOL_METADATA (they will render as raw function names "
+            "in the thinking trace)",
+            extra={"tools": sorted(unlabelled)},
         )
 
 
@@ -480,7 +481,8 @@ def _fetch_memory_content(memory_id: str) -> str | None:
             return None
         memory = db.get_memory(memory_id, user_id)
         return memory.content if memory else None
-    except Exception:  # display nicety; never break the pill  # noqa: BLE001
+    except Exception:  # display nicety; never break the pill
+        logger.debug("Memory lookup for tool display failed", exc_info=True)
         return None
 
 
@@ -543,7 +545,8 @@ def _fetch_conversation_title(conversation_id: str) -> str | None:
             return None
         conversation = db.get_conversation(conversation_id, user_id)
         return conversation.title if conversation else None
-    except Exception:  # display nicety; never break the pill  # noqa: BLE001
+    except Exception:  # display nicety; never break the pill
+        logger.debug("Conversation lookup for tool display failed", exc_info=True)
         return None
 
 

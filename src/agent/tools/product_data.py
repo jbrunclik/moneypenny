@@ -13,6 +13,9 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from src.agent.tools.html_soup import parsed_html
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 _MAX_PRODUCTS = 3
 _SCHEMA_PREFIX = "https://schema.org/"
@@ -86,7 +89,8 @@ def product_data_line(html: str) -> str:
             products = _json_ld_products(soup)[:_MAX_PRODUCTS] or [
                 p for p in [_meta_price(soup)] if p
             ]
-    except Exception:  # noqa: BLE001
+    except Exception:  # untrusted markup; product data is an optional extra
+        logger.debug("Product data extraction failed", exc_info=True)
         return ""
     if not products:
         return ""

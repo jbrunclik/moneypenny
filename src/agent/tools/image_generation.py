@@ -165,7 +165,7 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
             elif "data" in file_meta:
                 try:
                     binary_data = base64.b64decode(file_meta["data"])
-                except Exception:  # noqa: BLE001
+                except ValueError, TypeError:
                     return tool_error("Failed to read image data from conversation history.")
             else:
                 return tool_error("Image data not found in storage.")
@@ -363,8 +363,8 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
             )
         return tool_error(f"Image generation failed: {error_msg}")
     except genai_errors.ServerError as e:
-        logger.error("Image generation server error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Image generation server error", extra={"error": str(e)})
         return tool_error("Image generation service temporarily unavailable. Please try again.")
     except genai_errors.APIError as e:
-        logger.error("Image generation API error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        logger.exception("Image generation API error", extra={"error": str(e)})
         return tool_error(f"Image generation failed: {e}")

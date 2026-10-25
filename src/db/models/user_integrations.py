@@ -61,9 +61,8 @@ class UserIntegrationsMixin:
             updated = cursor.rowcount > 0
 
         if updated:
-            action = "connected" if access_token else "disconnected"
             logger.info(
-                f"User Todoist {action}",  # noqa: G004
+                "User Todoist connected" if access_token else "User Todoist disconnected",
                 extra={"user_id": user_id},
             )
         else:
@@ -129,9 +128,10 @@ class UserIntegrationsMixin:
             updated = cursor.rowcount > 0
 
         if updated:
-            action = "connected" if access_token else "disconnected"
             logger.info(
-                f"User Google Calendar {action}",  # noqa: G004
+                "User Google Calendar connected"
+                if access_token
+                else "User Google Calendar disconnected",
                 extra={"user_id": user_id},
             )
         else:
@@ -275,9 +275,8 @@ class UserIntegrationsMixin:
             updated = cursor.rowcount > 0
 
         if updated:
-            action = "connected" if token else "disconnected"
             logger.info(
-                f"User Garmin {action}",  # noqa: G004
+                "User Garmin connected" if token else "User Garmin disconnected",
                 extra={"user_id": user_id},
             )
         else:

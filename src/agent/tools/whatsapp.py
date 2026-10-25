@@ -143,7 +143,7 @@ def _whatsapp_api_request(
         return result
 
     except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error(  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - network or JSON error, re-raised as WhatsAppError
             "WhatsApp API request failed",
             extra={"error": str(e), "endpoint": endpoint},
         )
@@ -457,17 +457,15 @@ def whatsapp(
         )
 
     except WhatsAppError as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "WhatsApp tool error",
             extra={"error": str(e)},
-            exc_info=True,
         )
         return tool_error(str(e))
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Unexpected WhatsApp tool error",
             extra={"error": str(e)},
-            exc_info=True,
         )
         return tool_error(f"Unexpected error: {e}")
 

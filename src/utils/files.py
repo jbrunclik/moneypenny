@@ -113,10 +113,11 @@ def verify_file_type_by_magic(
     # Detect actual MIME type from file content
     try:
         detected_mime_type = magic.from_buffer(file_data, mime=True)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # fail open: detection must not block an upload
         logger.warning(
             "Failed to detect file type by magic bytes",
             extra={"file_name": file_name, "error": str(e)},
+            exc_info=True,
         )
         # Fail open for detection errors - the file already passed MIME whitelist check
         return True, ""

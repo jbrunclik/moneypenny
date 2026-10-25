@@ -64,11 +64,11 @@ def get_client(user_id: str) -> Any | None:
 
     # Build outside the lock: login() is a network call and must not block
     # another user's cache lookup.
-    try:
-        from src.auth.garmin_auth import create_client_from_tokens  # noqa: PLC0415
+    from src.auth.garmin_auth import GarminAuthError, create_client_from_tokens  # noqa: PLC0415
 
+    try:
         client = create_client_from_tokens(user.garmin_token)
-    except Exception as e:  # noqa: BLE001
+    except GarminAuthError as e:
         logger.warning("Failed to create Garmin client", extra={"error": str(e)})
         return None
 
@@ -95,13 +95,12 @@ def persist_tokens_if_changed(user_id: str, client: Any) -> None:
     writes. garth refreshes tokens rarely, so comparing against the last value
     we stored turns that into ~zero writes.
     """
+    from src.auth.garmin_auth import GarminAuthError, refresh_and_serialize  # noqa: PLC0415
     from src.db.models import db  # noqa: PLC0415
 
     try:
-        from src.auth.garmin_auth import refresh_and_serialize  # noqa: PLC0415
-
         current = refresh_and_serialize(client)
-    except Exception as e:  # noqa: BLE001
+    except GarminAuthError as e:
         logger.debug("Failed to serialize Garmin tokens", extra={"error": str(e)})
         return
 
@@ -112,8 +111,10 @@ def persist_tokens_if_changed(user_id: str, client: Any) -> None:
 
     try:
         db.update_user_garmin_token(user_id, current)
-    except Exception as e:  # noqa: BLE001
-        logger.debug("Failed to persist refreshed Garmin tokens", extra={"error": str(e)})
+    except Exception as e:  # best-effort; the next refresh retries
+        logger.debug(
+            "Failed to persist refreshed Garmin tokens", extra={"error": str(e)}, exc_info=True
+        )
         return
 
     with _lock:

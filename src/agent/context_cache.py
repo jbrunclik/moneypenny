@@ -64,10 +64,10 @@ def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
     parts = [prompt]
     for t in sorted(tools, key=lambda t: t.name):
         schema = ""
-        try:  # noqa: SIM105
+        try:
             schema = json.dumps(t.args_schema.model_json_schema(), sort_keys=True, default=str)
-        except Exception:  # noqa: BLE001, S110
-            pass
+        except Exception:  # schemas vary by tool; hash the name and description
+            logger.debug("Tool schema not hashable", extra={"tool": t.name}, exc_info=True)
         parts.append(f"{t.name}:{t.description or ''}:{schema}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 

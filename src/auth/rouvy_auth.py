@@ -103,6 +103,7 @@ def login(email: str, password: str) -> str:
 
 def _login_sync(email: str, password: str) -> str:
     """Blocking headless login; runs on the dedicated rouvy-login thread."""
+    from playwright.sync_api import Error as PlaywrightError  # noqa: PLC0415 - optional dependency
     from playwright.sync_api import sync_playwright  # noqa: PLC0415
 
     timeout = Config.ROUVY_LOGIN_TIMEOUT_MS
@@ -120,7 +121,7 @@ def _login_sync(email: str, password: str) -> str:
             # overlay the form (privacy-preserving default).
             try:
                 page.get_by_role("button", name="Use necessary cookies only").click(timeout=6000)
-            except Exception:  # noqa: BLE001
+            except PlaywrightError:
                 logger.debug("Rouvy cookie banner not present or already dismissed")
             # Email-first flow: fill email, Enter -> password page, fill, Enter.
             page.fill(_EMAIL_SELECTOR, email)

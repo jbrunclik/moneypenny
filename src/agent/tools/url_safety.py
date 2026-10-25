@@ -103,7 +103,7 @@ def validate_public_url(url: str) -> str | None:
     """
     try:
         parsed = urlparse(url)
-    except Exception:  # noqa: BLE001
+    except ValueError:
         return f"Invalid URL: {url}"
 
     if parsed.scheme not in ("http", "https"):

@@ -96,7 +96,7 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
             if not (context.producer_failed and not context.final_results["ready"]):
                 yield from _finalize_stream(context)
 
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001 - reaches the client as an error event; logged there
             yield from _handle_generator_error(context, e)
 
         finally:
@@ -242,8 +242,9 @@ class _StreamContext:
         """Mark the client as disconnected and log the event."""
         if self.client_connected:
             logger.warning(
-                f"Client disconnected during {context}",  # noqa: G004
+                "Client disconnected",
                 extra={
+                    "context": context,
                     "user_id": self.user_id,
                     "conversation_id": self.conv_id,
                     "error": str(error),
@@ -269,7 +270,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
             message_id=context.expected_assistant_msg_id,
         )
         context.placeholder_saved = True
-    except Exception:  # noqa: BLE001
+    except Exception:  # the final save falls back to INSERT-at-end
         logger.warning(
             "Failed to save placeholder message, falling back to INSERT-at-end",
             extra={
@@ -277,6 +278,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
                 "conversation_id": context.conv_id,
                 "message_id": context.expected_assistant_msg_id,
             },
+            exc_info=True,
         )
 
     try:
@@ -466,7 +468,7 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
     ):
         try:
             db.delete_message_by_id(context.expected_assistant_msg_id)
-        except Exception:  # noqa: BLE001
+        except Exception:  # cleanup must not mask the original error
             logger.warning(
                 "Failed to clean up placeholder message after error",
                 extra={
@@ -474,6 +476,7 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
                     "conversation_id": context.conv_id,
                     "message_id": context.expected_assistant_msg_id,
                 },
+                exc_info=True,
             )
 
     error_data = {

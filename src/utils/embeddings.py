@@ -54,8 +54,10 @@ def embed_text(text: str) -> list[float] | None:
         )
         values: list[float] = list(response.embeddings[0].values)
         return values
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Embedding failed", extra={"error": str(e), "text_length": len(text)})
+    except Exception as e:  # optional; callers degrade to keyword search
+        logger.warning(
+            "Embedding failed", extra={"error": str(e), "text_length": len(text)}, exc_info=True
+        )
         return None
 
 

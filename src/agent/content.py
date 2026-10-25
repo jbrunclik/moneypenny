@@ -12,6 +12,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
 from langdetect.detector_factory import PROFILES_DIRECTORY, DetectorFactory
+from langdetect.lang_detect_exception import LangDetectException
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -223,8 +224,8 @@ def detect_response_language(text: str) -> str | None:
         # langdetect returns codes like "en", "cs", "zh-cn" etc.
         # Normalize to 2-char ISO 639-1
         return str(lang).lower().split("-")[0][:2]
-    except Exception:  # noqa: BLE001
-        # langdetect can raise LangDetectException for short/ambiguous text
+    except LangDetectException:
+        # Raised for short/ambiguous text (unknown languages are rejected at startup)
         return None
 
 

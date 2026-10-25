@@ -597,7 +597,5 @@ def garmin_workout(  # noqa: C901
         )
 
     except Exception as e:
-        logger.error(  # noqa: G201
-            "garmin_workout error", extra={"action": action, "error": str(e)}, exc_info=True
-        )
+        logger.exception("garmin_workout error", extra={"action": action, "error": str(e)})
         return tool_error(str(e), action=action)

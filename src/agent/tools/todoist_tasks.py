@@ -158,8 +158,12 @@ def todoist_list_tasks(  # noqa: C901, PLR0912
                 section_map = {
                     s["id"]: s["name"] for s in sections if s.get("id") and s.get("name")
                 }
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Failed to fetch sections for task enrichment", extra={"error": str(e)})
+        except Exception as e:  # the client raises bare Exception; names are optional
+            logger.warning(
+                "Failed to fetch sections for task enrichment",
+                extra={"error": str(e)},
+                exc_info=True,
+            )
 
     # Fetch all projects for names
     if project_ids:
@@ -169,8 +173,12 @@ def todoist_list_tasks(  # noqa: C901, PLR0912
                 project_map = {
                     p["id"]: p["name"] for p in projects if p.get("id") and p.get("name")
                 }
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Failed to fetch projects for task enrichment", extra={"error": str(e)})
+        except Exception as e:  # the client raises bare Exception; names are optional
+            logger.warning(
+                "Failed to fetch projects for task enrichment",
+                extra={"error": str(e)},
+                exc_info=True,
+            )
 
     formatted_tasks = [format_task(task, section_map, project_map) for task in tasks]
 

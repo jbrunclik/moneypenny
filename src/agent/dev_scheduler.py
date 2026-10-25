@@ -35,8 +35,8 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
     while not stop_event.is_set():
         try:
             run_scheduled_agents()
-        except Exception as e:
-            logger.error(f"Dev scheduler: error in evaluation loop: {e}", exc_info=True)  # noqa: G004, G201
+        except Exception:  # the loop must survive a failing run
+            logger.exception("Dev scheduler: error in evaluation loop")
 
         # Dev stand-in for the moneypenny-file-cleanup systemd timer
         # (kv last-run stamp keeps this to at most one sweep per day)
@@ -44,8 +44,8 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
             from src.utils.file_retention import run_file_cleanup_if_due  # noqa: PLC0415
 
             run_file_cleanup_if_due()
-        except Exception as e:
-            logger.error(f"Dev scheduler: file cleanup failed: {e}", exc_info=True)  # noqa: G004, G201
+        except Exception:  # the loop must survive a failing sweep
+            logger.exception("Dev scheduler: file cleanup failed")
 
         # Wait for the interval or until stopped
         stop_event.wait(SCHEDULER_INTERVAL_SECONDS)

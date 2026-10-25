@@ -200,7 +200,7 @@ Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
                 try:
                     croniter(cron)
                     return {"cron": cron, "explanation": explanation, "error": None}
-                except Exception:  # noqa: BLE001
+                except ValueError, AttributeError:  # bad cron, or not a string at all
                     return {
                         "cron": None,
                         "explanation": None,

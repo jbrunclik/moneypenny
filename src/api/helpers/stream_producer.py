@@ -275,17 +275,16 @@ def stream_events(  # noqa: C901, PLR0912, PLR0915
         # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
         event_queue.put(None)
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Stream thread error",
             extra={"user_id": user_id, "conversation_id": conv_id, "error": str(e)},
-            exc_info=True,
         )
         event_queue.put(e)  # Signal error
     except BaseException as e:
         # SystemExit & co. (e.g. interpreter/worker shutdown) must still
         # signal the consumer - otherwise it idles until the backstop
         # deadline and any partial content is lost with it (X1)
-        logger.error(  # noqa: TRY400
+        logger.error(  # noqa: TRY400 - re-raised below; SystemExit and co. carry no useful stack
             "Stream thread killed",
             extra={"user_id": user_id, "conversation_id": conv_id, "error": repr(e)},
         )
@@ -393,14 +392,13 @@ def cleanup_and_save(
                     },
                 )
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Error in cleanup thread",
             extra={
                 "user_id": user_id,
                 "conversation_id": conv_id,
                 "error": str(e),
             },
-            exc_info=True,
         )
     finally:
         # Close thread-local DB connections so the pool doesn't leak them

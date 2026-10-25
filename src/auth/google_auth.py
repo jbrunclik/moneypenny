@@ -77,9 +77,7 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
             "email_verified": token_info.get("email_verified") == "true",
         }
     except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error(  # noqa: G201
-            "Google token verification request failed", extra={"error": str(e)}, exc_info=True
-        )
+        logger.exception("Google token verification request failed", extra={"error": str(e)})
         raise GoogleAuthError("Failed to verify token with Google") from e
 
 

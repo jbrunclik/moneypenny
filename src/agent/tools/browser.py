@@ -84,7 +84,7 @@ def _probe_browser_available() -> bool:
             br.close()
             _browser_available = True
             logger.info("Playwright + Chromium available — browser tool enabled")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # any launch failure disables the tool
             _browser_available = False
             logger.warning(
                 "Chromium not installed or not launchable",
@@ -97,12 +97,13 @@ def _probe_browser_available() -> bool:
                         "BROWSER_NO_SANDBOX=true"
                     ),
                 },
+                exc_info=True,
             )
         finally:
             pw.stop()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # any startup failure disables the tool
         _browser_available = False
-        logger.warning("Playwright startup failed", extra={"error": str(e)})
+        logger.warning("Playwright startup failed", extra={"error": str(e)}, exc_info=True)
 
     return _browser_available
 
@@ -298,7 +299,7 @@ def _run_steps(
         if (screenshot or share) and not worker.unhealthy:
             return _with_screenshot(worker, conversation_id, summary, share)
         return json.dumps(summary)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 - a tool must never raise into the graph
         return _failure_result("batch", None, e)
 
 
@@ -322,7 +323,7 @@ def _run_single(
         if screenshot:
             return _with_screenshot(worker, conversation_id, result, share)
         return json.dumps(result)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 - a tool must never raise into the graph
         return _failure_result(step.action, step.selector, e)
 
 
@@ -336,6 +337,7 @@ def _failure_result(action: str, selector: str | None, e: Exception) -> str:
     logger.warning(
         "Browser action failed",
         extra={"action": action, "error_type": type(e).__name__, "error": error_msg},
+        exc_info=e,
     )
     if "selector" in error_msg.lower() or "locator" in error_msg.lower():
         return tool_error(

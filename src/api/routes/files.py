@@ -250,7 +250,7 @@ def get_message_thumbnail(  # noqa: C901, PLR0912, PLR0915
                 headers={"Cache-Control": "private, max-age=31536000"},
             )
         except binascii.Error as e:
-            logger.error("Failed to decode legacy image data", extra={"error": str(e)})  # noqa: TRY400
+            logger.error("Failed to decode legacy image data", extra={"error": str(e)})  # noqa: TRY400 - corrupt stored data
 
     logger.warning(
         "No image data found for thumbnail",
@@ -386,7 +386,7 @@ def get_message_file(
                 headers={"Cache-Control": "private, max-age=31536000"},
             )
         except binascii.Error as e:
-            logger.error("Failed to decode legacy file data", extra={"error": str(e)})  # noqa: TRY400
+            logger.error("Failed to decode legacy file data", extra={"error": str(e)})  # noqa: TRY400 - corrupt stored data
 
     logger.warning(
         "No file data found",
