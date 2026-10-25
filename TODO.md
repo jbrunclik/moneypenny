@@ -79,6 +79,14 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 ## Code quality & tooling
 
 - [ ] **Open E2E flakes** (Oct 9-24 2026) - eight one-off failures, each passed on retry; details and what to capture next time are in [docs/testing/e2e-reliability.md](docs/testing/e2e-reliability.md#open-flakes). Two may be fixed by blocking service workers (Oct 23) - drop them if they stay quiet.
+- [ ] **Gap analysis, Oct 25 2026** (from the six audits; fixed the same day: `escapeHtml` left quotes unescaped in attributes, unescaped attachment attributes, a dead inline `onclick`, exception text returned by AI assist, untested AI-assist routes, 18 dead backend functions, 19 dead and drifted frontend settings, two dialogs without a focus trap). Open, most valuable first:
+  - Untested code: `src/agent/scheduler.py`, the approve/reject POSTs in `agent_approvals.py`, `todoist_tasks.py`, `specifics_net.py`, `prompt_dashboard.py`, `program_context.py`; 70 frontend modules without unit tests (`core/init.ts`, `messages/pagination.ts`, `core/events.ts` - E2E only) (T8).
+  - Errors (B5): the calendar list returns HTTP 200 with an `error` field; agent tools report failures two ways (39 JSON, 26 "Error:" strings) - one `tool_error` helper.
+  - Input (B4): four routes still on `@api.input` (agents create/update, KV set, memory protection) and 11 reading raw `request.args`.
+  - State (B7): eight copies of the lazy-singleton lock pattern -> one helper; undeclared per-worker globals (`tool_results`, `garmin_session`, `turn_usage`, compaction).
+  - Frontend: ~70 runtime import cycles (F1); 32 hand-written API types duplicating generated ones (F6); `popups.css` is 2,391 lines (F7); 13 `role="button"` divs and 122 buttons without `type` (F9); 157 `innerHTML` writes without an escaping check (F3).
+  - Ops: rate limits use `memory://`, so each worker counts separately and a reload resets them; no error reporting from the browser (failures live only in the console); backups share the server's disk (see the off-site item).
+  - Docs: `features/deep-research.md` (513 lines) and `features/ui-features.md` (509) need splitting; `tests/e2e-server.py` is 1,800 lines.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Delivery: audit as a Dependabot merge condition (P3), Docker + Chromium CI job (P7).
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); madge cycle allow-list (F1); knip/vulture/deptry (C2, F10).
