@@ -1024,3 +1024,45 @@ class TestPlannerConversationIsUnique:
                 (test_user.id,),
             ).fetchone()[0]
         assert count == 1
+
+
+def test_migration_keeps_the_oldest_planner_when_duplicates_exist(tmp_path: Any) -> None:
+    """Migration 0068 builds its unique index on a database that already has duplicates."""
+    import sqlite3
+
+    from yoyo import get_backend, read_migrations
+
+    from src.db.models.base import MIGRATIONS_DIR
+
+    db_path = tmp_path / "dupes.db"
+    backend = get_backend(f"sqlite:///{db_path}")
+    migrations = read_migrations(str(MIGRATIONS_DIR))
+    with backend.lock():
+        backend.apply_migrations(backend.to_apply(migrations.filter(lambda m: m.id < "0068")))
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO users (id, email, name, created_at) VALUES ('u', 'u@x', 'U', '2026-01-01')"
+    )
+    for conv_id, created in (("newer", "2026-10-02"), ("older", "2026-10-01")):
+        conn.execute(
+            """INSERT INTO conversations
+               (id, user_id, title, model, is_planning, created_at, updated_at)
+               VALUES (?, 'u', 'Planner', 'm', 1, ?, ?)""",
+            (conv_id, created, created),
+        )
+    conn.execute(
+        "INSERT INTO messages (id, conversation_id, role, content, created_at) "
+        "VALUES ('m1', 'newer', 'user', 'kept', '2026-10-02')"
+    )
+    conn.commit()
+    conn.close()
+
+    with backend.lock():
+        backend.apply_migrations(backend.to_apply(migrations))
+
+    conn = sqlite3.connect(db_path)
+    planners = conn.execute("SELECT id FROM conversations WHERE is_planning = 1").fetchall()
+    kept_message = conn.execute("SELECT conversation_id FROM messages WHERE id = 'm1'").fetchone()
+    conn.close()
+    assert planners == [("older",)]
+    assert kept_message == ("newer",)

@@ -108,7 +108,7 @@ class PlannerMixin:
                 conn,
                 """INSERT INTO conversations (id, user_id, title, model, is_planning, created_at, updated_at, last_reset)
                    VALUES (?, ?, ?, ?, 1, ?, ?, ?)
-                   ON CONFLICT DO NOTHING""",
+                   ON CONFLICT (user_id) WHERE is_planning = 1 DO NOTHING""",
                 (
                     conv_id,
                     user_id,
@@ -126,6 +126,9 @@ class PlannerMixin:
                     "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1",
                     (user_id,),
                 ).fetchone()
+                if row is None:
+                    # Lost the race to a creator whose planner was deleted since
+                    raise RuntimeError(f"Planner for user {user_id} vanished during creation")
                 return self._row_to_conversation(row)
 
             # Initialize planner_last_reset_at so auto-reset can work
