@@ -74,6 +74,30 @@ Its call is priced at its own model (`usage_info["freshness_usage"]`,
 `calculate_freshness_cost()`). Log line: "Freshness gate" with `lookup`,
 `queries`, `reason`.
 
+## Thinking level per turn
+
+The gate's call also answers `think_hard`: does a good answer need careful
+reasoning or a plan (product or place recommendations, trip or training plans,
+multi-source research, several-part tasks, maths/data/code/files, real
+trade-offs, a disputed fact)? Easy turns - chit-chat, quick facts, short
+follow-ups, rewriting or translating, a single simple action on the user's
+data - run on a second compiled graph at `FRESHNESS_GATE_LIGHT_THINKING_LEVEL`
+(`ChatAgent.light_graph`, `_turn_graph()`); hard turns keep the model's own
+thinking. `think_hard` defaults to true, so a gate that errors, times out or
+answers unparsed never makes a turn think less, and places the gate does not
+run keep full thinking. The log line carries `think_hard`.
+
+Why (Oct 25 2026): plain Flash turns went from ~7 s to ~12 s overnight on Oct
+5-6 with no deploy - the time per output token (thinking included) doubled,
+apparently on the provider's side; the gate itself takes ~0.9 s (median, 0
+timeouts in a week). A probe on 3.8 Flash: default thinking (in effect
+"high") 9.6 s to the first word and 12.9 s in total, `low` 1.9 s and 5.6 s,
+"medium" no faster than default, "minimal" unsupported. On the eval suite, low
+thinking everywhere cut plain-turn time by a third and agent cost by a
+quarter, but skipped the product-research skill (1 of 4 vs 3 of 4) and
+delegation on hard cases - hence the per-turn choice instead of a global
+setting.
+
 ## Dated search results
 
 Providers' publish dates ride on each `web_search` result as `published`
@@ -111,6 +135,7 @@ older than 12 months stay out of scope (the Oct 3 noise lesson).
 | `FRESHNESS_GATE_MODEL` | `gemini-3.5-flash-lite` | The gate's model (priced only) |
 | `FRESHNESS_GATE_TIMEOUT_SECONDS` | `3` | Wall-clock cap; past it the turn goes on without the gate |
 | `FRESHNESS_GATE_MAX_QUERIES` | `3` | Queries the prefetched research runs |
+| `FRESHNESS_GATE_LIGHT_THINKING_LEVEL` | `low` | Thinking level for turns the gate judges easy; empty = every turn at the model's own |
 | `WEB_SEARCH_RECENT_DAYS` | `365` | No dated result newer than this: the `_recency` note |
 
 ## Testing
@@ -118,7 +143,7 @@ older than 12 months stay out of scope (the Oct 3 noise lesson).
 - Unit: [test_freshness.py](../../tests/unit/test_freshness.py) (gate decision,
   fail-open, deadlines, prefetch, failed-lookup note),
   [test_freshness_agent.py](../../tests/unit/test_freshness_agent.py) (stream
-  and batch wiring, events, cost),
+  and batch wiring, events, cost, the light graph for easy turns),
   [test_web_search_tool.py](../../tests/unit/test_web_search_tool.py)
   (`_recency`, directive), [test_search_provider.py](../../tests/unit/test_search_provider.py)
   (`published`), [test_grounding_check.py](../../tests/unit/test_grounding_check.py)

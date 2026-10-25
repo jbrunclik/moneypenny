@@ -31,21 +31,25 @@ _PREFETCHED = [
 def _agent(gate: bool = True) -> ChatAgent:
     agent = ChatAgent.__new__(ChatAgent)
     agent.graph = MagicMock()
+    agent.light_graph = MagicMock()
     agent.freshness_gate = gate
     agent.model_name = "gemini-3.8-flash"
     agent._build_messages = MagicMock(return_value=list(_BUILT))  # type: ignore[method-assign]
     return agent
 
 
-def _decision(lookup: bool) -> freshness.FreshnessDecision:
+def _decision(lookup: bool, think_hard: bool = True) -> freshness.FreshnessDecision:
     return freshness.FreshnessDecision(
-        lookup=lookup, queries=["Apple září 2026"] if lookup else [], usage=_USAGE
+        lookup=lookup,
+        queries=["Apple září 2026"] if lookup else [],
+        usage=_USAGE,
+        think_hard=think_hard,
     )
 
 
-def _patched(lookup: bool) -> Any:
+def _patched(lookup: bool, think_hard: bool = True) -> Any:
     return (
-        patch.object(freshness, "decide_freshness", return_value=_decision(lookup)),
+        patch.object(freshness, "decide_freshness", return_value=_decision(lookup, think_hard)),
         patch.object(freshness, "prefetch_messages", return_value=list(_PREFETCHED)),
         patch("src.agent.agent.grounding_check.should_check", return_value=False),
         patch("src.agent.agent.grounding_check.apply_grounding"),
@@ -108,6 +112,51 @@ class TestBatch:
         assert agent.graph.invoke.call_args.args[0]["messages"][-2:] == _PREFETCHED
         assert text == "Answer"
         assert usage["freshness_usage"] == _USAGE
+
+
+class TestThinkingLevel:
+    """An easy turn runs the light-thinking graph; a hard one, or a failed
+    gate (think_hard defaults to True), keeps the model's full thinking."""
+
+    def _stream(self, agent: ChatAgent, think_hard: bool) -> None:
+        for graph in (agent.graph, agent.light_graph):
+            if graph is None:
+                continue
+            graph.stream.return_value = iter(
+                [("messages", (AIMessageChunk(content="Ahoj"), {"langgraph_node": "chat"}))]
+            )
+        decide, prefetch, should, apply = _patched(lookup=False, think_hard=think_hard)
+        with decide, prefetch, should, apply:
+            list(agent.stream_chat_events(text="Díky"))
+
+    def test_an_easy_stream_turn_runs_light(self) -> None:
+        agent = _agent()
+        self._stream(agent, think_hard=False)
+        agent.light_graph.stream.assert_called_once()  # type: ignore[union-attr]
+        agent.graph.stream.assert_not_called()
+
+    def test_a_hard_stream_turn_keeps_full_thinking(self) -> None:
+        agent = _agent()
+        self._stream(agent, think_hard=True)
+        agent.graph.stream.assert_called_once()
+        agent.light_graph.stream.assert_not_called()  # type: ignore[union-attr]
+
+    def test_no_light_graph_keeps_full_thinking(self) -> None:
+        agent = _agent()
+        agent.light_graph = None
+        self._stream(agent, think_hard=False)
+        agent.graph.stream.assert_called_once()
+
+    def test_an_easy_batch_turn_runs_light(self) -> None:
+        agent = _agent()
+        agent.light_graph.invoke.return_value = {  # type: ignore[union-attr]
+            "messages": [*_BUILT, AIMessage(content="Ahoj")]
+        }
+        decide, prefetch, should, apply = _patched(lookup=False, think_hard=False)
+        with decide, prefetch, should, apply:
+            text, _tools, _usage, _messages = agent.chat_batch(text="Díky")
+        assert text == "Ahoj"
+        agent.graph.invoke.assert_not_called()
 
 
 def test_the_gate_call_is_part_of_the_message_cost() -> None:

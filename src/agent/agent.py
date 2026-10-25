@@ -123,15 +123,22 @@ class ChatAgent:
         # Memoized by build signature - the compiled graph is stateless and a
         # pure function of these args, so it is reused across requests instead
         # of recompiled on every ChatAgent construction (hot path).
-        self.graph = get_compiled_graph(
-            model_name,
-            with_tools=with_tools,
-            include_thoughts=include_thoughts,
-            tools=active_tools,
-            is_autonomous=is_autonomous,
-            cached_content=self._cached_content_name,
+        graph_args: dict[str, Any] = {
+            "with_tools": with_tools,
+            "include_thoughts": include_thoughts,
+            "tools": active_tools,
+            "is_autonomous": is_autonomous,
+            "cached_content": self._cached_content_name,
             # False for per-run tool closures (deep research subagents)
-            memoize=memoize_graph,
+            "memoize": memoize_graph,
+        }
+        self.graph = get_compiled_graph(model_name, **graph_args)
+        # Turns the gate judges easy run lighter (src/agent/freshness.py)
+        light_level = Config.FRESHNESS_GATE_LIGHT_THINKING_LEVEL
+        self.light_graph = (
+            get_compiled_graph(model_name, thinking_level=light_level, **graph_args)
+            if self.freshness_gate and light_level
+            else None
         )
 
     def _freshness_decision(self, messages: list[BaseMessage]) -> FreshnessDecision | None:
@@ -139,6 +146,14 @@ class ChatAgent:
         if not getattr(self, "freshness_gate", False):
             return None
         return freshness.decide_freshness(messages)
+
+    def _turn_graph(self, decision: FreshnessDecision | None) -> Any:
+        """The light-thinking graph when the gate judged the turn easy, else
+        the full one."""
+        light = getattr(self, "light_graph", None)
+        if decision and not decision.think_hard and light is not None:
+            return light
+        return self.graph
 
     @staticmethod
     def _prefetch(decision: FreshnessDecision, messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -335,7 +350,7 @@ class ChatAgent:
         decision = self._freshness_decision(messages)
         if decision and decision.lookup:
             messages = [*messages, *self._prefetch(decision, messages)]
-        result = self.graph.invoke(cast(Any, {"messages": messages}), config=config)
+        result = self._turn_graph(decision).invoke(cast(Any, {"messages": messages}), config=config)
         turn_duration_ms = round((time.monotonic() - turn_started) * 1000)
         result_messages: list[BaseMessage] = result["messages"]
 
@@ -500,7 +515,7 @@ class ChatAgent:
         config = get_graph_config()
         turn_started = time.monotonic()
         stop_reason: str | None = None
-        stream = self.graph.stream(
+        stream = self._turn_graph(decision).stream(
             cast(Any, {"messages": messages}),
             config=config,
             # "custom" carries node-written statuses (transient-error

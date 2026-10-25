@@ -93,6 +93,7 @@ def create_chat_model(
     tools: list[Any] | None = None,
     temperature: float | None = None,
     cached_content: str | None = None,
+    thinking_level: str | None = None,
 ) -> ChatGoogleGenerativeAI:
     """Create a Gemini chat model, optionally with tools bound.
 
@@ -104,6 +105,8 @@ def create_chat_model(
         temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
         cached_content: Gemini cached content name. When provided, tools are NOT bound
             (they're already in the cache) and system_instruction is omitted.
+        thinking_level: Overrides the model's configured thinking_level (the
+            freshness gate runs easy turns lighter).
     """
     # No convert_system_message_to_human: deprecated, and on langchain-google-genai
     # 4.x it folded the system prompt into the first HumanMessage instead of using
@@ -123,7 +126,7 @@ def create_chat_model(
 
     # Optional per-model reasoning depth (Gemini 3+ thinking_level). Unset =
     # API default. Configured via the "thinking_level" key on MODELS entries.
-    thinking_level = Config.MODELS.get(model_name, {}).get("thinking_level")
+    thinking_level = thinking_level or Config.MODELS.get(model_name, {}).get("thinking_level")
     if thinking_level:
         kwargs["thinking_level"] = thinking_level
 
@@ -882,6 +885,7 @@ def create_chat_graph(
     tools: list[Any] | None = None,
     is_autonomous: bool = False,
     cached_content: str | None = None,
+    thinking_level: str | None = None,
 ) -> StateGraph[AgentState]:
     """Create a chat graph with optional tool support.
 
@@ -897,6 +901,7 @@ def create_chat_graph(
         tools: Custom list of tools to use (defaults to get_available_tools())
         is_autonomous: If True, check permissions and require approval for dangerous operations
         cached_content: Gemini cached content name (tools are in the cache, not bound)
+        thinking_level: Overrides the model's configured thinking_level
     """
     active_tools = tools if tools is not None else get_available_tools()
     model = create_chat_model(
@@ -905,6 +910,7 @@ def create_chat_graph(
         include_thoughts=include_thoughts,
         tools=active_tools,
         cached_content=cached_content,
+        thinking_level=thinking_level,
     )
 
     # Capture whether cache is active for nodes that inject guidance messages
@@ -978,12 +984,22 @@ def _graph_signature(
     include_thoughts: bool,
     tools: list[Any],
     is_autonomous: bool,
+    thinking_level: str | None,
     cached_content: str | None,
 ) -> tuple[Any, ...]:
     """Everything the compiled graph depends on. Tool names are sorted so the
-    key is order-independent (the tool set, not its ordering, matters)."""
+    key is order-independent (the tool set, not its ordering, matters).
+    cached_content stays last: the per-signature name cap slices it off."""
     tool_sig = tuple(sorted(t.name for t in tools)) if tools else ()
-    return (model_name, with_tools, include_thoughts, tool_sig, is_autonomous, cached_content)
+    return (
+        model_name,
+        with_tools,
+        include_thoughts,
+        tool_sig,
+        is_autonomous,
+        thinking_level,
+        cached_content,
+    )
 
 
 def clear_graph_cache() -> None:
@@ -1000,6 +1016,7 @@ def get_compiled_graph(
     is_autonomous: bool = False,
     cached_content: str | None = None,
     memoize: bool = True,
+    thinking_level: str | None = None,
 ) -> Any:
     """Return a compiled chat graph for this signature, building it once.
 
@@ -1021,10 +1038,17 @@ def get_compiled_graph(
                 tools=active_tools,
                 is_autonomous=is_autonomous,
                 cached_content=cached_content,
+                thinking_level=thinking_level,
             )
         )
     key = _graph_signature(
-        model_name, with_tools, include_thoughts, active_tools, is_autonomous, cached_content
+        model_name,
+        with_tools,
+        include_thoughts,
+        active_tools,
+        is_autonomous,
+        thinking_level,
+        cached_content,
     )
 
     with _compiled_graph_lock:
@@ -1044,6 +1068,7 @@ def get_compiled_graph(
             tools=active_tools,
             is_autonomous=is_autonomous,
             cached_content=cached_content,
+            thinking_level=thinking_level,
         )
     )
 

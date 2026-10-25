@@ -18,6 +18,8 @@ Answer lookup=false for: greetings, thanks, short acknowledgements, opinions and
 
 Set disputed=true when the user's latest message disputes, corrects or doubts a fact the assistant stated ("to není pravda", "ne, bylo tam…", "jsi si jistý?").
 
+Set think_hard=true when a good answer needs careful reasoning or a plan of several steps: recommending, comparing or choosing products, places or services; planning a trip, an event, a schedule or a training block; research that needs several sources or a thorough report; a task with several parts or constraints to satisfy; maths, data, code or a file to analyse; a decision or advice with real trade-offs; and whenever the user disputes a fact. Set think_hard=false for everything else - most turns: chit-chat, thanks, a quick fact or definition, a short follow-up, translating, rewriting, shortening or summarising given text, a single simple action on the user's data (add a task, check the calendar), and casual advice.
+
 When lookup=true, write 1-3 web search queries that will find CURRENT pages: in the language the facts are best covered in, and EVERY query anchored in time - the event's name with its month and year, or the current year (e.g. "Apple September 2026 event Siri AI external models", "náměstek pro dopravu Praha 2026"). A query without a year finds old pages, so it is never allowed. For an opinion or strategy question, query the current state of the people and groups it names: who leads each now, who left or split off ("generální ředitel Intelu 2026", "trenér Sparty Praha říjen 2026").
 
 PREVIOUS ASSISTANT REPLY (may be empty):

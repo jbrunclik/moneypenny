@@ -463,6 +463,11 @@ class Config:
     # It runs before every regular turn: past this the turn goes ahead without it
     FRESHNESS_GATE_TIMEOUT_SECONDS: float = float(os.getenv("FRESHNESS_GATE_TIMEOUT_SECONDS", "3"))
     FRESHNESS_GATE_MAX_QUERIES: int = int(os.getenv("FRESHNESS_GATE_MAX_QUERIES", "3"))
+    # Thinking level for turns the gate judges easy (hard turns, and any gate
+    # failure, keep the model's own); empty runs every turn at the model's own
+    FRESHNESS_GATE_LIGHT_THINKING_LEVEL: str = os.getenv(
+        "FRESHNESS_GATE_LIGHT_THINKING_LEVEL", "low"
+    )
     GROUNDING_CHECK_MAX_SOURCE_CHARS: int = int(
         os.getenv("GROUNDING_CHECK_MAX_SOURCE_CHARS", "60000")
     )

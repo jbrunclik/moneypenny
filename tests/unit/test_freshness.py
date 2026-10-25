@@ -109,6 +109,53 @@ class TestDecide:
         model_class.assert_not_called()
 
 
+class TestThinking:
+    """Oct 2026: low thinking halved plain turns (12.9 -> 5.6 s) but skipped
+    skills and delegation on hard ones, so the gate - already one call before
+    every turn - says which turns need full thinking."""
+
+    def _decide(self, verdict: freshness.GateVerdict) -> freshness.FreshnessDecision:
+        with patch.object(
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+        ):
+            return freshness.decide_freshness(_TURN)
+
+    def test_an_easy_turn_runs_light(self) -> None:
+        assert (
+            self._decide(freshness.GateVerdict(lookup=False, think_hard=False)).think_hard is False
+        )
+
+    def test_a_hard_turn_keeps_full_thinking(self) -> None:
+        assert self._decide(freshness.GateVerdict(lookup=False, think_hard=True)).think_hard is True
+
+    def test_an_error_keeps_full_thinking(self) -> None:
+        model = _verdict_model(None, raises=TimeoutError("slow"))
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
+            assert freshness.decide_freshness(_TURN).think_hard is True
+
+    def test_an_unparsed_answer_keeps_full_thinking(self) -> None:
+        with patch.object(
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(None)
+        ):
+            assert freshness.decide_freshness(_TURN).think_hard is True
+
+    def test_a_timeout_keeps_full_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import time
+
+        monkeypatch.setattr(Config, "FRESHNESS_GATE_TIMEOUT_SECONDS", 0.1)
+
+        def slow(*_args: Any) -> Any:
+            time.sleep(1)  # a gate call slower than its cap; nothing to poll
+            return freshness.GateVerdict(lookup=False, think_hard=False), None
+
+        with patch.object(freshness, "_ask_gate", side_effect=slow):
+            assert freshness.decide_freshness(_TURN).think_hard is True
+
+    def test_a_disabled_gate_keeps_full_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "FRESHNESS_GATE_ENABLED", False)
+        assert freshness.decide_freshness(_TURN).think_hard is True
+
+
 class TestPrefetch:
     def test_runs_research_and_returns_the_call_and_its_result(self) -> None:
         decision = freshness.FreshnessDecision(lookup=True, queries=["q1 září 2026"], reason="r")

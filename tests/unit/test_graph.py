@@ -562,6 +562,19 @@ class TestThinkingLevel:
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs
 
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    def test_an_explicit_level_overrides_the_model_default(self, mock_llm_class: MagicMock) -> None:
+        """The freshness gate picks a lighter level for easy turns."""
+        from src.agent.graph import create_chat_model
+
+        with patch.dict(
+            Config.MODELS,
+            {"test-model": {"name": "Test", "thinking_level": "high"}},
+        ):
+            create_chat_model("test-model", with_tools=False, thinking_level="low")
+
+        assert mock_llm_class.call_args[1]["thinking_level"] == "low"
+
 
 class TestCachedModelCreation:
     """Tests for create_chat_model with cached_content."""
@@ -1138,6 +1151,20 @@ class TestCompiledGraphCache:
         g1 = get_compiled_graph("m", tools=[a, b], cached_content="c1")
         g2 = get_compiled_graph("m", tools=[b, a], cached_content="c1")
         assert g1 is g2  # signature is order-independent (sorted names)
+
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
+    def test_thinking_level_gets_its_own_graph(
+        self, mock_create: MagicMock, mock_compile: MagicMock
+    ) -> None:
+        from src.agent.graph import get_compiled_graph
+
+        tools = [self._tool("web_search")]
+        full = get_compiled_graph("m", tools=tools, cached_content="c1")
+        light = get_compiled_graph("m", tools=tools, cached_content="c1", thinking_level="low")
+        assert light is not full
+        assert mock_create.call_args.kwargs["thinking_level"] == "low"
+        assert get_compiled_graph("m", tools=tools, cached_content="c1") is full
 
     @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
     @patch("src.agent.graph.create_chat_graph")

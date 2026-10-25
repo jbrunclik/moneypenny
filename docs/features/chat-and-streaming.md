@@ -7,7 +7,8 @@ How a chat turn runs end to end: request setup shared by batch and streaming, th
 ### Models
 Defined in `Config.MODELS` in [config.py](../../src/config.py) (a fast default and an
 advanced reasoning model; `DEFAULT_MODEL` picks the default). Each entry may set
-`thinking_level` for Gemini native reasoning.
+`thinking_level` for Gemini native reasoning; the freshness gate lowers it per
+turn for easy regular-chat turns ([Current Facts](freshness.md#thinking-level-per-turn)).
 
 ### Response Format
 Gemini may return content in various formats:

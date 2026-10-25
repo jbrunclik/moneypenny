@@ -20,7 +20,9 @@ already has text - the args are read in post-processing, so executing them would
 an extra model round.
 
 Multi-step planning is the model's own job (Gemini native thinking; see the
-optional `thinking_level` key on `Config.MODELS` entries). The old
+optional `thinking_level` key on `Config.MODELS` entries; regular chat turns
+the freshness gate judges easy run lighter, see
+[Current Facts](../features/freshness.md#thinking-level-per-turn)). The old
 classifier + plan-node subsystem was removed in Aug 2026 after telemetry
 showed a 1.9% fire rate at 1.6-2.4s added latency — git history has the
 implementation if it's ever needed again.

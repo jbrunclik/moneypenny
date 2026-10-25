@@ -10,7 +10,12 @@ a small model decides first whether the answer needs fresh facts; when it does,
 chat model starts - the answer begins from current pages, which the grounding
 check then judges like any other turn's sources.
 
-Fails open: any error or timeout means no lookup, never a failed turn.
+The same call says whether the turn needs the chat model's full thinking:
+easy turns run at FRESHNESS_GATE_LIGHT_THINKING_LEVEL (Oct 2026: low thinking
+halved plain turns but skipped skills and delegation on hard ones).
+
+Fails open: any error or timeout means no lookup and full thinking, never a
+failed turn.
 """
 
 import contextvars
@@ -52,6 +57,9 @@ class GateVerdict(BaseModel):
     disputed: bool = Field(
         default=False, description="True when the user disputes or corrects a stated fact"
     )
+    think_hard: bool = Field(
+        default=True, description="True when a good answer needs careful reasoning or planning"
+    )
 
 
 @dataclass
@@ -64,6 +72,9 @@ class FreshnessDecision:
     usage: dict[str, Any] | None = None
     # The user disputed a fact: the lookup's result says how to decide
     disputed: bool = False
+    # Full thinking for the turn; False runs it at the light level. True unless
+    # the gate answered, so a failed gate never makes a turn think less
+    think_hard: bool = True
 
 
 def _today() -> date:
@@ -154,12 +165,24 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
     lookup = bool(verdict and verdict.lookup and queries)
     reason = verdict.reason if verdict else ""
     disputed = bool(verdict and verdict.disputed)
+    think_hard = verdict.think_hard if verdict else True
     logger.info(
         "Freshness gate",
-        extra={"lookup": lookup, "queries": queries, "reason": reason, "disputed": disputed},
+        extra={
+            "lookup": lookup,
+            "queries": queries,
+            "reason": reason,
+            "disputed": disputed,
+            "think_hard": think_hard,
+        },
     )
     return FreshnessDecision(
-        lookup=lookup, queries=queries, reason=reason, usage=usage, disputed=disputed
+        lookup=lookup,
+        queries=queries,
+        reason=reason,
+        usage=usage,
+        disputed=disputed,
+        think_hard=think_hard,
     )
 
 
