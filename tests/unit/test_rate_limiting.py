@@ -1,6 +1,7 @@
 """Unit tests for rate limiting functionality."""
 
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from flask import Flask, g
@@ -11,6 +12,7 @@ from src.api.rate_limiting import (
 )
 from src.config import Config
 from src.db.models import User
+from src.utils.rate_limit_storage import SQLiteStorage
 
 
 class TestGetRateLimitKey:
@@ -118,6 +120,49 @@ class TestRateLimitIntegration:
         for _ in range(100):
             response = client.get("/api/version")
             assert response.status_code == 200
+
+
+def _limited_app(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> Flask:
+    """A bare app whose only route carries the default limit of 2 per minute."""
+    monkeypatch.setattr(Config, "RATE_LIMITING_ENABLED", True)
+    monkeypatch.setattr(Config, "RATE_LIMIT_STORAGE_URI", "sqlite://")
+    monkeypatch.setattr(Config, "RATE_LIMIT_DB_PATH", db_path)
+    monkeypatch.setattr(Config, "RATE_LIMIT_DEFAULT", "2 per minute")
+    flask_app = Flask(__name__)
+
+    @flask_app.route("/ping")
+    def ping() -> str:
+        return "pong"
+
+    init_rate_limiting(flask_app)
+    return flask_app
+
+
+class TestSQLiteStorageEnforcement:
+    """The limiter enforces limits through the shared SQLite storage."""
+
+    def test_limit_enforced_and_counted_in_the_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        db_path = tmp_path / "ratelimits.db"
+        client = _limited_app(monkeypatch, db_path).test_client()
+
+        statuses = [client.get("/ping").status_code for _ in range(3)]
+
+        assert statuses == [200, 200, 429]
+        # A second worker (here: a fresh storage on the same file) sees the hits
+        assert SQLiteStorage("sqlite://", path=str(db_path)).reset() == 1
+
+    def test_storage_failure_fails_open(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # The directory does not exist, so every storage call errors
+        client = _limited_app(monkeypatch, tmp_path / "missing" / "rl.db").test_client()
+
+        statuses = [client.get("/ping").status_code for _ in range(3)]
+
+        # Fell back to per-worker memory counting: still limited, never a 500
+        assert statuses == [200, 200, 429]
 
 
 class TestRateLimitErrorFormat:

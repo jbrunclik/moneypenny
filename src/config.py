@@ -959,8 +959,13 @@ class Config:
     # Rate limiting settings
     # Enable/disable rate limiting (disabled in development by default)
     RATE_LIMITING_ENABLED: bool = os.getenv("RATE_LIMITING_ENABLED", "true").lower() == "true"
-    # Storage backend: "memory" (single-process), "redis" (distributed), or "memcached"
-    RATE_LIMIT_STORAGE_URI: str = os.getenv("RATE_LIMIT_STORAGE_URI", "memory://")
+    # Storage backend: "sqlite://" (counters shared by all workers in
+    # RATE_LIMIT_DB_PATH), "memory://" (per worker, reset on reload), or
+    # "redis://"/"memcached://"
+    RATE_LIMIT_STORAGE_URI: str = os.getenv("RATE_LIMIT_STORAGE_URI", "sqlite://")
+    # Rate-limit counters for sqlite:// - its own file, so counter writes never
+    # wait on the main database's write lock (relative to the project root)
+    RATE_LIMIT_DB_PATH: Path = BASE_DIR / os.getenv("RATE_LIMIT_DB_PATH", "ratelimits.db")
 
     # Default rate limits (format: "count per period" e.g., "100 per hour", "10 per minute")
     # These apply to authenticated endpoints by default

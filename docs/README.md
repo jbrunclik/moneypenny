@@ -49,7 +49,7 @@ System design and architectural decisions:
 - **[authentication.md](architecture/authentication.md)** - Google Sign-In, JWT token handling, token refresh, @require_auth decorator
 - **[database.md](architecture/database.md)** - Blob storage, connection pooling, indexes, performance monitoring, vacuum, backup, best practices
 - **[api-design.md](architecture/api-design.md)** - OpenAPI documentation and type generation, route organization, request validation (including magic bytes)
-- **[rate-limiting.md](architecture/rate-limiting.md)** - Flask-Limiter categories, key strategy, headers, decorators
+- **[rate-limiting.md](architecture/rate-limiting.md)** - Flask-Limiter categories, key strategy, headers, decorators, shared SQLite counter storage (fail open)
 - **[error-handling.md](architecture/error-handling.md)** - Standard error format and codes, frontend toasts/modals, API client timeouts, failed chat sends
 - **[agent-graph.md](architecture/agent-graph.md)** - LangGraph loop: chat node retries and the `retry` event, tool node, self-correction, mid-run steering, tool round economics, stopped-early replies
 - **[conversation-context.md](architecture/conversation-context.md)** - History enrichment (MSG_CONTEXT), tool-output digests, segmented conversation compaction, agent compaction

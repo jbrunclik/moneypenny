@@ -32,6 +32,9 @@ os.environ["EMBEDDINGS_ENABLED"] = "false"
 os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 # No live freshness-gate calls (src/agent/freshness.py); tests enable it explicitly
 os.environ["FRESHNESS_GATE_ENABLED"] = "false"
+# Per-process counters: a shared sqlite:// file would leak hits between tests
+# and xdist workers; the SQLite storage has its own tests
+os.environ["RATE_LIMIT_STORAGE_URI"] = "memory://"
 # Metered search providers must never be billed from tests (src/config.py
 # loads the real .env); evals blank the same keys (evals/run.py)
 for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_API_KEY"):

@@ -7,7 +7,8 @@ The API implements rate limiting using Flask-Limiter to protect against DoS atta
 ```bash
 # .env
 RATE_LIMITING_ENABLED=true                    # Enable/disable (default: enabled)
-RATE_LIMIT_STORAGE_URI=memory://              # Storage backend (default: memory://)
+RATE_LIMIT_STORAGE_URI=sqlite://              # Storage backend (default: sqlite://)
+RATE_LIMIT_DB_PATH=ratelimits.db              # sqlite:// counter file, relative to the project root
 RATE_LIMIT_DEFAULT=200 per minute             # Default for all endpoints
 RATE_LIMIT_AUTH=10 per minute                 # Authentication (brute force protection)
 RATE_LIMIT_CHAT=30 per minute                 # Chat endpoints (expensive LLM calls)
@@ -16,9 +17,22 @@ RATE_LIMIT_FILES=120 per minute               # File downloads
 ```
 
 **Storage backend options:**
-- `memory://` - Simple, no external dependencies. Lost on restart. Suitable for single-process deployments.
-- `redis://host:port` - Recommended for multi-process/multi-instance deployments. Persistent across restarts.
-- `memcached://host:port` - Alternative distributed cache
+- `sqlite://` (default) - counters shared by every worker process in `RATE_LIMIT_DB_PATH`; survives reloads. See [Shared SQLite storage](#shared-sqlite-storage).
+- `memory://` - per worker process (with N workers each limit is effectively xN) and reset on every reload. Tests use it (`tests/conftest.py`) so hits never leak between tests or xdist workers.
+- `redis://host:port` / `memcached://host:port` - need a server; the production host has none.
+
+## Shared SQLite storage
+
+`src/utils/rate_limit_storage.py` is a `limits` storage registered under the `sqlite` scheme (importing the module registers it; `init_rate_limiting` passes the file path as the `path` storage option).
+
+- **Own file.** Counters live in `ratelimits.db`, never `chatbot.db`, so a counter write never waits on (or holds) the main database's write lock. The file is created on first use; it holds only short-lived counters, so it needs no backup or migration and can be deleted at any time (limits restart from zero).
+- **Atomic across processes.** Each hit is one `INSERT ... ON CONFLICT DO UPDATE ... RETURNING count` statement in autocommit mode: a counter whose window has expired restarts at the hit's cost with a new expiry, otherwise it adds to the count and keeps the window's first expiry (fixed-window semantics, same as `memory://`).
+- **WAL, short busy timeout** (1 s): a wedged file fails fast instead of stalling requests.
+- **Lazy cleanup.** Expired rows are ignored on read and swept by a `DELETE` at most once a minute per process.
+- **Fork-safe.** The connection opens lazily and is reopened if the process id changed, so a pre-fork connection is never shared.
+- **Strategy.** Only the fixed-window strategy (the one the app configures) is supported; moving and sliding windows would need the `MovingWindowSupport`/`SlidingWindowCounterSupport` extras.
+
+**Fail open.** The limiter runs with `in_memory_fallback_enabled=True` and `swallow_errors=True`. When the storage raises (it logs `Rate-limit storage error` with the cause), Flask-Limiter logs `Rate limit storage unreachable - falling back to in-memory storage`, counts in that worker's memory, and re-checks the storage with backoff until it answers again; any error past that is swallowed and the request goes through. A broken rate-limit file never fails a request.
 
 ## Endpoint Categories
 
@@ -121,10 +135,12 @@ def status_endpoint():
 ## Key Files
 
 - [rate_limiting.py](../../src/api/rate_limiting.py) - Limiter initialization and decorators
+- [rate_limit_storage.py](../../src/utils/rate_limit_storage.py) - `sqlite://` storage shared across workers
 - [config.py](../../src/config.py) - Rate limit configuration
 - [app.py](../../src/app.py) - Limiter initialization in app factory
 - [routes/](../../src/api/routes/) - Rate limit decorators on endpoints
-- [test_rate_limiting.py](../../tests/unit/test_rate_limiting.py) - Unit tests
+- [test_rate_limiting.py](../../tests/unit/test_rate_limiting.py) - Unit tests, including enforcement and fail-open through the SQLite storage
+- [test_rate_limit_storage.py](../../tests/unit/test_rate_limit_storage.py) - SQLite storage: counting, expiry, cross-process sharing
 
 ## See Also
 

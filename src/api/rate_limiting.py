@@ -1,7 +1,10 @@
 """Rate limiting module for API endpoints.
 
 This module provides rate limiting to protect against DoS attacks and runaway clients.
-Uses Flask-Limiter with configurable storage backends (memory, Redis, Memcached).
+Uses Flask-Limiter with configurable storage backends; the default sqlite://
+storage (src/utils/rate_limit_storage.py) shares counters across workers.
+If the storage fails, limiting falls back to per-worker memory and never
+fails the request (fail open).
 
 Rate limits are applied per-user when authenticated, or per-IP for unauthenticated endpoints.
 Different limits apply to different endpoint categories (auth, chat, files, etc.).
@@ -10,6 +13,7 @@ Different limits apply to different endpoint categories (auth, chat, files, etc.
 import re
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urlparse
 
 from flask import Flask, g, request
 from flask_limiter import Limiter
@@ -18,11 +22,12 @@ from flask_limiter.util import get_remote_address
 from src.api.errors import ErrorCode, is_retryable
 from src.config import Config
 from src.utils.logging import get_logger
+from src.utils.rate_limit_storage import SQLiteStorage
 
 logger = get_logger(__name__)
 
 # Global limiter instance (initialized in init_rate_limiting)
-# per-worker: set once at app start; with memory:// storage each worker counts on its own
+# per-worker: set once at app start; the counters live in the configured storage
 limiter: Limiter | None = None
 
 
@@ -42,6 +47,13 @@ def get_rate_limit_key() -> str:
 
     # Fall back to IP address
     return f"ip:{get_remote_address()}"
+
+
+def _storage_options(storage_uri: str) -> dict[str, str | int]:
+    """Constructor options for the storage behind `storage_uri`."""
+    if urlparse(storage_uri).scheme in SQLiteStorage.STORAGE_SCHEME:
+        return {"path": str(Config.RATE_LIMIT_DB_PATH)}
+    return {}
 
 
 def init_rate_limiting(app: Flask) -> Limiter | None:
@@ -64,6 +76,12 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
         key_func=get_rate_limit_key,
         app=app,
         storage_uri=Config.RATE_LIMIT_STORAGE_URI,
+        storage_options=_storage_options(Config.RATE_LIMIT_STORAGE_URI),
+        # Fail open: if the storage errors, count in this worker's memory
+        # (re-checking the storage with backoff) and, failing that, let the
+        # request through - rate limiting must never take the app down
+        in_memory_fallback_enabled=True,
+        swallow_errors=True,
         # Default limits apply to all endpoints not explicitly decorated
         default_limits=[Config.RATE_LIMIT_DEFAULT],
         # Include rate limit headers in responses
