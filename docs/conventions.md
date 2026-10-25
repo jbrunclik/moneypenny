@@ -17,6 +17,8 @@ session and points here for the rest.
   gradually. Never add to a baseline to get a change through. For ruff the
   baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407); a
   deliberate exception carries a reason instead: `# noqa: CODE - <why>`.
+  For ESLint it is `web/eslint-suppressions.json` (267): after fixing some,
+  `npx eslint src --prune-suppressions` (ESLint fails on stale entries).
 - **One home per rule.** Other pages link here instead of restating the rule,
   so it can't drift. To change a rule, edit it here and its enforcer in the
   same commit.
@@ -79,11 +81,11 @@ session and points here for the rest.
 | F1 | Imports only point down the [layer order](#layers); no new import cycles | planned: ESLint import zones + cycle allow-list that only shrinks |
 | F2 | Store state changes only through slice actions; re-read `getState()` after any `await`; module-level `let` only for UI-ephemeral handles (timers, observers) | planned: ESLint + counter |
 | F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | planned: scan with baseline |
-| F4 | No floating promises or async callbacks where a sync one is expected; no non-null `!` | planned: type-aware typescript-eslint |
-| F5 | `tsconfig` gets stricter in stages: `noImplicitReturns`, `noImplicitOverride`, `verbatimModuleSyntax` now; `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` next | planned |
+| F4 | No floating promises (`void` marks a deliberate one) or async callbacks where a sync one is expected; no non-null `!` | typescript-eslint (type-aware; baselined in `eslint-suppressions.json`) |
+| F5 | `tsconfig` gets stricter in stages: `noImplicitReturns`, `noImplicitOverride`, `verbatimModuleSyntax` (on); `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` next | tsc; planned: stage 2 |
 | F6 | API types come from `generated-api.ts` (aliases, extended for frontend-only fields), not hand-written copies | planned: compile-time compatibility test |
 | F7 | CSS uses tokens from `variables.css`: no hex/`rgb()` elsewhere, z-index via tokens; one stylesheet per component prefix | planned: grep test (like `css-class-collisions.test.ts`) |
-| F8 | No `console.*` outside the logger; a logger's name is its module path | planned: ESLint `no-console` |
+| F8 | No `console.*` outside the logger; a logger's name is its module path | ESLint `no-console`; judgment for names |
 | F9 | Real `<button type="button">`, not `role="button"` on a div; an `aria-modal` dialog traps focus | planned: test |
 | F10 | No unused exports (a config value nobody reads drifts from the copy someone does) | planned: knip |
 | F11 | State management is Zustand ([store.ts](../web/src/state/store.ts)); dynamic content uses event delegation; `textContent` for plain text; icons from `icons.ts` | judgment |
@@ -92,7 +94,7 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915` (baselined); planned: ESLint `max-lines-per-function`/`max-depth` |
+| C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - all baselined |
 | C2 | No dead code or unused dependencies | planned: vulture, knip, deptry |
 | C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). Not adopted: `DTZ` (local naive datetimes are deliberate - changing them is a behavior change), `PT` and `PLC0415` (later) | ruff; existing violations carry `# noqa: CODE` |
 | C4 | Formatting: ruff format (Python), ESLint (TS); Prettier for CSS, YAML and JSON; `.editorconfig` | ruff, ESLint, PostToolUse hook; planned: Prettier |

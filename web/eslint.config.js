@@ -21,5 +21,32 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-trailing-spaces': 'error',
     },
+  },
+  {
+    // Rules from docs/conventions.md. Existing violations are recorded in
+    // eslint-suppressions.json (ESLint bulk suppressions); that file only
+    // shrinks - run `npx eslint src --prune-suppressions` after fixing some.
+    files: ['src/**/*.ts'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      // F4: a rejected promise nobody awaits is an unhandled rejection with no log
+      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      // C1: function size, nesting and complexity
+      'max-lines-per-function': ['error', { max: 100, skipBlankLines: true, skipComments: true }],
+      'max-depth': ['error', 3],
+      complexity: ['error', 15],
+      // F8: log through createLogger
+      'no-console': 'error',
+    },
+  },
+  {
+    // The logger itself, and the sandboxed artifact frame (no logger there)
+    files: ['src/utils/logger.ts', 'src/artifact/**/*.ts'],
+    rules: { 'no-console': 'off' },
   }
 );

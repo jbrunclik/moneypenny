@@ -18,6 +18,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    /* Stage 1 of F5 (docs/conventions.md); next: exactOptionalPropertyTypes,
+       noUncheckedIndexedAccess */
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
 
     /* Paths */
     "ignoreDeprecations": "6.0",
