@@ -5,18 +5,18 @@
  * Clicks dispatch `outbox:retry` / `outbox:discard` CustomEvents on document
  * (handled in core/messaging) so this component stays free of send logic.
  */
-import { DELETE_ICON, REFRESH_ICON, WARNING_ICON } from '../../utils/icons';
+import { DELETE_ICON, REFRESH_ICON, WARNING_ICON, setIcon, type IconHtml } from '../../utils/icons';
 
 export type SendState = 'pending' | 'failed' | 'sent';
 
 const PENDING_CLASS = 'message--send-pending';
 const FAILED_CLASS = 'message--send-failed';
 
-function createActionButton(action: string, icon: string, label: string): HTMLButtonElement {
+function createActionButton(action: string, icon: IconHtml, label: string): HTMLButtonElement {
   const button = document.createElement('button');
   button.className = 'send-status-action';
   button.dataset.action = action;
-  button.innerHTML = icon;
+  setIcon(button, icon);
   button.appendChild(document.createTextNode(label));
   return button;
 }
@@ -28,7 +28,7 @@ export function createSendFailedActions(messageId: string): HTMLElement {
 
   const label = document.createElement('span');
   label.className = 'send-status-label';
-  label.innerHTML = WARNING_ICON;
+  setIcon(label, WARNING_ICON);
   label.appendChild(document.createTextNode('Not sent'));
   row.appendChild(label);
 

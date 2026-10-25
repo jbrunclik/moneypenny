@@ -7,7 +7,7 @@ import { createLogger } from '../utils/logger';
 import { artifactCopyText } from '../components/messages/artifacts';
 import { files } from '../api/files';
 import { showToast, toast } from '../components/Toast';
-import { CHECK_ICON } from '../utils/icons';
+import { CHECK_ICON, setIcon } from '../utils/icons';
 import { hapticTick } from '../utils/haptics';
 
 const log = createLogger('file-actions');
@@ -235,12 +235,12 @@ function tableToPlainText(table: HTMLTableElement): string {
  */
 function showCopySuccess(button: HTMLButtonElement): void {
   hapticTick();
-  const originalHtml = button.innerHTML;
-  button.innerHTML = CHECK_ICON;
+  const originalContent = Array.from(button.childNodes);
+  setIcon(button, CHECK_ICON);
   button.classList.add('copied');
 
   setTimeout(() => {
-    button.innerHTML = originalHtml;
+    button.replaceChildren(...originalContent);
     button.classList.remove('copied');
   }, 2000);
 }

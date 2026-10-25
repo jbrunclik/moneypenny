@@ -7,7 +7,7 @@ import { CLAIM_FLASH_MS } from '../../config';
 import { useStore } from '../../state/store';
 import type { Message, MessageAction } from '../../types/api';
 import { prefersReducedMotion } from '../../utils/dom';
-import { SEARCH_ICON, SPARKLES_ICON } from '../../utils/icons';
+import { SEARCH_ICON, SPARKLES_ICON, setIcon } from '../../utils/icons';
 import { applySendState } from './send-state';
 
 const ROW_CLASS = 'message--action';
@@ -48,7 +48,7 @@ export function addActionRowToUI(message: Message, container: HTMLElement, optio
   rowEl.className = 'action-row';
   const icon = document.createElement('span');
   icon.className = 'action-row__icon';
-  icon.innerHTML = action.type === 'verify_claim' ? SEARCH_ICON : SPARKLES_ICON;
+  setIcon(icon, action.type === 'verify_claim' ? SEARCH_ICON : SPARKLES_ICON);
   const text = document.createElement('span');
   text.className = 'action-row__text';
   text.textContent = rowText(action);

@@ -16,8 +16,9 @@ import {
   PLUS_ICON,
   SLIDERS_ICON,
   SPORTS_ICON,
+  setIcon,
 } from '../utils/icons';
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { renderEmptyStateHtml } from './EmptyState';
 import { createLogger } from '../utils/logger';
@@ -280,13 +281,15 @@ export function renderSportsProgramHeader(
   quickActionsBtn.className = 'program-quick-actions-btn';
   quickActionsBtn.title = 'Quick actions';
   quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
-  quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;
+  setIcon(quickActionsBtn, SLIDERS_ICON);
+  quickActionsBtn.append(createElement('span', {}, ['Quick actions']));
   quickActionsBtn.addEventListener('click', onQuickActions);
 
   const resetBtn = document.createElement('button');
   resetBtn.className = 'sports-reset-btn';
   resetBtn.title = 'Reset conversation';
-  resetBtn.innerHTML = `${CLEAR_ICON}<span>Reset</span>`;
+  setIcon(resetBtn, CLEAR_ICON);
+  resetBtn.append(createElement('span', {}, ['Reset']));
   const confirmReset = async (): Promise<void> => {
     const confirmed = await showConfirm({
       title: 'Reset Conversation',

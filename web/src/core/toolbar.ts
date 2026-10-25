@@ -11,8 +11,8 @@ import { toast } from '../components/Toast';
 import { updateMonthlyCost } from '../components/Sidebar';
 import { refreshSpendWarning } from '../components/SpendBanner';
 import { updateCompactionIndicator } from '../components/CompactionIndicator';
-import { getElementById } from '../utils/dom';
-import { STREAM_ICON, STREAM_OFF_ICON } from '../utils/icons';
+import { getElementById, createElement } from '../utils/dom';
+import { STREAM_ICON, STREAM_OFF_ICON, setIcon } from '../utils/icons';
 import { logger } from '../utils/logger';
 
 import { isTempConversation } from './conversation';
@@ -175,7 +175,8 @@ function updateStreamButtonState(btn: HTMLButtonElement, enabled: boolean): void
   btn.classList.toggle('active', enabled);
   btn.setAttribute('aria-pressed', String(enabled));
   // Keep the label span - it's visible in the mobile options popover
-  btn.innerHTML = `${enabled ? STREAM_ICON : STREAM_OFF_ICON}<span class="toolbar-toggle-label">Streaming</span>`;
+  setIcon(btn, enabled ? STREAM_ICON : STREAM_OFF_ICON);
+  btn.append(createElement('span', { class: 'toolbar-toggle-label' }, ['Streaming']));
   btn.title = enabled ? 'Streaming enabled (click to disable)' : 'Streaming disabled (click to enable)';
 }
 

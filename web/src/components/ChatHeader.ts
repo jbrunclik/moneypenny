@@ -6,19 +6,18 @@
  * for regular conversations (the mobile header takes over); program
  * variants keep it visible via their extraClass.
  */
+import { CHAT_HEADER_BACK_ICON, setIcon, type IconHtml } from '../utils/icons';
 
 export interface ChatHeaderOptions {
   title: string;
   extraClass?: string;
   emoji?: string;
   /** Trusted icon markup (from utils/icons) rendered before the title. */
-  iconHtml?: string;
+  iconHtml?: IconHtml;
   onBack?: () => void;
   onRenameCommit?: (title: string) => void;
   actions?: HTMLElement[];
 }
-
-const BACK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
 
 function getHeaderEl(): HTMLElement | null {
   return document.getElementById('chat-header');
@@ -32,7 +31,7 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
     const back = document.createElement('button');
     back.className = 'btn-icon chat-header-back';
     back.setAttribute('aria-label', 'Back');
-    back.innerHTML = BACK_ICON;
+    setIcon(back, CHAT_HEADER_BACK_ICON);
     back.addEventListener('click', opts.onBack);
     header.appendChild(back);
   }
@@ -45,7 +44,7 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
   } else if (opts.iconHtml) {
     const icon = document.createElement('span');
     icon.className = 'chat-header-icon';
-    icon.innerHTML = opts.iconHtml;
+    setIcon(icon, opts.iconHtml);
     header.appendChild(icon);
   }
 

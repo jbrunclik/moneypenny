@@ -6,7 +6,7 @@
  * (CommandCenter is lazy-loaded by core/agents.ts).
  */
 import { renderChatHeader } from './ChatHeader';
-import { EDIT_ICON, ROBOT_ICON } from '../utils/icons';
+import { EDIT_ICON, ROBOT_ICON, setIcon } from '../utils/icons';
 
 export function renderAgentConversationHeader(
   agentName: string,
@@ -16,7 +16,7 @@ export function renderAgentConversationHeader(
   const editBtn = document.createElement('button');
   editBtn.className = 'btn-icon agent-conv-edit';
   editBtn.title = 'Edit agent';
-  editBtn.innerHTML = EDIT_ICON;
+  setIcon(editBtn, EDIT_ICON);
   editBtn.addEventListener('click', onEdit);
 
   renderChatHeader({

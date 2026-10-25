@@ -16,8 +16,9 @@ import {
   REFRESH_ICON,
   SLIDERS_ICON,
   LANGUAGE_ICON,
+  setIcon,
 } from '../utils/icons';
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { renderEmptyStateHtml } from './EmptyState';
 
@@ -264,13 +265,15 @@ export function renderLanguageProgramHeader(
   quickActionsBtn.className = 'program-quick-actions-btn';
   quickActionsBtn.title = 'Quick actions';
   quickActionsBtn.setAttribute('aria-label', 'Edit quick actions');
-  quickActionsBtn.innerHTML = `${SLIDERS_ICON}<span>Quick actions</span>`;
+  setIcon(quickActionsBtn, SLIDERS_ICON);
+  quickActionsBtn.append(createElement('span', {}, ['Quick actions']));
   quickActionsBtn.addEventListener('click', onQuickActions);
 
   const resetBtn = document.createElement('button');
   resetBtn.className = 'language-reset-btn';
   resetBtn.title = 'Start a new lesson';
-  resetBtn.innerHTML = `${REFRESH_ICON}<span>New Lesson</span>`;
+  setIcon(resetBtn, REFRESH_ICON);
+  resetBtn.append(createElement('span', {}, ['New Lesson']));
   const confirmReset = async (): Promise<void> => {
     const confirmed = await showConfirm({
       title: 'New Lesson',

@@ -37,7 +37,7 @@ export default tseslint.config(
     plugins: { 'no-unsanitized': noUnsanitized },
     rules: {
       // F3: HTML assigned from strings goes through a SAFE_HTML function. A static
-      // icon constant is safe too: say so with an eslint-disable-next-line reason
+      // icon goes through setIcon (utils/icons), which never writes innerHTML
       'no-unsanitized/property': ['error', { escape: { methods: SAFE_HTML } }],
       'no-unsanitized/method': ['error', { escape: { methods: SAFE_HTML } }],
       // F4: a rejected promise nobody awaits is an unhandled rejection with no log

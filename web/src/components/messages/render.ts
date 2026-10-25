@@ -16,7 +16,7 @@ import {
 } from '../../utils/thumbnails';
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { renderWelcomeMessageHtml } from '../WelcomeMessage';
-import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON } from '../../utils/icons';
+import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, setIcon } from '../../utils/icons';
 import { agents } from '../../api/agents';
 import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
@@ -408,7 +408,7 @@ export function addMessageToUI(
   if (message.role === 'assistant') {
     const avatar = document.createElement('div');
     avatar.className = 'message-avatar';
-    avatar.innerHTML = AI_AVATAR;
+    setIcon(avatar, AI_AVATAR);
     messageEl.appendChild(avatar);
   }
 

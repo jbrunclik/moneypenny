@@ -1,5 +1,5 @@
 import { escapeHtml } from '../utils/dom';
-import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon } from '../utils/icons';
+import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon, setIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import { renderEmptyStateHtml } from './EmptyState';
 import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask, PlannerHealthSummary } from '../types/api';
@@ -535,11 +535,11 @@ function setupCopyHandlers(container: HTMLElement): void {
       await navigator.clipboard.writeText(copyText);
 
       // Show success feedback
-      copyBtn.innerHTML = CHECK_ICON;
+      setIcon(copyBtn, CHECK_ICON);
       copyBtn.classList.add('copied');
 
       setTimeout(() => {
-        copyBtn.innerHTML = COPY_ICON;
+        setIcon(copyBtn, COPY_ICON);
         copyBtn.classList.remove('copied');
       }, 2000);
 

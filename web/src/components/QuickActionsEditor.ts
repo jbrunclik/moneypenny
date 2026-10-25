@@ -7,7 +7,7 @@
  * detail form is open commits it first. Presentation + local draft state only.
  */
 import type { QuickAction } from '../types/api';
-import { escapeHtml, clearElement } from '../utils/dom';
+import { escapeHtml, clearElement, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import {
   CLOSE_ICON,
@@ -16,6 +16,7 @@ import {
   PLUS_ICON,
   CHEVRON_DOWN_ICON,
   SLIDERS_ICON,
+  setIcon,
 } from '../utils/icons';
 import { toast } from './Toast';
 
@@ -165,7 +166,8 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'qa-editor-add';
-    add.innerHTML = `${PLUS_ICON}<span>Add quick action</span>`;
+    setIcon(add, PLUS_ICON);
+    add.append(createElement('span', {}, ['Add quick action']));
     add.disabled = draftList.length >= QUICK_ACTIONS_MAX;
     body.appendChild(list);
     body.appendChild(add);

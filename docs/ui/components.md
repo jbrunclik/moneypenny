@@ -64,13 +64,14 @@ container.innerHTML = `<span class="name">${escapeHtml(userInput)}</span>`;
 ### innerHTML Usage Guidelines
 
 **When innerHTML is ACCEPTABLE**:
-- Setting SVG icons from [web/src/utils/icons.ts](../../web/src/utils/icons.ts) (SVG markup must be rendered as HTML)
+- Interpolating icon constants from [web/src/utils/icons.ts](../../web/src/utils/icons.ts) into a larger template
 - Rendering markdown content from `renderMarkdown()` (returns sanitized HTML)
 - Complex HTML structures that would be cumbersome to build with createElement
 - Any content that legitimately needs HTML markup (line breaks as `<br>`, styled elements)
 
 **When to AVOID innerHTML**:
 - Clearing element content → Use `clearElement(element)` from dom.ts
+- Setting an element's content to an icon → Use `setIcon(element, ICON)` from icons.ts
 - Setting plain text → Use `element.textContent = text`
 - Building simple lists → Consider `createElement` with loops
 
@@ -85,18 +86,21 @@ Centralize SVG icons in [web/src/utils/icons.ts](../../web/src/utils/icons.ts):
 
 ```typescript
 // icons.ts
-export const SEND_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+export const SEND_ICON = icon(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
   <path d="M22 2L11 13" />
   <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-</svg>
-`;
+</svg>`);
 
 // Usage in component
-import { SEND_ICON } from './utils/icons';
+import { SEND_ICON, setIcon } from './utils/icons';
 
-button.innerHTML = SEND_ICON;
+setIcon(button, SEND_ICON); // icon + label: then button.append(createElement('span', {}, ['Send']))
 ```
+
+Every constant is wrapped in the module-private `icon()`, which brands it `IconHtml`, so
+`setIcon` accepts only icons from this module, never an arbitrary string. It parses each
+icon once (DOMParser) and clones the nodes, so it produces the same DOM as an `innerHTML`
+write without one (F3).
 
 Benefits:
 - Prevents duplication across components

@@ -6,7 +6,7 @@
 import { useStore } from '../state/store';
 import { isConversationSelected, selectedCount } from '../state/slices/selection';
 import type { Conversation } from '../types/api';
-import { CHECK_ICON, DELETE_ICON } from '../utils/icons';
+import { CHECK_ICON, DELETE_ICON, setIcon } from '../utils/icons';
 import { renderConversationsList } from './Sidebar';
 import { clearSearch } from './SearchInput';
 import { isSearchResultsVisible } from './SearchResults';
@@ -48,7 +48,8 @@ export function renderSelectionChrome(): void {
   const trashBtn = document.getElementById('selection-trash') as HTMLButtonElement | null;
   if (trashBtn) {
     trashBtn.disabled = count === 0 || state.isBulkDeleting;
-    trashBtn.innerHTML = `${DELETE_ICON} ${state.isBulkDeleting ? 'Moving…' : `Move ${count} to trash`}`;
+    setIcon(trashBtn, DELETE_ICON);
+    trashBtn.append(` ${state.isBulkDeleting ? 'Moving…' : `Move ${count} to trash`}`);
   }
 }
 

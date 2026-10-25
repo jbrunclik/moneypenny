@@ -7,7 +7,7 @@ import { agents, aiAssist } from '../api/agents';
 import { settings } from '../api/settings';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
-import { escapeHtml } from '../utils/dom';
+import { escapeHtml, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import {
   ACTIVITY_ICON,
@@ -17,6 +17,7 @@ import {
   PHONE_ICON,
   ROBOT_ICON,
   SPARKLES_ICON,
+  setIcon,
 } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import type { Agent, CreateAgentRequest, UpdateAgentRequest, UserSettings } from '../types/api';
@@ -560,8 +561,9 @@ function setupEnhancePromptHandler(): void {
 
     // Show loading state
     enhanceBtn.disabled = true;
-    const originalContent = enhanceBtn.innerHTML;
-    enhanceBtn.innerHTML = `${SPARKLES_ICON}<span>Enhancing...</span>`;
+    const originalContent = Array.from(enhanceBtn.childNodes);
+    setIcon(enhanceBtn, SPARKLES_ICON);
+    enhanceBtn.append(createElement('span', {}, ['Enhancing...']));
 
     try {
       const result = await aiAssist.enhancePrompt(prompt, agentName, toolPermissions);
@@ -580,7 +582,7 @@ function setupEnhancePromptHandler(): void {
       toast.error('Failed to enhance prompt. Try again later.');
     } finally {
       enhanceBtn.disabled = false;
-      enhanceBtn.innerHTML = originalContent;
+      enhanceBtn.replaceChildren(...originalContent);
     }
   };
   enhanceBtn?.addEventListener('click', () => {

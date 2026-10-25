@@ -1,7 +1,7 @@
 import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/thumbnails';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from './messages/turn-anchor';
-import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON } from '../utils/icons';
+import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON, setIcon } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 import { DRAFT_SAVE_DEBOUNCE_MS, MOBILE_BREAKPOINT_PX } from '../config';
@@ -466,13 +466,13 @@ function updateSendButtonMode(showStop: boolean): void {
 
   if (showStop) {
     // Switch to stop mode
-    sendBtn.innerHTML = STOP_ICON;
+    setIcon(sendBtn, STOP_ICON);
     sendBtn.classList.add('btn-stop');
     sendBtn.classList.remove('btn-send');
     log.debug('Send button switched to stop mode');
   } else {
     // Switch back to send mode
-    sendBtn.innerHTML = SEND_ICON;
+    setIcon(sendBtn, SEND_ICON);
     sendBtn.classList.remove('btn-stop');
     sendBtn.classList.add('btn-send');
     sendBtn.title = 'Send message';

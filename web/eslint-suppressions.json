@@ -24,11 +24,6 @@
       "count": 2
     }
   },
-  "src/components/AgentConversationHeader.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
   "src/components/AgentEditor.ts": {
     "complexity": {
       "count": 2
@@ -37,12 +32,7 @@
       "count": 1
     },
     "no-unsanitized/property": {
-      "count": 3
-    }
-  },
-  "src/components/ChatHeader.ts": {
-    "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/ClaimCard.ts": {
@@ -97,12 +87,7 @@
   },
   "src/components/LanguageDashboard.ts": {
     "no-unsanitized/property": {
-      "count": 6
-    }
-  },
-  "src/components/Lightbox.ts": {
-    "no-unsanitized/property": {
-      "count": 1
+      "count": 4
     }
   },
   "src/components/MessageInput.ts": {
@@ -116,7 +101,7 @@
       "count": 1
     },
     "no-unsanitized/property": {
-      "count": 3
+      "count": 1
     }
   },
   "src/components/Modal.ts": {
@@ -145,7 +130,7 @@
       "count": 1
     },
     "no-unsanitized/property": {
-      "count": 4
+      "count": 2
     }
   },
   "src/components/QuickActionComposer.ts": {
@@ -163,7 +148,7 @@
       "count": 2
     },
     "no-unsanitized/property": {
-      "count": 6
+      "count": 5
     }
   },
   "src/components/QuickActionsSlashMenu.ts": {
@@ -173,11 +158,6 @@
   },
   "src/components/QuizBlock.ts": {
     "complexity": {
-      "count": 1
-    }
-  },
-  "src/components/ScrollToBottom.ts": {
-    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -216,9 +196,6 @@
   "src/components/SidebarSelection.ts": {
     "no-restricted-imports": {
       "count": 3
-    },
-    "no-unsanitized/property": {
-      "count": 1
     }
   },
   "src/components/SpendBanner.ts": {
@@ -228,7 +205,7 @@
   },
   "src/components/SportsDashboard.ts": {
     "no-unsanitized/property": {
-      "count": 6
+      "count": 4
     }
   },
   "src/components/ThinkingIndicator.ts": {
@@ -257,14 +234,6 @@
   "src/components/VoiceInput.ts": {
     "max-lines-per-function": {
       "count": 1
-    },
-    "no-unsanitized/property": {
-      "count": 2
-    }
-  },
-  "src/components/messages/action-row.ts": {
-    "no-unsanitized/property": {
-      "count": 1
     }
   },
   "src/components/messages/actions.ts": {
@@ -285,7 +254,7 @@
       "count": 1
     },
     "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/messages/live-highlight.ts": {
@@ -306,7 +275,7 @@
       "count": 4
     },
     "no-unsanitized/property": {
-      "count": 6
+      "count": 5
     }
   },
   "src/components/messages/research-offer.ts": {
@@ -324,11 +293,6 @@
     }
   },
   "src/components/messages/research-progress.ts": {
-    "no-unsanitized/property": {
-      "count": 2
-    }
-  },
-  "src/components/messages/send-state.ts": {
     "no-unsanitized/property": {
       "count": 2
     }
@@ -382,21 +346,11 @@
       "count": 1
     }
   },
-  "src/core/conversation-header.ts": {
-    "no-unsanitized/property": {
-      "count": 3
-    }
-  },
   "src/core/events.ts": {
     "complexity": {
       "count": 3
     },
     "max-lines-per-function": {
-      "count": 2
-    }
-  },
-  "src/core/file-actions.ts": {
-    "no-unsanitized/property": {
       "count": 2
     }
   },
@@ -482,16 +436,6 @@
   "src/core/stream-resume.ts": {
     "max-depth": {
       "count": 1
-    }
-  },
-  "src/core/toolbar.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/tts.ts": {
-    "no-unsanitized/property": {
-      "count": 5
     }
   },
   "src/router/deeplink.ts": {

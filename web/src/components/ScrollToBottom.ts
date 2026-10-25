@@ -6,7 +6,7 @@ import {
   scrollToBottom,
   stopMomentumScroll,
 } from '../utils/dom';
-import { CHEVRON_DOWN_ICON } from '../utils/icons';
+import { CHEVRON_DOWN_ICON, setIcon } from '../utils/icons';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
 import { onMessagesScroll } from '../utils/scroll-manager';
@@ -59,7 +59,7 @@ export function initScrollToBottom(): void {
   scrollButton = document.createElement('button');
   scrollButton.className = 'scroll-to-bottom hidden';
   scrollButton.setAttribute('aria-label', 'Scroll to bottom');
-  scrollButton.innerHTML = CHEVRON_DOWN_ICON;
+  setIcon(scrollButton, CHEVRON_DOWN_ICON);
   const label = document.createElement('span');
   label.className = 'scroll-to-bottom-label';
   label.textContent = 'New messages';

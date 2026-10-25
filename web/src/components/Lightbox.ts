@@ -9,7 +9,7 @@ import { files } from '../api/files';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import { MAXIMIZE_ICON, MINIMIZE_ICON } from '../utils/icons';
+import { MAXIMIZE_ICON, MINIMIZE_ICON, setIcon } from '../utils/icons';
 import {
   computePinchScale,
   pointerDistance,
@@ -74,7 +74,7 @@ export function initLightbox(): void {
     if (typeof (lightbox as Partial<HTMLDivElement>).requestFullscreen === 'function') {
       fullscreenBtn.addEventListener('click', () => void toggleFullscreen(lightbox));
       document.addEventListener('fullscreenchange', () => {
-        fullscreenBtn.innerHTML = document.fullscreenElement ? MINIMIZE_ICON : MAXIMIZE_ICON;
+        setIcon(fullscreenBtn, document.fullscreenElement ? MINIMIZE_ICON : MAXIMIZE_ICON);
       });
     } else {
       fullscreenBtn.classList.add('hidden');

@@ -5,7 +5,7 @@
 import { files as filesApi } from '../../api/files';
 import { escapeHtml } from '../../utils/dom';
 import { observeThumbnail } from '../../utils/thumbnails';
-import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON } from '../../utils/icons';
+import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON, setIcon } from '../../utils/icons';
 import type { FileMetadata } from '../../types/api';
 
 /**
@@ -182,7 +182,7 @@ function renderVideoAttachment(
   // with the file name and status along the bottom
   const icon = document.createElement('span');
   icon.className = 'video-load-icon';
-  icon.innerHTML = PLAY_ICON;
+  setIcon(icon, PLAY_ICON);
 
   const name = document.createElement('span');
   name.className = 'video-load-name';

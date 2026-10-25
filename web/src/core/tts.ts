@@ -5,7 +5,7 @@
 
 import { createLogger } from '../utils/logger';
 import { toast } from '../components/Toast';
-import { SPEAKER_ICON, STOP_ICON } from '../utils/icons';
+import { SPEAKER_ICON, STOP_ICON, setIcon } from '../utils/icons';
 
 const log = createLogger('tts');
 
@@ -96,7 +96,7 @@ export function speakMessageInternal(messageId: string, language?: string): void
       const speakingMsgId = speakingButton.closest('.message')?.getAttribute('data-message-id');
       if (speakingMsgId === messageId) {
         speakingButton.classList.remove('speaking');
-        speakingButton.innerHTML = SPEAKER_ICON;
+        setIcon(speakingButton, SPEAKER_ICON);
         return;
       }
     }
@@ -105,7 +105,7 @@ export function speakMessageInternal(messageId: string, language?: string): void
   // Clear any previous speaking state and restore icons
   document.querySelectorAll('.message-speak-btn.speaking').forEach(btn => {
     btn.classList.remove('speaking');
-    btn.innerHTML = SPEAKER_ICON;
+    setIcon(btn, SPEAKER_ICON);
   });
 
   // Get the message content
@@ -149,14 +149,14 @@ export function speakMessageInternal(messageId: string, language?: string): void
   const speakBtn = messageEl.querySelector('.message-speak-btn');
   if (speakBtn) {
     speakBtn.classList.add('speaking');
-    speakBtn.innerHTML = STOP_ICON;
+    setIcon(speakBtn, STOP_ICON);
   }
 
   // Handle end of speech - restore speaker icon
   utterance.onend = () => {
     speakBtn?.classList.remove('speaking');
     if (speakBtn) {
-      speakBtn.innerHTML = SPEAKER_ICON;
+      setIcon(speakBtn, SPEAKER_ICON);
     }
   };
 
@@ -164,7 +164,7 @@ export function speakMessageInternal(messageId: string, language?: string): void
     log.error('TTS error', { error: event.error, messageId });
     speakBtn?.classList.remove('speaking');
     if (speakBtn) {
-      speakBtn.innerHTML = SPEAKER_ICON;
+      setIcon(speakBtn, SPEAKER_ICON);
     }
     // Don't show error for user-initiated cancellation or interruption
     if (event.error !== 'canceled' && event.error !== 'interrupted') {

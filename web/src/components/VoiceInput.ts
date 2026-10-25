@@ -1,5 +1,5 @@
 import { getElementById, autoResizeTextarea } from '../utils/dom';
-import { MICROPHONE_ICON, STOP_ICON } from '../utils/icons';
+import { MICROPHONE_ICON, STOP_ICON, setIcon } from '../utils/icons';
 import { updateSendButtonState } from './MessageInput';
 import { toast } from './Toast';
 import { isTouchDevice } from '../gestures/swipe';
@@ -307,7 +307,7 @@ export function initVoiceInput(): void {
     isRecording = true;
     hapticTick();
     voiceBtn.classList.add('recording');
-    voiceBtn.innerHTML = STOP_ICON;
+    setIcon(voiceBtn, STOP_ICON);
     voiceBtn.setAttribute('aria-pressed', 'true');
     voiceBtn.title = 'Stop recording';
     // Remember where to insert text
@@ -456,7 +456,7 @@ function resetRecordingState(voiceBtn: HTMLButtonElement): void {
   if (isRecording) hapticTick();
   isRecording = false;
   voiceBtn.classList.remove('recording');
-  voiceBtn.innerHTML = MICROPHONE_ICON;
+  setIcon(voiceBtn, MICROPHONE_ICON);
   voiceBtn.setAttribute('aria-pressed', 'false');
   voiceBtn.title = `Voice input (${getLanguageDisplayName(currentLang)})`;
 }
