@@ -155,7 +155,6 @@ class CalendarListResponse(ResponseModel):
     calendars: list[Calendar] = Field(
         default_factory=list, description="List of available calendars"
     )
-    error: str | None = Field(None, description="Error message if fetch failed")
 
 
 class SelectedCalendarsResponse(ResponseModel):

@@ -2806,8 +2806,35 @@ export interface paths {
                         "application/json": components["schemas"]["CalendarListResponse"];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
                 /** @description Unauthorized */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Internal Server Error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9113,12 +9140,6 @@ export interface components {
              * @description List of available calendars
              */
             calendars: components["schemas"]["CalendarListResponse.Calendar"][];
-            /**
-             * Error
-             * @description Error message if fetch failed
-             * @default null
-             */
-            error: string | null;
         };
         /**
          * EmptyTrashResponse

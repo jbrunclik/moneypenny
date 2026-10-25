@@ -2,8 +2,9 @@
 
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import requests
 from flask.testing import FlaskClient
 
 from src.auth.google_calendar import (
@@ -449,3 +450,78 @@ class TestGetCalendarStatus:
         """Should return 401 without authentication."""
         response = client.get("/auth/calendar/status")
         assert response.status_code == 401
+
+
+class TestListCalendars:
+    """Tests for GET /auth/calendar/calendars: failures are HTTP errors, not 200s."""
+
+    def _get(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        connected: bool = True,
+        upstream: Any = None,
+    ) -> Any:
+        with (
+            patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True),
+            patch(
+                "src.api.routes.calendar._get_valid_calendar_access_token",
+                return_value="access" if connected else None,
+            ),
+            patch("requests.get") as get,
+        ):
+            if isinstance(upstream, Exception):
+                get.side_effect = upstream
+            else:
+                get.return_value = upstream
+            return client.get("/auth/calendar/calendars", headers=auth_headers)
+
+    @staticmethod
+    def _upstream(status: int, items: list[dict[str, Any]] | None = None) -> Any:
+        response = MagicMock(status_code=status)
+        response.json.return_value = {"items": items or []}
+        return response
+
+    def test_lists_calendars_primary_first(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        items = [
+            {"id": "b", "summary": "Work", "accessRole": "reader"},
+            {"id": "a", "summary": "Me", "primary": True, "accessRole": "owner"},
+        ]
+        response = self._get(client, auth_headers, upstream=self._upstream(200, items))
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert [c["id"] for c in data["calendars"]] == ["a", "b"]
+        assert "error" not in data
+
+    def test_not_configured_is_400(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=False):
+            response = client.get("/auth/calendar/calendars", headers=auth_headers)
+
+        assert response.status_code == 400
+
+    def test_not_connected_is_409(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        response = self._get(client, auth_headers, connected=False)
+
+        assert response.status_code == 409
+        assert "not connected" in response.get_json()["error"]["message"]
+
+    def test_expired_google_access_is_409_not_401(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        # 401 would read as the user's own session expiring
+        response = self._get(client, auth_headers, upstream=self._upstream(401))
+
+        assert response.status_code == 409
+        assert "reconnect" in response.get_json()["error"]["message"]
+
+    def test_google_errors_and_timeouts_are_server_errors(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        for upstream in (self._upstream(503), requests.Timeout(), ValueError("boom")):
+            response = self._get(client, auth_headers, upstream=upstream)
+
+            assert response.status_code == 500, upstream
+            assert "boom" not in response.get_json()["error"]["message"]

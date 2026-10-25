@@ -63,7 +63,7 @@ shared "disconnected - reconnect in Settings" result
 | `/auth/calendar/connect` | POST | Exchange authorization code for tokens |
 | `/auth/calendar/disconnect` | POST | Remove stored tokens |
 | `/auth/calendar/status` | GET | Report connection status (email, connected_at, needs_reconnect) |
-| `/auth/calendar/calendars` | GET | List the user's calendars (cached 1 hour) |
+| `/auth/calendar/calendars` | GET | List the user's calendars (cached 1 hour). 400 when the integration isn't configured, 409 when not connected or Google access expired (never 401, which the client reads as its own session ending), 500 when Google fails or times out |
 | `/auth/calendar/selected-calendars` | GET / PUT | Read / save the calendars included in the planner |
 
 ## Google Calendar Tool Actions

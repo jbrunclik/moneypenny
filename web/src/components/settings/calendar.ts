@@ -1,6 +1,7 @@
 import { escapeHtml } from '../../utils/dom';
 import { CHECK_ICON, WARNING_ICON, CALENDAR_ICON, STAR_ICON } from '../../utils/icons';
 import { calendar } from '../../api/integrations';
+import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { Calendar, CalendarStatus } from '../../types/api';
 import { useStore } from '../../state/store';
@@ -207,15 +208,8 @@ export async function loadCalendarSelection(): Promise<void> {
       calendar.getSelectedCalendars(),
     ]);
 
-    if (calendarsResp.error) {
-      log.warn('Failed to fetch calendars', { error: calendarsResp.error });
-      availableCalendars = [];
-      calendarsError = calendarsResp.error;
-    } else {
-      availableCalendars = calendarsResp.calendars;
-      calendarsError = null;
-    }
-
+    availableCalendars = calendarsResp.calendars;
+    calendarsError = null;
     selectedCalendarIds = selectedResp.calendar_ids;
 
     log.debug('Calendars loaded', {
@@ -227,7 +221,8 @@ export async function loadCalendarSelection(): Promise<void> {
     availableCalendars = [];
     // Don't overwrite selectedCalendarIds - preserve user's existing selection
     // They won't be able to change it until the error is resolved, but we won't lose their data
-    calendarsError = 'Failed to load calendars. Please try again.';
+    // The server's message says what to do ("... Please reconnect.")
+    calendarsError = err instanceof ApiError ? err.message : 'Failed to load calendars. Please try again.';
   } finally {
     calendarsLoading = false;
     // Re-render with loaded data

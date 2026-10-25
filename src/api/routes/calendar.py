@@ -8,7 +8,12 @@ from typing import Any
 
 from apiflask import APIBlueprint
 
-from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.errors import (
+    raise_conflict_error,
+    raise_not_found_error,
+    raise_server_error,
+    raise_validation_error,
+)
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.integrations import (
     CalendarListResponse,
@@ -259,17 +264,17 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
 
 @auth.route("/calendar/calendars", methods=["GET"])
 @auth.output(CalendarListResponse)
-@auth.doc(responses=[401])
+@auth.doc(responses=[400, 401, 409, 500])
 @require_auth
 def list_available_calendars(user: User) -> dict[str, Any]:
     """List all available Google Calendars for the current user."""
     if not _is_google_calendar_configured():
-        return {"calendars": [], "error": "Google Calendar not configured"}
+        raise_validation_error("Google Calendar integration is not configured")
 
     # Get valid access token
     calendar_token = _get_valid_calendar_access_token(user)
     if not calendar_token:
-        return {"calendars": [], "error": "Not connected"}
+        raise_conflict_error("Google Calendar is not connected")
 
     # Check cache first (1 hour TTL)
     cached = db.get_cached_calendars(user.id)
@@ -277,55 +282,50 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         logger.debug("Returning cached calendars", extra={"user_id": user.id})
         return cached
 
-    try:
-        import requests  # noqa: PLC0415
+    import requests  # noqa: PLC0415
 
-        headers = {"Authorization": f"Bearer {calendar_token}"}
+    try:
         response = requests.get(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
-            headers=headers,
+            headers={"Authorization": f"Bearer {calendar_token}"},
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
-
-        if response.status_code == 401:
-            return {"calendars": [], "error": "Access expired. Please reconnect."}
-
-        if response.status_code >= 400:
-            logger.warning("Calendar list API error", extra={"status": response.status_code})
-            return {"calendars": [], "error": f"API error ({response.status_code})"}
-
-        data = response.json()
-        calendars = [
-            {
-                "id": cal.get("id"),
-                "summary": cal.get("summary"),
-                "primary": cal.get("primary", False),
-                "access_role": cal.get("accessRole"),
-                "background_color": cal.get("backgroundColor"),
-            }
-            for cal in data.get("items", [])
-        ]
-
-        # Sort: primary first, then by name
-        calendars.sort(key=lambda c: (not c["primary"], c["summary"].lower()))
-
-        result = {"calendars": calendars}
-
-        # Cache for 1 hour
-        db.cache_calendars(user.id, result, ttl_seconds=3600)
-
-        logger.info(
-            "Fetched available calendars", extra={"user_id": user.id, "count": len(calendars)}
-        )
-
-        return result
-
+        items = response.json().get("items", []) if response.status_code < 400 else []
     except requests.Timeout:
         logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
-        return {"calendars": [], "error": "Request timeout"}
+        raise_server_error("Google Calendar timed out. Please try again.")
     except Exception as e:
         logger.error("Failed to list calendars", extra={"error": str(e)}, exc_info=True)  # noqa: G201
-        return {"calendars": [], "error": "Failed to fetch calendars"}
+        raise_server_error("Failed to fetch calendars")
+
+    if response.status_code == 401:
+        raise_conflict_error("Google Calendar access expired. Please reconnect.")
+    if response.status_code >= 400:
+        logger.warning("Calendar list API error", extra={"status": response.status_code})
+        raise_server_error("Google Calendar is unavailable. Please try again.")
+
+    calendars = [
+        {
+            "id": cal.get("id"),
+            "summary": cal.get("summary", ""),
+            "primary": cal.get("primary", False),
+            "access_role": cal.get("accessRole"),
+            "background_color": cal.get("backgroundColor"),
+        }
+        for cal in items
+    ]
+
+    # Sort: primary first, then by name
+    calendars.sort(key=lambda c: (not c["primary"], c["summary"].lower()))
+
+    result = {"calendars": calendars}
+
+    # Cache for 1 hour
+    db.cache_calendars(user.id, result, ttl_seconds=3600)
+
+    logger.info("Fetched available calendars", extra={"user_id": user.id, "count": len(calendars)})
+
+    return result
 
 
 @auth.route("/calendar/selected-calendars", methods=["GET"])
