@@ -1375,6 +1375,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spend, agent health, search quotas, response quality and system facts. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminOverviewResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/todoist/status": {
         parameters: {
             query?: never;
@@ -3133,6 +3187,51 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PushKeysResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/me/spend-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user's spend today against the warning threshold. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpendStatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
             };
@@ -6383,6 +6482,11 @@ export interface components {
              * @default null
              */
             picture: string | null;
+            /**
+             * Is Admin
+             * @default false
+             */
+            is_admin: boolean;
         };
         /**
          * UserContainerResponse
@@ -6841,6 +6945,11 @@ export interface components {
              * @default null
              */
             picture: string | null;
+            /**
+             * Is Admin
+             * @default false
+             */
+            is_admin: boolean;
         };
         /**
          * AuthResponse
@@ -7596,6 +7705,183 @@ export interface components {
              * @description Whether connection succeeded
              */
             connected: boolean;
+        };
+        /** AgentFailure */
+        "AdminOverviewResponse.AgentFailure": {
+            /** Agent Name */
+            agent_name: string;
+            /** User Name */
+            user_name: string;
+            /** Started At */
+            started_at: string;
+            /**
+             * Error
+             * @description The first line of the error, cut to 120 characters
+             */
+            error: string;
+        };
+        /** AgentsSection */
+        "AdminOverviewResponse.AgentsSection": {
+            /** Runs 7D */
+            runs_7d: number;
+            /** Failed 7D */
+            failed_7d: number;
+            /** Pending Approvals */
+            pending_approvals: number;
+            /** Recent Failures */
+            recent_failures: components["schemas"]["AdminOverviewResponse.AgentFailure"][];
+        };
+        /** DailySpend */
+        "AdminOverviewResponse.DailySpend": {
+            /**
+             * Date
+             * @description YYYY-MM-DD
+             */
+            date: string;
+            amount: components["schemas"]["AdminOverviewResponse.Money"];
+        };
+        /**
+         * Money
+         * @description An amount in USD and formatted in the display currency.
+         */
+        "AdminOverviewResponse.Money": {
+            /** Usd */
+            usd: number;
+            /** Formatted */
+            formatted: string;
+        };
+        /** QualitySection */
+        "AdminOverviewResponse.QualitySection": {
+            /** Turns 7D */
+            turns_7d: number;
+            /**
+             * Median Ms
+             * @default null
+             */
+            median_ms: number | null;
+            /**
+             * P95 Ms
+             * @default null
+             */
+            p95_ms: number | null;
+            /**
+             * Tool Error Rate
+             * @description Share of turns with a tool error, 0-1
+             */
+            tool_error_rate: number;
+        };
+        /** SearchProviderStatus */
+        "AdminOverviewResponse.SearchProviderStatus": {
+            /** Provider */
+            provider: string;
+            /** Configured */
+            configured: boolean;
+            /** Used */
+            used: number;
+            /**
+             * Quota
+             * @description Monthly quota; null = unmetered
+             * @default null
+             */
+            quota: number | null;
+            /**
+             * Available
+             * @description Search would try this provider right now
+             */
+            available: boolean;
+        };
+        /** SearchSection */
+        "AdminOverviewResponse.SearchSection": {
+            /**
+             * Degraded Today
+             * @description Search fell back to the free provider today
+             */
+            degraded_today: boolean;
+            /**
+             * Providers
+             * @description In priority order
+             */
+            providers: components["schemas"]["AdminOverviewResponse.SearchProviderStatus"][];
+        };
+        /** SpendSection */
+        "AdminOverviewResponse.SpendSection": {
+            today: components["schemas"]["AdminOverviewResponse.Money"];
+            month: components["schemas"]["AdminOverviewResponse.Money"];
+            threshold: components["schemas"]["AdminOverviewResponse.Money"];
+            /** Users */
+            users: components["schemas"]["AdminOverviewResponse.UserSpend"][];
+            /**
+             * Daily
+             * @description The last 30 days, oldest first
+             */
+            daily: components["schemas"]["AdminOverviewResponse.DailySpend"][];
+            /**
+             * By Feature
+             * @description This month, largest first
+             */
+            by_feature: components["schemas"]["AdminOverviewResponse.SpendShare"][];
+            /**
+             * By Model
+             * @description This month, largest first
+             */
+            by_model: components["schemas"]["AdminOverviewResponse.SpendShare"][];
+        };
+        /** SpendShare */
+        "AdminOverviewResponse.SpendShare": {
+            /** Name */
+            name: string;
+            amount: components["schemas"]["AdminOverviewResponse.Money"];
+        };
+        /** SystemSection */
+        "AdminOverviewResponse.SystemSection": {
+            /**
+             * Version
+             * @default null
+             */
+            version: string | null;
+            /** Database Bytes */
+            database_bytes: number;
+            /** Files Bytes */
+            files_bytes: number;
+            /**
+             * Last Backup At
+             * @default null
+             */
+            last_backup_at: string | null;
+            /**
+             * Latest Migration
+             * @default null
+             */
+            latest_migration: string | null;
+            /** Users */
+            users: number;
+        };
+        /** UserSpend */
+        "AdminOverviewResponse.UserSpend": {
+            /** Name */
+            name: string;
+            today: components["schemas"]["AdminOverviewResponse.Money"];
+            month: components["schemas"]["AdminOverviewResponse.Money"];
+            /**
+             * Over Threshold
+             * @description Today's spend is past the warning threshold
+             */
+            over_threshold: boolean;
+        };
+        /**
+         * AdminOverviewResponse
+         * @description Everything the admin page shows - names and numbers, no conversation content.
+         */
+        AdminOverviewResponse: {
+            /** Generated At */
+            generated_at: string;
+            /** Currency */
+            currency: string;
+            spend: components["schemas"]["AdminOverviewResponse.SpendSection"];
+            agents: components["schemas"]["AdminOverviewResponse.AgentsSection"];
+            search: components["schemas"]["AdminOverviewResponse.SearchSection"];
+            quality: components["schemas"]["AdminOverviewResponse.QualitySection"];
+            system: components["schemas"]["AdminOverviewResponse.SystemSection"];
         };
         /**
          * TodoistStatusResponse
@@ -9063,6 +9349,27 @@ export interface components {
              * @default null
              */
             public_key: string | null;
+        };
+        /**
+         * Money
+         * @description An amount in USD and formatted in the display currency.
+         */
+        "SpendStatusResponse.Money": {
+            /** Usd */
+            usd: number;
+            /** Formatted */
+            formatted: string;
+        };
+        /**
+         * SpendStatusResponse
+         * @description The signed-in user's spend today against the warning threshold.
+         */
+        SpendStatusResponse: {
+            today: components["schemas"]["SpendStatusResponse.Money"];
+            /** Threshold Usd */
+            threshold_usd: number;
+            /** Over Threshold */
+            over_threshold: boolean;
         };
         /**
          * ModelCostBreakdown

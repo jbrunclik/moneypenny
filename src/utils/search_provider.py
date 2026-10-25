@@ -643,3 +643,27 @@ _PROVIDERS: tuple[_Provider, ...] = (
     ),
     _Provider("ddgs", lambda: "", lambda: None, lambda q, n: _search_ddgs(q, n)),
 )
+
+
+def quota_status() -> list[dict[str, Any]]:
+    """Each provider this billing period, in priority order (the admin page).
+
+    `available` is whether search_web() would try it right now: a key is set,
+    the breaker isn't tripped and the quota isn't used up.
+    """
+    return [
+        {
+            "provider": provider.name,
+            "configured": provider.monthly_quota() is None or bool(provider.api_key()),
+            "used": get_monthly_usage(provider.name),
+            "quota": provider.monthly_quota(),
+            "available": _provider_available(provider),
+        }
+        for provider in _PROVIDERS
+    ]
+
+
+def degraded_today() -> bool:
+    """Whether search fell back to the free provider at some point today."""
+    key = f"degraded-alert:{date.today().isoformat()}"
+    return bool(db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, key))

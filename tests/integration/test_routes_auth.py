@@ -32,6 +32,14 @@ class TestGoogleAuthRoute:
         assert "user" in data
         assert data["user"]["email"] == "test@example.com"
 
+    def test_login_response_carries_the_admin_flag(
+        self, client: FlaskClient, mock_google_tokeninfo: MagicMock
+    ) -> None:
+        """The app takes the user from this response right after sign-in."""
+        with patch.object(Config, "ADMIN_EMAILS", ["test@example.com"]):
+            data = client.post("/auth/google", json={"credential": "valid-google-token"}).get_json()
+        assert data["user"]["is_admin"] is True
+
     def test_successful_login_existing_user(
         self,
         client: FlaskClient,
@@ -317,3 +325,19 @@ class TestRemovedUserIsLockedOut:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         assert client.get("/auth/me", headers=auth_headers).status_code == 200
+
+
+class TestMeReportsAdmin:
+    """The frontend shows the Admin menu entry from /auth/me's is_admin."""
+
+    def test_regular_user(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", []):
+            data = client.get("/auth/me", headers=auth_headers).get_json()
+        assert data["user"]["is_admin"] is False
+
+    def test_admin_user(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        with patch.object(Config, "ADMIN_EMAILS", [test_user.email]):
+            data = client.get("/auth/me", headers=auth_headers).get_json()
+        assert data["user"]["is_admin"] is True

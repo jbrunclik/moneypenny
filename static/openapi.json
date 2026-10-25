@@ -60,6 +60,9 @@
     },
     {
       "name": "Push"
+    },
+    {
+      "name": "Admin"
     }
   ],
   "paths": {
@@ -935,6 +938,47 @@
           "Rouvy"
         ],
         "summary": "Connect Rouvy: headless login, then store session + encrypted credentials."
+      }
+    },
+    "/api/admin/overview": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Spend, agent health, search quotas, response quality and system facts."
       }
     },
     "/auth/todoist/status": {
@@ -2319,6 +2363,37 @@
           "Push"
         ],
         "summary": "VAPID public key the client needs for PushManager.subscribe()."
+      }
+    },
+    "/api/users/me/spend-status": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendStatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "The signed-in user's spend today against the warning threshold."
       }
     },
     "/api/conversations/archived": {
@@ -5258,6 +5333,11 @@
             ],
             "default": null,
             "title": "Picture"
+          },
+          "is_admin": {
+            "default": false,
+            "title": "Is Admin",
+            "type": "boolean"
           }
         },
         "required": [
@@ -6126,6 +6206,11 @@
             ],
             "default": null,
             "title": "Picture"
+          },
+          "is_admin": {
+            "default": false,
+            "title": "Is Admin",
+            "type": "boolean"
           }
         },
         "required": [
@@ -7507,6 +7592,408 @@
           "connected"
         ],
         "title": "RouvyConnectResponse",
+        "type": "object"
+      },
+      "AdminOverviewResponse.AgentFailure": {
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "user_name": {
+            "title": "User Name",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "error": {
+            "description": "The first line of the error, cut to 120 characters",
+            "title": "Error",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_name",
+          "user_name",
+          "started_at",
+          "error"
+        ],
+        "title": "AgentFailure",
+        "type": "object"
+      },
+      "AdminOverviewResponse.AgentsSection": {
+        "properties": {
+          "runs_7d": {
+            "title": "Runs 7D",
+            "type": "integer"
+          },
+          "failed_7d": {
+            "title": "Failed 7D",
+            "type": "integer"
+          },
+          "pending_approvals": {
+            "title": "Pending Approvals",
+            "type": "integer"
+          },
+          "recent_failures": {
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.AgentFailure"
+            },
+            "title": "Recent Failures",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs_7d",
+          "failed_7d",
+          "pending_approvals",
+          "recent_failures"
+        ],
+        "title": "AgentsSection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.DailySpend": {
+        "properties": {
+          "date": {
+            "description": "YYYY-MM-DD",
+            "title": "Date",
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          }
+        },
+        "required": [
+          "date",
+          "amount"
+        ],
+        "title": "DailySpend",
+        "type": "object"
+      },
+      "AdminOverviewResponse.Money": {
+        "description": "An amount in USD and formatted in the display currency.",
+        "properties": {
+          "usd": {
+            "title": "Usd",
+            "type": "number"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          }
+        },
+        "required": [
+          "usd",
+          "formatted"
+        ],
+        "title": "Money",
+        "type": "object"
+      },
+      "AdminOverviewResponse.QualitySection": {
+        "properties": {
+          "turns_7d": {
+            "title": "Turns 7D",
+            "type": "integer"
+          },
+          "median_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Median Ms"
+          },
+          "p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P95 Ms"
+          },
+          "tool_error_rate": {
+            "description": "Share of turns with a tool error, 0-1",
+            "title": "Tool Error Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "turns_7d",
+          "tool_error_rate"
+        ],
+        "title": "QualitySection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.SearchProviderStatus": {
+        "properties": {
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "used": {
+            "title": "Used",
+            "type": "integer"
+          },
+          "quota": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Monthly quota; null = unmetered",
+            "title": "Quota"
+          },
+          "available": {
+            "description": "Search would try this provider right now",
+            "title": "Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "configured",
+          "used",
+          "available"
+        ],
+        "title": "SearchProviderStatus",
+        "type": "object"
+      },
+      "AdminOverviewResponse.SearchSection": {
+        "properties": {
+          "degraded_today": {
+            "description": "Search fell back to the free provider today",
+            "title": "Degraded Today",
+            "type": "boolean"
+          },
+          "providers": {
+            "description": "In priority order",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.SearchProviderStatus"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "degraded_today",
+          "providers"
+        ],
+        "title": "SearchSection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.SpendSection": {
+        "properties": {
+          "today": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          },
+          "month": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          },
+          "threshold": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.UserSpend"
+            },
+            "title": "Users",
+            "type": "array"
+          },
+          "daily": {
+            "description": "The last 30 days, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.DailySpend"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "by_feature": {
+            "description": "This month, largest first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.SpendShare"
+            },
+            "title": "By Feature",
+            "type": "array"
+          },
+          "by_model": {
+            "description": "This month, largest first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.SpendShare"
+            },
+            "title": "By Model",
+            "type": "array"
+          }
+        },
+        "required": [
+          "today",
+          "month",
+          "threshold",
+          "users",
+          "daily",
+          "by_feature",
+          "by_model"
+        ],
+        "title": "SpendSection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.SpendShare": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          }
+        },
+        "required": [
+          "name",
+          "amount"
+        ],
+        "title": "SpendShare",
+        "type": "object"
+      },
+      "AdminOverviewResponse.SystemSection": {
+        "properties": {
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Version"
+          },
+          "database_bytes": {
+            "title": "Database Bytes",
+            "type": "integer"
+          },
+          "files_bytes": {
+            "title": "Files Bytes",
+            "type": "integer"
+          },
+          "last_backup_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Backup At"
+          },
+          "latest_migration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Latest Migration"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "database_bytes",
+          "files_bytes",
+          "users"
+        ],
+        "title": "SystemSection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.UserSpend": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "today": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          },
+          "month": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.Money"
+          },
+          "over_threshold": {
+            "description": "Today's spend is past the warning threshold",
+            "title": "Over Threshold",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "today",
+          "month",
+          "over_threshold"
+        ],
+        "title": "UserSpend",
+        "type": "object"
+      },
+      "AdminOverviewResponse": {
+        "description": "Everything the admin page shows - names and numbers, no conversation content.",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "spend": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.SpendSection"
+          },
+          "agents": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.AgentsSection"
+          },
+          "search": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.SearchSection"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.QualitySection"
+          },
+          "system": {
+            "$ref": "#/components/schemas/AdminOverviewResponse.SystemSection"
+          }
+        },
+        "required": [
+          "generated_at",
+          "currency",
+          "spend",
+          "agents",
+          "search",
+          "quality",
+          "system"
+        ],
+        "title": "AdminOverviewResponse",
         "type": "object"
       },
       "TodoistStatusResponse": {
@@ -10240,6 +10727,48 @@
           "enabled"
         ],
         "title": "PushKeysResponse",
+        "type": "object"
+      },
+      "SpendStatusResponse.Money": {
+        "description": "An amount in USD and formatted in the display currency.",
+        "properties": {
+          "usd": {
+            "title": "Usd",
+            "type": "number"
+          },
+          "formatted": {
+            "title": "Formatted",
+            "type": "string"
+          }
+        },
+        "required": [
+          "usd",
+          "formatted"
+        ],
+        "title": "Money",
+        "type": "object"
+      },
+      "SpendStatusResponse": {
+        "description": "The signed-in user's spend today against the warning threshold.",
+        "properties": {
+          "today": {
+            "$ref": "#/components/schemas/SpendStatusResponse.Money"
+          },
+          "threshold_usd": {
+            "title": "Threshold Usd",
+            "type": "number"
+          },
+          "over_threshold": {
+            "title": "Over Threshold",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "today",
+          "threshold_usd",
+          "over_threshold"
+        ],
+        "title": "SpendStatusResponse",
         "type": "object"
       },
       "MonthlyCostResponse.ModelCostBreakdown": {

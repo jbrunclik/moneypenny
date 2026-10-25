@@ -38,6 +38,7 @@ os.environ["GEMINI_API_KEY"] = "test-api-key-for-e2e"
 os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key-for-e2e-testing"
 os.environ["ALLOWED_EMAILS"] = "*"  # Allow all emails in E2E tests
+os.environ["ADMIN_EMAILS"] = "local@localhost"  # The auth-bypass user sees the admin page
 os.environ["LOG_LEVEL"] = "WARNING"  # Reduce noise during E2E tests
 # No APP_URL: the artifact frame's CSP then names the origin each request
 # came to (localhost or 127.0.0.1 - CI's baseline job uses the latter). A
@@ -1087,9 +1088,10 @@ def main() -> None:  # noqa: C901, PLR0915
                     content = msg.get("content", "")
                     files = msg.get("files")
                     added = g.db.add_message(conv.id, role, content, files=files)
-                    # Optional per-turn tool rounds (message_costs), e.g. to
-                    # seed a reply cut off by the tool-round cap
-                    if msg.get("tool_rounds"):
+                    # Optional per-turn cost row (message_costs): tool rounds,
+                    # e.g. a reply cut off by the tool-round cap, or spend
+                    # (cost_usd) for the spend warning and the admin page
+                    if msg.get("tool_rounds") or msg.get("cost_usd"):
                         g.db.save_message_cost(
                             added.id,
                             conv.id,
@@ -1097,8 +1099,8 @@ def main() -> None:  # noqa: C901, PLR0915
                             "e2e",
                             0,
                             0,
-                            0.0,
-                            tool_rounds=int(msg["tool_rounds"]),
+                            float(msg.get("cost_usd", 0.0)),
+                            tool_rounds=int(msg.get("tool_rounds", 0)),
                         )
 
                 # Seeded history counts as already read (as a real device that

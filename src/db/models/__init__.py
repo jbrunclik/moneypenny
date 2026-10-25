@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
+from src.db.models.admin import AdminMixin
 from src.db.models.agent import AgentMixin
 from src.db.models.agent_approvals import AgentApprovalMixin
 from src.db.models.agent_conversation import AgentConversationMixin
@@ -103,6 +104,7 @@ class Database(
     StreamJournalMixin,
     SyncChangesMixin,
     ArtifactMixin,
+    AdminMixin,
 ):
     """Main database class combining all mixins.
 

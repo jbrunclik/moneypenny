@@ -20,6 +20,7 @@ import {
   loadArchivedConversations,
   initSidebarTimeRefresh,
 } from '../components/Sidebar';
+import { refreshSpendWarning } from '../components/SpendBanner';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
 import {
@@ -350,6 +351,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     });
     renderConversationsList();
     renderUserInfo();
+    void refreshSpendWarning();
     renderModelDropdown();
 
     // Keep relative-time labels and date-group headers fresh even when no

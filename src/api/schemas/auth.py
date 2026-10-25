@@ -18,6 +18,7 @@ class UserResponse(BaseModel):
     email: str
     name: str
     picture: str | None = None
+    is_admin: bool = False
 
 
 class UserContainerResponse(BaseModel):

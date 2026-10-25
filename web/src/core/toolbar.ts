@@ -9,6 +9,7 @@ import { conversations } from '../api/conversations';
 import { costs } from '../api/costs';
 import { toast } from '../components/Toast';
 import { updateMonthlyCost } from '../components/Sidebar';
+import { refreshSpendWarning } from '../components/SpendBanner';
 import { updateCompactionIndicator } from '../components/CompactionIndicator';
 import { getElementById } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON } from '../utils/icons';
@@ -48,8 +49,9 @@ export async function updateConversationCost(convId: string | null): Promise<voi
     const costData = await costs.getConversationCost(convId);
     // Only show cost if it's greater than 0
     setCost(costData.cost_usd > 0 ? costData.formatted : '');
-    // Also update the monthly cost in the sidebar
+    // Also update the monthly cost in the sidebar, and the spend warning (S12)
     updateMonthlyCost();
+    void refreshSpendWarning();
   } catch {
     // Ignore errors - cost display is optional
     setCost('');

@@ -21,6 +21,7 @@ from src.api.schemas.auth import (
     UserContainerResponse,
 )
 from src.api.validation import validate_request
+from src.auth.admin import is_admin
 from src.auth.google_auth import GoogleAuthError, is_email_allowed, verify_google_id_token
 from src.auth.jwt_auth import create_token, require_auth
 from src.config import Config
@@ -88,6 +89,7 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
             "email": user.email,
             "name": user.name,
             "picture": user.picture,
+            "is_admin": is_admin(user),
         },
     }, 200
 
@@ -102,7 +104,7 @@ def get_client_id() -> dict[str, str]:
 @auth.route("/me")
 @auth.output(UserContainerResponse)
 @require_auth
-def me(user: User) -> dict[str, dict[str, str | None]]:
+def me(user: User) -> dict[str, dict[str, str | bool | None]]:
     """Get current user info."""
     return {
         "user": {
@@ -110,6 +112,7 @@ def me(user: User) -> dict[str, dict[str, str | None]]:
             "email": user.email,
             "name": user.name,
             "picture": user.picture,
+            "is_admin": is_admin(user),
         }
     }
 

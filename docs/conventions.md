@@ -44,7 +44,7 @@ session and points here for the rest.
 | S9 | No secrets or infrastructure details in tracked files or commit messages (the repo is public) | CI (gitleaks + a `FORBIDDEN_PATTERNS` secret scan); gitleaks on commit locally |
 | S10 | Public API docs (`/api/docs`, `/api/openapi.json`) are off in production | test (`test_security_headers.py`) |
 | S11 | Deploys can't overlap and can be rolled back (lock, previous SHA, backup before migrations, assets swapped without a gap) | `make update` / `make rollback` ([deployment.md](deployment.md#deploying-and-rolling-back)) |
-| S12 | Spend of more than $10 per user per day shows that user a banner (something looks off) - never a block, no notification; the admin sees total spend in the app | planned (`/new-feature`) |
+| S12 | Spend of more than $10 per user per day shows that user a banner (something looks off) - never a block, no notification; the admin sees total spend in the app ([admin.md](features/admin.md)) | tests (`test_routes_admin.py`, `spend-banner.test.ts`, `admin.spec.ts`) |
 
 ### Delivery (P)
 

@@ -121,6 +121,19 @@ export function setupEventListeners(): void {
       navigateToStorage();
       return;
     }
+    if (target.closest('#admin-btn')) {
+      closeUserMenu();
+      try {
+        const { openAdminPage } = await import('../components/AdminPage');
+        await openAdminPage();
+      } catch (error) {
+        // A chunk deleted by a deploy is handled by the stale-chunk reload;
+        // anything else surfaces here instead of failing silently
+        log.error('Failed to open the admin page', { error });
+        toast.error('Failed to open the admin page.');
+      }
+      return;
+    }
     if (target.closest('.user-menu-archive')) {
       closeUserMenu();
       navigateToArchive();

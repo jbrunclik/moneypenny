@@ -13,6 +13,12 @@
 // Re-export generated types for reference and test validation
 export type { components, paths } from './generated-api';
 
+// Admin page and spend status (S12): aliases of the generated schemas (F6)
+type Schemas = import('./generated-api').components['schemas'];
+export type AdminOverview = Schemas['AdminOverviewResponse'];
+export type SpendStatus = Schemas['SpendStatusResponse'];
+export type Money = Schemas['AdminOverviewResponse.Money'];
+
 // Constants
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
 
@@ -32,6 +38,8 @@ export interface User {
   email: string;
   name: string;
   picture: string | null;
+  // Sees the admin page (from /auth/me; S12)
+  is_admin?: boolean;
   // Integration status - populated client-side after fetching status endpoints
   todoist_connected?: boolean;
   calendar_connected?: boolean;

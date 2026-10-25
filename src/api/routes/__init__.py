@@ -40,6 +40,7 @@ from apiflask import APIFlask
 # conversation_organize, conversation_search and conversation_trash do the
 # same for conversations.api.
 from src.api.routes import (
+    admin,
     agent_approvals,  # noqa: F401
     agent_assist,  # noqa: F401
     agent_command_center,  # noqa: F401
@@ -106,6 +107,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(sports.api)
     app.register_blueprint(language.api)
     app.register_blueprint(push.api)
+    app.register_blueprint(admin.api)
 
 
 __all__ = [

@@ -2,7 +2,7 @@ import { escapeHtml, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { renderUserAvatarHtml } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, User } from '../types/api';
@@ -492,6 +492,7 @@ export function renderUserInfo(): void {
       <button id="cost-history-btn" class="user-menu-item" role="menuitem">
         ${COST_ICON}<span>Cost history</span>
       </button>
+      ${user.is_admin ? `<button id="admin-btn" class="user-menu-item" role="menuitem">${ACTIVITY_ICON}<span>Admin</span></button>` : ''}
       <button id="logout-btn" class="user-menu-item user-menu-item-danger" role="menuitem">
         ${LOGOUT_ICON}<span>Log out</span>
       </button>

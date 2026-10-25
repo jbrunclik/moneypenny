@@ -41,6 +41,7 @@
 @import "./components/planner.css";
 @import "./components/agents.css";
 @import "./components/kv-store.css";
+@import "./components/admin.css";
 @import "./components/sports.css";
 @import "./components/language.css";
 @import "./components/quick-actions.css";

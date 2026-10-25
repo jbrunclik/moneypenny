@@ -51,6 +51,12 @@ class Config:
     ALLOWED_EMAILS: list[str] = [  # noqa: RUF012
         email.strip() for email in os.getenv("ALLOWED_EMAILS", "").split(",") if email.strip()
     ]
+    # Accounts that see the admin page (S12). Empty = no admins.
+    ADMIN_EMAILS: list[str] = [  # noqa: RUF012 - read-only after import, like ALLOWED_EMAILS
+        email.strip() for email in os.getenv("ADMIN_EMAILS", "").split(",") if email.strip()
+    ]
+    # A user whose spend today passes this sees a banner (S12) - never a block
+    SPEND_WARNING_DAILY_USD: float = float(os.getenv("SPEND_WARNING_DAILY_USD", "10"))
 
     # Server
     PORT: int = int(os.getenv("PORT", "8000"))

@@ -1,0 +1,273 @@
+/* ============================================
+   Admin page and spend warning banner (S12)
+   ============================================ */
+
+.admin-page {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.admin-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--header-height);
+    padding: 0 var(--space-3);
+    padding-top: env(safe-area-inset-top);
+    border-bottom: 1px solid var(--border);
+    background: var(--glass-bg-header);
+}
+
+.admin-header h1 {
+    flex: 1;
+    margin: 0;
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-xl);
+}
+
+.admin-back,
+.admin-refresh {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.admin-back:hover,
+.admin-refresh:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.admin-back svg,
+.admin-refresh svg {
+    width: 20px;
+    height: 20px;
+}
+
+.admin-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-4);
+    padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
+}
+
+.admin-body > * {
+    max-width: min(var(--message-max-width), 100%);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.admin-section {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.admin-section h2 {
+    margin: 0 0 var(--space-3);
+    font-size: var(--font-size-md);
+}
+
+.admin-section h3 {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--space-2);
+}
+
+.admin-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+}
+
+.admin-stat span {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.admin-stat strong {
+    font-size: var(--font-size-xl);
+}
+
+.admin-stat-warn strong,
+.admin-over-threshold td {
+    color: var(--warning-text);
+}
+
+.admin-table {
+    width: 100%;
+    margin-top: var(--space-3);
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.admin-table th,
+.admin-table td {
+    padding: var(--space-1-5) var(--space-2);
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.admin-table th {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.admin-chart {
+    display: block;
+    width: 100%;
+    height: 80px;
+    /* A baseline, so days without spend still read as a timeline */
+    border-bottom: 1px solid var(--border);
+}
+
+.admin-chart rect {
+    fill: var(--accent);
+}
+
+.admin-chart rect:hover {
+    fill: var(--accent-hover);
+}
+
+.admin-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-4);
+}
+
+.admin-shares ul,
+.admin-failures {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-sm);
+}
+
+.admin-shares li {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.admin-failures li {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.admin-error-text {
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.admin-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-1-5) var(--space-4);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.admin-facts dt {
+    color: var(--text-muted);
+}
+
+.admin-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.admin-note,
+.admin-loading {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.admin-error,
+.admin-search-degraded {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--warning-text);
+    font-size: var(--font-size-sm);
+}
+
+/* ----------------------------------------
+   Spend warning banner
+   ---------------------------------------- */
+
+.spend-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: min(var(--message-max-width), calc(100% - 2 * var(--space-4)));
+    margin: var(--space-2) auto 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.spend-banner span {
+    flex: 1;
+}
+
+.spend-banner-dismiss {
+    display: inline-flex;
+    padding: var(--space-1);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.spend-banner-dismiss svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* On mobile the messages run under the fixed header (layout.css): float the
+   banner just below it instead of above the list, where the header covers it */
+@media (max-width: 768px) {
+    .spend-banner {
+        position: absolute;
+        top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-2));
+        left: var(--space-4);
+        right: var(--space-4);
+        max-width: none;
+        margin: 0;
+        z-index: var(--z-banner);
+        background: var(--glass-bg-header);
+        backdrop-filter: blur(var(--glass-blur-header));
+        -webkit-backdrop-filter: blur(var(--glass-blur-header));
+    }
+}
+
+/* The section's own divider closes a list: no double line under its last row */
+.admin-shares li:last-child,
+.admin-failures li:last-child {
+    border-bottom: none;
+}

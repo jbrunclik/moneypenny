@@ -1,0 +1,134 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AdminOverview } from '@/types/api';
+import { renderAdminOverview, openAdminPage, closeAdminPage } from '@/components/AdminPage';
+import { admin } from '@/api/admin';
+
+const money = (usd: number) => ({ usd, formatted: `${(usd * 23).toFixed(2)} Kč` });
+
+function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
+  return {
+    generated_at: '2026-10-25T15:00:00',
+    currency: 'CZK',
+    spend: {
+      today: money(12.5),
+      month: money(80),
+      threshold: money(10),
+      users: [
+        { name: 'Jana', today: money(12), month: money(50), over_threshold: true },
+        { name: '<b>Petr</b>', today: money(0.5), month: money(30), over_threshold: false },
+      ],
+      daily: Array.from({ length: 30 }, (_, i) => ({
+        date: `2026-09-${String(26 + i).padStart(2, '0')}`,
+        amount: money(i === 29 ? 12.5 : 2),
+      })),
+      by_feature: [{ name: 'chat', amount: money(60) }, { name: 'agents', amount: money(20) }],
+      by_model: [{ name: 'gemini-3.8-flash', amount: money(80) }],
+    },
+    agents: {
+      runs_7d: 14,
+      failed_7d: 2,
+      pending_approvals: 1,
+      recent_failures: [
+        { agent_name: 'Briefing', user_name: 'Jana', started_at: '2026-10-25T07:00:00', error: 'Timeout <x>' },
+      ],
+    },
+    search: {
+      degraded_today: true,
+      providers: [
+        { provider: 'brave', configured: true, used: 1000, quota: 1000, available: false },
+        { provider: 'ddgs', configured: true, used: 0, quota: null, available: true },
+      ],
+    },
+    quality: { turns_7d: 300, median_ms: 9000, p95_ms: 45000, tool_error_rate: 0.03 },
+    system: {
+      version: 'abc123',
+      database_bytes: 258785280,
+      files_bytes: 516935680,
+      last_backup_at: '2026-10-25T02:26:00',
+      latest_migration: '0068_unique_planner_conversation',
+      users: 5,
+    },
+    ...overrides,
+  };
+}
+
+function render(data: AdminOverview): HTMLElement {
+  const div = document.createElement('div');
+  div.innerHTML = renderAdminOverview(data);
+  return div;
+}
+
+describe('renderAdminOverview', () => {
+  it('shows the family totals and a row per person', () => {
+    const page = render(overview());
+    expect(page.querySelector('.admin-spend-today')?.textContent).toContain('287.50 Kč');
+    expect(page.querySelectorAll('.admin-user-row')).toHaveLength(2);
+  });
+
+  it('highlights a person past the daily threshold', () => {
+    const rows = render(overview()).querySelectorAll('.admin-user-row');
+    expect(rows[0].classList.contains('admin-over-threshold')).toBe(true);
+    expect(rows[1].classList.contains('admin-over-threshold')).toBe(false);
+  });
+
+  it('escapes names and error messages', () => {
+    const page = render(overview());
+    expect(page.querySelector('b')).toBeNull();
+    expect(page.textContent).toContain('<b>Petr</b>');
+    expect(page.textContent).toContain('Timeout <x>');
+  });
+
+  it('draws one bar per day, scaled to the busiest day', () => {
+    const bars = render(overview()).querySelectorAll('.admin-chart rect');
+    expect(bars).toHaveLength(30);
+    const heights = Array.from(bars, (bar) => Number(bar.getAttribute('height')));
+    expect(Math.max(...heights)).toBe(heights[29]);
+  });
+
+  it('copes with a month without spend', () => {
+    const empty = overview();
+    empty.spend.daily = empty.spend.daily.map((d) => ({ ...d, amount: money(0) }));
+    const heights = Array.from(render(empty).querySelectorAll('.admin-chart rect'), (bar) =>
+      bar.getAttribute('height')
+    );
+    expect(heights.every((h) => h === '0')).toBe(true);
+  });
+
+  it('flags exhausted search providers and the fallback', () => {
+    const page = render(overview());
+    expect(page.querySelector('.admin-search-degraded')).not.toBeNull();
+    expect(page.querySelector('[data-provider="brave"]')?.textContent).toContain('1000 / 1000');
+    expect(page.querySelector('[data-provider="ddgs"]')?.textContent).toContain('unmetered');
+  });
+
+  it('shows response quality and system facts readably', () => {
+    const text = render(overview()).textContent ?? '';
+    expect(text).toContain('9.0 s');
+    expect(text).toContain('3.0%');
+    expect(text).toContain('247 MB');
+    expect(text).toContain('0068_unique_planner_conversation');
+  });
+});
+
+describe('openAdminPage', () => {
+  afterEach(() => {
+    closeAdminPage();
+    vi.restoreAllMocks();
+  });
+
+  it('opens a full-screen page, loads the overview and closes on Escape', async () => {
+    vi.spyOn(admin, 'getOverview').mockResolvedValue(overview());
+    await openAdminPage();
+    const page = document.querySelector('.admin-page');
+    expect(page?.getAttribute('aria-modal')).toBe('true');
+    expect(page?.querySelector('.admin-user-row')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.querySelector('.admin-page')).toBeNull();
+  });
+
+  it('shows an error state when the overview fails to load', async () => {
+    vi.spyOn(admin, 'getOverview').mockRejectedValue(new Error('403'));
+    await openAdminPage();
+    expect(document.querySelector('.admin-page .admin-error')).not.toBeNull();
+  });
+});

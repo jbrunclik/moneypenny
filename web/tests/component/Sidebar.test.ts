@@ -601,6 +601,16 @@ describe('Sidebar', () => {
   });
 
   describe('renderUserInfo', () => {
+    it('offers the Admin entry only to admins', () => {
+      useStore.setState({ user: createUser() });
+      renderUserInfo();
+      expect(document.getElementById('admin-btn')).toBeNull();
+
+      useStore.setState({ user: { ...createUser(), is_admin: true } });
+      renderUserInfo();
+      expect(document.getElementById('admin-btn')?.textContent).toContain('Admin');
+    });
+
     it('renders empty when no user', () => {
       renderUserInfo();
 
