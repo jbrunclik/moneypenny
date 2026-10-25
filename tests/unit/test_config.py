@@ -221,6 +221,8 @@ class TestConfigValidation:
 
     def test_valid_config_production(self) -> None:
         """Should pass validation with valid production config."""
+        from cryptography.fernet import Fernet
+
         with patch.dict(
             os.environ,
             {
@@ -230,6 +232,8 @@ class TestConfigValidation:
                 "ALLOWED_EMAILS": "test@example.com",
                 # JWT secret must be at least 32 characters in production
                 "JWT_SECRET_KEY": "secure-production-key-1234567890123456",
+                # Set explicitly so the test doesn't depend on a local .env
+                "TOKEN_ENCRYPTION_KEY": Fernet.generate_key().decode(),
                 "PORT": "8000",
                 "COST_CURRENCY": "CZK",
                 "LOG_LEVEL": "WARNING",

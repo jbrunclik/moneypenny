@@ -190,6 +190,19 @@ def mock_external_api(monkeypatch):
     return mock_call
 ```
 
+**5. Don't lean on your `.env`.** `src/config.py` calls `load_dotenv()`, so a
+test that reloads config or reads a setting sees the laptop's values - CI has
+no `.env`. Set every value the test depends on (`patch.dict(os.environ, ...)`
+or `monkeypatch.setattr(Config, ...)`). To check, run the suite from a fresh
+worktree, which has no `.env` (Oct 25 2026: a production-config test passed
+locally only because the local `.env` held a `TOKEN_ENCRYPTION_KEY`):
+
+```bash
+git worktree add --detach /tmp/ci-wt HEAD && cd /tmp/ci-wt
+<repo>/.venv/bin/python -m pytest tests -n auto -q -p no:cacheprovider
+cd - && git worktree remove --force /tmp/ci-wt
+```
+
 ## Planner Tests (backend)
 
 **Unit Tests** ([tests/unit/test_planner.py](../../tests/unit/test_planner.py)):
