@@ -291,7 +291,7 @@ def todoist_move_task(
 
     # Only one destination parameter should be set
     destinations = [section_id, project_id, parent_id]
-    if sum(d is not None for d in destinations) != 1:
+    if sum(bool(d) for d in destinations) != 1:
         return {
             "error": "Exactly one of section_id, project_id, or parent_id must be provided for move_task"
         }
