@@ -258,7 +258,7 @@ class TestListTasks:
 
         assert result["action"] == "list_tasks"
         assert result["failed_filter"] == "due this week"
-        assert result["retriable"] is True
+        assert result.get("retriable", True) is True
         assert "'due this week'" in result["error"]
         assert "search query is incorrect" not in result["error"]
         assert "today" in result["valid_examples"]
@@ -380,7 +380,7 @@ class TestMoveTask:
         assert result == {
             "action": "move_task",
             "success": False,
-            "error": {"error": "Item not found", "error_code": 22},
+            "error": '{"error": "Item not found", "error_code": 22}',
         }
 
 

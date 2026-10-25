@@ -10,13 +10,16 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from langchain_core.messages import ToolMessage
 
 from src.agent.graph import tool_message_error
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.conversation_search import search_conversations
-from src.agent.tools.errors import tool_error
+from src.agent.tools.errors import action_result, tool_error
+from src.agent.tools.google_calendar import google_calendar
 from src.agent.tools.memory import search_memory
+from src.agent.tools.todoist import todoist
 from src.agent.tools.trigger_agent import trigger_agent
 
 TOOLS = Path(__file__).resolve().parents[2] / "src" / "agent" / "tools"
@@ -65,6 +68,80 @@ def test_trigger_agent_outside_an_agent_is_a_permanent_failure() -> None:
     recognised = _recognised(result)
     assert recognised is not None
     assert recognised[1] is False
+
+
+def test_an_action_result_without_error_is_serialized_as_is() -> None:
+    assert json.loads(action_result({"action": "x", "success": True})) == {
+        "action": "x",
+        "success": True,
+    }
+
+
+def test_an_action_result_with_error_becomes_the_envelope() -> None:
+    result = action_result({"action": "x", "success": False, "error": "Nope"})
+    assert result == tool_error("Nope", action="x", success=False)
+    assert _recognised(result) == ("Nope", True)
+
+
+def test_an_action_result_keeps_a_permanent_failure_permanent() -> None:
+    assert _recognised(action_result({"error": "Gone", "retriable": False})) == ("Gone", False)
+
+
+def test_a_non_text_action_error_becomes_its_json() -> None:
+    result = json.loads(action_result({"error": {"error": "Item not found", "error_code": 22}}))
+    assert result == {"error": '{"error": "Item not found", "error_code": 22}'}
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        ({"action": "update_task", "task_id": "t1"}, "No fields to update provided"),
+        (
+            {"action": "update_project", "project_id": "p1"},
+            "No project fields provided for update",
+        ),
+        (
+            {"action": "move_task", "task_id": "t1"},
+            "Exactly one of section_id, project_id, or parent_id must be provided for move_task",
+        ),
+    ],
+)
+def test_todoist_action_failures_are_recognised(args: dict[str, str], message: str) -> None:
+    with (
+        patch("src.agent.tools.todoist_client.get_todoist_token", return_value="tok"),
+        patch("src.agent.tools.todoist_client.todoist_api_request") as api,
+    ):
+        result = todoist.invoke(args)
+    assert _recognised(result) == (message, True)
+    api.assert_not_called()
+
+
+def test_todoist_invalid_filter_is_recognised() -> None:
+    rejected = Exception('Todoist API error (400): {"error_tag":"INVALID_SEARCH_QUERY"}')
+    with (
+        patch("src.agent.tools.todoist_client.get_todoist_token", return_value="tok"),
+        patch("src.agent.tools.todoist_client.todoist_api_request", side_effect=rejected),
+    ):
+        result = todoist.invoke({"action": "list_tasks", "filter_string": "due soon"})
+    recognised = _recognised(result)
+    assert recognised is not None
+    assert recognised[0].startswith("Todoist rejected the filter 'due soon'")
+    assert recognised[1] is True
+    assert json.loads(result)["failed_filter"] == "due soon"
+
+
+def test_calendar_update_without_fields_is_recognised() -> None:
+    with (
+        patch("src.agent.tools.google_calendar._is_google_calendar_configured", return_value=True),
+        patch(
+            "src.agent.tools.google_calendar._get_google_calendar_access_token",
+            return_value=("tok", "user@example.com"),
+        ),
+        patch("src.agent.tools.google_calendar._google_calendar_api_request") as api,
+    ):
+        result = google_calendar.invoke({"action": "update_event", "event_id": "e1"})
+    assert _recognised(result) == ("No fields to update provided", True)
+    api.assert_not_called()
 
 
 def _error_string_returns(path: Path) -> list[int]:

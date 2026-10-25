@@ -4,7 +4,6 @@ The tool validates arguments and dispatches; the HTTP layer lives in
 todoist_client.py and the actions in todoist_tasks.py / todoist_projects.py.
 """
 
-import json
 from collections.abc import Callable
 from typing import Any
 
@@ -13,7 +12,7 @@ from langchain_core.tools import tool
 from src.agent.tools import todoist_client
 from src.agent.tools import todoist_projects as projects
 from src.agent.tools import todoist_tasks as tasks
-from src.agent.tools.errors import tool_error
+from src.agent.tools.errors import action_result, tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
@@ -314,7 +313,7 @@ def todoist(
         return tool_error(f"{' and '.join(required)} {verb} required for {action} action")
 
     try:
-        return json.dumps(handler(token, args))
+        return action_result(handler(token, args))
 
     except todoist_client.TodoistTokenRejectedError:
         return not_connected_result("todoist", was_connected=True)

@@ -156,6 +156,9 @@ through callbacks or `core/events`, not by importing `core`; `utils` and
 - Agent tools report failures through `tool_error()`
   (`src/agent/tools/errors.py`): a JSON `{"error": ...}` envelope the graph's
   self-correction recognises; `retriable=False` when a retry cannot help.
+  A dispatcher whose action handlers return dicts (Todoist, Google Calendar)
+  serializes them with `action_result()`, which sends one with an `"error"`
+  key out through `tool_error()`.
 - Project exceptions end in `Error`.
 
 ## Logging and privacy

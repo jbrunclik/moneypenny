@@ -20,3 +20,19 @@ def tool_error(message: str, /, *, retriable: bool = True, **extra: Any) -> str:
     if not retriable:
         payload["retriable"] = False
     return json.dumps(payload, ensure_ascii=False)
+
+
+def action_result(result: dict[str, Any]) -> str:
+    """Serialize an action handler's result; one with an "error" goes out as tool_error().
+
+    For dispatchers whose handlers return dicts: the error text and the other
+    fields ride along unchanged, a non-text error (a Todoist sync status) as
+    its JSON.
+    """
+    if not result.get("error"):
+        return json.dumps(result)
+    extra = dict(result)
+    error = extra.pop("error")
+    retriable = bool(extra.pop("retriable", True))
+    message = error if isinstance(error, str) else json.dumps(error, ensure_ascii=False)
+    return tool_error(message, retriable=retriable, **extra)

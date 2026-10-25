@@ -102,7 +102,7 @@ class TestTodoistTool:
         )
 
         assert parsed["failed_filter"] == "tasks due this week"
-        assert parsed["retriable"] is True
+        assert parsed.get("retriable", True) is True
         assert "7 days" in parsed["valid_examples"]
         assert "filter" in parsed["error"].lower()
 

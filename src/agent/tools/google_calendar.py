@@ -1,6 +1,5 @@
 """Google Calendar management tool."""
 
-import json
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
@@ -9,7 +8,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
-from src.agent.tools.errors import tool_error
+from src.agent.tools.errors import action_result, tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.auth.google_calendar import (
@@ -649,7 +648,7 @@ def google_calendar(  # noqa: C901, PLR0912
                 f"Unknown action: {action}", available_actions=list(_CALENDAR_ACTIONS)
             )
 
-        return json.dumps(result)
+        return action_result(result)
 
     except CalendarDisconnectedError:
         return not_connected_result("google_calendar", was_connected=True)
