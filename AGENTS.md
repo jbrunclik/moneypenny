@@ -65,8 +65,9 @@ imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
 ## Code conventions
 
 - Type hints everywhere (mypy strict); TypeScript strict.
-- Functions < 50 lines ideal, < 100 max; nesting ≤ 3; files ≤ 500 lines, split by
-  responsibility. No backward-compatibility re-exports when splitting.
+- Functions < 50 lines ideal, < 100 max; nesting ≤ 3. Split files by
+  responsibility, not line count (~800 lines = check it still has one purpose).
+  No backward-compatibility re-exports when splitting.
 - True constants in `constants.{ts,py}`, tunables in `config.{ts,py}`;
   `SCREAMING_SNAKE_CASE` with units (`_MS`, `_SECONDS`, `_PX`, `_BYTES`).
 - New env var: add to `src/config.py` with a default, to `.env.example`, and to the

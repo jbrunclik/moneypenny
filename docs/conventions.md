@@ -17,18 +17,43 @@ Detailed code quality guidelines and patterns for the Moneypenny project. See [A
 - **Parser helpers**: Extract parsing/validation logic into reusable functions
 - **Choreography helpers**: Extract complex async/callback sequences into named functions
 
-## File Size Guidelines
+## Size and structure
 
-**Keep files under 500 lines** - Large files are difficult for LLMs to process effectively:
-- Files over 500 lines should be split into focused modules
-- Split by feature/responsibility, not by type (e.g., `conversation.ts`, `messaging.ts`, not `handlers.ts`, `utils.ts`)
-- Each module should have a single, clear purpose
+The limits that matter are on **functions**, not files. Bugs here cluster in
+long functions and closures that hold several concerns (Oct 2026: the most
+bug-prone file was 553 lines, with one 251-line closure; a 1,015-line file
+went untouched for 90 days) - not in long files.
 
-### When to split a file:
-- File exceeds 500 lines
-- File has multiple unrelated responsibilities
-- You find yourself using section comments to organize code
-- Testing becomes difficult due to too many concerns
+**Functions** (hard limits):
+- Under 50 lines is the target, 100 the maximum.
+- Nesting at most 3 levels (if/for/try/callback).
+- A function longer than that is doing several things: extract them into
+  named helpers (see the refactoring patterns above).
+
+**Files** (a prompt to split, not a limit):
+- Split by responsibility, not by line count. A file that mixes concerns,
+  needs section comments to stay navigable, or carries a name that no longer
+  describes most of it should be split at any size.
+- Around **800 lines**, check whether it still has one purpose. If it does
+  (declarative config, icon data, a cohesive state machine), leave it.
+- Split by feature/responsibility, not by type (`conversation.ts`,
+  `messaging.ts` - not `handlers.ts`, `utils.ts`).
+
+Why it still matters with capable models, which read large files fine:
+- **Context cost**: an agent reading a 1,400-line file pays ~15-20k tokens
+  each time, and when it reads only part of it, it misses what is defined
+  elsewhere in the file.
+- **Edit precision**: edits match exact text; long files repeat more
+  patterns, so edits land ambiguously or fail.
+- **Parallel sessions**: several agents work in one checkout. A file every
+  feature touches (`core/init.ts`) is a merge-conflict point at any size -
+  give each feature its own module and a one-line hook-up.
+
+### When to split:
+- A function exceeds the limits above.
+- The file has several unrelated responsibilities, or its name no longer fits.
+- Most changes to the file touch different, unrelated parts of it.
+- Testing one part requires setting up the others.
 
 ### How to split:
 1. Identify logical groupings by feature/responsibility
