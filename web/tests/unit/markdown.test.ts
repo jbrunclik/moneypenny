@@ -1,8 +1,8 @@
 /**
  * Unit tests for markdown rendering — XSS prevention and feature regression
  */
-import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from '@/utils/markdown';
+import { describe, it, expect, vi } from 'vitest';
+import { highlightCode, hljs, renderMarkdown } from '@/utils/markdown';
 
 describe('renderMarkdown XSS prevention', () => {
   it('escapes <script> tags', () => {
@@ -272,5 +272,21 @@ describe('external images never load by themselves', () => {
   it('keeps same-origin images', () => {
     const div = html('![file](/api/files/abc/thumbnail)');
     expect(div.querySelector('img')?.getAttribute('src')).toBe('/api/files/abc/thumbnail');
+  });
+});
+
+describe('highlightCode', () => {
+  it('escapes the code when highlighting fails', () => {
+    // highlightAllCodeBlocks feeds it textContent, where entities are already decoded
+    const spy = vi.spyOn(hljs, 'highlightAuto').mockImplementation(() => {
+      throw new Error('grammar crashed');
+    });
+    try {
+      expect(highlightCode('<img src=x onerror=alert(1)>')).toBe(
+        '&lt;img src=x onerror=alert(1)&gt;',
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

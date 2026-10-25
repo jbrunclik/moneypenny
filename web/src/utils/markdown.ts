@@ -287,7 +287,7 @@ export function highlightCode(code: string, language?: string): string {
   try {
     return hljs.highlightAuto(code).value;
   } catch {
-    return code;
+    return escapeHtml(code);
   }
 }
 
