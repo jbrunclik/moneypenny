@@ -55,6 +55,35 @@ interface EditorOptions {
   onChange: (actions: QuickAction[]) => Promise<void>;
 }
 
+interface DetailParts {
+  grid: HTMLElement;
+  emojiInput: HTMLInputElement;
+  popover: HTMLElement;
+  fieldList: HTMLElement;
+  fieldInput: HTMLInputElement;
+  fieldAdd: HTMLButtonElement;
+  labelInput: HTMLInputElement;
+  bodyInput: HTMLTextAreaElement;
+  preview: HTMLElement;
+}
+
+/** The detail form's controls, or null if its markup is missing any of them. */
+function queryDetailParts(detail: HTMLElement): DetailParts | null {
+  const grid = detail.querySelector<HTMLElement>('.qa-detail-emoji-grid');
+  const emojiInput = detail.querySelector<HTMLInputElement>('.qa-detail-emoji-input');
+  const popover = detail.querySelector<HTMLElement>('.qa-detail-emoji-popover');
+  const fieldList = detail.querySelector<HTMLElement>('.qa-detail-field-list');
+  const fieldInput = detail.querySelector<HTMLInputElement>('.qa-detail-field-input');
+  const fieldAdd = detail.querySelector<HTMLButtonElement>('.qa-detail-field-add');
+  const labelInput = detail.querySelector<HTMLInputElement>('.qa-detail-label');
+  const bodyInput = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body');
+  const preview = detail.querySelector<HTMLElement>('.qa-detail-preview');
+  if (!grid || !emojiInput || !popover || !fieldList || !fieldInput || !fieldAdd || !labelInput || !bodyInput || !preview) {
+    return null;
+  }
+  return { grid, emojiInput, popover, fieldList, fieldInput, fieldAdd, labelInput, bodyInput, preview };
+}
+
 let overlay: HTMLElement | null = null;
 let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
 /** Set while a detail form is open: commits it if valid (true) or reports invalid (false). */
@@ -92,7 +121,11 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  const body = modal.querySelector<HTMLElement>('.qa-editor-body')!;
+  const body = modal.querySelector<HTMLElement>('.qa-editor-body');
+  if (!body) {
+    closeQuickActionsEditor();
+    return;
+  }
 
   // Persist after each mutation. Keeps the local draft even on failure so a
   // retry (next change) resends everything.
@@ -194,12 +227,12 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       </div>`;
     body.appendChild(detail);
 
-    const grid = detail.querySelector<HTMLElement>('.qa-detail-emoji-grid')!;
+    const parts = queryDetailParts(detail);
+    if (!parts) return;
+    const { grid, emojiInput, popover, fieldList, fieldInput, fieldAdd, labelInput, bodyInput, preview } = parts;
     grid.innerHTML = EMOJIS.map(
       (e) => `<button type="button" class="qa-detail-emoji-option" data-emoji="${e}">${e}</button>`
     ).join('');
-    const emojiInput = detail.querySelector<HTMLInputElement>('.qa-detail-emoji-input')!;
-    const popover = detail.querySelector<HTMLElement>('.qa-detail-emoji-popover')!;
     // Any emoji goes: the input takes the OS emoji keyboard; the grid is
     // just one-tap suggestions. Keep the first grapheme so a single emoji
     // (with skin tone / ZWJ sequences) survives but "abc" collapses to "a".
@@ -229,12 +262,6 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       if (wrapper && !wrapper.contains(e.target as Node)) popover.classList.remove('open');
     });
 
-    const fieldList = detail.querySelector<HTMLElement>('.qa-detail-field-list')!;
-    const fieldInput = detail.querySelector<HTMLInputElement>('.qa-detail-field-input')!;
-    const fieldAdd = detail.querySelector<HTMLButtonElement>('.qa-detail-field-add')!;
-    const labelInput = detail.querySelector<HTMLInputElement>('.qa-detail-label')!;
-    const bodyInput = detail.querySelector<HTMLTextAreaElement>('.qa-detail-body')!;
-    const preview = detail.querySelector<HTMLElement>('.qa-detail-preview')!;
     const renderPreview = (): void => {
       const text = bodyInput.value.trim() || '…';
       const lines = fields.map((f) => `${f}: …`);
@@ -317,11 +344,11 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     };
     commitOpenDetail = commit;
 
-    detail.querySelector('.qa-detail-back')!.addEventListener('click', renderList);
-    detail.querySelector('.qa-detail-done')!.addEventListener('click', () => {
+    detail.querySelector('.qa-detail-back')?.addEventListener('click', renderList);
+    detail.querySelector('.qa-detail-done')?.addEventListener('click', () => {
       if (!commit()) {
-        detail.querySelector<HTMLElement>('.qa-detail-error')!.textContent =
-          'Label and body are required.';
+        const errorEl = detail.querySelector<HTMLElement>('.qa-detail-error');
+        if (errorEl) errorEl.textContent = 'Label and body are required.';
         return;
       }
       renderList();
@@ -329,7 +356,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
     labelInput.focus();
   };
 
-  modal.querySelector('.qa-editor-close')!.addEventListener('click', closeQuickActionsEditor);
+  modal.querySelector('.qa-editor-close')?.addEventListener('click', closeQuickActionsEditor);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeQuickActionsEditor();
   });

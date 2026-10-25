@@ -131,10 +131,11 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   // Load dashboard and conversation in parallel
   try {
     const cacheAge = Date.now() - (store.plannerDashboardLastFetch || 0);
-    const needsDashboardRefresh = !store.plannerDashboard || cacheAge > PLANNER_DASHBOARD_CACHE_MS;
+    const cachedDashboard = store.plannerDashboard;
+    const needsDashboardRefresh = !cachedDashboard || cacheAge > PLANNER_DASHBOARD_CACHE_MS;
 
     const [dashboard, convResponse] = await Promise.all([
-      needsDashboardRefresh ? planner.getDashboard(forceRefresh) : Promise.resolve(store.plannerDashboard!),
+      needsDashboardRefresh ? planner.getDashboard(forceRefresh) : Promise.resolve(cachedDashboard),
       planner.getConversation(),
     ]);
 

@@ -173,7 +173,8 @@ export function renderResearchProgress(
   // Share of items finished (set here: no inline style attribute in the markup)
   const finished = progress.states.filter((state) => FINISHED.has(state)).length;
   const share = progress.writing ? 1 : finished / Math.max(progress.items.length, 1);
-  panel.querySelector<HTMLElement>('.research-progress__bar span')!.style.width = `${Math.round(share * 100)}%`;
+  const bar = panel.querySelector<HTMLElement>('.research-progress__bar span');
+  if (bar) bar.style.width = `${Math.round(share * 100)}%`;
 }
 
 /** The elapsed clock only (a once-a-second tick must not replace the button). */

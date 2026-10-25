@@ -54,9 +54,6 @@
     }
   },
   "src/components/ClaimsSheet.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 4
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -80,11 +77,6 @@
       "count": 2
     }
   },
-  "src/components/FileUpload.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    }
-  },
   "src/components/ImageGenPopup.ts": {
     "max-depth": {
       "count": 1
@@ -104,9 +96,6 @@
     }
   },
   "src/components/LanguageDashboard.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 3
-    },
     "no-unsanitized/property": {
       "count": 6
     }
@@ -160,9 +149,6 @@
     }
   },
   "src/components/QuickActionComposer.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -173,9 +159,6 @@
     }
   },
   "src/components/QuickActionsEditor.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 14
-    },
     "max-lines-per-function": {
       "count": 2
     },
@@ -244,9 +227,6 @@
     }
   },
   "src/components/SportsDashboard.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 5
-    },
     "no-unsanitized/property": {
       "count": 6
     }
@@ -283,9 +263,6 @@
     }
   },
   "src/components/messages/action-row.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 2
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -322,9 +299,6 @@
     }
   },
   "src/components/messages/render.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "complexity": {
       "count": 2
     },
@@ -336,9 +310,6 @@
     }
   },
   "src/components/messages/research-offer.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 12
-    },
     "complexity": {
       "count": 1
     },
@@ -353,9 +324,6 @@
     }
   },
   "src/components/messages/research-progress.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 2
     }
@@ -375,11 +343,6 @@
   },
   "src/components/messages/turn-anchor.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/components/settings/calendar.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
       "count": 1
     }
   },
@@ -473,17 +436,11 @@
     }
   },
   "src/core/language.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
   },
   "src/core/planner.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "complexity": {
       "count": 1
     },
@@ -505,9 +462,6 @@
     }
   },
   "src/core/sports.ts": {
-    "@typescript-eslint/no-non-null-assertion": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }

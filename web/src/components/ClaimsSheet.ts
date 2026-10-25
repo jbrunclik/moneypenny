@@ -80,7 +80,7 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
       <h4 class="claims-sheet__title">${escapeHtml(s.sheetTitle)}</h4>${meta}
       <div class="claims-sheet__rows">${rows.map(({ ann, i }) => rowHtml(ann, i, stored?.sources)).join('')}</div>
     </div>`;
-  sheet.querySelector('.claims-sheet__backdrop')!.addEventListener('click', () => closeClaimsSheet(true));
+  sheet.querySelector('.claims-sheet__backdrop')?.addEventListener('click', () => closeClaimsSheet(true));
   sheet.addEventListener('click', (e) => {
     const row = (e.target as Element).closest<HTMLElement>('.claims-sheet__row');
     if (!row) return;
@@ -89,12 +89,13 @@ export function openClaimsSheet(messageEl: HTMLElement): void {
     if (target) flash(target);
   });
   document.body.appendChild(sheet);
-  if (mobile) attachSheetDismiss(sheet.querySelector<HTMLElement>('.claims-sheet__panel')!, () => closeClaimsSheet(true));
+  const panel = sheet.querySelector<HTMLElement>('.claims-sheet__panel');
+  if (mobile && panel) attachSheetDismiss(panel, () => closeClaimsSheet(true));
   opener = messageEl.querySelector<HTMLElement>('.grounding-footer');
   sheet.querySelector<HTMLElement>('.claims-sheet__row')?.focus();
-  if (!mobile) {
-    const footer = messageEl.querySelector('.grounding-footer')!.getBoundingClientRect();
-    const panel = sheet.querySelector<HTMLElement>('.claims-sheet__panel')!;
+  const footerEl = messageEl.querySelector('.grounding-footer');
+  if (!mobile && footerEl && panel) {
+    const footer = footerEl.getBoundingClientRect();
     panel.style.left = `${footer.left + window.scrollX}px`;
     panel.style.top = `${Math.max(16, footer.top + window.scrollY - panel.offsetHeight - 8)}px`;
   }

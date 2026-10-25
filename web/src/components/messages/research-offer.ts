@@ -131,19 +131,23 @@ function refresh(card: HTMLElement): void {
   if (!offer) return;
   const n = items(card).length;
   const { minutes, cost } = estimateFrom(offer.rates, n);
-  card.querySelector('.research-offer__tag--time')!.textContent = `~${minutes} min`;
-  card.querySelector('.research-offer__tag--cost')!.textContent = `~${cost} ${CURRENCY_LABEL}`;
-  card.querySelector<HTMLButtonElement>('.research-offer__start')!.disabled =
-    n < 1 || n > DEEP_RESEARCH_MAX_SUB_QUESTIONS;
+  const time = card.querySelector('.research-offer__tag--time');
+  if (time) time.textContent = `~${minutes} min`;
+  const costTag = card.querySelector('.research-offer__tag--cost');
+  if (costTag) costTag.textContent = `~${cost} ${CURRENCY_LABEL}`;
+  const startButton = card.querySelector<HTMLButtonElement>('.research-offer__start');
+  if (startButton) startButton.disabled = n < 1 || n > DEEP_RESEARCH_MAX_SUB_QUESTIONS;
   const rows = card.querySelectorAll('.research-offer__item').length;
-  card.querySelector<HTMLButtonElement>('.research-offer__add')!.disabled = rows >= DEEP_RESEARCH_MAX_SUB_QUESTIONS;
+  const addButton = card.querySelector<HTMLButtonElement>('.research-offer__add');
+  if (addButton) addButton.disabled = rows >= DEEP_RESEARCH_MAX_SUB_QUESTIONS;
 }
 
 function start(card: HTMLElement, plan: string[], ctx: string, whenIdle = false): void {
-  const messageId = card.dataset.messageId!;
+  const messageId = card.dataset.messageId;
   const offer = offersByCard.get(card);
   stopCountdown(card);
   collapseStarted(card);
+  if (!messageId) return;
   const minutes = offer ? estimateFrom(offer.rates, plan.length).minutes : undefined;
   const options = whenIdle ? { whenIdle, minutes } : { minutes };
   void startDeepResearch(messageId, plan, ctx, options).then((sent) => {
@@ -173,13 +177,16 @@ function stopCountdown(card: HTMLElement): void {
 /** An explicitly requested run: start after a countdown the user can pause. */
 function startCountdown(card: HTMLElement): void {
   let left = DEEP_RESEARCH_AUTOSTART_SECONDS;
-  const actions = card.querySelector('.research-offer__actions')!;
-  card.querySelector('.research-offer__start')!.textContent = 'Start now';
+  const actions = card.querySelector('.research-offer__actions');
+  const startButton = card.querySelector('.research-offer__start');
+  if (!actions || !startButton) return;
+  startButton.textContent = 'Start now';
   actions.insertAdjacentHTML(
     'beforeend',
     '<button type="button" class="research-offer__edit">Edit plan</button><span class="research-offer__countdown"></span>'
   );
-  const label = card.querySelector<HTMLElement>('.research-offer__countdown')!;
+  const label = card.querySelector<HTMLElement>('.research-offer__countdown');
+  if (!label) return;
   label.textContent = `Starting in ${left} s`;
   countdowns.set(
     card,
@@ -221,21 +228,26 @@ function onClick(e: Event): void {
   if (button.classList.contains('research-offer__remove')) {
     button.closest('.research-offer__item')?.remove();
   } else if (button.classList.contains('research-offer__add')) {
-    card.querySelector('.research-offer__items')!.insertAdjacentHTML('beforeend', itemHtml(''));
+    card.querySelector('.research-offer__items')?.insertAdjacentHTML('beforeend', itemHtml(''));
     card.querySelector<HTMLTextAreaElement>('.research-offer__item:last-child textarea')?.focus();
   } else if (button.classList.contains('research-offer__context-edit')) {
-    card.querySelector<HTMLElement>('.research-offer__context-text')!.hidden = true;
+    const contextText = card.querySelector<HTMLElement>('.research-offer__context-text');
+    if (contextText) contextText.hidden = true;
     button.hidden = true;
-    const field = card.querySelector<HTMLTextAreaElement>('.research-offer__context textarea')!;
-    field.hidden = false;
-    field.focus();
+    const field = card.querySelector<HTMLTextAreaElement>('.research-offer__context textarea');
+    if (field) {
+      field.hidden = false;
+      field.focus();
+    }
   } else if (button.classList.contains('research-offer__start')) {
     start(card, items(card), context(card));
     return;
   } else if (button.classList.contains('research-offer__decline')) {
     stopCountdown(card);
+    const messageId = card.dataset.messageId;
+    if (!messageId) return;
     button.disabled = true;
-    void declineDeepResearch(card.dataset.messageId!).then((ok) => {
+    void declineDeepResearch(messageId).then((ok) => {
       if (ok === false) button.disabled = false;
       else card.remove(); // nothing left to act on
     });

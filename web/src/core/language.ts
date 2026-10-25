@@ -123,12 +123,13 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
 
   try {
     const cacheAge = Date.now() - (store.languageProgramsLastFetch || 0);
-    const needsRefresh = !store.languagePrograms || cacheAge > LANGUAGE_PROGRAMS_CACHE_MS;
+    const cached = store.languagePrograms;
+    const needsRefresh = !cached || cacheAge > LANGUAGE_PROGRAMS_CACHE_MS;
 
     const programs = await (
       needsRefresh || forceRefresh
         ? language.getPrograms()
-        : Promise.resolve(store.languagePrograms!)
+        : Promise.resolve(cached)
     );
 
     if (!useStore.getState().isNavigationValid(navToken)) {

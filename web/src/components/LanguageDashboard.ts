@@ -65,7 +65,8 @@ export function createLanguageProgramsElement(
       ctaHtml: `<button class="language-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>`,
       className: 'language-empty-state',
     });
-    container.appendChild(empty.firstElementChild!);
+    const emptyState = empty.firstElementChild;
+    if (emptyState) container.appendChild(emptyState);
   } else {
     const grid = document.createElement('div');
     grid.className = 'language-programs-grid';
@@ -217,8 +218,8 @@ function showNewProgramModal(
     setTimeout(() => overlay.remove(), 150);
   };
 
-  modal.querySelector('.language-modal-close')!.addEventListener('click', close);
-  modal.querySelector('.language-modal-cancel')!.addEventListener('click', close);
+  modal.querySelector('.language-modal-close')?.addEventListener('click', close);
+  modal.querySelector('.language-modal-cancel')?.addEventListener('click', close);
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();

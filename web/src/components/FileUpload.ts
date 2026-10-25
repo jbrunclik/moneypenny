@@ -106,7 +106,7 @@ export function initFileUpload(): void {
     const removeBtn = (e.target as HTMLElement).closest('[data-remove-index]');
     if (removeBtn) {
       const index = parseInt(
-        (removeBtn as HTMLElement).dataset.removeIndex!,
+        (removeBtn as HTMLElement).dataset.removeIndex ?? '',
         10
       );
       removeFile(index);

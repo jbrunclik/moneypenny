@@ -32,7 +32,8 @@ function rowText(action: MessageAction): string {
 }
 
 export function addActionRowToUI(message: Message, container: HTMLElement, options?: { animate?: boolean }): void {
-  const action = message.action!;
+  const action = message.action;
+  if (!action) return;
   const messageEl = document.createElement('div');
   messageEl.className = `message user ${ROW_CLASS}`;
   messageEl.dataset.messageId = message.id;
@@ -53,11 +54,11 @@ export function addActionRowToUI(message: Message, container: HTMLElement, optio
   text.textContent = rowText(action);
   rowEl.append(icon, text);
   const source = sourceId(action);
-  if (sourceLoaded(source)) {
+  if (source !== null && sourceLoaded(source)) {
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'action-row__source';
-    link.dataset.sourceId = source!;
+    link.dataset.sourceId = source;
     if (action.type === 'verify_claim' && action.claim_index !== null) link.dataset.claim = String(action.claim_index);
     link.textContent = action.type === 'verify_claim' ? 'from the answer above ↑' : 'from the offer above ↑';
     rowEl.append(link);

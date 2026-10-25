@@ -44,7 +44,7 @@ export function renderQuickActionComposer(
         : ''
     }`;
 
-  container.querySelector('.qa-mode-cancel')!.addEventListener('click', opts.onCancel);
+  container.querySelector('.qa-mode-cancel')?.addEventListener('click', opts.onCancel);
   container.addEventListener('keydown', (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;

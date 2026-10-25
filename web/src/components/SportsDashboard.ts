@@ -68,7 +68,8 @@ export function createSportsProgramsElement(
       ctaHtml: `<button class="sports-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>`,
       className: 'sports-empty-state',
     });
-    container.appendChild(empty.firstElementChild!);
+    const emptyState = empty.firstElementChild;
+    if (emptyState) container.appendChild(emptyState);
   } else {
     const grid = document.createElement('div');
     grid.className = 'sports-programs-grid';
@@ -183,14 +184,14 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
   overlay.appendChild(modal);
 
   // Populate emoji grid
-  const emojiGrid = modal.querySelector('.sports-emoji-grid')!;
+  const emojiGrid = modal.querySelector('.sports-emoji-grid');
   for (const emoji of SPORTS_EMOJIS) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'sports-emoji-option';
     btn.textContent = emoji;
     btn.dataset.emoji = emoji;
-    emojiGrid.appendChild(btn);
+    emojiGrid?.appendChild(btn);
   }
 
   // Close on Escape
@@ -209,8 +210,8 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
   };
 
   // Close button
-  modal.querySelector('.sports-modal-close')!.addEventListener('click', close);
-  modal.querySelector('.sports-modal-cancel')!.addEventListener('click', close);
+  modal.querySelector('.sports-modal-close')?.addEventListener('click', close);
+  modal.querySelector('.sports-modal-cancel')?.addEventListener('click', close);
 
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
@@ -228,7 +229,7 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
     emojiPopover.classList.toggle('open');
   });
 
-  emojiGrid.addEventListener('click', (e) => {
+  emojiGrid?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (target.dataset.emoji) {
       selectedEmoji = target.dataset.emoji;
@@ -247,7 +248,7 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
 
   // Submit
   const nameInput = modal.querySelector('.sports-add-name') as HTMLInputElement;
-  modal.querySelector('.sports-add-submit')!.addEventListener('click', () => {
+  modal.querySelector('.sports-add-submit')?.addEventListener('click', () => {
     const name = nameInput.value.trim();
     if (!name) {
       log.warn('Missing required fields for add program');

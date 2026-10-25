@@ -278,7 +278,7 @@ function handleCalendarCheckboxChange(): void {
   const checkboxes = document.querySelectorAll<HTMLInputElement>('.settings-calendar-checkbox');
   selectedCalendarIds = Array.from(checkboxes)
     .filter(cb => cb.checked)
-    .map(cb => cb.dataset.calendarId!);
+    .flatMap(cb => cb.dataset.calendarId ?? []);
 
   // Update helper text
   const helper = document.querySelector('.settings-calendar-selection .settings-helper');

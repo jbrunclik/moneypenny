@@ -350,10 +350,14 @@ export function removeRenderedMessagesFrom(
  */
 export function addMessageToUI(
   message: Message,
-  container: HTMLElement = getElementById('messages')!,
+  container: HTMLElement | null = getElementById('messages'),
   approvalResolutions?: Map<string, { resolved: boolean; approved: boolean }>,
   options?: { animate?: boolean }
 ): void {
+  if (!container) {
+    log.warn('Messages container not found, skipping message render');
+    return;
+  }
   // Check if this is a trigger message (agent execution notification)
   if (message.role === 'user' && isTriggerMessage(message.content)) {
     addTriggerMessageToUI(message, container);

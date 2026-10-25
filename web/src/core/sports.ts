@@ -123,12 +123,13 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
 
   try {
     const cacheAge = Date.now() - (store.sportsProgramsLastFetch || 0);
-    const needsRefresh = !store.sportsPrograms || cacheAge > SPORTS_PROGRAMS_CACHE_MS;
+    const cached = store.sportsPrograms;
+    const needsRefresh = !cached || cacheAge > SPORTS_PROGRAMS_CACHE_MS;
 
     const programs = await (
       needsRefresh || forceRefresh
         ? sports.getPrograms()
-        : Promise.resolve(store.sportsPrograms!)
+        : Promise.resolve(cached)
     );
 
     if (!useStore.getState().isNavigationValid(navToken)) {

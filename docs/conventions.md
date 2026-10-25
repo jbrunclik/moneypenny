@@ -17,7 +17,7 @@ session and points here for the rest.
   gradually. Never add to a baseline to get a change through. For ruff the
   baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407, plus 105 `PLC0415`); a
   deliberate exception carries a reason instead: `# noqa: CODE - <why>`.
-  For ESLint it is `web/eslint-suppressions.json` (286): after fixing some,
+  For ESLint it is `web/eslint-suppressions.json` (228): after fixing some,
   `npx eslint src --prune-suppressions` (ESLint fails on stale entries).
 - **One home per rule.** Other pages link here instead of restating the rule,
   so it can't drift. To change a rule, edit it here and its enforcer in the
