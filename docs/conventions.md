@@ -56,7 +56,7 @@ session and points here for the rest.
 | P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | workflows; actionlint in CI |
 | P5 | Production installs runtime dependencies only (`requirements-dev.txt` for tools) | Makefile, workflows |
 | P6 | Toolchain versions agree: Node 24+ and npm 11+ (`engines` = `.nvmrc` major, `engine-strict`), Python from `.python-version` (`make setup` via uv, CI) | `web/.npmrc`, Makefile, workflows |
-| P7 | Tests that need Docker or Chromium run in CI (a parallel job), never skip silently there | planned: CI job |
+| P7 | Tests that need Docker or Chromium run in CI (a parallel job), never skip silently there | CI job "Backend Docker & Browser Tests" (no skips allowed) |
 
 ### Backend architecture (B)
 
