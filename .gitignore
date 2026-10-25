@@ -39,6 +39,11 @@ node_modules/
 
 # Vite build output (generated during deployment)
 static/assets/
+static/assets.new/
+static/assets.keep
+# Deploy state on the production host (make update / make rollback)
+.deploy/
+.deploy.lock
 
 # Testing
 .pytest_cache/

@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -67,7 +67,8 @@ help:
 	@echo "  clean                 Remove venv, caches, and build artifacts"
 	@echo "  deploy                Deploy to systemd - full restart"
 	@echo "  reload                Graceful reload - zero downtime (backend only)"
-	@echo "  update                Rebuild frontend + graceful reload"
+	@echo "  update                Pull, rebuild, graceful reload (one at a time)"
+	@echo "  rollback              Code back to the commit before the last update"
 	@echo "  vacuum                Run database vacuum manually"
 	@echo "  decode-stack          Decode minified E2E/CI stack frames (log on stdin)"
 	@echo "  lock                  Re-pin requirements*.txt after editing requirements*.in"
@@ -346,7 +347,16 @@ reload:
 # routine dependency bump broke one on Sep 25 2026. On a deploy host the
 # lockfile is a build input, never a local edit worth keeping, so discard
 # any generated drift before pulling.
+# One deploy at a time (S11): a quick second deploy once stranded a half-applied
+# migration and crash-looped the app (Aug 22 2026)
 update:
+	@command -v flock >/dev/null || { echo "make update needs flock (util-linux)"; exit 1; }
+	flock --nonblock .deploy.lock $(MAKE) --no-print-directory _update
+
+_update:
+	@mkdir -p .deploy
+	git rev-parse HEAD > .deploy/previous-sha
+	git checkout -q main  # a rollback leaves HEAD detached
 	git checkout -- web/package-lock.json 2>/dev/null || true
 	git pull --ff-only
 	$(PIP) install -r requirements.txt
@@ -356,11 +366,38 @@ update:
 	# install"). No-op download when already current; no --with-deps (unattended,
 	# no sudo - system libs come from the one-time `make browser-setup`).
 	$(PYTHON) -m playwright install chromium
-	cd web && npm ci && npm run build
+	# Migrations apply when the new workers start and can't be rolled back by
+	# `make rollback`: take a backup first when this deploy brings any
+	@if ! git diff --quiet "$$(cat .deploy/previous-sha)" HEAD -- migrations/; then \
+		echo "New migrations - backing up the databases first"; \
+		$(PYTHON) scripts/backup_databases.py; \
+	fi
+	$(MAKE) --no-print-directory _build_and_reload
+
+# Code-only rollback to the commit before the last deploy (S11). A deploy that
+# ran migrations also needs the databases restored (docs/deployment.md).
+rollback:
+	@test -s .deploy/previous-sha || { echo "No previous deploy recorded"; exit 1; }
+	flock --nonblock .deploy.lock $(MAKE) --no-print-directory _rollback
+
+_rollback:
+	git checkout -q --detach "$$(cat .deploy/previous-sha)"
+	$(PIP) install -r requirements.txt
+	$(MAKE) --no-print-directory _build_and_reload
+
+# The build lands beside the live assets and is copied over them without
+# deleting anything: the old workers keep serving their chunks until the
+# reload. Chunks only the previous build used go once the new workers pass.
+_build_and_reload:
+	cd web && npm ci && npm run build -- --outDir ../static/assets.new --emptyOutDir
+	mkdir -p static/assets && cp -R static/assets.new/. static/assets/
 	# Reloads, then waits for the NEW workers: right after a reload the old
 	# workers still answer, so a plain health curl passed while the new ones
 	# crash-looped (Oct 13 2026)
 	$(PYTHON) scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/health
+	cd static/assets.new && find . -type f | sort > ../assets.keep
+	cd static/assets && find . -type f | sort | comm -23 - ../assets.keep | xargs -r rm -f
+	rm -rf static/assets.new static/assets.keep
 
 vacuum:
 	$(PYTHON) scripts/vacuum_databases.py

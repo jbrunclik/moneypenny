@@ -80,7 +80,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 - [ ] **Open E2E flakes** (Oct 9-24 2026) - eight one-off failures, each passed on retry; details and what to capture next time are in [docs/testing/e2e-reliability.md](docs/testing/e2e-reliability.md#open-flakes). Two may be fixed by blocking service workers (Oct 23) - drop them if they stay quiet.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
-  - Security: timeouts for the 4 baselined Gemini clients, sized from measured call durations in prod logs (S5), deploy lock + `make rollback` + atomic asset swap (S11).
+  - Security: timeouts for the 4 baselined Gemini clients, sized from measured call durations in prod logs (S5).
   - Spend (S12, via `/new-feature`): a banner for a user past $10 in a day (no notifications, never a block), and a total-spend view for the admin in the app.
   - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), actionlint in CI (P4), Docker + Chromium CI job (P7).
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); madge cycle allow-list (F1); knip/vulture/deptry (C2, F10); Prettier for CSS/YAML/JSON (C4).

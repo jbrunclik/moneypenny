@@ -49,16 +49,43 @@ several deploys; uploads kept failing with the stale allow-list until a
 restart. Verify what the live process actually sees with:
 `cat /proc/$(systemctl --user show moneypenny -p MainPID --value)/environ | tr '\0' '\n' | grep VAR_NAME`.)
 
-## Deploys Delete the Previous Build's Chunks
+## Deploying and Rolling Back
 
-`make build` empties `static/assets/` (`emptyOutDir`), so a page loaded before
-a deploy (an installed PWA resumed from the background, a tab left open) still
-references the old hashed chunks, and its first lazy import (PDF viewer,
-settings, agent editor) 404s. Vite reports that as a `vite:preloadError` event;
-[web/src/core/stale-chunks.ts](../web/src/core/stale-chunks.ts) reloads the page
-once (the composer draft is persisted), and a second failure within
-`STALE_CHUNK_RELOAD_GUARD_MS` surfaces the error instead of looping. (Oct 14
-2026: PDF attachments did nothing on click after the previous evening's deploy.)
+`make update` on the production host (S11 in [conventions.md](conventions.md)):
+
+1. Takes a lock (`flock .deploy.lock`): a second deploy while one runs fails
+   at once. A quick double deploy once stranded a half-applied migration and
+   crash-looped the app (Aug 22 2026).
+2. Records the current commit in `.deploy/previous-sha`, then pulls `main`.
+3. Installs `requirements.txt` (runtime only) and the matching Chromium.
+4. Backs up both databases (`scripts/backup_databases.py`) when the pull brings
+   new migrations - they apply when the new workers start and can't be undone
+   by a rollback.
+5. Builds into `static/assets.new` and copies it over `static/assets` without
+   deleting anything, reloads, and waits for the new workers to pass the
+   health gate (`scripts/deploy_health_gate.py`). Only then are the chunks
+   that just the previous build used removed.
+
+`make rollback` returns the code to the commit in `.deploy/previous-sha`
+(detached HEAD; the next `make update` goes back to `main`), rebuilds and
+reloads under the same lock. It does not touch the databases. When the bad
+deploy ran migrations, stop the service, restore both databases from the
+backup taken just before it (`make backup-list`; copy the
+`backups/<db>/<name>-<timestamp>.db` files over `chatbot.db` and `files.db`),
+then roll back and start it again.
+
+### Pages Loaded Before a Deploy
+
+A page loaded before a deploy (an installed PWA resumed from the background, a
+tab left open) references the previous build's hashed chunks. Since Oct 25
+2026 those survive until the new workers are healthy, but a page that stays
+open across a deploy still loses them afterwards, and its first lazy import
+(PDF viewer, settings, agent editor) 404s. Vite reports that as a
+`vite:preloadError` event; [web/src/core/stale-chunks.ts](../web/src/core/stale-chunks.ts)
+reloads the page once (the composer draft is persisted), and a second failure
+within `STALE_CHUNK_RELOAD_GUARD_MS` surfaces the error instead of looping.
+(Oct 14 2026: PDF attachments did nothing on click after the previous
+evening's deploy.)
 
 ## Profiling Worker Memory
 
