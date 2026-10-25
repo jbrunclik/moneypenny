@@ -139,6 +139,9 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
 
 def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearchPlan:
     """The run's plan, or the matching API error."""
+    # Offers made before the switch was turned off are still on screen
+    if not Config.DEEP_RESEARCH_ENABLED:
+        raise_validation_error("Deep research is turned off", field="deep_research")
     try:
         return start_plan(conv_id, start.offer_message_id, start.sub_questions, start.context)
     except PlanError as e:

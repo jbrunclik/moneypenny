@@ -112,6 +112,24 @@ class TestStart:
             assert response.status_code == 400, items
         assert test_database.get_message_by_id(offer_id).research["offer"]["status"] == "offered"
 
+    def test_disabled_deep_research_refuses_an_existing_offer(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        # The kill switch must stop runs, not only new offers
+        offer_id = _offer(test_database, test_conversation.id)
+
+        with patch("src.api.helpers.chat_turn.Config.DEEP_RESEARCH_ENABLED", False):
+            response = _stream(client, auth_headers, test_conversation.id, _start(offer_id, ["a"]))
+
+        assert response.status_code == 400
+        assert "turned off" in response.get_json()["error"]["message"]
+        assert test_database.get_message_by_id(offer_id).research["offer"]["status"] == "offered"
+        assert len(test_database.get_messages(test_conversation.id)) == 1
+
     def test_offer_from_another_conversation_is_not_found(
         self,
         client: FlaskClient,
