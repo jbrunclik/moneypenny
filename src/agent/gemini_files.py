@@ -19,12 +19,11 @@ from google.genai import types as genai_types
 from src.agent.gemini_clients import shared_genai_client
 from src.db.models import db
 from src.utils.datetime_utils import utcnow_naive
+from src.utils.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-GEMINI_FILES_NAMESPACE = "gemini_files"
-SYSTEM_KV_USER_ID = "_system"
 CACHE_TTL_HOURS = 47  # Gemini keeps files 48h; refresh one hour early
 POLL_INTERVAL_SECONDS = 2
 PROCESSING_TIMEOUT_SECONDS = 120
@@ -38,12 +37,8 @@ def _get_client() -> genai.Client:
     return shared_genai_client()
 
 
-def _cache_key(message_id: str, file_index: int) -> str:
-    return f"{message_id}:{file_index}"
-
-
 def _get_cached_uri(message_id: str, file_index: int) -> str | None:
-    raw = db.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, _cache_key(message_id, file_index))
+    raw = db.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, cache_key(message_id, file_index))
     if not raw:
         return None
     try:
@@ -111,7 +106,7 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
     db.kv_set(
         SYSTEM_KV_USER_ID,
         GEMINI_FILES_NAMESPACE,
-        _cache_key(message_id, file_index),
+        cache_key(message_id, file_index),
         json.dumps({"uri": gfile.uri, "name": gfile.name, "expires_at": expires_at}),
     )
     return str(gfile.uri)
@@ -140,8 +135,3 @@ def attach_gemini_file_uris(message_id: str, files: list[dict[str, Any]]) -> Non
                 exc_info=not isinstance(e, (GeminiFileError, binascii.Error)),
             )
             file["gemini_upload_error"] = str(e)
-
-
-def delete_cached_file_uri(message_id: str, file_index: int) -> None:
-    """Drop the cached Files API URI (used by the retention sweep)."""
-    db.kv_delete(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, _cache_key(message_id, file_index))

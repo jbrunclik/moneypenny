@@ -23,6 +23,7 @@ from src.db import models
 from src.db.blob_store import get_blob_store
 from src.db.models import make_blob_key
 from src.utils.datetime_utils import utcnow_naive
+from src.utils.gemini_file_cache import delete_cached_file_uri
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -64,10 +65,6 @@ def cleanup_expired_files() -> dict[str, int]:
     Thumbnails are intentionally kept so old conversations still render a
     placeholder. Idempotent: deleting an already-deleted blob is a no-op.
     """
-    from src.agent.gemini_files import (  # noqa: PLC0415 - utils must not import agent at load (B1)
-        delete_cached_file_uri,
-    )
-
     counts = {"videos_deleted": 0, "images_deleted": 0, "files_deleted": 0}
     blob_store = get_blob_store()
     now = datetime.now()

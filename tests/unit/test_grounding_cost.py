@@ -4,8 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from src.api.utils import calculate_and_save_message_cost, calculate_grounding_cost
-from src.utils.costs import calculate_token_cost
+from src.utils.costs import (
+    calculate_and_save_message_cost,
+    calculate_grounding_cost,
+    calculate_token_cost,
+)
 
 _USAGE = {
     "model": "gemini-3.5-flash-lite",
@@ -28,7 +31,7 @@ def test_no_grounding_usage_costs_nothing() -> None:
 
 
 def test_message_cost_includes_grounding() -> None:
-    with patch("src.api.utils.db") as db:
+    with patch("src.utils.costs.db") as db:
         calculate_and_save_message_cost(
             "msg",
             "conv",

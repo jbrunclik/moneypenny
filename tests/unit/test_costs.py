@@ -267,8 +267,7 @@ class TestDelegateCostFromToolResults:
     def test_extracts_delegate_usage(self) -> None:
         import json
 
-        from src.api.utils import calculate_delegate_cost_from_tool_results
-        from src.utils.costs import calculate_token_cost
+        from src.utils.costs import calculate_delegate_cost_from_tool_results, calculate_token_cost
 
         tool_results = [
             {
@@ -294,7 +293,7 @@ class TestDelegateCostFromToolResults:
         assert cost > 0
 
     def test_no_delegate_usage_is_zero(self) -> None:
-        from src.api.utils import calculate_delegate_cost_from_tool_results
+        from src.utils.costs import calculate_delegate_cost_from_tool_results
 
         assert calculate_delegate_cost_from_tool_results([]) == 0.0
         assert (

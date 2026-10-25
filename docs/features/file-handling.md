@@ -277,6 +277,7 @@ FILE_RETENTION_DAYS=30
 ### Key Files
 
 - [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
+- [gemini_file_cache.py](../../src/utils/gemini_file_cache.py) - kv layout of the URI cache; its deletion is used by the retention sweep
 - [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) runs it on a timer
 - [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
 - [message_content.py](../../src/agent/message_content.py) - `build_message_content()` media blocks

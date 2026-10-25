@@ -9,11 +9,14 @@ import pytest
 
 from src.agent import gemini_files
 from src.agent.gemini_files import (
-    GEMINI_FILES_NAMESPACE,
-    SYSTEM_KV_USER_ID,
     GeminiFileError,
     attach_gemini_file_uris,
     ensure_gemini_file_uri,
+)
+from src.utils.gemini_file_cache import (
+    GEMINI_FILES_NAMESPACE,
+    SYSTEM_KV_USER_ID,
+    delete_cached_file_uri,
 )
 
 
@@ -130,7 +133,8 @@ class TestAttachGeminiFileUris:
 class TestDeleteCachedFileUri:
     def test_deletes_cache_entry(self, test_database) -> None:
         test_database.kv_set(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-8:0", '{"uri": "x"}')
-        gemini_files.delete_cached_file_uri("msg-8", 0)
+        with patch("src.db.models.db", test_database):
+            delete_cached_file_uri("msg-8", 0)
         assert test_database.kv_get(SYSTEM_KV_USER_ID, GEMINI_FILES_NAMESPACE, "msg-8:0") is None
 
 

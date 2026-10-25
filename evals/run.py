@@ -305,14 +305,14 @@ def turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, An
     post-answer grounding check (priced at its own model). A deep-research
     report is priced at its writer, plus its research subagents.
     """
-    from src.api.utils import (
+    from src.utils.costs import (
         calculate_deep_research_cost,
         calculate_delegate_cost_from_tool_results,
         calculate_freshness_cost,
         calculate_grounding_cost,
         calculate_image_generation_cost_from_tool_results,
+        calculate_total_cost,
     )
-    from src.utils.costs import calculate_total_cost
 
     return calculate_total_cost(
         usage.get("answer_model") or model,

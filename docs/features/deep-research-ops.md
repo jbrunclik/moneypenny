@@ -10,7 +10,7 @@ Cost, configuration, telemetry, evals and pitfalls of
   `model_fallback or answer_model or model`.
 - **Subagents**: `usage_info["deep_research_usage"]`, one entry per started
   subagent (`Orchestrator.spent()`), priced per model by
-  `calculate_deep_research_cost()` ([api/utils.py](../../src/api/utils.py))
+  `calculate_deep_research_cost()` ([utils/costs.py](../../src/utils/costs.py))
   into `tool_llm_cost`. Every model call feeds a per-subagent usage sink as it
   happens (`collecting_model_usage` in [turn_usage.py](../../src/agent/turn_usage.py),
   fed by `graph._invoke_model`), so subagents cut by a deadline, Finish now or

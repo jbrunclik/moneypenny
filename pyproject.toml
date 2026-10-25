@@ -72,8 +72,8 @@ max-complexity = 10
 known-first-party = ["src"]
 
 [tool.importlinter]
-# B1/B3 (docs/conventions.md): imports point down the layers. ignore_imports
-# is the baseline of known violations - it only shrinks.
+# B1/B3 (docs/conventions.md): imports point down the layers. No known
+# violations: a new one is fixed, not baselined.
 root_package = "src"
 include_external_packages = true
 
@@ -88,18 +88,12 @@ name = "agent never imports api"
 type = "forbidden"
 source_modules = ["src.agent"]
 forbidden_modules = ["src.api"]
-ignore_imports = [
-    "src.agent.executor -> src.api.utils",
-]
 
 [[tool.importlinter.contracts]]
 name = "utils never imports api or agent"
 type = "forbidden"
 source_modules = ["src.utils"]
 forbidden_modules = ["src.api", "src.agent"]
-ignore_imports = [
-    "src.utils.file_retention -> src.agent.gemini_files",
-]
 
 [[tool.importlinter.contracts]]
 name = "routes make no outbound HTTP calls themselves"

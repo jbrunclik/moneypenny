@@ -160,7 +160,7 @@ class TestThinkingLevel:
 
 
 def test_the_gate_call_is_part_of_the_message_cost() -> None:
-    from src.api.utils import calculate_freshness_cost
+    from src.utils.costs import calculate_freshness_cost
 
     assert calculate_freshness_cost({"freshness_usage": _USAGE}) > 0
     assert calculate_freshness_cost({}) == 0.0

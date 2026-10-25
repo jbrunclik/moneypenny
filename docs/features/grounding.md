@@ -169,7 +169,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   visual baselines when changing either).
 - **Cost**: about $0.004 per web turn. Verifier usage goes into
   `usage_info["grounding_usage"]` and is priced at the verifier's rates by
-  `calculate_grounding_cost()` ([utils.py](../../src/api/utils.py)) into
+  `calculate_grounding_cost()` ([costs.py](../../src/utils/costs.py)) into
   `message_costs`.
 - **Scope**: practical, current specifics (businesses, prices, hours, upcoming
   dates) and, since Oct 11 2026, RECENT NEWS facts from the last 12 months
