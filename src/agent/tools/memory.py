@@ -39,6 +39,7 @@ VALID_CATEGORIES = frozenset({"preference", "fact", "context", "goal"})
 
 def _reject(action: str, reason: str) -> str:
     """Format a rejected operation for the model."""
+    logger.info("Memory write rejected", extra={"action": action, "reason": reason[:120]})
     return f"REJECTED ({action}): {reason}"
 
 
@@ -117,14 +118,24 @@ def _apply_update(user_id: str, op: dict[str, Any]) -> str:
             f"unknown category '{category}'. Use one of: {', '.join(sorted(VALID_CATEGORIES))}.",
         )
 
-    if not db.update_memory(memory_id, user_id, content, category):
+    # The old length shows in the log whether updates shrink memories (lose details)
+    old = db.get_memory(memory_id, user_id)
+    if old is None or not db.update_memory(memory_id, user_id, content, category):
         return _reject(
             "update",
             f"no memory with id={memory_id} (it may have been deleted or consolidated). "
             "Re-read the current memory list before retrying.",
         )
 
-    logger.info("Memory updated via tool", extra={"user_id": user_id, "memory_id": memory_id})
+    logger.info(
+        "Memory updated via tool",
+        extra={
+            "user_id": user_id,
+            "memory_id": memory_id,
+            "old_chars": len(old.content),
+            "new_chars": len(content),
+        },
+    )
     embed_and_store_async(user_id, "memory", memory_id, content)
     limit = Config.MEMORY_MAX_ENTRY_CHARS
     if len(content) >= limit * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO:

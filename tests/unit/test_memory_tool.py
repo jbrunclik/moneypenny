@@ -9,6 +9,7 @@ neither retry nor tell the user.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Generator
 from typing import TYPE_CHECKING
 
@@ -188,6 +189,33 @@ class TestUpdateOperation:
 
         assert "REJECTED (update)" in result
         assert "id" in result
+
+
+class TestWriteLogging:
+    """The logs must show whether updates shrink memories (losing details) and
+    why writes are refused - the TODO's lossy-write check needs both."""
+
+    def test_update_logs_old_and_new_length(
+        self, memory_context: tuple[Database, User], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea and coffee", "preference")
+
+        with caplog.at_level(logging.INFO):
+            _invoke([{"action": "update", "id": memory.id, "content": "Likes tea"}])
+
+        record = next(r for r in caplog.records if r.getMessage() == "Memory updated via tool")
+        assert (record.old_chars, record.new_chars) == (20, 9)
+
+    def test_rejection_is_logged_with_its_reason(
+        self, memory_context: tuple[Database, User], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO):
+            _invoke([{"action": "update", "id": "no-such-id", "content": "New"}])
+
+        record = next(r for r in caplog.records if r.getMessage() == "Memory write rejected")
+        assert record.action == "update"
+        assert record.reason.startswith("no memory with id=no-such-id")
 
 
 class TestDeleteOperation:
