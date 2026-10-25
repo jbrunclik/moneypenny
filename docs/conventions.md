@@ -32,7 +32,7 @@ session and points here for the rest.
 | S1 | Production can't start with auth off or an invalid config: `FLASK_ENV` unset means production, `E2E_TESTING` bypasses auth only with `FLASK_ENV=testing`, `create_app()` validates | test (`test_config.py`) |
 | S2 | `require_auth` checks `ALLOWED_EMAILS` on every request | test (`test_routes_auth.py`) |
 | S3 | The browser tool checks every request against the SSRF blocklist and refuses redirect landings on blocked addresses | test (`test_browser_request_guard.py`) |
-| S4 | Every route requires auth or is on the explicit public list | planned: test walking `app.url_map` |
+| S4 | Every route requires auth or is on the explicit public list | test (`test_route_auth_coverage.py`) |
 | S5 | Every outbound call has an explicit timeout, LLM clients included | planned: AST test |
 | S6 | Model output never loads external resources by itself (external markdown images render as links; CSP `img-src` allows only the app and Google profile photos) | test (`markdown.test.ts`, `test_security_headers.py`) |
 | S7 | Production requires a valid `TOKEN_ENCRYPTION_KEY` | test (`test_config.py`) |
