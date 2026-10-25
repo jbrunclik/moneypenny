@@ -125,7 +125,10 @@ and the database's write lock, open on an idle thread. Every other writer, in
 any process, then fails with `database is locked` until a later request on that
 same thread happens to commit, or the service restarts. Reads still work, so
 `/api/health` stays 200. This happened twice on Oct 25 2026, both times from
-`record_client_error`. Every write path ends with `conn.commit()`. In
+`record_client_error`. Every write path ends with `conn.commit()`. The test
+suite enforces it: `test_database` fails any test that leaves the write lock
+held. `/api/ready` (and with it the deploy gate) reports `database_writes:
+error` while the lock is stuck. In
 production, `/proc/locks` shows the culprit: the PID holding a WRITE lock on
 byte 120 of `chatbot.db-shm` is the one with the open write.
 

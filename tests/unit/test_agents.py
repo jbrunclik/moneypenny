@@ -414,6 +414,13 @@ class TestAgentDatabaseOperations:
         assert response["tool_name"] == "todoist"
         assert response["status"] == "pending"
 
+    def test_update_of_an_agent_deleted_meanwhile_finds_nothing(self, test_database, sample_agent):
+        """Deleted between the lookup and the UPDATE: None, and no write lock left held."""
+        from unittest.mock import patch
+
+        with patch.object(test_database, "get_agent", return_value=sample_agent):
+            assert test_database.update_agent("agent-123", "user-123", name="Renamed") is None
+
 
 # =============================================================================
 # Dev scheduler tests

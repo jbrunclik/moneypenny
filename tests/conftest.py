@@ -50,6 +50,9 @@ for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_AP
 _LEAKY_THREAD_PREFIX = "deep-research"
 _LEAKED_THREAD_WAIT_SECONDS = 5.0
 
+# How long teardown waits for the write lock (see _fail_if_write_lock_held)
+_WRITE_LOCK_WAIT_SECONDS = 5.0
+
 
 @pytest.fixture(autouse=True)
 def no_leaked_deep_research_threads() -> Generator[None]:
@@ -171,6 +174,23 @@ def _test_file_stem(request: pytest.FixtureRequest) -> str:
     return f"{readable}-{digest}"
 
 
+def _fail_if_write_lock_held(db_path: Path) -> None:
+    """Fail a test whose code left a write uncommitted.
+
+    The pooled connection outlives the request, so a write without
+    `conn.commit()` kept the write lock and broke every other write in
+    production (Oct 25 2026). The wait lets a background thread finish a
+    write still in flight; a leaked transaction never lets go.
+    """
+    from src.db.models import check_database_writable
+
+    if not db_path.exists():
+        return
+    writable, error = check_database_writable(db_path, timeout_s=_WRITE_LOCK_WAIT_SECONDS)
+    if not writable:
+        pytest.fail(f"{db_path.name}: {error} - a write is missing conn.commit()")
+
+
 @pytest.fixture
 def test_db_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
     """Create unique database path for each test."""
@@ -190,6 +210,7 @@ def test_database(test_db_path: Path) -> Generator[Database]:
 
     db = Database(db_path=test_db_path)
     yield db
+    _fail_if_write_lock_held(test_db_path)
     # Close connection pool to release resources
     db.close()
 
@@ -208,6 +229,7 @@ def test_blob_store(test_blob_path: Path):
 
     with blob_store_module._blob_store.override(blob_store):
         yield blob_store
+    _fail_if_write_lock_held(test_blob_path)
     # Close connection pool to release resources
     blob_store.close()
 

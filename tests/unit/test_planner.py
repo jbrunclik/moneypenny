@@ -989,9 +989,10 @@ class TestPlannerConversationIsUnique:
         import pytest
 
         test_database.get_or_create_planner_conversation(test_user.id)
+        # raises outside the connection, so the pool sees the error and rolls back
         with (
-            test_database._pool.get_connection() as conn,
             pytest.raises(sqlite3.IntegrityError, match="UNIQUE"),
+            test_database._pool.get_connection() as conn,
         ):
             conn.execute(
                 """INSERT INTO conversations

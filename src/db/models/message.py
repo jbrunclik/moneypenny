@@ -494,6 +494,8 @@ class MessageMixin:
             )
 
             if cursor.rowcount == 0:
+                # The UPDATE matched nothing but still opened a transaction
+                conn.rollback()
                 return None
 
             # Update conversation's updated_at

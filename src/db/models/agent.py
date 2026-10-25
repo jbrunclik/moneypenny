@@ -311,6 +311,8 @@ class AgentMixin:
             )
 
             if cursor.rowcount == 0:
+                # The UPDATE matched nothing but still opened a transaction
+                conn.rollback()
                 return None
 
             # Update conversation title if name changed
