@@ -98,6 +98,11 @@ The dashboard data is injected into the system prompt as JSON with this structur
 | `/api/planner/reset` | POST | Manually reset planner conversation |
 | `/api/planner/sync` | GET | Get planner state for real-time sync |
 
+Each user has exactly one planner conversation: a unique partial index
+(`conversations(user_id) WHERE is_planning = 1`, migration 0068) makes a
+concurrent first open from a second device or tab reuse the planner the first
+one created instead of adding another.
+
 **Query parameters**:
 - `force_refresh=true` - Bypass cache and fetch fresh data (used by refresh button)
 

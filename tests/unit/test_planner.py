@@ -962,3 +962,65 @@ class TestRefreshPlannerDashboardTool:
 
         # Check success message
         assert "Dashboard refreshed successfully" in result
+
+
+class TestPlannerConversationIsUnique:
+    """Each user has exactly one planner conversation, even under concurrent first opens."""
+
+    def test_a_second_planner_row_is_rejected(self, test_database: Any, test_user: User) -> None:
+        import sqlite3
+
+        import pytest
+
+        test_database.get_or_create_planner_conversation(test_user.id)
+        with (
+            test_database._pool.get_connection() as conn,
+            pytest.raises(sqlite3.IntegrityError, match="UNIQUE"),
+        ):
+            conn.execute(
+                """INSERT INTO conversations
+                   (id, user_id, title, model, is_planning, created_at, updated_at)
+                   VALUES ('dup', ?, 'Planner', 'm', 1, '2026-10-25', '2026-10-25')""",
+                (test_user.id,),
+            )
+
+    def test_concurrent_first_opens_share_one_planner(
+        self, test_database: Any, test_user: User, monkeypatch: Any
+    ) -> None:
+        """Two devices opening the planner at once: both look before either inserts."""
+        import threading
+
+        barrier = threading.Barrier(2, timeout=5)
+        looked = threading.local()
+        original = test_database._execute_with_timing
+
+        def synced(conn: Any, query: str, params: tuple[Any, ...] = ()) -> Any:
+            cursor = original(conn, query, params)
+            is_lookup = query.startswith(
+                "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1"
+            )
+            # Only each thread's first lookup waits (a follow-up re-read must not)
+            if is_lookup and not getattr(looked, "done", False):
+                looked.done = True
+                barrier.wait()
+            return cursor
+
+        monkeypatch.setattr(test_database, "_execute_with_timing", synced)
+        ids: list[str] = []
+
+        def open_planner() -> None:
+            ids.append(test_database.get_or_create_planner_conversation(test_user.id).id)
+
+        threads = [threading.Thread(target=open_planner) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(ids) == 2 and ids[0] == ids[1]
+        with test_database._pool.get_connection() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM conversations WHERE user_id = ? AND is_planning = 1",
+                (test_user.id,),
+            ).fetchone()[0]
+        assert count == 1

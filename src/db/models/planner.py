@@ -101,10 +101,14 @@ class PlannerMixin:
             model = model or Config.DEFAULT_MODEL
             now = datetime.now()
 
-            self._execute_with_timing(
+            # A concurrent first open (another device or tab) may have created
+            # it since the SELECT: the one-planner-per-user index turns this
+            # insert into a no-op, and both requests return that planner
+            inserted = self._execute_with_timing(
                 conn,
                 """INSERT INTO conversations (id, user_id, title, model, is_planning, created_at, updated_at, last_reset)
-                   VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+                   ON CONFLICT DO NOTHING""",
                 (
                     conv_id,
                     user_id,
@@ -114,8 +118,15 @@ class PlannerMixin:
                     now.isoformat(),
                     now.isoformat(),
                 ),
-            )
+            ).rowcount
             conn.commit()
+            if not inserted:
+                row = self._execute_with_timing(
+                    conn,
+                    "SELECT * FROM conversations WHERE user_id = ? AND is_planning = 1",
+                    (user_id,),
+                ).fetchone()
+                return self._row_to_conversation(row)
 
             # Initialize planner_last_reset_at so auto-reset can work
             self.update_planner_last_reset_at(user_id)
