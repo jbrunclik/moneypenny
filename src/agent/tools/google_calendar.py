@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-import requests
+import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
@@ -84,12 +84,16 @@ def _google_calendar_api_request(  # noqa: C901
 
     try:
         if method == "GET":
-            response = requests.get(
-                url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT
+            response = httpx.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+                follow_redirects=True,
             )
         elif method == "POST":
             headers["Content-Type"] = "application/json"
-            response = requests.post(
+            response = httpx.post(
                 url,
                 headers=headers,
                 params=params,
@@ -98,7 +102,7 @@ def _google_calendar_api_request(  # noqa: C901
             )
         elif method == "PATCH":
             headers["Content-Type"] = "application/json"
-            response = requests.patch(
+            response = httpx.patch(
                 url,
                 headers=headers,
                 params=params,
@@ -106,12 +110,12 @@ def _google_calendar_api_request(  # noqa: C901
                 timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
             )
         elif method == "DELETE":
-            response = requests.delete(
+            response = httpx.delete(
                 url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT
             )
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
-    except requests.RequestException as exc:  # pragma: no cover - network failure
+    except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.error(  # noqa: G201
             "Google Calendar API request failed",
             extra={"endpoint": endpoint, "error": str(exc)},

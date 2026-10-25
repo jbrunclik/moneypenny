@@ -7,7 +7,7 @@ Docs: https://developer.mapy.com/rest-api-mapy-cz/
 
 from typing import Any
 
-import requests
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -31,13 +31,14 @@ def _get(path: str, params: dict[str, Any]) -> dict[str, Any]:
     if not Config.MAPY_CZ_API_KEY:
         raise MapyError("Mapy.com API is not configured (MAPY_CZ_API_KEY missing)")
     try:
-        response = requests.get(
+        response = httpx.get(
             f"{MAPY_BASE_URL}/{path}",
             params=params,
             headers={"X-Mapy-Api-Key": Config.MAPY_CZ_API_KEY},
             timeout=Config.MAPY_API_TIMEOUT,
+            follow_redirects=True,
         )
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise MapyError(f"Mapy.com API request failed: {e}") from e
     if response.status_code != 200:
         raise MapyError(f"Mapy.com API returned {response.status_code} for /{path}")

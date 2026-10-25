@@ -46,7 +46,7 @@ def mock_yr_response() -> dict[str, Any]:
 
 def test_fetch_weather_forecast(mock_yr_response: dict[str, Any]) -> None:
     """Test fetching weather forecast from Yr.no API."""
-    with patch("src.utils.weather.requests.get") as mock_get:
+    with patch("src.utils.weather.httpx.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_yr_response
@@ -65,15 +65,15 @@ def test_fetch_weather_forecast(mock_yr_response: dict[str, Any]) -> None:
 
 def test_fetch_weather_forecast_api_error() -> None:
     """Test handling of API errors."""
-    import requests
+    import httpx
 
-    with patch("src.utils.weather.requests.get") as mock_get:
+    with patch("src.utils.weather.httpx.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
         mock_get.return_value = mock_response
 
-        with pytest.raises(requests.RequestException):
+        with pytest.raises(httpx.HTTPStatusError):
             fetch_weather_forecast(50.0755, 14.4378)
 
 

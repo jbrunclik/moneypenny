@@ -34,7 +34,7 @@ GEOCODE_PAYLOAD = {
 
 
 @patch("src.utils.mapy.Config")
-@patch("src.utils.mapy.requests.get")
+@patch("src.utils.mapy.httpx.get")
 def test_geocode_poi_near(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
     mock_config.MAPY_API_TIMEOUT = 10
@@ -52,7 +52,7 @@ def test_geocode_poi_near(mock_get: MagicMock, mock_config: MagicMock) -> None:
 
 
 @patch("src.utils.mapy.Config")
-@patch("src.utils.mapy.requests.get")
+@patch("src.utils.mapy.httpx.get")
 def test_rgeocode(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
     mock_config.MAPY_API_TIMEOUT = 10
@@ -66,7 +66,7 @@ def test_rgeocode(mock_get: MagicMock, mock_config: MagicMock) -> None:
 
 
 @patch("src.utils.mapy.Config")
-@patch("src.utils.mapy.requests.get")
+@patch("src.utils.mapy.httpx.get")
 def test_route(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
     mock_config.MAPY_API_TIMEOUT = 10
@@ -83,7 +83,7 @@ def test_route(mock_get: MagicMock, mock_config: MagicMock) -> None:
 
 
 @patch("src.utils.mapy.Config")
-@patch("src.utils.mapy.requests.get")
+@patch("src.utils.mapy.httpx.get")
 def test_error_raises_mapy_error(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
     mock_config.MAPY_API_TIMEOUT = 10

@@ -296,7 +296,6 @@ regex==2026.9.29
     # via dateparser
 requests==2.34.2
     # via
-    #   -r requirements.in
     #   docker
     #   garminconnect
     #   google-api-core

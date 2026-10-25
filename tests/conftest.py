@@ -392,7 +392,7 @@ def mock_httpx() -> Generator[MagicMock]:
 @pytest.fixture
 def mock_google_tokeninfo() -> Generator[MagicMock]:
     """Mock Google tokeninfo endpoint."""
-    with patch("src.auth.google_auth.requests.get") as mock:
+    with patch("src.auth.google_auth.httpx.get") as mock:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {

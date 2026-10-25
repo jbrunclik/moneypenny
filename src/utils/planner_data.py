@@ -4,10 +4,13 @@ This module provides functions to fetch Todoist tasks, Google Calendar events,
 and weather forecasts for the planner dashboard.
 """
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote
+
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -248,8 +251,6 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         overdue_tasks: Tasks that are overdue
         error_message: Error message if any, None otherwise
     """
-    import requests  # noqa: PLC0415
-
     logger.debug("Fetching Todoist dashboard data")
 
     tasks_7_days: list[PlannerTask] = []
@@ -260,11 +261,12 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
 
         # Fetch tasks with filter: "7 days | overdue"
         # This gets both next 7 days and overdue in one request
-        response = requests.get(
+        response = httpx.get(
             f"{Config.TODOIST_API_BASE_URL}/tasks",
             headers=headers,
             params={"filter": "7 days | overdue"},
             timeout=Config.TODOIST_API_TIMEOUT,
+            follow_redirects=True,
         )
 
         if response.status_code in (401, 403, 410):
@@ -296,10 +298,11 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         # Fetch sections for enrichment
         if section_ids:
             try:
-                sections_response = requests.get(
+                sections_response = httpx.get(
                     f"{Config.TODOIST_API_BASE_URL}/sections",
                     headers=headers,
                     timeout=Config.TODOIST_API_TIMEOUT,
+                    follow_redirects=True,
                 )
                 if sections_response.status_code == 200:
                     sections_data = sections_response.json()
@@ -320,10 +323,11 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         # Fetch projects for enrichment
         if project_ids:
             try:
-                projects_response = requests.get(
+                projects_response = httpx.get(
                     f"{Config.TODOIST_API_BASE_URL}/projects",
                     headers=headers,
                     timeout=Config.TODOIST_API_TIMEOUT,
+                    follow_redirects=True,
                 )
                 if projects_response.status_code == 200:
                     projects_data = projects_response.json()
@@ -368,7 +372,7 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
 
         return tasks_7_days, overdue_tasks, None
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.error("Todoist API request failed", extra={"error": str(e)})  # noqa: TRY400
         return [], [], f"Failed to connect to Todoist: {e}"
     except Exception as e:
@@ -393,8 +397,6 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: PLC0415
 
-    import requests  # noqa: PLC0415
-
     logger.debug("Fetching calendar dashboard data")
 
     if not calendar_ids:
@@ -405,10 +407,11 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
     # First, fetch calendar metadata to get proper calendar names
     calendar_names: dict[str, str] = {}
     try:
-        response = requests.get(
+        response = httpx.get(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
             headers=headers,
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            follow_redirects=True,
         )
         if response.status_code == 200:
             calendar_list = response.json().get("items", [])
@@ -455,11 +458,12 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         try:
             # URL-encode the calendar ID to handle special characters like # in holiday calendars
             encoded_calendar_id = quote(calendar_id, safe="")
-            response = requests.get(
+            response = httpx.get(
                 f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/calendars/{encoded_calendar_id}/events",
                 headers=headers,
                 params=params,  # type: ignore[arg-type]
                 timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+                follow_redirects=True,
             )
 
             # Handle specific error codes
@@ -487,10 +491,10 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
 
             return calendar_id, events, calendar_name, None, is_primary
 
-        except requests.Timeout:
+        except httpx.TimeoutException:
             logger.warning("Calendar fetch timeout", extra={"calendar_id": calendar_id})
             return calendar_id, None, None, "Request timeout", False
-        except requests.RequestException as e:
+        except (httpx.HTTPError, json.JSONDecodeError) as e:
             logger.error(  # noqa: TRY400
                 "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": str(e)}
             )

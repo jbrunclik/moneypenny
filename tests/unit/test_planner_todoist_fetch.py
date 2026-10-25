@@ -1,6 +1,6 @@
 """Tests for the planner dashboard's Todoist fetch (fetch_todoist_dashboard_data).
 
-Only the HTTP seam (``requests.get``) is faked.
+Only the HTTP seam (``httpx.get``) is faked.
 """
 
 from __future__ import annotations
@@ -10,8 +10,8 @@ from datetime import date, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import requests
 
 from src.utils.planner_data import fetch_todoist_dashboard_data
 
@@ -28,7 +28,7 @@ def _response(status: int = 200, body: Any = None) -> MagicMock:
     return response
 
 
-class FakeRequests:
+class FakeHttp:
     """Answers GETs by endpoint suffix; an Exception value is raised."""
 
     def __init__(self) -> None:
@@ -47,9 +47,9 @@ class FakeRequests:
 
 
 @pytest.fixture
-def http() -> Generator[FakeRequests]:
-    fake = FakeRequests()
-    with patch("requests.get", fake.get):
+def http() -> Generator[FakeHttp]:
+    fake = FakeHttp()
+    with patch("httpx.get", fake.get):
         yield fake
 
 
@@ -58,7 +58,7 @@ def _task(task_id: str, **extra: Any) -> dict[str, Any]:
 
 
 class TestFetchTodoistDashboardData:
-    def test_splits_overdue_from_upcoming_and_enriches_names(self, http: FakeRequests) -> None:
+    def test_splits_overdue_from_upcoming_and_enriches_names(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(
             body={
                 "results": [
@@ -93,7 +93,7 @@ class TestFetchTodoistDashboardData:
         assert overdue[0].project_name == "Work"
         assert http.params[0] == {"filter": "7 days | overdue"}
 
-    def test_plain_list_response_without_enrichment_requests(self, http: FakeRequests) -> None:
+    def test_plain_list_response_without_enrichment_requests(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(body=[_task("a", due={"date": TOMORROW})])
 
         upcoming, overdue, error = fetch_todoist_dashboard_data("tok")
@@ -103,14 +103,14 @@ class TestFetchTodoistDashboardData:
         # No project/section ids -> no enrichment lookups
         assert len(http.urls) == 1
 
-    def test_unexpected_payload_means_no_tasks(self, http: FakeRequests) -> None:
+    def test_unexpected_payload_means_no_tasks(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(body={"unexpected": True})
 
         assert fetch_todoist_dashboard_data("tok") == ([], [], None)
 
-    def test_failed_enrichment_still_returns_tasks(self, http: FakeRequests) -> None:
+    def test_failed_enrichment_still_returns_tasks(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(body=[_task("a", project_id="p1", section_id="s1")])
-        http.routes["/sections"] = requests.ConnectionError("sections down")
+        http.routes["/sections"] = httpx.ConnectError("sections down")
         http.routes["/projects"] = _response(status=500)
 
         upcoming, _, error = fetch_todoist_dashboard_data("tok")
@@ -120,7 +120,7 @@ class TestFetchTodoistDashboardData:
         assert upcoming[0].section_name is None
 
     @pytest.mark.parametrize("status", [401, 403, 410])
-    def test_revoked_access_asks_to_reconnect(self, http: FakeRequests, status: int) -> None:
+    def test_revoked_access_asks_to_reconnect(self, http: FakeHttp, status: int) -> None:
         http.routes["/tasks"] = _response(status=status)
 
         assert fetch_todoist_dashboard_data("tok") == (
@@ -129,20 +129,20 @@ class TestFetchTodoistDashboardData:
             "Todoist access has expired. Please reconnect in Settings.",
         )
 
-    def test_other_api_errors_report_the_status(self, http: FakeRequests) -> None:
+    def test_other_api_errors_report_the_status(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(status=503)
 
         assert fetch_todoist_dashboard_data("tok") == ([], [], "Todoist API error (503)")
 
-    def test_connection_failure_is_reported(self, http: FakeRequests) -> None:
-        http.routes["/tasks"] = requests.ConnectionError("no route")
+    def test_connection_failure_is_reported(self, http: FakeHttp) -> None:
+        http.routes["/tasks"] = httpx.ConnectError("no route")
 
         tasks, overdue, error = fetch_todoist_dashboard_data("tok")
 
         assert (tasks, overdue) == ([], [])
         assert error == "Failed to connect to Todoist: no route"
 
-    def test_malformed_task_is_reported_not_raised(self, http: FakeRequests) -> None:
+    def test_malformed_task_is_reported_not_raised(self, http: FakeHttp) -> None:
         http.routes["/tasks"] = _response(body=[{"id": "no-content"}])
 
         tasks, _, error = fetch_todoist_dashboard_data("tok")

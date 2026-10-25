@@ -87,7 +87,7 @@ class TestGoogleAuthRoute:
 
     def test_invalid_token(self, client: FlaskClient) -> None:
         """Should return 401 for invalid Google token."""
-        with patch("src.auth.google_auth.requests.get") as mock_get:
+        with patch("src.auth.google_auth.httpx.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 400
             mock_get.return_value = mock_response
@@ -103,7 +103,7 @@ class TestGoogleAuthRoute:
 
     def test_email_not_allowed(self, client: FlaskClient) -> None:
         """Should return 403 when email is not in allowed list."""
-        with patch("src.auth.google_auth.requests.get") as mock_get:
+        with patch("src.auth.google_auth.httpx.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {

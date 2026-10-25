@@ -64,17 +64,6 @@ max-complexity = 10
 "tests/e2e-server.py" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "N999", "PLC0415"]
 # SQL built from the module-constant conversation-type CASE expression, not user input
 "scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608", "T20", "PLC0415"]
-# B9 baseline: still on requests (the list only shrinks)
-"src/utils/planner_data.py" = ["TID251"]
-"src/agent/tools/todoist_client.py" = ["TID251"]
-"src/utils/weather.py" = ["TID251"]
-"src/utils/mapy.py" = ["TID251"]
-"src/auth/todoist_auth.py" = ["TID251"]
-"src/auth/google_calendar.py" = ["TID251"]
-"src/auth/google_auth.py" = ["TID251"]
-"src/api/routes/calendar.py" = ["TID251"]
-"src/agent/tools/whatsapp.py" = ["TID251"]
-"src/agent/tools/google_calendar.py" = ["TID251"]
 # Column names in these queries come only from the PROGRAM_FEATURES registry
 # or fixed strings - never user input (documented at each site)
 "src/db/models/*" = ["S608"]
@@ -133,7 +122,7 @@ type = "forbidden"
 source_modules = ["src.api.routes"]
 forbidden_modules = ["requests", "httpx"]
 allow_indirect_imports = true
-ignore_imports = ["src.api.routes.calendar -> requests"]
+ignore_imports = ["src.api.routes.calendar -> httpx"]
 
 [tool.mypy]
 python_version = "3.14"

@@ -10,6 +10,8 @@ import json as json_module
 import uuid
 from typing import Any
 
+import httpx
+
 from src.agent.tools.context import get_conversation_context
 from src.config import Config
 from src.utils.logging import get_logger
@@ -61,23 +63,25 @@ def todoist_api_request(
     Raises:
         Exception: On API errors
     """
-    import requests  # noqa: PLC0415
-
     url = f"{Config.TODOIST_API_BASE_URL}{endpoint}"
     headers = {"Authorization": f"Bearer {token}"}
 
     try:
         if method == "GET":
-            response = requests.get(
-                url, headers=headers, params=params, timeout=Config.TODOIST_API_TIMEOUT
+            response = httpx.get(
+                url,
+                headers=headers,
+                params=params,
+                timeout=Config.TODOIST_API_TIMEOUT,
+                follow_redirects=True,
             )
         elif method == "POST":
             headers["Content-Type"] = "application/json"
-            response = requests.post(
+            response = httpx.post(
                 url, headers=headers, json=data, timeout=Config.TODOIST_API_TIMEOUT
             )
         elif method == "DELETE":
-            response = requests.delete(url, headers=headers, timeout=Config.TODOIST_API_TIMEOUT)
+            response = httpx.delete(url, headers=headers, timeout=Config.TODOIST_API_TIMEOUT)
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
@@ -109,7 +113,7 @@ def todoist_api_request(
 
         return result
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json_module.JSONDecodeError) as e:
         logger.error("Todoist API request failed", extra={"error": str(e), "endpoint": endpoint})  # noqa: TRY400
         raise Exception(f"Failed to connect to Todoist: {e}") from e
 
@@ -134,8 +138,6 @@ def todoist_sync_request(
         Exception: On API errors
     """
 
-    import requests  # noqa: PLC0415
-
     url = "https://api.todoist.com/api/v1/sync"
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -148,9 +150,7 @@ def todoist_sync_request(
     data = {"commands": json_module.dumps(commands)}
 
     try:
-        response = requests.post(
-            url, headers=headers, data=data, timeout=Config.TODOIST_API_TIMEOUT
-        )
+        response = httpx.post(url, headers=headers, data=data, timeout=Config.TODOIST_API_TIMEOUT)
 
         if response.status_code >= 400:
             error_msg = response.text
@@ -167,6 +167,6 @@ def todoist_sync_request(
         result: dict[str, Any] = response.json()
         return result
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json_module.JSONDecodeError) as e:
         logger.error("Todoist Sync API request failed", extra={"error": str(e)})  # noqa: TRY400
         raise Exception(f"Failed to connect to Todoist Sync API: {e}") from e

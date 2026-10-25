@@ -5,9 +5,10 @@ This module handles the OAuth flow for Todoist integration:
 2. Exchange authorization code for access token
 """
 
+import json
 from typing import Any
 
-import requests
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -56,7 +57,7 @@ def exchange_code_for_token(code: str) -> str:
     logger.debug("Exchanging Todoist authorization code for token")
 
     try:
-        response = requests.post(
+        response = httpx.post(
             TODOIST_TOKEN_URL,
             data={
                 "client_id": Config.TODOIST_CLIENT_ID,
@@ -90,7 +91,7 @@ def exchange_code_for_token(code: str) -> str:
         logger.debug("Todoist token exchange successful")
         return str(access_token)
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.error(  # noqa: G201
             "Todoist token exchange request failed", extra={"error": str(e)}, exc_info=True
         )
@@ -114,10 +115,11 @@ def get_user_info(access_token: str) -> dict[str, Any]:
     logger.debug("Fetching Todoist user info")
 
     try:
-        response = requests.get(
+        response = httpx.get(
             TODOIST_USER_URL,
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=Config.TODOIST_API_TIMEOUT,
+            follow_redirects=True,
         )
 
         if response.status_code != 200:
@@ -135,6 +137,6 @@ def get_user_info(access_token: str) -> dict[str, Any]:
 
         return user_data
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         raise TodoistAuthError("Failed to connect to Todoist") from e

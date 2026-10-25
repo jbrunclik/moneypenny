@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-import requests
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -90,7 +90,7 @@ def fetch_weather_forecast(
         WeatherForecast object with periods for the next 7 days
 
     Raises:
-        requests.RequestException: If the API request fails
+        httpx.HTTPError: If the API request fails
         ValueError: If the response format is invalid
     """
     logger.debug(
@@ -103,11 +103,12 @@ def fetch_weather_forecast(
         "User-Agent": f"AI-Chatbot/{Config.APP_VERSION} (contact: {Config.CONTACT_EMAIL})",
     }
 
-    response = requests.get(
+    response = httpx.get(
         "https://api.met.no/weatherapi/locationforecast/2.0/compact",
         headers=headers,
         params={"lat": latitude, "lon": longitude},
         timeout=Config.WEATHER_API_TIMEOUT,
+        follow_redirects=True,
     )
 
     if response.status_code >= 400:
@@ -115,7 +116,11 @@ def fetch_weather_forecast(
             "Yr.no API error",
             extra={"status_code": response.status_code, "error": response.text},
         )
-        raise requests.RequestException(f"Yr.no API error ({response.status_code})")
+        raise httpx.HTTPStatusError(
+            f"Yr.no API error ({response.status_code})",
+            request=response.request,
+            response=response,
+        )
 
     data = response.json()
     properties = data.get("properties", {})
@@ -245,7 +250,7 @@ def get_weather_for_location(
 
         return forecast
 
-    except (requests.RequestException, ValueError) as e:
+    except (httpx.HTTPError, ValueError) as e:
         logger.error(  # noqa: TRY400
             "Failed to fetch weather forecast",
             extra={"location": location, "error": str(e)},

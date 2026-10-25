@@ -3,8 +3,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import requests
 
 from src.agent.tools.whatsapp import (
     WhatsAppError,
@@ -199,7 +199,7 @@ class TestSendTemplateMessage:
 class TestWhatsAppApiRequest:
     """Tests for _whatsapp_api_request function."""
 
-    @patch("src.agent.tools.whatsapp.requests.post")
+    @patch("src.agent.tools.whatsapp.httpx.post")
     @patch("src.agent.tools.whatsapp.Config")
     def test_successful_request(self, mock_config: MagicMock, mock_post: MagicMock) -> None:
         """Should return JSON response on success."""
@@ -219,7 +219,7 @@ class TestWhatsAppApiRequest:
         assert result == {"messages": [{"id": "msg123"}]}
         mock_post.assert_called_once()
 
-    @patch("src.agent.tools.whatsapp.requests.post")
+    @patch("src.agent.tools.whatsapp.httpx.post")
     @patch("src.agent.tools.whatsapp.Config")
     def test_handles_invalid_token_error(
         self, mock_config: MagicMock, mock_post: MagicMock
@@ -244,7 +244,7 @@ class TestWhatsAppApiRequest:
 
         assert "invalid or expired" in str(exc_info.value).lower()
 
-    @patch("src.agent.tools.whatsapp.requests.post")
+    @patch("src.agent.tools.whatsapp.httpx.post")
     @patch("src.agent.tools.whatsapp.Config")
     def test_handles_recipient_not_allowed_error(
         self, mock_config: MagicMock, mock_post: MagicMock
@@ -271,7 +271,7 @@ class TestWhatsAppApiRequest:
 
         assert "allowed list" in str(exc_info.value).lower()
 
-    @patch("src.agent.tools.whatsapp.requests.post")
+    @patch("src.agent.tools.whatsapp.httpx.post")
     @patch("src.agent.tools.whatsapp.Config")
     def test_handles_network_error(self, mock_config: MagicMock, mock_post: MagicMock) -> None:
         """Should raise WhatsAppError on network failure."""
@@ -281,7 +281,7 @@ class TestWhatsAppApiRequest:
         mock_config.WHATSAPP_ACCESS_TOKEN = "test_token"
         mock_config.WHATSAPP_API_TIMEOUT = 10
 
-        mock_post.side_effect = requests.RequestException("Connection failed")
+        mock_post.side_effect = httpx.ConnectError("Connection failed")
 
         with pytest.raises(WhatsAppError) as exc_info:
             _whatsapp_api_request("/messages", {"test": "data"})

@@ -6,6 +6,7 @@ IMPORTANT: _get_valid_calendar_access_token is exported for use by planner and c
 
 from typing import Any
 
+import httpx
 from apiflask import APIBlueprint
 
 from src.api.errors import (
@@ -282,16 +283,15 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         logger.debug("Returning cached calendars", extra={"user_id": user.id})
         return cached
 
-    import requests  # noqa: PLC0415
-
     try:
-        response = requests.get(
+        response = httpx.get(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
             headers={"Authorization": f"Bearer {calendar_token}"},
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            follow_redirects=True,
         )
         items = response.json().get("items", []) if response.status_code < 400 else []
-    except requests.Timeout:
+    except httpx.TimeoutException:
         logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
         raise_server_error("Google Calendar timed out. Please try again.")
     except Exception as e:

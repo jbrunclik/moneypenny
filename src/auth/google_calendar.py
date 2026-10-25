@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
-import requests
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -58,12 +58,12 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
     }
 
     try:
-        response = requests.post(
+        response = httpx.post(
             Config.GOOGLE_OAUTH_TOKEN_URL,
             data=data,
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
-    except requests.RequestException as exc:  # pragma: no cover - network failure
+    except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.error("Google token exchange failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarAuthError("Failed to connect to Google") from exc
 
@@ -94,12 +94,12 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
     }
 
     try:
-        response = requests.post(
+        response = httpx.post(
             Config.GOOGLE_OAUTH_TOKEN_URL,
             data=data,
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
-    except requests.RequestException as exc:  # pragma: no cover - network failure
+    except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.error("Google token refresh failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarTransientError("Failed to connect to Google for token refresh") from exc
 
@@ -149,12 +149,13 @@ def get_user_info(access_token: str) -> dict[str, Any]:
     """Fetch the Google user profile info (email)."""
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
-        response = requests.get(
+        response = httpx.get(
             Config.GOOGLE_USERINFO_URL,
             headers=headers,
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            follow_redirects=True,
         )
-    except requests.RequestException as exc:  # pragma: no cover - network failure
+    except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.error("Google userinfo request failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarAuthError("Failed to fetch Google profile") from exc
 

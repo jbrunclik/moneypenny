@@ -12,7 +12,7 @@ import json
 import re
 from typing import Any
 
-import requests
+import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_agent_name, get_conversation_context
@@ -94,7 +94,7 @@ def _whatsapp_api_request(
     }
 
     try:
-        response = requests.post(
+        response = httpx.post(
             url,
             headers=headers,
             json=data,
@@ -141,7 +141,7 @@ def _whatsapp_api_request(
         result: dict[str, Any] = response.json()
         return result
 
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.error(  # noqa: TRY400
             "WhatsApp API request failed",
             extra={"error": str(e), "endpoint": endpoint},

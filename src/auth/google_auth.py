@@ -4,9 +4,10 @@ This module validates Google ID tokens from the client-side Sign In with Google 
 No client secret is needed - just a Client ID.
 """
 
+import json
 from typing import Any
 
-import requests
+import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
@@ -39,10 +40,11 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
     try:
         from src.config import Config  # noqa: PLC0415
 
-        response = requests.get(
+        response = httpx.get(
             GOOGLE_TOKENINFO_URL,
             params={"id_token": id_token},
             timeout=Config.GOOGLE_AUTH_TIMEOUT,
+            follow_redirects=True,
         )
 
         if response.status_code != 200:
@@ -74,7 +76,7 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
             "picture": token_info.get("picture"),
             "email_verified": token_info.get("email_verified") == "true",
         }
-    except requests.RequestException as e:
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
         logger.error(  # noqa: G201
             "Google token verification request failed", extra={"error": str(e)}, exc_info=True
         )

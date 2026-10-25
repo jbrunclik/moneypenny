@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import requests
+import httpx
 from flask.testing import FlaskClient
 
 from src.auth.google_calendar import (
@@ -468,7 +468,7 @@ class TestListCalendars:
                 "src.api.routes.calendar._get_valid_calendar_access_token",
                 return_value="access" if connected else None,
             ),
-            patch("requests.get") as get,
+            patch("httpx.get") as get,
         ):
             if isinstance(upstream, Exception):
                 get.side_effect = upstream
@@ -520,7 +520,7 @@ class TestListCalendars:
     def test_google_errors_and_timeouts_are_server_errors(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
-        for upstream in (self._upstream(503), requests.Timeout(), ValueError("boom")):
+        for upstream in (self._upstream(503), httpx.ReadTimeout("timed out"), ValueError("boom")):
             response = self._get(client, auth_headers, upstream=upstream)
 
             assert response.status_code == 500, upstream

@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
-import requests
 
 from src.auth.google_auth import (
     GoogleAuthError,
@@ -15,7 +15,7 @@ from src.auth.google_auth import (
 class TestVerifyGoogleIdToken:
     """Tests for verify_google_id_token function."""
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     @patch("src.auth.google_auth.Config.GOOGLE_CLIENT_ID", "test-client-id")
     def test_valid_token_returns_user_info(self, mock_get: MagicMock) -> None:
         """Valid token should return user info dict."""
@@ -37,7 +37,7 @@ class TestVerifyGoogleIdToken:
         assert result["picture"] == "https://example.com/pic.jpg"
         assert result["email_verified"] is True
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     @patch("src.auth.google_auth.Config.GOOGLE_CLIENT_ID", "test-client-id")
     def test_email_verified_false(self, mock_get: MagicMock) -> None:
         """Should handle email_verified being false."""
@@ -55,7 +55,7 @@ class TestVerifyGoogleIdToken:
 
         assert result["email_verified"] is False
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     @patch("src.auth.google_auth.Config.GOOGLE_CLIENT_ID", "test-client-id")
     def test_uses_email_as_name_fallback(self, mock_get: MagicMock) -> None:
         """Should use email as name if name is missing."""
@@ -73,7 +73,7 @@ class TestVerifyGoogleIdToken:
 
         assert result["name"] == "user@example.com"
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     def test_invalid_token_raises_error(self, mock_get: MagicMock) -> None:
         """Invalid token (HTTP error) should raise GoogleAuthError."""
         mock_response = MagicMock()
@@ -83,7 +83,7 @@ class TestVerifyGoogleIdToken:
         with pytest.raises(GoogleAuthError, match="Invalid ID token"):
             verify_google_id_token("invalid-token")
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     @patch("src.auth.google_auth.Config.GOOGLE_CLIENT_ID", "test-client-id")
     def test_wrong_audience_raises_error(self, mock_get: MagicMock) -> None:
         """Token with wrong audience should raise GoogleAuthError."""
@@ -98,7 +98,7 @@ class TestVerifyGoogleIdToken:
         with pytest.raises(GoogleAuthError, match="not issued for this application"):
             verify_google_id_token("token-wrong-audience")
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     @patch("src.auth.google_auth.Config.GOOGLE_CLIENT_ID", "test-client-id")
     def test_missing_email_raises_error(self, mock_get: MagicMock) -> None:
         """Token without email should raise GoogleAuthError."""
@@ -113,18 +113,18 @@ class TestVerifyGoogleIdToken:
         with pytest.raises(GoogleAuthError, match="does not contain email"):
             verify_google_id_token("token-no-email")
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     def test_request_exception_raises_error(self, mock_get: MagicMock) -> None:
         """Request exception should raise GoogleAuthError."""
-        mock_get.side_effect = requests.RequestException("Network error")
+        mock_get.side_effect = httpx.ConnectError("Network error")
 
         with pytest.raises(GoogleAuthError, match="Failed to verify token"):
             verify_google_id_token("token")
 
-    @patch("src.auth.google_auth.requests.get")
+    @patch("src.auth.google_auth.httpx.get")
     def test_timeout_raises_error(self, mock_get: MagicMock) -> None:
         """Timeout should raise GoogleAuthError."""
-        mock_get.side_effect = requests.Timeout("Request timed out")
+        mock_get.side_effect = httpx.ReadTimeout("Request timed out")
 
         with pytest.raises(GoogleAuthError, match="Failed to verify token"):
             verify_google_id_token("token")
