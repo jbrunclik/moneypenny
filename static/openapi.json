@@ -2742,16 +2742,6 @@
             },
             "description": "Successful response"
           },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            },
-            "description": "Validation error"
-          },
           "400": {
             "content": {
               "application/json": {
@@ -2777,16 +2767,7 @@
           "Agents"
         ],
         "summary": "Parse natural language schedule description into cron expression.",
-        "description": "Uses an LLM to convert user-friendly schedule descriptions\n(e.g., \"every weekday at 9am\") into standard cron expressions.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ParseScheduleRequest"
-              }
-            }
-          }
-        }
+        "description": "Uses an LLM to convert user-friendly schedule descriptions\n(e.g., \"every weekday at 9am\") into standard cron expressions."
       }
     },
     "/api/ai-assist/enhance-prompt": {
@@ -2802,16 +2783,6 @@
               }
             },
             "description": "Successful response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            },
-            "description": "Validation error"
           },
           "400": {
             "content": {
@@ -2838,16 +2809,7 @@
           "Agents"
         ],
         "summary": "Enhance an agent's system prompt using AI.",
-        "description": "Takes the current prompt and agent context, then suggests\nimprovements for clarity, completeness, and effectiveness.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EnhancePromptRequest"
-              }
-            }
-          }
-        }
+        "description": "Takes the current prompt and agent context, then suggests\nimprovements for clarity, completeness, and effectiveness."
       }
     },
     "/api/language/{program}/reset": {
@@ -11666,29 +11628,6 @@
         "title": "ParseScheduleResponse",
         "type": "object"
       },
-      "ParseScheduleRequest": {
-        "description": "Schema for POST /api/ai-assist/parse-schedule.",
-        "properties": {
-          "natural_language": {
-            "description": "Natural language description of the schedule (e.g., 'every day at 9am')",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Natural Language",
-            "type": "string"
-          },
-          "timezone": {
-            "default": "UTC",
-            "description": "IANA timezone for interpreting the schedule",
-            "title": "Timezone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "natural_language"
-        ],
-        "title": "ParseScheduleRequest",
-        "type": "object"
-      },
       "EnhancePromptResponse": {
         "description": "Response from prompt enhancement endpoint.",
         "properties": {
@@ -11720,47 +11659,6 @@
           }
         },
         "title": "EnhancePromptResponse",
-        "type": "object"
-      },
-      "EnhancePromptRequest": {
-        "description": "Schema for POST /api/ai-assist/enhance-prompt.",
-        "properties": {
-          "prompt": {
-            "description": "Current system prompt to enhance",
-            "maxLength": 10000,
-            "minLength": 1,
-            "title": "Prompt",
-            "type": "string"
-          },
-          "agent_name": {
-            "description": "Name of the agent (for context)",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Agent Name",
-            "type": "string"
-          },
-          "tool_permissions": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "List of optional tool names the agent can use (excludes always-available tools).",
-            "title": "Tool Permissions"
-          }
-        },
-        "required": [
-          "prompt",
-          "agent_name"
-        ],
-        "title": "EnhancePromptRequest",
         "type": "object"
       },
       "LanguageResetResponse": {

@@ -3662,11 +3662,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ParseScheduleRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3693,15 +3689,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -3733,11 +3720,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["EnhancePromptRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Successful response */
                 200: {
@@ -3764,15 +3747,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -9829,23 +9803,6 @@ export interface components {
             error: string | null;
         };
         /**
-         * ParseScheduleRequest
-         * @description Schema for POST /api/ai-assist/parse-schedule.
-         */
-        ParseScheduleRequest: {
-            /**
-             * Natural Language
-             * @description Natural language description of the schedule (e.g., 'every day at 9am')
-             */
-            natural_language: string;
-            /**
-             * Timezone
-             * @description IANA timezone for interpreting the schedule
-             * @default UTC
-             */
-            timezone: string;
-        };
-        /**
          * EnhancePromptResponse
          * @description Response from prompt enhancement endpoint.
          */
@@ -9862,28 +9819,6 @@ export interface components {
              * @default null
              */
             error: string | null;
-        };
-        /**
-         * EnhancePromptRequest
-         * @description Schema for POST /api/ai-assist/enhance-prompt.
-         */
-        EnhancePromptRequest: {
-            /**
-             * Prompt
-             * @description Current system prompt to enhance
-             */
-            prompt: string;
-            /**
-             * Agent Name
-             * @description Name of the agent (for context)
-             */
-            agent_name: string;
-            /**
-             * Tool Permissions
-             * @description List of optional tool names the agent can use (excludes always-available tools).
-             * @default null
-             */
-            tool_permissions: string[] | null;
         };
         /**
          * LanguageResetResponse
