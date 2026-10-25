@@ -13,8 +13,10 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 from src.agent.tools.browser_steps import PAGE_STATE_JS
+from src.agent.tools.url_safety import check_host
 from src.agent.tools.web import _extract_text_from_html
 from src.config import Config
 from src.utils.logging import get_logger
@@ -41,6 +43,78 @@ def browser_launch_args() -> list[str]:
         logger.warning("Chromium OS sandbox disabled via BROWSER_NO_SANDBOX")
         args.append("--no-sandbox")
     return args
+
+
+# Schemes that never reach the network
+_LOCAL_SCHEMES = frozenset({"data", "blob", "about"})
+_NETWORK_SCHEMES = frozenset({"http", "https", "ws", "wss"})
+
+
+def request_block_reason(
+    url: str, verdicts: dict[tuple[str, int | None], str | None]
+) -> str | None:
+    """Why a browser request must not go out, or None when it may.
+
+    `verdicts` caches check_host per (host, port): a page loads dozens of
+    subresources from a handful of hosts, and each check resolves DNS.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme in _LOCAL_SCHEMES:
+        return None
+    if parsed.scheme not in _NETWORK_SCHEMES:
+        return f"Scheme {parsed.scheme}:// is blocked."
+    key = (parsed.hostname or "", parsed.port)
+    if key not in verdicts:
+        verdicts[key] = check_host(parsed.hostname, parsed.port)
+    return verdicts[key]
+
+
+def install_request_guard(context: Any) -> None:
+    """Run every request of a browser context through the SSRF check.
+
+    Validating only the URL the model asked for left clicks, subresources,
+    page scripts and WebSockets free to reach private addresses (the
+    production host's own services). Routes never see redirect hops, so
+    BrowserWorker also refuses any page or frame that lands on one
+    (blocked_frame_reason).
+    """
+    verdicts: dict[tuple[str, int | None], str | None] = {}
+
+    def blocked(url: str) -> bool:
+        reason = request_block_reason(url, verdicts)
+        if reason:
+            logger.info("Browser request blocked", extra={"url": url[:200], "reason": reason})
+        return reason is not None
+
+    def guard(route: Any) -> None:
+        if blocked(route.request.url):
+            route.abort("blockedbyclient")
+        else:
+            route.continue_()
+
+    def guard_socket(ws: Any) -> None:
+        # A blocked socket is left unconnected: the page sees an open socket
+        # that reaches nothing (ws.close() here hangs the sync API)
+        if not blocked(ws.url):
+            ws.connect_to_server()
+
+    context.route("**/*", guard)
+    context.route_web_socket("**/*", guard_socket)
+
+
+def blocked_frame_reason(page: Any) -> str | None:
+    """Why the page (or one of its frames) sits on a blocked address, or None.
+
+    A redirect hop escapes the request guard: its GET still goes out, but
+    the content must never come back to the model as text or a screenshot.
+    """
+    verdicts: dict[tuple[str, int | None], str | None] = {}
+    for frame in page.frames:
+        if urlparse(frame.url).scheme in _NETWORK_SCHEMES:
+            reason = request_block_reason(frame.url, verdicts)
+            if reason:
+                return reason
+    return None
 
 
 @dataclass
@@ -109,6 +183,7 @@ class BrowserWorker:
                     cmd.error = ValueError(f"Unknown worker command: {cmd.fn_name}")
                 else:
                     cmd.result = handler(**cmd.kwargs)
+                    self._refuse_private_landing(cmd.kwargs.get("conversation_id"))
             except Exception as e:
                 cmd.error = e
             finally:
@@ -158,6 +233,7 @@ class BrowserWorker:
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             ),
         )
+        install_request_guard(context)
         page = context.new_page()
         page.set_default_timeout(Config.BROWSER_PAGE_TIMEOUT_MS)
 
@@ -165,6 +241,17 @@ class BrowserWorker:
         self._sessions[conversation_id] = session
         logger.info("Created browser session", extra={"conversation_id": conversation_id})
         return session
+
+    def _refuse_private_landing(self, conversation_id: str | None) -> None:
+        """Fail the action when it ended on a blocked address (e.g. via a redirect)."""
+        session = self._sessions.get(conversation_id or "")
+        if session is None:
+            return
+        reason = blocked_frame_reason(session.page)
+        if reason:
+            logger.warning("Browser landed on a blocked address", extra={"reason": reason})
+            session.page.goto("about:blank")
+            raise PermissionError(f"The page led to a blocked address. {reason}")
 
     def _close_session(self, conversation_id: str) -> None:
         session = self._sessions.pop(conversation_id, None)

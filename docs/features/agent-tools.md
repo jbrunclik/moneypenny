@@ -105,7 +105,11 @@ all agree — the first two are the obvious ones, the third is easy to miss:
   rejecting non-http(s) schemes, localhost, and literal *or DNS-resolved*
   private/reserved/cloud-metadata addresses. `fetch_url` disables auto-redirect
   and re-validates each hop, plus re-checks the host at connect time via an
-  SSRF-safe transport. Residual DNS-rebinding risk is narrowed but not
+  SSRF-safe transport. The browser runs every request of its context through
+  the same check (subresources, scripts' `fetch()`, WebSockets); routes never
+  see redirect hops, so an action whose page or any frame lands on a blocked
+  address fails and the page is cleared - the hop's GET goes out, but no
+  content reaches the model. Residual DNS-rebinding risk is narrowed but not
   eliminated; network-level egress filtering is the complete control.
 - **Page encoding**: a page whose `Content-Type` names no charset is decoded
   by its `<meta charset>` (`_sniffed_encoding` in
@@ -373,7 +377,9 @@ When screenshots are included in the response, the tool returns a `list[dict]` (
 
 ### SSRF Protection
 
-All URLs are validated before navigation. Blocked ranges include loopback (`127.0.0.0/8`), all RFC-1918 private ranges, link-local addresses (`169.254.0.0/16`), and their IPv6 equivalents. `localhost` and `localhost.localdomain` are also blocked.
+Every request the browser makes is checked (`install_request_guard` in
+`browser_worker.py`), and an action that lands on a blocked address after a
+redirect fails with nothing returned (see Tool Security above). Blocked ranges include loopback (`127.0.0.0/8`), all RFC-1918 private ranges, link-local addresses (`169.254.0.0/16`), and their IPv6 equivalents. `localhost` and `localhost.localdomain` are also blocked.
 
 ### Configuration
 
