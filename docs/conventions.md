@@ -52,7 +52,7 @@ session and points here for the rest.
 |----|------|-------------|
 | P1 | Generated files never drift: `static/openapi.json` and `generated-api.ts` match the schemas, `requirements.txt` matches `requirements.in`, `.env.example` lists every config variable | CI (regenerate and diff); test (`test_env_example.py`) |
 | P2 | Migrations form one chain with unique numbers; each step has a rollback or an `# irreversible:` reason | test (`test_migration_chain.py`) |
-| P3 | Dependabot auto-merges patch and minor updates only | workflow + test (`test_dependabot_majors.py`); planned: audit as a merge condition |
+| P3 | Dependabot auto-merges patch and minor updates only, after Tests and (when a lock file changed) the Dependency Audit passed | workflow + tests (`test_dependabot_majors.py`, `test_dependabot_run_gate.py`) |
 | P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | workflows; actionlint in CI |
 | P5 | Production installs runtime dependencies only (`requirements-dev.txt` for tools) | Makefile, workflows |
 | P6 | Toolchain versions agree: Node 24+ and npm 11+ (`engines` = `.nvmrc` major, `engine-strict`), Python from `.python-version` (`make setup` via uv, CI) | `web/.npmrc`, Makefile, workflows |

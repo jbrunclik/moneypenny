@@ -90,7 +90,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Ops: rate limits use `memory://`, so each worker counts separately (limits are effectively x2) and a reload resets them - low risk (sign-in is a Google-verified token checked against the allow-list; the limits only stop runaway clients), and the production host has no Redis; fix with a small SQLite-backed `limits` storage (a registered `STORAGE_SCHEME`) in its own database file; backups share the server's disk (see the off-site item).
   - Docs: `features/deep-research.md` (513 lines) and `features/ui-features.md` (509) need splitting; `tests/e2e-server.py` is 1,800 lines.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
-  - Delivery: audit as a Dependabot merge condition (P3).
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
 - [ ] **Shrink the ruff baseline** (Oct 25 2026: 407 bare `# noqa: CODE`, 273 in `src/` - 58 `BLE001`, 41 `C901`, 40 `G201`, 23 `PLR0912`, 22 `TRY400`, 21 `G004`, 15 `PLR0915`): plus 178 `PLC0415` imports inside functions (hoist each, or give it a reason); fix them file by file when touching a file anyway; `grep -rn "# noqa: [A-Z0-9, ]*$" src` lists them. Ten files still use `requests` (B9, `pyproject.toml`).
