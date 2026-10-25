@@ -20,3 +20,9 @@ Fix a bug: $ARGUMENTS
 
 5. **Pre-commit.** `make pre-commit` (check the exit code) unless lint + the
    full suite already ran green in-session.
+
+6. **Docs.** A new pitfall goes into the relevant `docs/` page; a flake fixed
+   comes out of TODO.md.
+
+7. **Commit** with explicit paths (`git add <files>`; other sessions may have
+   changes in the checkout) and a `fix(scope): ...` message.
