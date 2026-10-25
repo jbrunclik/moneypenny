@@ -169,19 +169,7 @@ export const MOBILE_BREAKPOINT_PX = 768;
 // =============================================================================
 
 /** Default minimum swipe distance to trigger action */
-export const SWIPE_THRESHOLD_PX = 50;
-
-/** Default maximum swipe distance (for visual feedback capping) */
-export const SWIPE_MAX_DISTANCE_PX = 80;
-
-/** Minimum movement to distinguish swipe from tap */
-export const SWIPE_MIN_MOVEMENT_PX = 10;
-
-/** Maximum touch duration to be considered a tap (not swipe) */
-export const TAP_MAX_DURATION_MS = 300;
-
-/** Maximum movement during tap (if exceeded, it's a swipe) */
-export const TAP_MAX_MOVEMENT_PX = 10;
+export const SWIPE_THRESHOLD_PX = 60;
 
 /** Width of the edge zone for sidebar swipe-to-open */
 export const SIDEBAR_EDGE_SWIPE_ZONE_PX = 50;
@@ -214,12 +202,6 @@ export const SCROLL_PROGRAMMATIC_RESET_DELAY_MS = 150;
 
 /** Distance from bottom to consider user "scrolled away" from bottom */
 export const SCROLL_USER_DETECTION_THRESHOLD_PX = 200;
-
-/** Delay for smooth scroll animation to complete (300-600ms actual + buffer) */
-export const SCROLL_SMOOTH_COMPLETION_DELAY_MS = 700;
-
-/** Debounce delay for user scroll listener */
-export const SCROLL_EVENT_DEBOUNCE_MS = 100;
 
 /** Grace period after enabling scroll mode to ignore false positives */
 export const SCROLL_MODE_GRACE_PERIOD_MS = 500;
@@ -344,19 +326,6 @@ export const SHEET_DRAG_UPWARD_RESISTANCE = 0.2;
 export const SHEET_SETTLE_MS = 200;
 
 // =============================================================================
-// Smooth Scroll Animation
-// =============================================================================
-
-/** Maximum duration for smooth scroll animation */
-export const SMOOTH_SCROLL_MAX_DURATION_MS = 600;
-
-/** Minimum duration for smooth scroll animation */
-export const SMOOTH_SCROLL_MIN_DURATION_MS = 300;
-
-/** Factor to calculate scroll duration based on distance */
-export const SMOOTH_SCROLL_DISTANCE_FACTOR = 0.5;
-
-// =============================================================================
 // UI Animation Durations
 // =============================================================================
 
@@ -372,12 +341,6 @@ export const TOAST_ACTION_DURATION_MS = 8 * MS_PER_SECOND;
 
 /** Toast exit animation duration */
 export const TOAST_EXIT_ANIMATION_MS = 200;
-
-/** Modal exit animation duration */
-export const MODAL_EXIT_ANIMATION_MS = 150;
-
-/** Delay before focusing input in modal (allows animation to settle) */
-export const MODAL_FOCUS_DELAY_MS = 50;
 
 // =============================================================================
 // Version Banner
@@ -453,14 +416,8 @@ export const STREAM_RECOVERY_CONTENT_POLL_DELAYS_MS = [
 /** Approximate height of a conversation item in pixels (for viewport calculation) */
 export const CONVERSATION_ITEM_HEIGHT_PX = 60;
 
-/** Approximate height of a message in pixels (for viewport calculation) */
-export const MESSAGE_AVG_HEIGHT_PX = 120;
-
 /** Minimum page size for conversations (floor for small viewports) */
 export const CONVERSATIONS_MIN_PAGE_SIZE = 15;
-
-/** Minimum page size for messages (floor for small viewports) */
-export const MESSAGES_MIN_PAGE_SIZE = 20;
 
 /** Buffer multiplier for viewport-based page size calculation */
 export const VIEWPORT_BUFFER_MULTIPLIER = 1.5;
@@ -475,32 +432,6 @@ export const LOAD_OLDER_MESSAGES_THRESHOLD_PX = 200;
 export const INFINITE_SCROLL_DEBOUNCE_MS = 100;
 
 // =============================================================================
-// Streaming Abort Cleanup
-// =============================================================================
-
-/** Delay before attempting to delete partial message after aborting stream (1.5 seconds) */
-export const STREAMING_ABORT_CLEANUP_DELAY_MS = 1.5 * MS_PER_SECOND;
-
-// =============================================================================
-// Voice Input
-// =============================================================================
-
-/** Supported languages for voice input */
-export const VOICE_SUPPORTED_LANGUAGES = ['en-US', 'cs-CZ'] as const;
-
-/** Mapping from browser language codes to full language codes */
-export const VOICE_LANGUAGE_VARIANTS: Record<string, string> = {
-  en: 'en-US',
-  cs: 'cs-CZ',
-};
-
-/** Display names for supported languages */
-export const VOICE_LANGUAGE_NAMES: Record<string, string> = {
-  'en-US': 'English',
-  'cs-CZ': 'Čeština',
-};
-
-// =============================================================================
 // File Upload
 // =============================================================================
 
@@ -509,22 +440,6 @@ export const UPLOAD_DEFAULT_MAX_FILE_SIZE_BYTES = 20 * BYTES_PER_MB;
 
 /** Default maximum number of files per message */
 export const UPLOAD_DEFAULT_MAX_FILES = 10;
-
-/** Allowed MIME types for file uploads */
-export const UPLOAD_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'text/plain',
-  'text/markdown',
-  'text/csv',
-  'application/json',
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-];
 
 /** Default maximum video file size (server config overrides via /api/config/upload) */
 export const UPLOAD_DEFAULT_MAX_VIDEO_FILE_SIZE_BYTES = 100 * 1024 * 1024;
@@ -538,9 +453,6 @@ export const SEARCH_DEBOUNCE_MS = 300;
 
 /** Duration for search result highlight animation (ms) */
 export const SEARCH_HIGHLIGHT_DURATION_MS = 2 * MS_PER_SECOND;
-
-/** Maximum message batches to load when searching for a message in history (legacy fallback) */
-export const SEARCH_MAX_MESSAGE_LOAD_BATCHES = 10;
 
 /** Number of messages to load when navigating to a search result (split between before/after) */
 export const SEARCH_RESULT_MESSAGES_LIMIT = 100;

@@ -8,6 +8,7 @@ import { getElementById } from '../utils/dom';
 import { createSwipeHandler, isTouchDevice, resetSwipeStates } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
 import { useStore } from '../state/store';
+import { SIDEBAR_EDGE_SWIPE_ZONE_PX, SWIPE_THRESHOLD_PX } from '../config';
 
 /**
  * Setup touch gestures for mobile devices.
@@ -22,9 +23,9 @@ export function setupTouchGestures(): void {
   if (!conversationsList || !sidebar || !main) return;
 
   // Constants
-  const SWIPE_THRESHOLD = 60;
+  const SWIPE_THRESHOLD = SWIPE_THRESHOLD_PX;
   const SWIPE_DISTANCE = 160; // 2 buttons x 80px (more, archive/unarchive)
-  const EDGE_ZONE = 50; // px from left edge to trigger sidebar swipe
+  const EDGE_ZONE = SIDEBAR_EDGE_SWIPE_ZONE_PX;
 
   // Track active swipe type to prevent conflicts
   let activeSwipeType: 'none' | 'conversation' | 'sidebar' = 'none';

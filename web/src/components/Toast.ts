@@ -22,13 +22,13 @@ import type { Notification } from '../state/slices/ui';
 import { hapticError } from '../utils/haptics';
 import { escapeHtml } from '../utils/dom';
 import { ALERT_CIRCLE_ICON, CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
-import { TOAST_ACTION_DURATION_MS } from '../config';
+import { TOAST_ACTION_DURATION_MS, TOAST_DEFAULT_DURATION_MS } from '../config';
 
 // Re-export types for convenience
 export type { Notification } from '../state/slices/ui';
 
 // Default duration in milliseconds (0 = persistent)
-const DEFAULT_DURATION = 5000;
+const DEFAULT_DURATION = TOAST_DEFAULT_DURATION_MS;
 
 // Cap the visible stack; older toasts collapse into a "+N more" indicator
 // and surface as newer ones dismiss

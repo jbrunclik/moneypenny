@@ -5,6 +5,7 @@ import { toast } from './Toast';
 import { isTouchDevice } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
 import { createLogger } from '../utils/logger';
+import { LONG_PRESS_DURATION_MS, STORAGE_KEY_VOICE_LANG } from '../config';
 
 const log = createLogger('voice');
 
@@ -17,10 +18,10 @@ const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 // Storage key for persisted language preference
-const STORAGE_KEY_LANG = 'voice-input-lang';
+const STORAGE_KEY_LANG = STORAGE_KEY_VOICE_LANG;
 
 // Long-press duration in milliseconds
-const LONG_PRESS_DURATION = 500;
+const LONG_PRESS_DURATION = LONG_PRESS_DURATION_MS;
 
 // Extend Window interface for SpeechRecognition
 interface SpeechRecognitionEvent extends Event {

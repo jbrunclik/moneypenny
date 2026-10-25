@@ -1,5 +1,10 @@
 import type { ArtifactRef, FileUpload, Model, ThinkingState, UploadConfig } from '../../types/api';
 import type { AppSlice } from '../store';
+import {
+  UPLOAD_DEFAULT_MAX_FILE_SIZE_BYTES,
+  UPLOAD_DEFAULT_MAX_FILES,
+  UPLOAD_DEFAULT_MAX_VIDEO_FILE_SIZE_BYTES,
+} from '../../config';
 
 /**
  * Notification for toast messages
@@ -123,9 +128,9 @@ export interface UiSlice extends UiSessionData {
 }
 
 const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
-  maxFileSize: 20 * 1024 * 1024,
-  maxVideoFileSize: 100 * 1024 * 1024,
-  maxFilesPerMessage: 10,
+  maxFileSize: UPLOAD_DEFAULT_MAX_FILE_SIZE_BYTES,
+  maxVideoFileSize: UPLOAD_DEFAULT_MAX_VIDEO_FILE_SIZE_BYTES,
+  maxFilesPerMessage: UPLOAD_DEFAULT_MAX_FILES,
   allowedFileTypes: [
     'image/png',
     'image/jpeg',

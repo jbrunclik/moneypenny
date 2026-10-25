@@ -13,12 +13,13 @@ import { version } from '../api/app';
 import { useStore } from '../state/store';
 import { CLOSE_ICON, REFRESH_ICON } from '../utils/icons';
 import { createLogger } from '../utils/logger';
+import { STORAGE_KEY_VERSION_DISMISSED, VERSION_CHECK_INTERVAL_MS } from '../config';
 
 const log = createLogger('version');
 
 // Constants
-const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const DISMISSED_VERSION_KEY = 'ai-chatbot-version-dismissed';
+const VERSION_CHECK_INTERVAL = VERSION_CHECK_INTERVAL_MS;
+const DISMISSED_VERSION_KEY = STORAGE_KEY_VERSION_DISMISSED;
 
 // Module state
 let bannerElement: HTMLDivElement | null = null;
