@@ -15,6 +15,12 @@ In development mode:
 - Requests are authenticated as "local@localhost" user
 - No Google Sign-In required
 
+Auth can only be off on purpose: an unset or empty `FLASK_ENV` means
+`production`, and `E2E_TESTING=true` bypasses auth only together with
+`FLASK_ENV=testing` (the E2E server). gunicorn starts the app through
+`create_app()`, which runs `Config.validate()` and refuses to start with a
+production configuration it rejects.
+
 ### Production Mode
 
 1. **Frontend loads GIS library** and renders "Sign in with Google" button. The
@@ -26,7 +32,9 @@ In development mode:
 3. **Google returns ID token** to frontend
 4. **Frontend sends token** to `POST /auth/google`
 5. **Backend validates token** via Google's tokeninfo endpoint
-6. **Backend checks email whitelist**, returns JWT
+6. **Backend checks email whitelist**, returns JWT. `require_auth` re-checks
+   the whitelist on every request, so removing an email from
+   `ALLOWED_EMAILS` locks that user out of their live tokens at once
 7. **Frontend stores JWT** for subsequent API calls
 8. **Frontend schedules automatic token refresh** before expiration
 
@@ -42,8 +50,9 @@ In development mode:
 
 ### Token Security
 
-- In production, `JWT_SECRET_KEY` must be at least 32 characters
-- Config validation fails startup if secret is too short
+- In production, `JWT_SECRET_KEY` must be at least 32 characters, and
+  `TOKEN_ENCRYPTION_KEY` must be a valid Fernet key (integration tokens at rest)
+- Config validation fails startup (`create_app()`) if either is missing or invalid
 - Tokens are signed with HS256 algorithm
 - Tokens include user ID and expiration timestamp
 

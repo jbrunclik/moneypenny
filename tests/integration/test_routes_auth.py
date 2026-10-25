@@ -292,3 +292,28 @@ class TestAuthErrorCodes:
         assert data["error"]["code"] == "AUTH_EXPIRED"
         assert "expired" in data["error"]["message"].lower()
         assert data["error"]["retryable"] is False
+
+
+class TestRemovedUserIsLockedOut:
+    """Removing an email from ALLOWED_EMAILS takes effect on the next request.
+
+    The allow-list used to be checked only at Google sign-in, so a removed
+    user (or a stolen token) could refresh a 7-day token forever.
+    """
+
+    def test_refresh_is_refused(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
+        with patch.object(Config, "ALLOWED_EMAILS", ["someone-else@example.com"]):
+            response = client.post("/auth/refresh", headers=auth_headers)
+        assert response.status_code == 403
+
+    def test_any_authenticated_route_is_refused(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        with patch.object(Config, "ALLOWED_EMAILS", ["someone-else@example.com"]):
+            response = client.get("/auth/me", headers=auth_headers)
+        assert response.status_code == 403
+
+    def test_allowed_user_still_gets_in(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        assert client.get("/auth/me", headers=auth_headers).status_code == 200

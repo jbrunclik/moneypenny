@@ -305,3 +305,75 @@ class TestLangdetectLanguages:
         with patch.object(Config, "LANGDETECT_LANGUAGES", ["cs"]):
             errors = Config.validate()
         assert any("LANGDETECT_LANGUAGES" in e for e in errors)
+
+
+class TestAuthCannotFailOpen:
+    """A missing or wrong environment setting must never switch authentication off."""
+
+    def _reloaded_config(self, env: dict[str, str]) -> type:
+        from importlib import reload
+
+        import src.config
+
+        with patch.dict(os.environ, env):
+            reload(src.config)
+            return src.config.Config
+
+    def test_unset_flask_env_means_production(self) -> None:
+        # load_dotenv never overrides a set variable, so "" stands in for "not set"
+        config = self._reloaded_config({"FLASK_ENV": "", "E2E_TESTING": ""})
+        assert config.FLASK_ENV == "production"
+        assert config.should_bypass_auth() is False
+
+    def test_e2e_flag_is_ignored_outside_testing(self) -> None:
+        config = self._reloaded_config({"FLASK_ENV": "production", "E2E_TESTING": "true"})
+        with patch.dict(os.environ, {"E2E_TESTING": "true"}):
+            assert config.should_bypass_auth() is False
+
+    def test_e2e_flag_bypasses_auth_in_testing(self) -> None:
+        config = self._reloaded_config({"FLASK_ENV": "testing", "E2E_TESTING": "true"})
+        with patch.dict(os.environ, {"E2E_TESTING": "true"}):
+            assert config.should_bypass_auth() is True
+
+    def test_create_app_refuses_an_invalid_production_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """gunicorn starts the app through create_app(), never main()."""
+        import src.app
+
+        monkeypatch.setattr(src.app.Config, "FLASK_ENV", "production")
+        monkeypatch.setattr(src.app.Config, "JWT_SECRET_KEY", "dev-secret-change-me")
+        with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
+            src.app.create_app()
+
+
+class TestTokenEncryptionKeyRequired:
+    """Without the key, OAuth tokens and the Rouvy password are stored in plaintext."""
+
+    def _production_errors(self, monkeypatch: pytest.MonkeyPatch, key: str) -> list[str]:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "FLASK_ENV", "production")
+        monkeypatch.setattr(Config, "TOKEN_ENCRYPTION_KEY", key)
+        return Config.validate()
+
+    def test_missing_key_is_an_error_in_production(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        errors = self._production_errors(monkeypatch, "")
+        assert any("TOKEN_ENCRYPTION_KEY" in e for e in errors)
+
+    def test_invalid_key_is_an_error_in_production(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        errors = self._production_errors(monkeypatch, "not-a-fernet-key")
+        assert any("TOKEN_ENCRYPTION_KEY" in e for e in errors)
+
+    def test_valid_key_passes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from cryptography.fernet import Fernet
+
+        errors = self._production_errors(monkeypatch, Fernet.generate_key().decode())
+        assert not any("TOKEN_ENCRYPTION_KEY" in e for e in errors)
+
+    def test_development_needs_no_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "FLASK_ENV", "development")
+        monkeypatch.setattr(Config, "TOKEN_ENCRYPTION_KEY", "")
+        assert not any("TOKEN_ENCRYPTION_KEY" in e for e in Config.validate())

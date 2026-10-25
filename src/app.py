@@ -115,6 +115,13 @@ def create_app() -> APIFlask:
             "log_level": Config.LOG_LEVEL,
         },
     )
+    # gunicorn starts the app here, never through main(): refuse to serve with
+    # a configuration that main() would reject (e.g. a placeholder JWT secret)
+    if not Config.is_testing():
+        errors = Config.validate()
+        if errors:
+            logger.error("Configuration validation failed", extra={"errors": errors})
+            raise RuntimeError("Configuration errors: " + "; ".join(errors))
     # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
     install_memory_profiler()
     start_malloc_trimmer()

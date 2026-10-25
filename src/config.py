@@ -54,7 +54,9 @@ class Config:
 
     # Server
     PORT: int = int(os.getenv("PORT", "8000"))
-    FLASK_ENV: str = os.getenv("FLASK_ENV", "development")
+    # Unset or empty means production: a missing setting must never switch
+    # authentication off (development bypasses it)
+    FLASK_ENV: str = os.getenv("FLASK_ENV") or "production"
     GUNICORN_WORKERS: int = int(os.getenv("GUNICORN_WORKERS", "2"))
     # Threads per worker. The gthread worker class keeps the master heartbeat
     # alive during long streaming responses, so SSE chat requests aren't killed
@@ -235,9 +237,10 @@ class Config:
         """Check if running in E2E testing mode (browser tests with mocked backend).
 
         E2E tests set E2E_TESTING=true to enable auth bypass while still
-        using FLASK_ENV=testing for other test-specific behavior.
+        using FLASK_ENV=testing for other test-specific behavior. The flag is
+        ignored outside testing, so a stray variable can't open production.
         """
-        return os.getenv("E2E_TESTING", "").lower() == "true"
+        return cls.is_testing() and os.getenv("E2E_TESTING", "").lower() == "true"
 
     @classmethod
     def should_bypass_auth(cls) -> bool:
@@ -956,6 +959,21 @@ class Config:
         return []
 
     @classmethod
+    def _token_encryption_key_errors(cls) -> list[str]:
+        """Without a valid key, OAuth tokens and the Rouvy password are stored in plaintext."""
+        # lazy: only validation needs cryptography; the rest of Config stays import-light
+        from cryptography.fernet import Fernet
+
+        hint = "Generate one with: make token-key"
+        if not cls.TOKEN_ENCRYPTION_KEY:
+            return [f"TOKEN_ENCRYPTION_KEY is required in production. {hint}"]
+        try:
+            Fernet(cls.TOKEN_ENCRYPTION_KEY.encode())
+        except ValueError:
+            return [f"TOKEN_ENCRYPTION_KEY is not a valid Fernet key. {hint}"]
+        return []
+
+    @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""
         errors: list[str] = []
@@ -991,6 +1009,7 @@ class Config:
                     f"JWT_SECRET_KEY must be at least 32 characters for security (got {len(cls.JWT_SECRET_KEY)}). "
                     'Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"'
                 )
+            errors.extend(cls._token_encryption_key_errors())
 
         errors.extend(cls._langdetect_language_errors())
 

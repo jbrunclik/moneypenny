@@ -10,9 +10,11 @@ from flask import Request, g, request
 
 from src.api.errors import (
     raise_auth_expired_error,
+    raise_auth_forbidden_error,
     raise_auth_invalid_error,
     raise_auth_required_error,
 )
+from src.auth.google_auth import is_email_allowed
 from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -153,6 +155,12 @@ def require_auth[F: Callable[..., Any]](f: F) -> F:
             )
             # Use 401 for user not found (token is valid but user was deleted)
             raise_auth_invalid_error("User account not found")
+
+        # Checked on every request, not only at sign-in: removing an email
+        # from ALLOWED_EMAILS must lock that user out of their live tokens
+        if not is_email_allowed(user.email):
+            logger.warning("User no longer allowed", extra={"user_id": user_id})
+            raise_auth_forbidden_error("Email not authorized")
 
         g.current_user = user
         logger.debug("Authentication successful", extra={"user_id": user_id, "path": request.path})
