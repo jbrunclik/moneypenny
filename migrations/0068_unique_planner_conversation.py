@@ -23,7 +23,7 @@ steps = [
                    FROM conversations WHERE is_planning = 1
                ) WHERE n = 1
            )""",
-        # Demoted duplicates can't be told apart from ordinary chats afterwards
+        # irreversible: demoted duplicates can't be told apart from ordinary chats
         None,
     ),
     step(

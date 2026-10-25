@@ -26,6 +26,7 @@ def _encrypt_existing_tokens(conn):  # noqa: ANN001, ANN202 - yoyo step signatur
     encrypt_tokens_in_connection(conn)
 
 
+# irreversible: decrypting back to plaintext is what this migration exists to prevent
 steps = [
     step(_encrypt_existing_tokens),
 ]

@@ -10,6 +10,7 @@ from yoyo import step
 
 __depends__ = {"0063_clamp_read_count_on_delete"}
 
+# irreversible: the purged entries were stale leftovers, nothing to restore
 steps = [
     step("DELETE FROM kv_store WHERE namespace = 'interject'"),
 ]

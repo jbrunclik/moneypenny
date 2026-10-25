@@ -13,6 +13,7 @@ from yoyo import step
 
 __depends__ = {"0039_add_agent_system_type"}
 
+# irreversible: the healed rows are indistinguishable from ones that were NULL all along
 steps = [
     step(
         """UPDATE autonomous_agents
