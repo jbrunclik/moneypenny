@@ -25,8 +25,8 @@ from src.agent.executor import (
     set_agent_context,
 )
 from src.agent.tools.request_approval import ApprovalRequestedException
-from src.api.schemas.common import MessageRole
 from src.db.models import Agent, Database, User, use_database
+from src.enums import MessageRole
 
 USAGE = {"input_tokens": 1200, "output_tokens": 300}
 

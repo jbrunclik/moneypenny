@@ -9,8 +9,8 @@ import base64
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from src.api.schemas.common import ThumbnailStatus
 from src.config import Config
+from src.enums import ThumbnailStatus
 from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 

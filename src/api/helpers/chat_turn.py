@@ -42,9 +42,9 @@ from src.api.errors import raise_conflict_error, raise_not_found_error, raise_va
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
-from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
+from src.enums import MessageRole
 from src.utils.background_thumbnails import (
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
@@ -424,11 +424,11 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
 
 
 def _load_planner_dashboard(user: User) -> dict[str, Any]:
-    from src.api.routes.calendar import _get_valid_calendar_access_token  # noqa: PLC0415
+    from src.auth.google_calendar import get_valid_calendar_access_token  # noqa: PLC0415
     from src.utils.planner_data import build_planner_dashboard  # noqa: PLC0415
 
     # Refresh calendar token if needed (expires hourly)
-    calendar_token = _get_valid_calendar_access_token(user)
+    calendar_token = get_valid_calendar_access_token(user)
     dashboard = build_planner_dashboard(
         todoist_token=user.todoist_access_token,
         calendar_token=calendar_token,

@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from src.api.schemas.common import MessageRole
 from src.db.models.dataclasses import Message
 from src.db.models.helpers import (
     delete_message_blobs,
@@ -20,6 +19,7 @@ from src.db.models.helpers import (
     save_file_to_blob_store,
 )
 from src.db.models.message_rows import row_to_message
+from src.enums import MessageRole
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:

@@ -8,11 +8,11 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from src.api.schemas.common import ThumbnailStatus
 from src.db.blob_store import get_blob_store
 from src.db.models.dataclasses import Message
 from src.db.models.helpers import make_thumbnail_key
 from src.db.models.message_rows import row_to_message
+from src.enums import ThumbnailStatus
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:

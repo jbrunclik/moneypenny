@@ -5,10 +5,10 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
-from src.api.schemas.common import PaginationDirection
 from src.db.models.dataclasses import Message, MessagePagination
 from src.db.models.helpers import build_cursor, parse_cursor
 from src.db.models.message_rows import row_to_message
+from src.enums import PaginationDirection
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool

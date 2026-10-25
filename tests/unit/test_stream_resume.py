@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.api.helpers.chat_turn import TurnContext
-from src.api.schemas.common import MessageRole
 from src.config import Config
+from src.enums import MessageRole
 
 if TYPE_CHECKING:
     from src.db.models import Database, User

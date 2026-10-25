@@ -465,7 +465,7 @@ class TestListCalendars:
         with (
             patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True),
             patch(
-                "src.api.routes.calendar._get_valid_calendar_access_token",
+                "src.api.routes.calendar.get_valid_calendar_access_token",
                 return_value="access" if connected else None,
             ),
             patch("httpx.get") as get,

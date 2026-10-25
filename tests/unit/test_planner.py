@@ -921,8 +921,8 @@ class TestRefreshPlannerDashboardTool:
     def test_tool_with_calendar_token_refresh(self, mocker: Any) -> None:
         """Regression test: Verify centralized calendar token helper is used.
 
-        This test ensures planner uses _get_valid_calendar_access_token from
-        src.api.routes.calendar (the centralized helper) rather than calling
+        This test ensures planner uses get_valid_calendar_access_token from
+        src.auth.google_calendar (the centralized helper) rather than calling
         refresh_access_token directly.
         """
         from src.agent.tools.planner import refresh_planner_dashboard
@@ -949,7 +949,7 @@ class TestRefreshPlannerDashboardTool:
 
         # Mock the centralized helper - planner now delegates token refresh to this
         mock_get_token = mocker.patch(
-            "src.api.routes.calendar._get_valid_calendar_access_token",
+            "src.auth.google_calendar.get_valid_calendar_access_token",
             return_value="new-calendar-token",
         )
 

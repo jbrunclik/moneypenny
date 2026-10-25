@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database
 
-from src.api.schemas.common import MessageRole
+from src.enums import MessageRole
 
 
 class TestUpdateMessageContent:

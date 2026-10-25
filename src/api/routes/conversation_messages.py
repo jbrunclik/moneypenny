@@ -12,7 +12,7 @@ from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.chat import MessageResponse, ResearchOfferUpdate
-from src.api.schemas.common import PaginationDirection, StatusResponse
+from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
     MessagesListResponse,
     TruncateConversationRequest,
@@ -23,6 +23,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Message, MessagePagination, User, db
+from src.enums import PaginationDirection
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

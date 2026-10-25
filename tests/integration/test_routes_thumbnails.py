@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from flask.testing import FlaskClient
 
-from src.api.schemas.common import ThumbnailStatus
+from src.enums import ThumbnailStatus
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database, User

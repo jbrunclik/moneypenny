@@ -13,7 +13,6 @@ from flask import request
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.routes.calendar import _get_valid_calendar_access_token
 from src.api.schemas.planner import (
     PlannerConversationResponse,
     PlannerDashboardResponse,
@@ -21,6 +20,7 @@ from src.api.schemas.planner import (
     PlannerSyncResponse,
 )
 from src.api.utils import serialize_messages_for_response
+from src.auth.google_calendar import get_valid_calendar_access_token
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
@@ -78,7 +78,7 @@ def get_planner_dashboard(user: User) -> dict[str, Any]:
 
     # Get valid tokens (with refresh if needed)
     todoist_token = current_user.todoist_access_token
-    calendar_token = _get_valid_calendar_access_token(current_user)
+    calendar_token = get_valid_calendar_access_token(current_user)
 
     # Build the dashboard with caching
     dashboard = build_planner_dashboard(

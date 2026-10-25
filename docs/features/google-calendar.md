@@ -21,7 +21,7 @@ The assistant orchestrates the user's calendars with strategic time-blocking. To
 
 Token refresh lives in one place: `get_valid_access_token(user_id)` in
 [auth/google_calendar.py](../../src/auth/google_calendar.py). Everything else is a thin
-wrapper over it - `_get_valid_calendar_access_token(user)` in `routes/calendar.py`
+wrapper over it - `get_valid_calendar_access_token(user)` in the same module
 (used by the calendar routes, the planner route and tool, and the chat turn setup) and
 `_get_google_calendar_access_token()` in `tools/google_calendar.py` (the agent tool).
 
@@ -153,10 +153,10 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 
 **Backend:**
 - [config.py](../../src/config.py) - Configuration constants
-- [google_calendar.py](../../src/auth/google_calendar.py) - OAuth helpers: authorize, exchange, and the shared `get_valid_access_token` refresh (error classes)
-- [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints, status endpoint, and exported `_get_valid_calendar_access_token` helper
+- [google_calendar.py](../../src/auth/google_calendar.py) - OAuth helpers: authorize, exchange, the shared `get_valid_access_token` refresh and its `get_valid_calendar_access_token(user)` wrapper (error classes), and `fetch_calendar_list` (the calendar list endpoint's Google call)
+- [routes/calendar.py](../../src/api/routes/calendar.py) - OAuth endpoints, status endpoint, calendar list and selection
 - [tools/google_calendar.py](../../src/agent/tools/google_calendar.py) - `google_calendar` LangGraph tool (401 retry via `_retry_on_401`, `CalendarDisconnectedError`)
-- [tools/planner.py](../../src/agent/tools/planner.py) - Uses `_get_valid_calendar_access_token` for token retrieval
+- [tools/planner.py](../../src/agent/tools/planner.py) - Uses `get_valid_calendar_access_token` for token retrieval
 - [prompt_texts/productivity.py](../../src/agent/prompt_texts/productivity.py) - Prompt instructions for calendar + strategic productivity heuristics
 - [migrations/0019_add_google_calendar_fields.py](../../migrations/0019_add_google_calendar_fields.py) - Database schema
 
@@ -183,7 +183,7 @@ A `/privacy` route is registered in `src/app.py` and serves `src/templates/priva
 ## Testing
 
 - Integration tests: [test_routes_calendar.py](../../tests/integration/test_routes_calendar.py) — OAuth flow, status endpoint (transient/revoked/no-refresh-token scenarios)
-- Unit tests: [test_calendar_token_refresh.py](../../tests/unit/test_calendar_token_refresh.py) — shared refresh helper; [test_planner.py](../../tests/unit/test_planner.py) — planner tool mocks `_get_valid_calendar_access_token`
+- Unit tests: [test_calendar_token_refresh.py](../../tests/unit/test_calendar_token_refresh.py) — shared refresh helper; [test_planner.py](../../tests/unit/test_planner.py) — planner tool mocks `get_valid_calendar_access_token`
 
 ## See Also
 

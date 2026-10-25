@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from src.api.schemas.common import MessageRole
+from src.enums import MessageRole
 
 
 def test_create_then_add_version(test_database: Any, test_conversation: Any) -> None:

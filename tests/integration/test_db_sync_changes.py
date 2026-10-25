@@ -10,8 +10,8 @@ from collections.abc import Callable
 
 import pytest
 
-from src.api.schemas.common import MessageRole
 from src.db.models import Conversation, Database, User
+from src.enums import MessageRole
 
 
 def _changes(db: Database, user: User, after: int = 0) -> dict[str, int]:

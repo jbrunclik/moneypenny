@@ -33,11 +33,11 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
         return None, None, None, None
 
     # Get calendar token via centralized helper (handles expiry check, refresh, DB persistence)
-    from src.api.routes.calendar import _get_valid_calendar_access_token  # noqa: PLC0415
+    from src.auth.google_calendar import get_valid_calendar_access_token  # noqa: PLC0415
 
     try:
         calendar_token = (
-            _get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
+            get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
         )
     except Exception:  # noqa: BLE001
         logger.warning("Failed to get valid calendar token for planner", extra={"user_id": user.id})

@@ -6,9 +6,9 @@ from typing import Any
 
 from flask import Request
 
-from src.api.schemas.common import MessageRole
 from src.config import Config
 from src.db.models import db
+from src.enums import MessageRole
 from src.utils.costs import calculate_total_cost
 from src.utils.logging import get_logger
 

@@ -1458,7 +1458,7 @@ class TestCompactAgentConversationOrdering:
     """
 
     def test_summary_sorts_before_kept_messages(self, test_database, test_user):
-        from src.api.schemas.common import MessageRole
+        from src.enums import MessageRole
 
         agent = test_database.create_agent(user_id=test_user.id, name="compact-order-test")
         conv_id = agent.conversation_id

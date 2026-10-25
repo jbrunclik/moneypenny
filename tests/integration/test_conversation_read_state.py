@@ -9,8 +9,8 @@ import json
 
 from flask.testing import FlaskClient
 
-from src.api.schemas.common import MessageRole
 from src.db.models import Conversation, Database, User
+from src.enums import MessageRole
 
 
 def _seed(db: Database, conv: Conversation, n: int) -> None:

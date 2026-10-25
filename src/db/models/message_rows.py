@@ -7,8 +7,8 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
-from src.api.schemas.common import MessageRole
 from src.db.models.dataclasses import Message
+from src.enums import MessageRole
 
 
 def row_to_message(row: sqlite3.Row) -> Message:

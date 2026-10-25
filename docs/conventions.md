@@ -137,8 +137,8 @@ gets it passed in (callback, parameter, event), never imported.
 
 **Backend:** `api/routes` → `api/helpers` → `agent` → `db` → `utils`, `config`,
 `constants`. `auth` sits beside `api` and may use `db`. Shared enums used by
-both `db` and `api` belong in the lowest layer that needs them, not in
-`api/schemas`.
+both `db` and `api` belong in the lowest layer that needs them
+(`src/enums.py`), not in `api/schemas`.
 
 **Frontend:** `main.ts` → `core` → `components` → `state` → `api` → `utils` →
 `types`. `sync` sits beside `core`. Components report user actions upward

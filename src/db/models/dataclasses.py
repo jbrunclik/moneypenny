@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from src.api.schemas.common import MessageRole
+from src.enums import MessageRole
 
 
 @dataclass

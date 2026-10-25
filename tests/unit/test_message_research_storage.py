@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from src.api.schemas.common import MessageRole
 from src.api.utils import serialize_messages_for_response
+from src.enums import MessageRole
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database

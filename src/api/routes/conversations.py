@@ -16,7 +16,7 @@ from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.sync import cursor_sync, sync_summary
 from src.api.helpers.turn_steering import has_lost_reply, running_turn_id
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.schemas.common import PaginationDirection, StatusResponse
+from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
     ConversationDetailPaginatedResponse,
     ConversationResponse,
@@ -31,6 +31,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.enums import PaginationDirection
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)

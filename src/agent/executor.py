@@ -30,12 +30,12 @@ from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
 )
-from src.api.schemas.common import MessageRole
 from src.api.utils import (
     calculate_and_save_message_cost,
 )
 from src.config import Config
 from src.db.models import db
+from src.enums import MessageRole
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,

@@ -1,12 +1,10 @@
 """Google Calendar integration routes: OAuth, status, calendar selection.
 
 This module handles Google Calendar OAuth flow and calendar management.
-IMPORTANT: _get_valid_calendar_access_token is exported for use by planner and chat routes.
 """
 
 from typing import Any
 
-import httpx
 from apiflask import APIBlueprint
 
 from src.api.errors import (
@@ -27,7 +25,10 @@ from src.api.schemas.integrations import (
 )
 from src.api.validation import validate_request
 from src.auth.google_calendar import (
+    GoogleCalendarApiError,
     GoogleCalendarAuthError,
+    fetch_calendar_list,
+    get_valid_calendar_access_token,
 )
 from src.auth.google_calendar import (
     compute_token_expiry as _compute_calendar_expiry,
@@ -52,42 +53,12 @@ auth = APIBlueprint("calendar", __name__, url_prefix="/auth", tag="Calendar")
 
 
 # ============================================================================
-# Helper Functions (exported for use by planner and chat routes)
+# Helper Functions
 # ============================================================================
 
 
 def _is_google_calendar_configured() -> bool:
     return bool(Config.GOOGLE_CALENDAR_CLIENT_ID and Config.GOOGLE_CALENDAR_CLIENT_SECRET)
-
-
-def _get_valid_calendar_access_token(user: User) -> str | None:
-    """Get a valid calendar access token, refreshing if needed.
-
-    Thin wrapper over the shared refresh helper (concurrency-safe via
-    compare-and-swap, see get_valid_access_token in auth/google_calendar.py).
-
-    Returns None if calendar not connected or refresh fails permanently.
-    Raises GoogleCalendarTokenRevoked if the refresh token is permanently invalid.
-    Raises GoogleCalendarTransientError on transient failures (after 1 retry).
-
-    IMPORTANT: This function is exported for use by planner and chat routes.
-    """
-    from src.auth.google_calendar import (  # noqa: PLC0415
-        GoogleCalendarTokenRevoked,
-        GoogleCalendarTransientError,
-        get_valid_access_token,
-    )
-
-    try:
-        return get_valid_access_token(user.id)
-    except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
-        raise
-    except GoogleCalendarAuthError as e:
-        logger.error(  # noqa: TRY400
-            "Failed to refresh calendar token",
-            extra={"user_id": user.id, "error": str(e)},
-        )
-        return None
 
 
 # ============================================================================
@@ -273,7 +244,7 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         raise_validation_error("Google Calendar integration is not configured")
 
     # Get valid access token
-    calendar_token = _get_valid_calendar_access_token(user)
+    calendar_token = get_valid_calendar_access_token(user)
     if not calendar_token:
         raise_conflict_error("Google Calendar is not connected")
 
@@ -284,25 +255,17 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         return cached
 
     try:
-        response = httpx.get(
-            f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
-            headers={"Authorization": f"Bearer {calendar_token}"},
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
-            follow_redirects=True,
-        )
-        items = response.json().get("items", []) if response.status_code < 400 else []
-    except httpx.TimeoutException:
-        logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
-        raise_server_error("Google Calendar timed out. Please try again.")
-    except Exception as e:
-        logger.error("Failed to list calendars", extra={"error": str(e)}, exc_info=True)  # noqa: G201
+        items = fetch_calendar_list(calendar_token)
+    except GoogleCalendarApiError as e:
+        if e.timed_out:
+            logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
+            raise_server_error("Google Calendar timed out. Please try again.")
+        if e.status_code == 401:
+            raise_conflict_error("Google Calendar access expired. Please reconnect.")
+        if e.status_code is not None:
+            logger.warning("Calendar list API error", extra={"status": e.status_code})
+            raise_server_error("Google Calendar is unavailable. Please try again.")
         raise_server_error("Failed to fetch calendars")
-
-    if response.status_code == 401:
-        raise_conflict_error("Google Calendar access expired. Please reconnect.")
-    if response.status_code >= 400:
-        logger.warning("Calendar list API error", extra={"status": response.status_code})
-        raise_server_error("Google Calendar is unavailable. Please try again.")
 
     calendars = [
         {

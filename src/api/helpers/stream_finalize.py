@@ -13,9 +13,9 @@ from src.api.helpers.stream_producer import (
     defer_final_steering,
     push_title,
 )
-from src.api.schemas.common import MessageRole
 from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
+from src.enums import MessageRole
 from src.utils.logging import get_logger
 from src.utils.push import send_push_to_user
 

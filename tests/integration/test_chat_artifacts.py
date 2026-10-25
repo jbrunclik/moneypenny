@@ -12,8 +12,8 @@ from src.agent.history import enrich_history
 from src.agent.message_content import format_message_with_metadata
 from src.api.helpers.chat_streaming import FORWARDED_EVENT_TYPES
 from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
-from src.api.schemas.common import MessageRole
 from src.db.models.dataclasses import Message
+from src.enums import MessageRole
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database

@@ -1,13 +1,16 @@
 """Google Calendar OAuth helpers."""
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx
 
 from src.config import Config
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from src.db.models import User
 
 logger = get_logger(__name__)
 
@@ -30,6 +33,21 @@ class GoogleCalendarTokenRevoked(GoogleCalendarAuthError):  # noqa: N818
 
 class GoogleCalendarTransientError(GoogleCalendarAuthError):
     """Transient failure (network, rate limit, 5xx)."""
+
+
+class GoogleCalendarApiError(Exception):
+    """A Google Calendar API call failed.
+
+    status_code is Google's HTTP status when it answered with an error, None
+    when the request itself failed; timed_out marks a request timeout.
+    """
+
+    def __init__(
+        self, message: str, *, status_code: int | None = None, timed_out: bool = False
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.timed_out = timed_out
 
 
 def get_authorization_url(state: str) -> str:
@@ -258,3 +276,53 @@ def get_valid_access_token(user_id: str) -> str | None:
         )
 
     return access_token
+
+
+def get_valid_calendar_access_token(user: User) -> str | None:
+    """Get a valid calendar access token, refreshing if needed.
+
+    Thin wrapper over get_valid_access_token (concurrency-safe via
+    compare-and-swap) for the calendar and planner routes, the planner tool
+    and the chat turn setup.
+
+    Returns None if calendar not connected or refresh fails permanently.
+    Raises GoogleCalendarTokenRevoked if the refresh token is permanently invalid.
+    Raises GoogleCalendarTransientError on transient failures (after 1 retry).
+    """
+    try:
+        return get_valid_access_token(user.id)
+    except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
+        raise
+    except GoogleCalendarAuthError as e:
+        logger.error(  # noqa: TRY400
+            "Failed to refresh calendar token",
+            extra={"user_id": user.id, "error": str(e)},
+        )
+        return None
+
+
+def fetch_calendar_list(access_token: str) -> list[dict[str, Any]]:
+    """Return the raw calendarList items of the user's Google account.
+
+    Raises GoogleCalendarApiError on a timeout, a failed request or an error
+    status from Google.
+    """
+    try:
+        response = httpx.get(
+            f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            follow_redirects=True,
+        )
+        items: list[dict[str, Any]] = (
+            response.json().get("items", []) if response.status_code < 400 else []
+        )
+    except httpx.TimeoutException as exc:
+        raise GoogleCalendarApiError("Calendar list timed out", timed_out=True) from exc
+    except Exception as exc:
+        logger.error("Failed to list calendars", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
+        raise GoogleCalendarApiError("Failed to list calendars") from exc
+
+    if response.status_code >= 400:
+        raise GoogleCalendarApiError("Calendar list API error", status_code=response.status_code)
+    return items

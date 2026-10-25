@@ -4,8 +4,8 @@ import base64
 
 from flask.testing import FlaskClient
 
-from src.api.schemas.common import MessageRole
 from src.db.models import Database, User
+from src.enums import MessageRole
 
 # 1x1 transparent PNG
 _PNG_BYTES = base64.b64decode(

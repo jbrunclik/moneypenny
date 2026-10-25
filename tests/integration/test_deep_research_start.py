@@ -8,7 +8,7 @@ import pytest
 from flask.testing import FlaskClient
 
 from src.agent.deep_research.offer import build_offer
-from src.api.schemas.common import MessageRole
+from src.enums import MessageRole
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database

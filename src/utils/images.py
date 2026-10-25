@@ -9,8 +9,8 @@ from typing import Any
 import pillow_heif
 from PIL import Image, UnidentifiedImageError
 
-from src.api.schemas.common import ThumbnailStatus
 from src.config import Config
+from src.enums import ThumbnailStatus
 from src.utils.logging import get_logger
 
 # PIL cannot open HEIC/HEIF (iPhone photos) without this plugin

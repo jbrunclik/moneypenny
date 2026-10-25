@@ -73,8 +73,7 @@ known-first-party = ["src"]
 
 [tool.importlinter]
 # B1/B3 (docs/conventions.md): imports point down the layers. ignore_imports
-# is the baseline of known violations - it only shrinks. Most stem from enums
-# living in src.api.schemas.common (TODO: move them to a lower layer).
+# is the baseline of known violations - it only shrinks.
 root_package = "src"
 include_external_packages = true
 
@@ -83,13 +82,6 @@ name = "db never imports api or agent"
 type = "forbidden"
 source_modules = ["src.db"]
 forbidden_modules = ["src.api", "src.agent"]
-ignore_imports = [
-    "src.db.models.dataclasses -> src.api.schemas.common",
-    "src.db.models.message -> src.api.schemas.common",
-    "src.db.models.message_files -> src.api.schemas.common",
-    "src.db.models.message_pagination -> src.api.schemas.common",
-    "src.db.models.message_rows -> src.api.schemas.common",
-]
 
 [[tool.importlinter.contracts]]
 name = "agent never imports api"
@@ -97,11 +89,7 @@ type = "forbidden"
 source_modules = ["src.agent"]
 forbidden_modules = ["src.api"]
 ignore_imports = [
-    "src.db.models.* -> src.api.schemas.common",
-    "src.utils.images -> src.api.schemas.common",
-    "src.agent.executor -> src.api.schemas.common",
     "src.agent.executor -> src.api.utils",
-    "src.agent.tools.planner -> src.api.routes.calendar",
 ]
 
 [[tool.importlinter.contracts]]
@@ -110,9 +98,6 @@ type = "forbidden"
 source_modules = ["src.utils"]
 forbidden_modules = ["src.api", "src.agent"]
 ignore_imports = [
-    "src.db.models.* -> src.api.schemas.common",
-    "src.utils.images -> src.api.schemas.common",
-    "src.utils.background_thumbnails -> src.api.schemas.common",
     "src.utils.file_retention -> src.agent.gemini_files",
 ]
 
@@ -122,7 +107,6 @@ type = "forbidden"
 source_modules = ["src.api.routes"]
 forbidden_modules = ["requests", "httpx"]
 allow_indirect_imports = true
-ignore_imports = ["src.api.routes.calendar -> httpx"]
 
 [tool.mypy]
 python_version = "3.14"

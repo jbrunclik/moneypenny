@@ -16,10 +16,10 @@ from datetime import datetime, timedelta
 
 from src.agent.interjection import save_interjection
 from src.api.schemas.chat import ChatRequest
-from src.api.schemas.common import MessageRole
 from src.api.utils import is_empty_placeholder, streaming_message_id
 from src.config import Config
 from src.db.models import Message, db
+from src.enums import MessageRole
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

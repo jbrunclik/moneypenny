@@ -8,7 +8,7 @@ import pytest
 
 from src.agent.deep_research.offer import build_offer
 from src.api.helpers import chat_save
-from src.api.schemas.common import MessageRole
+from src.enums import MessageRole
 
 
 @pytest.fixture
