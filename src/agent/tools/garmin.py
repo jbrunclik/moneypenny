@@ -13,6 +13,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
 from src.agent.tools.integration_status import not_connected_result
 from src.utils.logging import get_logger
@@ -553,7 +554,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
 
     garmin = _get_garmin_client()
     if not garmin:
-        return json.dumps(not_connected_result("garmin"))
+        return not_connected_result("garmin")
 
     target_date = date_str or date.today().isoformat()
 
@@ -642,7 +643,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
 
         if action == "get_activity_details":
             if not activity_id:
-                return json.dumps({"error": "activity_id is required for get_activity_details"})
+                return tool_error("activity_id is required for get_activity_details")
             result = _safe_api_call(garmin, "get_activity", activity_id)
             payload: dict[str, Any] = {
                 "action": "get_activity_details",
@@ -694,22 +695,17 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
 
         if action == "get_course_details":
             if not course_id:
-                return json.dumps({"error": "course_id is required for get_course_details"})
+                return tool_error("course_id is required for get_course_details")
             result = _safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
             return json.dumps(
                 {"action": "get_course_details", "course": _slim_course_detail(result)}
             )
 
-        return json.dumps(
-            {
-                "error": f"Unknown action: {action}",
-                "available_actions": sorted(_GARMIN_ACTIONS),
-            }
-        )
+        return tool_error(f"Unknown action: {action}", available_actions=sorted(_GARMIN_ACTIONS))
 
     except Exception as e:
         logger.error("Garmin tool error", extra={"action": action, "error": str(e)}, exc_info=True)  # noqa: G201
-        return json.dumps({"error": str(e), "action": action})
+        return tool_error(str(e), action=action)
 
 
 def is_garmin_available() -> bool:

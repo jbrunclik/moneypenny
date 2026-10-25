@@ -9,6 +9,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.auth.google_calendar import (
@@ -557,13 +558,11 @@ def google_calendar(  # noqa: C901, PLR0912
     """
 
     if not _is_google_calendar_configured():
-        return json.dumps(
-            {"error": "Google Calendar integration not configured", "retriable": False}
-        )
+        return tool_error("Google Calendar integration not configured", retriable=False)
 
     token_info = _get_google_calendar_access_token()
     if not token_info:
-        return json.dumps(not_connected_result("google_calendar"))
+        return not_connected_result("google_calendar")
 
     # Check permission for autonomous agents (write operations require approval)
     # Entity ids + reschedule fields enable argument-level approval
@@ -591,7 +590,7 @@ def google_calendar(  # noqa: C901, PLR0912
             )
         elif action == "get_event":
             if not event_id:
-                return json.dumps({"error": "event_id is required for get_event"})
+                return tool_error("event_id is required for get_event")
             result = _google_calendar_get_event(token, calendar_id, event_id)
         elif action == "create_event":
             result = _google_calendar_create_event(
@@ -612,7 +611,7 @@ def google_calendar(  # noqa: C901, PLR0912
             )
         elif action == "update_event":
             if not event_id:
-                return json.dumps({"error": "event_id is required for update_event"})
+                return tool_error("event_id is required for update_event")
             result = _google_calendar_update_event(
                 token,
                 calendar_id,
@@ -632,15 +631,11 @@ def google_calendar(  # noqa: C901, PLR0912
             )
         elif action == "delete_event":
             if not event_id:
-                return json.dumps({"error": "event_id is required for delete_event"})
+                return tool_error("event_id is required for delete_event")
             result = _google_calendar_delete_event(token, calendar_id, event_id, send_updates)
         elif action == "respond_event":
             if not event_id or not response_status:
-                return json.dumps(
-                    {
-                        "error": "event_id and response_status are required for respond_event",
-                    }
-                )
+                return tool_error("event_id and response_status are required for respond_event")
             result = _google_calendar_respond_event(
                 token,
                 calendar_id,
@@ -650,24 +645,21 @@ def google_calendar(  # noqa: C901, PLR0912
                 send_updates,
             )
         else:
-            return json.dumps(
-                {
-                    "error": f"Unknown action: {action}",
-                    "available_actions": list(_CALENDAR_ACTIONS),
-                }
+            return tool_error(
+                f"Unknown action: {action}", available_actions=list(_CALENDAR_ACTIONS)
             )
 
         return json.dumps(result)
 
     except CalendarDisconnectedError:
-        return json.dumps(not_connected_result("google_calendar", was_connected=True))
+        return not_connected_result("google_calendar", was_connected=True)
     except Exception as exc:  # pragma: no cover - network interaction
         logger.error(  # noqa: G201
             "Google Calendar tool error",
             extra={"action": action, "error": str(exc)},
             exc_info=True,
         )
-        return json.dumps({"error": str(exc), "action": action})
+        return tool_error(str(exc), action=action)
 
 
 def is_google_calendar_available() -> bool:

@@ -43,7 +43,7 @@ class TestNotConnectedResult:
     def test_expired_connection_is_reported_as_disconnected(self, user) -> None:
         user(garmin_token="stale", garmin_connected_at=datetime(2026, 8, 1))
 
-        result = not_connected_result("garmin")
+        result = json.loads(not_connected_result("garmin"))
 
         assert result["error"] == "Garmin disconnected"
         assert result["retriable"] is False
@@ -55,7 +55,7 @@ class TestNotConnectedResult:
     def test_never_connected_offers_to_connect(self, user) -> None:
         user()
 
-        result = not_connected_result("todoist")
+        result = json.loads(not_connected_result("todoist"))
 
         assert result["error"] == "Todoist not connected"
         assert "connect" in result["message"] and "Settings" in result["message"]
@@ -63,12 +63,12 @@ class TestNotConnectedResult:
 
     def test_explicit_state_overrides_lookup(self, user) -> None:
         user()
-        result = not_connected_result("google_calendar", was_connected=True)
+        result = json.loads(not_connected_result("google_calendar", was_connected=True))
         assert result["error"] == "Google Calendar disconnected"
 
     def test_no_user_context_is_treated_as_not_connected(self, monkeypatch) -> None:
         monkeypatch.setattr(integration_status, "get_conversation_context", lambda: (None, None))
-        assert not_connected_result("rouvy")["error"] == "Rouvy not connected"
+        assert json.loads(not_connected_result("rouvy"))["error"] == "Rouvy not connected"
 
 
 class TestToolsUseIt:

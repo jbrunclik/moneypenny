@@ -16,6 +16,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.agent.tools.web import (
     GROUNDING_DIRECTIVE,
     NO_RESULTS_NOTE,
@@ -137,9 +138,7 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
         # ToolInvocationError in Sep 2026 - the queries carry the intent
         question = next((q.strip() for q in queries if q and q.strip()), "")
     if not question:
-        return json.dumps(
-            {"error": "question (or at least one query) must not be empty.", "retriable": False}
-        )
+        return tool_error("question (or at least one query) must not be empty.", retriable=False)
 
     # Normalize queries: default to the question, drop blanks/dupes, cap batch
     merged = [question] if not queries else list(queries)
@@ -165,12 +164,9 @@ def run_research(question: str = "", queries: list[str] | None = None, max_sourc
     per_query = min(Config.WEB_SEARCH_MAX_RESULTS, n_sources + _UNFETCHED_CANDIDATES)
     candidates, failed = _ranked_unique_urls(all_queries, per_query)
     if not candidates and failed == len(all_queries):
-        return json.dumps(
-            {
-                "error": "All searches failed (search providers unavailable). "
-                "Try again shortly or answer from what you know.",
-                "retriable": True,
-            }
+        return tool_error(
+            "All searches failed (search providers unavailable). "
+            "Try again shortly or answer from what you know."
         )
     if not candidates:
         # Searches worked but found nothing: a legitimate outcome, NOT an

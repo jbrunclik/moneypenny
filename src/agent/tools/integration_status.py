@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.db.models import db
 
 _LABELS = {
@@ -52,35 +53,40 @@ def _was_connected(integration: str) -> bool:
     )
 
 
-def not_connected_result(integration: str, *, was_connected: bool | None = None) -> dict[str, Any]:
+def not_connected_result(
+    integration: str, *, was_connected: bool | None = None, **extra: Any
+) -> str:
     """Tool result for an integration the current user cannot use right now.
 
     Args:
         integration: One of garmin, todoist, google_calendar, rouvy
         was_connected: Known state (e.g. the API just rejected a stored token);
             looked up from the user record when omitted
+        extra: Further fields for the result
     """
     label = _LABELS[integration]
     if was_connected is None:
         was_connected = _was_connected(integration)
     if was_connected:
-        return {
-            "error": f"{label} disconnected",
-            "retriable": False,
-            "message": (
+        return tool_error(
+            f"{label} disconnected",
+            retriable=False,
+            message=(
                 f"The user's {label} connection stopped working (the session expired or "
                 f"access was revoked). Tell the user plainly that their {label} integration "
                 f"got disconnected and that they can reconnect it in Settings, then help "
                 f"with whatever does not need {label}. Do not claim you lack {label} "
                 "support or access in general, and do not retry this call."
             ),
-        }
-    return {
-        "error": f"{label} not connected",
-        "retriable": False,
-        "message": (
+            **extra,
+        )
+    return tool_error(
+        f"{label} not connected",
+        retriable=False,
+        message=(
             f"The user has not connected {label}. Tell them you can use it once they "
             f"connect {label} in Settings, then help with whatever does not need it. "
             "Do not retry this call."
         ),
-    }
+        **extra,
+    )

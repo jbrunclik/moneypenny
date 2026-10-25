@@ -15,6 +15,7 @@ import httpx
 import trafilatura
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.agent.tools.html_soup import parsed_html
 from src.agent.tools.page_date import page_date_line
 from src.agent.tools.product_data import product_data_line
@@ -301,7 +302,7 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
     record_tool_call("fetch_url")
     response, fetch_error = _fetch_response(url)
     if fetch_error or response is None:
-        return json.dumps({"error": fetch_error or f"Failed to fetch {url}"})
+        return tool_error(fetch_error or f"Failed to fetch {url}")
 
     content_type = response.headers.get("content-type", "")
     content_category = _get_content_type_category(content_type)
@@ -356,11 +357,9 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
                 "File too large",
                 extra={"url": url, "size": content_length, "max_size": max_size},
             )
-            return json.dumps(
-                {
-                    "error": f"File is too large ({content_length // 1024 // 1024}MB). "
-                    f"Maximum allowed size is {max_size // 1024 // 1024}MB."
-                }
+            return tool_error(
+                f"File is too large ({content_length // 1024 // 1024}MB). "
+                f"Maximum allowed size is {max_size // 1024 // 1024}MB."
             )
 
         # Get normalized MIME type
@@ -401,11 +400,9 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     # Unsupported content type
     logger.warning("Unsupported content type", extra={"url": url, "content_type": content_type})
-    return json.dumps(
-        {
-            "error": f"Unsupported content type: {content_type}. "
-            f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
-        }
+    return tool_error(
+        f"Unsupported content type: {content_type}. "
+        f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
     )
 
 
@@ -611,7 +608,7 @@ def web_search(
     merged = ([query] if query else []) + (queries or [])
     all_queries = list(dict.fromkeys(q.strip() for q in merged if q and q.strip()))
     if not all_queries:
-        return json.dumps({"error": "No search query provided", "results": []})
+        return tool_error("No search query provided", results=[])
 
     dropped = len(all_queries) - Config.WEB_SEARCH_MAX_BATCH_QUERIES
     all_queries = all_queries[: Config.WEB_SEARCH_MAX_BATCH_QUERIES]

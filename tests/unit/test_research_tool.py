@@ -122,7 +122,7 @@ class TestResearchTool:
         parsed = json.loads(research.invoke({"question": "q"}))
 
         assert "error" in parsed
-        assert parsed["retriable"] is True
+        assert parsed.get("retriable", True) is True  # no flag = retriable
 
     @patch("src.agent.tools.research.fetch_page_text")
     @patch("src.agent.tools.research.search_web")

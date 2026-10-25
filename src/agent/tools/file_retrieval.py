@@ -7,6 +7,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
@@ -57,10 +58,8 @@ def retrieve_file(  # noqa: C901
 
     if not conv_id or not user_id:
         logger.warning("retrieve_file called without conversation context")
-        return json.dumps(
-            {
-                "error": "No conversation context available. This tool can only be used during a chat."
-            }
+        return tool_error(
+            "No conversation context available. This tool can only be used during a chat."
         )
 
     # Verify user owns the conversation
@@ -70,7 +69,7 @@ def retrieve_file(  # noqa: C901
             "retrieve_file: conversation not found or not authorized",
             extra={"conv_id": conv_id, "user_id": user_id},
         )
-        return json.dumps({"error": "Conversation not found or not authorized."})
+        return tool_error("Conversation not found or not authorized.")
 
     logger.info(
         "retrieve_file: retrieving file",
@@ -88,7 +87,7 @@ def retrieve_file(  # noqa: C901
             "retrieve_file: message not found",
             extra={"message_id": message_id},
         )
-        return json.dumps({"error": f"Message not found: {message_id}"})
+        return tool_error(f"Message not found: {message_id}")
 
     # Verify message belongs to this conversation
     if message.conversation_id != conv_id:
@@ -100,7 +99,7 @@ def retrieve_file(  # noqa: C901
                 "current_conv_id": conv_id,
             },
         )
-        return json.dumps({"error": "Message does not belong to this conversation."})
+        return tool_error("Message does not belong to this conversation.")
 
     # Check file exists
     if not message.files or file_index >= len(message.files):
@@ -112,10 +111,8 @@ def retrieve_file(  # noqa: C901
                 "file_count": len(message.files) if message.files else 0,
             },
         )
-        return json.dumps(
-            {
-                "error": f"File index {file_index} not found in message. Message has {len(message.files) if message.files else 0} file(s)."
-            }
+        return tool_error(
+            f"File index {file_index} not found in message. Message has {len(message.files) if message.files else 0} file(s)."
         )
 
     file_meta = message.files[file_index]
@@ -127,11 +124,9 @@ def retrieve_file(  # noqa: C901
     from src.utils.file_retention import is_file_expired, retention_note  # noqa: PLC0415
 
     if is_file_expired(mime_type, message.created_at):
-        return json.dumps(
-            {
-                "error": f"This file has been cleaned up and is no longer available. "
-                f"{retention_note(mime_type)}."
-            }
+        return tool_error(
+            f"This file has been cleaned up and is no longer available. "
+            f"{retention_note(mime_type)}."
         )
 
     # Get file data from blob store
@@ -154,13 +149,13 @@ def retrieve_file(  # noqa: C901
                     "retrieve_file: failed to decode legacy base64 data",
                     extra={"message_id": message_id, "file_index": file_index},
                 )
-                return json.dumps({"error": "Failed to read file data."})
+                return tool_error("Failed to read file data.")
         else:
             logger.warning(
                 "retrieve_file: no file data found",
                 extra={"message_id": message_id, "file_index": file_index},
             )
-            return json.dumps({"error": "File data not found in storage."})
+            return tool_error("File data not found in storage.")
 
     logger.info(
         "retrieve_file: file retrieved successfully",
@@ -206,7 +201,7 @@ def _build_file_content(
         try:
             uri = ensure_gemini_file_uri(message_id, file_index, binary_data, mime_type)
         except GeminiFileError as e:
-            return json.dumps({"error": f"Failed to prepare {kind} for viewing: {e}"})
+            return tool_error(f"Failed to prepare {kind} for viewing: {e}")
         logger.info(
             "retrieve_file: file prepared via Files API",
             extra={"message_id": message_id, "file_index": file_index, "mime_type": mime_type},

@@ -10,7 +10,7 @@ import json
 from typing import Any
 
 
-def tool_error(message: str, *, retriable: bool = True, **extra: Any) -> str:
+def tool_error(message: str, /, *, retriable: bool = True, **extra: Any) -> str:
     """A tool result reporting `message` as a failure.
 
     retriable=False for failures a retry cannot fix (the tool is unavailable

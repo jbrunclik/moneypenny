@@ -13,6 +13,7 @@ from langchain_core.tools import tool
 from src.agent.tools import todoist_client
 from src.agent.tools import todoist_projects as projects
 from src.agent.tools import todoist_tasks as tasks
+from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
@@ -269,7 +270,7 @@ def todoist(
     # Check if user has connected Todoist
     token = todoist_client.get_todoist_token()
     if not token:
-        return json.dumps(not_connected_result("todoist"))
+        return not_connected_result("todoist")
 
     # Check permission for autonomous agents; entity ids enable
     # argument-level approval matching for destructive operations
@@ -305,32 +306,25 @@ def todoist(
     }
     entry = _DISPATCH.get(action)
     if entry is None:
-        return json.dumps(
-            {
-                "error": f"Unknown action: {action}",
-                "available_actions": list(_TODOIST_ACTIONS),
-            }
-        )
+        return tool_error(f"Unknown action: {action}", available_actions=list(_TODOIST_ACTIONS))
     required, handler = entry
     missing = [name for name in required if not args[name]]
     if missing:
         verb = "is" if len(required) == 1 else "are"
-        return json.dumps(
-            {"error": f"{' and '.join(required)} {verb} required for {action} action"}
-        )
+        return tool_error(f"{' and '.join(required)} {verb} required for {action} action")
 
     try:
         return json.dumps(handler(token, args))
 
     except todoist_client.TodoistTokenRejectedError:
-        return json.dumps(not_connected_result("todoist", was_connected=True))
+        return not_connected_result("todoist", was_connected=True)
     except Exception as e:
         logger.error(  # noqa: G201
             "Todoist tool error",
             extra={"action": action, "error": str(e)},
             exc_info=True,
         )
-        return json.dumps({"error": str(e), "action": action})
+        return tool_error(str(e), action=action)
 
 
 def is_todoist_available() -> bool:

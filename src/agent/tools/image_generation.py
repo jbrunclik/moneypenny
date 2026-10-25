@@ -13,6 +13,7 @@ from src.agent.tools.context import (
     get_conversation_context,
     get_current_message_files,
 )
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.images import downscale_image_for_reference
@@ -76,31 +77,25 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
 
     # Validate prompt
     if not prompt or not prompt.strip():
-        return json.dumps({"error": "Prompt cannot be empty"})
+        return tool_error("Prompt cannot be empty")
 
     prompt = prompt.strip()
     if len(prompt) > Config.MAX_IMAGE_PROMPT_LENGTH:
-        return json.dumps(
-            {
-                "error": f"Prompt is too long. Maximum length is {Config.MAX_IMAGE_PROMPT_LENGTH} characters, got {len(prompt)}"
-            }
+        return tool_error(
+            f"Prompt is too long. Maximum length is {Config.MAX_IMAGE_PROMPT_LENGTH} characters, got {len(prompt)}"
         )
 
     # Validate image size (the API rejects a lowercase "k")
     image_size = image_size.strip().upper()
     if image_size not in VALID_IMAGE_SIZES:
-        return json.dumps(
-            {
-                "error": f"Invalid image size '{image_size}'. Valid options: {', '.join(sorted(VALID_IMAGE_SIZES))}"
-            }
+        return tool_error(
+            f"Invalid image size '{image_size}'. Valid options: {', '.join(sorted(VALID_IMAGE_SIZES))}"
         )
 
     # Validate aspect ratio
     if aspect_ratio not in VALID_ASPECT_RATIOS:
-        return json.dumps(
-            {
-                "error": f"Invalid aspect ratio '{aspect_ratio}'. Valid options: {', '.join(sorted(VALID_ASPECT_RATIOS))}"
-            }
+        return tool_error(
+            f"Invalid aspect ratio '{aspect_ratio}'. Valid options: {', '.join(sorted(VALID_ASPECT_RATIOS))}"
         )
 
     try:
@@ -130,38 +125,32 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
             conv_id, user_id = get_conversation_context()
 
             if not conv_id or not user_id:
-                return json.dumps(
-                    {
-                        "error": "Cannot access conversation history. No conversation context available."
-                    }
+                return tool_error(
+                    "Cannot access conversation history. No conversation context available."
                 )
 
             # Get the message
             message = db.get_message_by_id(history_image_message_id)
             if not message:
-                return json.dumps({"error": f"Message not found: {history_image_message_id}"})
+                return tool_error(f"Message not found: {history_image_message_id}")
 
             # Verify message belongs to this conversation
             if message.conversation_id != conv_id:
-                return json.dumps({"error": "Message does not belong to this conversation."})
+                return tool_error("Message does not belong to this conversation.")
 
             # Check file exists and is an image
             if not message.files or history_image_file_index >= len(message.files):
-                return json.dumps(
-                    {
-                        "error": f"File index {history_image_file_index} not found in message. "
-                        f"Message has {len(message.files) if message.files else 0} file(s)."
-                    }
+                return tool_error(
+                    f"File index {history_image_file_index} not found in message. "
+                    f"Message has {len(message.files) if message.files else 0} file(s)."
                 )
 
             file_meta = message.files[history_image_file_index]
             mime_type = file_meta.get("type", "")
 
             if not mime_type.startswith("image/"):
-                return json.dumps(
-                    {
-                        "error": f"File is not an image (type: {mime_type}). Only images can be used as references."
-                    }
+                return tool_error(
+                    f"File is not an image (type: {mime_type}). Only images can be used as references."
                 )
 
             # Get file data from blob store
@@ -177,11 +166,9 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
                 try:
                     binary_data = base64.b64decode(file_meta["data"])
                 except Exception:  # noqa: BLE001
-                    return json.dumps(
-                        {"error": "Failed to read image data from conversation history."}
-                    )
+                    return tool_error("Failed to read image data from conversation history.")
             else:
-                return json.dumps({"error": "Image data not found in storage."})
+                return tool_error("Image data not found in storage.")
 
             # Cap resolution so a 4K image can't exceed the inline request limit
             binary_data, mime_type = downscale_image_for_reference(binary_data, mime_type)
@@ -313,16 +300,12 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
         # Extract image from response
         if not response.candidates:
             logger.warning("No candidates in image generation response")
-            return json.dumps(
-                {"error": "No image generated. The model may have refused the request."}
-            )
+            return tool_error("No image generated. The model may have refused the request.")
 
         candidate = response.candidates[0]
         if not candidate.content or not candidate.content.parts:
             logger.warning("No content/parts in image generation response")
-            return json.dumps(
-                {"error": "No image generated. The model may have refused the request."}
-            )
+            return tool_error("No image generated. The model may have refused the request.")
 
         for part in candidate.content.parts:
             if hasattr(part, "inline_data") and part.inline_data:
@@ -368,24 +351,20 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
                 return json.dumps(result)
 
         logger.warning("No image data found in response parts")
-        return json.dumps({"error": "No image data found in response"})
+        return tool_error("No image data found in response")
 
     except genai_errors.ClientError as e:
         error_msg = str(e)
         logger.warning("Image generation client error", extra={"error": error_msg})
         # Provide user-friendly error messages for common issues
         if "SAFETY" in error_msg.upper() or "BLOCKED" in error_msg.upper():
-            return json.dumps(
-                {
-                    "error": "The image generation was blocked due to safety filters. Please try a different prompt."
-                }
+            return tool_error(
+                "The image generation was blocked due to safety filters. Please try a different prompt."
             )
-        return json.dumps({"error": f"Image generation failed: {error_msg}"})
+        return tool_error(f"Image generation failed: {error_msg}")
     except genai_errors.ServerError as e:
         logger.error("Image generation server error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
-        return json.dumps(
-            {"error": "Image generation service temporarily unavailable. Please try again."}
-        )
+        return tool_error("Image generation service temporarily unavailable. Please try again.")
     except genai_errors.APIError as e:
         logger.error("Image generation API error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
-        return json.dumps({"error": f"Image generation failed: {e}"})
+        return tool_error(f"Image generation failed: {e}")

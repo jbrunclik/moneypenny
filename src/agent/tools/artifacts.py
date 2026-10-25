@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from src.agent.prompt_texts.artifacts import CREATE_ARTIFACT_DESCRIPTION
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Artifact
@@ -63,7 +64,7 @@ def apply_edits(html: str, edits: list[dict[str, str]]) -> str:
 
 
 def _fail(error: str) -> str:
-    return json.dumps({"success": False, "error": error})
+    return tool_error(error, success=False)
 
 
 def _ok(art_id: str, version: int, title: str, message: str) -> str:

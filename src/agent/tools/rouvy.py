@@ -28,6 +28,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.browser import is_browser_available
+from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.auth import rouvy_auth
 from src.config import Config
@@ -242,37 +243,33 @@ def rouvy_workout(  # noqa: C901, PLR0912
     """
     user = _resolve_user()
     if user is None or not user.rouvy_session:
-        return json.dumps({"success": False, **not_connected_result("rouvy")})
+        return not_connected_result("rouvy", success=False)
     try:
         if action == "list":
             return json.dumps({"success": True, "workouts": rouvy_list(user)})
         if action == "get":
             if not workout_id:
-                return json.dumps({"success": False, "error": "get needs workout_id."})
+                return tool_error("get needs workout_id.", success=False)
             return json.dumps({"success": True, "workout": rouvy_get(user, int(workout_id))})
         if action == "create":
             if not content or not name:
-                return json.dumps({"success": False, "error": "create needs content and name."})
+                return tool_error("create needs content and name.", success=False)
             return json.dumps({"success": True, **rouvy_create(user, content, name, description)})
         if action == "update":
             if not workout_id or not content or not name:
-                return json.dumps(
-                    {"success": False, "error": "update needs workout_id, content, name."}
-                )
+                return tool_error("update needs workout_id, content, name.", success=False)
             res = rouvy_update(user, int(workout_id), content, name, description)
             return json.dumps({"success": True, "note": "workout id/URL changed", **res})
         if action == "delete":
             if not workout_id:
-                return json.dumps({"success": False, "error": "delete needs workout_id."})
+                return tool_error("delete needs workout_id.", success=False)
             return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
-        return json.dumps({"success": False, "error": f"Unknown action: {action}"})
+        return tool_error(f"Unknown action: {action}", success=False)
     except RouvyNotConnected:
-        return json.dumps({"success": False, **not_connected_result("rouvy")})
+        return not_connected_result("rouvy", success=False)
     except RouvySessionExpired:
         # Automatic re-login failed: the stored credentials no longer work
-        return json.dumps({"success": False, **not_connected_result("rouvy", was_connected=True)})
+        return not_connected_result("rouvy", was_connected=True, success=False)
     except Exception as e:  # noqa: BLE001 - tool must return, not raise
         logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})  # noqa: TRY400
-        return json.dumps(
-            {"success": False, "error": f"Rouvy request failed: {e}", "retriable": True}
-        )
+        return tool_error(f"Rouvy request failed: {e}", success=False)

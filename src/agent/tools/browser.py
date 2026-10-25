@@ -27,6 +27,7 @@ from src.agent.tools.browser_worker import (
     start_cleanup_thread,
 )
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
@@ -225,7 +226,7 @@ def browser(
 
     error = _availability_error() or _call_shape_error(action, steps)
     if error:
-        return json.dumps(error)
+        return error
 
     conversation_id, _ = get_conversation_context()
     conversation_id = conversation_id or "__default__"
@@ -233,7 +234,7 @@ def browser(
     if steps is not None:
         batch_error = validate_batch(steps)
         if batch_error:
-            return json.dumps({"error": batch_error})
+            return tool_error(batch_error)
         return _run_steps(conversation_id, steps, screenshot, share_screenshot)
 
     step = BrowserStep(
@@ -242,7 +243,7 @@ def browser(
     )  # fmt: skip
     step_error = validate_action(step.action, url, selector, text)
     if step_error:
-        return json.dumps({"error": step_error})
+        return tool_error(step_error)
     return _run_single(conversation_id, step, screenshot, share_screenshot)
 
 
@@ -254,24 +255,23 @@ def _permission_args(
     return {"action": "batch", "urls": [s.url for s in steps if s.url]}
 
 
-def _availability_error() -> dict[str, Any] | None:
+def _availability_error() -> str | None:
     if not Config.BROWSER_ENABLED:
-        return {
-            "error": "Browser tool is disabled. Set BROWSER_ENABLED=true to enable.",
-            "retriable": False,
-        }
+        return tool_error(
+            "Browser tool is disabled. Set BROWSER_ENABLED=true to enable.", retriable=False
+        )
     if not is_browser_available():
-        return {
-            "error": "Playwright is not installed.",
-            "retriable": False,
-            "hint": "Run: pip install playwright && playwright install chromium --with-deps",
-        }
+        return tool_error(
+            "Playwright is not installed.",
+            retriable=False,
+            hint="Run: pip install playwright && playwright install chromium --with-deps",
+        )
     return None
 
 
-def _call_shape_error(action: str | None, steps: list[BrowserStep] | None) -> dict[str, Any] | None:
+def _call_shape_error(action: str | None, steps: list[BrowserStep] | None) -> str | None:
     if (action is None) == (steps is None):
-        return {"error": "Pass either `action` (one action) or `actions` (a batch), not both."}
+        return tool_error("Pass either `action` (one action) or `actions` (a batch), not both.")
     return None
 
 
@@ -299,7 +299,7 @@ def _run_steps(
             return _with_screenshot(worker, conversation_id, summary, share)
         return json.dumps(summary)
     except Exception as e:  # noqa: BLE001
-        return json.dumps(_failure_result("batch", None, e))
+        return _failure_result("batch", None, e)
 
 
 def _run_single(
@@ -323,23 +323,23 @@ def _run_single(
             return _with_screenshot(worker, conversation_id, result, share)
         return json.dumps(result)
     except Exception as e:  # noqa: BLE001
-        return json.dumps(_failure_result(step.action, step.selector, e))
+        return _failure_result(step.action, step.selector, e)
 
 
-def _failure_result(action: str, selector: str | None, e: Exception) -> dict[str, Any]:
+def _failure_result(action: str, selector: str | None, e: Exception) -> str:
     if isinstance(e, TimeoutError):
-        return {
-            "error": f"Browser timed out during {action}.",
-            "hint": "The page may be loading slowly. Try increasing timeout_ms.",
-        }
+        return tool_error(
+            f"Browser timed out during {action}.",
+            hint="The page may be loading slowly. Try increasing timeout_ms.",
+        )
     error_msg = str(e)
     logger.warning(
         "Browser action failed",
         extra={"action": action, "error_type": type(e).__name__, "error": error_msg},
     )
     if "selector" in error_msg.lower() or "locator" in error_msg.lower():
-        return {
-            "error": f"Element not found: {selector}",
-            "hint": "Take a screenshot to see the current page and verify the selector.",
-        }
-    return {"error": f"Browser {action} failed: {error_msg}"}
+        return tool_error(
+            f"Element not found: {selector}",
+            hint="Take a screenshot to see the current page and verify the selector.",
+        )
+    return tool_error(f"Browser {action} failed: {error_msg}")

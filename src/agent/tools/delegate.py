@@ -18,6 +18,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.cancellation import TurnCancelled
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
@@ -53,9 +54,9 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     check_autonomous_permission("delegate_task", {"task": task[:200]})
 
     if _in_delegate.get():
-        return json.dumps({"error": "Nested delegation is not allowed.", "retriable": False})
+        return tool_error("Nested delegation is not allowed.", retriable=False)
     if not task or not task.strip():
-        return json.dumps({"error": "task must not be empty.", "retriable": False})
+        return tool_error("task must not be empty.", retriable=False)
 
     # Imported here: delegate -> agent -> tools/__init__ -> delegate would be
     # a circular import at module load time
@@ -87,7 +88,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
         raise  # the user pressed Stop: end the parent turn, not just this tool
     except Exception as e:
         logger.error("delegate_task failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
-        return json.dumps({"error": f"Delegated task failed: {e}"})
+        return tool_error(f"Delegated task failed: {e}")
     finally:
         _in_delegate.reset(token)
 

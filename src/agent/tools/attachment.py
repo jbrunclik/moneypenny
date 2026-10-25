@@ -18,6 +18,7 @@ import os
 
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -72,21 +73,16 @@ def create_file(filename: str, content: str, mime_type: str | None = None) -> st
     # Keep only the base name so the model cannot smuggle a path into the filename.
     safe_name = os.path.basename(filename or "").strip()
     if not safe_name:
-        return json.dumps({"success": False, "error": "filename must not be empty."})
+        return tool_error("filename must not be empty.", success=False)
 
     if not content:
-        return json.dumps({"success": False, "error": "content must not be empty."})
+        return tool_error("content must not be empty.", success=False)
 
     data = content.encode("utf-8")
     if len(data) > MAX_ATTACHMENT_BYTES:
-        return json.dumps(
-            {
-                "success": False,
-                "error": (
-                    f"content is too large ({len(data)} bytes); "
-                    f"the limit is {MAX_ATTACHMENT_BYTES} bytes."
-                ),
-            }
+        return tool_error(
+            f"content is too large ({len(data)} bytes); the limit is {MAX_ATTACHMENT_BYTES} bytes.",
+            success=False,
         )
 
     resolved_mime = (

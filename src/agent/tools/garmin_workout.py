@@ -26,6 +26,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.agent.tools.garmin import (
     _get_garmin_client,
     _safe_api_call,
@@ -181,7 +182,7 @@ _MAX_SEARCH_RESULTS = 15
 def _search_exercises(query: str | None) -> str:
     """Fuzzy-search the bundled Garmin exercise catalog; return capped matches."""
     if not query or not query.strip():
-        return json.dumps({"error": "query is required for search_exercises"})
+        return tool_error("query is required for search_exercises")
     from garminconnect.exercises import find  # noqa: PLC0415
 
     hits = find(query)
@@ -542,7 +543,7 @@ def garmin_workout(  # noqa: C901
 
     garmin = _get_garmin_client()
     if not garmin:
-        return json.dumps(not_connected_result("garmin"))
+        return not_connected_result("garmin")
 
     try:
         if action == "list":
@@ -560,21 +561,21 @@ def garmin_workout(  # noqa: C901
 
         if action == "get":
             if not workout_id:
-                return json.dumps({"error": "workout_id is required for get"})
+                return tool_error("workout_id is required for get")
             raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
             return json.dumps({"action": "get", "workout": _slim_workout(raw)})
 
         if action == "update":
             if not workout_id:
-                return json.dumps({"error": "workout_id is required for update"})
+                return tool_error("workout_id is required for update")
             if edits is None:
-                return json.dumps({"error": "edits is required for update"})
+                return tool_error("edits is required for update")
             try:
                 parsed = _parse_edits(edits)
             except (ValueError, json.JSONDecodeError) as e:
-                return json.dumps({"error": f"invalid edits: {e}"})
+                return tool_error(f"invalid edits: {e}")
             if not parsed:
-                return json.dumps({"error": "edits must contain at least one edit"})
+                return tool_error("edits must contain at least one edit")
 
             raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
             raw, applied, warnings = _apply_edits(raw, parsed)
@@ -590,15 +591,13 @@ def garmin_workout(  # noqa: C901
                 }
             )
 
-        return json.dumps(
-            {
-                "error": f"Unknown action: {action}",
-                "available_actions": ["list", "get", "search_exercises", "update"],
-            }
+        return tool_error(
+            f"Unknown action: {action}",
+            available_actions=["list", "get", "search_exercises", "update"],
         )
 
     except Exception as e:
         logger.error(  # noqa: G201
             "garmin_workout error", extra={"action": action, "error": str(e)}, exc_info=True
         )
-        return json.dumps({"error": str(e), "action": action})
+        return tool_error(str(e), action=action)

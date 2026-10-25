@@ -12,6 +12,7 @@ from langchain_core.tools import tool
 
 from src.agent.cancellation import TurnCancelled, on_cancel, raise_if_cancelled
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.sandbox_sessions import OWNER_PID_LABEL, get_sandbox_pool
 from src.config import Config
@@ -515,20 +516,16 @@ def execute_code(code: str) -> str:  # noqa: C901
 
     # Check if sandbox is available
     if not Config.CODE_SANDBOX_ENABLED:
-        return json.dumps(
-            {"error": "Code execution is disabled on this server.", "retriable": False}
-        )
+        return tool_error("Code execution is disabled on this server.", retriable=False)
 
     if not _check_docker_available():
-        return json.dumps(
-            {
-                "error": "Code execution is not available. Docker is not running or accessible.",
-                "hint": "The server administrator needs to ensure Docker is running and accessible.",
-            }
+        return tool_error(
+            "Code execution is not available. Docker is not running or accessible.",
+            hint="The server administrator needs to ensure Docker is running and accessible.",
         )
 
     if not code or not code.strip():
-        return json.dumps({"error": "Code cannot be empty."})
+        return tool_error("Code cannot be empty.")
 
     logger.info(
         "execute_code called",
@@ -614,11 +611,9 @@ def execute_code(code: str) -> str:  # noqa: C901
         raise  # Stop pressed: end the turn, not an error result
     except TimeoutError:
         logger.warning("Code execution timed out")
-        return json.dumps(
-            {
-                "error": f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT} seconds.",
-                "hint": "Try optimizing your code or breaking it into smaller pieces.",
-            }
+        return tool_error(
+            f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT} seconds.",
+            hint="Try optimizing your code or breaking it into smaller pieces.",
         )
     except Exception as e:
         error_msg = str(e)
@@ -626,11 +621,9 @@ def execute_code(code: str) -> str:  # noqa: C901
 
         # Provide helpful error messages for common issues
         if "docker" in error_msg.lower() or "connection" in error_msg.lower():
-            return json.dumps(
-                {
-                    "error": "Docker connection failed. The sandbox service is temporarily unavailable.",
-                    "hint": "Please try again later or contact the administrator.",
-                }
+            return tool_error(
+                "Docker connection failed. The sandbox service is temporarily unavailable.",
+                hint="Please try again later or contact the administrator.",
             )
 
-        return json.dumps({"error": f"Code execution failed: {error_msg}"})
+        return tool_error(f"Code execution failed: {error_msg}")

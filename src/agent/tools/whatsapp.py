@@ -16,6 +16,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_agent_name, get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
@@ -386,23 +387,19 @@ def whatsapp(
 
     # Check if WhatsApp is configured at app level
     if not Config.WHATSAPP_PHONE_NUMBER_ID or not Config.WHATSAPP_ACCESS_TOKEN:
-        return json.dumps(
-            {
-                "error": "WhatsApp not configured",
-                "retriable": False,
-                "message": "WhatsApp integration is not configured. "
-                "Please set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.",
-            }
+        return tool_error(
+            "WhatsApp not configured",
+            retriable=False,
+            message="WhatsApp integration is not configured. "
+            "Please set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.",
         )
 
     if not Config.WHATSAPP_TEMPLATE_NAME:
-        return json.dumps(
-            {
-                "error": "WhatsApp template not configured",
-                "retriable": False,
-                "message": "WHATSAPP_TEMPLATE_NAME is required. "
-                "Create a message template in Meta Business Suite and configure it.",
-            }
+        return tool_error(
+            "WhatsApp template not configured",
+            retriable=False,
+            message="WHATSAPP_TEMPLATE_NAME is required. "
+            "Create a message template in Meta Business Suite and configure it.",
         )
 
     # Check permission for autonomous agents
@@ -413,20 +410,16 @@ def whatsapp(
 
     # Get user's WhatsApp phone number
     if not user_id:
-        return json.dumps(
-            {
-                "error": "No user context",
-                "message": "Cannot determine user. WhatsApp messages require a user context.",
-            }
+        return tool_error(
+            "No user context",
+            message="Cannot determine user. WhatsApp messages require a user context.",
         )
 
     recipient_phone = _get_user_whatsapp_phone(user_id)
     if not recipient_phone:
-        return json.dumps(
-            {
-                "error": "No WhatsApp phone configured",
-                "message": "User has not configured their WhatsApp phone number in settings.",
-            }
+        return tool_error(
+            "No WhatsApp phone configured",
+            message="User has not configured their WhatsApp phone number in settings.",
         )
 
     # Build conversation URL (only if APP_URL is configured)
@@ -469,14 +462,14 @@ def whatsapp(
             extra={"error": str(e)},
             exc_info=True,
         )
-        return json.dumps({"error": str(e)})
+        return tool_error(str(e))
     except Exception as e:
         logger.error(  # noqa: G201
             "Unexpected WhatsApp tool error",
             extra={"error": str(e)},
             exc_info=True,
         )
-        return json.dumps({"error": f"Unexpected error: {e}"})
+        return tool_error(f"Unexpected error: {e}")
 
 
 def is_whatsapp_available() -> bool:
