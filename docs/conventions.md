@@ -86,7 +86,7 @@ session and points here for the rest.
 | F6 | API types come from `generated-api.ts` (aliases, extended for frontend-only fields), not hand-written copies | planned: compile-time compatibility test |
 | F7 | CSS uses tokens from `variables.css`: no hex/`rgb()` elsewhere, z-index via tokens; one stylesheet per component prefix | planned: grep test (like `css-class-collisions.test.ts`) |
 | F8 | No `console.*` outside the logger; a logger's name is its module path | ESLint `no-console`; judgment for names |
-| F9 | Real `<button type="button">`, not `role="button"` on a div; an `aria-modal` dialog traps focus | judgment (every `aria-modal` dialog traps focus since Oct 25 2026); planned: test |
+| F9 | Real `<button>`, not `role="button"` on a div - except a row that holds other buttons (a `<button>` cannot nest them), which keeps `role="button"` with `tabindex` and Enter/Space handling; a button inside a `<form>` declares its `type`; an `aria-modal` dialog traps focus | `web/tests/unit/button-types.test.ts` (types in forms); judgment (the rest; every `aria-modal` dialog traps focus and every `role="button"` handles Enter/Space as of Oct 25 2026) |
 | F10 | No unused exports (a config value nobody reads drifts from the copy someone does) | planned: knip |
 | F11 | State management is Zustand ([store.ts](../web/src/state/store.ts)); dynamic content uses event delegation; `textContent` for plain text; icons from `icons.ts` | judgment |
 
