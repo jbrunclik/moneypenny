@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -148,6 +148,17 @@ lint:
 	$(MYPY) src/ evals/
 	$(LINT_IMPORTS)
 	cd web && $(NPM) run typecheck && $(NPM) run lint && $(NPM) run format:check
+	@$(MAKE) --no-print-directory check-generated
+
+# P1: the committed OpenAPI spec and TS types must match the schemas. Regenerates
+# them; when that changed anything, the fresh files are left to commit.
+GENERATED_API := static/openapi.json web/src/types/generated-api.ts
+check-generated:
+	@before=$$(cat $(GENERATED_API) | shasum); \
+	$(MAKE) --no-print-directory openapi types > /dev/null 2>&1; \
+	if [ "$$before" != "$$(cat $(GENERATED_API) | shasum)" ]; then \
+		echo "The OpenAPI spec or TS types were stale - regenerated them, commit the result"; exit 1; \
+	fi
 
 lint-fix:
 	$(RUFF) check --fix src/ tests/ scripts/ evals/
