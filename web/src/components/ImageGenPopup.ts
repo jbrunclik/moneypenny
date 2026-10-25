@@ -14,10 +14,10 @@ function renderImageGenInfo(images: GeneratedImage[]): string {
   const imagesHtml = images
     .map(
       (img, index) => `
-      <a href="#" class="imagegen-item" onclick="return false;">
+      <div class="imagegen-item">
         <span class="imagegen-number">${index + 1}</span>
         <span class="imagegen-prompt">${escapeHtml(img.prompt)}</span>
-      </a>
+      </div>
     `
     )
     .join('');
