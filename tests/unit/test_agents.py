@@ -866,31 +866,6 @@ class TestSchedulerLogic:
         # The scheduler logic should skip this agent
         # This is checked in run_scheduled_agents(): if db.has_pending_approval(agent.id)
 
-    def test_next_run_at_not_updated_twice_on_success(self):
-        """Test that next_run_at is only updated once on successful execution.
-
-        Regression test: The scheduler was updating next_run_at twice:
-        1. Once in execute_agent() via update_agent_last_run()
-        2. Once in the scheduler after execution
-
-        Now the scheduler only updates next_run_at on failure (line 182-187).
-        """
-        # The fix ensures execute_agent() handles success updates
-        # and scheduler only updates on failure
-        #
-        # Success path:
-        #   execute_agent() -> calls update_agent_last_run()
-        #   scheduler -> does NOT call update_agent_next_run()
-        #
-        # Failure path:
-        #   execute_agent() -> returns (False, error_message)
-        #   scheduler -> calls _update_next_run_on_failure()
-
-        # This is a documentation test - the actual logic is in scheduler.py:
-        # Lines 113-119: Success path doesn't update next_run_at
-        # Lines 127-134: Failure path calls _update_next_run_on_failure
-        pass
-
     def test_zombie_execution_cleanup(self, mock_db):
         """Test that zombie executions are cleaned up by the scheduler.
 

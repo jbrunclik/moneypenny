@@ -100,11 +100,25 @@ class TestShouldResetPlanner:
 
     def test_before_4am_uses_previous_day_cutoff(self) -> None:
         """Before 4am, the 4am cutoff should be from the previous day."""
-        # This tests the edge case where it's 2am today
-        # The 4am cutoff should be yesterday's 4am
-        # So if last reset was yesterday at 5am, no reset needed (after yesterday's 4am)
-        # But if last reset was 2 days ago, reset is needed
-        pass  # This is hard to test without mocking datetime.now()
+        two_am = datetime(2026, 10, 25, 2, 0)
+        reset_yesterday_5am = User(
+            id="u",
+            email="u@x",
+            name="U",
+            picture=None,
+            created_at=two_am,
+            planner_last_reset_at=datetime(2026, 10, 24, 5, 0),
+        )
+        reset_two_days_ago = User(
+            id="u",
+            email="u@x",
+            name="U",
+            picture=None,
+            created_at=two_am,
+            planner_last_reset_at=datetime(2026, 10, 23, 5, 0),
+        )
+        assert should_reset_planner(reset_yesterday_5am, now=two_am) is False
+        assert should_reset_planner(reset_two_days_ago, now=two_am) is True
 
 
 class TestGetDayName:

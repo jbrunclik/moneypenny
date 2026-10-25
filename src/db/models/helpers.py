@@ -158,7 +158,7 @@ def parse_cursor(cursor: str) -> tuple[str, str]:
 # ============================================================================
 
 
-def should_reset_planner(user: User) -> bool:
+def should_reset_planner(user: User, now: datetime | None = None) -> bool:
     """Check if the planner should be automatically reset.
 
     The planner resets daily at 4am. This function checks if the last reset
@@ -166,6 +166,7 @@ def should_reset_planner(user: User) -> bool:
 
     Args:
         user: The User object with planner_last_reset_at field
+        now: The current time (a test seam; defaults to datetime.now())
 
     Returns:
         True if the planner should be reset, False otherwise
@@ -174,7 +175,7 @@ def should_reset_planner(user: User) -> bool:
     if not user.planner_last_reset_at:
         return False
 
-    now = datetime.now()
+    now = now or datetime.now()
 
     # Calculate today's 4am cutoff
     today_4am = now.replace(hour=4, minute=0, second=0, microsecond=0)
