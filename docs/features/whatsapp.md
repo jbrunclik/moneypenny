@@ -22,7 +22,7 @@ The WhatsApp integration enables autonomous agents to send notifications to user
 # .env
 
 # Phone Number ID from WhatsApp API Setup (numeric ID, NOT the phone number)
-WHATSAPP_PHONE_NUMBER_ID=982966681562240
+WHATSAPP_PHONE_NUMBER_ID=123456789012345
 
 # Permanent System User access token
 WHATSAPP_ACCESS_TOKEN=EAATly...

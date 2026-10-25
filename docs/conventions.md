@@ -37,10 +37,10 @@ session and points here for the rest.
 | S6 | Model output never loads external resources by itself (external markdown images render as links; CSP `img-src` allows only the app and Google profile photos) | test (`markdown.test.ts`, `test_security_headers.py`) |
 | S7 | Production requires a valid `TOKEN_ENCRYPTION_KEY` | test (`test_config.py`) |
 | S8 | Logging follows the [privacy policy below](#logging-and-privacy) | planned: test over `extra=` keys |
-| S9 | No secrets or infrastructure details in tracked files or commit messages (the repo is public) | gitleaks locally; planned: CI secret + hostname scan |
+| S9 | No secrets or infrastructure details in tracked files or commit messages (the repo is public) | CI (gitleaks + a `FORBIDDEN_PATTERNS` secret scan); gitleaks on commit locally |
 | S10 | Public API docs (`/api/docs`, `/api/openapi.json`) are off in production | test (`test_security_headers.py`) |
 | S11 | Deploys can't overlap and can be rolled back (lock, previous SHA, backup, atomic asset swap) | planned: `make update` / `make rollback` |
-| S12 | Spend of more than $10 per user per day raises a very visible warning - never a block | planned |
+| S12 | Spend of more than $10 per user per day shows that user a banner (something looks off) - never a block, no notification; the admin sees total spend in the app | planned (`/new-feature`) |
 
 ### Delivery (P)
 

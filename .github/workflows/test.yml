@@ -67,6 +67,38 @@ jobs:
           make openapi types lock
           git diff --exit-code static/openapi.json web/src/types/generated-api.ts requirements.txt
 
+  # S9: the repo is public - no secrets and no infrastructure details
+  public-repo-scan:
+    name: Public Repo Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No secrets in tracked files (gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            dir /repo --no-banner --redact
+
+      # Hostnames, IPs and provider names live in the FORBIDDEN_PATTERNS secret
+      # (one per line), never in the repo. Only file:line is printed: a public
+      # repo's CI logs are public too.
+      - name: No infrastructure details in tracked files
+        env:
+          FORBIDDEN_PATTERNS: ${{ secrets.FORBIDDEN_PATTERNS }}
+        run: |
+          if [ -z "$FORBIDDEN_PATTERNS" ]; then
+            echo "::warning::FORBIDDEN_PATTERNS secret not set; infrastructure scan skipped"
+            exit 0
+          fi
+          printf '%s\n' "$FORBIDDEN_PATTERNS" | sed '/^$/d' > "$RUNNER_TEMP/patterns"
+          hits=$(git grep -n -I -i -F -f "$RUNNER_TEMP/patterns" | cut -d: -f1,2 || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Infrastructure details in tracked files:"
+            echo "$hits"
+            exit 1
+          fi
+
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest

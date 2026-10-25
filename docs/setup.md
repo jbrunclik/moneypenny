@@ -247,7 +247,7 @@ The WhatsApp integration allows autonomous agents to send execution results and 
 
 Before setting up, understand these important WhatsApp Business API concepts:
 
-- **Phone Number ID**: A numeric ID (e.g., `982966681562240`), NOT the phone number itself. This is a common mistake!
+- **Phone Number ID**: A numeric ID (e.g., `123456789012345`), NOT the phone number itself. This is a common mistake!
 - **Phone Registration**: Your business phone must be registered via the API before it can send messages
 - **24-Hour Window**: You can only send free-form text messages within 24 hours after a user messages you first
 - **Template Messages**: For business-initiated conversations (first contact), you MUST use pre-approved message templates
@@ -273,12 +273,12 @@ Before setting up, understand these important WhatsApp Business API concepts:
    - Go to **WhatsApp** → **API Setup**
    - Click "Add phone number" and follow the verification process
    - You may need to download a certificate to verify ownership
-   - Once verified, note the **Phone number ID** (a numeric ID like `982966681562240`)
+   - Once verified, note the **Phone number ID** (a numeric ID like `123456789012345`)
 
 5. **Register your phone number** (required before sending):
    ```bash
-   curl -X POST "https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/register" \
-     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+   curl -X POST "https://graph.facebook.com/v18.0/$WHATSAPP_PHONE_NUMBER_ID/register" \
+     -H "Authorization: Bearer $WHATSAPP_ACCESS_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"messaging_product": "whatsapp", "pin": "123456"}'
    ```
@@ -309,7 +309,7 @@ Before setting up, understand these important WhatsApp Business API concepts:
 ```bash
 # WhatsApp Cloud API credentials (app-level)
 # IMPORTANT: Phone Number ID is a numeric ID, NOT the phone number!
-WHATSAPP_PHONE_NUMBER_ID=982966681562240          # From API Setup page (numeric ID)
+WHATSAPP_PHONE_NUMBER_ID=123456789012345          # From API Setup page (numeric ID)
 WHATSAPP_ACCESS_TOKEN=EAAxxxxxxx...               # Permanent token from System User
 WHATSAPP_TEMPLATE_NAME=agent_notification         # Your approved template name
 ```
