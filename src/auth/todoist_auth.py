@@ -138,35 +138,3 @@ def get_user_info(access_token: str) -> dict[str, Any]:
     except requests.RequestException as e:
         logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         raise TodoistAuthError("Failed to connect to Todoist") from e
-
-
-def revoke_token(access_token: str) -> bool:
-    """Revoke a Todoist access token.
-
-    Args:
-        access_token: The access token to revoke
-
-    Returns:
-        True if revocation succeeded or was a no-op
-    """
-    try:
-        response = requests.delete(
-            "https://api.todoist.com/api/v1/access_tokens",
-            data={
-                "client_id": Config.TODOIST_CLIENT_ID,
-                "client_secret": Config.TODOIST_CLIENT_SECRET,
-                "access_token": access_token,
-            },
-            timeout=Config.TODOIST_API_TIMEOUT,
-        )
-        if response.status_code < 300:
-            logger.debug("Todoist token revoked successfully")
-            return True
-        logger.warning(
-            "Todoist token revocation failed",
-            extra={"status_code": response.status_code},
-        )
-        return False
-    except requests.RequestException as e:
-        logger.warning("Todoist token revocation request failed", extra={"error": str(e)})
-        return False

@@ -120,21 +120,6 @@ class CacheMixin:
             )
             conn.commit()
 
-    def cleanup_expired_dashboard_cache(self) -> int:
-        """Delete all expired cache entries.
-
-        Returns:
-            Number of entries deleted
-        """
-        with self._pool.get_connection() as conn:
-            cursor = self._execute_with_timing(
-                conn,
-                "DELETE FROM dashboard_cache WHERE expires_at < ?",
-                (utcnow_naive().isoformat(),),
-            )
-            conn.commit()
-            return cursor.rowcount
-
     def invalidate_dashboard_cache(self, user_id: str) -> None:
         """Invalidate dashboard cache when calendar selection changes.
 
@@ -375,18 +360,3 @@ class CacheMixin:
                 (location,),
             )
             conn.commit()
-
-    def cleanup_expired_weather_cache(self) -> int:
-        """Delete all expired weather cache entries.
-
-        Returns:
-            Number of entries deleted
-        """
-        with self._pool.get_connection() as conn:
-            cursor = self._execute_with_timing(
-                conn,
-                "DELETE FROM weather_cache WHERE expires_at < ?",
-                (utcnow_naive().isoformat(),),
-            )
-            conn.commit()
-            return cursor.rowcount

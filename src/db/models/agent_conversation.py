@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs
 from src.utils.logging import get_logger
 
@@ -76,42 +75,6 @@ class AgentConversationMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
-
-    def get_agent_conversation(self, agent_id: str, user_id: str) -> Conversation | None:
-        """Get the dedicated conversation for an agent."""
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                """SELECT c.* FROM conversations c
-                   JOIN autonomous_agents a ON c.id = a.conversation_id
-                   WHERE a.id = ? AND a.user_id = ?""",
-                (agent_id, user_id),
-            ).fetchone()
-
-            if not row:
-                return None
-
-            # Import here to avoid circular imports
-
-            # Use the existing _row_to_conversation method pattern
-            last_reset = None
-            if "last_reset" in row.keys():  # noqa: SIM118
-                last_reset = (
-                    datetime.fromisoformat(row["last_reset"]) if row["last_reset"] else None
-                )
-
-            return Conversation(
-                id=row["id"],
-                user_id=row["user_id"],
-                title=row["title"],
-                model=row["model"],
-                created_at=datetime.fromisoformat(row["created_at"]),
-                updated_at=datetime.fromisoformat(row["updated_at"]),
-                is_planning=bool(row["is_planning"]) if row["is_planning"] else False,
-                last_reset=last_reset,
-                is_agent=bool(row["is_agent"]) if row["is_agent"] else False,
-                agent_id=row["agent_id"],
-            )
 
     # ============ Conversation Compaction ============
 

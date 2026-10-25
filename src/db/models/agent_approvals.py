@@ -121,24 +121,6 @@ class AgentApprovalMixin:
 
             return [row_to_approval_request(row) for row in rows]
 
-    def get_pending_approval_for_agent(self, agent_id: str) -> ApprovalRequest | None:
-        """Get the pending (non-expired) approval request for an agent (if any)."""
-        now = utcnow_naive()
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                """SELECT * FROM agent_approval_requests
-                   WHERE agent_id = ? AND status = 'pending'
-                   AND (expires_at IS NULL OR expires_at > ?)
-                   LIMIT 1""",
-                (agent_id, now.isoformat()),
-            ).fetchone()
-
-            if not row:
-                return None
-
-            return row_to_approval_request(row)
-
     def has_pending_approval(self, agent_id: str) -> bool:
         """Check if an agent has a pending (non-expired) approval request."""
         now = utcnow_naive()

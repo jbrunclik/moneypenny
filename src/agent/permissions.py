@@ -74,8 +74,3 @@ def check_tool_permission(
 
     # 3. Default: allow (for tools like trigger_agent, generate_image, etc.)
     return PermissionResult.ALLOWED
-
-
-def get_safe_tools() -> list[str]:
-    """Get list of always-safe tool names."""
-    return list(ALWAYS_SAFE_TOOLS)

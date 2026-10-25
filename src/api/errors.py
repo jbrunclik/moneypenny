@@ -139,18 +139,6 @@ def raise_validation_error(message: str, field: str | None = None) -> NoReturn:
     raise APIError(400, ErrorCode.VALIDATION_ERROR, message, details)
 
 
-def raise_missing_field_error(field: str) -> NoReturn:
-    """Raise a missing field error (400)."""
-    raise APIError(
-        400, ErrorCode.MISSING_FIELD, f"Missing required field: {field}", {"field": field}
-    )
-
-
-def raise_invalid_format_error(message: str = "Invalid format") -> NoReturn:
-    """Raise an invalid format error (400)."""
-    raise APIError(400, ErrorCode.INVALID_FORMAT, message)
-
-
 def raise_not_found_error(resource: str = "Resource") -> NoReturn:
     """Raise a not found error (404)."""
     raise APIError(404, ErrorCode.NOT_FOUND, f"{resource} not found")
@@ -190,15 +178,6 @@ def raise_auth_forbidden_error(message: str = "Access denied") -> NoReturn:
     raise APIError(403, ErrorCode.AUTH_FORBIDDEN, message)
 
 
-def raise_timeout_error(
-    message: str = "Request timed out. Please try again.",
-    timeout_seconds: int | None = None,
-) -> NoReturn:
-    """Raise a timeout error (504)."""
-    details = {"timeout_seconds": timeout_seconds} if timeout_seconds else None
-    raise APIError(504, ErrorCode.TIMEOUT, message, details)
-
-
 def raise_server_error(
     message: str = "An unexpected error occurred. Please try again.",
 ) -> NoReturn:
@@ -207,13 +186,6 @@ def raise_server_error(
     Note: Never expose internal error details to users. Log them server-side instead.
     """
     raise APIError(500, ErrorCode.SERVER_ERROR, message)
-
-
-def raise_service_unavailable_error(
-    message: str = "Service temporarily unavailable. Please try again later.",
-) -> NoReturn:
-    """Raise a service unavailable error (503)."""
-    raise APIError(503, ErrorCode.SERVICE_UNAVAILABLE, message)
 
 
 def raise_rate_limited_error(
@@ -228,24 +200,6 @@ def raise_rate_limited_error(
 def raise_llm_error(message: str = "AI service error. Please try again.") -> NoReturn:
     """Raise an LLM/Gemini error (502)."""
     raise APIError(502, ErrorCode.LLM_ERROR, message)
-
-
-def raise_tool_error(
-    message: str = "Tool execution failed.",
-    tool_name: str | None = None,
-) -> NoReturn:
-    """Raise a tool execution error (500)."""
-    details = {"tool": tool_name} if tool_name else None
-    raise APIError(500, ErrorCode.TOOL_ERROR, message, details)
-
-
-def raise_external_service_error(
-    message: str = "External service error. Please try again.",
-    service: str | None = None,
-) -> NoReturn:
-    """Raise an external service error (502)."""
-    details = {"service": service} if service else None
-    raise APIError(502, ErrorCode.EXTERNAL_SERVICE_ERROR, message, details)
 
 
 def raise_invalid_json_error() -> NoReturn:

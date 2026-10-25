@@ -88,7 +88,7 @@ if (error instanceof ApiError) {
 
 ## @require_auth Decorator
 
-The `@require_auth` decorator injects the authenticated `User` as the first argument to route handlers. This eliminates the need for `get_current_user()` calls and makes the contract explicit in the function signature.
+The `@require_auth` decorator injects the authenticated `User` as the first argument to route handlers. That keeps the contract explicit in the function signature.
 
 ### Usage Pattern
 

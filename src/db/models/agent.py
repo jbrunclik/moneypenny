@@ -212,22 +212,6 @@ class AgentMixin:
 
             return [row_to_agent(row) for row in rows]
 
-    def list_all_scheduled_agents(self) -> list[Agent]:
-        """List all enabled agents with schedules (for scheduler).
-
-        This is used by the dev scheduler to evaluate all agents across all users.
-        """
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT * FROM autonomous_agents
-                   WHERE enabled = 1 AND schedule IS NOT NULL
-                   ORDER BY next_run_at ASC""",
-                (),
-            ).fetchall()
-
-            return [row_to_agent(row) for row in rows]
-
     def update_agent(
         self,
         agent_id: str,

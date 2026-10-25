@@ -125,11 +125,6 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
     return limiter
 
 
-def get_limiter() -> Limiter | None:
-    """Get the global limiter instance."""
-    return limiter
-
-
 # ============================================================================
 # Rate limit decorators for different endpoint categories
 # ============================================================================

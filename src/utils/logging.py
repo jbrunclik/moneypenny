@@ -183,25 +183,3 @@ def log_payload_snippet(
         logger.debug("Payload snippet", extra={"payload_snippet": snippet})
     except Exception:  # noqa: BLE001
         logger.debug("Failed to serialize payload for logging")
-
-
-def log_file_info(logger: logging.Logger, file: dict[str, Any], include_data: bool = False) -> None:
-    """Log information about a file attachment.
-
-    Args:
-        logger: The logger instance
-        file: File dict with name, type, data keys
-        include_data: Whether to include a snippet of the data (base64)
-    """
-    file_info: dict[str, Any] = {
-        "name": file.get("name", "unknown"),
-        "type": file.get("type", "unknown"),
-        "has_data": bool(file.get("data")),
-    }
-    if include_data and file.get("data"):
-        data = file.get("data", "")
-        if len(data) > 100:
-            file_info["data_snippet"] = data[:100] + "..."
-        else:
-            file_info["data_snippet"] = data
-    logger.debug("File info", extra={"file": file_info})

@@ -239,50 +239,6 @@ def _format_agent_message(
     return _sanitize_for_template(combined), was_truncated
 
 
-def _send_text_message(
-    phone_number: str,
-    message: str,
-) -> dict[str, Any]:
-    """Send a text message via WhatsApp.
-
-    NOTE: Free-form text messages only work within 24 hours after the user
-    messages you first. For business-initiated conversations (first contact),
-    use _send_template_message instead.
-
-    Args:
-        phone_number: Recipient phone number in E.164 format (e.g., +1234567890)
-        message: Message text to send
-
-    Returns:
-        API response with message ID
-
-    Raises:
-        WhatsAppError: On API errors
-    """
-    # Normalize phone number (remove + if present, API expects without it)
-    normalized_phone = phone_number.lstrip("+")
-
-    data = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": normalized_phone,
-        "type": "text",
-        "text": {"body": message},
-    }
-
-    response = _whatsapp_api_request("/messages", data)
-
-    logger.info(
-        "WhatsApp text message sent",
-        extra={
-            "message_id": response.get("messages", [{}])[0].get("id"),
-            "phone_number_masked": f"***{normalized_phone[-4:]}",
-        },
-    )
-
-    return response
-
-
 def _send_template_message(
     phone_number: str,
     template_name: str,

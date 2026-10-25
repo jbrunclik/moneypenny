@@ -92,11 +92,6 @@ def get_token_from_request(req: Request) -> str | None:
     return None
 
 
-def get_current_user() -> User | None:
-    """Get the current authenticated user from the request context."""
-    return getattr(g, "current_user", None)
-
-
 def require_auth[F: Callable[..., Any]](f: F) -> F:
     """Decorator to require authentication for a route.
 
