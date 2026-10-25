@@ -80,7 +80,7 @@ session and points here for the rest.
 |----|------|-------------|
 | F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); planned: cycle allow-list that only shrinks |
 | F2 | Store state changes only through slice actions; re-read `getState()` after any `await`; module-level `let` only for UI-ephemeral handles (timers, observers) | planned: ESLint + counter |
-| F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | planned: scan with baseline |
+| F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | ESLint `no-unsanitized` (escapers and sanitizers listed in `SAFE_HTML`, `web/eslint.config.js`; 134 baselined, mostly static icons); planned: `on*=` and listener checks |
 | F4 | No floating promises (`void` marks a deliberate one) or async callbacks where a sync one is expected; no non-null `!` | typescript-eslint (type-aware; baselined in `eslint-suppressions.json`) |
 | F5 | `tsconfig` gets stricter in stages: `noImplicitReturns`, `noImplicitOverride`, `verbatimModuleSyntax` (on); `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` next | tsc; planned: stage 2 |
 | F6 | API types come from `generated-api.ts` (aliases, extended for frontend-only fields), not hand-written copies | planned: compile-time compatibility test |

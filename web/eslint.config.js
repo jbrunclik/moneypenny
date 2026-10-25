@@ -1,5 +1,9 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import noUnsanitized from 'eslint-plugin-no-unsanitized';
+
+// F3: functions whose result is safe to assign as HTML (escaped or sanitized)
+const SAFE_HTML = ['escapeHtml', 'renderMarkdown', 'highlightCode', 'DOMPurify.sanitize'];
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -30,7 +34,12 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
+    plugins: { 'no-unsanitized': noUnsanitized },
     rules: {
+      // F3: HTML assigned from strings goes through a SAFE_HTML function. A static
+      // icon constant is safe too: say so with an eslint-disable-next-line reason
+      'no-unsanitized/property': ['error', { escape: { methods: SAFE_HTML } }],
+      'no-unsanitized/method': ['error', { escape: { methods: SAFE_HTML } }],
       // F4: a rejected promise nobody awaits is an unhandled rejection with no log
       '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
       '@typescript-eslint/no-misused-promises': 'error',

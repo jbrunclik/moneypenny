@@ -22,6 +22,21 @@
       "count": 1
     }
   },
+  "src/components/ActionSheet.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/components/AdminPage.ts": {
+    "no-unsanitized/property": {
+      "count": 2
+    }
+  },
+  "src/components/AgentConversationHeader.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
   "src/components/AgentEditor.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 3
@@ -37,16 +52,30 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 3
+    }
+  },
+  "src/components/ChatHeader.ts": {
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/ClaimCard.ts": {
     "no-restricted-imports": {
       "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/ClaimsSheet.ts": {
     "@typescript-eslint/no-non-null-assertion": {
       "count": 4
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/CommandCenter.ts": {
@@ -58,11 +87,17 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 11
     }
   },
   "src/components/CompactionIndicator.ts": {
     "complexity": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/FileUpload.ts": {
@@ -81,9 +116,20 @@
       "count": 1
     }
   },
+  "src/components/InfoPopup.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
   "src/components/KVStorePage.ts": {
     "@typescript-eslint/no-misused-promises": {
       "count": 6
+    },
+    "no-unsanitized/method": {
+      "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 9
     }
   },
   "src/components/LanguageDashboard.ts": {
@@ -92,6 +138,14 @@
     },
     "@typescript-eslint/no-non-null-assertion": {
       "count": 3
+    },
+    "no-unsanitized/property": {
+      "count": 6
+    }
+  },
+  "src/components/Lightbox.ts": {
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/MessageInput.ts": {
@@ -106,11 +160,22 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 3
+    }
+  },
+  "src/components/Modal.ts": {
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/ModelSelector.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/PdfViewer.ts": {
@@ -118,6 +183,9 @@
       "count": 1
     },
     "no-restricted-imports": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -127,10 +195,21 @@
     },
     "complexity": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 4
     }
   },
   "src/components/QuickActionComposer.ts": {
     "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/components/QuickActionsBar.ts": {
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -140,6 +219,14 @@
     },
     "max-lines-per-function": {
       "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 6
+    }
+  },
+  "src/components/QuickActionsSlashMenu.ts": {
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/QuizBlock.ts": {
@@ -153,10 +240,21 @@
   "src/components/ScrollToBottom.ts": {
     "@typescript-eslint/no-misused-promises": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/SearchInput.ts": {
     "@typescript-eslint/no-floating-promises": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/components/SearchResults.ts": {
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -166,6 +264,9 @@
     },
     "no-restricted-imports": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/Sidebar.ts": {
@@ -180,11 +281,22 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 7
     }
   },
   "src/components/SidebarSelection.ts": {
     "no-restricted-imports": {
       "count": 3
+    },
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/components/SpendBanner.ts": {
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/SportsDashboard.ts": {
@@ -193,16 +305,35 @@
     },
     "@typescript-eslint/no-non-null-assertion": {
       "count": 5
+    },
+    "no-unsanitized/property": {
+      "count": 6
     }
   },
   "src/components/ThinkingIndicator.ts": {
     "complexity": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 3
+    }
+  },
+  "src/components/Toast.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/components/TrashView.ts": {
+    "no-unsanitized/property": {
+      "count": 3
     }
   },
   "src/components/VersionBanner.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/VoiceInput.ts": {
@@ -211,11 +342,17 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/messages/action-row.ts": {
     "@typescript-eslint/no-non-null-assertion": {
       "count": 2
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/messages/actions.ts": {
@@ -230,6 +367,9 @@
     },
     "complexity": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/messages/artifacts.ts": {
@@ -239,6 +379,19 @@
   },
   "src/components/messages/attachments.ts": {
     "max-lines-per-function": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
+    }
+  },
+  "src/components/messages/live-highlight.ts": {
+    "no-unsanitized/property": {
+      "count": 2
+    }
+  },
+  "src/components/messages/loading.ts": {
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -259,6 +412,9 @@
     },
     "max-depth": {
       "count": 4
+    },
+    "no-unsanitized/property": {
+      "count": 6
     }
   },
   "src/components/messages/research-offer.ts": {
@@ -270,16 +426,33 @@
     },
     "no-restricted-imports": {
       "count": 2
+    },
+    "no-unsanitized/method": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/messages/research-progress.ts": {
     "@typescript-eslint/no-non-null-assertion": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
+    }
+  },
+  "src/components/messages/send-state.ts": {
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/messages/streaming.ts": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/components/messages/turn-anchor.ts": {
@@ -300,6 +473,9 @@
   "src/components/settings/notifications.ts": {
     "no-restricted-imports": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/components/settings/oauth.ts": {
@@ -307,6 +483,11 @@
       "count": 1
     },
     "@typescript-eslint/no-unnecessary-type-assertion": {
+      "count": 1
+    }
+  },
+  "src/components/settings/shared.ts": {
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -319,6 +500,9 @@
     },
     "complexity": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/core/archive.ts": {
@@ -348,6 +532,11 @@
     },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
+    }
+  },
+  "src/core/conversation-header.ts": {
+    "no-unsanitized/property": {
+      "count": 3
     }
   },
   "src/core/conversation-switch.ts": {
@@ -383,6 +572,11 @@
       "count": 2
     }
   },
+  "src/core/file-actions.ts": {
+    "no-unsanitized/property": {
+      "count": 2
+    }
+  },
   "src/core/gestures.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 1
@@ -403,6 +597,9 @@
     },
     "max-lines-per-function": {
       "count": 3
+    },
+    "no-unsanitized/property": {
+      "count": 1
     }
   },
   "src/core/keyboard-viewport.ts": {
@@ -425,6 +622,9 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 2
     }
   },
   "src/core/language.ts": {
@@ -435,6 +635,9 @@
       "count": 4
     },
     "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -452,6 +655,9 @@
       "count": 1
     },
     "max-lines-per-function": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -478,6 +684,9 @@
       "count": 4
     },
     "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "no-unsanitized/property": {
       "count": 1
     }
   },
@@ -524,6 +733,14 @@
   "src/core/toolbar.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 1
+    },
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/core/tts.ts": {
+    "no-unsanitized/property": {
+      "count": 5
     }
   },
   "src/main.ts": {
