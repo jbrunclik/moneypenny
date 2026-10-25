@@ -9,17 +9,18 @@ from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
-from flask import request
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.planner import (
     PlannerConversationResponse,
+    PlannerDashboardQuery,
     PlannerDashboardResponse,
     PlannerResetResponse,
     PlannerSyncResponse,
 )
 from src.api.utils import serialize_messages_for_response
+from src.api.validation import validate_query
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.auth.jwt_auth import require_auth
 from src.config import Config
@@ -47,7 +48,8 @@ api = APIBlueprint("planner", __name__, url_prefix="/api", tag="Planner")
 @api.doc(responses=[401, 429])
 @rate_limit_conversations
 @require_auth
-def get_planner_dashboard(user: User) -> dict[str, Any]:
+@validate_query(PlannerDashboardQuery)
+def get_planner_dashboard(user: User, query: PlannerDashboardQuery) -> dict[str, Any]:
     """Get planner dashboard data for the next 7 days.
 
     Returns events from Google Calendar and tasks from Todoist,
@@ -63,8 +65,7 @@ def get_planner_dashboard(user: User) -> dict[str, Any]:
     Query parameters:
     - force_refresh: Set to "true" to bypass cache and fetch fresh data
     """
-    # Check for force_refresh parameter (for refresh button)
-    force_refresh = request.args.get("force_refresh", "false").lower() == "true"
+    force_refresh = query.force_refresh  # the refresh button
 
     logger.debug(
         "Fetching planner dashboard",

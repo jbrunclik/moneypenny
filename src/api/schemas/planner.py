@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
-from src.api.schemas.base import ResponseModel
+from src.api.schemas.base import QueryModel, ResponseModel, parse_flag
 from src.api.schemas.chat import MessageResponse
 
 
@@ -180,3 +180,11 @@ class PlannerSyncResponse(ResponseModel):
         default=None, description="Planner conversation state, or null if no planner exists"
     )
     server_time: str = Field(..., description="Server timestamp in ISO format")
+
+
+class PlannerDashboardQuery(QueryModel):
+    """Query for GET /api/planner."""
+
+    force_refresh: bool = Field(default=False, description="Bypass the dashboard cache")
+
+    _force_refresh = field_validator("force_refresh", mode="before")(parse_flag)

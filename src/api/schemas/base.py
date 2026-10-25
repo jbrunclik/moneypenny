@@ -27,6 +27,39 @@ class RequestModel(BaseModel):
     """A body the client sends: a field with a default may be omitted."""
 
 
+class QueryModel(RequestModel):
+    """A query string the client sends (validated by @validate_query).
+
+    Every value arrives as a string. The parse_* helpers below keep the
+    routes' long-standing reading of them: a blank or unparsable number falls
+    back to its default instead of failing the request.
+    """
+
+
+def parse_int(
+    value: Any, default: int | None, low: int | None = None, high: int | None = None
+) -> Any:
+    """Read a query-string int: blank or unparsable -> default, then clamp to [low, high]."""
+    if not isinstance(value, str):
+        return value
+    try:
+        number = int(value)
+    except ValueError:
+        return default
+    if low is not None:
+        number = max(low, number)
+    if high is not None:
+        number = min(number, high)
+    return number
+
+
+def parse_flag(value: Any) -> Any:
+    """Read a query-string boolean: "true" (any case) is true, anything else false."""
+    if isinstance(value, str):
+        return value.lower() == "true"
+    return value
+
+
 class ResponseModel(BaseModel):
     """A body the server sends: every field is present, defaults included."""
 

@@ -1,8 +1,9 @@
 """Request validation utilities using Pydantic.
 
-This module provides a decorator for validating Flask request bodies against
-Pydantic schemas, converting validation errors to the standardized error
-format used throughout the API.
+This module provides decorators for validating Flask request bodies
+(@validate_request) and query strings (@validate_query) against Pydantic
+schemas, converting validation errors to the standardized error format used
+throughout the API.
 """
 
 from collections.abc import Callable
@@ -151,6 +152,51 @@ def validate_request[T: BaseModel](
             content_type="application/json",
         )
         wrapper._validated_body = schema_class  # type: ignore[attr-defined]
+        return wrapper
+
+    return decorator
+
+
+def validate_query[T: BaseModel](
+    schema_class: type[T],
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator that validates the query string against a Pydantic schema.
+
+    The query-string counterpart of @validate_request (rule B4: routes never
+    read request.args). Query schemas inherit QueryModel
+    (src/api/schemas/base.py).
+
+    Usage:
+        @api.route("/endpoint", methods=["GET"])
+        @require_auth
+        @validate_query(MyQuery)
+        def my_endpoint(user: User, query: MyQuery, item_id: str) -> ...:
+            ...
+
+    The validated model is inserted after injected args (user from
+    @require_auth, data from an outer @validate_request) and before URL
+    parameters. A repeated parameter reads its first value, as
+    request.args.get() does. Failure raises the standard 400
+    VALIDATION_ERROR naming the field.
+    """
+
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(f)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                validated = schema_class.model_validate(request.args.to_dict())
+            except ValidationError as e:
+                message, field = _extract_validation_error_details(e)
+                raise_validation_error(message, field)
+
+            return f(*args, validated, **kwargs)
+
+        # Document the parameters in the OpenAPI spec the way APIFlask's
+        # @api.input(location="query") does
+        query_args = [*getattr(wrapper, "_spec", {}).get("args", [])]
+        query_args.append((registry.create_adapter(schema_class).schema, "query"))
+        _annotate(wrapper, args=query_args)
+        wrapper._validated_query = schema_class  # type: ignore[attr-defined]
         return wrapper
 
     return decorator

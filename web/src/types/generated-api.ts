@@ -358,7 +358,11 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    q?: string;
+                    limit?: number;
+                    offset?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -381,6 +385,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -658,7 +671,9 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    force_refresh?: boolean;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -681,6 +696,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -1168,7 +1192,10 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    cursor?: string | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1182,6 +1209,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -2614,7 +2650,11 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    since?: string | null;
+                    cursor?: string | null;
+                    full?: boolean;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2628,6 +2668,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SyncResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -2862,7 +2911,10 @@ export interface paths {
         /** List conversations in the trash, most recently deleted first. */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    cursor?: string | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2876,6 +2928,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -3502,7 +3563,10 @@ export interface paths {
         /** List archived conversations with pagination. */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    cursor?: string | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3516,6 +3580,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationsListPaginatedResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -3547,7 +3620,10 @@ export interface paths {
         /** Get cost for the current user in a specific month. */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    year?: number | null;
+                    month?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3572,6 +3648,15 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
             };
         };
         put?: never;
@@ -3592,7 +3677,9 @@ export interface paths {
         /** Get monthly cost history for the current user. */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number | null;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3606,6 +3693,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CostHistoryResponse"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -3705,7 +3801,11 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    message_limit?: number;
+                    message_cursor?: string | null;
+                    direction?: components["schemas"]["ConversationDetailQuery.PaginationDirection"];
+                };
                 header?: never;
                 path: {
                     conv_id: string;
@@ -3730,6 +3830,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -5654,7 +5763,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    limit?: number;
+                    around_message_id?: string | null;
+                    cursor?: string | null;
+                    direction?: components["schemas"]["MessagesPageQuery.PaginationDirection"];
+                };
                 header?: never;
                 path: {
                     conv_id: string;
@@ -5679,6 +5793,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
                 /** @description Too Many Requests */
@@ -6867,7 +6990,9 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    after_seq?: number;
+                };
                 header?: never;
                 path: {
                     conv_id: string;
@@ -6884,6 +7009,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -7085,6 +7219,14 @@ export interface components {
              * @description The search query that was executed
              */
             query: string;
+        };
+        ValidationError: {
+            detail?: {
+                "<location>"?: {
+                    "<field_name>"?: string[];
+                };
+            };
+            message?: string;
         };
         /**
          * AgentResponse
@@ -7317,14 +7459,6 @@ export interface components {
              * @default null
              */
             last_execution_status: string | null;
-        };
-        ValidationError: {
-            detail?: {
-                "<location>"?: {
-                    "<field_name>"?: string[];
-                };
-            };
-            message?: string;
         };
         /**
          * CreateAgentRequest
@@ -10189,6 +10323,14 @@ export interface components {
             message: string;
         };
         /**
+         * PaginationDirection
+         * @description Direction for cursor-based pagination.
+         *
+         *     Used when fetching paginated results relative to a cursor position.
+         * @enum {string}
+         */
+        "ConversationDetailQuery.PaginationDirection": "older" | "newer";
+        /**
          * ArtifactRef
          * @description One artifact version shown under a message.
          */
@@ -10941,6 +11083,14 @@ export interface components {
              */
             inclusive?: boolean;
         };
+        /**
+         * PaginationDirection
+         * @description Direction for cursor-based pagination.
+         *
+         *     Used when fetching paginated results relative to a cursor position.
+         * @enum {string}
+         */
+        "MessagesPageQuery.PaginationDirection": "older" | "newer";
         /**
          * ArtifactRef
          * @description One artifact version shown under a message.

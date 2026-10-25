@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, parse_flag, parse_int
 from src.api.schemas.chat import MessageResponse
 from src.config import Config
+from src.enums import PaginationDirection
 
 
 class CreateConversationRequest(RequestModel):
@@ -300,3 +301,132 @@ class SearchResultsResponse(ResponseModel):
     )
     total: int = Field(..., description="Total number of matching results")
     query: str = Field(..., description="The search query that was executed")
+
+
+# --- Query strings (@validate_query) ---
+
+
+def _parse_direction(value: Any) -> Any:
+    """An unknown direction reads as the default, older."""
+    if isinstance(value, str) and value not in {d.value for d in PaginationDirection}:
+        return PaginationDirection.OLDER
+    return value
+
+
+def _check_cursor(value: str | None) -> str | None:
+    """A page cursor is '{timestamp}:{id}' (src/db/models/helpers.py build_cursor)."""
+    if value and ":" not in value:
+        raise ValueError("Invalid cursor. Use the cursor from the previous page.")
+    return value
+
+
+class ConversationsPageQuery(QueryModel):
+    """Query for GET /api/conversations, /conversations/archived and /conversations/trash."""
+
+    limit: int = Field(
+        default=Config.CONVERSATIONS_DEFAULT_PAGE_SIZE,
+        description="Conversations per page (clamped to 1..CONVERSATIONS_MAX_PAGE_SIZE)",
+    )
+    cursor: str | None = Field(default=None, description="next_cursor of the previous page")
+
+    @field_validator("limit", mode="before")
+    @classmethod
+    def _page_size(cls, value: Any) -> Any:
+        return parse_int(
+            value, Config.CONVERSATIONS_DEFAULT_PAGE_SIZE, 1, Config.CONVERSATIONS_MAX_PAGE_SIZE
+        )
+
+    _cursor = field_validator("cursor")(_check_cursor)
+
+
+class ConversationDetailQuery(QueryModel):
+    """Query for GET /api/conversations/<id> (its first page of messages)."""
+
+    message_limit: int = Field(
+        default=Config.MESSAGES_DEFAULT_PAGE_SIZE,
+        description="Messages per page (clamped to 1..MESSAGES_MAX_PAGE_SIZE)",
+    )
+    message_cursor: str | None = Field(default=None, description="Cursor of an adjacent page")
+    direction: PaginationDirection = PaginationDirection.OLDER
+
+    @field_validator("message_limit", mode="before")
+    @classmethod
+    def _page_size(cls, value: Any) -> Any:
+        return parse_int(value, Config.MESSAGES_DEFAULT_PAGE_SIZE, 1, Config.MESSAGES_MAX_PAGE_SIZE)
+
+    _direction = field_validator("direction", mode="before")(_parse_direction)
+    _cursor = field_validator("message_cursor")(_check_cursor)
+
+
+class MessagesPageQuery(QueryModel):
+    """Query for GET /api/conversations/<id>/messages."""
+
+    limit: int = Field(
+        default=Config.MESSAGES_DEFAULT_PAGE_SIZE,
+        description="Messages per page (clamped to 1..MESSAGES_MAX_PAGE_SIZE)",
+    )
+    # Before cursor, so the cursor check can see it (validation follows field order)
+    around_message_id: str | None = Field(
+        default=None,
+        description="Load the page around this message (search navigation); "
+        "cursor and direction are then ignored",
+    )
+    cursor: str | None = Field(default=None, description="Cursor of an adjacent page")
+    direction: PaginationDirection = PaginationDirection.OLDER
+
+    @field_validator("limit", mode="before")
+    @classmethod
+    def _page_size(cls, value: Any) -> Any:
+        return parse_int(value, Config.MESSAGES_DEFAULT_PAGE_SIZE, 1, Config.MESSAGES_MAX_PAGE_SIZE)
+
+    _direction = field_validator("direction", mode="before")(_parse_direction)
+
+    @field_validator("cursor")
+    @classmethod
+    def _cursor(cls, value: str | None, info: ValidationInfo) -> str | None:
+        # around_message_id ignores the cursor, so it isn't checked then either
+        return value if info.data.get("around_message_id") else _check_cursor(value)
+
+
+class SyncQuery(QueryModel):
+    """Query for GET /api/conversations/sync.
+
+    since and cursor stay strings: the route parses them only when they
+    decide the sync mode (full=true ignores both).
+    """
+
+    since: str | None = Field(default=None, description="ISO timestamp (legacy timestamp sync)")
+    cursor: str | None = Field(default=None, description="Change-log cursor from the last sync")
+    full: bool = Field(default=False, description="Return every conversation")
+
+    _full = field_validator("full", mode="before")(parse_flag)
+
+
+class SearchQuery(QueryModel):
+    """Query for GET /api/search."""
+
+    q: str = Field(default="", validate_default=True, description="Search text")
+    limit: int = Field(default=20, description="Results per page (clamped to 1..SEARCH_MAX_LIMIT)")
+    offset: int = Field(default=0, description="Results to skip")
+
+    @field_validator("q")
+    @classmethod
+    def _query_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Search query is required")
+        if len(value) > Config.SEARCH_MAX_QUERY_LENGTH:
+            raise ValueError(
+                f"Search query too long (max {Config.SEARCH_MAX_QUERY_LENGTH} characters)"
+            )
+        return value
+
+    @field_validator("limit", mode="before")
+    @classmethod
+    def _page_size(cls, value: Any) -> Any:
+        return parse_int(value, 20, 1, Config.SEARCH_MAX_LIMIT)
+
+    @field_validator("offset", mode="before")
+    @classmethod
+    def _offset(cls, value: Any) -> Any:
+        return parse_int(value, 0, 0)

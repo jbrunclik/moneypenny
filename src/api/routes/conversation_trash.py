@@ -8,8 +8,6 @@ in conversations.py.
 from datetime import datetime, timedelta
 from typing import Any
 
-from flask import request
-
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
@@ -20,26 +18,16 @@ from src.api.schemas.conversations import (
     BulkTrashRequest,
     BulkTrashResponse,
     ConversationsListPaginatedResponse,
+    ConversationsPageQuery,
     EmptyTrashResponse,
 )
-from src.api.validation import validate_request
+from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Conversation, User, db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def _page_limit() -> int:
-    """Page size from the limit query parameter, clamped to the configured bounds."""
-    limit_param = request.args.get("limit")
-    if not limit_param:
-        return Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-    try:
-        return max(1, min(int(limit_param), Config.CONVERSATIONS_MAX_PAGE_SIZE))
-    except ValueError:
-        return Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
 
 
 def _trashed_item(c: Conversation, message_count: int, preview: str | None) -> dict[str, Any]:
@@ -65,10 +53,11 @@ def _trashed_item(c: Conversation, message_count: int, preview: str | None) -> d
 @api.doc(responses=[429])
 @rate_limit_conversations
 @require_auth
-def list_trashed_conversations(user: User) -> dict[str, Any]:
+@validate_query(ConversationsPageQuery)
+def list_trashed_conversations(user: User, query: ConversationsPageQuery) -> dict[str, Any]:
     """List conversations in the trash, most recently deleted first."""
     rows, next_cursor, has_more, total_count = db.list_trashed_conversations_paginated(
-        user.id, limit=_page_limit(), cursor=request.args.get("cursor")
+        user.id, limit=query.limit, cursor=query.cursor
     )
     return {
         "conversations": [_trashed_item(*row) for row in rows],

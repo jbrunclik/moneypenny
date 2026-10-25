@@ -6,8 +6,6 @@ single OpenAPI tag and the original endpoint names).
 
 from typing import Any
 
-from flask import request
-
 from src.agent.deep_research.plan import OfferConflictError, OfferNotFoundError, decline_offer
 from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
@@ -16,15 +14,14 @@ from src.api.schemas.chat import MessageResponse, ResearchOfferUpdate
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
     MessagesListResponse,
+    MessagesPageQuery,
     TruncateConversationRequest,
     TruncateConversationResponse,
 )
 from src.api.utils import normalize_generated_images, serialize_messages_for_response
-from src.api.validation import validate_request
+from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
-from src.config import Config
 from src.db.models import Message, MessagePagination, User, db
-from src.enums import PaginationDirection
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -189,7 +186,8 @@ def _messages_around(
 @api.doc(responses=[404, 429])
 @rate_limit_conversations
 @require_auth
-def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
+@validate_query(MessagesPageQuery)
+def get_messages(user: User, query: MessagesPageQuery, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get paginated messages for a conversation.
 
     This is a dedicated endpoint for fetching message pages, more efficient
@@ -204,27 +202,8 @@ def get_messages(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
 
     By default, returns the newest messages.
     """
-    # Parse pagination parameters
-    limit_param = request.args.get("limit")
-    cursor_param = request.args.get("cursor")
-    direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
-    around_message_id = request.args.get("around_message_id")
-
-    # Validate and clamp limit
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.MESSAGES_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-
-    # Validate direction
-    try:
-        direction = PaginationDirection(direction_param)
-    except ValueError:
-        direction = PaginationDirection.OLDER
+    limit, cursor_param, direction = query.limit, query.cursor, query.direction
+    around_message_id = query.around_message_id
 
     logger.debug(
         "Getting messages",

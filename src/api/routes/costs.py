@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
-from flask import request
 
 from src.agent.conversation_compaction import get_compaction_status
 from src.agent.history import enrich_history
@@ -15,10 +14,13 @@ from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.schemas.costs import (
     ConversationCompactionResponse,
     ConversationCostResponse,
+    CostHistoryQuery,
     CostHistoryResponse,
     MessageCostResponse,
+    MonthlyCostQuery,
     MonthlyCostResponse,
 )
+from src.api.validation import validate_query
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
@@ -212,12 +214,13 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
 @api.output(MonthlyCostResponse)
 @api.doc(responses=[400])
 @require_auth
-def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
+@validate_query(MonthlyCostQuery)
+def get_user_monthly_cost(user: User, query: MonthlyCostQuery) -> tuple[dict[str, Any], int]:
     """Get cost for the current user in a specific month."""
     # Get year and month from query params (default to current month)
     now = datetime.now()
-    year = request.args.get("year", type=int) or now.year
-    month = request.args.get("month", type=int) or now.month
+    year = query.year or now.year
+    month = query.month or now.month
 
     # Validate month range
     if not (1 <= month <= 12):
@@ -277,9 +280,10 @@ def get_user_monthly_cost(user: User) -> tuple[dict[str, Any], int]:
 @api.route("/users/me/costs/history", methods=["GET"])
 @api.output(CostHistoryResponse)
 @require_auth
-def get_user_cost_history(user: User) -> tuple[dict[str, Any], int]:
+@validate_query(CostHistoryQuery)
+def get_user_cost_history(user: User, query: CostHistoryQuery) -> tuple[dict[str, Any], int]:
     """Get monthly cost history for the current user."""
-    limit = request.args.get("limit", type=int) or Config.COST_HISTORY_DEFAULT_LIMIT
+    limit = query.limit or Config.COST_HISTORY_DEFAULT_LIMIT
     # Cap limit to prevent performance issues
     limit = min(limit, Config.COST_HISTORY_MAX_MONTHS)
     logger.debug("Getting user cost history", extra={"user_id": user.id, "limit": limit})

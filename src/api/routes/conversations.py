@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
-from flask import request
 
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.sync import cursor_sync, sync_summary
@@ -19,19 +18,21 @@ from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
     ConversationDetailPaginatedResponse,
+    ConversationDetailQuery,
     ConversationResponse,
     ConversationsListPaginatedResponse,
+    ConversationsPageQuery,
     CreateConversationRequest,
+    SyncQuery,
     SyncResponse,
     UpdateAnonymousModeRequest,
     UpdateConversationRequest,
 )
 from src.api.utils import serialize_messages_for_response
-from src.api.validation import validate_request
+from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
-from src.enums import PaginationDirection
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
@@ -44,7 +45,8 @@ api = APIBlueprint("conversations", __name__, url_prefix="/api", tag="Conversati
 @api.doc(responses=[429])
 @rate_limit_conversations
 @require_auth
-def list_conversations(user: User) -> dict[str, Any]:
+@validate_query(ConversationsPageQuery)
+def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, Any]:
     """List conversations for the current user with pagination.
 
     Query parameters:
@@ -53,19 +55,7 @@ def list_conversations(user: User) -> dict[str, Any]:
 
     Returns paginated conversations with message_count for proper sync initialization.
     """
-    # Parse pagination parameters
-    limit_param = request.args.get("limit")
-    cursor_param = request.args.get("cursor")
-
-    # Validate and clamp limit
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.CONVERSATIONS_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
+    limit, cursor_param = query.limit, query.cursor
 
     logger.debug(
         "Listing conversations",
@@ -151,7 +141,10 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
 @api.doc(responses=[404, 429])
 @rate_limit_conversations
 @require_auth
-def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
+@validate_query(ConversationDetailQuery)
+def get_conversation(
+    user: User, query: ConversationDetailQuery, conv_id: str
+) -> tuple[dict[str, Any], int]:
     """Get a conversation with its messages (paginated).
 
     Query parameters for message pagination:
@@ -165,26 +158,7 @@ def get_conversation(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     Thumbnails are fetched on-demand via /api/messages/<message_id>/files/<file_index>/thumbnail.
     Full files can be fetched via /api/messages/<message_id>/files/<file_index>.
     """
-    # Parse message pagination parameters
-    limit_param = request.args.get("message_limit")
-    cursor_param = request.args.get("message_cursor")
-    direction_param = request.args.get("direction", PaginationDirection.OLDER.value)
-
-    # Validate and clamp limit
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.MESSAGES_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.MESSAGES_DEFAULT_PAGE_SIZE
-
-    # Validate direction
-    try:
-        direction = PaginationDirection(direction_param)
-    except ValueError:
-        direction = PaginationDirection.OLDER
+    limit, cursor_param, direction = query.message_limit, query.message_cursor, query.direction
 
     logger.debug(
         "Getting conversation",
@@ -353,7 +327,8 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 @api.doc(responses=[429])
 @rate_limit_conversations
 @require_auth
-def sync_conversations(user: User) -> dict[str, Any]:
+@validate_query(SyncQuery)
+def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
     """Sync conversations - returns conversations updated since a given timestamp.
 
     Query parameters:
@@ -365,9 +340,7 @@ def sync_conversations(user: User) -> dict[str, Any]:
     - server_time: Current server timestamp to use for next sync
     - is_full_sync: Whether this was a full sync (all conversations returned)
     """
-    since_param = request.args.get("since")
-    cursor_param = request.args.get("cursor")
-    full_param = request.args.get("full", "false").lower() == "true"
+    since_param, cursor_param, full_param = query.since, query.cursor, query.full
 
     logger.debug(
         "Sync conversations request",

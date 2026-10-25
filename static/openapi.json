@@ -247,7 +247,41 @@
     },
     "/api/search": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Search text",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Results per page (clamped to 1..SEARCH_MAX_LIMIT)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Results to skip",
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -258,6 +292,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "400": {
             "content": {
@@ -482,7 +526,19 @@
     },
     "/api/planner": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "force_refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Bypass the dashboard cache",
+              "title": "Force Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -493,6 +549,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "401": {
             "content": {
@@ -807,7 +873,37 @@
     },
     "/api/conversations": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Conversations per page (clamped to 1..CONVERSATIONS_MAX_PAGE_SIZE)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -818,6 +914,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "429": {
             "content": {
@@ -1993,7 +2099,55 @@
     },
     "/api/conversations/sync": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "ISO timestamp (legacy timestamp sync)",
+              "title": "Since"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Change-log cursor from the last sync",
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return every conversation",
+              "title": "Full",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2004,6 +2158,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "429": {
             "content": {
@@ -2196,7 +2360,37 @@
     },
     "/api/conversations/trash": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Conversations per page (clamped to 1..CONVERSATIONS_MAX_PAGE_SIZE)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2207,6 +2401,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "429": {
             "content": {
@@ -2712,7 +2916,37 @@
     },
     "/api/conversations/archived": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Conversations per page (clamped to 1..CONVERSATIONS_MAX_PAGE_SIZE)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2723,6 +2957,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "429": {
             "content": {
@@ -2743,7 +2987,45 @@
     },
     "/api/users/me/costs/monthly": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9998,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Year"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "1-12",
+              "title": "Month"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2754,6 +3036,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "400": {
             "content": {
@@ -2774,7 +3066,27 @@
     },
     "/api/users/me/costs/history": {
       "get": {
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Months (capped)",
+              "title": "Limit"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -2785,6 +3097,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           }
         },
         "tags": [
@@ -2863,6 +3185,44 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "name": "message_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Messages per page (clamped to 1..MESSAGES_MAX_PAGE_SIZE)",
+              "title": "Message Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "message_cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Cursor of an adjacent page",
+              "title": "Message Cursor"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ConversationDetailQuery.PaginationDirection",
+              "default": "older"
+            }
           }
         ],
         "responses": {
@@ -2875,6 +3235,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "404": {
             "content": {
@@ -4702,6 +5072,62 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Messages per page (clamped to 1..MESSAGES_MAX_PAGE_SIZE)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "around_message_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Load the page around this message (search navigation); cursor and direction are then ignored",
+              "title": "Around Message Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Cursor of an adjacent page",
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/MessagesPageQuery.PaginationDirection",
+              "default": "older"
+            }
           }
         ],
         "responses": {
@@ -4714,6 +5140,16 @@
               }
             },
             "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
           },
           "404": {
             "content": {
@@ -5853,9 +6289,30 @@
               "type": "string"
             },
             "required": true
+          },
+          {
+            "name": "after_seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "seq of the last SSE event rendered (0: none)",
+              "title": "After Seq",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -6220,6 +6677,30 @@
           "query"
         ],
         "title": "SearchResultsResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "detail": {
+            "type": "object",
+            "properties": {
+              "<location>": {
+                "type": "object",
+                "properties": {
+                  "<field_name>": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "AgentsListResponse.AgentResponse": {
@@ -6697,30 +7178,6 @@
           "last_execution_status"
         ],
         "title": "AgentResponse",
-        "type": "object"
-      },
-      "ValidationError": {
-        "properties": {
-          "detail": {
-            "type": "object",
-            "properties": {
-              "<location>": {
-                "type": "object",
-                "properties": {
-                  "<field_name>": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "message": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "CreateAgentRequest": {
@@ -12341,6 +12798,15 @@
         "title": "SportsResetResponse",
         "type": "object"
       },
+      "ConversationDetailQuery.PaginationDirection": {
+        "description": "Direction for cursor-based pagination.\n\nUsed when fetching paginated results relative to a cursor position.",
+        "enum": [
+          "older",
+          "newer"
+        ],
+        "title": "PaginationDirection",
+        "type": "string"
+      },
       "ConversationDetailPaginatedResponse.ArtifactRef": {
         "description": "One artifact version shown under a message.",
         "properties": {
@@ -13815,6 +14281,15 @@
         ],
         "title": "TruncateConversationRequest",
         "type": "object"
+      },
+      "MessagesPageQuery.PaginationDirection": {
+        "description": "Direction for cursor-based pagination.\n\nUsed when fetching paginated results relative to a cursor position.",
+        "enum": [
+          "older",
+          "newer"
+        ],
+        "title": "PaginationDirection",
+        "type": "string"
       },
       "MessagesListResponse.ArtifactRef": {
         "description": "One artifact version shown under a message.",

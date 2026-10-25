@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from typing import Any
 
-from src.api.schemas.base import ResponseModel
+from pydantic import Field, field_validator
+
+from src.api.schemas.base import QueryModel, ResponseModel, parse_int
 
 
 class ConversationCostResponse(ResponseModel):
@@ -90,3 +92,26 @@ class CostHistoryResponse(ResponseModel):
 
     user_id: str
     history: list[MonthCostEntry]
+
+
+class MonthlyCostQuery(QueryModel):
+    """Query for GET /api/users/me/costs/monthly; a missing or 0 value means this year/month."""
+
+    year: int | None = Field(default=None, ge=0, le=9998)
+    month: int | None = Field(default=None, description="1-12")
+
+    @field_validator("year", "month", mode="before")
+    @classmethod
+    def _parse(cls, value: Any) -> Any:
+        return parse_int(value, None)
+
+
+class CostHistoryQuery(QueryModel):
+    """Query for GET /api/users/me/costs/history; a missing or 0 limit means the default."""
+
+    limit: int | None = Field(default=None, ge=0, description="Months (capped)")
+
+    @field_validator("limit", mode="before")
+    @classmethod
+    def _limit(cls, value: Any) -> Any:
+        return parse_int(value, None)

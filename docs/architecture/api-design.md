@@ -182,6 +182,20 @@ def handler(user: User, data: MySchema):
 
 This means auth errors return before validation is attempted (correct behavior - don't validate requests from unauthenticated users). The `user` argument comes first (from `@require_auth`), followed by `data` (from `@validate_request`).
 
+### Query Strings
+
+Query parameters go through `@validate_query(Schema)` (same module), never `request.args` (rule B4; `tests/unit/test_route_input.py` checks it). The schema inherits `QueryModel` (`src/api/schemas/base.py`) and lives in the feature's schemas module; the validated model is injected as `query` after `user` (and `data`) and before URL parameters, a bad value is the standard 400 `VALIDATION_ERROR` naming the field, and the parameters appear in the OpenAPI spec (as APIFlask's `@api.input(location="query")` would document them), so the generated types carry them.
+
+```python
+@api.route("/conversations/<conv_id>/messages", methods=["GET"])
+@require_auth
+@validate_query(MessagesPageQuery)
+def get_messages(user: User, query: MessagesPageQuery, conv_id: str) -> ...:
+    query.limit, query.cursor, query.direction
+```
+
+Every value arrives as a string. The `parse_int` / `parse_flag` helpers in `base.py` keep the routes' reading of them: a blank or unparsable number falls back to its default and is then clamped (page sizes), and a flag is true only for `"true"` (any case). Use a plain typed field (or `Field(ge=...)`) where a bad value should be a 400 instead.
+
 ### Two-Phase File Validation
 
 File uploads use two-phase validation:

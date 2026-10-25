@@ -6,14 +6,11 @@ single OpenAPI tag and the original endpoint names).
 
 from typing import Any
 
-from flask import request
-
-from src.api.errors import raise_validation_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
-from src.api.schemas.conversations import SearchResultsResponse
+from src.api.schemas.conversations import SearchQuery, SearchResultsResponse
+from src.api.validation import validate_query
 from src.auth.jwt_auth import require_auth
-from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
 
@@ -25,7 +22,8 @@ logger = get_logger(__name__)
 @api.doc(responses=[400, 429])
 @rate_limit_conversations
 @require_auth
-def search_conversations(user: User) -> dict[str, Any]:
+@validate_query(SearchQuery)
+def search_conversations(user: User, search: SearchQuery) -> dict[str, Any]:
     """Search across all conversations and messages.
 
     Uses full-text search with BM25 ranking. Searches both conversation
@@ -41,28 +39,7 @@ def search_conversations(user: User) -> dict[str, Any]:
     - total: Total number of matching results
     - query: The search query that was executed
     """
-    query = request.args.get("q", "").strip()
-
-    # Validate query
-    if not query:
-        raise_validation_error("Search query is required", field="q")
-    if len(query) > Config.SEARCH_MAX_QUERY_LENGTH:
-        raise_validation_error(
-            f"Search query too long (max {Config.SEARCH_MAX_QUERY_LENGTH} characters)",
-            field="q",
-        )
-
-    # Parse pagination parameters
-    try:
-        limit = min(int(request.args.get("limit", 20)), Config.SEARCH_MAX_LIMIT)
-        limit = max(1, limit)
-    except ValueError:
-        limit = 20
-
-    try:
-        offset = max(0, int(request.args.get("offset", 0)))
-    except ValueError:
-        offset = 0
+    query, limit, offset = search.q, search.limit, search.offset
 
     logger.debug(
         "Search request",

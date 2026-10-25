@@ -65,7 +65,7 @@ session and points here for the rest.
 | B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api` | import-linter (`pyproject.toml`; no baseline) |
 | B2 | No importing another module's `_private` names - make it public or move it | planned: test |
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
-| B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | planned: test |
+| B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | `tests/unit/test_route_input.py` |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined); `tests/unit/test_tool_errors.py` (no `"Error: ..."` tool results) |
 | B6 | Typing follows [Typing](#typing) | mypy strict; planned: `Any` ratchet |
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |

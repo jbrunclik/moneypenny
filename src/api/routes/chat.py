@@ -9,7 +9,7 @@ import uuid
 from typing import NoReturn
 
 from apiflask import APIBlueprint
-from flask import Response, request
+from flask import Response
 
 from src.agent.cancellation import request_finish_now, request_stop
 from src.agent.interjection import clear_interjection, pop_interjection
@@ -33,10 +33,16 @@ from src.api.helpers.turn_steering import (
     wait_for_reply,
 )
 from src.api.rate_limiting import rate_limit_chat
-from src.api.schemas.chat import ChatBatchResponse, ChatRequest, InterjectRequest, StopChatRequest
+from src.api.schemas.chat import (
+    ChatBatchResponse,
+    ChatRequest,
+    InterjectRequest,
+    ResumeStreamQuery,
+    StopChatRequest,
+)
 from src.api.schemas.common import StatusResponse
 from src.api.utils import build_chat_response, is_round_capped
-from src.api.validation import validate_request
+from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -385,7 +391,10 @@ when the turn failed and nothing was saved.
 )
 @rate_limit_chat
 @require_auth
-def chat_stream_resume(user: User, conv_id: str, message_id: str) -> Response:
+@validate_query(ResumeStreamQuery)
+def chat_stream_resume(
+    user: User, query: ResumeStreamQuery, conv_id: str, message_id: str
+) -> Response:
     """Resume streaming for an in-flight or recently finished assistant message."""
 
     conv = db.get_conversation(conv_id, user.id)
@@ -396,7 +405,7 @@ def chat_stream_resume(user: User, conv_id: str, message_id: str) -> Response:
     if not msg or msg.conversation_id != conv_id:
         raise_not_found_error("Message")
 
-    after_seq = request.args.get("after_seq", default=0, type=int)
+    after_seq = query.after_seq
     logger.info(
         "Resuming chat stream",
         extra={

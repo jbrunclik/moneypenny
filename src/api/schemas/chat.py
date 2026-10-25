@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, parse_int
 from src.api.schemas.files import (
     FileAttachment,
     FileMetadataResponse,
@@ -278,3 +278,14 @@ class ChatBatchResponse(ResponseModel):
         default=None,
         description="The conversation's message count after this turn (sync baseline)",
     )
+
+
+class ResumeStreamQuery(QueryModel):
+    """Query for GET .../chat/stream/<message_id>/resume."""
+
+    after_seq: int = Field(default=0, description="seq of the last SSE event rendered (0: none)")
+
+    @field_validator("after_seq", mode="before")
+    @classmethod
+    def _after_seq(cls, value: Any) -> Any:
+        return parse_int(value, 0)

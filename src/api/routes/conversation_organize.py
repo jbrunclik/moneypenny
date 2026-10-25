@@ -6,16 +6,17 @@ single OpenAPI tag and the original endpoint names).
 
 from typing import Any
 
-from flask import request
-
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.common import StatusResponse
-from src.api.schemas.conversations import ConversationsListPaginatedResponse, MarkReadRequest
-from src.api.validation import validate_request
+from src.api.schemas.conversations import (
+    ConversationsListPaginatedResponse,
+    ConversationsPageQuery,
+    MarkReadRequest,
+)
+from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
-from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
 
@@ -27,22 +28,11 @@ logger = get_logger(__name__)
 @api.doc(responses=[429])
 @rate_limit_conversations
 @require_auth
-def list_archived_conversations(user: User) -> dict[str, Any]:
+@validate_query(ConversationsPageQuery)
+def list_archived_conversations(user: User, query: ConversationsPageQuery) -> dict[str, Any]:
     """List archived conversations with pagination."""
-    limit_param = request.args.get("limit")
-    cursor_param = request.args.get("cursor")
-
-    if limit_param:
-        try:
-            limit = int(limit_param)
-            limit = max(1, min(limit, Config.CONVERSATIONS_MAX_PAGE_SIZE))
-        except ValueError:
-            limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-    else:
-        limit = Config.CONVERSATIONS_DEFAULT_PAGE_SIZE
-
     conv_with_counts, next_cursor, has_more, total_count = db.list_archived_conversations_paginated(
-        user.id, limit=limit, cursor=cursor_param
+        user.id, limit=query.limit, cursor=query.cursor
     )
 
     return {
