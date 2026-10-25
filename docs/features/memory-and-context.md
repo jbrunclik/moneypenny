@@ -272,7 +272,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [api/settings.ts](../../web/src/api/settings.ts) - `settings.get()`, `settings.update()` API methods
 - [api.ts](../../web/src/types/api.ts) - `UserSettings` type
 - [icons.ts](../../web/src/utils/icons.ts) - `SETTINGS_ICON`
-- [popups.css](../../web/src/styles/components/popups.css) - Styles
+- [settings.css](../../web/src/styles/components/settings.css) - Styles
 
 ### Testing
 

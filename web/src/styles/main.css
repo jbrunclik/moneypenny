@@ -13,7 +13,7 @@
       - messages.css  - Message display, avatars, content
       - sidebar.css   - Conversation list, swipe actions
       - input.css     - Input toolbar, model selector, file preview
-      - popups.css    - Modals, toasts, lightbox, info popups
+      - lightbox.css ... mobile-sheets.css - Popups, modals, toasts, settings, sheets
 */
 
 /* Design system variables */
@@ -36,7 +36,19 @@
 @import "./components/artifacts.css";
 @import "./components/sidebar.css";
 @import "./components/input.css";
-@import "./components/popups.css";
+@import "./components/lightbox.css";
+@import "./components/info-popup.css";
+@import "./components/sources-popup.css";
+@import "./components/image-gen-popup.css";
+@import "./components/cost-popups.css";
+@import "./components/compaction-popup.css";
+@import "./components/toasts.css";
+@import "./components/modal.css";
+@import "./components/version-banner.css";
+@import "./components/settings.css";
+@import "./components/login.css";
+@import "./components/action-sheet.css";
+@import "./components/mobile-sheets.css";
 @import "./components/thinking.css";
 @import "./components/planner.css";
 @import "./components/agents.css";

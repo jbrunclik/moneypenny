@@ -1,0 +1,125 @@
+/* ----------------------------------------
+   Info Popup (Generic)
+   ---------------------------------------- */
+
+.info-popup {
+    position: fixed;
+    inset: 0;
+    background-color: var(--overlay-bg);
+    z-index: var(--z-popup);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    /* Dim only (iOS alerts/sheets): the DIALOG is the glass. A blurred scrim
+       became the dialog's backdrop root, so its own glass saw only grey. */
+}
+
+.info-popup.hidden {
+    display: none;
+}
+
+@keyframes popup-in {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+}
+
+.info-popup:not(.hidden) .info-popup-content {
+    animation: popup-in var(--duration-fast) var(--ease-out);
+}
+
+.info-popup-content {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    max-width: var(--dialog-width-md);
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+}
+
+.info-popup-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--border);
+    /* No fill of its own: the header sits on the dialog glass like every
+       other dialog header */
+}
+
+.info-popup-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+}
+
+.info-popup-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.info-popup-header h3 {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.info-popup-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.info-popup-close:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
+}
+
+.info-popup-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+.info-popup-body {
+    padding: var(--space-2);
+    overflow-y: auto;
+}
+
+/* Mobile adjustments for info popup */
+@media (max-width: 768px) {
+    /* Bottom-sheet shape: see "Mobile sheets (shared)" at the end of this file */
+
+    /* Keyboard open (iOS): the fixed bottom-sheet otherwise sits BEHIND the
+       keyboard, trapping a focused field (e.g. Custom Instructions) so it can't
+       be seen or edited. Lift the sheet above the keyboard (--keyboard-inset,
+       set by core/keyboard-viewport.ts) and let it grow to fill the space
+       above it, so its scrollable body can reach the focused field. The
+       home-indicator inset is dead space under the keyboard - drop it. */
+    :root.kb-open .info-popup {
+        padding-bottom: calc(var(--space-2) + var(--keyboard-inset, 0px));
+    }
+
+    :root.kb-open .info-popup-content {
+        max-height: calc(var(--app-vh, 100vh) - var(--keyboard-inset, 0px) - var(--space-6));
+        margin-bottom: 0;
+    }
+}

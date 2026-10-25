@@ -130,7 +130,7 @@ TODOIST_API_TIMEOUT=10  # API request timeout in seconds
 - [settings/todoist.ts](../../web/src/components/settings/todoist.ts), [settings/oauth.ts](../../web/src/components/settings/oauth.ts) - UI and OAuth callback handling
 - [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
-- [popups.css](../../web/src/styles/components/popups.css) - Styles
+- [settings.css](../../web/src/styles/components/settings.css) - Styles
 
 ## Testing
 

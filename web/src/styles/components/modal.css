@@ -1,0 +1,209 @@
+/* ----------------------------------------
+   Modal Dialog
+   ---------------------------------------- */
+
+.modal-container {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--overlay-bg);
+    padding: var(--space-4);
+    /* Dim only (iOS alerts/sheets): the DIALOG is the glass. A blurred scrim
+       became the dialog's backdrop root, so its own glass saw only grey. */
+    animation: modal-overlay-enter 0.15s ease-out;
+}
+
+.modal-container.modal-hidden {
+    display: none;
+}
+
+.modal-container.modal-overlay-exit {
+    animation: modal-overlay-exit 0.15s ease-in forwards;
+}
+
+@keyframes modal-overlay-enter {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modal-overlay-exit {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.modal {
+    position: relative;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-6);
+    max-width: var(--dialog-width-sm);
+    width: 100%;
+    animation: modal-enter 0.15s ease-out;
+}
+
+.modal.modal-exit {
+    animation: modal-exit 0.15s ease-in forwards;
+}
+
+@keyframes modal-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes modal-exit {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+.modal-close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    width: 28px;
+    height: 28px;
+    padding: var(--space-1-5);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-xs);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
+}
+
+.modal-close:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.modal-close svg {
+    width: 100%;
+    height: 100%;
+}
+
+.modal-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+    padding-right: var(--space-8);
+}
+
+.modal-message {
+    font-size: var(--font-size-md);
+    color: var(--text-secondary);
+    line-height: var(--line-height);
+    margin-bottom: var(--space-5);
+}
+
+.modal-input {
+    width: 100%;
+    padding: 10px var(--space-3);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+    margin-bottom: var(--space-5);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.modal-input:focus {
+    border-color: var(--accent);
+}
+
+.modal-input::placeholder {
+    color: var(--text-muted);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+}
+
+.modal-cancel {
+    padding: 10px var(--space-5);
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.modal-cancel:hover {
+    background-color: var(--bg-hover);
+}
+
+.modal-confirm {
+    padding: 10px var(--space-5);
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-md);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.modal-confirm:hover {
+    background-color: var(--accent-hover);
+}
+
+.modal-confirm.modal-danger {
+    background-color: var(--error);
+}
+
+.modal-confirm.modal-danger:hover {
+    background-color: var(--error-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal-overlay {
+        animation: none;
+    }
+
+    .modal-overlay.exit {
+        animation: none;
+        opacity: 0;
+    }
+
+    .modal-dialog {
+        animation: none;
+    }
+
+    .modal-dialog.exit {
+        animation: none;
+    }
+}

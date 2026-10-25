@@ -1,0 +1,132 @@
+/* ----------------------------------------
+   Version Update Banner
+   ---------------------------------------- */
+
+.version-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--color-brand-800);
+    color: white;
+    padding: var(--space-3) var(--space-4);
+    padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    z-index: var(--z-banner);
+    /* Parked above the viewport while hidden: no shadow (it bled a dark band
+       onto every screen) and visibility:hidden keeps its buttons out of the
+       tab order. visibility flips at the END of the slide-out. */
+    transform: translateY(-100%);
+    visibility: hidden;
+    transition:
+        transform var(--transition-slow),
+        visibility 0s linear 0.3s;
+}
+
+.version-banner.visible {
+    transform: translateY(0);
+    visibility: visible;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition:
+        transform var(--transition-slow),
+        visibility 0s;
+}
+
+.version-banner-message {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.version-banner-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.version-banner-reload {
+    background-color: white;
+    color: var(--color-brand-950);
+    border: none;
+    padding: var(--space-1-5) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-ui);
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    transition:
+        background-color var(--transition-fast),
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.version-banner-reload:hover {
+    background-color: rgba(255, 255, 255, 0.85);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.version-banner-reload:active {
+    transform: translateY(0);
+    box-shadow: none;
+    background-color: rgba(255, 255, 255, 0.75);
+}
+
+.version-banner-dismiss {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: var(--space-1-5) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-ui);
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1-5);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.version-banner-dismiss:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.8);
+    transform: translateY(-1px);
+}
+
+.version-banner-dismiss:active {
+    transform: translateY(0);
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.version-banner-reload svg,
+.version-banner-dismiss svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Mobile adjustments for version banner */
+@media (max-width: 768px) {
+    .version-banner {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        text-align: center;
+    }
+
+    .version-banner-message {
+        width: 100%;
+    }
+}
+
+.info-popup-footer {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border);
+    background-color: var(--bg-tertiary);
+    display: flex;
+    justify-content: center;
+}

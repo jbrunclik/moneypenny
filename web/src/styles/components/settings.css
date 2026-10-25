@@ -1,0 +1,836 @@
+/* ----------------------------------------
+   Settings Popup
+   ---------------------------------------- */
+
+.settings-loading {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.settings-error {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.settings-error p {
+    margin: var(--space-2) 0;
+}
+
+.settings-retry-btn {
+    margin-top: var(--space-4);
+}
+
+.settings-body {
+    padding: var(--space-4);
+}
+
+/* Settings popup is wider than generic info popups */
+#settings-popup .info-popup-content {
+    max-width: 640px;
+}
+
+/* Tabbed sections (desktop) */
+.settings-tabs {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--space-2);
+}
+
+.settings-tab {
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: var(--space-1-5) var(--space-2-5);
+    font-size: var(--font-size-ui);
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
+}
+
+.settings-tab:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.settings-tab.active {
+    background-color: var(--accent-muted);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: block;
+}
+
+/* Section titles only appear in the stacked mobile layout */
+.settings-section-title {
+    display: none;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: var(--space-4) 0 var(--space-2);
+}
+
+@media (max-width: 768px) {
+    .settings-tabs {
+        display: none;
+    }
+
+    .settings-section {
+        display: block;
+    }
+
+    .settings-section-title {
+        display: block;
+    }
+}
+
+/* Transient per-field save confirmation */
+.settings-saved-indicator {
+    align-self: flex-end;
+    font-size: var(--font-size-sm);
+    color: var(--success);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.settings-saved-indicator.visible {
+    opacity: 1;
+}
+
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.settings-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+}
+
+.settings-label-with-icon {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.settings-label-icon {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.settings-label-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-helper {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.settings-push-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.settings-language-select {
+    width: auto;
+    min-width: 220px;
+    font-family: inherit;
+}
+
+.settings-briefing-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-5);
+    margin-top: var(--space-3);
+}
+
+.settings-briefing-time-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    /* The label wraps as a unit (flex-wrap above), never mid-text */
+    white-space: nowrap;
+}
+
+.settings-briefing-time {
+    width: auto;
+    font-family: inherit;
+}
+
+.settings-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-ui);
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color var(--transition-fast);
+}
+
+.settings-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.settings-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.settings-input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: var(--font-size-ui);
+    transition: border-color var(--transition-fast);
+}
+
+.settings-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.settings-input::placeholder {
+    color: var(--text-muted);
+}
+
+.settings-helper-muted {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-top: var(--space-1);
+}
+
+.settings-char-count {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.settings-char-count.warning {
+    color: var(--warning);
+}
+
+.settings-char-count.error {
+    color: var(--error);
+}
+
+/* Settings divider between sections */
+.settings-divider {
+    height: 1px;
+    background-color: var(--border);
+    margin: var(--space-4) 0;
+}
+
+/* Color scheme selector */
+.settings-color-scheme {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-color-scheme-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-color-scheme-option:hover {
+    border-color: var(--text-muted);
+}
+
+.settings-color-scheme-option.selected {
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.settings-color-scheme-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+
+.settings-color-scheme-option.selected .settings-color-scheme-icon {
+    color: var(--accent);
+}
+
+.settings-color-scheme-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-color-scheme-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.settings-color-scheme-option.selected .settings-color-scheme-label {
+    color: var(--text-primary);
+}
+
+/* Mobile: stack color scheme options */
+@media (max-width: 480px) {
+    .settings-color-scheme {
+        flex-direction: column;
+    }
+
+    .settings-color-scheme-option {
+        flex-direction: row;
+        justify-content: flex-start;
+        padding: var(--space-2) var(--space-3);
+    }
+}
+
+/* Todoist integration section */
+.settings-todoist-loading {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.settings-todoist-connected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.settings-todoist-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-todoist-icon.connected {
+    color: var(--success);
+}
+
+.settings-todoist-icon.warning {
+    color: var(--warning);
+}
+
+.settings-todoist-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-todoist-disconnected {
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-disconnected .settings-helper {
+    margin-bottom: var(--space-3);
+}
+
+.settings-todoist-needs-reconnect {
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-sm);
+}
+
+.settings-todoist-needs-reconnect .settings-todoist-status {
+    color: var(--warning);
+    margin-bottom: var(--space-1);
+}
+
+.settings-todoist-needs-reconnect .settings-helper {
+    margin-bottom: var(--space-3);
+}
+
+.settings-todoist-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-todoist-connect,
+.settings-todoist-disconnect {
+    white-space: nowrap;
+}
+
+/* Mobile: stack Todoist connected state */
+@media (max-width: 480px) {
+    .settings-todoist-connected {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .settings-todoist-disconnect {
+        width: 100%;
+    }
+
+    .settings-todoist-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-todoist-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Google Calendar integration section */
+.settings-calendar-loading {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.settings-calendar-error {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--color-warning-900);
+    border: 1px solid var(--color-warning-500);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-error .warning {
+    flex-shrink: 0;
+    color: var(--warning);
+}
+
+.settings-error-message {
+    margin: 0 0 var(--space-2) 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.settings-calendar-connected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-disconnected,
+.settings-calendar-needs-reconnect {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-calendar-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.settings-calendar-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-calendar-icon.connected {
+    color: var(--success);
+}
+
+.settings-calendar-icon.warning {
+    color: var(--warning);
+}
+
+.settings-calendar-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-calendar-needs-reconnect {
+    border-color: var(--warning);
+}
+
+.settings-calendar-needs-reconnect .settings-helper {
+    margin-bottom: 0;
+}
+
+.settings-calendar-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-calendar-connect,
+.settings-calendar-disconnect {
+    white-space: nowrap;
+}
+
+/* Calendar selection UI */
+.settings-calendar-connected-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.settings-calendar-selection {
+    padding: var(--space-4);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.settings-calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: var(--space-1);
+}
+
+.settings-calendar-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.settings-calendar-item:hover:not(.disabled) {
+    border-color: var(--accent);
+    background-color: var(--bg-hover);
+}
+
+.settings-calendar-item:has(.settings-calendar-checkbox:checked) {
+    border-color: var(--accent);
+    background-color: var(--accent-muted);
+}
+
+.settings-calendar-item.disabled {
+    cursor: default;
+    opacity: 0.9;
+}
+
+.settings-calendar-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.settings-calendar-item.disabled .settings-calendar-checkbox {
+    cursor: default;
+}
+
+.settings-calendar-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0; /* Allow text truncation */
+}
+
+.calendar-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+}
+
+.calendar-star-icon {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--warning);
+}
+
+.calendar-star-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-calendar-name {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    user-select: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-calendar-badge {
+    font-size: var(--font-size-xs);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-transform: capitalize;
+    flex-shrink: 0;
+}
+
+.settings-calendar-save-btn {
+    width: 100%;
+    margin-top: var(--space-3);
+}
+
+.settings-empty-state {
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Spinner for loading state */
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mobile: stack Calendar connected state */
+@media (max-width: 480px) {
+    .settings-calendar-connected {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .settings-calendar-disconnect {
+        width: 100%;
+    }
+
+    .settings-calendar-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-calendar-actions .btn {
+        width: 100%;
+    }
+
+    .settings-calendar-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .settings-calendar-list {
+        max-height: 300px;
+    }
+
+    .settings-calendar-badge {
+        display: none; /* Hide access role on mobile to save space */
+    }
+}
+
+/* Garmin Connect integration section */
+.settings-garmin-loading,
+.settings-rouvy-loading {
+    padding: var(--space-3);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    text-align: center;
+}
+
+.settings-garmin-disconnected,
+.settings-garmin-needs-reconnect,
+.settings-garmin-mfa,
+.settings-rouvy-disconnected,
+.settings-rouvy-needs-reconnect {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-garmin-needs-reconnect,
+.settings-rouvy-needs-reconnect {
+    border-color: var(--warning);
+}
+
+.settings-garmin-login-form,
+.settings-rouvy-login-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.settings-garmin-connected,
+.settings-rouvy-connected {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.settings-garmin-status,
+.settings-rouvy-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.settings-garmin-icon,
+.settings-rouvy-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-garmin-icon.connected,
+.settings-rouvy-icon.connected {
+    color: var(--success);
+}
+
+.settings-garmin-icon.warning,
+.settings-rouvy-icon.warning {
+    color: var(--warning);
+}
+
+.settings-garmin-icon svg,
+.settings-rouvy-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.settings-garmin-actions,
+.settings-rouvy-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.settings-garmin-connect,
+.settings-garmin-disconnect,
+.settings-rouvy-connect,
+.settings-rouvy-disconnect {
+    white-space: nowrap;
+}
+
+/* Mobile: stack Garmin/Rouvy connected state */
+@media (max-width: 480px) {
+    .settings-garmin-connected,
+    .settings-rouvy-connected {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .settings-garmin-disconnect,
+    .settings-rouvy-disconnect {
+        width: 100%;
+    }
+
+    .settings-garmin-actions,
+    .settings-rouvy-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .settings-garmin-actions .btn,
+    .settings-rouvy-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Spacing for toggles that follow another control in the same field */
+.settings-toggle-spaced {
+    margin-top: var(--space-3);
+}

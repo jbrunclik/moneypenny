@@ -165,7 +165,7 @@
 }
 
 .claims-sheet--sheet .claims-sheet__panel {
-    /* The shared mobile sheet shape (popups.css "Mobile sheets"): floating,
+    /* The shared mobile sheet shape (mobile-sheets.css): floating,
        inset from the edges and the home indicator, all corners rounded */
     position: fixed;
     left: var(--space-2);

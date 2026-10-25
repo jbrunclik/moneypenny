@@ -14,7 +14,10 @@ web/src/styles/
 ├── layout.css         # App shell structure, responsive breakpoints
 └── components/        # One file per major component or feature area
     ├── chat-header.css    buttons.css    messages.css   sidebar.css
-    ├── input.css          popups.css     thinking.css   planner.css
+    ├── input.css          thinking.css   planner.css
+    ├── lightbox.css  info-popup.css  sources-popup.css  image-gen-popup.css  cost-popups.css
+    ├── compaction-popup.css  toasts.css  modal.css  version-banner.css  settings.css
+    ├── login.css  action-sheet.css  mobile-sheets.css   # one per overlay (was popups.css)
     ├── agents.css         kv-store.css   sports.css     language.css
     ├── quick-actions.css  quiz.css       pdf-viewer.css   grounding.css  research.css
     ├── dialog.css         # Shared dialog title + close (after the component files)
@@ -28,8 +31,8 @@ popovers, modals) with translucent materials and must win the cascade.
 ## Style Encapsulation
 
 - Component-specific styles use prefixed class names (`.message-*`, `.sidebar-*`,
-  `.planner-*`). Generic names collide across files: `popups.css` and `kv-store.css`
-  once both styled `.memory-*`, so one page silently restyled the other.
+  `.planner-*`). Generic names collide across files: the former `popups.css` and
+  `kv-store.css` once both styled `.memory-*`, so one page silently restyled the other.
 - Shared utilities use unprefixed names (`.hidden`, `.error`).
 - Every file reads the same tokens from `variables.css`; never hard-code a color that
   has a token.
@@ -105,8 +108,8 @@ setting its own `rgba(0,0,0,...)` scrim or solid surface.
 the confirm modal's floating close is centred on the title's first line. A new dialog
 uses both classes instead of styling its own title and close.
 
-**On mobile every overlay is one bottom sheet** ("Mobile sheets (shared)" at the end of
-`popups.css`; the claims list matches it in `grounding.css`): a floating card inset
+**On mobile every overlay is one bottom sheet** (`mobile-sheets.css`, imported after the
+other overlays; the claims list matches it in `grounding.css`): a floating card inset
 `--space-2` from the edges and the home indicator, all corners `--radius-lg`, capped at
 85vh, with a grab handle. Confirms and prompts become sheets too, with full-width stacked
 buttons (primary on top). The handle is real: `attachSheetDismiss()` in

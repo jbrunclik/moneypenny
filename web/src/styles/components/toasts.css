@@ -1,0 +1,190 @@
+/* ----------------------------------------
+   Toast Notifications
+   ---------------------------------------- */
+
+.toast-container {
+    position: fixed;
+    top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    pointer-events: none;
+    max-width: calc(100vw - 32px);
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    pointer-events: auto;
+    animation: toast-enter var(--duration-base) var(--ease-out);
+    max-width: 400px;
+}
+
+.toast-exit {
+    animation: toast-exit var(--duration-fast) var(--ease-in-out) forwards;
+}
+
+/* Collapsed "+N more" indicator when the stack exceeds the visible cap */
+.toast-overflow {
+    justify-content: center;
+    padding: var(--space-1) var(--space-4);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    box-shadow: none;
+}
+
+@keyframes toast-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toast-exit {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toast-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.toast-success .toast-icon {
+    color: var(--success);
+}
+
+.toast-error .toast-icon {
+    color: var(--error);
+}
+
+.toast-warning .toast-icon {
+    color: var(--warning);
+}
+
+.toast-info .toast-icon {
+    color: var(--accent);
+}
+
+.toast-message {
+    flex: 1;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.toast-action {
+    flex-shrink: 0;
+    padding: var(--space-1-5) var(--space-3);
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-ui);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.toast-action:hover {
+    background-color: var(--accent-hover);
+}
+
+.toast-dismiss {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    padding: var(--space-1);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-xs);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
+}
+
+.toast-dismiss:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.toast-dismiss svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Mobile toast - stack action button below message */
+@media (max-width: 480px) {
+    .toast-container {
+        left: var(--space-4);
+        right: var(--space-4);
+        transform: none;
+    }
+
+    .toast {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        position: relative;
+    }
+
+    /* Only the text clears the absolutely-positioned close button: padding
+       the whole toast also cut the full-width action row short on the right
+       (36px there vs 16px on the left) */
+    .toast-message {
+        flex: 1;
+        min-width: 0;
+        padding-right: var(--space-6);
+    }
+
+    .toast-action {
+        flex-basis: 100%;
+        order: 10;
+    }
+
+    .toast-dismiss {
+        position: absolute;
+        top: var(--space-2);
+        right: var(--space-2);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        animation: none;
+    }
+
+    .toast-exit {
+        animation: none;
+        opacity: 0;
+    }
+}

@@ -124,7 +124,7 @@ No client ID or secret is required — the user authenticates with their own Gar
 - [settings/garmin.ts](../../web/src/components/settings/garmin.ts) - Connection UI (email/password form, MFA step)
 - [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
-- [popups.css](../../web/src/styles/components/popups.css) - Styles
+- [settings.css](../../web/src/styles/components/settings.css) - Styles
 
 ## Testing
 

@@ -16,6 +16,7 @@ const STYLES_DIR = join(__dirname, '../../src/styles');
 
 const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'action-sheet',
+  'action-sheet-overlay', // mobile-sheets.css restyles every overlay as a bottom sheet
   'agent-editor',
   'approval-description',
   'approval-tool',
@@ -26,6 +27,7 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'conversation-archive',
   'conversation-delete',
   'conversation-rename',
+  'info-popup', // mobile-sheets.css
   'info-popup-content',
   'input-area',
   'input-container',
@@ -45,8 +47,10 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'message-speak-btn',
   'mobile-header',
   'modal',
-  'new-messages-banner',
+  'modal-actions', // mobile-sheets.css
+  'modal-container', // mobile-sheets.css
   'model-dropdown',
+  'new-messages-banner',
   'qa-editor',
   'scroll-to-bottom',
   'sidebar',

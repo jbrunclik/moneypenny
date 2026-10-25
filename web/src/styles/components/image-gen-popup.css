@@ -1,0 +1,100 @@
+/* ----------------------------------------
+   Image Generation Popup
+   ---------------------------------------- */
+
+.imagegen-header-badge {
+    display: none;
+}
+
+.imagegen-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 20px;
+    padding: 0 var(--space-2);
+    background-color: var(--accent);
+    color: white;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.imagegen-body {
+    padding: var(--space-4);
+}
+
+.imagegen-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.imagegen-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+    border-bottom: 1px solid var(--border);
+}
+
+.imagegen-item:last-child {
+    border-bottom: none;
+}
+
+.imagegen-item:hover {
+    background-color: transparent;
+}
+
+.imagegen-number {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--accent);
+    color: white;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.imagegen-prompt {
+    flex: 1;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.imagegen-cost-loading {
+    padding: var(--space-4) 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.imagegen-cost {
+    margin-top: var(--space-4);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.imagegen-cost .imagegen-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+}
+
+.imagegen-cost .imagegen-cost-value {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: var(--font-size-base);
+}
