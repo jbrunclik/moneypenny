@@ -11,7 +11,7 @@ export default defineConfig(({ command }) => ({
     outDir: '../static/assets',
     emptyOutDir: true,
     manifest: true,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: resolve(__dirname, 'src/main.ts'),
         // The sandboxed artifact frame (src/templates/artifact-frame.html)
@@ -24,7 +24,7 @@ export default defineConfig(({ command }) => ({
         // Split the heavyweight render libraries into their own chunks:
         // their hashes stay stable across app deploys, so returning
         // clients only re-download the (small) app code
-        advancedChunks: {
+        codeSplitting: {
           groups: [
             { name: 'vendor-katex', test: /node_modules[\\/]katex[\\/]/ },
             { name: 'vendor-hljs', test: /node_modules[\\/](highlight\.js|@highlightjs)[\\/]/ },
