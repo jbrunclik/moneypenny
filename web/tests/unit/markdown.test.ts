@@ -46,7 +46,13 @@ describe('renderMarkdown XSS prevention', () => {
     const html = renderMarkdown(
       'normal **text** and [link](https://example.com "ti\\" onmouseover=\\"alert(1)")'
     );
-    expect(html).not.toMatch(/\son\w+=/);
+    // Parsed, not pattern-matched: the escaped text may stay inside the title
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const handlers = Array.from(div.querySelectorAll('*')).flatMap((el) =>
+      Array.from(el.attributes).filter((attr) => attr.name.startsWith('on'))
+    );
+    expect(handlers).toEqual([]);
   });
 
   it('keeps target="_blank" on links through sanitization', () => {

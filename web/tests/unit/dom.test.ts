@@ -21,7 +21,7 @@ import {
 describe('escapeHtml', () => {
   it('escapes HTML special characters', () => {
     expect(escapeHtml('<script>alert("xss")</script>')).toBe(
-      '&lt;script&gt;alert("xss")&lt;/script&gt;'
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
     );
   });
 
@@ -29,8 +29,18 @@ describe('escapeHtml', () => {
     expect(escapeHtml('foo & bar')).toBe('foo &amp; bar');
   });
 
-  it('escapes quotes', () => {
-    expect(escapeHtml('say "hello"')).toBe('say "hello"');
+  // The output goes into attributes too (alt="${...}", data-x="${...}"): an
+  // unescaped quote there ends the attribute and lets the value add others
+  it('escapes double and single quotes', () => {
+    expect(escapeHtml(`say "hello" it's`)).toBe('say &quot;hello&quot; it&#39;s');
+  });
+
+  it('keeps a hostile value inside its attribute', () => {
+    const div = document.createElement('div');
+    div.innerHTML = `<span data-x="${escapeHtml('a" onclick="alert(1)')}"></span>`;
+    const span = div.querySelector('span');
+    expect(span?.getAttribute('onclick')).toBeNull();
+    expect(span?.dataset.x).toBe('a" onclick="alert(1)');
   });
 
   it('handles empty string', () => {
@@ -43,7 +53,7 @@ describe('escapeHtml', () => {
 
   it('handles multiple special characters', () => {
     expect(escapeHtml('<div class="test">&nbsp;</div>')).toBe(
-      '&lt;div class="test"&gt;&amp;nbsp;&lt;/div&gt;'
+      '&lt;div class=&quot;test&quot;&gt;&amp;nbsp;&lt;/div&gt;'
     );
   });
 });

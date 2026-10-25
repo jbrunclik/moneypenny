@@ -121,13 +121,13 @@ export function renderMessageFiles(
         <span class="document-icon">${getFileIcon(file.type)}</span>
         <a class="document-name document-preview"
            href="#"
-           data-message-id="${file.messageId || messageId}"
+           data-message-id="${escapeHtml(file.messageId || messageId)}"
            data-file-index="${file.fileIndex ?? fileIndex}"
            data-file-name="${escapeHtml(file.name)}"
-           data-file-type="${file.type}"
+           data-file-type="${escapeHtml(file.type)}"
            title="Open in new tab">${escapeHtml(file.name)}</a>
         <button class="document-download"
-                data-message-id="${file.messageId || messageId}"
+                data-message-id="${escapeHtml(file.messageId || messageId)}"
                 data-file-index="${file.fileIndex ?? fileIndex}"
                 data-file-name="${escapeHtml(file.name)}"
                 title="Download">

@@ -19,7 +19,9 @@ describe('renderQuizBlock', () => {
     const html = renderQuizBlock(json);
     expect(html).not.toBeNull();
     expect(html).toContain('quiz-multiple-choice');
-    expect(html).toContain("What does 'Hola' mean?");
+    const rendered = document.createElement('div');
+    rendered.innerHTML = html ?? '';
+    expect(rendered.textContent).toContain("What does 'Hola' mean?");
     expect(html).toContain('Goodbye');
     expect(html).toContain('Hello');
     expect(html).toContain('quiz-continue');

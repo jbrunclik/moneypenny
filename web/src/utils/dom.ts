@@ -12,13 +12,22 @@ const MOMENTUM_STOP_TOUCH_GUARD_MS = 100;
 // How long a glide keeps re-writing a target the browser didn't take
 const SMOOTH_SCROLL_LAND_MAX_MS = 500;
 
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
 /**
- * Escape HTML special characters to prevent XSS
+ * Escape HTML special characters to prevent XSS - safe in element text AND in
+ * quoted attribute values. (The textContent/innerHTML trick this replaced left
+ * quotes alone, so a value inside data-x="..." could close the attribute and
+ * add others.)
  */
 export function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);
 }
 
 /**
