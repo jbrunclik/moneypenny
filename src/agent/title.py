@@ -59,7 +59,7 @@ Title:"""
         final_title = title or f"💬 {user_message[: Config.TITLE_FALLBACK_LENGTH]}"
         logger.debug("Title generated", extra={"title": final_title})
         return final_title
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # Catch broadly: provider SDKs wrap errors in their own exception types
         # (e.g. ChatGoogleGenerativeAIError on 429), and title generation must
         # never break the surrounding message-save flow. Returning None tells

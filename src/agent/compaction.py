@@ -88,8 +88,8 @@ def run_summary_model(prompt: str) -> str | None:
             },
         )
         return None
-    except Exception as e:
-        logger.error("Failed to generate conversation summary", extra={"error": str(e)})
+    except Exception as e:  # noqa: BLE001
+        logger.error("Failed to generate conversation summary", extra={"error": str(e)})  # noqa: TRY400
         return None
 
 

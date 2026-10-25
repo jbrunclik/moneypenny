@@ -62,7 +62,7 @@ class TestCreateBackup:
         create_backup(test_db, "Test DB")
 
         backup_dir = get_backup_dir(test_db)
-        backup_file = list(backup_dir.glob("*.db"))[0]
+        backup_file = list(backup_dir.glob("*.db"))[0]  # noqa: RUF015
 
         # Verify backup contains data
         conn = sqlite3.connect(str(backup_file))
@@ -94,7 +94,7 @@ class TestCreateBackup:
         create_backup(test_db, "Test DB")
 
         backup_dir = get_backup_dir(test_db)
-        backup_file = list(backup_dir.glob("*.db"))[0]
+        backup_file = list(backup_dir.glob("*.db"))[0]  # noqa: RUF015
 
         # Filename should be: {stem}-YYYYMMDD-HHMMSS.db
         name = backup_file.stem
@@ -130,7 +130,7 @@ class TestCleanupOldBackups:
 
     def test_removes_old_backups(self, backup_dir_with_files):
         """Test that backups older than retention are removed."""
-        db_path, files = backup_dir_with_files
+        db_path, files = backup_dir_with_files  # noqa: RUF059
 
         # Keep 7 days
         removed = cleanup_old_backups(db_path, "Test DB", retention_days=7)

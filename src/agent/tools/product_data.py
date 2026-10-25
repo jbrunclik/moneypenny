@@ -86,7 +86,7 @@ def product_data_line(html: str) -> str:
             products = _json_ld_products(soup)[:_MAX_PRODUCTS] or [
                 p for p in [_meta_price(soup)] if p
             ]
-    except Exception:
+    except Exception:  # noqa: BLE001
         return ""
     if not products:
         return ""

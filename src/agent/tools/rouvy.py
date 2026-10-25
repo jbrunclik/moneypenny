@@ -38,15 +38,15 @@ from src.utils.tls import shared_ssl_context
 logger = get_logger(__name__)
 
 
-class RouvyNotConnected(Exception):
+class RouvyNotConnected(Exception):  # noqa: N818
     """User has not connected Rouvy."""
 
 
-class RouvySessionExpired(Exception):
+class RouvySessionExpired(Exception):  # noqa: N818
     """Session expired and automated refresh failed — user must reconnect."""
 
 
-_SESSION_COOKIE = "rouvy_session"  # noqa: S105 - a cookie name, not a secret
+_SESSION_COOKIE = "rouvy_session"  # a cookie name, not a secret
 
 
 def _base() -> str:
@@ -73,7 +73,7 @@ def _looks_expired(resp: httpx.Response) -> bool:
         return True
     ctype = resp.headers.get("content-type", "")
     # A `.data` endpoint returning an HTML login page means the cookie is dead.
-    if "text/html" in ctype and "sign in" in resp.text[:500].lower():
+    if "text/html" in ctype and "sign in" in resp.text[:500].lower():  # noqa: SIM103
         return True
     return False
 
@@ -219,7 +219,7 @@ def _resolve_user() -> User | None:
 
 
 @tool
-def rouvy_workout(
+def rouvy_workout(  # noqa: C901, PLR0912
     action: str,
     workout_id: int | None = None,
     content: str | None = None,
@@ -272,7 +272,7 @@ def rouvy_workout(
         # Automatic re-login failed: the stored credentials no longer work
         return json.dumps({"success": False, **not_connected_result("rouvy", was_connected=True)})
     except Exception as e:  # noqa: BLE001 - tool must return, not raise
-        logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})
+        logger.error("rouvy_workout failed", extra={"action": action, "error": str(e)})  # noqa: TRY400
         return json.dumps(
             {"success": False, "error": f"Rouvy request failed: {e}", "retriable": True}
         )

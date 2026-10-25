@@ -70,7 +70,7 @@ def fetch_rates() -> dict[str, float] | None:
             if currency in rates:
                 filtered_rates[currency] = float(rates[currency])
             else:
-                logger.warning(f"Currency {currency} not found in API response")
+                logger.warning(f"Currency {currency} not found in API response")  # noqa: G004
 
         # USD should always be 1.0
         filtered_rates["USD"] = 1.0
@@ -82,19 +82,19 @@ def fetch_rates() -> dict[str, float] | None:
         return filtered_rates
 
     except httpx.TimeoutException:
-        logger.error("API request timed out", extra={"timeout": API_TIMEOUT})
+        logger.error("API request timed out", extra={"timeout": API_TIMEOUT})  # noqa: TRY400
         return None
     except httpx.HTTPStatusError as e:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "API request failed",
             extra={"status_code": e.response.status_code, "url": str(e.request.url)},
         )
         return None
     except httpx.RequestError as e:
-        logger.error("Network error fetching rates", extra={"error": str(e)}, exc_info=True)
+        logger.error("Network error fetching rates", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return None
     except (ValueError, KeyError) as e:
-        logger.error("Error parsing API response", extra={"error": str(e)}, exc_info=True)
+        logger.error("Error parsing API response", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return None
 
 
@@ -138,7 +138,7 @@ def main() -> int:
         if old_rate and old_rate != rate:
             change_pct = ((rate - old_rate) / old_rate) * 100
             logger.info(
-                f"Rate changed for {currency}",
+                f"Rate changed for {currency}",  # noqa: G004
                 extra={
                     "currency": currency,
                     "old_rate": old_rate,

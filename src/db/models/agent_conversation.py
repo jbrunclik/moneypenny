@@ -95,7 +95,7 @@ class AgentConversationMixin:
 
             # Use the existing _row_to_conversation method pattern
             last_reset = None
-            if "last_reset" in row.keys():
+            if "last_reset" in row.keys():  # noqa: SIM118
                 last_reset = (
                     datetime.fromisoformat(row["last_reset"]) if row["last_reset"] else None
                 )

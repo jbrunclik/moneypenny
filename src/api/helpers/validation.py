@@ -31,7 +31,7 @@ def get_conversation_or_404(conv_id: str, user_id: str, context: str = "operatio
     conv = db.get_conversation(conv_id, user_id)
     if not conv:
         logger.warning(
-            f"Conversation not found for {context}",
+            f"Conversation not found for {context}",  # noqa: G004
             extra={"user_id": user_id, "conversation_id": conv_id},
         )
         raise_not_found_error("Conversation")
@@ -55,7 +55,7 @@ def get_message_or_404(message_id: str, user_id: str, context: str = "operation"
     message = db.get_message_by_id(message_id)
     if not message:
         logger.warning(
-            f"Message not found for {context}",
+            f"Message not found for {context}",  # noqa: G004
             extra={"user_id": user_id, "message_id": message_id},
         )
         raise_not_found_error("Message")
@@ -64,7 +64,7 @@ def get_message_or_404(message_id: str, user_id: str, context: str = "operation"
     conv = db.get_conversation(message.conversation_id, user_id)
     if not conv:
         logger.warning(
-            f"Unauthorized access to message for {context}",
+            f"Unauthorized access to message for {context}",  # noqa: G004
             extra={"user_id": user_id, "message_id": message_id},
         )
         raise_not_found_error("Message")
@@ -112,4 +112,4 @@ def validate_and_prepare_files(
 
     # Mark files for thumbnail generation
     files = mark_files_for_thumbnail_generation(files)
-    return files
+    return files  # noqa: RET504

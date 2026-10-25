@@ -91,7 +91,7 @@ def build_message_content(
     return blocks if blocks else text
 
 
-def format_message_with_metadata(msg: dict[str, Any]) -> str:
+def format_message_with_metadata(msg: dict[str, Any]) -> str:  # noqa: C901
     """Format message content with metadata context for LLM.
 
     Enriches message content with temporal context, file references,

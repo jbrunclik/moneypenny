@@ -58,7 +58,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                     stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
                 )
                 _flag_unanswered_steering(done_data, context)
-                try:
+                try:  # noqa: SIM105
                     yield f"data: {json.dumps(done_data)}\n\n"
                 except BrokenPipeError, ConnectionError, OSError:
                     pass

@@ -46,7 +46,7 @@ def test_not_connected_raises():
 def test_create_posts_multipart_field_file(mock_req):
     mock_req.return_value = _resp(text='[{"_1":2},"data",{"_3":-5},"error","workoutId",123]')
     out = rc.rouvy_create(FakeUser(), "<workout_file/>", "My Ride", "desc")
-    method, url, kwargs, jar = mock_req.call_args[0]
+    method, url, kwargs, jar = mock_req.call_args[0]  # noqa: RUF059
     assert method == "POST"
     assert url.endswith("/resources/workout-upload.data")
     assert "file" in kwargs["files"]  # field name is `file`, not `workout`
@@ -58,7 +58,7 @@ def test_create_posts_multipart_field_file(mock_req):
 def test_delete_posts_id_body(mock_req):
     mock_req.return_value = _resp()
     out = rc.rouvy_delete(FakeUser(), 4183941)
-    method, url, kwargs, jar = mock_req.call_args[0]
+    method, url, kwargs, jar = mock_req.call_args[0]  # noqa: RUF059
     assert method == "POST"
     assert url.endswith("/workouts/4183941.data")
     assert kwargs["data"] == {"id": "4183941"}
@@ -102,12 +102,14 @@ def test_expired_triggers_refresh_and_retry(mock_req):
 @patch("src.agent.tools.rouvy._client_request")
 def test_refresh_failure_raises_reconnect(mock_req):
     mock_req.return_value = _resp(status=401, text="unauthorized")
-    with patch(
-        "src.agent.tools.rouvy.rouvy_auth.login",
-        side_effect=rc.rouvy_auth.RouvyAuthError("captcha"),
+    with (
+        patch(
+            "src.agent.tools.rouvy.rouvy_auth.login",
+            side_effect=rc.rouvy_auth.RouvyAuthError("captcha"),
+        ),
+        pytest.raises(rc.RouvySessionExpired),
     ):
-        with pytest.raises(rc.RouvySessionExpired):
-            rc.rouvy_create(FakeUser(), "<x/>", "n")
+        rc.rouvy_create(FakeUser(), "<x/>", "n")
 
 
 @patch("src.agent.tools.rouvy.rouvy_delete")

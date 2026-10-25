@@ -220,7 +220,7 @@ class TestVerifyFileTypeByMagic:
         """Should handle empty files appropriately."""
         # Empty files are typically detected as inode/x-empty or application/x-empty
         # For text-based types, should skip validation
-        is_valid, error = verify_file_type_by_magic(b"", "text/plain", "empty.txt")
+        is_valid, error = verify_file_type_by_magic(b"", "text/plain", "empty.txt")  # noqa: RUF059
         assert is_valid is True
 
     def test_unmapped_mime_type_accepts_exact_match(self) -> None:
@@ -229,7 +229,7 @@ class TestVerifyFileTypeByMagic:
         with patch("src.utils.files.magic.from_buffer") as mock_magic:
             mock_magic.return_value = "application/octet-stream"
             # When claimed type matches detected type, should pass
-            is_valid, error = verify_file_type_by_magic(
+            is_valid, error = verify_file_type_by_magic(  # noqa: RUF059
                 b"some data", "application/octet-stream", "data.bin"
             )
             assert is_valid is True
@@ -445,7 +445,7 @@ class TestMimeTypeAliases:
         """TEXT_BASED_MIME_TYPES should be skipped for magic validation."""
         # These types are unreliably detected by libmagic, so we skip them
         expected_skip_types = {"text/plain", "text/markdown", "text/csv", "application/json"}
-        assert TEXT_BASED_MIME_TYPES == expected_skip_types
+        assert expected_skip_types == TEXT_BASED_MIME_TYPES
 
 
 # =============================================================================

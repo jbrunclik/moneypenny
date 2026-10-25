@@ -49,7 +49,7 @@ def run_cases(
             case = futures[future]
             try:
                 result = future.result()
-            except Exception as e:  # a dead worker fails its case, not the run
+            except Exception as e:  # a dead worker fails its case, not the run  # noqa: BLE001
                 result = {"id": case.id, "pass": False, "score": 0, "error": f"worker: {e}"}
             on_result(result)
     finally:

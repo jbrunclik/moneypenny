@@ -85,11 +85,11 @@ class TestParseJudgeResponse:
 
     def test_fenced_json(self) -> None:
         text = '```json\n{"score": 2, "pass": false, "reasoning": "missed citation"}\n```'
-        score, passed, reasoning = parse_judge_response(text)
+        score, passed, reasoning = parse_judge_response(text)  # noqa: RUF059
         assert (score, passed) == (2, False)
 
     def test_garbage_returns_failure(self) -> None:
-        score, passed, reasoning = parse_judge_response("not json at all")
+        score, passed, reasoning = parse_judge_response("not json at all")  # noqa: RUF059
         assert passed is False
         assert score == 0
 

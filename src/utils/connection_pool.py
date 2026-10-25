@@ -82,7 +82,7 @@ class ConnectionPool:
         with lock:
             if connections.get(thread_id) is conn:
                 connections.pop(thread_id, None)
-        try:
+        try:  # noqa: SIM105
             conn.close()
         except sqlite3.Error:
             pass
@@ -98,7 +98,7 @@ class ConnectionPool:
         dead_thread_ids = [tid for tid in self._connections if tid not in alive_thread_ids]
         for tid in dead_thread_ids:
             conn = self._connections.pop(tid)
-            try:
+            try:  # noqa: SIM105
                 conn.close()
             except sqlite3.Error:
                 pass
@@ -212,7 +212,7 @@ class ConnectionPool:
         conn = getattr(self._local, "connection", None)
 
         if conn is not None:
-            try:
+            try:  # noqa: SIM105
                 conn.close()
             except sqlite3.Error:
                 pass
@@ -246,7 +246,7 @@ class ConnectionPool:
                 if thread_id != current and thread_id in alive_thread_ids:
                     continue
                 self._connections.pop(thread_id, None)
-                try:
+                try:  # noqa: SIM105
                     conn.close()
                 except sqlite3.Error:
                     pass

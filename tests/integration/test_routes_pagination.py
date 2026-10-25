@@ -120,7 +120,7 @@ class TestConversationsPagination:
             data = json.loads(response.data)
 
             for c in data["conversations"]:
-                all_conv_ids.append(c["id"])
+                all_conv_ids.append(c["id"])  # noqa: PERF401
 
             if not data["pagination"]["has_more"]:
                 break

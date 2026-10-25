@@ -76,10 +76,9 @@ def exchange_code_for_token(code: str) -> str:
             # Parse known error types
             if "bad_authorization_code" in error_msg:
                 raise TodoistAuthError("Authorization code is invalid or expired")
-            elif "incorrect_application_credentials" in error_msg:
+            if "incorrect_application_credentials" in error_msg:
                 raise TodoistAuthError("Invalid Todoist application credentials")
-            else:
-                raise TodoistAuthError("Failed to exchange code for token")
+            raise TodoistAuthError("Failed to exchange code for token")
 
         token_data = response.json()
         access_token = token_data.get("access_token")
@@ -92,7 +91,7 @@ def exchange_code_for_token(code: str) -> str:
         return str(access_token)
 
     except requests.RequestException as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Todoist token exchange request failed", extra={"error": str(e)}, exc_info=True
         )
         raise TodoistAuthError("Failed to connect to Todoist") from e
@@ -137,7 +136,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
         return user_data
 
     except requests.RequestException as e:
-        logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)
+        logger.error("Todoist user info request failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         raise TodoistAuthError("Failed to connect to Todoist") from e
 
 
@@ -163,12 +162,11 @@ def revoke_token(access_token: str) -> bool:
         if response.status_code < 300:
             logger.debug("Todoist token revoked successfully")
             return True
-        else:
-            logger.warning(
-                "Todoist token revocation failed",
-                extra={"status_code": response.status_code},
-            )
-            return False
+        logger.warning(
+            "Todoist token revocation failed",
+            extra={"status_code": response.status_code},
+        )
+        return False
     except requests.RequestException as e:
         logger.warning("Todoist token revocation request failed", extra={"error": str(e)})
         return False

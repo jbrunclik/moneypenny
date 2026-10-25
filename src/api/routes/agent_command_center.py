@@ -41,7 +41,7 @@ def get_command_center(user: User) -> dict[str, Any]:
     # Convert to response format
     agents_response = []
     for agent_data in data["agents"]:
-        agents_response.append(
+        agents_response.append(  # noqa: PERF401
             agent_to_response(
                 agent_data["agent"],
                 agent_data["unread_count"],
@@ -53,7 +53,7 @@ def get_command_center(user: User) -> dict[str, Any]:
 
     approvals_response = []
     for approval_data in data["pending_approvals"]:
-        approvals_response.append(
+        approvals_response.append(  # noqa: PERF401
             approval_to_response(
                 approval_data["approval"],
                 approval_data["agent_name"],

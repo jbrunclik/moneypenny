@@ -12,11 +12,11 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class OfferNotFound(LookupError):
+class OfferNotFound(LookupError):  # noqa: N818
     """No offer with that id in this conversation."""
 
 
-class OfferConflict(RuntimeError):
+class OfferConflict(RuntimeError):  # noqa: N818
     """The offer was already started, declined or superseded."""
 
 

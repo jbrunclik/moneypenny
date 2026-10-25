@@ -32,7 +32,7 @@ def main() -> int:
     try:
         counts = cleanup_expired_files()
     except Exception:
-        logger.error("File retention cleanup failed", exc_info=True)
+        logger.error("File retention cleanup failed", exc_info=True)  # noqa: G201
         return 1
     logger.info(
         "File retention cleanup finished",

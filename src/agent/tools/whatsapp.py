@@ -125,15 +125,14 @@ def _whatsapp_api_request(
                         "WhatsApp access token is invalid or expired. "
                         "Please update WHATSAPP_ACCESS_TOKEN in your configuration."
                     )
-                elif error_code == 131030:  # Recipient phone number not in allowed list
+                if error_code == 131030:  # Recipient phone number not in allowed list
                     raise WhatsAppError(
                         "Recipient phone number is not in the allowed list. "
                         "Add the number to your test recipients in Meta Business Suite."
                     )
-                elif error_code == 131031:  # Recipient not registered on WhatsApp
+                if error_code == 131031:  # Recipient not registered on WhatsApp
                     raise WhatsAppError("The recipient phone number is not registered on WhatsApp.")
-                else:
-                    raise WhatsAppError(f"WhatsApp API error ({error_code}): {error_message}")
+                raise WhatsAppError(f"WhatsApp API error ({error_code}): {error_message}")
             except json.JSONDecodeError:
                 raise WhatsAppError(
                     f"WhatsApp API error ({response.status_code}): {error_msg}"
@@ -143,7 +142,7 @@ def _whatsapp_api_request(
         return result
 
     except requests.RequestException as e:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "WhatsApp API request failed",
             extra={"error": str(e), "endpoint": endpoint},
         )
@@ -509,14 +508,14 @@ def whatsapp(
         )
 
     except WhatsAppError as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "WhatsApp tool error",
             extra={"error": str(e)},
             exc_info=True,
         )
         return json.dumps({"error": str(e)})
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Unexpected WhatsApp tool error",
             extra={"error": str(e)},
             exc_info=True,

@@ -17,7 +17,7 @@ class TestGetCalendarAuthUrl:
 
     def test_get_auth_url_success(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return auth URL when calendar is configured."""
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch("src.api.routes.calendar.get_google_calendar_auth_url") as mock_url:
                 mock_url.return_value = "https://accounts.google.com/o/oauth2/v2/auth?..."
                 response = client.get("/auth/calendar/auth-url", headers=auth_headers)
@@ -52,7 +52,7 @@ class TestConnectGoogleCalendar:
         from src.auth.oauth_state import issue_state
 
         state = issue_state(test_user.id, "calendar")
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
             ) as mock_exchange:
@@ -95,7 +95,7 @@ class TestConnectGoogleCalendar:
         from src.auth.oauth_state import issue_state
 
         state = issue_state(test_user.id, "calendar")
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
             ) as mock_exchange:
@@ -121,7 +121,7 @@ class TestConnectGoogleCalendar:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """A state the server never issued must be rejected (S7 CSRF defense)."""
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
             ) as mock_exchange:
@@ -150,7 +150,7 @@ class TestConnectGoogleCalendar:
                 json={"code": "test-code", "state": state},
             )
 
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch(
                 "src.api.routes.calendar.exchange_calendar_code_for_tokens"
             ) as mock_exchange:
@@ -177,17 +177,19 @@ class TestConnectGoogleCalendar:
         from src.auth.oauth_state import issue_state
 
         state = issue_state(test_user.id, "calendar")
-        with patch.object(
-            oauth_state.time,
-            "time",
-            return_value=_time.time() + oauth_state.OAUTH_STATE_TTL_SECONDS + 1,
+        with (
+            patch.object(
+                oauth_state.time,
+                "time",
+                return_value=_time.time() + oauth_state.OAUTH_STATE_TTL_SECONDS + 1,
+            ),
+            patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True),
         ):
-            with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
-                response = client.post(
-                    "/auth/calendar/connect",
-                    headers=auth_headers,
-                    json={"code": "test-code", "state": state},
-                )
+            response = client.post(
+                "/auth/calendar/connect",
+                headers=auth_headers,
+                json={"code": "test-code", "state": state},
+            )
 
         assert response.status_code == 400
 
@@ -306,7 +308,7 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarAuthError("Refresh failed")
 
@@ -334,7 +336,7 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.return_value = {
                     "access_token": "new-access-token",
@@ -370,7 +372,7 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarTransientError("Server error")
 
@@ -399,7 +401,7 @@ class TestGetCalendarStatus:
             email="user@example.com",
         )
 
-        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):
+        with patch("src.api.routes.calendar._is_google_calendar_configured", return_value=True):  # noqa: SIM117
             with patch("src.auth.google_calendar.refresh_access_token") as mock_refresh:
                 mock_refresh.side_effect = GoogleCalendarTokenRevoked("Token revoked")
 

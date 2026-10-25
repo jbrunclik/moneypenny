@@ -108,7 +108,7 @@ class EmbeddingsMixin:
                     FROM messages m
                     JOIN conversations c ON c.id = m.conversation_id
                     WHERE c.user_id = ? AND c.deleted_at IS NULL
-                      AND m.id IN ({placeholders})""",  # noqa: S608 - placeholders only
+                      AND m.id IN ({placeholders})""",  # placeholders only
                 (user_id, *message_ids),
             )
             rows = cursor.fetchall()

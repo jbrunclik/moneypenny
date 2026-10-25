@@ -36,7 +36,7 @@ class TestGenerateImage:
     def test_valid_aspect_ratios_constant(self) -> None:
         """Verify valid aspect ratios are defined."""
         expected_ratios = {"1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9"}
-        assert VALID_ASPECT_RATIOS == expected_ratios
+        assert expected_ratios == VALID_ASPECT_RATIOS
 
     @patch("src.agent.gemini_clients.genai.Client")
     def test_successful_generation(self, mock_client_class: MagicMock) -> None:

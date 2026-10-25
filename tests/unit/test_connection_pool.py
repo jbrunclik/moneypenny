@@ -150,7 +150,7 @@ class TestIdentRecyclingSafety:
         try:
             old_conn.execute("SELECT 1")
             raise AssertionError("old connection should be closed")
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
         new_conn.close()
@@ -189,7 +189,7 @@ class TestCloseAllWithLiveThreads:
                 try:
                     conn.execute("INSERT INTO t VALUES (1)")
                     conn.commit()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     errors.append(e)
 
         t = threading.Thread(target=worker)

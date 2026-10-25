@@ -34,7 +34,7 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         True if successful, False otherwise
     """
     if not db_path.exists():
-        logger.warning(f"{db_name} not found at {db_path}, skipping")
+        logger.warning(f"{db_name} not found at {db_path}, skipping")  # noqa: G004
         return True  # Not an error if DB doesn't exist yet
 
     try:
@@ -42,7 +42,8 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         size_before = db_path.stat().st_size
 
         logger.info(
-            f"Starting VACUUM on {db_name}", extra={"path": str(db_path), "size_bytes": size_before}
+            "Starting VACUUM",
+            extra={"database": db_name, "path": str(db_path), "size_bytes": size_before},
         )
 
         # Connect and run VACUUM
@@ -59,7 +60,7 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         size_diff_pct = (size_diff / size_before * 100) if size_before > 0 else 0
 
         logger.info(
-            f"VACUUM completed on {db_name}",
+            f"VACUUM completed on {db_name}",  # noqa: G004
             extra={
                 "path": str(db_path),
                 "size_before_bytes": size_before,
@@ -71,15 +72,15 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         return True
 
     except sqlite3.Error as e:
-        logger.error(
-            f"VACUUM failed on {db_name}",
+        logger.error(  # noqa: G201
+            f"VACUUM failed on {db_name}",  # noqa: G004
             extra={"path": str(db_path), "error": str(e)},
             exc_info=True,
         )
         return False
     except OSError as e:
-        logger.error(
-            f"File error during VACUUM on {db_name}",
+        logger.error(  # noqa: G201
+            f"File error during VACUUM on {db_name}",  # noqa: G004
             extra={"path": str(db_path), "error": str(e)},
             exc_info=True,
         )
@@ -125,9 +126,8 @@ def main() -> int:
     if all_success:
         logger.info("Database vacuum completed successfully")
         return 0
-    else:
-        logger.error("Database vacuum completed with errors")
-        return 1
+    logger.error("Database vacuum completed with errors")
+    return 1
 
 
 if __name__ == "__main__":

@@ -146,7 +146,7 @@ class TestTranscodeImageForBrowser:
         assert img.size == (50, 40)  # full size, not a thumbnail
 
     def test_transcodes_heif_to_jpeg(self) -> None:
-        data, mime = transcode_image_for_browser(self._heic_bytes(), "image/heif")
+        data, mime = transcode_image_for_browser(self._heic_bytes(), "image/heif")  # noqa: RUF059
         assert mime == "image/jpeg"
 
     def test_passes_through_browser_native_formats(self) -> None:

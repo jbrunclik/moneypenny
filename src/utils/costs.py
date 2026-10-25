@@ -188,11 +188,10 @@ def format_cost(amount: float, currency: str = "USD") -> str:
     """
     if currency == "USD":
         return f"${amount:.4f}"
-    elif currency == "CZK":
+    if currency == "CZK":
         return f"{amount:.2f} Kč"
-    elif currency == "EUR":
+    if currency == "EUR":
         return f"€{amount:.4f}"
-    elif currency == "GBP":
+    if currency == "GBP":
         return f"£{amount:.4f}"
-    else:
-        return f"{amount:.4f} {currency}"
+    return f"{amount:.4f} {currency}"

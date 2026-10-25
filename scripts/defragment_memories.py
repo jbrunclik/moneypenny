@@ -153,7 +153,7 @@ def _valid_category(category: str | None) -> str | None:
     return None
 
 
-def validate_changes(
+def validate_changes(  # noqa: C901, PLR0912
     changes: DefragPlan | dict[str, Any], existing: dict[str, Memory]
 ) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
     """Validate and extract changes from the LLM response.
@@ -255,7 +255,7 @@ def plan_grows_bank(to_delete: list[str], to_add: list[dict[str, Any]]) -> bool:
     return len(to_add) > len(to_delete)
 
 
-def defragment_user_memories(
+def defragment_user_memories(  # noqa: C901, PLR0912, PLR0915
     user: User,
     memories: list[Memory],
     llm: ChatGoogleGenerativeAI,
@@ -439,7 +439,7 @@ Please analyze these memories and provide consolidation recommendations."""
         return result
 
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Error during memory defragmentation",
             extra={"user_id": user.id, "error": str(e)},
             exc_info=True,
@@ -502,8 +502,8 @@ def main() -> int:
             google_api_key=Config.GEMINI_API_KEY,
             temperature=0.3,  # Lower temperature for more consistent results
         )
-    except Exception as e:
-        logger.error("Failed to initialize LLM", extra={"error": str(e)})
+    except Exception as e:  # noqa: BLE001
+        logger.error("Failed to initialize LLM", extra={"error": str(e)})  # noqa: TRY400
         return 1
 
     # Get users to process
@@ -551,7 +551,7 @@ def main() -> int:
                 total_stats["added"] += result["added"]
 
         except Exception as e:
-            logger.error(
+            logger.error(  # noqa: G201
                 "Error processing user",
                 extra={"user_id": user.id, "error": str(e)},
                 exc_info=True,

@@ -105,7 +105,7 @@ def apply_proxy_fix(app: APIFlask) -> None:
     )
 
 
-def create_app() -> APIFlask:
+def create_app() -> APIFlask:  # noqa: C901, PLR0915
     """Create and configure the Flask application."""
     # Setup structured logging first
     setup_logging()
@@ -284,7 +284,7 @@ def create_app() -> APIFlask:
             with open(manifest_path) as f:
                 vite_manifest = json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            logger.error(
+            logger.error(  # noqa: TRY400
                 "Failed to load Vite manifest",
                 extra={"path": str(manifest_path), "error": str(e)},
             )
@@ -416,9 +416,9 @@ def main() -> None:
     errors = Config.validate()
     if errors:
         logger.error("Configuration validation failed", extra={"errors": errors})
-        print("Configuration errors:")
+        print("Configuration errors:")  # noqa: T201
         for error in errors:
-            print(f"  - {error}")
+            print(f"  - {error}")  # noqa: T201
         sys.exit(1)
 
     # Check database connectivity before starting app
@@ -427,14 +427,14 @@ def main() -> None:
     db_ok, db_error = check_database_connectivity()
     if not db_ok:
         logger.error("Database connectivity check failed", extra={"error": db_error})
-        print(f"Database error: {db_error}")
+        print(f"Database error: {db_error}")  # noqa: T201
         sys.exit(1)
 
     logger.info("Database connectivity verified", extra={"db_path": str(Config.DATABASE_PATH)})
 
     app = create_app()
     logger.info(
-        f"Starting {Config.APP_NAME}",
+        f"Starting {Config.APP_NAME}",  # noqa: G004
         extra={
             "port": Config.PORT,
             "environment": Config.FLASK_ENV,

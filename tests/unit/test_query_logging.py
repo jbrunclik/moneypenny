@@ -112,7 +112,7 @@ class TestSlowQueryLogging:
         test_database._should_log_queries = True
         test_database._slow_query_threshold_ms = 10000  # High threshold
 
-        with patch("src.utils.db_helpers.Config.LOG_LEVEL", "DEBUG"):
+        with patch("src.utils.db_helpers.Config.LOG_LEVEL", "DEBUG"):  # noqa: SIM117
             with caplog.at_level(logging.DEBUG, logger="src.utils.db_helpers"):
                 test_database.get_or_create_user("debug@example.com", "Debug User")
 

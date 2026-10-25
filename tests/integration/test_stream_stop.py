@@ -166,7 +166,7 @@ def test_stop_during_a_silent_tool_is_acknowledged_at_once(
         time.sleep(0.5)  # a tool running: the producer yields nothing meanwhile
         yield _final("Partial", stop_reason="user")
 
-    with patch("src.config.Config.CANCEL_POLL_INTERVAL_SECONDS", 0.02):
+    with patch("src.config.Config.CANCEL_POLL_INTERVAL_SECONDS", 0.02):  # noqa: SIM117
         with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
             agent = MagicMock()
             agent.stream_chat_events = stream

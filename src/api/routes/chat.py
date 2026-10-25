@@ -114,7 +114,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
             else None
         )
     except TimeoutError:
-        logger.error(
+        logger.error(  # noqa: G201
             "Timeout in chat_batch",
             extra={"user_id": user.id, "conversation_id": conv_id},
             exc_info=True,
@@ -122,7 +122,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         raise_llm_error("Request timed out. The AI took too long to respond. Please try again.")
     except Exception as e:
         # Log the error but don't expose internal details to users
-        logger.error(
+        logger.error(  # noqa: G201
             "Error in chat_batch",
             extra={"user_id": user.id, "conversation_id": conv_id, "error": str(e)},
             exc_info=True,

@@ -120,7 +120,7 @@ def _login_sync(email: str, password: str) -> str:
             # overlay the form (privacy-preserving default).
             try:
                 page.get_by_role("button", name="Use necessary cookies only").click(timeout=6000)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.debug("Rouvy cookie banner not present or already dismissed")
             # Email-first flow: fill email, Enter -> password page, fill, Enter.
             page.fill(_EMAIL_SELECTOR, email)
@@ -154,5 +154,5 @@ def _raise_typed_error(e: Exception) -> NoReturn:
         ) from e
     if "timeout" in s or "timed out" in s:
         raise RouvyAuthError("Rouvy login timed out. Please try again.") from e
-    logger.error("Rouvy login failed", extra={"error": str(e)}, exc_info=True)
+    logger.error("Rouvy login failed", extra={"error": str(e)}, exc_info=True)  # noqa: LOG014
     raise RouvyAuthError(f"Rouvy login failed: {e}") from e

@@ -144,7 +144,7 @@ def _get_preferred_language(user_id: str | None) -> str | None:
     try:
         user = db.get_user_by_id(user_id)
         return user.preferred_language if user else None
-    except Exception:  # noqa: BLE001 - personalization must never break prompts
+    except Exception:  # personalization must never break prompts
         logger.debug("Preferred language lookup failed", exc_info=True)
         return None
 
@@ -334,7 +334,7 @@ def get_dynamic_prompt_parts(
     return "\n\n".join(parts)
 
 
-def get_system_prompt(
+def get_system_prompt(  # noqa: C901
     with_tools: bool = True,
     force_tools: list[str] | None = None,
     user_name: str | None = None,

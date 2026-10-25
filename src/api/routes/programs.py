@@ -97,7 +97,7 @@ def program_to_item(
     }
 
 
-def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
+def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:  # noqa: C901, PLR0915
     """Register the 5 program-feature endpoints on the given blueprint."""
     ns = cfg.namespace
 

@@ -269,7 +269,7 @@ def format_tool_summary(
     return ", ".join(parts) if parts else None
 
 
-def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
+def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:  # noqa: C901, PLR0912
     """Enrich conversation history with temporal context and metadata.
 
     Args:

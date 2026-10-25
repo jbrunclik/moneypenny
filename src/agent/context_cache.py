@@ -64,9 +64,9 @@ def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
     parts = [prompt]
     for t in sorted(tools, key=lambda t: t.name):
         schema = ""
-        try:
+        try:  # noqa: SIM105
             schema = json.dumps(t.args_schema.model_json_schema(), sort_keys=True, default=str)
-        except Exception:  # noqa: S110 - schema shape varies; absence just weakens the hash
+        except Exception:  # noqa: BLE001, S110
             pass
         parts.append(f"{t.name}:{t.description or ''}:{schema}")
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]

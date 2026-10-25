@@ -77,7 +77,7 @@ def _get_valid_calendar_access_token(user: User) -> str | None:
     except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
         raise
     except GoogleCalendarAuthError as e:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "Failed to refresh calendar token",
             extra={"user_id": user.id, "error": str(e)},
         )
@@ -321,10 +321,10 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         return result
 
     except requests.Timeout:
-        logger.error("Calendar list timeout", extra={"user_id": user.id})
+        logger.error("Calendar list timeout", extra={"user_id": user.id})  # noqa: TRY400
         return {"calendars": [], "error": "Request timeout"}
     except Exception as e:
-        logger.error("Failed to list calendars", extra={"error": str(e)}, exc_info=True)
+        logger.error("Failed to list calendars", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return {"calendars": [], "error": "Failed to fetch calendars"}
 
 

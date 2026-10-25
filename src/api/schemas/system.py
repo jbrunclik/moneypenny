@@ -25,10 +25,10 @@ class ModelsListResponse(BaseModel):
 class UploadConfigResponse(BaseModel):
     """File upload configuration."""
 
-    maxFileSize: int = Field(..., description="Maximum file size in bytes")
-    maxVideoFileSize: int = Field(..., description="Maximum video file size in bytes")
-    maxFilesPerMessage: int = Field(..., description="Maximum files per message")
-    allowedFileTypes: list[str] = Field(..., description="Allowed MIME types")
+    maxFileSize: int = Field(..., description="Maximum file size in bytes")  # noqa: N815
+    maxVideoFileSize: int = Field(..., description="Maximum video file size in bytes")  # noqa: N815
+    maxFilesPerMessage: int = Field(..., description="Maximum files per message")  # noqa: N815
+    allowedFileTypes: list[str] = Field(..., description="Allowed MIME types")  # noqa: N815
 
 
 class VersionResponse(BaseModel):

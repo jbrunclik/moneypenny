@@ -63,7 +63,7 @@ def _notify_response_ready(
         conv = db.get_conversation(conv_id, user_id)
         if conv and conv.agent_id:
             tag = f"agent-{conv.agent_id}"
-    except Exception:  # noqa: BLE001 - tag fallback must never block the push
+    except Exception:  # tag fallback must never block the push
         logger.debug("Conversation lookup for push tag failed", exc_info=True)
 
     body = content.strip().split("\n", 1)[0][:160] or "Open the app to view it."
@@ -130,9 +130,9 @@ def _poll_stop_flag(
         _close_thread_db_connections()
 
 
-def stream_events(
+def stream_events(  # noqa: C901, PLR0912, PLR0915
     agent: ChatAgent,
-    event_queue: queue.Queue[dict[str, Any] | None | Exception],
+    event_queue: queue.Queue[dict[str, Any] | Exception | None],
     final_results: dict[str, Any],
     turn: TurnContext,
     journal_message_id: str | None = None,
@@ -276,7 +276,7 @@ def stream_events(
         # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
         event_queue.put(None)
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Stream thread error",
             extra={"user_id": user_id, "conversation_id": conv_id, "error": str(e)},
             exc_info=True,
@@ -286,7 +286,7 @@ def stream_events(
         # SystemExit & co. (e.g. interpreter/worker shutdown) must still
         # signal the consumer - otherwise it idles until the backstop
         # deadline and any partial content is lost with it (X1)
-        logger.error(
+        logger.error(  # noqa: TRY400
             "Stream thread killed",
             extra={"user_id": user_id, "conversation_id": conv_id, "error": repr(e)},
         )
@@ -394,7 +394,7 @@ def cleanup_and_save(
                     },
                 )
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Error in cleanup thread",
             extra={
                 "user_id": user_id,

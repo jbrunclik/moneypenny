@@ -52,7 +52,7 @@ def test_each_migration_depends_on_the_one_before() -> None:
     names = sorted(migrations)
     broken = [
         f"{name} depends on {migrations[name]}, expected [{previous!r}]"
-        for previous, name in zip(names, names[1:], strict=False)
+        for previous, name in zip(names, names[1:], strict=False)  # noqa: RUF007
         if name[:4] >= _FIRST_CHAINED and migrations[name] != [previous]
     ]
     assert broken == []

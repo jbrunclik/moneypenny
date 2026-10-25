@@ -63,7 +63,7 @@ def _fake_db(usage: dict[str, int] | None = None) -> MagicMock:
     return db
 
 
-def _no_keys() -> Any:  # noqa: ANN401
+def _no_keys() -> Any:
     """Patch stack: no paid provider configured."""
     return patch.multiple(
         Config,
@@ -198,7 +198,7 @@ class TestRouting:
     ) -> None:
         mock_brave.side_effect = SearchProviderError("brave down", retriable=True)
         mock_ddgs.side_effect = SearchProviderError("ddgs down", retriable=True)
-        with (
+        with (  # noqa: SIM117
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
@@ -396,7 +396,7 @@ class TestDdgsSearch:
         mock_ddgs.text.side_effect = RatelimitException("rate limited")
         mock_ddgs_class.return_value = mock_ddgs
 
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):
+        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):  # noqa: SIM117
             with pytest.raises(SearchProviderError) as exc_info:
                 search_web("q", 5)
         assert exc_info.value.retriable is True
@@ -754,7 +754,7 @@ class TestCircuitBreaker:
         mock_brave.side_effect = SearchProviderError("brave down")
         mock_ddgs.side_effect = SearchProviderError("ddgs down")
         store: dict[str, str] = {}
-        with (
+        with (  # noqa: SIM117
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",

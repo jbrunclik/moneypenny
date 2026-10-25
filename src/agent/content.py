@@ -19,7 +19,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
+def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:  # noqa: C901
     """Extract text from message content, handling various formats from Gemini."""
     if isinstance(content, str):
         return content
@@ -52,7 +52,7 @@ def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
     return str(content)
 
 
-def extract_thinking_and_text(
+def extract_thinking_and_text(  # noqa: C901, PLR0912
     content: str | list[Any] | dict[str, Any],
 ) -> tuple[str | None, str]:
     """Extract thinking content and regular text from message content.
@@ -223,7 +223,7 @@ def detect_response_language(text: str) -> str | None:
         # langdetect returns codes like "en", "cs", "zh-cn" etc.
         # Normalize to 2-char ISO 639-1
         return str(lang).lower().split("-")[0][:2]
-    except Exception:
+    except Exception:  # noqa: BLE001
         # langdetect can raise LangDetectException for short/ambiguous text
         return None
 

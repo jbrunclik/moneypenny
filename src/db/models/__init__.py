@@ -160,7 +160,7 @@ def use_database(database: Database) -> Iterator[Database]:
 
 
 # Re-export all public symbols
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Database class and instance
     "Database",
     "db",

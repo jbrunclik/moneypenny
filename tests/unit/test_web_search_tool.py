@@ -18,7 +18,7 @@ class TestWebSearchDegradedNotice:
     through to ddgs inside the same call.
     """
 
-    _RESULTS = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
+    _RESULTS = [{"title": "T", "url": "https://a.example", "snippet": "S"}]  # noqa: RUF012
 
     @staticmethod
     def _metered_configured() -> Any:
@@ -177,7 +177,7 @@ class TestWebSearch:
 class TestWebSearchBatching:
     """Tests for batched multi-query web_search calls."""
 
-    _ONE_RESULT = [{"title": "T", "url": "https://example.com", "snippet": "S"}]
+    _ONE_RESULT = [{"title": "T", "url": "https://example.com", "snippet": "S"}]  # noqa: RUF012
     # search_web_detailed returns (results, served_by)
     _ONE_SERVED = (_ONE_RESULT, "brave")
 

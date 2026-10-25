@@ -45,7 +45,7 @@ def _percentile(sorted_values: list[int], pct: float) -> int:
     return sorted_values[index]
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0912, PLR0915
     days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
     db_path = sys.argv[2] if len(sys.argv) > 2 else "chatbot.db"
     if not Path(db_path).exists():

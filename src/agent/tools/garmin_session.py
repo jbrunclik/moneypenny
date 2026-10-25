@@ -67,7 +67,7 @@ def get_client(user_id: str) -> Any | None:
         from src.auth.garmin_auth import create_client_from_tokens
 
         client = create_client_from_tokens(user.garmin_token)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning("Failed to create Garmin client", extra={"error": str(e)})
         return None
 
@@ -100,7 +100,7 @@ def persist_tokens_if_changed(user_id: str, client: Any) -> None:
         from src.auth.garmin_auth import refresh_and_serialize
 
         current = refresh_and_serialize(client)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("Failed to serialize Garmin tokens", extra={"error": str(e)})
         return
 
@@ -111,7 +111,7 @@ def persist_tokens_if_changed(user_id: str, client: Any) -> None:
 
     try:
         db.update_user_garmin_token(user_id, current)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("Failed to persist refreshed Garmin tokens", extra={"error": str(e)})
         return
 

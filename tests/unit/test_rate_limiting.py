@@ -35,21 +35,21 @@ class TestGetRateLimitKey:
 
     def test_returns_ip_key_when_unauthenticated(self, app: Flask) -> None:
         """Test that unauthenticated requests use IP address for rate limiting."""
-        with app.app_context():
-            with app.test_request_context(
-                "/api/version", environ_base={"REMOTE_ADDR": "192.168.1.1"}
-            ):
-                # Ensure no user is set
-                if hasattr(g, "user"):
-                    delattr(g, "user")
+        with (
+            app.app_context(),
+            app.test_request_context("/api/version", environ_base={"REMOTE_ADDR": "192.168.1.1"}),
+        ):
+            # Ensure no user is set
+            if hasattr(g, "user"):
+                delattr(g, "user")
 
-                key = get_rate_limit_key()
+            key = get_rate_limit_key()
 
-                assert key == "ip:192.168.1.1"
+            assert key == "ip:192.168.1.1"
 
     def test_returns_ip_key_when_user_is_none(self, app: Flask) -> None:
         """Test that requests with g.user=None use IP address."""
-        with app.app_context():
+        with app.app_context():  # noqa: SIM117
             with app.test_request_context("/api/version", environ_base={"REMOTE_ADDR": "10.0.0.1"}):
                 g.user = None
 

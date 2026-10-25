@@ -82,7 +82,7 @@ def _probe_browser_available() -> bool:
             br.close()
             _browser_available = True
             logger.info("Playwright + Chromium available — browser tool enabled")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             _browser_available = False
             logger.warning(
                 "Chromium not installed or not launchable",
@@ -98,7 +98,7 @@ def _probe_browser_available() -> bool:
             )
         finally:
             pw.stop()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         _browser_available = False
         logger.warning("Playwright startup failed", extra={"error": str(e)})
 
@@ -281,7 +281,7 @@ def _with_screenshot(
     ss_data = worker.execute("screenshot", conversation_id=conversation_id)
     if share:
         _save_screenshot_attachment(ss_data)
-    return [{"type": "text", "text": json.dumps(result)}] + _format_screenshot_internal(ss_data)
+    return [{"type": "text", "text": json.dumps(result)}] + _format_screenshot_internal(ss_data)  # noqa: RUF005
 
 
 def _run_steps(
@@ -297,7 +297,7 @@ def _run_steps(
         if (screenshot or share) and not worker.unhealthy:
             return _with_screenshot(worker, conversation_id, summary, share)
         return json.dumps(summary)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return json.dumps(_failure_result("batch", None, e))
 
 
@@ -321,7 +321,7 @@ def _run_single(
         if screenshot:
             return _with_screenshot(worker, conversation_id, result, share)
         return json.dumps(result)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return json.dumps(_failure_result(step.action, step.selector, e))
 
 

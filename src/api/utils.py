@@ -41,7 +41,7 @@ def get_request_json(request: Request) -> dict[str, Any] | None:
         # Re-raise HTTP exceptions (e.g., 413 Request Entity Too Large)
         # so Flask's error handler can return the appropriate response
         raise
-    except Exception:
+    except Exception:  # noqa: BLE001
         # Catches any JSON parsing errors
         return None
 
@@ -405,7 +405,7 @@ def calculate_and_save_message_cost(
     # Log warning if no usage metadata (should be rare - indicates API issue)
     if input_tokens == 0 and output_tokens == 0:
         logger.warning(
-            f"No token usage metadata found in {mode} mode",
+            f"No token usage metadata found in {mode} mode",  # noqa: G004
             extra={
                 "user_id": user_id,
                 "conversation_id": conversation_id,
@@ -444,7 +444,7 @@ def calculate_and_save_message_cost(
     )
 
     logger.info(
-        f"{mode.capitalize()} chat cost saved",
+        f"{mode.capitalize()} chat cost saved",  # noqa: G004
         extra={
             "user_id": user_id,
             "conversation_id": conversation_id,

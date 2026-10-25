@@ -130,7 +130,7 @@ class TestCreateAgentRequest:
     def test_name_is_required(self):
         """Test that name field is required."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest()  # type: ignore
+            CreateAgentRequest()  # type: ignore  # noqa: PGH003
 
     def test_name_min_length(self):
         """Test name minimum length validation."""
@@ -1444,7 +1444,7 @@ class TestBudgetLimits:
     def test_is_agent_over_budget_under_limit(self, mock_db):
         """Test that agent under budget limit is not flagged."""
         mock_db.get_agent_daily_spending = lambda aid: 5.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else 5.0 >= limit
+        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 5.0
 
         # Spending is $5, limit is $10
         assert not mock_db.is_agent_over_budget("agent-123", 10.0)
@@ -1452,7 +1452,7 @@ class TestBudgetLimits:
     def test_is_agent_over_budget_at_limit(self, mock_db):
         """Test that agent exactly at budget limit is flagged."""
         mock_db.get_agent_daily_spending = lambda aid: 10.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else 10.0 >= limit
+        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 10.0
 
         # Spending equals limit
         assert mock_db.is_agent_over_budget("agent-123", 10.0)
@@ -1460,7 +1460,7 @@ class TestBudgetLimits:
     def test_is_agent_over_budget_over_limit(self, mock_db):
         """Test that agent over budget limit is flagged."""
         mock_db.get_agent_daily_spending = lambda aid: 15.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else 15.0 >= limit
+        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 15.0
 
         # Spending exceeds limit
         assert mock_db.is_agent_over_budget("agent-123", 10.0)

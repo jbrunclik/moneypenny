@@ -63,7 +63,7 @@ class UserIntegrationsMixin:
         if updated:
             action = "connected" if access_token else "disconnected"
             logger.info(
-                f"User Todoist {action}",
+                f"User Todoist {action}",  # noqa: G004
                 extra={"user_id": user_id},
             )
         else:
@@ -131,7 +131,7 @@ class UserIntegrationsMixin:
         if updated:
             action = "connected" if access_token else "disconnected"
             logger.info(
-                f"User Google Calendar {action}",
+                f"User Google Calendar {action}",  # noqa: G004
                 extra={"user_id": user_id},
             )
         else:
@@ -217,7 +217,7 @@ class UserIntegrationsMixin:
 
         # Always ensure primary calendar is included
         if "primary" not in calendar_ids:
-            calendar_ids = ["primary"] + calendar_ids
+            calendar_ids = ["primary"] + calendar_ids  # noqa: RUF005
 
         calendar_ids_json = json.dumps(calendar_ids)
 
@@ -277,7 +277,7 @@ class UserIntegrationsMixin:
         if updated:
             action = "connected" if token else "disconnected"
             logger.info(
-                f"User Garmin {action}",
+                f"User Garmin {action}",  # noqa: G004
                 extra={"user_id": user_id},
             )
         else:

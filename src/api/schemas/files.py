@@ -35,8 +35,8 @@ class FileMetadataResponse(BaseModel):
 
     name: str
     type: str
-    messageId: str | None = None
-    fileIndex: int | None = None
+    messageId: str | None = None  # noqa: N815
+    fileIndex: int | None = None  # noqa: N815
 
 
 class SourceResponse(BaseModel):

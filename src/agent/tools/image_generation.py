@@ -28,7 +28,7 @@ VALID_IMAGE_SIZES = {"1K", "2K", "4K"}
 
 
 @tool
-def generate_image(
+def generate_image(  # noqa: C901, PLR0912, PLR0915
     prompt: str,
     aspect_ratio: str = "1:1",
     image_size: str = "1K",
@@ -176,7 +176,7 @@ def generate_image(
             elif "data" in file_meta:
                 try:
                     binary_data = base64.b64decode(file_meta["data"])
-                except Exception:
+                except Exception:  # noqa: BLE001
                     return json.dumps(
                         {"error": "Failed to read image data from conversation history."}
                     )
@@ -382,10 +382,10 @@ def generate_image(
             )
         return json.dumps({"error": f"Image generation failed: {error_msg}"})
     except genai_errors.ServerError as e:
-        logger.error("Image generation server error", extra={"error": str(e)}, exc_info=True)
+        logger.error("Image generation server error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return json.dumps(
             {"error": "Image generation service temporarily unavailable. Please try again."}
         )
     except genai_errors.APIError as e:
-        logger.error("Image generation API error", extra={"error": str(e)}, exc_info=True)
+        logger.error("Image generation API error", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return json.dumps({"error": f"Image generation failed: {e}"})

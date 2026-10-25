@@ -430,7 +430,7 @@ def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
     return None
 
 
-def check_tool_results(
+def check_tool_results(  # noqa: C901, PLR0912, PLR0915
     state: AgentState,
     use_cache: bool = False,
 ) -> dict[str, Any]:
@@ -473,7 +473,7 @@ def check_tool_results(
                 "Interjection injected between tool rounds",
                 extra={"conversation_id": conv_id, "tool_rounds": tool_rounds},
             )
-            GuidanceMessage = HumanMessage if use_cache else SystemMessage
+            GuidanceMessage = HumanMessage if use_cache else SystemMessage  # noqa: N806
             steer_content = (
                 "[USER INTERJECTION] The user just sent this while you were "
                 f'working: "{steer_text}"\n'
@@ -498,7 +498,7 @@ def check_tool_results(
             "Tool round cap reached, nudging model to answer",
             extra={"tool_rounds": tool_rounds, "max_rounds": max_rounds},
         )
-        GuidanceMessage = HumanMessage if use_cache else SystemMessage
+        GuidanceMessage = HumanMessage if use_cache else SystemMessage  # noqa: N806
         cap_content = (
             f"You have run {tool_rounds} rounds of tool calls for this request. "
             "Stop calling tools now and answer the user with the information you "
@@ -519,7 +519,7 @@ def check_tool_results(
     # this point cuts rounds without forcing a premature answer.
     soft_nudge = Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE
     if soft_nudge > 0 and tool_rounds == soft_nudge:
-        GuidanceMessage = HumanMessage if use_cache else SystemMessage
+        GuidanceMessage = HumanMessage if use_cache else SystemMessage  # noqa: N806
         nudge_content = (
             f"You have used {tool_rounds} tool rounds. Be efficient from here: "
             "consolidate remaining lookups (batch queries, prefer the research "
@@ -561,7 +561,7 @@ def check_tool_results(
     error_summary = "; ".join(error_details[:3])
 
     # Use HumanMessage in cached mode (LangChain drops mid-conversation SystemMessages)
-    GuidanceMessage = HumanMessage if use_cache else SystemMessage
+    GuidanceMessage = HumanMessage if use_cache else SystemMessage  # noqa: N806
 
     if not any_retriable:
         # Every failure is marked permanent (e.g. integration not configured) -
@@ -587,20 +587,19 @@ def check_tool_results(
             guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
         guidance = GuidanceMessage(content=guidance_content)
         return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
-    else:
-        logger.warning(
-            "Tool error after max retries, providing give-up guidance",
-            extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
-        )
-        guidance_content = (
-            "The tool has failed after multiple retries. "
-            "Respond to the user explaining what happened and offer alternatives. "
-            "Do not attempt to call the same tool again."
-        )
-        if use_cache:
-            guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
-        guidance = GuidanceMessage(content=guidance_content)
-        return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
+    logger.warning(
+        "Tool error after max retries, providing give-up guidance",
+        extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
+    )
+    guidance_content = (
+        "The tool has failed after multiple retries. "
+        "Respond to the user explaining what happened and offer alternatives. "
+        "Do not attempt to call the same tool again."
+    )
+    if use_cache:
+        guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
+    guidance = GuidanceMessage(content=guidance_content)
+    return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
 
 
 # ============ Tool Node Factory ============
@@ -668,7 +667,7 @@ def _split_blocked_tool_calls(
 
     # Re-issue the AIMessage with only the allowed calls for the base ToolNode
     pruned = AIMessage(content=last_message.content, tool_calls=allowed)
-    exec_state: AgentState = {**state, "messages": list(state["messages"][:-1]) + [pruned]}
+    exec_state: AgentState = {**state, "messages": list(state["messages"][:-1]) + [pruned]}  # noqa: RUF005
     return blocked, exec_state
 
 
@@ -695,7 +694,7 @@ def _split_approval_tool_calls(
 
     def _with_calls(calls: list[Any]) -> AgentState:
         pruned = AIMessage(content=last_message.content, tool_calls=calls)
-        return {**state, "messages": list(state["messages"][:-1]) + [pruned]}
+        return {**state, "messages": list(state["messages"][:-1]) + [pruned]}  # noqa: RUF005
 
     approval_state = _with_calls(approval_calls)
     siblings_state = _with_calls(sibling_calls) if sibling_calls else None

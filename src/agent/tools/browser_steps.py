@@ -180,7 +180,7 @@ def run_batch(worker: _Worker, conversation_id: str, steps: list[BrowserStep]) -
             return _batch_summary(done, last, failed=(index, error))
         try:
             last = worker.execute(step.action, **worker_kwargs(conversation_id, step))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             reason = "timed out" if isinstance(e, TimeoutError) else str(e)
             return _batch_summary(done, last, failed=(index, f"{step.action} failed: {reason}"))
         done.append({"action": step.action, **_without_elements(last)})

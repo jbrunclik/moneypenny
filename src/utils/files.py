@@ -113,7 +113,7 @@ def verify_file_type_by_magic(
     # Detect actual MIME type from file content
     try:
         detected_mime_type = magic.from_buffer(file_data, mime=True)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to detect file type by magic bytes",
             extra={"file_name": file_name, "error": str(e)},

@@ -431,7 +431,7 @@ def save_message_to_db(
             language=language,
         )
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Error saving stream message to DB",
             extra={
                 "user_id": user_id,

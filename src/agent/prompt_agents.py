@@ -32,7 +32,7 @@ def get_autonomous_agent_prompt(
         Formatted autonomous agent prompt section
     """
     # Format schedule description
-    if agent_schedule:
+    if agent_schedule:  # noqa: SIM108
         schedule_desc = agent_schedule
     else:
         schedule_desc = "Manual trigger only"

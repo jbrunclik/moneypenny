@@ -17,7 +17,7 @@ _HOOK = Path(__file__).parents[2] / ".claude" / "hooks" / "guard-git.py"
 
 def _run(command: str) -> subprocess.CompletedProcess[str]:
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
-    return subprocess.run(  # noqa: S603 - fixed interpreter and hook path
+    return subprocess.run(  # fixed interpreter and hook path
         [sys.executable, str(_HOOK)], input=payload, capture_output=True, text=True, check=False
     )
 
@@ -124,7 +124,7 @@ def test_an_unparsable_git_command_is_blocked() -> None:
 
 def test_non_bash_payloads_pass() -> None:
     payload = json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "x"}})
-    result = subprocess.run(  # noqa: S603 - fixed interpreter and hook path
+    result = subprocess.run(  # fixed interpreter and hook path
         [sys.executable, str(_HOOK)], input=payload, capture_output=True, text=True, check=False
     )
     assert result.returncode == 0

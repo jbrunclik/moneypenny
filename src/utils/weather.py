@@ -246,7 +246,7 @@ def get_weather_for_location(
         return forecast
 
     except (requests.RequestException, ValueError) as e:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "Failed to fetch weather forecast",
             extra={"location": location, "error": str(e)},
         )

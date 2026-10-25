@@ -27,7 +27,7 @@ MIME_TYPE_TO_EXT: dict[str, str] = {
 }
 
 
-def generate_thumbnail(
+def generate_thumbnail(  # noqa: C901
     image_data: str, mime_type: str, max_size: tuple[int, int] | None = None
 ) -> str | None:
     """Generate a thumbnail from base64-encoded image data.
@@ -52,7 +52,7 @@ def generate_thumbnail(
         img: Image.Image = Image.open(io.BytesIO(image_bytes))
 
         # Handle RGBA images (PNG with transparency)
-        if img.mode in ("RGBA", "LA", "P"):
+        if img.mode in ("RGBA", "LA", "P"):  # noqa: SIM102
             # Convert to RGB with white background for JPEG output
             if mime_type == "image/jpeg":
                 background = Image.new("RGB", img.size, (255, 255, 255))
@@ -89,7 +89,7 @@ def generate_thumbnail(
         return base64.b64encode(output.read()).decode("utf-8")
 
     except (binascii.Error, UnidentifiedImageError, OSError) as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Error generating thumbnail",
             extra={"mime_type": mime_type, "error": str(e)},
             exc_info=True,
@@ -122,7 +122,7 @@ def transcode_image_for_browser(binary_data: bytes, mime_type: str) -> tuple[byt
         img.save(output, format="JPEG", quality=90)
         return output.getvalue(), "image/jpeg"
     except (UnidentifiedImageError, OSError) as e:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "Failed to transcode image for browser, serving original",
             extra={"mime_type": mime_type, "error": str(e)},
         )

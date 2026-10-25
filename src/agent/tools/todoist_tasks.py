@@ -11,7 +11,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def format_task(
+def format_task(  # noqa: C901
     task: dict[str, Any],
     section_map: dict[str, str] | None = None,
     project_map: dict[str, str] | None = None,
@@ -104,7 +104,7 @@ def _invalid_filter_result(filter_string: str) -> dict[str, Any]:
     }
 
 
-def todoist_list_tasks(
+def todoist_list_tasks(  # noqa: C901, PLR0912
     token: str,
     filter_string: str | None = None,
     project_id: str | None = None,
@@ -158,7 +158,7 @@ def todoist_list_tasks(
                 section_map = {
                     s["id"]: s["name"] for s in sections if s.get("id") and s.get("name")
                 }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Failed to fetch sections for task enrichment", extra={"error": str(e)})
 
     # Fetch all projects for names
@@ -169,7 +169,7 @@ def todoist_list_tasks(
                 project_map = {
                     p["id"]: p["name"] for p in projects if p.get("id") and p.get("name")
                 }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning("Failed to fetch projects for task enrichment", extra={"error": str(e)})
 
     formatted_tasks = [format_task(task, section_map, project_map) for task in tasks]
@@ -318,9 +318,8 @@ def todoist_move_task(
             "task_id": task_id,
             "message": "Task moved successfully",
         }
-    else:
-        error_info = sync_status.get(command_uuid, "Unknown error")
-        return {"action": "move_task", "success": False, "error": error_info}
+    error_info = sync_status.get(command_uuid, "Unknown error")
+    return {"action": "move_task", "success": False, "error": error_info}
 
 
 def todoist_complete_task(token: str, task_id: str) -> dict[str, Any]:

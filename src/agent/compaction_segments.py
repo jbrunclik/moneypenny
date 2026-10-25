@@ -81,8 +81,8 @@ def plan_chunks(start: int, end: int) -> list[tuple[int, int]]:
     batch = max(1, Config.CONVERSATION_COMPACTION_RESUMMARIZE_BATCH)
     max_chunks = max(1, cap // per_segment)
     size = max(batch, math.ceil(length / max_chunks))
-    bounds = list(range(start, end, size)) + [end]
-    chunks = list(zip(bounds, bounds[1:], strict=False))
+    bounds = list(range(start, end, size)) + [end]  # noqa: RUF005
+    chunks = list(zip(bounds, bounds[1:], strict=False))  # noqa: RUF007
     if len(chunks) > 1 and chunks[-1][1] - chunks[-1][0] < batch * _MIN_TAIL_FRACTION:
         (lo, _), (_, hi) = chunks[-2], chunks[-1]
         chunks[-2:] = [(lo, hi)]

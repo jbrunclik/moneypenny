@@ -193,8 +193,8 @@ def _gather(tasks: dict[str, Any]) -> None:
     def _run(label: str, fn: Any) -> None:
         try:
             copy_context().run(fn)
-        except Exception as e:
-            logger.debug(f"No {label}", extra={"error": str(e)})
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"No {label}", extra={"error": str(e)})  # noqa: G004
 
     with ThreadPoolExecutor(max_workers=len(tasks)) as pool:
         list(pool.map(lambda item: _run(item[0], item[1]), tasks.items()))
@@ -321,7 +321,7 @@ def _climb_record(prof: list[tuple[float, float]], a: int, b: int) -> dict[str, 
     }
 
 
-def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:
+def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:  # noqa: C901
     """Derive sustained climbs from an elevation profile (Garmin gives none).
 
     Walks a fixed-step resample tracking the current valley (base) and running
@@ -418,7 +418,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
         def run() -> None:
             try:
                 payload[key] = _strip_bulky_fields(_safe_api_call(garmin, method, *args))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 payload[key] = {"error": str(e)}
 
         return run
@@ -432,7 +432,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
             if isinstance(result, list):
                 result = result[: limit or 5]
             payload["recent_activities"] = _strip_bulky_fields(result, max_list_items=50)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             payload["recent_activities"] = {"error": str(e)}
 
     _gather(
@@ -470,7 +470,7 @@ _GARMIN_ACTIONS = {
 
 
 @tool
-def garmin_connect(
+def garmin_connect(  # noqa: C901, PLR0912, PLR0915
     action: str,
     date_str: str | None = None,
     activity_id: str | None = None,
@@ -561,13 +561,13 @@ def garmin_connect(
         if action == "get_readiness_snapshot":
             return json.dumps(_readiness_snapshot(garmin, target_date, limit))
 
-        elif action == "get_stats":
+        if action == "get_stats":
             result = _safe_api_call(garmin, "get_stats", target_date)
             return json.dumps(
                 {"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)}
             )
 
-        elif action == "get_heart_rates":
+        if action == "get_heart_rates":
             result = _safe_api_call(garmin, "get_heart_rates", target_date)
             return json.dumps(
                 {
@@ -577,7 +577,7 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_sleep_data":
+        if action == "get_sleep_data":
             result = _safe_api_call(garmin, "get_sleep_data", target_date)
             return json.dumps(
                 {
@@ -587,7 +587,7 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_stress_data":
+        if action == "get_stress_data":
             result = _safe_api_call(garmin, "get_stress_data", target_date)
             return json.dumps(
                 {
@@ -597,13 +597,13 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_hrv_data":
+        if action == "get_hrv_data":
             result = _safe_api_call(garmin, "get_hrv_data", target_date)
             return json.dumps(
                 {"action": "get_hrv_data", "date": target_date, "hrv": _strip_bulky_fields(result)}
             )
 
-        elif action == "get_spo2_data":
+        if action == "get_spo2_data":
             result = _safe_api_call(garmin, "get_spo2_data", target_date)
             return json.dumps(
                 {
@@ -613,7 +613,7 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_body_composition":
+        if action == "get_body_composition":
             result = _safe_api_call(garmin, "get_body_composition", target_date)
             return json.dumps(
                 {
@@ -623,12 +623,12 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_activities":
+        if action == "get_activities":
             start = (date.today() - timedelta(days=90)).isoformat()
             end = date.today().isoformat()
             result = _safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
             if isinstance(result, list):
-                if limit:
+                if limit:  # noqa: SIM108
                     result = result[:limit]
                 else:
                     result = result[:10]
@@ -640,7 +640,7 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_activity_details":
+        if action == "get_activity_details":
             if not activity_id:
                 return json.dumps({"error": "activity_id is required for get_activity_details"})
             result = _safe_api_call(garmin, "get_activity", activity_id)
@@ -655,7 +655,7 @@ def garmin_connect(
             _attach_activity_breakdowns(garmin, activity_id, payload)
             return json.dumps(payload)
 
-        elif action == "get_training_readiness":
+        if action == "get_training_readiness":
             result = _safe_api_call(garmin, "get_training_readiness", target_date)
             return json.dumps(
                 {
@@ -665,7 +665,7 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_training_status":
+        if action == "get_training_status":
             result = _safe_api_call(garmin, "get_training_status", target_date)
             return json.dumps(
                 {
@@ -675,13 +675,13 @@ def garmin_connect(
                 }
             )
 
-        elif action == "get_steps":
+        if action == "get_steps":
             result = _safe_api_call(garmin, "get_steps_data", target_date)
             return json.dumps(
                 {"action": "get_steps", "date": target_date, "steps": _strip_bulky_fields(result)}
             )
 
-        elif action == "get_courses":
+        if action == "get_courses":
             result = _safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
             courses = (
                 [_slim_course_summary(c) for c in result if isinstance(c, dict)]
@@ -692,7 +692,7 @@ def garmin_connect(
                 courses = [c for c in courses if activity_type in (c.get("activity_type") or "")]
             return json.dumps({"action": "get_courses", "count": len(courses), "courses": courses})
 
-        elif action == "get_course_details":
+        if action == "get_course_details":
             if not course_id:
                 return json.dumps({"error": "course_id is required for get_course_details"})
             result = _safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
@@ -700,16 +700,15 @@ def garmin_connect(
                 {"action": "get_course_details", "course": _slim_course_detail(result)}
             )
 
-        else:
-            return json.dumps(
-                {
-                    "error": f"Unknown action: {action}",
-                    "available_actions": sorted(_GARMIN_ACTIONS),
-                }
-            )
+        return json.dumps(
+            {
+                "error": f"Unknown action: {action}",
+                "available_actions": sorted(_GARMIN_ACTIONS),
+            }
+        )
 
     except Exception as e:
-        logger.error("Garmin tool error", extra={"action": action, "error": str(e)}, exc_info=True)
+        logger.error("Garmin tool error", extra={"action": action, "error": str(e)}, exc_info=True)  # noqa: G201
         return json.dumps({"error": str(e), "action": action})
 
 

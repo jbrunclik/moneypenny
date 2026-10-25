@@ -21,21 +21,59 @@ select = [
     "C4",     # flake8-comprehensions
     "UP",     # pyupgrade
     "S",      # flake8-bandit (security)
+    # Added Oct 25 2026 (C3). Existing violations carry a `# noqa: CODE`
+    # baseline that only shrinks (docs/conventions.md).
+    "BLE",    # blind except (B5)
+    "TRY400", # log exceptions with their traceback (B5)
+    "G",      # logging format: extra=, not f-strings (S8)
+    "LOG",    # logging misuse
+    "T20",    # print (src only, see per-file ignores)
+    "RUF",    # ruff-specific, incl. RUF100 unused noqa
+    "SIM",    # simplifications
+    "RET",    # return consistency
+    "PERF",   # performance anti-patterns
+    "N",      # naming, incl. N818 exceptions end in Error (B5)
+    "PGH",    # specific type: ignore / noqa codes
+    "TID",    # banned APIs: requests (B9)
+    "C90",    # complexity (C1)
+    "PLR0912",  # too many branches (C1)
+    "PLR0915",  # too many statements (C1)
 ]
 
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "RUF001", "RUF002", "RUF003",  # "ambiguous" unicode: Czech text is intended
 ]
 # W291 = trailing whitespace
 # W293 = blank line contains whitespace
 # These are included in "W" but explicitly listed for clarity
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"requests".msg = "Use httpx - one HTTP client library (B9)"
+
 [tool.ruff.lint.per-file-ignores]
-# Tests assert constantly and use fake tokens/credentials by design
-"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608"]
-"scripts/**" = ["S101", "S603", "S607"]
+# Tests assert constantly and use fake tokens/credentials by design; their
+# output and the scripts' and evals' is meant for a terminal
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251"]
+"scripts/**" = ["S101", "S603", "S607", "T20"]
+"evals/**" = ["T20"]
+"tests/e2e-server.py" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "N999"]
 # SQL built from the module-constant conversation-type CASE expression, not user input
-"scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608"]
+"scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608", "T20"]
+# B9 baseline: still on requests (the list only shrinks)
+"src/utils/planner_data.py" = ["TID251"]
+"src/agent/tools/todoist_client.py" = ["TID251"]
+"src/utils/weather.py" = ["TID251"]
+"src/utils/mapy.py" = ["TID251"]
+"src/auth/todoist_auth.py" = ["TID251"]
+"src/auth/google_calendar.py" = ["TID251"]
+"src/auth/google_auth.py" = ["TID251"]
+"src/api/routes/calendar.py" = ["TID251"]
+"src/agent/tools/whatsapp.py" = ["TID251"]
+"src/agent/tools/google_calendar.py" = ["TID251"]
 # Column names in these queries come only from the PROGRAM_FEATURES registry
 # or fixed strings - never user input (documented at each site)
 "src/db/models/*" = ["S608"]

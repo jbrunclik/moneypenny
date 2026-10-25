@@ -243,7 +243,7 @@ def validate_tool_names() -> None:
     unknown = set(TOOL_METADATA) - get_all_tool_names()
     if unknown:
         logger.warning(
-            f"TOOL_METADATA contains unknown tool names: {sorted(unknown)}. "
+            f"TOOL_METADATA contains unknown tool names: {sorted(unknown)}. "  # noqa: G004
             f"Known tools: {sorted(get_all_tool_names())}"
         )
 
@@ -254,7 +254,7 @@ def validate_tool_names() -> None:
     unlabelled = bindable - set(TOOL_METADATA)
     if unlabelled:
         logger.warning(
-            "Tools missing TOOL_METADATA (they will render as raw function names "
+            "Tools missing TOOL_METADATA (they will render as raw function names "  # noqa: G004
             f"in the thinking trace): {sorted(unlabelled)}"
         )
 
@@ -283,7 +283,7 @@ _GARMIN_ACTION_LABELS = {
 }
 
 
-def _format_todoist_detail(tool_args: dict[str, Any]) -> str:
+def _format_todoist_detail(tool_args: dict[str, Any]) -> str:  # noqa: C901
     """Format Todoist tool args into a human-readable detail string.
 
     Args:
@@ -480,7 +480,7 @@ def _fetch_memory_content(memory_id: str) -> str | None:
             return None
         memory = db.get_memory(memory_id, user_id)
         return memory.content if memory else None
-    except Exception:  # noqa: S110 - display nicety; never break the pill
+    except Exception:  # display nicety; never break the pill  # noqa: BLE001
         return None
 
 
@@ -543,11 +543,11 @@ def _fetch_conversation_title(conversation_id: str) -> str | None:
             return None
         conversation = db.get_conversation(conversation_id, user_id)
         return conversation.title if conversation else None
-    except Exception:  # noqa: S110 - display nicety; never break the pill
+    except Exception:  # display nicety; never break the pill  # noqa: BLE001
         return None
 
 
-def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
+def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:  # noqa: C901, PLR0912
     """Extract a human-readable detail string from complete tool arguments.
 
     This is used when we have the complete tool_calls with parsed args dict.
@@ -561,68 +561,68 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     """
     if tool_name == "research" and tool_args.get("question"):
         return str(tool_args["question"])
-    elif tool_name in ("create_artifact", "update_artifact") and tool_args.get("title"):
+    if tool_name in ("create_artifact", "update_artifact") and tool_args.get("title"):
         return str(tool_args["title"])
-    elif tool_name == "delegate_task" and tool_args.get("task"):
+    if tool_name == "delegate_task" and tool_args.get("task"):
         return str(tool_args["task"])[:200]
-    elif tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
+    if tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
         parts = [str(tool_args["query"])] if tool_args.get("query") else []
         batched = tool_args.get("queries")
         if isinstance(batched, list):
             parts.extend(str(q) for q in batched)
         return " | ".join(parts)
-    elif tool_name == "browser" and isinstance(tool_args.get("actions"), list):
+    if tool_name == "browser" and isinstance(tool_args.get("actions"), list):
         steps = [s for s in tool_args["actions"] if isinstance(s, dict)]
         if not steps:
             return None
         return " → ".join(
             [_format_browser_step(steps[0])] + [str(s.get("action")) for s in steps[1:]]
         )
-    elif tool_name == "browser" and "action" in tool_args:
+    if tool_name == "browser" and "action" in tool_args:
         return _format_browser_step(tool_args)
-    elif tool_name == "fetch_url" and "url" in tool_args:
+    if tool_name == "fetch_url" and "url" in tool_args:
         return str(tool_args["url"])
-    elif tool_name == "generate_image" and "prompt" in tool_args:
+    if tool_name == "generate_image" and "prompt" in tool_args:
         return str(tool_args["prompt"])
-    elif tool_name == "execute_code" and "code" in tool_args:
+    if tool_name == "execute_code" and "code" in tool_args:
         # Show first line of code as detail
         code_preview = str(tool_args["code"]).split("\n")[0][:50]
-        return code_preview
-    elif tool_name == "todoist" and "action" in tool_args:
+        return code_preview  # noqa: RET504
+    if tool_name == "todoist" and "action" in tool_args:
         return _format_todoist_detail(tool_args)
-    elif tool_name == "google_calendar" and "action" in tool_args:
+    if tool_name == "google_calendar" and "action" in tool_args:
         return _format_calendar_detail(tool_args)
-    elif tool_name == "manage_memory" and "operations" in tool_args:
+    if tool_name == "manage_memory" and "operations" in tool_args:
         return _format_memory_detail(tool_args)
-    elif tool_name == "search_memory" and tool_args.get("query"):
+    if (tool_name == "search_memory" and tool_args.get("query")) or (
+        tool_name == "search_conversations" and tool_args.get("query")
+    ):
         return str(tool_args["query"])
-    elif tool_name == "search_conversations" and tool_args.get("query"):
-        return str(tool_args["query"])
-    elif tool_name == "read_conversation" and tool_args.get("conversation_id"):
+    if tool_name == "read_conversation" and tool_args.get("conversation_id"):
         return _fetch_conversation_title(str(tool_args["conversation_id"]).strip())
-    elif tool_name == "garmin_connect" and "action" in tool_args:
+    if tool_name == "garmin_connect" and "action" in tool_args:
         return _format_garmin_detail(tool_args)
-    elif tool_name == "garmin_workout" and "action" in tool_args:
+    if tool_name == "garmin_workout" and "action" in tool_args:
         return _format_garmin_workout_detail(tool_args)
-    elif tool_name == "rouvy_workout" and "action" in tool_args:
+    if tool_name == "rouvy_workout" and "action" in tool_args:
         return _format_rouvy_detail(tool_args)
-    elif tool_name == "kv_store" and "action" in tool_args:
+    if tool_name == "kv_store" and "action" in tool_args:
         return _format_kv_detail(tool_args)
-    elif tool_name in _PLACE_TOOLS:
+    if tool_name in _PLACE_TOOLS:
         return _format_places_detail(tool_name, tool_args)
-    elif tool_name == "whatsapp" and tool_args.get("message"):
+    if tool_name == "whatsapp" and tool_args.get("message"):
         return _snippet(str(tool_args["message"]), 60)
-    elif tool_name == "load_skill" and tool_args.get("name"):
+    if tool_name == "load_skill" and tool_args.get("name"):
         return str(tool_args["name"])
-    elif tool_name == "create_file" and tool_args.get("filename"):
+    if tool_name == "create_file" and tool_args.get("filename"):
         return str(tool_args["filename"])
-    elif tool_name == "retrieve_file" and tool_args.get("message_id"):
+    if tool_name == "retrieve_file" and tool_args.get("message_id"):
         return f"file {tool_args.get('file_index', 0)} from an earlier message"
-    elif tool_name == "trigger_agent" and tool_args.get("agent_name"):
+    if tool_name == "trigger_agent" and tool_args.get("agent_name"):
         return str(tool_args["agent_name"])
-    elif tool_name == "request_approval" and tool_args.get("action_description"):
+    if tool_name == "request_approval" and tool_args.get("action_description"):
         return _snippet(str(tool_args["action_description"]), 70)
-    elif tool_name == "set_conversation_title" and tool_args.get("title"):
+    if tool_name == "set_conversation_title" and tool_args.get("title"):
         return str(tool_args["title"])
     return None
 

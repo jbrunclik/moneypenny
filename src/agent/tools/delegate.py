@@ -86,7 +86,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     except TurnCancelled:
         raise  # the user pressed Stop: end the parent turn, not just this tool
     except Exception as e:
-        logger.error("delegate_task failed", extra={"error": str(e)}, exc_info=True)
+        logger.error("delegate_task failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return json.dumps({"error": f"Delegated task failed: {e}"})
     finally:
         _in_delegate.reset(token)

@@ -52,8 +52,8 @@ class AgentScheduleMixin:
             next_run: datetime = cron.get_next(datetime)
             # Convert to UTC for storage (naive datetime)
             return next_run.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-        except Exception as e:
-            logger.warning(f"Failed to calculate next run: {e}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to calculate next run: {e}")  # noqa: G004
             return None
 
     def get_due_agents(self, now: datetime | None = None) -> list[Agent]:

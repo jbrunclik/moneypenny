@@ -64,7 +64,7 @@ def check_tool_permission(
 
     # 2. Check if tool is in agent's allowed list
     # If permissions list exists (even if empty), only those tools are allowed
-    if agent.tool_permissions is not None:
+    if agent.tool_permissions is not None:  # noqa: SIM102
         if tool_name not in agent.tool_permissions:
             logger.info(
                 "Tool blocked - not in agent's permissions",

@@ -93,7 +93,7 @@ def _resolve_requested_tools(user: User, tool_permissions: list[str] | None) -> 
     return filtered
 
 
-def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) -> str:
+def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) -> str:  # noqa: C901
     """Build a bullet list describing the tools available to the agent.
 
     Only includes tools that are:
@@ -200,7 +200,7 @@ Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
                 try:
                     croniter(cron)
                     return {"cron": cron, "explanation": explanation, "error": None}
-                except Exception:
+                except Exception:  # noqa: BLE001
                     return {
                         "cron": None,
                         "explanation": None,
@@ -210,7 +210,7 @@ Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
         return {"cron": None, "explanation": None, "error": "Could not parse schedule"}
 
     except Exception as e:
-        logger.warning(f"Schedule parsing failed: {e}", exc_info=True)
+        logger.warning(f"Schedule parsing failed: {e}", exc_info=True)  # noqa: G004
         return {"cron": None, "explanation": None, "error": str(e)}
 
 
@@ -301,5 +301,5 @@ If the prompt cannot be improved (too vague, empty, or inappropriate), return:
         return {"enhanced_prompt": None, "error": "Could not enhance prompt"}
 
     except Exception as e:
-        logger.warning(f"Prompt enhancement failed: {e}", exc_info=True)
+        logger.warning(f"Prompt enhancement failed: {e}", exc_info=True)  # noqa: G004
         return {"enhanced_prompt": None, "error": str(e)}

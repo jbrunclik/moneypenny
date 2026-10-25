@@ -184,7 +184,7 @@ class BrowserWorker:
                 else:
                     cmd.result = handler(**cmd.kwargs)
                     self._refuse_private_landing(cmd.kwargs.get("conversation_id"))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 cmd.error = e
             finally:
                 cmd.result_event.set()

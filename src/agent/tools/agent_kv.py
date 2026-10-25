@@ -40,7 +40,7 @@ def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
 
 
 @tool
-def kv_store(
+def kv_store(  # noqa: C901, PLR0912, PLR0915
     action: str,
     key: str = "",
     value: str = "",
@@ -114,7 +114,7 @@ def kv_store(
             return f"Key '{key}' not found in namespace '{namespace}'."
         return result
 
-    elif action == "set":
+    if action == "set":
         if not key:
             return "Error: 'key' is required for 'set' action."
         if not value:
@@ -134,7 +134,7 @@ def kv_store(
         db.kv_set(user_id, namespace, key, value)
         return f"Stored '{key}' in namespace '{namespace}'."
 
-    elif action == "merge":
+    if action == "merge":
         if not key:
             return "Error: 'key' is required for 'merge' action."
         if not value:
@@ -170,7 +170,7 @@ def kv_store(
         db.kv_set(user_id, namespace, key, merged)
         return f"Merged into '{key}' in namespace '{namespace}'. New value:\n{merged}"
 
-    elif action == "delete":
+    if action == "delete":
         if not key:
             return "Error: 'key' is required for 'delete' action."
         deleted = db.kv_delete(user_id, namespace, key)
@@ -178,14 +178,14 @@ def kv_store(
             return f"Deleted '{key}' from namespace '{namespace}'."
         return f"Key '{key}' not found in namespace '{namespace}'."
 
-    else:  # list
-        prefix = key if key else None
-        items = db.kv_list(user_id, namespace, prefix=prefix)
-        if not items:
-            prefix_msg = f" with prefix '{prefix}'" if prefix else ""
-            return f"No keys found in namespace '{namespace}'{prefix_msg}."
-        lines = [f"Keys in namespace '{namespace}' ({len(items)}):"]
-        for k, v in items:
-            preview = v[:100] + "..." if len(v) > 100 else v
-            lines.append(f"  {k}: {preview}")
-        return "\n".join(lines)
+    # list
+    prefix = key if key else None
+    items = db.kv_list(user_id, namespace, prefix=prefix)
+    if not items:
+        prefix_msg = f" with prefix '{prefix}'" if prefix else ""
+        return f"No keys found in namespace '{namespace}'{prefix_msg}."
+    lines = [f"Keys in namespace '{namespace}' ({len(items)}):"]
+    for k, v in items:
+        preview = v[:100] + "..." if len(v) > 100 else v
+        lines.append(f"  {k}: {preview}")
+    return "\n".join(lines)

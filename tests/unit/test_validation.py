@@ -134,7 +134,7 @@ class TestPydanticToErrorResponse:
         with pytest.raises(ValidationError) as exc_info:
             CustomMessageSchema(email="notanemail")
 
-        response, status = pydantic_to_error_response(exc_info.value)
+        response, status = pydantic_to_error_response(exc_info.value)  # noqa: RUF059
 
         assert "Invalid email format - must contain @" in response["error"]["message"]
 

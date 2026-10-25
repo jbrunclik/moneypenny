@@ -262,50 +262,56 @@ class TestGenerateAndSaveThumbnail:
         mock_db = MagicMock()
         mock_db.update_message_file_thumbnail.return_value = True
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value="thumbnail_data",
-            ) as mock_gen:
-                result = generate_and_save_thumbnail("msg-123", 0, sample_png_base64, "image/png")
+            ) as mock_gen,
+        ):
+            result = generate_and_save_thumbnail("msg-123", 0, sample_png_base64, "image/png")
 
-                assert result == "thumbnail_data"
-                mock_gen.assert_called_once_with(sample_png_base64, "image/png")
-                mock_db.update_message_file_thumbnail.assert_called_once_with(
-                    "msg-123", 0, "thumbnail_data", status="ready"
-                )
+            assert result == "thumbnail_data"
+            mock_gen.assert_called_once_with(sample_png_base64, "image/png")
+            mock_db.update_message_file_thumbnail.assert_called_once_with(
+                "msg-123", 0, "thumbnail_data", status="ready"
+            )
 
     def test_returns_none_on_generation_failure(self) -> None:
         """Should return None when thumbnail generation fails."""
         mock_db = MagicMock()
         mock_db.update_message_file_thumbnail.return_value = True
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value=None,
-            ):
-                result = generate_and_save_thumbnail("msg-123", 0, "data", "image/png")
+            ),
+        ):
+            result = generate_and_save_thumbnail("msg-123", 0, "data", "image/png")
 
-                assert result is None
-                mock_db.update_message_file_thumbnail.assert_called_once_with(
-                    "msg-123", 0, None, status="failed"
-                )
+            assert result is None
+            mock_db.update_message_file_thumbnail.assert_called_once_with(
+                "msg-123", 0, None, status="failed"
+            )
 
     def test_returns_thumbnail_even_if_db_update_fails(self, sample_png_base64: str) -> None:
         """Should return thumbnail even if database update fails."""
         mock_db = MagicMock()
         mock_db.update_message_file_thumbnail.return_value = False  # DB update fails
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value="thumbnail_data",
-            ):
-                result = generate_and_save_thumbnail("msg-123", 0, sample_png_base64, "image/png")
+            ),
+        ):
+            result = generate_and_save_thumbnail("msg-123", 0, sample_png_base64, "image/png")
 
-                # Still returns the thumbnail even though DB update failed
-                assert result == "thumbnail_data"
+            # Still returns the thumbnail even though DB update failed
+            assert result == "thumbnail_data"
 
 
 class TestGenerateThumbnailTask:
@@ -317,59 +323,67 @@ class TestGenerateThumbnailTask:
         mock_db.update_message_file_thumbnail.return_value = True
 
         # db is imported inside the function, so we need to patch it in src.db.models
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value="thumbnail_data",
-            ) as mock_gen:
-                _generate_thumbnail_task("msg-123", 0, sample_png_base64, "image/png")
+            ) as mock_gen,
+        ):
+            _generate_thumbnail_task("msg-123", 0, sample_png_base64, "image/png")
 
-                mock_gen.assert_called_once_with(sample_png_base64, "image/png")
-                mock_db.update_message_file_thumbnail.assert_called_once_with(
-                    "msg-123", 0, "thumbnail_data", status="ready"
-                )
+            mock_gen.assert_called_once_with(sample_png_base64, "image/png")
+            mock_db.update_message_file_thumbnail.assert_called_once_with(
+                "msg-123", 0, "thumbnail_data", status="ready"
+            )
 
     def test_marks_failed_on_generation_error(self) -> None:
         """Should mark as failed when thumbnail generation returns None."""
         mock_db = MagicMock()
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value=None,
-            ):
-                _generate_thumbnail_task("msg-123", 0, "invalid", "image/png")
+            ),
+        ):
+            _generate_thumbnail_task("msg-123", 0, "invalid", "image/png")
 
-                mock_db.update_message_file_thumbnail.assert_called_once_with(
-                    "msg-123", 0, None, status="failed"
-                )
+            mock_db.update_message_file_thumbnail.assert_called_once_with(
+                "msg-123", 0, None, status="failed"
+            )
 
     def test_handles_exception_gracefully(self) -> None:
         """Should handle exceptions and mark as failed."""
         mock_db = MagicMock()
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 side_effect=Exception("Test error"),
-            ):
-                # Should not raise
-                _generate_thumbnail_task("msg-123", 0, "data", "image/png")
+            ),
+        ):
+            # Should not raise
+            _generate_thumbnail_task("msg-123", 0, "data", "image/png")
 
-                # Should attempt to mark as failed
-                mock_db.update_message_file_thumbnail.assert_called_once_with(
-                    "msg-123", 0, None, status="failed"
-                )
+            # Should attempt to mark as failed
+            mock_db.update_message_file_thumbnail.assert_called_once_with(
+                "msg-123", 0, None, status="failed"
+            )
 
     def test_handles_missing_message(self) -> None:
         """Should handle case where message was deleted."""
         mock_db = MagicMock()
         mock_db.update_message_file_thumbnail.side_effect = Exception("Message not found")
 
-        with patch("src.db.models.db", mock_db):
-            with patch(
+        with (
+            patch("src.db.models.db", mock_db),
+            patch(
                 "src.utils.images.generate_thumbnail",
                 return_value="thumbnail",
-            ):
-                # Should not raise even if DB update fails
-                _generate_thumbnail_task("msg-deleted", 0, "data", "image/png")
+            ),
+        ):
+            # Should not raise even if DB update fails
+            _generate_thumbnail_task("msg-deleted", 0, "data", "image/png")

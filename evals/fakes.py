@@ -142,7 +142,7 @@ class FakeTodoist:
             'Todoist API error (404): {"error":"Task not found","error_tag":"NOT_FOUND"}'
         )
 
-    def api_request(
+    def api_request(  # noqa: C901
         self,
         method: str,
         endpoint: str,

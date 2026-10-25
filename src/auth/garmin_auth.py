@@ -26,7 +26,7 @@ class GarminAuthError(Exception):
     pass
 
 
-class GarminMfaRequired(Exception):
+class GarminMfaRequired(Exception):  # noqa: N818
     """Marker exception: caller should prompt the user for an MFA code and
     then call ``authenticate_with_mfa(email, password, mfa_code)``.
 
@@ -71,7 +71,7 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
 
     except GarminMfaRequired:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         _raise_typed_error(e)
 
 
@@ -118,7 +118,7 @@ def authenticate_with_mfa(email: str, password: str, mfa_code: str) -> tuple[str
             raise GarminAuthError(
                 "Rate limited by Garmin. Please try again in a few minutes."
             ) from e
-        logger.error("Garmin MFA login failed", extra={"error": str(e)}, exc_info=True)
+        logger.error("Garmin MFA login failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         raise GarminAuthError(f"MFA verification failed: {e}") from e
 
 
@@ -134,7 +134,7 @@ def serialize_tokens(garmin: Any) -> str:
     try:
         return str(garmin.client.dumps())
     except Exception as e:
-        logger.error("Failed to serialize Garmin tokens", extra={"error": str(e)})
+        logger.error("Failed to serialize Garmin tokens", extra={"error": str(e)})  # noqa: TRY400
         raise GarminAuthError("Failed to save session tokens") from e
 
 
@@ -167,7 +167,7 @@ def create_client_from_tokens(tokens_b64: str) -> Any:
             raise GarminAuthError("Session expired. Please reconnect your Garmin account.") from e
         if "assert" in error_str or "oauth1" in error_str:
             raise GarminAuthError("Session expired. Please reconnect your Garmin account.") from e
-        logger.error(
+        logger.error(  # noqa: G201
             "Failed to create Garmin client from tokens", extra={"error": str(e)}, exc_info=True
         )
         raise GarminAuthError(f"Failed to restore session: {e}") from e
@@ -190,7 +190,7 @@ def _get_display_name(garmin: Any, fallback: str) -> str:
     try:
         name = getattr(garmin, "display_name", None) or garmin.get_full_name()
         return name or fallback
-    except Exception:
+    except Exception:  # noqa: BLE001
         return fallback
 
 
@@ -205,5 +205,5 @@ def _raise_typed_error(e: Exception) -> NoReturn:
     if "connection" in error_str or "timeout" in error_str or "network" in error_str:
         raise GarminAuthError("Cannot connect to Garmin. Please try again.") from e
 
-    logger.error("Garmin authentication failed", extra={"error": str(e)}, exc_info=True)
+    logger.error("Garmin authentication failed", extra={"error": str(e)}, exc_info=True)  # noqa: LOG014
     raise GarminAuthError(f"Authentication failed: {e}") from e

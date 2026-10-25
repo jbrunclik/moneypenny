@@ -41,7 +41,7 @@ def _blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return any(addr in network for network in BLOCKED_NETWORKS)
 
 
-def check_host(hostname: str | None, port: int | None = None) -> str | None:
+def check_host(hostname: str | None, port: int | None = None) -> str | None:  # noqa: C901
     """Validate a hostname/IP for SSRF. Returns an error message, or None if OK.
 
     Rejects localhost aliases, literal private/reserved IPs, and hostnames that
@@ -103,7 +103,7 @@ def validate_public_url(url: str) -> str | None:
     """
     try:
         parsed = urlparse(url)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return f"Invalid URL: {url}"
 
     if parsed.scheme not in ("http", "https"):

@@ -34,7 +34,7 @@ USAGE = {"input_tokens": 1200, "output_tokens": 300}
 class FakeChatAgent:
     """Stands in for ChatAgent: records how it was built and called."""
 
-    instances: list[FakeChatAgent] = []
+    instances: list[FakeChatAgent] = []  # noqa: RUF012
     response: str = "Report ready\nSecond line with details"
     error: Exception | None = None
 

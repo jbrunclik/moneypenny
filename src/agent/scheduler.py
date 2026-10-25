@@ -34,7 +34,7 @@ class SchedulerResult:
     waiting_approval: int = 0
 
 
-def run_scheduled_agents() -> SchedulerResult:
+def run_scheduled_agents() -> SchedulerResult:  # noqa: C901, PLR0915
     """Execute all agents that are due to run.
 
     This is the shared core logic used by both production (systemd timer)
@@ -151,7 +151,7 @@ def run_scheduled_agents() -> SchedulerResult:
         except Exception as e:
             db.update_execution(execution.id, status="failed", error_message=str(e))
             result.failed += 1
-            logger.error(
+            logger.error(  # noqa: G201
                 "Scheduler: agent execution error",
                 extra={"agent_id": agent.id, "error": str(e)},
                 exc_info=True,

@@ -177,7 +177,7 @@ class CostMixin:
             rows = self._execute_with_timing(
                 conn,
                 f"""SELECT message_id FROM message_costs
-                    WHERE message_id IN ({placeholders}) AND tool_rounds >= ?""",  # noqa: S608 - placeholders only
+                    WHERE message_id IN ({placeholders}) AND tool_rounds >= ?""",  # placeholders only
                 (*message_ids, min_rounds),
             ).fetchall()
         return {row["message_id"] for row in rows}

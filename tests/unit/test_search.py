@@ -130,7 +130,7 @@ class TestSearchQueryEscaping:
         )
 
         # Search as first user should not find other user's content
-        results, total = db.search(user_id, "advanced")
+        results, total = db.search(user_id, "advanced")  # noqa: RUF059
 
         # First user shouldn't see "Advanced" results
         assert all(r.conversation_id != other_conv.id for r in results)
@@ -167,7 +167,7 @@ class TestSearchQueryEscaping:
         db, user_id = db_with_data
 
         # "classes" should match when searching for "class"
-        results, total = db.search(user_id, "class")
+        results, total = db.search(user_id, "class")  # noqa: RUF059
 
         # Should find results due to stemming
         assert total > 0
@@ -176,7 +176,7 @@ class TestSearchQueryEscaping:
         """Should return properly populated SearchResult objects."""
         db, user_id = db_with_data
 
-        results, total = db.search(user_id, "python")
+        results, total = db.search(user_id, "python")  # noqa: RUF059
 
         assert len(results) > 0
 

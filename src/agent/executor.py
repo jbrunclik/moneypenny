@@ -186,7 +186,7 @@ def _build_trigger_message(trigger_type: str, extra_message: str | None = None) 
     return message
 
 
-def execute_agent(
+def execute_agent(  # noqa: PLR0915
     agent: Agent,
     user: User,
     trigger_type: str,
@@ -253,7 +253,7 @@ def execute_agent(
 
     try:
         compact_conversation(agent)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # Log but don't fail execution if compaction fails
         logger.warning(
             "Conversation compaction failed",
@@ -480,7 +480,7 @@ def execute_agent(
         return "waiting_approval", e.description
 
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Agent execution failed",
             extra={
                 "agent_id": agent.id,

@@ -24,7 +24,7 @@ class GoogleCalendarAuthError(Exception):
     """Raised when Google Calendar OAuth fails."""
 
 
-class GoogleCalendarTokenRevoked(GoogleCalendarAuthError):
+class GoogleCalendarTokenRevoked(GoogleCalendarAuthError):  # noqa: N818
     """Refresh token permanently revoked (invalid_grant)."""
 
 
@@ -64,7 +64,7 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
     except requests.RequestException as exc:  # pragma: no cover - network failure
-        logger.error("Google token exchange failed", extra={"error": str(exc)}, exc_info=True)
+        logger.error("Google token exchange failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarAuthError("Failed to connect to Google") from exc
 
     if response.status_code != 200:
@@ -98,7 +98,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
     except requests.RequestException as exc:  # pragma: no cover - network failure
-        logger.error("Google token refresh failed", extra={"error": str(exc)}, exc_info=True)
+        logger.error("Google token refresh failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarTransientError("Failed to connect to Google for token refresh") from exc
 
     if response.status_code != 200:
@@ -107,7 +107,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         try:
             error_body = response.json()
             error_code = error_body.get("error", "")
-        except Exception:
+        except Exception:  # noqa: BLE001
             error_body = response.text
 
         logger.warning(
@@ -151,7 +151,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
             timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
         )
     except requests.RequestException as exc:  # pragma: no cover - network failure
-        logger.error("Google userinfo request failed", extra={"error": str(exc)}, exc_info=True)
+        logger.error("Google userinfo request failed", extra={"error": str(exc)}, exc_info=True)  # noqa: G201
         raise GoogleCalendarAuthError("Failed to fetch Google profile") from exc
 
     if response.status_code != 200:

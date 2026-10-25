@@ -115,7 +115,7 @@ class EvalCase:
     deep_research: dict[str, Any] = field(default_factory=dict)
 
 
-def _resolve_dates(value: Any) -> Any:
+def _resolve_dates(value: Any) -> Any:  # noqa: C901
     """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
     placeholders in fixture strings, so date-relative fixtures stay valid.
     A `_weekday` suffix ({today_weekday}) gives the English weekday name."""
@@ -839,7 +839,7 @@ def execute_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         # Abandoned, not retried: the worker thread is stuck in a socket
         # read we cannot interrupt, so the suite moves on without it.
         result = {"id": case.id, "pass": False, "score": 0, "error": str(e), "timed_out": True}
-    except Exception as e:  # a crashed case is a failed case, not a dead run
+    except Exception as e:  # a crashed case is a failed case, not a dead run  # noqa: BLE001
         result = {"id": case.id, "pass": False, "score": 0, "error": str(e)}
     return result
 

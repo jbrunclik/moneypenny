@@ -70,7 +70,7 @@ def _calendar_time_range(
     return f"{start.isoformat()}Z", f"{end.isoformat()}Z"
 
 
-def _google_calendar_api_request(
+def _google_calendar_api_request(  # noqa: C901
     method: str,
     endpoint: str,
     token: str,
@@ -112,7 +112,7 @@ def _google_calendar_api_request(
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
     except requests.RequestException as exc:  # pragma: no cover - network failure
-        logger.error(
+        logger.error(  # noqa: G201
             "Google Calendar API request failed",
             extra={"endpoint": endpoint, "error": str(exc)},
             exc_info=True,
@@ -515,7 +515,7 @@ _CALENDAR_ACTIONS = {
 
 
 @tool
-def google_calendar(
+def google_calendar(  # noqa: C901, PLR0912
     action: str,
     calendar_id: str | None = None,
     event_id: str | None = None,
@@ -658,7 +658,7 @@ def google_calendar(
     except CalendarDisconnectedError:
         return json.dumps(not_connected_result("google_calendar", was_connected=True))
     except Exception as exc:  # pragma: no cover - network interaction
-        logger.error(
+        logger.error(  # noqa: G201
             "Google Calendar tool error",
             extra={"action": action, "error": str(exc)},
             exc_info=True,

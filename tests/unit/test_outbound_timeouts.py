@@ -35,7 +35,7 @@ def _calls() -> list[tuple[str, str, ast.Call]]:
             if isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
                 for node in ast.walk(func):
                     if isinstance(node, ast.Call):
-                        found.append((str(path.relative_to(_SRC)), func.name, node))
+                        found.append((str(path.relative_to(_SRC)), func.name, node))  # noqa: PERF401
     return found
 
 

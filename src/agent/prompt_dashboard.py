@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 
-def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:
+def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:  # noqa: C901, PLR0912
     """Format dashboard data for injection into the planner system prompt.
 
     Uses JSON format for better structure and semantic clarity for the LLM.

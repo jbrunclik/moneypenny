@@ -605,7 +605,7 @@ class TestContextCacheManager:
             try:
                 r = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
                 results.append(r)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 errors.append(e)
 
         with (
@@ -784,7 +784,7 @@ class TestSharedCacheRegistry:
 class TestContextCacheDbMixin:
     """Tests for the context_cache table operations (real SQLite)."""
 
-    def test_store_and_get(self, test_database: Database) -> None:  # noqa: F821
+    def test_store_and_get(self, test_database: Database) -> None:
         now = time.time()
         test_database.store_context_cache_entry(
             "standard:gemini-x", "cachedContents/abc", "hash1", now, now + 3600
@@ -794,17 +794,17 @@ class TestContextCacheDbMixin:
         assert entry["cache_name"] == "cachedContents/abc"
         assert entry["content_hash"] == "hash1"
 
-    def test_get_missing_returns_none(self, test_database: Database) -> None:  # noqa: F821
+    def test_get_missing_returns_none(self, test_database: Database) -> None:
         assert test_database.get_context_cache_entry("nope:gemini-x") is None
 
-    def test_expired_entry_returns_none(self, test_database: Database) -> None:  # noqa: F821
+    def test_expired_entry_returns_none(self, test_database: Database) -> None:
         now = time.time()
         test_database.store_context_cache_entry(
             "standard:gemini-x", "cachedContents/old", "hash1", now - 7200, now - 3600
         )
         assert test_database.get_context_cache_entry("standard:gemini-x") is None
 
-    def test_store_replaces_existing(self, test_database: Database) -> None:  # noqa: F821
+    def test_store_replaces_existing(self, test_database: Database) -> None:
         now = time.time()
         test_database.store_context_cache_entry(
             "standard:gemini-x", "cachedContents/v1", "hash1", now, now + 3600

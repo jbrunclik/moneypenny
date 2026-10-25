@@ -95,7 +95,7 @@ def _research_snippets(data: dict[str, Any]) -> list[SourcePage]:
     return [p for item in items if (p := _page(item, str(item.get("snippet") or "")))]
 
 
-def _read_and_searched(
+def _read_and_searched(  # noqa: C901, PLR0912
     messages: list[BaseMessage],
 ) -> tuple[list[SourcePage], list[list[SourcePage]], list[str]]:
     """(read pages, search result lists, web tool text that parsed as neither)."""

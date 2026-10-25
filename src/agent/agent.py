@@ -429,7 +429,7 @@ class ChatAgent:
             turn_started,
         )
 
-    def stream_chat_events(
+    def stream_chat_events(  # noqa: C901, PLR0912
         self,
         text: str,
         files: list[dict[str, Any]] | None = None,

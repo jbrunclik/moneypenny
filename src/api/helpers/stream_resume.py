@@ -106,7 +106,7 @@ class _StreamJournal:
             self.flush()
 
 
-def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
+def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:  # noqa: C901, PLR0915
     """Resume an interrupted chat stream from the event journal.
 
     Replays journaled events with seq > after_seq, then tails the journal

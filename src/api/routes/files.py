@@ -38,7 +38,7 @@ api = APIBlueprint("files", __name__, url_prefix="/api", tag="Files")
 # ============================================================================
 
 
-@api.route("/messages/<message_id>/files/<int:file_index>/thumbnail", methods=["GET"])
+@api.route("/messages/<message_id>/files/<int:file_index>/thumbnail", methods=["GET"])  # noqa: RET503
 @api.doc(
     summary="Get thumbnail for an image file",
     description="Returns thumbnail binary data (200) or pending status (202).",
@@ -46,7 +46,7 @@ api = APIBlueprint("files", __name__, url_prefix="/api", tag="Files")
 )
 @rate_limit_files
 @require_auth
-def get_message_thumbnail(
+def get_message_thumbnail(  # noqa: C901, PLR0912, PLR0915
     user: User, message_id: str, file_index: int
 ) -> Response | tuple[dict[str, Any], int]:
     """Get a thumbnail for an image file from a message.
@@ -250,7 +250,7 @@ def get_message_thumbnail(
                 headers={"Cache-Control": "private, max-age=31536000"},
             )
         except binascii.Error as e:
-            logger.error("Failed to decode legacy image data", extra={"error": str(e)})
+            logger.error("Failed to decode legacy image data", extra={"error": str(e)})  # noqa: TRY400
 
     logger.warning(
         "No image data found for thumbnail",
@@ -264,7 +264,7 @@ def get_message_thumbnail(
     raise_not_found_error("Image data")
 
 
-@api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])
+@api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])  # noqa: RET503
 @api.doc(
     summary="Get full file from a message",
     description="Returns the file as binary data with appropriate content-type header.",
@@ -386,7 +386,7 @@ def get_message_file(
                 headers={"Cache-Control": "private, max-age=31536000"},
             )
         except binascii.Error as e:
-            logger.error("Failed to decode legacy file data", extra={"error": str(e)})
+            logger.error("Failed to decode legacy file data", extra={"error": str(e)})  # noqa: TRY400
 
     logger.warning(
         "No file data found",

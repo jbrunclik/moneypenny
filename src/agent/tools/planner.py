@@ -38,7 +38,7 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
         calendar_token = (
             _get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
         )
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("Failed to get valid calendar token for planner", extra={"user_id": user.id})
         calendar_token = None
 
@@ -128,7 +128,7 @@ def refresh_planner_dashboard() -> str:
         if errors:
             summary_parts.append("\nWarnings:")
             for error in errors:
-                summary_parts.append(f"  - {error}")
+                summary_parts.append(f"  - {error}")  # noqa: PERF401
 
         logger.info(
             "Dashboard refresh completed",
@@ -144,7 +144,7 @@ def refresh_planner_dashboard() -> str:
 
     except Exception as e:
         error_msg = f"Error refreshing dashboard: {e}"
-        logger.error("Dashboard refresh failed", extra={"error": str(e)}, exc_info=True)
+        logger.error("Dashboard refresh failed", extra={"error": str(e)}, exc_info=True)  # noqa: G201
         return error_msg
 
 

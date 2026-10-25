@@ -202,7 +202,7 @@ class StreamEventProcessor:
         if message_chunk.content:
             yield from self._content(message_chunk)
 
-    def _tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:
+    def _tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:  # noqa: C901
         """tool_start events for tool calls first seen in this chunk."""
         # Get tool names and args from tool_calls or tool_call_chunks
         # tool_calls has complete args as dict, tool_call_chunks has partial args as string

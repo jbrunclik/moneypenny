@@ -200,13 +200,13 @@ def _is_whatsapp_available_for_user(user_id: str) -> bool:
         return False
 
     user = db.get_user_by_id(user_id)
-    if not user or not user.whatsapp_phone:
+    if not user or not user.whatsapp_phone:  # noqa: SIM103
         return False
 
     return True
 
 
-def get_tools_for_request(
+def get_tools_for_request(  # noqa: C901, PLR0912
     anonymous_mode: bool = False,
     is_planning: bool = False,
     is_sports: bool = False,
@@ -371,7 +371,7 @@ def get_all_tool_names() -> set[str]:
     return set(_TOOL_MAP) | set(_NON_PERMISSIONED_TOOLS)
 
 
-def get_tools_for_agent(agent: Agent) -> list[Any]:
+def get_tools_for_agent(agent: Agent) -> list[Any]:  # noqa: C901, PLR0912
     """Get tools for an autonomous agent based on its permissions.
 
     Args:
@@ -474,7 +474,7 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
 
 
 # Export all public symbols
-__all__ = [
+__all__ = [  # noqa: RUF022
     # Tools
     "fetch_url",
     "web_search",

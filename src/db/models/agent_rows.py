@@ -18,7 +18,7 @@ def row_to_agent(row: sqlite3.Row) -> Agent:
 
     # Handle budget_limit column (may not exist in older databases)
     budget_limit = None
-    if "budget_limit" in row.keys():
+    if "budget_limit" in row.keys():  # noqa: SIM118
         budget_limit = row["budget_limit"]
 
     return Agent(
@@ -41,8 +41,8 @@ def row_to_agent(row: sqlite3.Row) -> Agent:
             datetime.fromisoformat(row["last_viewed_at"]) if row["last_viewed_at"] else None
         ),
         budget_limit=budget_limit,
-        fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),
-        system_type=(row["system_type"] if "system_type" in row.keys() else None),
+        fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),  # noqa: SIM118
+        system_type=(row["system_type"] if "system_type" in row.keys() else None),  # noqa: SIM118
     )
 
 

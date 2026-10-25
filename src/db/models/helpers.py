@@ -64,7 +64,7 @@ def save_file_to_blob_store(message_id: str, file_index: int, file_data: dict[st
             )
 
     # Save thumbnail if present
-    if "thumbnail" in file_data and file_data["thumbnail"]:
+    if file_data.get("thumbnail"):
         try:
             thumb_bytes = base64.b64decode(file_data["thumbnail"])
             # Thumbnails are always JPEG
@@ -86,14 +86,14 @@ def extract_file_metadata(file_data: dict[str, Any]) -> dict[str, Any]:
     # Copy over non-data fields
     for key, value in file_data.items():
         if key not in ("data", "thumbnail"):
-            metadata[key] = value
+            metadata[key] = value  # noqa: PERF403
 
     # Calculate and store size from data
     if "data" in file_data:
         try:
             data_bytes = base64.b64decode(file_data["data"])
             metadata["size"] = len(data_bytes)
-        except Exception:
+        except Exception:  # noqa: BLE001
             metadata["size"] = 0
 
     # Track whether thumbnail exists
@@ -216,7 +216,7 @@ def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str 
         return False, error
 
     # Check if database file exists and is accessible
-    if db_path.exists():
+    if db_path.exists():  # noqa: SIM102
         if not os.access(db_path, os.R_OK | os.W_OK):
             error = f"Database file is not readable/writable: {db_path}"
             logger.error("Database connectivity check failed", extra={"error": error})
@@ -239,9 +239,9 @@ def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str 
             error = f"Disk I/O error accessing database: {db_path}. Check disk health."
         else:
             error = f"Database error: {error_msg}"
-        logger.error("Database connectivity check failed", extra={"error": error})
+        logger.error("Database connectivity check failed", extra={"error": error})  # noqa: TRY400
         return False, error
     except Exception as e:
         error = f"Unexpected database error: {e}"
-        logger.error("Database connectivity check failed", extra={"error": error}, exc_info=True)
+        logger.error("Database connectivity check failed", extra={"error": error}, exc_info=True)  # noqa: G201
         return False, error

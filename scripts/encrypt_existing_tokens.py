@@ -26,7 +26,7 @@ TOKEN_COLUMNS = (
 )
 
 
-def encrypt_tokens_in_connection(conn) -> int:  # noqa: ANN001 - sqlite3/yoyo connection
+def encrypt_tokens_in_connection(conn) -> int:  # sqlite3/yoyo connection
     """Encrypt plaintext token values on an open DB connection.
 
     Shared by migration 0042 and the manual script. Returns the number

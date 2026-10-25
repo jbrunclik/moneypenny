@@ -96,7 +96,7 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
             if not (context.producer_failed and not context.final_results["ready"]):
                 yield from _finalize_stream(context)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             yield from _handle_generator_error(context, e)
 
         finally:
@@ -180,7 +180,7 @@ class _StreamContext:
         self.placeholder_saved: bool = False
 
         # Threading
-        self.event_queue: queue.Queue[dict[str, Any] | None | Exception] = queue.Queue()
+        self.event_queue: queue.Queue[dict[str, Any] | Exception | None] = queue.Queue()
         # final_results is shared between generator and cleanup thread:
         # - "ready": True when stream completed and results are available
         # - "saved": True when message has been saved (prevents duplicate saves)
@@ -242,7 +242,7 @@ class _StreamContext:
         """Mark the client as disconnected and log the event."""
         if self.client_connected:
             logger.warning(
-                f"Client disconnected during {context}",
+                f"Client disconnected during {context}",  # noqa: G004
                 extra={
                     "user_id": self.user_id,
                     "conversation_id": self.conv_id,
@@ -269,7 +269,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
             message_id=context.expected_assistant_msg_id,
         )
         context.placeholder_saved = True
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning(
             "Failed to save placeholder message, falling back to INSERT-at-end",
             extra={
@@ -373,7 +373,7 @@ def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[
 
     context.producer_failed = True
     error_data = _build_error_data(error)
-    try:
+    try:  # noqa: SIM105
         yield f"data: {json.dumps(error_data)}\n\n"
     except BrokenPipeError, ConnectionError, OSError:
         pass
@@ -389,20 +389,19 @@ def _build_error_data(error: Exception) -> dict[str, Any]:
             "message": "Request timed out. Please try again.",
             "retryable": True,
         }
-    elif "rate limit" in error_str or "quota" in error_str:
+    if "rate limit" in error_str or "quota" in error_str:
         return {
             "type": "error",
             "code": "RATE_LIMITED",
             "message": "AI service is busy. Please try again in a moment.",
             "retryable": True,
         }
-    else:
-        return {
-            "type": "error",
-            "code": "SERVER_ERROR",
-            "message": "Failed to generate response. Please try again.",
-            "retryable": True,
-        }
+    return {
+        "type": "error",
+        "code": "SERVER_ERROR",
+        "message": "Failed to generate response. Please try again.",
+        "retryable": True,
+    }
 
 
 def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Generator[str]:
@@ -454,7 +453,7 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
             "conversation_id": context.conv_id,
             "error": str(error),
         },
-        exc_info=True,
+        exc_info=True,  # noqa: LOG014
     )
 
     # Delete placeholder if no useful content was generated AND nothing was
@@ -467,7 +466,7 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
     ):
         try:
             db.delete_message_by_id(context.expected_assistant_msg_id)
-        except Exception:
+        except Exception:  # noqa: BLE001
             logger.warning(
                 "Failed to clean up placeholder message after error",
                 extra={

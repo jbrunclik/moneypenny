@@ -329,7 +329,7 @@ def create_mock_gemini_files_client() -> MagicMock:
     client.files.upload.return_value = uploaded
     client.files.get.return_value = uploaded
     factory = MagicMock(return_value=client)
-    return factory
+    return factory  # noqa: RET504
 
 
 def create_mock_genai() -> MagicMock:
@@ -477,14 +477,14 @@ def _mock_artifact_turn(
     return ({"type": "artifact", **ref} if ref else None), messages
 
 
-def create_mock_stream_chat_events() -> Any:
+def create_mock_stream_chat_events() -> Any:  # noqa: C901, PLR0915
     """Create a mock stream_chat_events method that yields structured events.
 
     This method yields events including thinking, tool_start, tool_end, token, and final.
     """
     from collections.abc import Generator
 
-    def mock_stream_chat_events(
+    def mock_stream_chat_events(  # noqa: C901, PLR0912, PLR0915
         self: Any,
         text: str,
         files: list[dict[str, Any]] | None = None,
@@ -742,9 +742,9 @@ def mock_check_grounding(
 def cleanup_pid_file() -> None:
     """Remove PID file on exit."""
     if E2E_PID_FILE.exists():
-        try:
+        try:  # noqa: SIM105
             E2E_PID_FILE.unlink()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
 
@@ -754,9 +754,9 @@ def cleanup_databases() -> None:
     patterns = [f"e2e-template-{E2E_PORT}*.db*", f"e2e-test-{E2E_PORT}-*.db*"]
     for pattern in patterns:
         for f in E2E_DB_DIR.glob(pattern):
-            try:
+            try:  # noqa: SIM105
                 f.unlink()
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass  # Ignore errors (e.g. if file is still open)
 
 
@@ -801,7 +801,7 @@ class ProxyBlobStore:
         )
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0915
     """Start the E2E test server with all mocks applied."""
     import contextlib
 
@@ -813,7 +813,7 @@ def main() -> None:
         # Also register signal handlers for cleanup
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Warning: Could not write PID file: {e}")
 
     import shutil
@@ -1529,7 +1529,7 @@ def main() -> None:
         def intercept_search() -> Any | None:
             from flask import jsonify, request
 
-            if request.path == "/api/search" and request.method == "GET":
+            if request.path == "/api/search" and request.method == "GET":  # noqa: SIM102
                 if MOCK_CONFIG.get("search_results") is not None:
                     query = request.args.get("q", "")
                     return jsonify(
@@ -1543,7 +1543,7 @@ def main() -> None:
 
         # Override planner endpoints to return mock data
         @app.before_request
-        def intercept_planner() -> Any | None:
+        def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
             from datetime import datetime, timedelta
 
             from flask import jsonify, request
@@ -1775,7 +1775,7 @@ def main() -> None:
 
             from src.config import Config
 
-            if request.path == "/api/kv" and request.method == "GET":
+            if request.path == "/api/kv" and request.method == "GET":  # noqa: SIM102
                 if MOCK_CONFIG.get("kv_namespaces") is not None:
                     return jsonify({"namespaces": MOCK_CONFIG["kv_namespaces"]})
 
@@ -1788,7 +1788,7 @@ def main() -> None:
                 keys = MOCK_CONFIG["kv_keys"].get(namespace, [])
                 return jsonify({"namespace": namespace, "keys": keys})
 
-            if request.path == "/api/memories" and request.method == "GET":
+            if request.path == "/api/memories" and request.method == "GET":  # noqa: SIM102
                 if MOCK_CONFIG.get("memories") is not None:
                     return jsonify(
                         {

@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 @tool
-def retrieve_file(
+def retrieve_file(  # noqa: C901
     message_id: str,
     file_index: int = 0,
 ) -> str | list[dict[str, Any]]:
@@ -149,8 +149,8 @@ def retrieve_file(
         if "data" in file_meta:
             try:
                 binary_data = base64.b64decode(file_meta["data"])
-            except Exception:
-                logger.error(
+            except Exception:  # noqa: BLE001
+                logger.error(  # noqa: TRY400
                     "retrieve_file: failed to decode legacy base64 data",
                     extra={"message_id": message_id, "file_index": file_index},
                 )

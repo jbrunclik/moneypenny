@@ -241,7 +241,7 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
         )
         return None, f"HTTP {e.response.status_code} when fetching {url}"
     except httpx.RequestError as e:
-        logger.error("URL fetch request error", extra={"url": url, "error": str(e)}, exc_info=True)
+        logger.error("URL fetch request error", extra={"url": url, "error": str(e)}, exc_info=True)  # noqa: G201
         return None, f"Failed to fetch {url}: {e}"
 
 

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 load_dotenv()
 
 
-def main() -> None:
+def main() -> None:  # noqa: C901, PLR0912
     from src.agent.agent import ChatAgent
     from src.config import Config
 

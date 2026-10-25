@@ -218,7 +218,7 @@ class TestSafeApiCall:
         return garmin
 
     def test_expired_session_mapped(self) -> None:
-        with pytest.raises(Exception, match="expired. Please reconnect"):
+        with pytest.raises(Exception, match="expired. Please reconnect"):  # noqa: RUF043
             _safe_api_call(self._garmin_raising("401 unauthorized"), "get_stats")
 
     def test_rate_limit_mapped(self) -> None:

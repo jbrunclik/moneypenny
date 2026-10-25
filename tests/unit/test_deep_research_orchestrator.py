@@ -123,7 +123,7 @@ def test_an_item_past_its_deadline_times_out(monkeypatch: pytest.MonkeyPatch) ->
         return ItemResult(index, "done", "", [], {})
 
     monkeypatch.setattr(orch, "run_subagent", maybe_slow)
-    o, results = _run(_plan(2), [])
+    o, results = _run(_plan(2), [])  # noqa: RUF059
 
     assert [r.status for r in results] == ["done", "timed_out"]
     assert [p.url for p in results[1].pages] == ["https://partial.cz"]

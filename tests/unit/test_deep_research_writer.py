@@ -89,7 +89,7 @@ def test_a_digest_without_pages_is_marked_unverified() -> None:
     page = SourcePage("A", "https://a.cz", "alpha")
     results = [ItemResult(0, "done", "Cena 5 490 Kč", []), ItemResult(1, "done", "d", [page])]
 
-    system, human = writer.report_messages(_plan(), results, ResearchBoard(), [page], today="x")
+    system, human = writer.report_messages(_plan(), results, ResearchBoard(), [page], today="x")  # noqa: RUF059
 
     assert "[done, no pages read]" in human.content
     assert "[done, 1 page read]" in human.content

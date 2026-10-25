@@ -34,7 +34,7 @@ def _get_fernet() -> Fernet | None:
     try:
         return Fernet(key.encode())
     except ValueError, TypeError:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "TOKEN_ENCRYPTION_KEY is not a valid Fernet key - token "
             "encryption is DISABLED. Generate one with: make token-key"
         )
@@ -79,7 +79,7 @@ def decrypt_token(value: str | None) -> str | None:
     try:
         return fernet.decrypt(value[len(ENCRYPTED_PREFIX) :].encode()).decode()
     except InvalidToken:
-        logger.error(
+        logger.error(  # noqa: TRY400
             "Stored token failed to decrypt (key changed?) - treating "
             "the integration as disconnected"
         )

@@ -265,7 +265,7 @@ def _renumber(raw: dict[str, Any]) -> None:
             visit(step)
 
 
-def _apply_one_edit(
+def _apply_one_edit(  # noqa: C901, PLR0912
     step: dict[str, Any], edit: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Apply an in-place edit (numbers and/or exercise swap) to one raw node.
@@ -471,7 +471,7 @@ def _parse_edits(edits: Any) -> list[dict[str, Any]]:
 
 
 @tool
-def garmin_workout(
+def garmin_workout(  # noqa: C901
     action: str,
     workout_id: str | None = None,
     edits: str | None = None,
@@ -598,7 +598,7 @@ def garmin_workout(
         )
 
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "garmin_workout error", extra={"action": action, "error": str(e)}, exc_info=True
         )
         return json.dumps({"error": str(e), "action": action})

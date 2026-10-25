@@ -120,9 +120,9 @@ def test_delegate_subagent_stop_propagates(token: cancellation.CancelToken) -> N
     with (
         patch("src.agent.agent.ChatAgent.chat_batch", cancelled_batch),
         patch("src.agent.tools.delegate.check_autonomous_permission"),
+        pytest.raises(TurnCancelled),
     ):
-        with pytest.raises(TurnCancelled):
-            delegate_task.invoke({"task": "Compare three laptops"})
+        delegate_task.invoke({"task": "Compare three laptops"})
 
 
 class _SlowStreamingModel(BaseChatModel):

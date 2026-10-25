@@ -162,7 +162,7 @@ def _drain_sse(gen) -> list[dict]:
     out = []
     for chunk in gen:
         if chunk.startswith("data: "):
-            out.append(json.loads(chunk[len("data: ") :]))
+            out.append(json.loads(chunk[len("data: ") :]))  # noqa: PERF401
     return out
 
 

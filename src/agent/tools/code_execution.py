@@ -123,7 +123,7 @@ def _probe_docker_available() -> bool:
     except FileNotFoundError:
         _docker_available = False
         logger.warning("Docker command not found", extra={"note": "Ensure Docker is installed"})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         _docker_available = False
         logger.warning(
             "Docker not available for code execution",
@@ -247,7 +247,7 @@ def _parse_output_files_from_stdout(stdout: str) -> tuple[list[str], str]:
 
     for line in stdout.split("\n"):
         if line.startswith("__OUTPUT_FILES__:"):
-            try:
+            try:  # noqa: SIM105
                 output_files = json.loads(line[17:])
             except json.JSONDecodeError:
                 pass
@@ -303,15 +303,15 @@ def _extract_file_from_sandbox(
 
         return full_file_data, file_metadata
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to extract file from sandbox",
-            extra={"filename": filename, "error": str(e)},
+            extra={"filename": filename, "error": str(e)},  # noqa: G101
         )
         return None, None
     finally:
         # Always remove the host temp file - error paths leaked it before
-        try:
+        try:  # noqa: SIM105
             local_os.unlink(tmp_path)
         except OSError:
             pass
@@ -440,7 +440,7 @@ def _build_execution_response(
 
 
 @tool
-def execute_code(code: str) -> str:
+def execute_code(code: str) -> str:  # noqa: C901
     """Execute Python code in a secure, isolated sandbox environment.
 
     Use this tool for tasks that require computation, data processing, or generating files.
@@ -621,7 +621,7 @@ def execute_code(code: str) -> str:
         )
     except Exception as e:
         error_msg = str(e)
-        logger.error("Code execution error", extra={"error": error_msg}, exc_info=True)
+        logger.error("Code execution error", extra={"error": error_msg}, exc_info=True)  # noqa: G201
 
         # Provide helpful error messages for common issues
         if "docker" in error_msg.lower() or "connection" in error_msg.lower():

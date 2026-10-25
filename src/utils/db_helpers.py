@@ -64,7 +64,7 @@ def execute_with_timing(
 
     if elapsed_ms >= slow_query_threshold_ms:
         logger.warning(
-            f"Slow {log_prefix}query detected",
+            f"Slow {log_prefix}query detected",  # noqa: G004
             extra={
                 "query_snippet": query_snippet,
                 "params_snippet": params_snippet,
@@ -74,7 +74,7 @@ def execute_with_timing(
         )
     elif Config.LOG_LEVEL == "DEBUG":
         logger.debug(
-            f"{log_prefix}Query executed",
+            f"{log_prefix}Query executed",  # noqa: G004
             extra={
                 "query_snippet": query_snippet,
                 "elapsed_ms": round(elapsed_ms, 2),

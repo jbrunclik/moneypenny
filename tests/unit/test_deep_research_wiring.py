@@ -24,7 +24,7 @@ _RESEARCH_EVENTS = {
 
 
 def test_research_events_are_forwarded_and_journaled() -> None:
-    assert _RESEARCH_EVENTS <= set(FORWARDED_EVENT_TYPES)
+    assert set(FORWARDED_EVENT_TYPES) >= _RESEARCH_EVENTS
     assert _RESEARCH_EVENTS <= _JOURNALED_EVENT_TYPES
 
 

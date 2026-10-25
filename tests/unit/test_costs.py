@@ -197,7 +197,7 @@ class TestConvertCurrency:
     """Tests for convert_currency function."""
 
     # Fixed rates for testing (mocked to avoid dependency on DB/Config values)
-    MOCK_RATES = {"CZK": 23.0, "EUR": 0.92, "GBP": 0.79}
+    MOCK_RATES = {"CZK": 23.0, "EUR": 0.92, "GBP": 0.79}  # noqa: RUF012
 
     @pytest.fixture(autouse=True)
     def mock_rates(self, monkeypatch: pytest.MonkeyPatch) -> None:

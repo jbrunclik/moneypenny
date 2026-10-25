@@ -325,7 +325,7 @@ def todoist(
     except todoist_client.TodoistTokenRejectedError:
         return json.dumps(not_connected_result("todoist", was_connected=True))
     except Exception as e:
-        logger.error(
+        logger.error(  # noqa: G201
             "Todoist tool error",
             extra={"action": action, "error": str(e)},
             exc_info=True,

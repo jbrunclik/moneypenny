@@ -102,7 +102,7 @@ def _research(orchestrator: Orchestrator, box: dict[str, Any], events: queue.Que
     except TurnCancelled:
         box["stopped"] = True
     except Exception:
-        logger.error("Deep research orchestrator failed", exc_info=True)
+        logger.error("Deep research orchestrator failed", exc_info=True)  # noqa: G201
         box["results"] = []
     finally:
         events.put(_DONE)

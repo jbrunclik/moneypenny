@@ -48,13 +48,13 @@ class TestParseOutputFilesFromStdout:
     def test_extracts_multiple_files(self) -> None:
         """Should extract multiple files from stdout."""
         stdout = '__OUTPUT_FILES__:["file1.txt", "file2.png", "file3.pdf"]\n'
-        files, clean = _parse_output_files_from_stdout(stdout)
+        files, clean = _parse_output_files_from_stdout(stdout)  # noqa: RUF059
         assert files == ["file1.txt", "file2.png", "file3.pdf"]
 
     def test_preserves_other_output(self) -> None:
         """Should preserve stdout content that's not the marker."""
         stdout = "Hello World\nCalculation result: 42\n__OUTPUT_FILES__:[]\n"
-        files, clean = _parse_output_files_from_stdout(stdout)
+        files, clean = _parse_output_files_from_stdout(stdout)  # noqa: RUF059
         assert "Hello World" in clean
         assert "Calculation result: 42" in clean
         assert "__OUTPUT_FILES__" not in clean
@@ -69,7 +69,7 @@ class TestParseOutputFilesFromStdout:
     def test_handles_invalid_json(self) -> None:
         """Should handle malformed JSON gracefully."""
         stdout = "__OUTPUT_FILES__:not valid json\n"
-        files, clean = _parse_output_files_from_stdout(stdout)
+        files, clean = _parse_output_files_from_stdout(stdout)  # noqa: RUF059
         assert files == []
 
     def test_handles_empty_stdout(self) -> None:
@@ -118,7 +118,7 @@ class TestExtractPlots:
         mock_result = MagicMock()
         mock_result.plots = [mock_plot1, mock_plot2]
 
-        full_plots, metadata = _extract_plots(mock_result)
+        full_plots, metadata = _extract_plots(mock_result)  # noqa: RUF059
 
         assert len(full_plots) == 2
         assert full_plots[0]["name"] == "plot_1.png"
@@ -152,7 +152,7 @@ class TestExtractPlots:
         mock_result = MagicMock()
         mock_result.plots = [mock_plot]
 
-        full_plots, metadata = _extract_plots(mock_result)
+        full_plots, metadata = _extract_plots(mock_result)  # noqa: RUF059
 
         assert full_plots[0]["name"] == "plot_1.svg"
         assert full_plots[0]["mime_type"] == "image/svg"
