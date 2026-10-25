@@ -63,7 +63,8 @@ restart. Verify what the live process actually sees with:
    by a rollback.
 5. Builds into `static/assets.new` and copies it over `static/assets` without
    deleting anything, reloads, and waits for the new workers to pass the
-   health gate (`scripts/deploy_health_gate.py`). Only then are the chunks
+   health gate (`scripts/deploy_health_gate.py`, polling `/api/ready`, which
+   also fails while something holds the database's write lock). Only then are the chunks
    that just the previous build used removed.
 
 `make rollback` returns the code to the commit in `.deploy/previous-sha`

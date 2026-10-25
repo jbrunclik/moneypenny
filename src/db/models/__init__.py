@@ -50,6 +50,7 @@ from src.db.models.embeddings import EmbeddingsMixin
 from src.db.models.helpers import (
     build_cursor,
     check_database_connectivity,
+    check_database_writable,
     delete_message_blobs,
     delete_messages_blobs,
     extract_file_metadata,
@@ -193,4 +194,5 @@ __all__ = [  # noqa: RUF022
     "parse_cursor",
     "should_reset_planner",
     "check_database_connectivity",
+    "check_database_writable",
 ]

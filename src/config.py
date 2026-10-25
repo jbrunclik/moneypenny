@@ -269,6 +269,9 @@ class Config:
     # Database
     DATABASE_PATH: Path = BASE_DIR / os.getenv("DATABASE_PATH", "chatbot.db")
     BLOB_STORAGE_PATH: Path = BASE_DIR / os.getenv("BLOB_STORAGE_PATH", "files.db")
+    # /api/ready waits this long for the write lock; a normal write holds it
+    # for milliseconds, a leaked transaction forever
+    READY_WRITE_LOCK_TIMEOUT_SECONDS = 2.0
 
     # Request size limits (DoS protection)
     # Must be larger than MAX_FILE_SIZE * MAX_FILES_PER_MESSAGE to allow multi-file uploads

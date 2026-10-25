@@ -404,8 +404,9 @@ _build_and_reload:
 	mkdir -p static/assets && cp -R static/assets.new/. static/assets/
 	# Reloads, then waits for the NEW workers: right after a reload the old
 	# workers still answer, so a plain health curl passed while the new ones
-	# crash-looped (Oct 13 2026)
-	$(PYTHON) scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/health
+	# crash-looped (Oct 13 2026). /api/ready, not /api/health: it also fails
+	# while a leaked transaction holds the write lock (Oct 25 2026)
+	$(PYTHON) scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/ready
 	cd static/assets.new && find . -type f | sort > ../assets.keep
 	cd static/assets && find . -type f | sort | comm -23 - ../assets.keep | xargs -r rm -f
 	rm -rf static/assets.new static/assets.keep

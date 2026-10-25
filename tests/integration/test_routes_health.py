@@ -92,6 +92,27 @@ class TestReadinessCheck:
         assert data["checks"]["database"]["status"] == "error"
         assert "Database connection failed" in data["checks"]["database"]["message"]
 
+    def test_checks_that_the_database_accepts_writes(self, client: FlaskClient) -> None:
+        data = client.get("/api/ready").get_json()
+        assert data["checks"]["database_writes"]["status"] == "ok"
+
+    def test_returns_503_when_the_write_lock_is_held(self, client: FlaskClient) -> None:
+        """A stuck write lock fails every write while reads pass (Oct 25 2026)."""
+        with patch(
+            "src.api.routes.system.check_database_writable",
+            return_value=(False, "Database write lock is held"),
+        ):
+            response = client.get("/api/ready")
+
+        assert response.status_code == 503
+        data = response.get_json()
+        assert data["status"] == "not_ready"
+        assert data["checks"]["database"]["status"] == "ok"
+        assert data["checks"]["database_writes"] == {
+            "status": "error",
+            "message": "Database write lock is held",
+        }
+
     def test_database_check_error_message(self, client: FlaskClient) -> None:
         """Should include database error message in checks."""
         error_msg = "Permission denied accessing database file"

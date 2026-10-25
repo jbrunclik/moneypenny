@@ -9,7 +9,7 @@ passes only once every old worker is gone, the service has not restarted, and
 the health URL answered several times in a row.
 
 Usage (from `make update`):
-    python scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/health
+    python scripts/deploy_health_gate.py --unit moneypenny --url http://localhost:8000/api/ready
 """
 
 import argparse

@@ -10,7 +10,7 @@ from unittest.mock import patch
 if TYPE_CHECKING:
     pass
 
-from src.db.models import check_database_connectivity
+from src.db.models import check_database_connectivity, check_database_writable
 
 
 class TestCheckDatabaseConnectivity:
@@ -162,3 +162,42 @@ class TestCheckDatabaseConnectivity:
                 assert success is True
                 assert error is None
                 assert test_path.exists()
+
+
+class TestCheckDatabaseWritable:
+    """A write lock left open (Oct 25 2026) failed every write while reads passed."""
+
+    def test_writable_when_nothing_holds_the_write_lock(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "test.db"
+        sqlite3.connect(db_path).close()
+
+        assert check_database_writable(db_path, timeout_s=0) == (True, None)
+
+    def test_not_writable_while_another_connection_holds_the_write_lock(
+        self, tmp_path: Path
+    ) -> None:
+        db_path = tmp_path / "test.db"
+        holder = sqlite3.connect(db_path)
+        holder.execute("PRAGMA journal_mode=WAL")
+        holder.execute("CREATE TABLE t (id INTEGER)")
+        holder.execute("INSERT INTO t VALUES (1)")  # opens a transaction, never committed
+        try:
+            success, error = check_database_writable(db_path, timeout_s=0)
+        finally:
+            holder.close()
+
+        assert success is False
+        assert error is not None
+        assert "write lock" in error
+
+    def test_leaves_no_transaction_behind(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "test.db"
+        sqlite3.connect(db_path).close()
+        check_database_writable(db_path, timeout_s=0)
+
+        other = sqlite3.connect(db_path, timeout=0)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+        finally:
+            other.close()

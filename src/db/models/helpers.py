@@ -246,3 +246,35 @@ def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str 
         error = f"Unexpected database error: {e}"
         logger.error("Database connectivity check failed", extra={"error": error}, exc_info=True)  # noqa: G201
         return False, error
+
+
+def check_database_writable(
+    db_path: Path | None = None, timeout_s: float | None = None
+) -> tuple[bool, str | None]:
+    """Check that a write could take the database's write lock.
+
+    A connection that writes and never commits keeps the write lock: every
+    other write then fails with "database is locked" while reads still pass
+    (Oct 25 2026). Takes the lock and releases it at once, writing nothing.
+
+    Returns:
+        Tuple of (success: bool, error_message: str | None)
+    """
+    db_path = db_path or Config.DATABASE_PATH
+    timeout_s = Config.READY_WRITE_LOCK_TIMEOUT_SECONDS if timeout_s is None else timeout_s
+    try:
+        conn = sqlite3.connect(db_path, timeout=timeout_s)
+    except sqlite3.Error as e:
+        return False, f"Database error: {e}"
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.rollback()
+    except sqlite3.OperationalError as e:
+        if "database is locked" not in str(e):
+            return False, f"Database error: {e}"
+        error = f"Database write lock is held for over {timeout_s:g}s: writes are failing"
+        logger.error("Database write check failed", extra={"error": error})  # noqa: TRY400
+        return False, error
+    finally:
+        conn.close()
+    return True, None

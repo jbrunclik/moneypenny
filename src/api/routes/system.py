@@ -18,7 +18,7 @@ from src.api.schemas.system import (
 )
 from src.auth.jwt_auth import require_auth
 from src.config import Config
-from src.db.models import User, check_database_connectivity
+from src.db.models import User, check_database_connectivity, check_database_writable
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -142,6 +142,15 @@ def readiness_check() -> tuple[dict[str, Any], int]:
     if not db_ok:
         is_ready = False
         logger.error("Readiness check failed: database", extra={"error": db_error})
+
+    # Reads alone pass while a leaked transaction blocks every write
+    writes_ok, writes_error = check_database_writable() if db_ok else (False, db_error)
+    checks["database_writes"] = {
+        "status": "ok" if writes_ok else "error",
+        "message": "Write lock available" if writes_ok else writes_error,
+    }
+    if not writes_ok:
+        is_ready = False
 
     response = {
         "status": "ready" if is_ready else "not_ready",
