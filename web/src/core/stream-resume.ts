@@ -16,7 +16,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { setStopHandler, swapAbortController } from './active-requests';
 import { clearInflightStream, readInflightStream } from './inflight-streams';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
-import { handleStreamDone, type StreamDoneEvent } from './stream-done';
+import { handleStreamDone } from './stream-done';
 import { processStreamEvent } from './stream-events';
 import { hasInflightBatch } from './batch-resume';
 import {
@@ -50,7 +50,7 @@ async function readResumeStream(
       state.lastSeq = event.seq;
     }
     if (event.type === 'done') {
-      await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
+      await handleStreamDone(event, state, convId, tempUserMessageId);
       return true;
     }
     if (event.type === 'error') {

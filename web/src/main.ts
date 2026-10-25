@@ -30,9 +30,14 @@ import 'katex/dist/katex.min.css';
 
 import { init } from './core/init';
 import { initStaleChunkReload } from './core/stale-chunks';
+import { createLogger } from './utils/logger';
+
+const log = createLogger('main');
 
 // Registered before init so no lazy import can fail unhandled
 initStaleChunkReload();
 
 // Start the app
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  void init().catch((error: unknown) => log.error('App initialization failed', { error }));
+});

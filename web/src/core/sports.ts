@@ -144,8 +144,12 @@ export async function navigateToSports(forceRefresh: boolean = false): Promise<v
     clearElement(messagesContainer);
     const programsEl = createSportsProgramsElement(
       programs,
-      handleAddProgram,
-      handleDeleteProgram,
+      (data) => {
+        void handleAddProgram(data);
+      },
+      (id) => {
+        void handleDeleteProgram(id);
+      },
       handleSelectProgram,
     );
     messagesContainer.appendChild(programsEl);
@@ -220,8 +224,8 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
     if (program) {
       renderSportsProgramHeader(
         program,
-        () => navigateToSports(),
-        () => handleProgramReset(programId),
+        () => void navigateToSports(),
+        () => void handleProgramReset(programId),
         () => openQuickActionsEditor(),
       );
       mountQuickActionsBar({

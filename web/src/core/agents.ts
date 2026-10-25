@@ -194,8 +194,8 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
     handleApproval,
     handleAgentSelect,
     handleAgentRun,
-    handleAgentEdit,
-    handleNewAgent,
+    (agent) => void handleAgentEdit(agent),
+    () => void handleNewAgent().catch((error: unknown) => log.error('Failed to create agent', { error })),
   );
 
   // Add stale data warning banner if fetch failed but we have cached data

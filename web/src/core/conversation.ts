@@ -249,7 +249,7 @@ export async function selectConversation(convId: string): Promise<void> {
     log.error('Failed to load conversation', { error, conversationId: convId });
     hideConversationLoader();
     toast.error('Failed to load conversation.', {
-      action: { label: 'Retry', onClick: () => selectConversation(convId) },
+      action: { label: 'Retry', onClick: () => void selectConversation(convId) },
     });
   } finally {
     store.setLoading(false);

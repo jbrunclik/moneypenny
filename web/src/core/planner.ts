@@ -171,7 +171,11 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
     clearElement(messagesContainer);
 
     // Create dashboard element with refresh and reset callbacks
-    const dashboardEl = createDashboardElement(dashboard, handlePlannerRefresh, handlePlannerReset);
+    const dashboardEl = createDashboardElement(
+      dashboard,
+      () => void handlePlannerRefresh(),
+      () => void handlePlannerReset(),
+    );
     messagesContainer.appendChild(dashboardEl);
 
     // Render messages after dashboard

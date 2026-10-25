@@ -109,7 +109,7 @@ export async function deleteConversation(convId: string): Promise<void> {
     // Also clears the open chat when it was the deleted one (archived or not)
     removeConversationFromUI(convId);
     toast.success('Moved to trash.', {
-      action: { label: 'Undo', onClick: () => restoreConversation(convId, conv) },
+      action: { label: 'Undo', onClick: () => void restoreConversation(convId, conv) },
     });
   } catch (error) {
     log.error('Failed to delete conversation', { error, conversationId: convId });

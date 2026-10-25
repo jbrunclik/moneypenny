@@ -109,7 +109,7 @@ function attachImagegenHandler(
  */
 function attachCostHandler(actions: HTMLElement, messageId: string): void {
   const btn = actions.querySelector('.message-cost-btn');
-  btn?.addEventListener('click', async () => {
+  const openCost = async (): Promise<void> => {
     try {
       const costData = await costs.getMessageCost(messageId);
       window.dispatchEvent(new CustomEvent('message-cost:open', { detail: costData }));
@@ -117,6 +117,9 @@ function attachCostHandler(actions: HTMLElement, messageId: string): void {
       log.warn('Failed to fetch message cost', { error, messageId });
       toast.error('Failed to load message cost.');
     }
+  };
+  btn?.addEventListener('click', () => {
+    void openCost();
   });
 }
 
@@ -218,7 +221,7 @@ export function createMessageActions(
       ${showRerunButtons ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
       ${showEditButton ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
       ${showSaveQuickActionButton ? `<button class="message-save-quick-action-btn" title="Save as quick action">${PIN_ICON}</button>` : ''}
-      ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources!.length})">${SOURCES_ICON}</button>` : ''}
+      ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources.length})">${SOURCES_ICON}</button>` : ''}
       ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
       ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
       ${showSpeakButton ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
@@ -231,8 +234,8 @@ export function createMessageActions(
   if (showRerunButtons) attachRerunHandlers(actions, messageId);
   if (showEditButton) attachEditHandler(actions, messageId);
   if (showSaveQuickActionButton) attachSaveQuickActionHandler(actions, messageId);
-  if (hasSources) attachSourcesHandler(actions, sources!);
-  if (hasGeneratedImages) attachImagegenHandler(actions, generatedImages!, messageId);
+  if (hasSources) attachSourcesHandler(actions, sources);
+  if (hasGeneratedImages) attachImagegenHandler(actions, generatedImages, messageId);
   if (showCostButton) attachCostHandler(actions, messageId);
   if (showSpeakButton) attachSpeakHandler(actions, messageId, language);
 

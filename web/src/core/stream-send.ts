@@ -14,7 +14,7 @@ import { setStopHandler } from './active-requests';
 import { clearInflightStream } from './inflight-streams';
 import { confirmDelivery, markSendFailed } from './send-delivery';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
-import { handleStreamDone, type StreamDoneEvent } from './stream-done';
+import { handleStreamDone } from './stream-done';
 import { processStreamEvent } from './stream-events';
 import { mergeExternalChanges } from './remote-merge';
 import { answerUnreadSteering } from './steering';
@@ -81,7 +81,7 @@ async function consumeStream(send: StreamSend, events: AsyncGenerator<StreamEven
     // Handle done event specially (async)
     if (event.type === 'done') {
       state.unansweredSteeringId = event.unanswered_steering_id;
-      await handleStreamDone(event as unknown as StreamDoneEvent, state, convId, tempUserMessageId);
+      await handleStreamDone(event, state, convId, tempUserMessageId);
       continue;
     }
 

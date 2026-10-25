@@ -86,7 +86,7 @@ async function openKnownDeepLinked(conversationId: string): Promise<void> {
     // Clear the invalid hash and show error
     clearConversationHash();
     toast.error('Failed to load conversation from URL.', {
-      action: { label: 'Retry', onClick: () => loadDeepLinkedConversation(conversationId) },
+      action: { label: 'Retry', onClick: () => void loadDeepLinkedConversation(conversationId) },
     });
   }
 }

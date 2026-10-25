@@ -396,7 +396,7 @@ export function initVoiceInput(): void {
     }
   };
 
-  const handleClick = async () => {
+  const handleClick = (): void => {
     // If it was a long press, don't toggle recording
     if (isLongPress) {
       isLongPress = false;

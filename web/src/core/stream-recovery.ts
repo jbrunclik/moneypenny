@@ -542,10 +542,9 @@ async function updateUIWithRecoveredMessage(
       const wasAtBottom = isScrolledToBottom(container);
       // Try to find the element by ID first (most reliable), then fall back to class selectors
       // The ID is set on the streaming element when we receive expected_assistant_message_id
-      const existingEl = (
-        container.querySelector(`[data-message-id="${message.id}"]`) ||
-        container.querySelector('.message.assistant.streaming, .message.assistant.message-incomplete')
-      ) as HTMLElement | null;
+      const existingEl =
+        container.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`) ||
+        container.querySelector<HTMLElement>('.message.assistant.streaming, .message.assistant.message-incomplete');
 
       if (existingEl) {
         // Found existing element - update it in place

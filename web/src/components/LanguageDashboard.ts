@@ -106,17 +106,20 @@ function createProgramCard(
     </div>
   `;
 
-  card.addEventListener('click', async (e) => {
+  const confirmDelete = async (): Promise<void> => {
+    const confirmed = await showConfirm({
+      title: 'Delete Program',
+      message: `Delete "${program.name}"? This will also delete the conversation and all learning data.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (confirmed) onDelete(program.id);
+  };
+  card.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (target.closest('.language-card-delete')) {
       e.stopPropagation();
-      const confirmed = await showConfirm({
-        title: 'Delete Program',
-        message: `Delete "${program.name}"? This will also delete the conversation and all learning data.`,
-        confirmLabel: 'Delete',
-        danger: true,
-      });
-      if (confirmed) onDelete(program.id);
+      void confirmDelete();
       return;
     }
     onSelect(program.id);
@@ -267,7 +270,7 @@ export function renderLanguageProgramHeader(
   resetBtn.className = 'language-reset-btn';
   resetBtn.title = 'Start a new lesson';
   resetBtn.innerHTML = `${REFRESH_ICON}<span>New Lesson</span>`;
-  resetBtn.addEventListener('click', async () => {
+  const confirmReset = async (): Promise<void> => {
     const confirmed = await showConfirm({
       title: 'New Lesson',
       message: 'Start a new lesson? The current conversation will be cleared. Your vocabulary and assessment data will be kept.',
@@ -275,6 +278,9 @@ export function renderLanguageProgramHeader(
       danger: false,
     });
     if (confirmed) onReset();
+  };
+  resetBtn.addEventListener('click', () => {
+    void confirmReset();
   });
 
   renderChatHeader({

@@ -108,17 +108,20 @@ function createProgramCard(
     </div>
   `;
 
-  card.addEventListener('click', async (e) => {
+  const confirmDelete = async (): Promise<void> => {
+    const confirmed = await showConfirm({
+      title: 'Delete Program',
+      message: `Delete "${program.name}"? This will also delete the conversation and all training data.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (confirmed) onDelete(program.id);
+  };
+  card.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (target.closest('.sports-card-delete')) {
       e.stopPropagation();
-      const confirmed = await showConfirm({
-        title: 'Delete Program',
-        message: `Delete "${program.name}"? This will also delete the conversation and all training data.`,
-        confirmLabel: 'Delete',
-        danger: true,
-      });
-      if (confirmed) onDelete(program.id);
+      void confirmDelete();
       return;
     }
     onSelect(program.id);
@@ -283,7 +286,7 @@ export function renderSportsProgramHeader(
   resetBtn.className = 'sports-reset-btn';
   resetBtn.title = 'Reset conversation';
   resetBtn.innerHTML = `${CLEAR_ICON}<span>Reset</span>`;
-  resetBtn.addEventListener('click', async () => {
+  const confirmReset = async (): Promise<void> => {
     const confirmed = await showConfirm({
       title: 'Reset Conversation',
       message: 'Reset this conversation? All messages will be deleted. Your goals and progress data will be kept.',
@@ -291,6 +294,9 @@ export function renderSportsProgramHeader(
       danger: true,
     });
     if (confirmed) onReset();
+  };
+  resetBtn.addEventListener('click', () => {
+    void confirmReset();
   });
 
   renderChatHeader({

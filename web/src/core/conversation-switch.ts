@@ -91,7 +91,7 @@ function renderAgentHeaderIfAgent(conv: Conversation): void {
     },
     () => {
       if (conv.agent_id) {
-        void handleAgentEditById(conv.agent_id!);
+        void handleAgentEditById(conv.agent_id);
       }
     },
   );

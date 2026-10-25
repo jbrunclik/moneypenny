@@ -47,7 +47,9 @@ export async function initGoogleSignIn(): Promise<void> {
   // Initialize Google Identity Services
   google.accounts.id.initialize({
     client_id: clientId,
-    callback: handleGoogleCredential,
+    callback: (response) => {
+      void handleGoogleCredential(response);
+    },
     auto_select: false,
   });
 

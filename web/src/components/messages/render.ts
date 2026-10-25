@@ -627,11 +627,15 @@ function addApprovalRequestMessageToUI(
     const rejectBtn = messageEl.querySelector('.btn-reject');
 
     if (approveBtn) {
-      approveBtn.addEventListener('click', () => handleApprovalAction(parsed.approvalId, true, messageEl));
+      approveBtn.addEventListener('click', () => {
+        void handleApprovalAction(parsed.approvalId, true, messageEl);
+      });
     }
 
     if (rejectBtn) {
-      rejectBtn.addEventListener('click', () => handleApprovalAction(parsed.approvalId, false, messageEl));
+      rejectBtn.addEventListener('click', () => {
+        void handleApprovalAction(parsed.approvalId, false, messageEl);
+      });
     }
   }
 

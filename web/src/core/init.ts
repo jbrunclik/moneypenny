@@ -526,7 +526,9 @@ export async function init(): Promise<void> {
   initToast();
   initModal();
   initPopupEscapeListener(); // Single Escape key listener for all popups
-  initMessageInput(sendMessage, handleStopStreaming);
+  initMessageInput(() => {
+    void sendMessage().catch((error: unknown) => log.error('Failed to send message', { error }));
+  }, handleStopStreaming);
   initOutboxHandlers();
   initModelSelector();
   initFileUpload();
@@ -576,7 +578,11 @@ export async function init(): Promise<void> {
   // permission requests only happen from the Settings toggle
   void registerServiceWorker();
   initSearchInput();
-  subscribeToSearchChanges(handleSearchResultClick);
+  subscribeToSearchChanges((convId, messageId, resultIndex) => {
+    void handleSearchResultClick(convId, messageId, resultIndex).catch((error: unknown) =>
+      log.error('Failed to open search result', { error }),
+    );
+  });
   initTTSVoices();
   setupEventListeners();
   initSidebarSelection();
@@ -619,7 +625,7 @@ export async function init(): Promise<void> {
   }
 
   // Listen for auth events
-  window.addEventListener('auth:login', async () => {
+  const handleLogin = async (): Promise<void> => {
     hideLoginOverlay();
     try {
       // Check URL hash again in case user logged out then back in on a deep link
@@ -641,9 +647,12 @@ export async function init(): Promise<void> {
         action: { label: 'Refresh', onClick: () => window.location.reload() },
       });
     }
+  };
+  window.addEventListener('auth:login', () => {
+    void handleLogin();
   });
 
-  window.addEventListener('auth:logout', async () => {
+  const handleLogout = async (): Promise<void> => {
     // Kill in-flight readers and persisted resume entries before anything
     // else - they would keep writing into the logged-out UI, and another
     // account on this browser must not resume the previous user's turns
@@ -678,6 +687,9 @@ export async function init(): Promise<void> {
 
     // Re-initialize deep linking for next login
     initDeepLinking(handleDeepLinkNavigation);
+  };
+  window.addEventListener('auth:logout', () => {
+    void handleLogout().catch((error: unknown) => log.error('Failed to reset the UI after logout', { error }));
   });
 
   // Listen for message delete events

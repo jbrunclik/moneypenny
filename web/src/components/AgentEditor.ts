@@ -406,7 +406,7 @@ function getTimezoneOptions(selected: string): string {
 function getSelectedToolPermissions(): string[] {
   if (!modalContainer) return [];
 
-  const toolCheckboxes = modalContainer.querySelectorAll('input[name="tool-permission"]:checked') as NodeListOf<HTMLInputElement>;
+  const toolCheckboxes = modalContainer.querySelectorAll<HTMLInputElement>('input[name="tool-permission"]:checked');
   return Array.from(toolCheckboxes).map(cb => cb.value);
 }
 
@@ -416,7 +416,7 @@ function getSelectedToolPermissions(): string[] {
 function setupScheduleHandlers(): void {
   if (!modalContainer) return;
 
-  const presetChips = modalContainer.querySelectorAll('.schedule-preset-chip') as NodeListOf<HTMLButtonElement>;
+  const presetChips = modalContainer.querySelectorAll<HTMLButtonElement>('.schedule-preset-chip');
   const naturalInput = modalContainer.querySelector('#agent-schedule-natural') as HTMLInputElement;
   const parseBtn = modalContainer.querySelector('#parse-schedule-btn') as HTMLButtonElement;
   const scheduleResult = modalContainer.querySelector('#schedule-result') as HTMLDivElement;
@@ -461,7 +461,7 @@ function setupScheduleHandlers(): void {
   });
 
   // Handle parse button click
-  parseBtn.addEventListener('click', async () => {
+  const parseNaturalSchedule = async (): Promise<void> => {
     const text = naturalInput.value.trim();
     if (!text) {
       toast.error('Enter a schedule description');
@@ -494,6 +494,9 @@ function setupScheduleHandlers(): void {
       parseBtn.disabled = false;
       parseBtn.textContent = 'Parse';
     }
+  };
+  parseBtn.addEventListener('click', () => {
+    void parseNaturalSchedule();
   });
 
   // Handle Enter key in natural input
@@ -544,7 +547,7 @@ function setupEnhancePromptHandler(): void {
   const promptInput = modalContainer.querySelector('#agent-system-prompt') as HTMLTextAreaElement;
   const nameInput = modalContainer.querySelector('#agent-name') as HTMLInputElement;
 
-  enhanceBtn?.addEventListener('click', async () => {
+  const enhancePrompt = async (): Promise<void> => {
     const prompt = promptInput?.value?.trim();
     const agentName = nameInput?.value?.trim() || 'Agent';
     const toolPermissions = getSelectedToolPermissions();
@@ -579,6 +582,9 @@ function setupEnhancePromptHandler(): void {
       enhanceBtn.disabled = false;
       enhanceBtn.innerHTML = originalContent;
     }
+  };
+  enhanceBtn?.addEventListener('click', () => {
+    void enhancePrompt();
   });
 }
 
@@ -745,7 +751,7 @@ async function handleSave(): Promise<void> {
     model: modelSelect?.value || undefined,
     budget_limit: budgetLimit,
     enabled: enabledInput?.checked ?? true,
-    fresh_context: (modalContainer.querySelector('#agent-fresh-context') as HTMLInputElement | null)?.checked ?? true,
+    fresh_context: modalContainer.querySelector<HTMLInputElement>('#agent-fresh-context')?.checked ?? true,
     tool_permissions: toolPermissions,
   };
 

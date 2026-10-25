@@ -74,9 +74,9 @@ export function showNewMessagesAvailableBanner(_messageCount: number): void {
     <button class="btn btn-small">Reload</button>
   `;
 
-  banner.querySelector('button')?.addEventListener('click', async () => {
+  banner.querySelector('button')?.addEventListener('click', () => {
     banner.remove();
-    await reloadCurrentConversation(currentConvId);
+    void reloadCurrentConversation(currentConvId);
   });
 
   // Insert at the top of messages container

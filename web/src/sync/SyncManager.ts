@@ -1040,7 +1040,7 @@ export class SyncManager {
   /**
    * Handle tab visibility changes.
    */
-  private async handleVisibilityChange(): Promise<void> {
+  private handleVisibilityChange(): void {
     const wasHidden = !this.isVisible;
     this.isVisible = document.visibilityState === 'visible';
 
@@ -1079,7 +1079,7 @@ export class SyncManager {
    * cache without firing visibilitychange (R14), leaving a pending stream
    * recovery unattempted until the next poll.
    */
-  private async handlePageShow(event: PageTransitionEvent): Promise<void> {
+  private handlePageShow(event: PageTransitionEvent): void {
     if (!event.persisted) return;
     log.info('Page restored from bfcache');
     // iOS can restore without a visibilitychange to "visible" after the

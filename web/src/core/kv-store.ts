@@ -171,7 +171,9 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
 
   // Build callbacks
   const callbacks: KVStoreCallbacks = {
-    onRefresh: handleStorageRefresh,
+    onRefresh: () => {
+      void handleStorageRefresh().catch((error: unknown) => log.error('Failed to refresh storage', { error }));
+    },
     onNamespaceExpand: async (namespace: string) => {
       return await kvStore.getKeys(namespace);
     },

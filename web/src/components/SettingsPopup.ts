@@ -115,9 +115,9 @@ async function loadAllSettings(): Promise<{ calendarConnected: boolean }> {
     statusOrNull(calendar.getStatus(), 'Google Calendar'),
     statusOrNull(garmin.getStatus(), 'Garmin'),
     statusOrNull(rouvy.getStatus(), 'Rouvy'),
-    getPushState().catch((err) => {
+    getPushState().catch((err): PushState => {
       log.warn('Failed to determine push state', { error: err });
-      return 'unsupported' as PushState;
+      return 'unsupported';
     }),
   ]);
 

@@ -88,7 +88,7 @@ export function setupEventListeners(): void {
     getElementById('user-menu-btn')?.setAttribute('aria-expanded', 'false');
   };
 
-  getElementById('user-info')?.addEventListener('click', async (e) => {
+  const handleUserInfoClick = async (e: MouseEvent): Promise<void> => {
     const target = e.target as HTMLElement;
 
     if (target.closest('#user-menu-btn')) {
@@ -153,6 +153,9 @@ export function setupEventListeners(): void {
       closeUserMenu();
       void import('../components/SettingsPopup').then((m) => m.openSettingsPopup());
     }
+  };
+  getElementById('user-info')?.addEventListener('click', (e) => {
+    void handleUserInfoClick(e).catch((error: unknown) => log.error('User menu action failed', { error }));
   });
 
   // Close the user menu on outside clicks

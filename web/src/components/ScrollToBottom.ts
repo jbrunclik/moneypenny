@@ -10,6 +10,9 @@ import { CHEVRON_DOWN_ICON } from '../utils/icons';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
 import { onMessagesScroll } from '../utils/scroll-manager';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('scroll-to-bottom');
 
 let scrollButton: HTMLButtonElement | null = null;
 
@@ -72,7 +75,7 @@ export function initScrollToBottom(): void {
   // A tap while the previous one still loads the remaining messages is
   // ignored (it used to start a second load and append duplicates).
   let busy = false;
-  scrollButton.addEventListener('click', async () => {
+  const jumpToBottom = async (): Promise<void> => {
     if (busy) return;
     busy = true;
     try {
@@ -94,6 +97,9 @@ export function initScrollToBottom(): void {
     const token = beginProgrammaticScroll();
     stopMomentumScroll(messagesContainer);
     scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token), { ignoreMomentum: true });
+  };
+  scrollButton.addEventListener('click', () => {
+    void jumpToBottom().catch((error: unknown) => log.error('Failed to jump to the bottom', { error }));
   });
 
   // The user touching, wheeling or key-scrolling the list takes over from any

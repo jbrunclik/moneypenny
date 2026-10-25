@@ -190,7 +190,7 @@ function isBlockAnswered(el: HTMLElement): boolean {
   if (el.classList.contains('quiz-multiple-choice')) {
     return !!el.querySelector('.quiz-option.selected');
   }
-  const input = el.querySelector('.quiz-text-input') as HTMLInputElement | null;
+  const input = el.querySelector<HTMLInputElement>('.quiz-text-input');
   return !!input?.value?.trim();
 }
 
@@ -199,8 +199,8 @@ function isBlockAnswered(el: HTMLElement): boolean {
  * For batch quizzes the button lives on the outer block.
  */
 function updateQuizContinueState(blockEl: HTMLElement): void {
-  const root = (blockEl.closest('.quiz-batch') as HTMLElement | null) ?? blockEl;
-  const continueBtn = root.querySelector('.quiz-continue') as HTMLButtonElement | null;
+  const root = blockEl.closest<HTMLElement>('.quiz-batch') ?? blockEl;
+  const continueBtn = root.querySelector<HTMLButtonElement>('.quiz-continue');
   if (!continueBtn) return;
 
   const isBatch = root.classList.contains('quiz-batch');

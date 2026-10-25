@@ -144,8 +144,12 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
     clearElement(messagesContainer);
     const programsEl = createLanguageProgramsElement(
       programs,
-      handleAddProgram,
-      handleDeleteProgram,
+      (data) => {
+        void handleAddProgram(data);
+      },
+      (id) => {
+        void handleDeleteProgram(id);
+      },
       handleSelectProgram,
     );
     messagesContainer.appendChild(programsEl);
@@ -220,8 +224,8 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
     if (program) {
       renderLanguageProgramHeader(
         program,
-        () => navigateToLanguage(),
-        () => handleProgramReset(programId),
+        () => void navigateToLanguage(),
+        () => void handleProgramReset(programId),
         () => openQuickActionsEditor(),
       );
       mountQuickActionsBar({

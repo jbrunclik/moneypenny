@@ -519,7 +519,7 @@ function buildTaskCopyText(task: PlannerTask): string {
  * Set up click-to-copy handlers for all planner items.
  */
 function setupCopyHandlers(container: HTMLElement): void {
-  container.addEventListener('click', async (e) => {
+  const copyItem = async (e: MouseEvent): Promise<void> => {
     const target = e.target as HTMLElement;
     const copyBtn = target.closest('.planner-item-copy');
 
@@ -547,6 +547,9 @@ function setupCopyHandlers(container: HTMLElement): void {
     } catch (err) {
       log.error('Failed to copy to clipboard', { error: err });
     }
+  };
+  container.addEventListener('click', (e) => {
+    void copyItem(e);
   });
 }
 

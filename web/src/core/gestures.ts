@@ -18,7 +18,7 @@ export function setupTouchGestures(): void {
 
   const conversationsList = getElementById('conversations-list');
   const sidebar = getElementById('sidebar');
-  const main = document.querySelector('.main') as HTMLElement | null;
+  const main = document.querySelector<HTMLElement>('.main');
 
   if (!conversationsList || !sidebar || !main) return;
 

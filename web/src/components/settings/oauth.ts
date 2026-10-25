@@ -63,7 +63,7 @@ async function handleOAuthCallback(flow: OAuthFlow): Promise<boolean> {
 
   try {
     log.debug(`Exchanging ${flow.name} OAuth code for token`);
-    await flow.complete(code as string, state as string);
+    await flow.complete(code as string, state);
     // Open settings popup to show the connected state
     void openSettingsPopup();
   } catch (err) {

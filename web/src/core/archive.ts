@@ -54,7 +54,7 @@ export async function archiveConversation(convId: string): Promise<void> {
     toast.success('Conversation archived.', {
       action: {
         label: 'Undo',
-        onClick: () => unarchiveConversation(convId),
+        onClick: () => void unarchiveConversation(convId),
       },
     });
   } catch (error) {

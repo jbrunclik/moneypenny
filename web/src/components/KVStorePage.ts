@@ -214,7 +214,7 @@ function renderMemoryItem(
   };
 
   const attachHandlers = (): void => {
-    item.querySelector('.memory-protect')?.addEventListener('click', async () => {
+    const toggleProtected = async (): Promise<void> => {
       const next = !isProtected;
       try {
         await callbacks.onSetMemoryProtected(memory.id, next);
@@ -223,9 +223,12 @@ function renderMemoryItem(
       } catch {
         // Error surfaced by the caller
       }
+    };
+    item.querySelector('.memory-protect')?.addEventListener('click', () => {
+      void toggleProtected();
     });
 
-    item.querySelector('.memory-delete')?.addEventListener('click', async () => {
+    const deleteMemory = async (): Promise<void> => {
       const confirmed = await showConfirm({
         message: 'Delete this memory?',
         confirmLabel: 'Delete',
@@ -242,6 +245,9 @@ function renderMemoryItem(
       } catch {
         // Error handled by caller
       }
+    };
+    item.querySelector('.memory-delete')?.addEventListener('click', () => {
+      void deleteMemory();
     });
   };
 
@@ -285,7 +291,7 @@ function renderDeletedMemoriesSection(
       </div>
     `;
 
-    item.querySelector('.memory-restore')?.addEventListener('click', async () => {
+    const restoreMemory = async (): Promise<void> => {
       try {
         await callbacks.onRestoreMemory(memory.id);
         item.remove();
@@ -295,6 +301,9 @@ function renderDeletedMemoriesSection(
       } catch {
         // Error handled by caller
       }
+    };
+    item.querySelector('.memory-restore')?.addEventListener('click', () => {
+      void restoreMemory();
     });
 
     list.appendChild(item);
@@ -368,7 +377,7 @@ function createNamespaceCard(
   let isExpanded = false;
   let isLoading = false;
 
-  header.querySelector('.kv-namespace-title-row')?.addEventListener('click', async () => {
+  const toggleExpanded = async (): Promise<void> => {
     if (isLoading) return;
 
     isExpanded = !isExpanded;
@@ -396,10 +405,12 @@ function createNamespaceCard(
       body.classList.add('collapsed');
       clearElement(body);
     }
+  };
+  header.querySelector('.kv-namespace-title-row')?.addEventListener('click', () => {
+    void toggleExpanded();
   });
 
-  header.querySelector('.btn-clear-namespace')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
+  const clearNamespace = async (): Promise<void> => {
     const confirmed = await showConfirm({ message: `Delete all keys in "${namespace}"?`, confirmLabel: 'Clear All', danger: true });
     if (!confirmed) return;
 
@@ -409,6 +420,10 @@ function createNamespaceCard(
     } catch {
       // Error handled by caller
     }
+  };
+  header.querySelector('.btn-clear-namespace')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    void clearNamespace();
   });
 
   card.appendChild(header);
@@ -477,7 +492,7 @@ function renderKeysInBody(
       </div>
     `;
 
-    keyRow.querySelector('.kv-key-delete')?.addEventListener('click', async () => {
+    const deleteKey = async (): Promise<void> => {
       try {
         await callbacks.onDeleteKey(namespace, entry.key);
         keyRow.remove();
@@ -487,6 +502,9 @@ function renderKeysInBody(
       } catch {
         // Error handled by caller
       }
+    };
+    keyRow.querySelector('.kv-key-delete')?.addEventListener('click', () => {
+      void deleteKey();
     });
 
     const expandBtn = keyRow.querySelector('.kv-key-expand');

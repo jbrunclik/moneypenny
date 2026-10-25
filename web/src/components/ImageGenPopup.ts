@@ -49,7 +49,7 @@ export function initImageGenPopup(): void {
   imageGenPopup.init();
 
   // Listen for popup open to fetch and display cost
-  window.addEventListener('imagegen:open', async (e: Event) => {
+  const showImageGenCost = async (e: Event): Promise<void> => {
     const event = e as CustomEvent<GeneratedImage[]>;
     const images = event.detail;
     if (images && images.length > 0 && images[0].message_id) {
@@ -81,6 +81,9 @@ export function initImageGenPopup(): void {
         costPlaceholder.remove();
       }
     }
+  };
+  window.addEventListener('imagegen:open', (e: Event) => {
+    void showImageGenCost(e);
   });
 }
 

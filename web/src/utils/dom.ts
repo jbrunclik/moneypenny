@@ -44,7 +44,7 @@ export function querySelector<T extends Element>(
   selector: string,
   parent: ParentNode = document
 ): T | null {
-  return parent.querySelector(selector) as T | null;
+  return parent.querySelector<T>(selector);
 }
 
 /**
@@ -54,7 +54,7 @@ export function querySelectorAll<T extends Element>(
   selector: string,
   parent: ParentNode = document
 ): NodeListOf<T> {
-  return parent.querySelectorAll(selector) as NodeListOf<T>;
+  return parent.querySelectorAll<T>(selector);
 }
 
 /**
