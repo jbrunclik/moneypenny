@@ -99,6 +99,49 @@ jobs:
           path: htmlcov/
           retention-days: 7
 
+  # P7: tests that need Docker (code sandbox) or Chromium (browser tool) skip
+  # in the backend job; here the dependencies exist, so a skip is a failure
+  backend-docker-browser-tests:
+    name: Backend Docker & Browser Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: '.python-version'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
+
+      - name: Install dependencies
+        run: uv pip install --system -r requirements.txt
+
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Build the code sandbox image
+        run: make sandbox-image
+
+      - name: Run Docker and browser tests (no skips allowed)
+        run: |
+          python -m pytest -rs -v \
+            tests/integration/test_browser_page_state.py \
+            tests/integration/test_browser_request_guard.py \
+            tests/integration/test_code_sandbox_cancel.py \
+            tests/integration/test_code_sandbox_isolation.py \
+            tests/integration/test_code_sandbox_office_files.py | tee pytest.log
+          if grep -q "SKIPPED" pytest.log; then
+            echo "::error::A Docker or browser test skipped although its dependency is installed"
+            exit 1
+          fi
+
   frontend-unit-tests:
     name: Frontend Unit & Component Tests
     runs-on: ubuntu-latest
