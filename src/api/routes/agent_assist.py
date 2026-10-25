@@ -17,6 +17,7 @@ from src.api.schemas.agents import (
     ParseScheduleRequest,
     ParseScheduleResponse,
 )
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User
@@ -142,12 +143,12 @@ def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) 
 
 
 @api.route("/ai-assist/parse-schedule", methods=["POST"])
-@api.input(ParseScheduleRequest)
 @api.output(ParseScheduleResponse)
 @api.doc(responses=[400, 401])
 @rate_limit_conversations
 @require_auth
-def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any]:
+@validate_request(ParseScheduleRequest)
+def parse_schedule(user: User, data: ParseScheduleRequest) -> dict[str, Any]:
     """Parse natural language schedule description into cron expression.
 
     Uses an LLM to convert user-friendly schedule descriptions
@@ -160,7 +161,7 @@ def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any
 
     logger.info(
         "Parsing schedule",
-        extra={"user_id": user.id, "input": json_data.natural_language[:100]},
+        extra={"user_id": user.id, "input": data.natural_language[:100]},
     )
 
     try:
@@ -170,8 +171,8 @@ def parse_schedule(user: User, json_data: ParseScheduleRequest) -> dict[str, Any
 
         prompt = f"""Convert this natural language schedule description to a cron expression.
 
-Schedule: "{json_data.natural_language}"
-Timezone context: {json_data.timezone}
+Schedule: "{data.natural_language}"
+Timezone context: {data.timezone}
 
 Respond with ONLY a JSON object in this exact format:
 {{"cron": "<5-part cron expression>", "explanation": "<human readable description>"}}
@@ -209,18 +210,19 @@ Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
 
         return {"cron": None, "explanation": None, "error": "Could not parse schedule"}
 
-    except Exception as e:
-        logger.warning(f"Schedule parsing failed: {e}", exc_info=True)  # noqa: G004
-        return {"cron": None, "explanation": None, "error": str(e)}
+    except Exception:
+        # The exception text can carry upstream internals: log it, don't return it
+        logger.warning("Schedule parsing failed", extra={"user_id": user.id}, exc_info=True)
+        return {"cron": None, "explanation": None, "error": "Could not parse schedule"}
 
 
 @api.route("/ai-assist/enhance-prompt", methods=["POST"])
-@api.input(EnhancePromptRequest)
 @api.output(EnhancePromptResponse)
 @api.doc(responses=[400, 401])
 @rate_limit_conversations
 @require_auth
-def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any]:
+@validate_request(EnhancePromptRequest)
+def enhance_prompt(user: User, data: EnhancePromptRequest) -> dict[str, Any]:
     """Enhance an agent's system prompt using AI.
 
     Takes the current prompt and agent context, then suggests
@@ -230,7 +232,7 @@ def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any
 
     logger.info(
         "Enhancing prompt",
-        extra={"user_id": user.id, "agent_name": json_data.agent_name},
+        extra={"user_id": user.id, "agent_name": data.agent_name},
     )
 
     try:
@@ -240,7 +242,7 @@ def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any
         # This is a simple task that doesn't need tools or memory
         model = chat_model(Config.DEFAULT_MODEL, temperature=0.7)  # creative improvement
 
-        tool_section = _format_tool_prompt_section(user, json_data.tool_permissions)
+        tool_section = _format_tool_prompt_section(user, data.tool_permissions)
         tool_section_text = (
             f"\nTools available to this agent:\n{tool_section}\n\nInclude guidance on how the agent should use these tools when relevant.\n"
             if tool_section
@@ -249,11 +251,11 @@ def enhance_prompt(user: User, json_data: EnhancePromptRequest) -> dict[str, Any
 
         prompt = f"""Improve this autonomous agent's system prompt to be clearer and more effective.
 
-Agent name: {json_data.agent_name}
+Agent name: {data.agent_name}
 
 Current prompt:
 ---
-{json_data.prompt}
+{data.prompt}
 ---
 {tool_section_text}
 Provide an enhanced version that:
@@ -300,6 +302,7 @@ If the prompt cannot be improved (too vague, empty, or inappropriate), return:
 
         return {"enhanced_prompt": None, "error": "Could not enhance prompt"}
 
-    except Exception as e:
-        logger.warning(f"Prompt enhancement failed: {e}", exc_info=True)  # noqa: G004
-        return {"enhanced_prompt": None, "error": str(e)}
+    except Exception:
+        # The exception text can carry upstream internals: log it, don't return it
+        logger.warning("Prompt enhancement failed", extra={"user_id": user.id}, exc_info=True)
+        return {"enhanced_prompt": None, "error": "Could not enhance prompt"}

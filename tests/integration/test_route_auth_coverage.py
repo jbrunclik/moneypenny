@@ -37,8 +37,6 @@ PUBLIC_ENDPOINTS = {
 INPUT_BEFORE_AUTH = {
     "agents.create_agent",
     "agents.update_agent",
-    "agents.enhance_prompt",
-    "agents.parse_schedule",
     "kv_store.set_value",
     "memory.update_memory_protection",
 }
