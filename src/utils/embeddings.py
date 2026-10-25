@@ -14,30 +14,30 @@ import threading
 from typing import Any
 
 from src.config import Config
+from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 _MAX_EMBED_CHARS = 8000
 
-_client: Any | None = None
-_client_lock = threading.Lock()
+
+def _new_client() -> Any:
+    from google import genai  # noqa: PLC0415
+    from google.genai import types  # noqa: PLC0415
+
+    return genai.Client(
+        api_key=Config.GEMINI_API_KEY,
+        http_options=types.HttpOptions(timeout=Config.EMBEDDING_TIMEOUT_SECONDS * 1000),
+    )
+
+
+# per-worker: a stateless API client
+_client = Lazy(_new_client)
 
 
 def _get_client() -> Any:
-    """Lazy, process-wide google.genai client (same pattern as context_cache)."""
-    global _client
-    if _client is None:
-        with _client_lock:
-            if _client is None:
-                from google import genai  # noqa: PLC0415
-                from google.genai import types  # noqa: PLC0415
-
-                _client = genai.Client(
-                    api_key=Config.GEMINI_API_KEY,
-                    http_options=types.HttpOptions(timeout=Config.EMBEDDING_TIMEOUT_SECONDS * 1000),
-                )
-    return _client
+    return _client.get()
 
 
 def embed_text(text: str) -> list[float] | None:

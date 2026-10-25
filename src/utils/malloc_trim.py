@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 THREAD_NAME = "malloc-trim"
 
+# per-worker: trims this process's own heap
 _thread: threading.Thread | None = None
 _stop_event = threading.Event()
 _start_lock = threading.Lock()

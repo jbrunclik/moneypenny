@@ -37,6 +37,7 @@ logger = get_logger(__name__)
 
 # ============ Availability Check ============
 
+# per-worker: a cached probe of this host's Chromium, the same answer in every worker
 _browser_available: bool | None = None
 
 

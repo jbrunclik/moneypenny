@@ -428,6 +428,7 @@ class BrowserWorker:
 
 # ============ Worker Lifecycle ============
 
+# per-worker: browser sessions belong to the process that opened them
 _worker: BrowserWorker | None = None
 _worker_lock = threading.Lock()
 
@@ -458,6 +459,7 @@ def shutdown_worker() -> None:
 atexit.register(shutdown_worker)
 
 # Background cleanup timer
+# per-worker: each process closes its own idle browser sessions
 _cleanup_thread: threading.Thread | None = None
 _cleanup_stop = threading.Event()
 

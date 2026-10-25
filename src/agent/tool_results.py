@@ -43,6 +43,7 @@ def get_current_request_id() -> str | None:
 # This allows us to capture the full results for server-side extraction while
 # still stripping them before sending to the LLM
 # Format: {request_id: {"results": [...], "created_at": timestamp}}
+# per-worker: keyed by request id and read by the same request's stream
 _full_tool_results: dict[str, dict[str, Any]] = {}
 _full_tool_results_lock = threading.Lock()
 
@@ -83,6 +84,7 @@ def get_full_tool_results(request_id: str) -> list[dict[str, Any]]:
 # ============ Cleanup Thread ============
 
 # Cleanup thread state
+# per-worker: each process sweeps its own _full_tool_results
 _cleanup_thread: threading.Thread | None = None
 _cleanup_thread_stop_event = threading.Event()
 

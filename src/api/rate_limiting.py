@@ -20,6 +20,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Global limiter instance (initialized in init_rate_limiting)
+# per-worker: set once at app start; with memory:// storage each worker counts on its own
 limiter: Limiter | None = None
 
 

@@ -31,6 +31,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _POLL_SECONDS = 0.05
+# per-worker: caps concurrent research per process; the global cap is this times the worker count
 _slots: threading.BoundedSemaphore | None = None
 _slots_lock = threading.Lock()
 

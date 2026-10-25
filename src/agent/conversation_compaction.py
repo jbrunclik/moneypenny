@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 # two workers refreshing the same conversation is wasteful once, not wrong -
 # the persisted state is last-write-wins in kv_store)
 _inflight_lock = threading.Lock()
+# per-worker: dedupes refreshes within a process; a duplicate across workers is wasted work, not wrong
 _inflight_refreshes: set[str] = set()
 
 # kv_store namespace for persisted per-conversation running summaries

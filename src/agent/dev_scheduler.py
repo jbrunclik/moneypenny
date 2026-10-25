@@ -17,7 +17,9 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Global reference to the scheduler thread
+# per-worker: development only (one process); production uses the systemd timer
 _scheduler_thread: threading.Thread | None = None
+# per-worker: development only, alongside _scheduler_thread
 _stop_event: threading.Event | None = None
 
 # How often to check schedules (in seconds)

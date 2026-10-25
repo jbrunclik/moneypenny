@@ -26,6 +26,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # user_id -> (client, token_fingerprint, expires_at_monotonic, last_persisted_token)
+# per-worker: a login cache; a miss logs in again from the stored tokens
 _sessions: OrderedDict[str, list[Any]] = OrderedDict()
 _lock = threading.Lock()
 

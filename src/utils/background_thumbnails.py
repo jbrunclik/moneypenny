@@ -6,41 +6,33 @@ when complete.
 """
 
 import base64
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from src.api.schemas.common import ThumbnailStatus
 from src.config import Config
+from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Module-level executor (created on first use, lazy initialization).
-# Lock guards against concurrent first-access under threaded (gthread) workers,
-# which would otherwise leak duplicate ThreadPoolExecutors.
-_executor: ThreadPoolExecutor | None = None
-_executor_lock = threading.Lock()
+
+def _new_executor() -> ThreadPoolExecutor:
+    logger.debug(
+        "Creating thumbnail executor", extra={"max_workers": Config.THUMBNAIL_WORKER_THREADS}
+    )
+    return ThreadPoolExecutor(
+        max_workers=Config.THUMBNAIL_WORKER_THREADS, thread_name_prefix="thumbnail-"
+    )
+
+
+# per-worker: each process thumbnails its own uploads; results land in the DB
+_executor = Lazy(_new_executor)
 
 
 def get_executor() -> ThreadPoolExecutor:
-    """Get or create the thumbnail generation executor (thread-safe lazy init).
-
-    Uses lazy initialization to avoid creating threads until needed.
-    """
-    global _executor
-    if _executor is None:
-        with _executor_lock:
-            if _executor is None:  # double-checked: another thread may have won
-                _executor = ThreadPoolExecutor(
-                    max_workers=Config.THUMBNAIL_WORKER_THREADS,
-                    thread_name_prefix="thumbnail-",
-                )
-                logger.debug(
-                    "Created thumbnail executor",
-                    extra={"max_workers": Config.THUMBNAIL_WORKER_THREADS},
-                )
-    return _executor
+    """The thumbnail executor, created on first use (no threads until needed)."""
+    return _executor.get()
 
 
 def should_skip_thumbnail(file_data: str, file_type: str) -> bool:

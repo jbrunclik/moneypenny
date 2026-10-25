@@ -25,6 +25,7 @@ from src.agent.tool_results import get_current_request_id
 # to outlive concurrent in-flight turns on one worker.
 _MAX_TRACKED_TURNS = 256
 
+# per-worker: keyed by request id; a turn runs in one worker
 _counts: OrderedDict[str, Counter[str]] = OrderedDict()
 _lock = threading.Lock()
 

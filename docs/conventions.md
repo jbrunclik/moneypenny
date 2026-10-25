@@ -68,7 +68,7 @@ session and points here for the rest.
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | planned: test |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined) |
 | B6 | Typing follows [Typing](#typing) | mypy strict; planned: `Any` ratchet |
-| B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); constant collections are immutable | planned: test |
+| B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` (10 files baselined in `pyproject.toml`) |
 | B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (178 baselined) |
@@ -242,4 +242,5 @@ Production runs multiple gunicorn workers (count set by `GUNICORN_WORKERS`, defa
 
 - Any multi-step or stateful flow that can span requests (e.g. multi-step OAuth / MFA like Garmin's) must be **stateless on the backend** or persist to a **shared store** (the database or `kv_store`). If step 2 needs data from step 1, have the client resend it rather than relying on in-process state.
 - A shared / cross-worker store cannot hold **live library objects** - anything with thread locks, network sessions, or sockets (e.g. a partially-authenticated `garminconnect.Garmin` client) is not picklable and will raise `TypeError: cannot pickle '_thread.RLock' object`. `kv_store` (pickle + base64) works only for serializable data - dicts, tokens, strings.
+- Every module-level container, `Lazy` singleton or `global`-rebound name carries `# per-worker: <why safe>` on its line or in the comment block above (`tests/unit/test_per_worker_state.py` fails otherwise). Safe reasons: a cache rebuilt on a miss, state keyed by a request that runs in one worker, a resource owned by the process (threads, browser sessions, containers). Anything another request must see goes to the database or `kv_store`.
 - Flask's `test_client` is single-process and never reproduces cross-worker breakage. If a flow's correctness depends on within-process state, write a test that asserts the contract is stateless (or document the requirement explicitly).

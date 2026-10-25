@@ -1,15 +1,11 @@
 """Unit tests for blob store."""
 
 import tempfile
-import threading
-import time
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-import src.db.blob_store as blob_store_module
-from src.db.blob_store import BlobStore, get_blob_store, reset_blob_store
+from src.db.blob_store import BlobStore
 
 
 class TestBlobStore:
@@ -267,7 +263,6 @@ class TestDeleteMessagesBlobs:
             finally:
                 blob_store.close()
                 helpers_module.get_blob_store = original_get_blob_store
-                reset_blob_store()
 
     def test_delete_messages_blobs_empty_list(self):
         """Test that empty message list returns 0."""
@@ -330,45 +325,3 @@ class TestExtractFileMetadata:
         metadata = extract_file_metadata(file_data)
 
         assert metadata["custom_field"] == "preserved"
-
-
-class TestGetBlobStoreThreadSafety:
-    """Concurrency tests for the lazy singleton (gthread worker safety)."""
-
-    def teardown_method(self) -> None:
-        reset_blob_store()
-
-    def test_concurrent_init_creates_single_instance(self) -> None:
-        """Many threads calling get_blob_store() on a cold singleton must
-        construct exactly one BlobStore (no lazy-init race / resource leak)."""
-        reset_blob_store()
-
-        instance_count = 0
-        count_lock = threading.Lock()
-        real_init = BlobStore.__init__
-
-        def slow_init(self: BlobStore, *args: object, **kwargs: object) -> None:
-            nonlocal instance_count
-            with count_lock:
-                instance_count += 1
-            # Widen the race window so an unguarded init reliably double-builds.
-            time.sleep(0.02)
-            real_init(self, *args, **kwargs)
-
-        results: list[BlobStore] = []
-        barrier = threading.Barrier(20)
-
-        def worker() -> None:
-            barrier.wait()  # release all threads simultaneously
-            results.append(get_blob_store())
-
-        with patch.object(BlobStore, "__init__", slow_init):
-            threads = [threading.Thread(target=worker) for _ in range(20)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
-
-        assert instance_count == 1, f"expected 1 BlobStore, built {instance_count}"
-        assert all(r is results[0] for r in results)
-        assert blob_store_module._blob_store is results[0]

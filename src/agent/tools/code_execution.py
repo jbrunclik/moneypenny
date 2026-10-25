@@ -20,6 +20,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Flag to track if Docker is available for code execution
+# per-worker: a cached probe of this host's Docker, the same answer in every worker
 _docker_available: bool | None = None
 _docker_available_lock = threading.Lock()
 

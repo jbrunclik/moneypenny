@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.config import Config
+from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -132,9 +133,6 @@ class SandboxSessionPool:
 
 # ============ Module Singleton ============
 
-_pool: SandboxSessionPool | None = None
-_pool_init_lock = threading.Lock()
-
 
 def _make_docker_session() -> Any:
     """Factory for real Docker sandbox sessions (shared settings with execute_code)."""
@@ -195,22 +193,24 @@ def _cleanup_loop(pool: SandboxSessionPool) -> None:
             logger.warning("Sandbox session cleanup failed", exc_info=True)
 
 
+def _new_pool() -> SandboxSessionPool:
+    pool = SandboxSessionPool(
+        factory=_make_docker_session,
+        max_sessions=Config.CODE_SANDBOX_MAX_SESSIONS,
+        ttl_seconds=Config.CODE_SANDBOX_SESSION_TTL_SECONDS,
+    )
+    thread = threading.Thread(
+        target=_cleanup_loop, args=(pool,), daemon=True, name="sandbox-session-cleanup"
+    )
+    thread.start()
+    atexit.register(pool.close_all)
+    return pool
+
+
+# per-worker: containers belong to the process that started them (owner-PID label)
+_pool = Lazy(_new_pool)
+
+
 def get_sandbox_pool() -> SandboxSessionPool:
-    """Get the process-wide sandbox session pool (double-checked locking)."""
-    global _pool
-    if _pool is not None:
-        return _pool
-    with _pool_init_lock:
-        if _pool is None:
-            pool = SandboxSessionPool(
-                factory=_make_docker_session,
-                max_sessions=Config.CODE_SANDBOX_MAX_SESSIONS,
-                ttl_seconds=Config.CODE_SANDBOX_SESSION_TTL_SECONDS,
-            )
-            thread = threading.Thread(
-                target=_cleanup_loop, args=(pool,), daemon=True, name="sandbox-session-cleanup"
-            )
-            thread.start()
-            atexit.register(pool.close_all)
-            _pool = pool
-    return _pool
+    """Get the process-wide sandbox session pool."""
+    return _pool.get()

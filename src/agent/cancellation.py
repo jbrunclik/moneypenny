@@ -66,6 +66,7 @@ class CancelToken:
                 logger.warning("Cancel callback failed", exc_info=True)
 
 
+# per-worker: a turn's token lives in the worker running it; Stop crosses workers through kv_store
 _tokens: dict[str, CancelToken] = {}
 _tokens_lock = threading.Lock()
 

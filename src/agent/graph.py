@@ -960,6 +960,7 @@ def create_chat_graph(
 # request id rides a contextvar, not the graph), so it is safe to compile once
 # per signature and share across requests and threads.
 
+# per-worker: a memo of compiled graphs, rebuilt on a miss
 _compiled_graph_cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
 _compiled_graph_lock = threading.Lock()
 

@@ -10,13 +10,13 @@ Key format:
 """
 
 import sqlite3
-import threading
 from datetime import datetime
 from pathlib import Path
 
 from src.config import Config
 from src.utils.connection_pool import ConnectionPool
 from src.utils.db_helpers import execute_with_timing, init_query_logging
+from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -245,25 +245,10 @@ class BlobStore:
             return row["size"] if row else None
 
 
-# Global blob store instance (lazy initialization).
-# Lock guards against concurrent first-access under threaded (gthread) workers,
-# which would otherwise construct duplicate BlobStores / connection pools.
-_blob_store: BlobStore | None = None
-_blob_store_lock = threading.Lock()
+# per-worker: one store and connection pool per process; the data is in SQLite
+_blob_store = Lazy(BlobStore)
 
 
 def get_blob_store() -> BlobStore:
-    """Get the global blob store instance (thread-safe lazy init)."""
-    global _blob_store
-    if _blob_store is None:
-        with _blob_store_lock:
-            if _blob_store is None:  # double-checked: another thread may have won
-                _blob_store = BlobStore()
-    return _blob_store
-
-
-def reset_blob_store() -> None:
-    """Reset the global blob store instance (for testing)."""
-    global _blob_store
-    with _blob_store_lock:
-        _blob_store = None
+    """Get the process-wide blob store."""
+    return _blob_store.get()

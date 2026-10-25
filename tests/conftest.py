@@ -113,8 +113,9 @@ def close_pooled_sandbox_sessions() -> Generator[None]:
     yield
     from src.agent.tools import sandbox_sessions
 
-    if sandbox_sessions._pool is not None:
-        sandbox_sessions._pool.close_all()
+    pool = sandbox_sessions._pool.peek()
+    if pool is not None:
+        pool.close_all()
 
 
 # -----------------------------------------------------------------------------
@@ -140,9 +141,10 @@ def cleanup_global_connections() -> Generator[None]:
         models_module.db.close()
 
     # Close global blob store connection pool if it was initialized
-    if blob_store_module._blob_store is not None:
-        blob_store_module._blob_store.close()
-        blob_store_module._blob_store = None
+    blob_store = blob_store_module._blob_store.peek()
+    if blob_store is not None:
+        blob_store.close()
+        blob_store_module._blob_store.reset()
 
 
 # -----------------------------------------------------------------------------
@@ -199,11 +201,12 @@ def test_blob_store(test_blob_path: Path):
     get_blob_store() reads the module global, so patching it reaches every
     caller (models, routes, tools).
     """
+    from src.db import blob_store as blob_store_module
     from src.db.blob_store import BlobStore
 
     blob_store = BlobStore(db_path=test_blob_path)
 
-    with patch("src.db.blob_store._blob_store", blob_store):
+    with blob_store_module._blob_store.override(blob_store):
         yield blob_store
     # Close connection pool to release resources
     blob_store.close()
@@ -223,11 +226,12 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
     """
     with ExitStack() as stack:
         # One swap reaches every module that imported the global db
+        from src.db import blob_store as blob_store_module
         from src.db.models import use_database
 
         stack.enter_context(use_database(test_database))
         # get_blob_store() reads this global, so every caller sees the test store
-        stack.enter_context(patch("src.db.blob_store._blob_store", test_blob_store))
+        stack.enter_context(blob_store_module._blob_store.override(test_blob_store))
 
         from src.app import create_app
 

@@ -868,6 +868,7 @@ def main() -> None:  # noqa: C901, PLR0915
 
         # Import app after mocks are in place
         from src.app import create_app
+        from src.db import blob_store as blob_store_module
         from src.db.blob_store import BlobStore
         from src.db.models import Database, use_database
 
@@ -913,7 +914,7 @@ def main() -> None:  # noqa: C901, PLR0915
         )
 
         # get_blob_store() reads this global, so every caller sees the proxy
-        stack.enter_context(patch("src.db.blob_store._blob_store", proxy_blob_store))
+        stack.enter_context(blob_store_module._blob_store.override(proxy_blob_store))  # type: ignore[arg-type]
 
         app = create_app()
         app.config["TESTING"] = True

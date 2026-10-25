@@ -3,8 +3,6 @@
 import math
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.config import Config
 from src.utils.embeddings import (
     cosine_similarity,
@@ -76,14 +74,13 @@ class TestEmbedText:
 
 
 class TestEmbeddingClient:
-    def test_client_has_a_request_deadline(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_client_has_a_request_deadline(self) -> None:
         """Oct 2026 prod: one embed call hung ~165 s (the SDK default is no
         timeout) and stalled a whole chat turn inside search_conversations."""
         from src.utils import embeddings
 
-        monkeypatch.setattr(embeddings, "_client", None)
         with patch("google.genai.Client") as client_cls:
-            embeddings._get_client()
+            embeddings._new_client()
 
         http_options = client_cls.call_args.kwargs["http_options"]
         assert http_options.timeout == Config.EMBEDDING_TIMEOUT_SECONDS * 1000
