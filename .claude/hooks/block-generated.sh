@@ -16,7 +16,7 @@ case "$fp" in
     ;;
   */static/openapi.json)
     echo "Refusing to edit a generated file: static/openapi.json" >&2
-    echo "It is exported from the backend. Run 'make openapi' to regenerate it; change the Pydantic schemas in src/api/schemas.py instead." >&2
+    echo "It is exported from the backend. Run 'make openapi' to regenerate it; change the Pydantic schemas in src/api/schemas/ instead." >&2
     exit 2
     ;;
 esac

@@ -54,8 +54,11 @@ const button = createElement('button', {
 // Clear element content
 clearElement(container);
 
-// Escape user content
-element.textContent = escapeHtml(userInput);
+// Plain text: textContent needs no escaping
+element.textContent = userInput;
+
+// Inside an HTML string: escape every interpolated value (F3)
+container.innerHTML = `<span class="name">${escapeHtml(userInput)}</span>`;
 ```
 
 ### innerHTML Usage Guidelines
@@ -74,7 +77,7 @@ element.textContent = escapeHtml(userInput);
 **Security requirements**:
 - ALWAYS use `escapeHtml()` for any user-controlled content before interpolating into innerHTML
 - SVG icons from icons.ts are safe (static constants, not user input)
-- Markdown is rendered through marked.js which handles sanitization
+- Markdown is parsed by marked.js and sanitized by DOMPurify (`renderMarkdown` in `utils/markdown.ts`); external images become links (S6)
 
 ### Icon Management
 

@@ -11,8 +11,7 @@ on:
   # leaves main with no Tests run at all (Sep 6 2026: two Dependabot merges
   # landed on main with zero CI coverage, and there was no way to ask for a
   # run without pushing a commit). Use this to verify main after a batch of
-  # bot merges, or to re-run against freshly resolved dependencies: the
-  # requirements are >= ranges, so an unchanged commit can still break.
+  # bot merges.
   workflow_dispatch:
 
 jobs:

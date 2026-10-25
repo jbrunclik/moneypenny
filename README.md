@@ -362,7 +362,7 @@ sudo loginctl enable-linger $USER
 journalctl --user -u moneypenny -f
 ```
 
-The systemd service automatically runs `npm install && npm run build` before starting Gunicorn.
+The systemd service automatically runs `npm ci && npm run build` before starting Gunicorn.
 
 **Important**: User services are tied to login sessions by default. The `enable-linger` command ensures your service continues running after you disconnect from SSH.
 
@@ -406,7 +406,7 @@ moneypenny/
 │   ├── app.py                    # Entry point, Vite manifest loading, /privacy, /sw.js
 │   ├── config.py                 # All environment configuration and model definitions
 │   ├── api/
-│   │   ├── routes/               # 18 modules of REST endpoints, split by feature
+│   │   ├── routes/               # REST endpoints, one module per feature
 │   │   ├── helpers/              # Streaming, save pipeline, stream resume
 │   │   ├── schemas/              # Pydantic request/response schemas by feature (OpenAPI source)
 │   │   └── rate_limiting.py

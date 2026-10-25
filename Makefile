@@ -63,7 +63,7 @@ help:
 	@echo "  types                 Generate TypeScript types from OpenAPI spec"
 	@echo ""
 	@echo "  clean                 Remove venv, caches, and build artifacts"
-	@echo "  deploy                Deploy to systemd (Hetzner) - full restart"
+	@echo "  deploy                Deploy to systemd - full restart"
 	@echo "  reload                Graceful reload - zero downtime (backend only)"
 	@echo "  update                Rebuild frontend + graceful reload"
 	@echo "  vacuum                Run database vacuum manually"
