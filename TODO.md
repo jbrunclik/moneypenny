@@ -35,6 +35,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 
 ## Chat & UI
 
+- [ ] **Model dropdown subtitle never shows** (found Oct 25 2026) - `/api/models` builds a `description` per model ("Quick answers for everyday questions"), but `ModelResponse` (`src/api/schemas/system.py`) doesn't declare it, so `@api.output` drops it and `ModelSelector.ts` never renders the subtitle. Decide whether the dropdown should show it; if yes, add `description: str` to the schema, `make openapi && make types`, drop the frontend-only `description?` extension on `Model` in `web/src/types/api.ts`, check desktop + mobile, regenerate visual baselines.
 - [ ] **Turn-lifecycle follow-ups** (Oct 11 2026 single-device audit; fixed items shipped, these need a decision or a device):
   - **Two quick steering messages** - the kv slot holds one interjection per conversation, so a second one sent before a tool round reads the first overwrites it (both bubbles are saved; the turn reads only the second).
   - **Stop before the server acks the turn** leaves a turn generating server-side (`requestServerStop` needs the assistant id, which arrives with the first event) while the client shows "Not sent" + Retry (a 409, then the unwanted reply); the next plain send is steered into it. Window: Stop after the request body landed but before the first event (usually <0.5s; a Stop during an upload just cancels it). Fix: stop by client message id - a kv flag the turn checks at start and the stop poller honours.
