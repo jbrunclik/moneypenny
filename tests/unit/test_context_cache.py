@@ -5,10 +5,11 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Generator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_google_genai._function_utils import convert_to_genai_function_declarations
 
 if TYPE_CHECKING:
     from src.db.models import Database
@@ -20,6 +21,8 @@ from src.agent.context_cache import (
     _compute_content_hash,
     get_cached_content_name,
 )
+from src.agent.tools.artifacts import update_artifact
+from src.agent.tools.browser import browser
 
 
 def _make_tool(
@@ -937,3 +940,31 @@ class TestCacheEntry:
         assert entry.content_hash == "abc123"
         assert entry.created_at == 1000.0
         assert entry.expires_at == 4600.0
+
+
+# ============ Nested tool schemas ============
+
+
+class TestNestedToolSchemas:
+    """Pydantic puts nested argument models under `$defs` and langchain logs
+    "Key '$defs' is not supported in schema, ignoring" for them. That is only
+    noise while langchain inlines each `$ref` before dropping `$defs`; these
+    tests catch an upgrade that stops inlining and sends Gemini a bare array."""
+
+    @staticmethod
+    def _items(tool: Any, field: str) -> dict[str, Any]:
+        converted = convert_to_genai_function_declarations([tool])
+        genai_tool = converted[0] if isinstance(converted, list) else converted
+        declaration = genai_tool.model_dump(exclude_none=True)["function_declarations"][0]
+        items: dict[str, Any] = declaration["parameters"]["properties"][field]["items"]
+        return items
+
+    def test_artifact_edits_reach_gemini(self) -> None:
+        items = self._items(update_artifact, "edits")
+        assert set(items["properties"]) == {"find", "replace"}
+        assert items["required"] == ["find", "replace"]
+
+    def test_browser_steps_reach_gemini(self) -> None:
+        items = self._items(browser, "actions")
+        assert {"action", "url", "selector", "text"} <= set(items["properties"])
+        assert items["required"] == ["action"]

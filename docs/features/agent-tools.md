@@ -241,6 +241,12 @@ When adding a new tool for autonomous agents, update these locations:
 > tests do **not** exercise this schema conversion, so add a guard that asserts
 > each parameter has a concrete type (see
 > `tests/unit/test_garmin_workout_tool.py::TestToolSchema`).
+>
+> A nested Pydantic model as a parameter (`list[BrowserStep]`, `list[ArtifactEdit]`)
+> does work: langchain inlines each `$ref` before it drops `$defs`, so the log line
+> "Key '$defs' is not supported in schema, ignoring" is noise.
+> `tests/unit/test_context_cache.py::TestNestedToolSchemas` fails if an upgrade
+> stops inlining.
 
 ## K/V Store
 
