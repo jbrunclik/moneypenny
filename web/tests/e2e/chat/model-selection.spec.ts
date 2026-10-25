@@ -1,13 +1,24 @@
 /**
  * E2E tests for model selection and persistence
  */
+import type { Page } from '@playwright/test';
 import { test, expect, enableStreaming, disableStreaming } from './fixtures';
+
+/**
+ * The model list arrives with the initial data load, after the selector
+ * button renders: until then the button shows a placeholder and an opened
+ * dropdown is empty (it fills in when the list lands).
+ */
+async function waitForModels(page: Page): Promise<void> {
+  await expect(page.locator('#model-dropdown .model-option').first()).toBeAttached();
+}
 
 test.describe('Chat - Model Selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#new-chat-btn');
     await page.click('#new-chat-btn');
+    await waitForModels(page);
   });
 
   test('model selector button is visible', async ({ page }) => {
@@ -237,7 +248,7 @@ test.describe('Chat - Model Selection', () => {
     // Navigate to page without clicking New Chat - tests initial state
     // The beforeEach already clicks New Chat, so we need a fresh page
     await page.goto('/');
-    await page.waitForSelector('#model-selector-btn');
+    await waitForModels(page);
 
     // At this point, there should be NO current conversation
     // (user hasn't clicked New Chat yet)
