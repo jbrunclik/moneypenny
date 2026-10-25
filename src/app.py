@@ -128,6 +128,9 @@ def create_app() -> APIFlask:
     install_memory_profiler()
     start_malloc_trimmer()
 
+    # The docs UI and spec map the whole API for anyone who asks: served in
+    # development and tests only (app.spec still works for `make openapi`)
+    serve_docs = Config.is_development() or Config.is_testing()
     app = APIFlask(
         __name__,
         static_folder="../static",
@@ -135,8 +138,8 @@ def create_app() -> APIFlask:
         template_folder="templates",
         title=f"{Config.APP_NAME} API",
         version="1.0.0",
-        spec_path="/api/openapi.json",
-        docs_path="/api/docs",
+        spec_path="/api/openapi.json" if serve_docs else None,
+        docs_path="/api/docs" if serve_docs else None,
         docs_ui="swagger-ui",  # Use 'redoc' for ReDoc
     )
     # Note: APIFlask's @api.output() decorator auto-serializes responses.

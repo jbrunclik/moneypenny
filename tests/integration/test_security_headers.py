@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+import pytest
 from flask.testing import FlaskClient
 
 
@@ -67,3 +68,23 @@ class TestSecurityHeaders:
         with patch.object(Config, "FLASK_ENV", "development"):
             response = client.get("/api/health")
         assert "Content-Security-Policy" not in response.headers
+
+
+class TestApiDocsAreNotPublicInProduction:
+    """S10: the docs UI and spec map the whole API for anyone who asks."""
+
+    def _routes(self, monkeypatch: pytest.MonkeyPatch, env: str) -> set[str]:
+        import src.app
+
+        monkeypatch.setattr(src.app.Config, "FLASK_ENV", env)
+        monkeypatch.setattr(src.app.Config, "validate", classmethod(lambda cls: []))
+        return {rule.rule for rule in src.app.create_app().url_map.iter_rules()}
+
+    def test_production_serves_no_docs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        routes = self._routes(monkeypatch, "production")
+        assert "/api/docs" not in routes
+        assert "/api/openapi.json" not in routes
+
+    def test_development_keeps_them(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        routes = self._routes(monkeypatch, "development")
+        assert {"/api/docs", "/api/openapi.json"} <= routes

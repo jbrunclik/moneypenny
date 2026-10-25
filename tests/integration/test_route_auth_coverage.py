@@ -25,7 +25,7 @@ PUBLIC_ENDPOINTS = {
     "system.health_check": "deploy health gate",
     "system.readiness_check": "deploy health gate",
     "system.get_version": "deploy-version check by open clients",
-    # S10 (planned): off in production
+    # S10: served in development and tests only
     "openapi.spec": "API schema",
     "openapi.docs": "API docs UI",
     "openapi.swagger_ui_oauth_redirect": "API docs UI",
