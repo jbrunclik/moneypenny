@@ -270,7 +270,7 @@ migration:
 # Export OpenAPI spec by running Flask app briefly
 # The app exports spec on startup to static/openapi.json
 openapi:
-	$(PYTHON) -c "from src.app import create_app; app = create_app(); import json; open('static/openapi.json', 'w').write(json.dumps(app.spec, indent=2))"
+	FLASK_ENV=testing $(PYTHON) -c "from src.app import create_app; app = create_app(); import json; open('static/openapi.json', 'w').write(json.dumps(app.spec, indent=2))"
 	@echo "OpenAPI spec exported to static/openapi.json"
 
 # Generate TypeScript types from OpenAPI spec

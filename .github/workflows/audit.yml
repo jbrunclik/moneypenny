@@ -12,6 +12,9 @@ on:
       - 'requirements.txt'
       - 'web/package-lock.json'
 
+permissions:
+  contents: read
+
 jobs:
   python-audit:
     name: Python Dependency Audit
@@ -22,8 +25,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
-          allow-prereleases: true
+          python-version-file: '.python-version'
 
       - name: Install pip-audit
         run: pip install pip-audit

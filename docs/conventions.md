@@ -46,10 +46,10 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| P1 | Generated files never drift: `static/openapi.json` and `generated-api.ts` match the schemas, `requirements.txt` matches `requirements.in`, `.env.example` lists every config variable | planned: CI regenerate-and-diff + tests |
-| P2 | Migrations form one chain with unique numbers; each step has a rollback or an `# irreversible:` reason | planned: test |
+| P1 | Generated files never drift: `static/openapi.json` and `generated-api.ts` match the schemas, `requirements.txt` matches `requirements.in`, `.env.example` lists every config variable | CI (regenerate and diff); test (`test_env_example.py`, 46-name baseline) |
+| P2 | Migrations form one chain with unique numbers; each step has a rollback or an `# irreversible:` reason | test (`test_migration_chain.py`) |
 | P3 | Dependabot auto-merges patch and minor updates only, after the audit passes | planned: workflow |
-| P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | planned: workflow + actionlint |
+| P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | workflows; planned: actionlint |
 | P5 | Production installs runtime dependencies only (separate dev lock) | planned |
 | P6 | Toolchain versions agree: Node `engines` = `.nvmrc`, npm pinned via `packageManager`, `make setup` uses uv | planned |
 | P7 | Tests that need Docker or Chromium run in CI (a parallel job), never skip silently there | planned: CI job |
