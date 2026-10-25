@@ -249,7 +249,11 @@ by guessing):
   `pdf-viewer.spec.ts` "a chunk deleted by a deploy reloads the page" saw the
   app's own `location.reload()` fire `beforeunload` and then nothing for 29s.
   The app side was verified correct with an event log; the CI retry restarts
-  the worker, which clears it. Don't chase these as app bugs.
+  the worker, which clears it. Don't chase these as app bugs. That test hits
+  it most (Oct 25 2026: 1 in 10 to 1 in 40 under `--repeat-each` on a laptop):
+  its trace shows the reload's document request issued with no response, and
+  the server's access log shows it never arrived. A server without keep-alive
+  (HTTP/1.0) stalled just as often, so it is not a reused connection.
 - **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
   label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
   `#messages` with its app caller (minified bundle frames - `make
