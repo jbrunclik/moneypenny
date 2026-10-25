@@ -15,9 +15,6 @@
     }
   },
   "src/auth/google.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     }
@@ -38,9 +35,6 @@
     }
   },
   "src/components/AgentEditor.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 2
     },
@@ -79,9 +73,6 @@
     }
   },
   "src/components/CommandCenter.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 5
-    },
     "complexity": {
       "count": 3
     },
@@ -101,9 +92,6 @@
     }
   },
   "src/components/FileUpload.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "@typescript-eslint/no-non-null-assertion": {
       "count": 1
     }
@@ -149,9 +137,6 @@
     }
   },
   "src/components/MessageInput.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "complexity": {
       "count": 1
     },
@@ -171,9 +156,6 @@
     }
   },
   "src/components/ModelSelector.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -246,9 +228,6 @@
     }
   },
   "src/components/SearchInput.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -270,9 +249,6 @@
     }
   },
   "src/components/Sidebar.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "complexity": {
       "count": 2
     },
@@ -329,9 +305,6 @@
     }
   },
   "src/components/VersionBanner.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -393,11 +366,6 @@
   "src/components/messages/loading.ts": {
     "no-unsanitized/property": {
       "count": 1
-    }
-  },
-  "src/components/messages/pagination.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
     }
   },
   "src/components/messages/render.ts": {
@@ -479,9 +447,6 @@
     }
   },
   "src/components/settings/oauth.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 1
     }
@@ -492,9 +457,6 @@
     }
   },
   "src/core/agents.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 2
     },
@@ -506,9 +468,6 @@
     }
   },
   "src/core/archive.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     }
@@ -527,9 +486,6 @@
     }
   },
   "src/core/conversation-deeplink.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 5
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     }
@@ -540,9 +496,6 @@
     }
   },
   "src/core/conversation-switch.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    },
     "@typescript-eslint/no-non-null-assertion": {
       "count": 1
     },
@@ -551,17 +504,11 @@
     }
   },
   "src/core/conversation.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     }
   },
   "src/core/events.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 14
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     },
@@ -586,9 +533,6 @@
     }
   },
   "src/core/init.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 4
     },
@@ -611,9 +555,6 @@
     }
   },
   "src/core/kv-store.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 3
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 1
     },
@@ -628,9 +569,6 @@
     }
   },
   "src/core/language.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 4
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 4
     },
@@ -642,9 +580,6 @@
     }
   },
   "src/core/planner.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 2
     },
@@ -661,11 +596,6 @@
       "count": 1
     }
   },
-  "src/core/push.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 2
-    }
-  },
   "src/core/remote-merge.ts": {
     "complexity": {
       "count": 1
@@ -677,9 +607,6 @@
     }
   },
   "src/core/sports.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 4
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 4
     },
@@ -696,9 +623,6 @@
     }
   },
   "src/core/stream-recovery.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 1
     },
@@ -731,9 +655,6 @@
     }
   },
   "src/core/toolbar.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -754,9 +675,6 @@
     }
   },
   "src/sync/SyncManager.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 4
-    },
     "@typescript-eslint/no-misused-promises": {
       "count": 4
     },
@@ -797,9 +715,6 @@
     }
   },
   "src/utils/thumbnails.ts": {
-    "@typescript-eslint/no-floating-promises": {
-      "count": 1
-    },
     "complexity": {
       "count": 1
     },

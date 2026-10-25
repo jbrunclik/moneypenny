@@ -65,7 +65,7 @@ async function handleOAuthCallback(flow: OAuthFlow): Promise<boolean> {
     log.debug(`Exchanging ${flow.name} OAuth code for token`);
     await flow.complete(code as string, state as string);
     // Open settings popup to show the connected state
-    openSettingsPopup();
+    void openSettingsPopup();
   } catch (err) {
     log.error(`Failed to complete ${flow.name} OAuth`, { error: err });
     toast.error(`Failed to connect ${flow.name}`);

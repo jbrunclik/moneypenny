@@ -107,7 +107,7 @@ function startVersionChecking(): void {
   // Check if we need to check immediately (e.g., after PWA resume)
   const now = Date.now();
   if (now - lastCheckTime >= VERSION_CHECK_INTERVAL) {
-    checkForNewVersion();
+    void checkForNewVersion();
   }
 
   // Clear any existing interval
@@ -203,7 +203,7 @@ function setupVisibilityListener(): void {
       const now = Date.now();
       if (now - lastCheckTime >= VERSION_CHECK_INTERVAL) {
         // More than 5 minutes since last check, check immediately
-        checkForNewVersion();
+        void checkForNewVersion();
       }
       startVersionChecking();
     }

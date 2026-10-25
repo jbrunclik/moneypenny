@@ -98,7 +98,7 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
 
   updateChatTitle('Language Learning');
   renderModelDropdown();
-  updateConversationCost(null);
+  void updateConversationCost(null);
   renderChatHeader(null);
   unmountQuickActionsBar();
 
@@ -234,7 +234,7 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
       renderChatHeader(null);
       unmountQuickActionsBar();
     }
-    updateConversationCost(convResponse.id);
+    void updateConversationCost(convResponse.id);
 
     // Render messages (a fresh list holds no send-to-top reservation)
     resetTurnAnchor(messagesContainer);
@@ -323,7 +323,7 @@ async function handleDeleteProgram(id: string): Promise<void> {
 }
 
 function handleSelectProgram(id: string): void {
-  navigateToLanguageProgram(id);
+  void navigateToLanguageProgram(id);
 }
 
 /** Persist quick actions and refresh the cached program list. */
@@ -368,7 +368,7 @@ export function leaveLanguageView(): void {
 
   updateChatTitle(APP_NAME);
   renderModelDropdown();
-  updateConversationCost(null);
+  void updateConversationCost(null);
   renderChatHeader(null);
   unmountQuickActionsBar();
 

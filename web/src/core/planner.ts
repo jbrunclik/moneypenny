@@ -106,7 +106,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   // Update header title and clear stale UI state
   updateChatTitle('Planner');
   renderModelDropdown(); // Update model selector to show planner's model
-  updateConversationCost(null); // Clear cost display (planner has no cost yet)
+  void updateConversationCost(null); // Clear cost display (planner has no cost yet)
   renderChatHeader(null);
 
   // Update anonymous button state (planner doesn't use anonymous mode)
@@ -282,7 +282,7 @@ export function leavePlannerView(): void {
 
   // Clear stale UI state from planner
   renderModelDropdown(); // Reset to default model display
-  updateConversationCost(null); // Clear cost display
+  void updateConversationCost(null); // Clear cost display
   renderChatHeader(null);
 
   // Update anonymous button state (reset to pending state)

@@ -101,7 +101,7 @@ export function navigateToArchive(): void {
 
   // Lazy-load archived conversations on first open
   if (store.archivedConversations.length === 0) {
-    loadArchivedConversations();
+    void loadArchivedConversations();
     return; // loadArchivedConversations will re-render
   }
 

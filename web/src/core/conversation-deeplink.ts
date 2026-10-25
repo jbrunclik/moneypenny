@@ -170,11 +170,11 @@ interface DeepLinkViews {
  */
 function navigateToViewFromHash(views: DeepLinkViews): boolean {
   if (views.isPlanner) {
-    navigateToPlanner();
+    void navigateToPlanner();
   } else if (views.isAgents) {
-    navigateToAgents();
+    void navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }));
   } else if (views.isStorage) {
-    navigateToStorage();
+    void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error }));
   } else if (views.isSports) {
     const sportsProgramId = getSportsProgramFromHash();
     if (sportsProgramId) {
@@ -274,10 +274,10 @@ export function handleDeepLinkNavigation(conversationId: string | null, isPlanne
   const conv = store.conversations.find((c) => c.id === conversationId);
   if (conv) {
     // Conversation is known, use selectConversation to load it
-    selectConversation(conversationId);
+    void selectConversation(conversationId);
   } else {
     // Conversation not in store - try to load it from API
     // This handles going back to a conversation that was beyond the paginated list
-    loadDeepLinkedConversation(conversationId);
+    void loadDeepLinkedConversation(conversationId);
   }
 }

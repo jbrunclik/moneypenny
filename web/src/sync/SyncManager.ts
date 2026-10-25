@@ -1066,10 +1066,10 @@ export class SyncManager {
       // Full sync if hidden for >5 minutes (for delete detection)
       if (hiddenDuration > SYNC_FULL_SYNC_THRESHOLD_MS) {
         log.info('Long tab inactivity, performing full sync');
-        this.fullSync();
+        void this.fullSync();
       } else {
         // Quick incremental sync on tab refocus
-        this.incrementalSync();
+        void this.incrementalSync();
       }
     }
   }
@@ -1086,7 +1086,7 @@ export class SyncManager {
     // "hidden" one - polling stayed paused until the next visibility event
     this.isVisible = document.visibilityState === 'visible';
     void this.attemptPendingStreamRecovery(0);
-    this.incrementalSync();
+    void this.incrementalSync();
   }
 
   /**
@@ -1122,7 +1122,7 @@ export class SyncManager {
   private schedulePoll(): void {
     this.pollTimeoutId = setTimeout(() => {
       if (this.isVisible) {
-        this.incrementalSync();
+        void this.incrementalSync();
       }
       this.schedulePoll();
     }, SYNC_POLL_INTERVAL_MS);

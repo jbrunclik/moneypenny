@@ -98,7 +98,7 @@ function handleInput(event: Event): void {
   }
 
   debounceTimeout = setTimeout(() => {
-    performSearch(query);
+    void performSearch(query);
   }, SEARCH_DEBOUNCE_MS);
 }
 

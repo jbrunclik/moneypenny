@@ -76,7 +76,7 @@ export function renderCommandCenter(
     </div>
   `;
   header.querySelector('.btn-refresh')?.addEventListener('click', () => {
-    onRefresh();
+    void onRefresh();
   });
   header.querySelector('.btn-new-agent')?.addEventListener('click', () => {
     onNewAgent();
@@ -313,7 +313,7 @@ function renderAgentCard(
     if ((e.target as HTMLElement).closest('.agent-card-actions')) {
       return;
     }
-    onSelect(agent.id);
+    void onSelect(agent.id);
   });
 
   // Edit button
@@ -325,7 +325,7 @@ function renderAgentCard(
   // Run button
   card.querySelector('.btn-run')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    onRun(agent.id, agent.name);
+    void onRun(agent.id, agent.name);
   });
 
   return card;
@@ -394,12 +394,12 @@ function renderApprovalCard(
 
   // Approve button
   card.querySelector('.btn-approve')?.addEventListener('click', () => {
-    onApproval(approval.id, true);
+    void onApproval(approval.id, true);
   });
 
   // Reject button
   card.querySelector('.btn-reject')?.addEventListener('click', () => {
-    onApproval(approval.id, false);
+    void onApproval(approval.id, false);
   });
 
   return card;

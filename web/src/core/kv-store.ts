@@ -71,7 +71,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   // Update header title and clear stale UI state
   updateChatTitle('Storage');
   renderModelDropdown();
-  updateConversationCost(null);
+  void updateConversationCost(null);
   renderChatHeader(null);
 
   // Update anonymous button state
@@ -215,7 +215,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
       <button class="btn-retry">Retry</button>
     `;
     warningBanner.querySelector('.btn-retry')?.addEventListener('click', () => {
-      navigateToStorage(true);
+      void navigateToStorage(true).catch((error: unknown) => log.error('Failed to open storage', { error }));
     });
     storageEl.insertBefore(warningBanner, storageEl.firstChild);
     toast.warning('Showing cached data - could not refresh.');
@@ -271,7 +271,7 @@ export function leaveStorageView(clearMessages: boolean = true): void {
     store.setCurrentConversation(null);
     updateChatTitle(APP_NAME);
     renderModelDropdown();
-    updateConversationCost(null);
+    void updateConversationCost(null);
     renderChatHeader(null);
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');

@@ -96,7 +96,7 @@ export function initFileUpload(): void {
   // File input change
   fileInput?.addEventListener('change', () => {
     if (fileInput.files && fileInput.files.length > 0) {
-      addFilesToPending(Array.from(fileInput.files));
+      void addFilesToPending(Array.from(fileInput.files));
       fileInput.value = ''; // Reset for next selection
     }
   });
@@ -134,7 +134,7 @@ export function initFileUpload(): void {
 
       const files = Array.from(e.dataTransfer?.files || []);
       if (files.length > 0) {
-        addFilesToPending(files);
+        void addFilesToPending(files);
       }
     });
   }

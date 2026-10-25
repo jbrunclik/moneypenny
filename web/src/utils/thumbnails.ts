@@ -927,7 +927,7 @@ function processQueue(): void {
         const task = loadingQueue.shift();
         if (task) {
             activeFetches++;
-            task().finally(() => {
+            void task().finally(() => {
                 activeFetches--;
                 processQueue();
             });

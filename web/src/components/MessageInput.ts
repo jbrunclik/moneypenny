@@ -742,5 +742,5 @@ export function handlePaste(e: ClipboardEvent): void {
   });
 
   // Add to pending files using existing upload flow
-  addFilesToPending(namedFiles);
+  void addFilesToPending(namedFiles);
 }

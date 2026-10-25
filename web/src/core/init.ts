@@ -444,7 +444,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
         // Planner was reset in another tab
         if (useStore.getState().isPlannerView) {
           toast.info('Planning session was reset. Reloading...');
-          navigateToPlanner();
+          void navigateToPlanner();
         }
       },
       onPlannerExternalUpdate: () => {
@@ -685,7 +685,7 @@ export async function init(): Promise<void> {
     const customEvent = event as CustomEvent<{ messageId: string }>;
     const { messageId } = customEvent.detail;
     log.debug('Message delete event received', { messageId });
-    deleteMessage(messageId);
+    void deleteMessage(messageId);
   });
 
   // Listen for message speak events (TTS)

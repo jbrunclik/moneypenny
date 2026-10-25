@@ -87,11 +87,11 @@ function renderAgentHeaderIfAgent(conv: Conversation): void {
   renderAgentConversationHeader(
     agentName,
     () => {
-      navigateToAgents();
+      void navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }));
     },
     () => {
       if (conv.agent_id) {
-        handleAgentEditById(conv.agent_id!);
+        void handleAgentEditById(conv.agent_id!);
       }
     },
   );
@@ -145,7 +145,7 @@ function refreshChromeAfterSwitch(conv: Conversation, totalMessageCount?: number
   }
 
   // Update conversation cost
-  updateConversationCost(conv.id);
+  void updateConversationCost(conv.id);
 
   // Mark conversation as read in sync manager and re-render sidebar to clear badge
   // Use totalMessageCount if provided (from pagination), otherwise fall back to messages.length

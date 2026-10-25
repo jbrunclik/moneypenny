@@ -68,7 +68,7 @@ export function setupOlderMessagesScrollListener(conversationId: string): void {
       const scrollTop = container.scrollTop;
 
       if (scrollTop < LOAD_OLDER_MESSAGES_THRESHOLD_PX) {
-        loadOlderMessages(conversationId, container);
+        void loadOlderMessages(conversationId, container);
       }
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };
@@ -368,7 +368,7 @@ export function setupNewerMessagesScrollListener(conversationId: string): void {
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
       if (distanceFromBottom < LOAD_NEWER_MESSAGES_THRESHOLD_PX) {
-        loadNewerMessages(conversationId, container);
+        void loadNewerMessages(conversationId, container);
       }
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };

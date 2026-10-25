@@ -641,13 +641,13 @@ function handleModalClick(e: MouseEvent): void {
 
   // Handle delete button click
   if (target.closest('.agent-editor-delete')) {
-    handleDelete();
+    void handleDelete();
     return;
   }
 
   // Handle save button click
   if (target.closest('.agent-editor-save')) {
-    handleSave();
+    void handleSave();
     return;
   }
 }
@@ -670,7 +670,7 @@ function handleModalKeydown(e: KeyboardEvent): void {
   // Ctrl/Cmd + Enter to save
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
-    handleSave();
+    void handleSave();
     return;
   }
 

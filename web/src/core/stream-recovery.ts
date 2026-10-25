@@ -312,7 +312,7 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
       if (isCurrentConversation) {
         hideNewMessagesAvailableBanner();
         // Trigger incremental sync to check for genuinely new messages
-        getSyncManager()?.incrementalSync();
+        void getSyncManager()?.incrementalSync();
       }
 
       loadingToast.dismiss();

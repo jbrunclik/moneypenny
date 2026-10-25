@@ -118,7 +118,7 @@ export function setupEventListeners(): void {
     }
     if (target.closest('#memories-btn')) {
       closeUserMenu();
-      navigateToStorage();
+      void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error }));
       return;
     }
     if (target.closest('#admin-btn')) {
@@ -217,7 +217,7 @@ export function setupEventListeners(): void {
       const id = (renameBtn as HTMLElement).dataset.renameId;
       if (id) {
         resetSwipeStates();
-        renameConversation(id);
+        void renameConversation(id);
       }
       return;
     }
@@ -251,7 +251,7 @@ export function setupEventListeners(): void {
       const id = (archiveBtn as HTMLElement).dataset.archiveId;
       if (id) {
         resetSwipeStates();
-        archiveConversation(id);
+        void archiveConversation(id);
       }
       return;
     }
@@ -263,7 +263,7 @@ export function setupEventListeners(): void {
       const id = (unarchiveBtn as HTMLElement).dataset.unarchiveId;
       if (id) {
         resetSwipeStates();
-        unarchiveConversation(id);
+        void unarchiveConversation(id);
       }
       return;
     }
@@ -310,7 +310,7 @@ export function setupEventListeners(): void {
       const id = (deleteBtn as HTMLElement).dataset.deleteId;
       if (id) {
         resetSwipeStates();
-        deleteConversation(id);
+        void deleteConversation(id);
       }
       return;
     }
@@ -327,7 +327,7 @@ export function setupEventListeners(): void {
     const plannerEntry = (e.target as HTMLElement).closest('.planner-entry');
     if (plannerEntry) {
       resetSwipeStates();
-      navigateToPlanner();
+      void navigateToPlanner();
       return;
     }
 
@@ -335,7 +335,7 @@ export function setupEventListeners(): void {
     const agentsEntry = (e.target as HTMLElement).closest('.agents-entry');
     if (agentsEntry) {
       resetSwipeStates();
-      navigateToAgents();
+      void navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }));
       return;
     }
 
@@ -343,7 +343,7 @@ export function setupEventListeners(): void {
     const sportsEntry = (e.target as HTMLElement).closest('.sports-entry');
     if (sportsEntry) {
       resetSwipeStates();
-      navigateToSports();
+      void navigateToSports();
       return;
     }
 
@@ -351,7 +351,7 @@ export function setupEventListeners(): void {
     const languageEntry = (e.target as HTMLElement).closest('.language-entry');
     if (languageEntry) {
       resetSwipeStates();
-      navigateToLanguage();
+      void navigateToLanguage();
       return;
     }
 
@@ -362,7 +362,7 @@ export function setupEventListeners(): void {
       if (wrapper) {
         resetSwipeStates();
         const id = (wrapper as HTMLElement).dataset.convId;
-        if (id) selectConversation(id);
+        if (id) void selectConversation(id);
       }
     }
   });
@@ -385,7 +385,7 @@ export function setupEventListeners(): void {
             openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
           );
         } else {
-          openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
+          void openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
         }
       }
       return;
@@ -398,14 +398,14 @@ export function setupEventListeners(): void {
       const fileIndex = (downloadBtn as HTMLElement).dataset.fileIndex;
       const fileName = (downloadBtn as HTMLElement).dataset.fileName;
       if (messageId && fileIndex) {
-        downloadFile(messageId, parseInt(fileIndex, 10), fileName || `file-${fileIndex}`);
+        void downloadFile(messageId, parseInt(fileIndex, 10), fileName || `file-${fileIndex}`);
       }
       return;
     }
 
     const copyBtn = (e.target as HTMLElement).closest('.message-copy-btn');
     if (copyBtn) {
-      copyMessageContent(copyBtn as HTMLButtonElement);
+      void copyMessageContent(copyBtn as HTMLButtonElement);
       return;
     }
 
@@ -423,7 +423,7 @@ export function setupEventListeners(): void {
     // Inline copy button (code blocks, tables)
     const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
     if (inlineCopyBtn) {
-      copyInlineContent(inlineCopyBtn as HTMLButtonElement);
+      void copyInlineContent(inlineCopyBtn as HTMLButtonElement);
       return;
     }
 

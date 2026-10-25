@@ -315,7 +315,7 @@ function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean 
   const model = store.pendingModel || store.defaultModel;
 
   // Clear cost display for new conversation
-  updateConversationCost(null);
+  void updateConversationCost(null);
   const conv = {
     id: tempId,
     title: DEFAULT_CONVERSATION_TITLE,

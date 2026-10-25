@@ -50,7 +50,7 @@ export async function updateConversationCost(convId: string | null): Promise<voi
     // Only show cost if it's greater than 0
     setCost(costData.cost_usd > 0 ? costData.formatted : '');
     // Also update the monthly cost in the sidebar, and the spend warning (S12)
-    updateMonthlyCost();
+    void updateMonthlyCost();
     void refreshSpendWarning();
   } catch {
     // Ignore errors - cost display is optional

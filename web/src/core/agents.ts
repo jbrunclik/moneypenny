@@ -107,7 +107,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   // Update header title and clear stale UI state
   updateChatTitle('Command Center');
   renderModelDropdown(); // Update model selector (will show default since no conversation)
-  updateConversationCost(null); // Clear cost display
+  void updateConversationCost(null); // Clear cost display
   renderChatHeader(null);
 
   // Update anonymous button state (agents view doesn't use anonymous mode)
@@ -208,7 +208,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
       <button class="btn-retry">Retry</button>
     `;
     warningBanner.querySelector('.btn-retry')?.addEventListener('click', () => {
-      navigateToAgents(true);
+      void navigateToAgents(true).catch((error: unknown) => log.error('Failed to open agents', { error }));
     });
     // Insert warning at the beginning of the command center
     commandCenterEl.insertBefore(warningBanner, commandCenterEl.firstChild);
@@ -239,6 +239,8 @@ async function handleAgentsRefresh(): Promise<void> {
     const store = useStore.getState();
     store.invalidateCommandCenterCache();
     await navigateToAgents(true);
+  } catch (error) {
+    log.error('Failed to refresh agents', { error });
   } finally {
     isRefreshing = false;
   }
@@ -411,7 +413,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
 
     // Clear stale UI state
     renderModelDropdown();
-    updateConversationCost(null);
+    void updateConversationCost(null);
     renderChatHeader(null);
 
     // Clear messages to show welcome state

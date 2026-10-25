@@ -248,7 +248,7 @@ export function scheduleTokenRefresh(token: string): void {
   if (refreshIn <= 0) {
     // Token expires in less than 1 hour, refresh immediately
     log.info('Token expiring soon, refreshing immediately');
-    performTokenRefresh();
+    void performTokenRefresh();
     return;
   }
 

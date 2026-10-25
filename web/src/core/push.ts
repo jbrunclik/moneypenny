@@ -91,7 +91,7 @@ function setupWorkerMessageListener(): void {
     // of on the next poll tick
     if (data?.type === 'push-received') {
       log.debug('Push received while app open, syncing');
-      getSyncManager()?.incrementalSync();
+      void getSyncManager()?.incrementalSync();
       return;
     }
 
@@ -114,7 +114,7 @@ function setupWorkerMessageListener(): void {
         if (currentConv) {
           await reloadCurrentConversation(currentConv.id);
         }
-        getSyncManager()?.incrementalSync();
+        void getSyncManager()?.incrementalSync();
       })();
     }
   });

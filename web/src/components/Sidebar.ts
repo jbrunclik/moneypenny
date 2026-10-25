@@ -855,7 +855,7 @@ function setupArchiveInfiniteScroll(container: HTMLDivElement): void {
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
       if (distanceFromBottom < LOAD_MORE_THRESHOLD_PX) {
-        loadMoreArchivedConversations();
+        void loadMoreArchivedConversations();
       }
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };
@@ -950,7 +950,7 @@ function setupInfiniteScroll(container: HTMLDivElement): void {
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
       if (distanceFromBottom < LOAD_MORE_THRESHOLD_PX) {
-        loadMoreConversations(container);
+        void loadMoreConversations(container);
       }
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };

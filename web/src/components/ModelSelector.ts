@@ -53,7 +53,7 @@ export function initModelSelector(): void {
       const focused = dropdown.querySelector<HTMLElement>('.model-option.focused');
       if (focused?.dataset.modelId) {
         e.preventDefault();
-        selectModel(focused.dataset.modelId);
+        void selectModel(focused.dataset.modelId);
       }
     } else if (e.key === 'Escape') {
       closeModelDropdown();
@@ -66,7 +66,7 @@ export function initModelSelector(): void {
     if (option) {
       const modelId = (option as HTMLElement).dataset.modelId;
       if (modelId) {
-        selectModel(modelId);
+        void selectModel(modelId);
       }
     }
   });
