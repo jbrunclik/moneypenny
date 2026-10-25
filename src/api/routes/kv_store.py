@@ -19,6 +19,7 @@ from src.api.schemas.kv_store import (
     KVSetRequest,
     KVValueResponse,
 )
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -68,12 +69,12 @@ def get_value(user: User, namespace: str, key: str) -> dict[str, Any]:
 
 
 @api.route("/<path:namespace>/<key>", methods=["PUT"])
-@api.input(KVSetRequest)
 @api.output(KVValueResponse)
 @api.doc(responses=[400, 401])
 @rate_limit_conversations
 @require_auth
-def set_value(user: User, namespace: str, key: str, json_data: KVSetRequest) -> dict[str, Any]:
+@validate_request(KVSetRequest)
+def set_value(user: User, data: KVSetRequest, namespace: str, key: str) -> dict[str, Any]:
     """Set a key's value (create or update). Value must be valid JSON."""
     import json  # noqa: PLC0415
 
@@ -82,15 +83,15 @@ def set_value(user: User, namespace: str, key: str, json_data: KVSetRequest) -> 
 
     # Validate that value is valid JSON
     try:
-        json.loads(json_data.value)
+        json.loads(data.value)
     except json.JSONDecodeError, TypeError:
         raise_validation_error("Value must be valid JSON")
 
-    db.kv_set(user.id, namespace, key, json_data.value)
+    db.kv_set(user.id, namespace, key, data.value)
     return {
         "namespace": namespace,
         "key": key,
-        "value": json_data.value,
+        "value": data.value,
     }
 
 

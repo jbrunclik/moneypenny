@@ -161,8 +161,7 @@ class TestCreateAgent:
             json={"name": ""},
         )
 
-        # Pydantic validation rejects empty string with 422 status
-        assert response.status_code in [400, 422]
+        assert response.status_code == 400
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""

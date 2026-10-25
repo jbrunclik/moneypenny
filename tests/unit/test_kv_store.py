@@ -900,7 +900,7 @@ class TestKVSetValueRoute:
         client: FlaskClient,
         auth_headers: dict[str, str],
     ) -> None:
-        """Should return 422 when request body is missing."""
+        """Should return 400 when request body is missing."""
         with patch("src.api.routes.kv_store.db"):
             response = client.put(
                 "/api/kv/my-ns/my-key",
@@ -908,7 +908,7 @@ class TestKVSetValueRoute:
                 json={},
             )
 
-        assert response.status_code == 422
+        assert response.status_code == 400
 
 
 class TestKVDeleteKeyRoute:

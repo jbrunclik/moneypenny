@@ -7,6 +7,7 @@ and returns correct error responses.
 import json
 from typing import TYPE_CHECKING
 
+import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
@@ -400,3 +401,30 @@ class TestRequestSizeLimit:
 
         # Should succeed (201 for create)
         assert response.status_code == 201
+
+
+class TestOneBodyValidationMechanism:
+    """B4: every JSON body goes through @validate_request, so a bad body is the
+    same 400 VALIDATION_ERROR everywhere - not APIFlask's 422 from @api.input."""
+
+    @pytest.mark.parametrize(
+        ("method", "path", "body"),
+        [
+            ("patch", "/api/memories/some-id/protection", {}),
+            ("post", "/api/agents", {"name": ""}),
+            ("patch", "/api/agents/some-id", {"name": ""}),
+            ("put", "/api/kv/notes/some-key", {}),
+        ],
+    )
+    def test_bad_body_is_a_400_validation_error(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        method: str,
+        path: str,
+        body: dict[str, str],
+    ) -> None:
+        response = getattr(client, method)(path, headers=auth_headers, json=body)
+
+        assert response.status_code == 400
+        assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"

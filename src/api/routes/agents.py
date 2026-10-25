@@ -26,6 +26,7 @@ from src.api.schemas.agents import (
     UpdateAgentRequest,
 )
 from src.api.schemas.common import StatusResponse
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -72,12 +73,12 @@ def list_agents(user: User) -> dict[str, Any]:
 
 
 @api.route("/agents", methods=["POST"])
-@api.input(CreateAgentRequest)
 @api.output(AgentResponse, status_code=201)
 @api.doc(responses=[400, 401])
 @rate_limit_conversations
 @require_auth
-def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
+@validate_request(CreateAgentRequest)
+def create_agent(user: User, data: CreateAgentRequest) -> dict[str, Any]:
     """Create a new autonomous agent.
 
     Creates the agent and its dedicated conversation automatically.
@@ -87,11 +88,11 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
     """
     logger.info(
         "Creating agent",
-        extra={"user_id": user.id, "agent_name": json_data.name},
+        extra={"user_id": user.id, "agent_name": data.name},
     )
 
     # Validate cron expression if provided
-    schedule = json_data.schedule
+    schedule = data.schedule
     if schedule:
         try:
             from croniter import croniter  # noqa: PLC0415
@@ -101,7 +102,7 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
             raise_validation_error("Invalid cron expression")
 
     # Validate timezone if provided
-    timezone = json_data.timezone
+    timezone = data.timezone
     try:
         from zoneinfo import ZoneInfo  # noqa: PLC0415
 
@@ -110,22 +111,22 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
         raise_validation_error(f"Invalid timezone: {timezone}")
 
     # Check for duplicate name
-    existing = db.get_agent_by_name(user.id, json_data.name)
+    existing = db.get_agent_by_name(user.id, data.name)
     if existing:
-        raise_validation_error(f"Agent with name '{json_data.name}' already exists")
+        raise_validation_error(f"Agent with name '{data.name}' already exists")
 
     agent = db.create_agent(
         user_id=user.id,
-        name=json_data.name,
-        description=json_data.description,
-        system_prompt=json_data.system_prompt,
+        name=data.name,
+        description=data.description,
+        system_prompt=data.system_prompt,
         schedule=schedule,
         timezone=timezone,
-        tool_permissions=json_data.tool_permissions,
-        enabled=json_data.enabled,
-        model=json_data.model,
-        budget_limit=json_data.budget_limit,
-        fresh_context=json_data.fresh_context,
+        tool_permissions=data.tool_permissions,
+        enabled=data.enabled,
+        model=data.model,
+        budget_limit=data.budget_limit,
+        fresh_context=data.fresh_context,
     )
 
     logger.info("Agent created", extra={"agent_id": agent.id, "user_id": user.id})
@@ -202,12 +203,12 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
 
 
 @api.route("/agents/<agent_id>", methods=["PATCH"])
-@api.input(UpdateAgentRequest)
 @api.output(AgentResponse)
 @api.doc(responses=[400, 401, 404])
 @rate_limit_conversations
 @require_auth
-def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> dict[str, Any]:
+@validate_request(UpdateAgentRequest)
+def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[str, Any]:
     """Update an agent's configuration.
 
     Only provided fields will be updated; others remain unchanged.
@@ -226,7 +227,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
         raise_validation_error("This built-in agent is managed from Settings and cannot be edited.")
 
     # Validate cron expression if provided
-    schedule = json_data.schedule
+    schedule = data.schedule
     if schedule is not None and schedule != "":
         try:
             from croniter import croniter  # noqa: PLC0415
@@ -236,7 +237,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
             raise_validation_error("Invalid cron expression")
 
     # Validate timezone if provided
-    timezone = json_data.timezone
+    timezone = data.timezone
     if timezone:
         try:
             from zoneinfo import ZoneInfo  # noqa: PLC0415
@@ -247,7 +248,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
 
     # Use model_dump(exclude_unset=True) to see which fields were actually in the JSON
     # This allows us to distinguish between a missing field and an explicit null
-    provided_data = json_data.model_dump(exclude_unset=True)
+    provided_data = data.model_dump(exclude_unset=True)
 
     def get_arg(field_name: str) -> Any:
         return provided_data.get(field_name, ...)

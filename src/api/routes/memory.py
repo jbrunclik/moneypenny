@@ -16,6 +16,7 @@ from apiflask import APIBlueprint
 from src.api.errors import raise_not_found_error
 from src.api.schemas.common import StatusResponse
 from src.api.schemas.memory import MemoriesListResponse, UpdateMemoryProtectionRequest
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Memory, User, db
@@ -112,15 +113,15 @@ def restore_memory(user: User, memory_id: str) -> tuple[dict[str, str], int]:
 
 
 @api.route("/memories/<memory_id>/protection", methods=["PATCH"])
-@api.input(UpdateMemoryProtectionRequest)
 @api.output(StatusResponse)
 @api.doc(responses=[404])
 @require_auth
+@validate_request(UpdateMemoryProtectionRequest)
 def update_memory_protection(
-    user: User, memory_id: str, json_data: UpdateMemoryProtectionRequest
+    user: User, data: UpdateMemoryProtectionRequest, memory_id: str
 ) -> tuple[dict[str, str], int]:
     """Protect or unprotect a memory against LLM and defrag deletion."""
-    protected = json_data.protected
+    protected = data.protected
     if not db.set_memory_protected(memory_id, user.id, protected):
         raise_not_found_error("Memory")
 
