@@ -1,5 +1,6 @@
 """Shared pytest fixtures for Moneypenny tests."""
 
+import hashlib
 import os
 import tempfile
 import threading
@@ -156,19 +157,28 @@ def temp_db_dir() -> Generator[Path]:
         yield Path(tmpdir)
 
 
+def _test_file_stem(request: pytest.FixtureRequest) -> str:
+    """A file name unique to this test.
+
+    The node name alone isn't: two tests with the same name in different
+    classes or modules shared one database (Oct 25 2026), so the later one
+    saw the earlier one's rows. The node id is unique; its hash keeps it short.
+    """
+    readable = request.node.name.replace("[", "_").replace("]", "_").replace("/", "_")[:60]
+    digest = hashlib.sha1(request.node.nodeid.encode(), usedforsecurity=False).hexdigest()[:12]
+    return f"{readable}-{digest}"
+
+
 @pytest.fixture
 def test_db_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
     """Create unique database path for each test."""
-    # Use test name to create unique DB file
-    test_name = request.node.name.replace("[", "_").replace("]", "_").replace("/", "_")
-    return temp_db_dir / f"{test_name}.db"
+    return temp_db_dir / f"{_test_file_stem(request)}.db"
 
 
 @pytest.fixture
 def test_blob_path(temp_db_dir: Path, request: pytest.FixtureRequest) -> Path:
     """Create unique blob store path for each test."""
-    test_name = request.node.name.replace("[", "_").replace("]", "_").replace("/", "_")
-    return temp_db_dir / f"{test_name}_blobs.db"
+    return temp_db_dir / f"{_test_file_stem(request)}_blobs.db"
 
 
 @pytest.fixture
