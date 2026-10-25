@@ -78,7 +78,7 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); planned: cycle allow-list that only shrinks |
+| F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); `web/tests/unit/import-cycles.test.ts` (runtime import edges inside a cycle; `import-cycles.baseline.json` only shrinks) |
 | F2 | Store state changes only through slice actions; re-read `getState()` after any `await`; module-level `let` only for UI-ephemeral handles (timers, observers) | planned: ESLint + counter |
 | F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | ESLint `no-unsanitized` (escapers and sanitizers listed in `SAFE_HTML`, `web/eslint.config.js`; 134 baselined, mostly static icons); planned: `on*=` and listener checks |
 | F4 | No floating promises (`void` marks a deliberate one) or async callbacks where a sync one is expected; no non-null `!` | typescript-eslint (type-aware; baselined in `eslint-suppressions.json`) |
