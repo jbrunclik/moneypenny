@@ -12,8 +12,8 @@ from flask import current_app
 
 from src.config import Config
 from src.db.models import db
-from src.utils.costs import convert_currency, format_cost
-from src.utils.search_provider import degraded_today, quota_status
+from src.services.costs import convert_currency, format_cost
+from src.services.search_provider import degraded_today, quota_status
 
 SPEND_CHART_DAYS = 30
 RECENT_WINDOW = timedelta(days=7)

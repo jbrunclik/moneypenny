@@ -1,4 +1,4 @@
-"""Unit tests for src/utils/background_thumbnails.py."""
+"""Unit tests for src/services/background_thumbnails.py."""
 
 import base64
 from concurrent.futures import ThreadPoolExecutor
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config import Config
-from src.utils.background_thumbnails import (
+from src.services.background_thumbnails import (
     _generate_thumbnail_task,
     generate_and_save_thumbnail,
     get_executor,
@@ -135,7 +135,7 @@ class TestQueuePendingThumbnails:
             }
         ]
 
-        with patch("src.utils.background_thumbnails.queue_thumbnail_generation") as mock_queue:
+        with patch("src.services.background_thumbnails.queue_thumbnail_generation") as mock_queue:
             queue_pending_thumbnails("msg-123", files)
 
             mock_queue.assert_called_once_with("msg-123", 0, sample_png_base64, "image/png")
@@ -152,7 +152,7 @@ class TestQueuePendingThumbnails:
             }
         ]
 
-        with patch("src.utils.background_thumbnails.queue_thumbnail_generation") as mock_queue:
+        with patch("src.services.background_thumbnails.queue_thumbnail_generation") as mock_queue:
             queue_pending_thumbnails("msg-123", files)
 
             mock_queue.assert_not_called()
@@ -180,7 +180,7 @@ class TestQueuePendingThumbnails:
             },
         ]
 
-        with patch("src.utils.background_thumbnails.queue_thumbnail_generation") as mock_queue:
+        with patch("src.services.background_thumbnails.queue_thumbnail_generation") as mock_queue:
             queue_pending_thumbnails("msg-123", files)
 
             assert mock_queue.call_count == 2
@@ -212,9 +212,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = True
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ) as mock_gen,
         ):
@@ -232,9 +232,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = True
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value=None,
             ),
         ):
@@ -251,9 +251,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = False  # DB update fails
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ),
         ):
@@ -273,9 +273,9 @@ class TestGenerateThumbnailTask:
 
         # db is imported inside the function, so we need to patch it in src.db.models
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ) as mock_gen,
         ):
@@ -291,9 +291,9 @@ class TestGenerateThumbnailTask:
         mock_db = MagicMock()
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value=None,
             ),
         ):
@@ -308,9 +308,9 @@ class TestGenerateThumbnailTask:
         mock_db = MagicMock()
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 side_effect=Exception("Test error"),
             ),
         ):
@@ -328,9 +328,9 @@ class TestGenerateThumbnailTask:
         mock_db.update_message_file_thumbnail.side_effect = Exception("Message not found")
 
         with (
-            patch("src.utils.background_thumbnails.db", mock_db),
+            patch("src.services.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.background_thumbnails.generate_thumbnail",
+                "src.services.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail",
             ),
         ):

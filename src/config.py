@@ -368,7 +368,7 @@ class Config:
     # Providers are tried in priority order (SEARCH_PROVIDER_ORDER, default
     # brave -> tavily -> exa -> linkup); a provider is skipped when its key is
     # empty or its monthly quota is used up. DuckDuckGo (ddgs) is always the
-    # unmetered terminal fallback. See src/utils/search_provider.py; usage
+    # unmetered terminal fallback. See src/services/search_provider.py; usage
     # counters live in kv_store.
     BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")

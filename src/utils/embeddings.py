@@ -10,7 +10,6 @@ failure, and callers fall back to keyword-only search.
 """
 
 import struct
-import threading
 from typing import Any
 
 from google import genai
@@ -95,32 +94,3 @@ def top_k_similar(
     ]
     scored.sort(key=lambda pair: pair[1], reverse=True)
     return scored[:k]
-
-
-def embed_and_store_async(user_id: str, kind: str, ref_id: str, text: str) -> None:
-    """Embed text and upsert it into the embeddings table on a daemon thread.
-
-    Fire-and-forget: failures are logged, never raised - embedding freshness
-    is best-effort and the write path must not block on the embedding API.
-    """
-    if not Config.EMBEDDINGS_ENABLED:
-        return
-
-    def _work() -> None:
-        from src.db.models import db  # noqa: PLC0415 - cycle: db.models.message imports this module
-
-        vec = embed_text(text)
-        if vec is None:
-            return
-        try:
-            db.upsert_embedding(
-                user_id, kind, ref_id, Config.EMBEDDING_MODEL, len(vec), pack_vector(vec)
-            )
-        except Exception:
-            logger.warning(
-                "Failed to store embedding",
-                extra={"kind": kind, "ref_id": ref_id},
-                exc_info=True,
-            )
-
-    threading.Thread(target=_work, daemon=True, name=f"embed-{kind}").start()

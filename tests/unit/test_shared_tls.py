@@ -15,7 +15,7 @@ import httpx
 
 from src.agent.tools import web
 from src.config import Config
-from src.utils import search_provider
+from src.services import search_provider
 
 
 @contextmanager

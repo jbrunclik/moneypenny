@@ -86,7 +86,7 @@ alone on trash/restore (search filters at query time), so restore needs no reind
 | `POST /api/conversations/bulk-restore` | Undo of a bulk delete: `{"ids": [...]}`; returns `{"restored_ids": [...]}` |
 
 **Purge**: the daily file-cleanup sweep (`cleanup_expired_files()` in
-[file_retention.py](../../src/utils/file_retention.py)) also calls `purge_trashed_conversations()`, reported
+[file_retention.py](../../src/services/file_retention.py)) also calls `purge_trashed_conversations()`, reported
 as `conversations_purged`. It runs on a timer in production and via the dev scheduler locally - see
 [Scheduled Jobs](../architecture/scheduled-jobs.md).
 

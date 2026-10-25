@@ -9,7 +9,7 @@ from src.api.helpers.chat_streaming import FORWARDED_EVENT_TYPES
 from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
 from src.db.models.dataclasses import Message
 from src.enums import MessageRole
-from src.utils.costs import calculate_deep_research_cost
+from src.services.costs import calculate_deep_research_cost
 
 _RESEARCH_EVENTS = {
     "research_plan",
@@ -45,7 +45,7 @@ def test_subagent_usage_is_priced_at_its_model() -> None:
             },
         ]
     }
-    from src.utils.costs import calculate_token_cost
+    from src.services.costs import calculate_token_cost
 
     one = calculate_token_cost("gemini-3.8-flash", 1_000_000, 0)
     assert calculate_deep_research_cost(usage) == 2 * one

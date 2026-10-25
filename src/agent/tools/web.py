@@ -22,13 +22,13 @@ from src.agent.tools.product_data import product_data_line
 from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
-from src.utils.logging import get_logger
-from src.utils.search_provider import (
+from src.services.search_provider import (
     SearchProviderError,
     active_provider,
     has_metered_providers,
     search_web_detailed,
 )
+from src.utils.logging import get_logger
 from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)

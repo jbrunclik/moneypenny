@@ -29,8 +29,8 @@ from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 
 from src.config import Config
 from src.db.models import db
+from src.services.push import send_push_to_user
 from src.utils.logging import get_logger
-from src.utils.push import send_push_to_user
 from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)

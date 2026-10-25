@@ -152,7 +152,7 @@ class TestGetMessageThumbnail:
 
         # Mock generate_thumbnail to verify it's called (via generate_and_save_thumbnail)
         with patch(
-            "src.utils.background_thumbnails.generate_thumbnail", return_value=sample_png_base64
+            "src.services.background_thumbnails.generate_thumbnail", return_value=sample_png_base64
         ) as mock_gen:
             response = client.get(
                 f"/api/messages/{message.id}/files/0/thumbnail",

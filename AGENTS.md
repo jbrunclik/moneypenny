@@ -81,8 +81,8 @@ non-conventional git commands (`guard-git.py`).
 
 - `src/` — `api/routes/` (REST by feature), `api/schemas/` (Pydantic by feature; source of
   the OpenAPI spec), `agent/` (graph, prompts in `prompt_texts/`, `tools/`),
-  `db/models/` (SQL lives only here), `auth/`, `utils/`, `config.py` (all env vars
-  and model definitions).
+  `services/` (DB-backed services), `db/models/` (SQL lives only here), `auth/`,
+  `utils/` (pure helpers), `config.py` (all env vars and model definitions).
 - `web/src/` — `core/` (messaging, conversation, sync), `components/`,
   `state/store.ts` (Zustand, slices in `state/slices/`), `api/` (one module per
   domain), `types/`, `styles/`.
@@ -96,7 +96,7 @@ Summary — the rules, their IDs and enforcers are in [docs/conventions.md](docs
 - Type hints everywhere (mypy strict); TypeScript strict.
 - Functions < 50 lines ideal, < 100 max; nesting ≤ 3. Split files by
   responsibility, not line count. No backward-compatibility re-exports.
-- Imports point down the layers (routes → helpers → agent → db → utils;
+- Imports point down the layers (routes → helpers → agent → services → db → utils;
   core → components → state → api → utils).
 - True constants in `constants.{ts,py}`, tunables in `config.{ts,py}`;
   `SCREAMING_SNAKE_CASE` with units (`_MS`, `_SECONDS`, `_PX`, `_BYTES`).

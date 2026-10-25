@@ -26,7 +26,7 @@ from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.models import db
-from src.utils.embeddings import embed_and_store_async, embed_text, top_k_similar
+from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -94,7 +94,7 @@ def _apply_add(user_id: str, conversation_id: str | None, op: dict[str, Any]) ->
         "Memory added via tool",
         extra={"user_id": user_id, "memory_id": memory.id, "category": category},
     )
-    embed_and_store_async(user_id, "memory", memory.id, content)
+    db.embed_and_store_async(user_id, "memory", memory.id, content)
     return f"added id={memory.id} ({count + 1}/{Config.MEMORY_MAX_ENTRIES} used)"
 
 
@@ -136,7 +136,7 @@ def _apply_update(user_id: str, op: dict[str, Any]) -> str:
             "new_chars": len(content),
         },
     )
-    embed_and_store_async(user_id, "memory", memory_id, content)
+    db.embed_and_store_async(user_id, "memory", memory_id, content)
     limit = Config.MEMORY_MAX_ENTRY_CHARS
     if len(content) >= limit * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO:
         return f"updated id={memory_id} ({len(content)}/{limit} chars). {_ONE_TOPIC_HINT}"

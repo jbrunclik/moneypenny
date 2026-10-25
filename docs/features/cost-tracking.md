@@ -129,7 +129,7 @@ caching affects tracked cost:
 - **Cached tokens are recorded and discounted.** Cache hits are read from
   `usage_metadata.input_token_details.cache_read`, aggregated as
   `cached_input_tokens` in `usage_info`, and billed at the model's `cached_input`
-  price in `calculate_token_cost()` ([src/utils/costs.py](../../src/utils/costs.py)).
+  price in `calculate_token_cost()` ([src/services/costs.py](../../src/services/costs.py)).
   `input_tokens` from the API already *includes* the cached subset; the cost code
   splits it into cached/uncached rather than double-counting. (Earlier builds did
   not record `cache_read` and therefore overstated cost — that gap is closed.)
@@ -199,7 +199,7 @@ STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was save
 
 ### Backend
 
-- [costs.py](../../src/utils/costs.py) - Cost calculation and currency conversion utilities; `calculate_and_save_message_cost()` and the per-component helpers (`calculate_image_generation_cost_from_tool_results()`, delegate, grounding, freshness, deep research)
+- [costs.py](../../src/services/costs.py) - Cost calculation and currency conversion utilities; `calculate_and_save_message_cost()` and the per-component helpers (`calculate_image_generation_cost_from_tool_results()`, delegate, grounding, freshness, deep research)
 - [config.py](../../src/config.py) - Model pricing and currency rates
 - [models/](../../src/db/models/) - Cost CRUD methods
 - [turn_usage.py](../../src/agent/turn_usage.py) - Token usage extraction from `usage_metadata`

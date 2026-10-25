@@ -22,8 +22,8 @@ from src.config import Config
 from src.db import models
 from src.db.blob_store import get_blob_store
 from src.db.models import make_blob_key
+from src.services.gemini_file_cache import delete_cached_file_uri
 from src.utils.datetime_utils import utcnow_naive
-from src.utils.gemini_file_cache import delete_cached_file_uri
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

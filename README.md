@@ -421,7 +421,8 @@ moneypenny/
 │   ├── auth/                     # Google Sign In, JWT, OAuth for integrations
 │   ├── db/                       # SQLite models, connection pool, blob store
 │   ├── templates/                # Jinja2 shell + privacy policy
-│   └── utils/                    # Images, costs, logging, push, weather, files
+│   ├── services/                 # DB-backed services: costs, push, search quota, retention
+│   └── utils/                    # Pure helpers: images, logging, weather, files
 ├── web/                          # Vite + TypeScript frontend
 │   └── src/
 │       ├── core/                 # Conversation, messaging, programs, toolbar, kv-store

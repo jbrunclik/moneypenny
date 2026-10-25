@@ -388,11 +388,10 @@ class TestMemoryEmbeddingHook:
 
     def test_add_schedules_embedding(self, memory_context, monkeypatch) -> None:
         calls: list[tuple] = []
+        test_database, test_user = memory_context
         monkeypatch.setattr(
-            "src.agent.tools.memory.embed_and_store_async",
-            lambda *args: calls.append(args),
+            test_database, "embed_and_store_async", lambda *args: calls.append(args)
         )
-        _test_database, test_user = memory_context
 
         result = _invoke([{"action": "add", "content": "Loves hiking", "category": "fact"}])
 
@@ -401,11 +400,10 @@ class TestMemoryEmbeddingHook:
 
     def test_update_schedules_embedding(self, memory_context, monkeypatch) -> None:
         calls: list[tuple] = []
-        monkeypatch.setattr(
-            "src.agent.tools.memory.embed_and_store_async",
-            lambda *args: calls.append(args),
-        )
         test_database, test_user = memory_context
+        monkeypatch.setattr(
+            test_database, "embed_and_store_async", lambda *args: calls.append(args)
+        )
         memory = test_database.add_memory(test_user.id, "Old fact", "fact")
 
         _invoke([{"action": "update", "id": memory.id, "content": "New fact"}])

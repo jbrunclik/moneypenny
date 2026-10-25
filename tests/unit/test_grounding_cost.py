@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.utils.costs import (
+from src.services.costs import (
     calculate_and_save_message_cost,
     calculate_grounding_cost,
     calculate_token_cost,
@@ -31,7 +31,7 @@ def test_no_grounding_usage_costs_nothing() -> None:
 
 
 def test_message_cost_includes_grounding() -> None:
-    with patch("src.utils.costs.db") as db:
+    with patch("src.services.costs.db") as db:
         calculate_and_save_message_cost(
             "msg",
             "conv",

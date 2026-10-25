@@ -23,8 +23,8 @@ from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import User, db, make_blob_key, make_thumbnail_key
 from src.enums import ThumbnailStatus
-from src.utils.background_thumbnails import generate_and_save_thumbnail
-from src.utils.file_retention import is_file_expired, retention_note
+from src.services.background_thumbnails import generate_and_save_thumbnail
+from src.services.file_retention import is_file_expired, retention_note
 from src.utils.images import transcode_image_for_browser
 from src.utils.logging import get_logger
 

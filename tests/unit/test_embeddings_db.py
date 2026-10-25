@@ -67,7 +67,8 @@ class TestMessageEmbeddingHook:
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         calls: list[tuple] = []
         monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async",
+            test_database,
+            "embed_and_store_async",
             lambda *args: calls.append(args),
         )
 
@@ -83,7 +84,8 @@ class TestMessageEmbeddingHook:
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         calls: list[tuple] = []
         monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async",
+            test_database,
+            "embed_and_store_async",
             lambda *args: calls.append(args),
         )
 
@@ -100,7 +102,8 @@ class TestMessageEmbeddingHook:
         monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
         calls: list[tuple] = []
         monkeypatch.setattr(
-            "src.utils.embeddings.embed_and_store_async",
+            test_database,
+            "embed_and_store_async",
             lambda *args: calls.append(args),
         )
 

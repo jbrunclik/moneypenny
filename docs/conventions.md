@@ -62,7 +62,7 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api` | import-linter (`pyproject.toml`; no baseline) |
+| B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api`, `db` never imports `services`, `utils` imports no other layer | import-linter (`pyproject.toml`; no baseline) |
 | B2 | No importing another module's `_private` names - make it public or move it | planned: test |
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | `tests/unit/test_route_input.py` |
@@ -135,8 +135,11 @@ Details: [testing.md](testing.md).
 Imports point down only. A lower layer that needs something from a higher one
 gets it passed in (callback, parameter, event), never imported.
 
-**Backend:** `api/routes` → `api/helpers` → `agent` → `db` → `utils`, `config`,
-`constants`. `auth` sits beside `api` and may use `db`. Shared enums used by
+**Backend:** `api/routes` → `api/helpers` → `agent` → `services` → `db` →
+`utils`, `config`, `constants`. `services` holds the modules that need the
+database (costs, push, file retention, thumbnails, search quotas); `utils` is
+pure and imports nothing else from `src` except `config`, `constants` and
+`enums`. `auth` sits beside `api` and may use `db`. Shared enums used by
 both `db` and `api` belong in the lowest layer that needs them
 (`src/enums.py`), not in `api/schemas`.
 

@@ -27,7 +27,7 @@ class TestRankedUniqueUrls:
 
     @patch("src.agent.tools.research.search_web")
     def test_failed_query_skipped(self, mock_search: MagicMock) -> None:
-        from src.utils.search_provider import SearchProviderError
+        from src.services.search_provider import SearchProviderError
 
         mock_search.side_effect = [
             SearchProviderError("rate limited"),
@@ -115,7 +115,7 @@ class TestResearchTool:
 
     @patch("src.agent.tools.research.search_web")
     def test_all_searches_failed_returns_retriable_error(self, mock_search: MagicMock) -> None:
-        from src.utils.search_provider import SearchProviderError
+        from src.services.search_provider import SearchProviderError
 
         mock_search.side_effect = SearchProviderError("down", retriable=True)
 

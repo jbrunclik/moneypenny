@@ -1,4 +1,4 @@
-"""Unit tests for the Web Push send pipeline (src/utils/push.py)."""
+"""Unit tests for the Web Push send pipeline (src/services/push.py)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from pywebpush import WebPushException
 
 from src.config import Config
-from src.utils.push import send_push_to_user, send_push_to_user_sync
+from src.services.push import send_push_to_user, send_push_to_user_sync
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -24,7 +24,7 @@ def _webpush_error(status: int) -> WebPushException:
 @pytest.fixture
 def push_user(test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch) -> User:
     """A user with one stored subscription and the module db patched."""
-    monkeypatch.setattr("src.utils.push.db", test_database)
+    monkeypatch.setattr("src.services.push.db", test_database)
     test_database.save_push_subscription(
         user_id=test_user.id,
         endpoint="https://push.example.com/sub-1",
@@ -43,7 +43,7 @@ class TestSendPushToUserSync:
             p256dh="k2",
             auth="a2",
         )
-        with patch("src.utils.push.webpush") as mock_webpush:
+        with patch("src.services.push.webpush") as mock_webpush:
             delivered = send_push_to_user_sync(push_user.id, "Title", "Body", "/", "tag-1")
 
         assert delivered == 2
@@ -58,8 +58,8 @@ class TestSendPushToUserSync:
     def test_no_subscriptions_returns_zero(
         self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("src.utils.push.db", test_database)
-        with patch("src.utils.push.webpush") as mock_webpush:
+        monkeypatch.setattr("src.services.push.db", test_database)
+        with patch("src.services.push.webpush") as mock_webpush:
             assert send_push_to_user_sync(test_user.id, "T", "B", None, None) == 0
         mock_webpush.assert_not_called()
 
@@ -67,7 +67,7 @@ class TestSendPushToUserSync:
     def test_gone_subscription_is_pruned(
         self, push_user: User, test_database: Database, status: int
     ) -> None:
-        with patch("src.utils.push.webpush", side_effect=_webpush_error(status)):
+        with patch("src.services.push.webpush", side_effect=_webpush_error(status)):
             delivered = send_push_to_user_sync(push_user.id, "T", "B", None, None)
 
         assert delivered == 0
@@ -76,7 +76,7 @@ class TestSendPushToUserSync:
     def test_transient_failure_keeps_subscription(
         self, push_user: User, test_database: Database
     ) -> None:
-        with patch("src.utils.push.webpush", side_effect=_webpush_error(500)):
+        with patch("src.services.push.webpush", side_effect=_webpush_error(500)):
             delivered = send_push_to_user_sync(push_user.id, "T", "B", None, None)
 
         assert delivered == 0
@@ -92,7 +92,7 @@ class TestSendPushToUserSync:
             auth="a2",
         )
         with patch(
-            "src.utils.push.webpush", side_effect=[_webpush_error(410), None]
+            "src.services.push.webpush", side_effect=[_webpush_error(410), None]
         ) as mock_webpush:
             delivered = send_push_to_user_sync(push_user.id, "T", "B", None, None)
 
@@ -105,14 +105,14 @@ class TestSendPushToUser:
     def test_noop_when_push_disabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(Config, "VAPID_PRIVATE_KEY", "")
         monkeypatch.setattr(Config, "VAPID_PUBLIC_KEY", "")
-        with patch("src.utils.push.threading.Thread") as mock_thread:
+        with patch("src.services.push.threading.Thread") as mock_thread:
             send_push_to_user("user-1", "T", "B")
         mock_thread.assert_not_called()
 
     def test_spawns_thread_when_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(Config, "VAPID_PRIVATE_KEY", "priv")
         monkeypatch.setattr(Config, "VAPID_PUBLIC_KEY", "pub")
-        with patch("src.utils.push.threading.Thread") as mock_thread:
+        with patch("src.services.push.threading.Thread") as mock_thread:
             send_push_to_user("user-1", "T", "B", url="/x", tag="t")
 
         mock_thread.assert_called_once()

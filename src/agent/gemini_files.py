@@ -18,8 +18,8 @@ from google.genai import types as genai_types
 
 from src.agent.gemini_clients import shared_genai_client
 from src.db.models import db
+from src.services.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
 from src.utils.datetime_utils import utcnow_naive
-from src.utils.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

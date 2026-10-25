@@ -121,7 +121,7 @@ def retrieve_file(  # noqa: C901
 
     # Age-based retention gate: stays truthful even before the physical
     # sweep has deleted the blob (videos 7 days, images 30 days)
-    from src.utils.file_retention import is_file_expired, retention_note  # noqa: PLC0415
+    from src.services.file_retention import is_file_expired, retention_note  # noqa: PLC0415
 
     if is_file_expired(mime_type, message.created_at):
         return tool_error(

@@ -41,7 +41,7 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
         # Dev stand-in for the moneypenny-file-cleanup systemd timer
         # (kv last-run stamp keeps this to at most one sweep per day)
         try:
-            from src.utils.file_retention import run_file_cleanup_if_due  # noqa: PLC0415
+            from src.services.file_retention import run_file_cleanup_if_due  # noqa: PLC0415
 
             run_file_cleanup_if_due()
         except Exception:  # the loop must survive a failing sweep

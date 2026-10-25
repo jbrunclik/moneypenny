@@ -1,7 +1,7 @@
 """kv_store layout of the cached Gemini Files API URIs.
 
 src/agent/gemini_files.py reads and writes the cache; the retention sweep
-(src/utils/file_retention.py) deletes entries for expired videos. The layout
+(src/services/file_retention.py) deletes entries for expired videos. The layout
 lives here, below both, so the sweep needs nothing from the agent layer.
 """
 

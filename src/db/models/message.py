@@ -12,7 +12,6 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-import src.utils.embeddings as embeddings_util
 from src.config import Config
 from src.db.models.dataclasses import Message
 from src.db.models.helpers import (
@@ -70,6 +69,11 @@ class MessageMixin:
     ) -> sqlite3.Cursor:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
+
+    if TYPE_CHECKING:
+
+        def embed_and_store_async(self, user_id: str, kind: str, ref_id: str, text: str) -> None:
+            """Defined in EmbeddingsMixin."""
 
     def delete_message(self, message_id: str, user_id: str) -> bool:
         """Delete a message by ID.
@@ -390,7 +394,7 @@ class MessageMixin:
             if not row:
                 return
 
-            embeddings_util.embed_and_store_async(row["user_id"], "message", message_id, content)
+            self.embed_and_store_async(row["user_id"], "message", message_id, content)
         except Exception:
             # Embedding freshness is best-effort; a failure must never break
             # the message save

@@ -121,7 +121,7 @@ Several jobs also have manual Make targets for on-demand runs: `make backup`,
 - [dev_scheduler.py](../../src/agent/dev_scheduler.py) - Development background loop
 - [app.py](../../src/app.py) - Starts the dev scheduler in development mode only
 - [scheduler.py](../../src/agent/scheduler.py) - Shared agent-scheduling logic (used by both timer and dev loop)
-- [file_retention.py](../../src/utils/file_retention.py) - `run_file_cleanup_if_due()` kv-stamp throttle
+- [file_retention.py](../../src/services/file_retention.py) - `run_file_cleanup_if_due()` kv-stamp throttle
 - [systemd/](../../systemd/) - `.service` / `.timer` unit files
 - [scripts/](../../scripts/) - Runnable job scripts
 - [Makefile](../../Makefile) - `deploy` target installs/enables timers; manual job targets

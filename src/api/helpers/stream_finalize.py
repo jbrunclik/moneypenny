@@ -17,8 +17,8 @@ from src.api.helpers.stream_producer import (
 from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
 from src.enums import MessageRole
+from src.services.push import send_push_to_user
 from src.utils.logging import get_logger
-from src.utils.push import send_push_to_user
 
 if TYPE_CHECKING:
     from src.api.helpers.chat_streaming import _StreamContext

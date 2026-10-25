@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from src.utils.planner_data import fetch_todoist_dashboard_data
+from src.services.planner_data import fetch_todoist_dashboard_data
 
 TODAY = date.today()
 YESTERDAY = (TODAY - timedelta(days=1)).isoformat()

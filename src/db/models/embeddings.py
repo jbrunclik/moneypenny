@@ -8,10 +8,13 @@ user) that is faster and simpler than a vector-index extension.
 from __future__ import annotations
 
 import sqlite3
+import threading
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from src.config import Config
+from src.utils.embeddings import embed_text, pack_vector
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -67,6 +70,32 @@ class EmbeddingsMixin:
                 ),
             )
             conn.commit()
+
+    def embed_and_store_async(self, user_id: str, kind: str, ref_id: str, text: str) -> None:
+        """Embed text and upsert it into the embeddings table on a daemon thread.
+
+        Fire-and-forget: failures are logged, never raised - embedding freshness
+        is best-effort and the write path must not block on the embedding API.
+        """
+        if not Config.EMBEDDINGS_ENABLED:
+            return
+
+        def _work() -> None:
+            vec = embed_text(text)
+            if vec is None:
+                return
+            try:
+                self.upsert_embedding(
+                    user_id, kind, ref_id, Config.EMBEDDING_MODEL, len(vec), pack_vector(vec)
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to store embedding",
+                    extra={"kind": kind, "ref_id": ref_id},
+                    exc_info=True,
+                )
+
+        threading.Thread(target=_work, daemon=True, name=f"embed-{kind}").start()
 
     def get_embeddings(self, user_id: str, kind: str) -> list[tuple[str, int, bytes]]:
         """All (ref_id, dim, vector) rows for a user and kind."""

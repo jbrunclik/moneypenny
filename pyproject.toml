@@ -78,10 +78,16 @@ root_package = "src"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
-name = "db never imports api or agent"
+name = "services never imports api or agent"
+type = "forbidden"
+source_modules = ["src.services"]
+forbidden_modules = ["src.api", "src.agent"]
+
+[[tool.importlinter.contracts]]
+name = "db never imports api, agent or services"
 type = "forbidden"
 source_modules = ["src.db"]
-forbidden_modules = ["src.api", "src.agent"]
+forbidden_modules = ["src.api", "src.agent", "src.services"]
 
 [[tool.importlinter.contracts]]
 name = "agent never imports api"
@@ -90,10 +96,10 @@ source_modules = ["src.agent"]
 forbidden_modules = ["src.api"]
 
 [[tool.importlinter.contracts]]
-name = "utils never imports api or agent"
+name = "utils imports no other layer of src"
 type = "forbidden"
 source_modules = ["src.utils"]
-forbidden_modules = ["src.api", "src.agent"]
+forbidden_modules = ["src.api", "src.agent", "src.services", "src.auth", "src.db"]
 
 [[tool.importlinter.contracts]]
 name = "routes make no outbound HTTP calls themselves"

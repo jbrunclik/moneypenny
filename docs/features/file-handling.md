@@ -181,7 +181,7 @@ If the server dies while generating thumbnails, pending thumbnails would be stuc
 
 ### Key Files
 
-- [background_thumbnails.py](../../src/utils/background_thumbnails.py) - ThreadPoolExecutor, queue functions, `generate_and_save_thumbnail()` shared helper
+- [background_thumbnails.py](../../src/services/background_thumbnails.py) - ThreadPoolExecutor, queue functions, `generate_and_save_thumbnail()` shared helper
 - [images.py](../../src/utils/images.py) - `generate_thumbnail()`, `process_image_files_sync()` for tool outputs
 - [routes/files.py](../../src/api/routes/files.py) - Thumbnail endpoint with 202 response and stale recovery
 - [api/files.ts](../../web/src/api/files.ts) - `fetchThumbnail()` with polling and exponential backoff
@@ -252,7 +252,7 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 
 ### File Retention
 
-Attachments are not permanent storage: **videos are kept 7 days, images and all other files 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS` / `FILE_RETENTION_DAYS`). Implemented in [file_retention.py](../../src/utils/file_retention.py):
+Attachments are not permanent storage: **videos are kept 7 days, images and all other files 30 days** (`VIDEO_RETENTION_DAYS` / `IMAGE_RETENTION_DAYS` / `FILE_RETENTION_DAYS`). Implemented in [file_retention.py](../../src/services/file_retention.py):
 
 - **Production**: a daily systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) (installed by `make deploy`), consistent with the other scheduled jobs - see [Scheduled Jobs](../architecture/scheduled-jobs.md).
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
@@ -277,8 +277,8 @@ FILE_RETENTION_DAYS=30
 ### Key Files
 
 - [gemini_files.py](../../src/agent/gemini_files.py) - Files API bridge + kv URI cache
-- [gemini_file_cache.py](../../src/utils/gemini_file_cache.py) - kv layout of the URI cache; its deletion is used by the retention sweep
-- [file_retention.py](../../src/utils/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) runs it on a timer
+- [gemini_file_cache.py](../../src/services/gemini_file_cache.py) - kv layout of the URI cache; its deletion is used by the retention sweep
+- [file_retention.py](../../src/services/file_retention.py) - retention policy + sweep; [cleanup_files.py](../../scripts/cleanup_files.py) runs it on a timer
 - [file_retrieval.py](../../src/agent/tools/file_retrieval.py) - video branch + expiry errors
 - [message_content.py](../../src/agent/message_content.py) - `build_message_content()` media blocks
 - [chat_turn.py](../../src/api/helpers/chat_turn.py) - `attach_gemini_file_uris()` call site (user message save, both chat modes)

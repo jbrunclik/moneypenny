@@ -116,7 +116,7 @@ class TestSendTest:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         client.post("/api/push/subscriptions", headers=auth_headers, json=SUBSCRIPTION)
-        with patch("src.utils.push.webpush") as mock_webpush:
+        with patch("src.services.push.webpush") as mock_webpush:
             response = client.post("/api/push/test", headers=auth_headers)
 
         assert response.status_code == 200

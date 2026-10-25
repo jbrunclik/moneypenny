@@ -11,7 +11,7 @@ from src.agent.grounding_annotations import format_grounding_context, verified_c
 from src.agent.tool_outputs import format_tool_outputs
 from src.config import Config
 from src.db.models.dataclasses import Message
-from src.utils.file_retention import is_file_expired
+from src.services.file_retention import is_file_expired
 
 
 class FileMetadata(TypedDict):

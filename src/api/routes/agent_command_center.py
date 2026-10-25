@@ -14,7 +14,7 @@ from src.api.schemas.agents import CommandCenterResponse
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
-from src.utils.costs import convert_currency, format_cost
+from src.services.costs import convert_currency, format_cost
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

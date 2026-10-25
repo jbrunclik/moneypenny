@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Seed or inspect the monthly search-usage counters.
 
-The search provider router (src/utils/search_provider.py) bills each metered
+The search provider router (src/services/search_provider.py) bills each metered
 search to a kv_store counter. Use this to backfill usage already consumed on
 a provider's dashboard (e.g. after switching to the router mid-month), or to
 check where the month stands.
@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 from src.db.models import db  # noqa: E402 - after load_dotenv: Config reads the environment on import
-from src.utils.search_provider import (  # noqa: E402 - after load_dotenv: Config reads the environment on import
+from src.services.search_provider import (  # noqa: E402 - after load_dotenv: Config reads the environment on import
     _PROVIDERS,
     _SYSTEM_USER_ID,
     USAGE_NAMESPACE,

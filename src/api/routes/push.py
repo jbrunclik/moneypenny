@@ -2,7 +2,7 @@
 
 The client (core/push.ts) fetches the VAPID public key, subscribes via
 the browser PushManager, and stores the resulting subscription here.
-Sends happen server-side via src/utils/push.py.
+Sends happen server-side via src/services/push.py.
 """
 
 from typing import Any
@@ -21,8 +21,8 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.services.push import send_push_to_user_sync
 from src.utils.logging import get_logger
-from src.utils.push import send_push_to_user_sync
 
 logger = get_logger(__name__)
 

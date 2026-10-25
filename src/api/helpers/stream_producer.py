@@ -35,8 +35,8 @@ from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import db
+from src.services.push import send_push_to_user
 from src.utils.logging import get_logger
-from src.utils.push import send_push_to_user
 
 if TYPE_CHECKING:
     from src.agent.agent import ChatAgent

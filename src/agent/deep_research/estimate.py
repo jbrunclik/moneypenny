@@ -8,7 +8,7 @@ server recomputes it when the run starts.
 import math
 
 from src.config import Config
-from src.utils.costs import convert_currency
+from src.services.costs import convert_currency
 
 
 def estimate_rates() -> dict[str, float]:

@@ -7,14 +7,14 @@ from unittest.mock import patch
 import pytest
 
 from src.db.models import make_blob_key, make_thumbnail_key
-from src.utils.datetime_utils import utcnow_naive
-from src.utils.file_retention import (
+from src.services.file_retention import (
     cleanup_expired_files,
     is_file_expired,
     retention_days_for_mime,
     retention_note,
     run_file_cleanup_if_due,
 )
+from src.utils.datetime_utils import utcnow_naive
 
 
 class TestRetentionDays:
@@ -74,7 +74,7 @@ def seeded_env(test_database, test_blob_store):
     """Patch module-level db/blob_store lookups to the isolated test instances."""
     with (
         patch("src.db.models.db", test_database),
-        patch("src.utils.file_retention.get_blob_store", return_value=test_blob_store),
+        patch("src.services.file_retention.get_blob_store", return_value=test_blob_store),
         patch("src.db.models.message_files.get_blob_store", return_value=test_blob_store),
         patch("src.db.models.helpers.get_blob_store", return_value=test_blob_store),
     ):

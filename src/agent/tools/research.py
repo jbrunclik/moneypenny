@@ -24,8 +24,8 @@ from src.agent.tools.web import (
     wrap_untrusted_content,
 )
 from src.config import Config
+from src.services.search_provider import SearchProviderError, is_degraded, search_web
 from src.utils.logging import get_logger
-from src.utils.search_provider import SearchProviderError, is_degraded, search_web
 
 logger = get_logger(__name__)
 

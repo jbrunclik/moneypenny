@@ -38,7 +38,7 @@ are already in place.
 - `src/db/models/push.py` — `PushSubscriptionMixin`
   (`save_push_subscription`, `get_push_subscriptions`,
   `delete_push_subscription`, `touch_push_subscription`).
-- `src/utils/push.py` — send pipeline. `send_push_to_user(user_id,
+- `src/services/push.py` — send pipeline. `send_push_to_user(user_id,
   title, body, url, tag)` is fire-and-forget: no-op without keys, runs
   on a daemon thread, sends to every subscription, deletes
   subscriptions the push service reports gone (404/410). `tag` coalesces

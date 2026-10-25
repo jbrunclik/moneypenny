@@ -2,7 +2,7 @@
 
 One row per device/browser subscription. endpoint is unique - the same
 browser re-subscribing upserts its keys. Dead subscriptions (push service
-returns 404/410) are deleted by the send pipeline in src/utils/push.py.
+returns 404/410) are deleted by the send pipeline in src/services/push.py.
 """
 
 from __future__ import annotations

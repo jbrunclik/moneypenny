@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config import Config
-from src.utils.search_provider import (
+from src.services.search_provider import (
     SearchProviderError,
     _breaker_state,
     _now,
@@ -77,7 +77,7 @@ def _no_keys() -> Any:
 
 class TestActiveProvider:
     def test_ddgs_when_nothing_configured(self) -> None:
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):
+        with _no_keys(), patch("src.services.search_provider.db", _fake_db()):
             assert active_provider() == "ddgs"
 
     def test_brave_first_when_configured(self) -> None:
@@ -89,7 +89,7 @@ class TestActiveProvider:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             assert active_provider() == "brave"
 
@@ -103,7 +103,7 @@ class TestActiveProvider:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db(usage)),
+            patch("src.services.search_provider.db", _fake_db(usage)),
         ):
             assert active_provider() == "tavily"
 
@@ -122,7 +122,7 @@ class TestProviderOrder:
     def test_configured_order_decides_who_goes_first(self) -> None:
         with (
             self._all_keys("tavily,exa,linkup,brave"),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             assert active_provider() == "tavily"
             assert [s["provider"] for s in quota_status()] == [
@@ -136,7 +136,7 @@ class TestProviderOrder:
     def test_unlisted_providers_follow_in_default_order(self) -> None:
         with (
             self._all_keys(" linkup , nonsense"),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             assert [s["provider"] for s in quota_status()] == [
                 "linkup",
@@ -149,15 +149,15 @@ class TestProviderOrder:
     def test_ddgs_stays_last_even_when_listed_first(self) -> None:
         with (
             self._all_keys("ddgs,exa"),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             assert active_provider() == "exa"
             assert quota_status()[-1]["provider"] == "ddgs"
 
 
 class TestRouting:
-    @patch("src.utils.search_provider._search_tavily")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_tavily")
+    @patch("src.services.search_provider._search_brave")
     def test_provider_error_falls_through_to_next(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -171,14 +171,14 @@ class TestRouting:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             results = search_web("q", 3)
         assert results[0]["url"] == "https://a.example"
         mock_tavily.assert_called_once()
 
-    @patch("src.utils.search_provider._search_tavily")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_tavily")
+    @patch("src.services.search_provider._search_brave")
     def test_exhausted_quota_skips_without_calling(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -192,13 +192,13 @@ class TestRouting:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db(usage)),
+            patch("src.services.search_provider.db", _fake_db(usage)),
         ):
             results = search_web("q", 3)
         assert len(results) == 1
         mock_brave.assert_not_called()
 
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_brave")
     def test_success_increments_monthly_usage(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         db = _fake_db()
@@ -210,13 +210,13 @@ class TestRouting:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", db),
+            patch("src.services.search_provider.db", db),
         ):
             search_web("q", 3)
         db.kv_increment.assert_called_once()
         assert db.kv_increment.call_args[0][2] == usage_key("brave")
 
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_brave")
     def test_failed_call_does_not_bill(self, mock_brave: MagicMock) -> None:
         mock_brave.side_effect = SearchProviderError("boom")
         db = _fake_db()
@@ -228,8 +228,8 @@ class TestRouting:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", db),
-            patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_provider.db", db),
+            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
             search_web("q", 3)
@@ -239,8 +239,8 @@ class TestRouting:
         incremented = [call.args[2] for call in db.kv_increment.call_args_list]
         assert usage_key("brave") not in incremented
 
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_brave")
     def test_all_providers_failing_raises_last_error(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -254,7 +254,7 @@ class TestRouting:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
             pytest.raises(SearchProviderError) as exc_info,
         ):
             search_web("q", 3)
@@ -270,17 +270,17 @@ class TestMonthlyUsage:
         assert len(month) == 7 and month[4] == "-"
 
     def test_get_monthly_usage_defaults_to_zero(self) -> None:
-        with patch("src.utils.search_provider.db", _fake_db()):
+        with patch("src.services.search_provider.db", _fake_db()):
             assert get_monthly_usage("brave") == 0
 
     def test_get_monthly_usage_reads_counter(self) -> None:
-        with patch("src.utils.search_provider.db", _fake_db({usage_key("brave"): 42})):
+        with patch("src.services.search_provider.db", _fake_db({usage_key("brave"): 42})):
             assert get_monthly_usage("brave") == 42
 
 
 class TestBraveSearch:
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.utils.search_provider.httpx.get")
+    @patch("src.services.search_provider.httpx.get")
     def test_maps_brave_results_to_contract(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -294,7 +294,7 @@ class TestBraveSearch:
         }
         mock_get.return_value = mock_response
 
-        with patch("src.utils.search_provider.db", _fake_db()):
+        with patch("src.services.search_provider.db", _fake_db()):
             results = search_web("test query", 2)
 
         assert results == [
@@ -304,7 +304,7 @@ class TestBraveSearch:
         assert mock_get.call_args.kwargs["headers"]["X-Subscription-Token"] == "test-key"
 
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.utils.search_provider.httpx.get")
+    @patch("src.services.search_provider.httpx.get")
     def test_brave_caps_results(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -315,12 +315,12 @@ class TestBraveSearch:
         }
         mock_get.return_value = mock_response
 
-        with patch("src.utils.search_provider.db", _fake_db()):
+        with patch("src.services.search_provider.db", _fake_db()):
             assert len(search_web("q", 3)) == 3
 
 
 class TestTavilySearch:
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_maps_tavily_results_to_contract(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -339,14 +339,14 @@ class TestTavilySearch:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             results = search_web("q", 3)
 
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "C1"}]
         assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer tvly-key"
 
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_tavily_rate_limit_is_retriable(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 429
@@ -360,8 +360,8 @@ class TestTavilySearch:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
-            patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_provider.db", _fake_db()),
+            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = []
             search_web("q", 3)
@@ -370,7 +370,7 @@ class TestTavilySearch:
 
 
 class TestExaSearch:
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_maps_exa_results_to_contract(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -389,14 +389,14 @@ class TestExaSearch:
                 EXA_API_KEY="exa-key",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             results = search_web("q", 3)
 
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "body text"}]
         assert mock_post.call_args.kwargs["headers"]["x-api-key"] == "exa-key"
 
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_requests_configured_search_type(self, mock_post: MagicMock) -> None:
         mock_post.return_value = MagicMock(status_code=200)
         mock_post.return_value.json.return_value = {"results": []}
@@ -404,7 +404,7 @@ class TestExaSearch:
             _search_exa("q", 3)
         assert mock_post.call_args.kwargs["json"]["type"] == "lite"
 
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_exa_out_of_credits_falls_through(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 402
@@ -418,8 +418,8 @@ class TestExaSearch:
                 EXA_API_KEY="exa-key",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
-            patch("src.utils.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_provider.db", _fake_db()),
+            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = []
             search_web("q", 3)
@@ -427,7 +427,7 @@ class TestExaSearch:
 
 
 class TestDdgsSearch:
-    @patch("src.utils.search_provider.DDGS")
+    @patch("src.services.search_provider.DDGS")
     def test_maps_ddgs_results_to_contract(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -437,12 +437,12 @@ class TestDdgsSearch:
         ]
         mock_ddgs_class.return_value = mock_ddgs
 
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):
+        with _no_keys(), patch("src.services.search_provider.db", _fake_db()):
             results = search_web("test query", 5)
 
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "B1"}]
 
-    @patch("src.utils.search_provider.DDGS")
+    @patch("src.services.search_provider.DDGS")
     def test_ddgs_rate_limit_raises_retriable(self, mock_ddgs_class: MagicMock) -> None:
         from ddgs.exceptions import RatelimitException
 
@@ -454,7 +454,7 @@ class TestDdgsSearch:
 
         with (
             _no_keys(),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
             pytest.raises(SearchProviderError) as exc_info,
         ):
             search_web("q", 5)
@@ -465,7 +465,7 @@ class TestQuoteStrippingRetry:
     """Quoted operator queries often return nothing; retry unquoted inside
     the winning provider - one extra call instead of a full LLM round."""
 
-    @patch("src.utils.search_provider.DDGS")
+    @patch("src.services.search_provider.DDGS")
     def test_zero_results_with_quotes_retries_unquoted(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -476,7 +476,7 @@ class TestQuoteStrippingRetry:
         ]
         mock_ddgs_class.return_value = mock_ddgs
 
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):
+        with _no_keys(), patch("src.services.search_provider.db", _fake_db()):
             results = search_web('"MacBook Air" "watt-hour" battery', 5)
 
         assert len(results) == 1
@@ -485,7 +485,7 @@ class TestQuoteStrippingRetry:
         assert '"' not in retry_query
         assert "MacBook Air" in retry_query
 
-    @patch("src.utils.search_provider.DDGS")
+    @patch("src.services.search_provider.DDGS")
     def test_no_retry_without_quotes(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -493,7 +493,7 @@ class TestQuoteStrippingRetry:
         mock_ddgs.text.return_value = []
         mock_ddgs_class.return_value = mock_ddgs
 
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):
+        with _no_keys(), patch("src.services.search_provider.db", _fake_db()):
             results = search_web("plain query", 5)
 
         assert results == []
@@ -549,8 +549,8 @@ class TestDegradationAlert:
         db.get_user_by_email.return_value = operator
         return db
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
     def test_ddgs_fallback_with_paid_providers_alerts_operator(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -565,14 +565,14 @@ class TestDegradationAlert:
                 LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
-            patch("src.utils.search_provider.db", self._db_with_store(usage)),
+            patch("src.services.search_provider.db", self._db_with_store(usage)),
         ):
             search_web("q", 3)
         mock_push.assert_called_once()
         assert mock_push.call_args[0][0] == "op-user-id"
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
     def test_alert_deduped_within_a_day(self, mock_ddgs: MagicMock, mock_push: MagicMock) -> None:
         mock_ddgs.return_value = []
         store = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
@@ -585,14 +585,14 @@ class TestDegradationAlert:
                 LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
-            patch("src.utils.search_provider.db", self._db_with_store(store)),
+            patch("src.services.search_provider.db", self._db_with_store(store)),
         ):
             search_web("q", 3)
             search_web("q2", 3)
         mock_push.assert_called_once()
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
     def test_no_alert_when_no_paid_provider_configured(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -605,13 +605,13 @@ class TestDegradationAlert:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", self._db_with_store({})),
+            patch("src.services.search_provider.db", self._db_with_store({})),
         ):
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_brave")
     def test_no_alert_when_paid_provider_serves(
         self, mock_brave: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -624,14 +624,14 @@ class TestDegradationAlert:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", self._db_with_store({})),
+            patch("src.services.search_provider.db", self._db_with_store({})),
         ):
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_exa")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_exa")
     def test_no_alert_when_a_metered_provider_is_merely_failing(
         self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -653,14 +653,14 @@ class TestDegradationAlert:
                 LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
-            patch("src.utils.search_provider.db", self._db_with_store(usage)),
+            patch("src.services.search_provider.db", self._db_with_store(usage)),
         ):
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_exa")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_exa")
     def test_transient_failure_does_not_consume_the_daily_alert_slot(
         self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -677,7 +677,7 @@ class TestDegradationAlert:
                 LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
-            patch("src.utils.search_provider.db", self._db_with_store(store)),
+            patch("src.services.search_provider.db", self._db_with_store(store)),
         ):
             search_web("blip", 3)  # exa fails transiently, still has quota
             store[usage_key("exa")] = str(Config.SEARCH_QUOTA_EXA_MONTHLY)
@@ -687,8 +687,8 @@ class TestDegradationAlert:
         # would have read "providers failing" and left no slot for this.
         assert "quotas exhausted" in mock_push.call_args[0][2]
 
-    @patch("src.utils.search_provider.send_push_to_user")
-    @patch("src.utils.search_provider._search_ddgs")
+    @patch("src.services.search_provider.send_push_to_user")
+    @patch("src.services.search_provider._search_ddgs")
     def test_a_provider_out_of_credits_reads_as_exhausted(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -709,7 +709,7 @@ class TestDegradationAlert:
                 LINKUP_API_KEY="",
                 ALLOWED_EMAILS=["op@example.com"],
             ),
-            patch("src.utils.search_provider.db", self._db_with_store(store)),
+            patch("src.services.search_provider.db", self._db_with_store(store)),
         ):
             search_web("q", 3)
         assert "quotas exhausted" in mock_push.call_args[0][2]
@@ -730,8 +730,8 @@ class TestCircuitBreaker:
         # Shares the usage counter's period suffix so it resets with the quota
         assert key.rsplit(":", 1)[1] == usage_key("brave").split(":", 1)[1]
 
-    @patch("src.utils.search_provider._search_tavily")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_tavily")
+    @patch("src.services.search_provider._search_brave")
     def test_trips_after_threshold_consecutive_failures(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -746,7 +746,7 @@ class TestCircuitBreaker:
                 LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
-            patch("src.utils.search_provider.db", _stateful_db()),
+            patch("src.services.search_provider.db", _stateful_db()),
         ):
             for _ in range(3):
                 search_web("q", 3)  # brave fails, tavily serves; failures accrue
@@ -757,8 +757,8 @@ class TestCircuitBreaker:
         mock_brave.assert_not_called()
         mock_tavily.assert_called_once()
 
-    @patch("src.utils.search_provider._search_tavily")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_tavily")
+    @patch("src.services.search_provider._search_brave")
     def test_skips_provider_while_tripped(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -777,15 +777,15 @@ class TestCircuitBreaker:
                 SEARCH_BREAKER_THRESHOLD=3,
                 SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
             # 100s after the last failure: well within the 1-day probe window
-            patch("src.utils.search_provider._now", return_value=1_000_100.0),
+            patch("src.services.search_provider._now", return_value=1_000_100.0),
         ):
             search_web("q", 3)
         mock_brave.assert_not_called()
         mock_tavily.assert_called_once()
 
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_brave")
     def test_half_open_probe_after_a_day(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         store = {
@@ -802,15 +802,15 @@ class TestCircuitBreaker:
                 SEARCH_BREAKER_THRESHOLD=3,
                 SEARCH_BREAKER_PROBE_SECONDS=self._PROBE,
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
             # A day and change later -> one probe is allowed through
-            patch("src.utils.search_provider._now", return_value=1_000_000.0 + self._PROBE + 1),
+            patch("src.services.search_provider._now", return_value=1_000_000.0 + self._PROBE + 1),
         ):
             results = search_web("q", 3)
         mock_brave.assert_called_once()
         assert results[0]["url"] == "https://a.example"
 
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_brave")
     def test_success_resets_the_breaker(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         # Below threshold (a couple of blips), then a success clears the counter
@@ -827,13 +827,13 @@ class TestCircuitBreaker:
                 LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
         ):
             search_web("q", 3)
         assert breaker_key("brave") not in store
 
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_brave")
     def test_unmetered_ddgs_failure_records_no_breaker(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -849,7 +849,7 @@ class TestCircuitBreaker:
                 LINKUP_API_KEY="",
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
             pytest.raises(SearchProviderError),
         ):
             search_web("q", 3)
@@ -924,7 +924,7 @@ class TestLinkupSearch:
                 EXA_API_KEY="ek",
                 LINKUP_API_KEY="lk",
             ),
-            patch("src.utils.search_provider.db", _fake_db(usage)),
+            patch("src.services.search_provider.db", _fake_db(usage)),
         ):
             assert active_provider() == "linkup"
 
@@ -969,7 +969,7 @@ class TestBreakerCounterIsAtomic:
 
     def test_simultaneous_failures_are_all_counted(self) -> None:
         store: dict[str, str] = {}
-        with patch("src.utils.search_provider.db", self._LaggyKV(store)):
+        with patch("src.services.search_provider.db", self._LaggyKV(store)):
             threads = [
                 threading.Thread(target=_record_breaker_failure, args=("brave",)) for _ in range(3)
             ]
@@ -984,7 +984,7 @@ class TestBreakerCounterIsAtomic:
         """Pre-existing {"fails": N} blobs are period-scoped and expire on
         their own; they must not crash or wedge a provider off."""
         store = {breaker_key("brave"): '{"fails": 5, "last": 1.0}'}
-        with patch("src.utils.search_provider.db", _stateful_db(store)):
+        with patch("src.services.search_provider.db", _stateful_db(store)):
             fails, _ = _breaker_state("brave")
         assert fails == 0
 
@@ -1008,7 +1008,7 @@ class TestIsDegraded:
                 EXA_API_KEY="ek",
                 LINKUP_API_KEY="lk",
             ),
-            patch("src.utils.search_provider.db", _fake_db(usage)),
+            patch("src.services.search_provider.db", _fake_db(usage)),
         ):
             assert is_degraded() is True
 
@@ -1022,7 +1022,7 @@ class TestIsDegraded:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db(usage)),
+            patch("src.services.search_provider.db", _fake_db(usage)),
         ):
             assert is_degraded() is False
 
@@ -1031,7 +1031,7 @@ class TestIsDegraded:
         with (
             _no_keys(),
             patch.multiple(Config, LINKUP_API_KEY=""),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             assert is_degraded() is False
 
@@ -1140,8 +1140,8 @@ class TestExhaustionBenchesImmediately:
     """A terminal signal benches a provider for the rest of the period, with
     no threshold to reach and no daily probe re-asking a settled question."""
 
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_brave")
     def test_one_exhaustion_trips_the_breaker(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -1156,14 +1156,14 @@ class TestExhaustionBenchesImmediately:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
         ):
             search_web("q", 3)  # one failure, not SEARCH_BREAKER_THRESHOLD
             search_web("q2", 3)
         mock_brave.assert_called_once()  # skipped on the second search
 
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_brave")
     def test_exhausted_provider_is_not_probed_again_this_period(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -1180,11 +1180,11 @@ class TestExhaustionBenchesImmediately:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _stateful_db(store)),
+            patch("src.services.search_provider.db", _stateful_db(store)),
         ):
             search_web("q", 3)
             # Well past the probe window - a transient trip would retry here
-            with patch("src.utils.search_provider._now", return_value=_now() + 10 * 86400):
+            with patch("src.services.search_provider._now", return_value=_now() + 10 * 86400):
                 search_web("q2", 3)
         mock_brave.assert_called_once()
 
@@ -1192,7 +1192,7 @@ class TestExhaustionBenchesImmediately:
 def test_tests_never_hold_a_metered_search_key() -> None:
     """The real .env is loaded at import (src/config.py); a test that reaches a
     metered provider unmocked would spend the family's paid quota."""
-    from src.utils import search_provider
+    from src.services import search_provider
 
     keyed = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None and p.api_key()]
     assert keyed == []
@@ -1203,7 +1203,7 @@ class TestPublishedDates:
     the model can tell a 2024 article from this month's news."""
 
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.utils.search_provider.httpx.get")
+    @patch("src.services.search_provider.httpx.get")
     def test_brave_page_age(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1220,11 +1220,11 @@ class TestPublishedDates:
             }
         }
         mock_get.return_value = mock_response
-        with patch("src.utils.search_provider.db", _fake_db()):
+        with patch("src.services.search_provider.db", _fake_db()):
             [result] = search_web("q", 1)
         assert result["published"] == "2026-09-09"
 
-    @patch("src.utils.search_provider.httpx.post")
+    @patch("src.services.search_provider.httpx.post")
     def test_tavily_and_exa_dates(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1254,14 +1254,14 @@ class TestPublishedDates:
                 EXA_API_KEY="",
                 LINKUP_API_KEY="",
             ),
-            patch("src.utils.search_provider.db", _fake_db()),
+            patch("src.services.search_provider.db", _fake_db()),
         ):
             results = search_web("q", 3)
         assert results[0]["published"] == "2026-07-15"
         assert "published" not in results[2]
 
     def test_unparseable_dates_are_dropped(self) -> None:
-        from src.utils.search_provider import normalize_published
+        from src.services.search_provider import normalize_published
 
         assert normalize_published("2026-09-09T17:00:00") == "2026-09-09"
         assert normalize_published("Wed, 15 Jul 2026 08:00:00 GMT") == "2026-07-15"
@@ -1273,7 +1273,7 @@ class TestQuotaStatus:
     """The admin page's view of each provider this billing period."""
 
     def test_reports_usage_quota_and_benched_providers(self) -> None:
-        from src.utils import search_provider
+        from src.services import search_provider
 
         store = {
             search_provider.usage_key("brave"): "1000",
@@ -1295,7 +1295,7 @@ class TestQuotaStatus:
     def test_degraded_today(self) -> None:
         from datetime import date
 
-        from src.utils import search_provider
+        from src.services import search_provider
 
         store = {f"degraded-alert:{date.today().isoformat()}": "1"}
         with patch.object(search_provider, "db", _stateful_db(store)):

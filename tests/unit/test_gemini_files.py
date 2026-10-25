@@ -13,7 +13,7 @@ from src.agent.gemini_files import (
     attach_gemini_file_uris,
     ensure_gemini_file_uri,
 )
-from src.utils.gemini_file_cache import (
+from src.services.gemini_file_cache import (
     GEMINI_FILES_NAMESPACE,
     SYSTEM_KV_USER_ID,
     delete_cached_file_uri,

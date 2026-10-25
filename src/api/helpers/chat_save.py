@@ -33,7 +33,7 @@ from src.agent.tools import (
 from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
-from src.utils.costs import calculate_and_save_message_cost, convert_currency
+from src.services.costs import calculate_and_save_message_cost, convert_currency
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,

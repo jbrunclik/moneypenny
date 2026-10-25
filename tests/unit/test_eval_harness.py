@@ -540,7 +540,7 @@ class TestEvalSearchIsolation:
 
     def test_every_metered_provider_is_covered(self) -> None:
         from evals.run import EVAL_BLANKED_SEARCH_KEYS
-        from src.utils import search_provider
+        from src.services import search_provider
 
         metered = [p for p in search_provider._PROVIDERS if p.monthly_quota() is not None]
         assert len(EVAL_BLANKED_SEARCH_KEYS) == len(metered)

@@ -12,8 +12,8 @@ from langchain_core.tools import tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.db.models import db
+from src.services.planner_data import build_planner_dashboard
 from src.utils.logging import get_logger
-from src.utils.planner_data import build_planner_dashboard
 
 logger = get_logger(__name__)
 

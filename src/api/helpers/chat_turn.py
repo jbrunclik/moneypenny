@@ -48,13 +48,13 @@ from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
 from src.enums import MessageRole
-from src.utils.background_thumbnails import (
+from src.services.background_thumbnails import (
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
 )
+from src.services.planner_data import build_planner_dashboard
 from src.utils.files import validate_files
 from src.utils.logging import get_logger, log_payload_snippet
-from src.utils.planner_data import build_planner_dashboard
 
 logger = get_logger(__name__)
 

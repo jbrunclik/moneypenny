@@ -76,8 +76,8 @@ class TestWebSearchDegradedNotice:
         assert "_served_by" not in parsed
         assert all("_served_by" not in search for search in batched["searches"])
 
-    @patch("src.utils.search_provider._search_ddgs")
-    @patch("src.utils.search_provider._search_brave")
+    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_provider._search_brave")
     def test_fallback_during_the_call_is_still_flagged(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -88,7 +88,7 @@ class TestWebSearchDegradedNotice:
         router falls through to ddgs inside this same call - which is the
         exact case the notice exists for.
         """
-        from src.utils.search_provider import SearchProviderError
+        from src.services.search_provider import SearchProviderError
 
         mock_brave.side_effect = SearchProviderError("503", retriable=True)
         mock_ddgs.return_value = self._RESULTS
@@ -97,7 +97,7 @@ class TestWebSearchDegradedNotice:
         fake_db.kv_increment.return_value = 1
         with (
             self._metered_configured(),
-            patch("src.utils.search_provider.db", fake_db),
+            patch("src.services.search_provider.db", fake_db),
         ):
             parsed = json.loads(web_search.invoke({"query": "q"}))
         assert "_degraded" in parsed
@@ -164,7 +164,7 @@ class TestWebSearch:
     @patch("src.agent.tools.web.search_web_detailed")
     def test_handles_search_exception(self, mock_search: MagicMock) -> None:
         """Provider errors become an error result, with the retriable hint."""
-        from src.utils.search_provider import SearchProviderError
+        from src.services.search_provider import SearchProviderError
 
         mock_search.side_effect = SearchProviderError("Search failed", retriable=False)
 
@@ -236,7 +236,7 @@ class TestWebSearchBatching:
     @patch("src.agent.tools.web.search_web_detailed")
     def test_per_query_error_does_not_break_batch(self, mock_search: MagicMock) -> None:
         """A rate-limited query reports its error; the rest still succeed."""
-        from src.utils.search_provider import SearchProviderError
+        from src.services.search_provider import SearchProviderError
 
         # Keyed on the query, not call order: batched queries run in parallel
         # threads, so a positional side_effect list is consumed nondeterministically.

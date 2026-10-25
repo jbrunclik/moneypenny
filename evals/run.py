@@ -305,7 +305,7 @@ def turn_cost(model: str, usage: dict[str, Any], tool_results: list[dict[str, An
     post-answer grounding check (priced at its own model). A deep-research
     report is priced at its writer, plus its research subagents.
     """
-    from src.utils.costs import (
+    from src.services.costs import (
         calculate_deep_research_cost,
         calculate_delegate_cost_from_tool_results,
         calculate_freshness_cost,
@@ -725,7 +725,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     from src.agent.tools.context import set_conversation_context
     from src.agent.tools.turn_usage import reset_turn_usage
     from src.config import Config
-    from src.utils.costs import calculate_token_cost
+    from src.services.costs import calculate_token_cost
 
     conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
     set_conversation_context(conversation.id, user.id)

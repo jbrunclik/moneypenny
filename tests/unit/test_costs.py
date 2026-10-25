@@ -1,10 +1,10 @@
-"""Unit tests for src/utils/costs.py."""
+"""Unit tests for src/services/costs.py."""
 
 from typing import ClassVar
 
 import pytest
 
-from src.utils.costs import (
+from src.services.costs import (
     calculate_image_generation_cost,
     calculate_token_cost,
     calculate_total_cost,
@@ -204,7 +204,7 @@ class TestConvertCurrency:
     @pytest.fixture(autouse=True)
     def mock_rates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Mock get_currency_rates to return fixed test values."""
-        monkeypatch.setattr("src.utils.costs.get_currency_rates", lambda: self.MOCK_RATES)
+        monkeypatch.setattr("src.services.costs.get_currency_rates", lambda: self.MOCK_RATES)
 
     def test_usd_to_usd(self) -> None:
         """USD to USD conversion should be 1:1."""
@@ -269,7 +269,10 @@ class TestDelegateCostFromToolResults:
     def test_extracts_delegate_usage(self) -> None:
         import json
 
-        from src.utils.costs import calculate_delegate_cost_from_tool_results, calculate_token_cost
+        from src.services.costs import (
+            calculate_delegate_cost_from_tool_results,
+            calculate_token_cost,
+        )
 
         tool_results = [
             {
@@ -295,7 +298,7 @@ class TestDelegateCostFromToolResults:
         assert cost > 0
 
     def test_no_delegate_usage_is_zero(self) -> None:
-        from src.utils.costs import calculate_delegate_cost_from_tool_results
+        from src.services.costs import calculate_delegate_cost_from_tool_results
 
         assert calculate_delegate_cost_from_tool_results([]) == 0.0
         assert (
@@ -308,7 +311,7 @@ class TestDelegateCostFromToolResults:
         )
 
     def test_total_cost_includes_tool_llm_cost(self) -> None:
-        from src.utils.costs import calculate_total_cost
+        from src.services.costs import calculate_total_cost
 
         base = calculate_total_cost("gemini-3.8-flash", 1000, 100)
         with_tool = calculate_total_cost("gemini-3.8-flash", 1000, 100, tool_llm_cost=0.5)
