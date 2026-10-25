@@ -68,7 +68,7 @@ help:
 	@echo "  update                Rebuild frontend + graceful reload"
 	@echo "  vacuum                Run database vacuum manually"
 	@echo "  decode-stack          Decode minified E2E/CI stack frames (log on stdin)"
-	@echo "  lock                  Re-pin requirements.txt after editing requirements.in"
+	@echo "  lock                  Re-pin requirements*.txt after editing requirements*.in"
 	@echo "  update-currency       Update currency exchange rates manually"
 	@echo "  backup                Create database backup manually"
 	@echo "  backup-list           List existing database backups"
@@ -79,9 +79,9 @@ help:
 setup:
 	@if command -v uv >/dev/null 2>&1; then \
 		uv venv --seed --allow-existing --python "$$(cat .python-version)" $(VENV) && \
-		uv pip install --python $(VENV)/bin/python -r requirements.txt; \
+		uv pip install --python $(VENV)/bin/python -r requirements.txt -r requirements-dev.txt; \
 	else \
-		python3 -m venv $(VENV) && $(PIP) install --upgrade pip && $(PIP) install -r requirements.txt; \
+		python3 -m venv $(VENV) && $(PIP) install --upgrade pip && $(PIP) install -r requirements.txt -r requirements-dev.txt; \
 	fi
 	cd web && $(NPM) ci
 	@echo ""
@@ -239,7 +239,7 @@ pre-commit: lint test-all
 audit:
 	@echo "Running Python dependency audit..."
 	$(PIP) install -q pip-audit 2>/dev/null || true
-	$(PYTHON) -m pip_audit -r requirements.txt || true
+	$(PYTHON) -m pip_audit -r requirements.txt -r requirements-dev.txt || true
 	@echo ""
 	@echo "Running Node.js dependency audit..."
 	cd web && $(NPM) audit --audit-level=high || true
@@ -366,8 +366,12 @@ vacuum:
 # the production host install the same versions. Edit the ranges in
 # requirements.in, then run this (keeps existing pins where they still fit;
 # Dependabot bumps the pins). --universal: one lock valid on macOS and Linux.
+# requirements.txt = runtime (production installs only this); requirements-dev.txt
+# = tools on top, constrained to the runtime pins (P5). Existing pins are kept.
+LOCK_FLAGS = --universal --python-version 3.14 --custom-compile-command "make lock"
 lock:
-	uv pip compile requirements.in -o requirements.txt --universal --python-version 3.14 --custom-compile-command "make lock"
+	uv pip compile requirements.in -o requirements.txt $(LOCK_FLAGS)
+	uv pip compile requirements-dev.in -o requirements-dev.txt $(LOCK_FLAGS)
 
 # Decode minified E2E/CI stack frames: a sourcemap build of this commit has
 # the same chunk hashes as the tested build (make decode-stack < job.log)

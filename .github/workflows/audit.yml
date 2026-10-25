@@ -5,11 +5,11 @@ on:
     - cron: '0 9 * * 1'  # Weekly on Monday at 9am UTC
   push:
     paths:
-      - 'requirements.txt'
+      - 'requirements*.txt'
       - 'web/package-lock.json'
   pull_request:
     paths:
-      - 'requirements.txt'
+      - 'requirements*.txt'
       - 'web/package-lock.json'
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
         run: pip install pip-audit
 
       - name: Run pip-audit
-        run: pip-audit -r requirements.txt
+        run: pip-audit -r requirements.txt -r requirements-dev.txt
 
   node-audit:
     name: Node.js Dependency Audit

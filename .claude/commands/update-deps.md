@@ -5,8 +5,10 @@ description: Update dependencies safely - Python lock, npm, Dependabot, audit
 Update dependencies: $ARGUMENTS
 
 **Python**
-- Ranges live in `requirements.in`; `requirements.txt` is the generated lock.
-  Edit the range, then `make lock` (never hand-edit the lock).
+- Runtime ranges live in `requirements.in`, tools (ruff, mypy, pytest...) in
+  `requirements-dev.in`; the `.txt` files are the generated locks. Edit a range,
+  then `make lock` (never hand-edit a lock). Production installs only
+  `requirements.txt`, so a runtime package must not land in the dev file.
 - `make setup` installs it; run `make lint` and `make test`.
 
 **npm** (`web/`)

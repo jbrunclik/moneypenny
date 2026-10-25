@@ -1,0 +1,16 @@
+# Development and test tools (P5): production installs requirements.txt only.
+# Constrained to the runtime pins, so both locks always resolve together.
+# Edit, then `make lock`.
+-c requirements.txt
+
+ruff>=0.17.1  # 0.16 formats code blocks inside Markdown (skills) - keep local and CI alike
+mypy>=2.4.0
+types-requests>=2.33.0.20260906
+types-croniter>=6.2.4.20261006
+types-PyYAML>=6.0.12.20260906
+
+pytest>=9.1.1
+pytest-cov>=4.0
+pytest-mock>=3.16.0
+pytest-xdist>=3.8.0
+openapi-core>=0.23.1

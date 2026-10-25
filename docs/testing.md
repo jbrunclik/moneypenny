@@ -195,10 +195,12 @@ CI enforces these; a green test run alone does not guarantee a green build.
   [pyproject.toml](../pyproject.toml). `per-file-ignores` scope the test/script
   asserts and registry-validated SQL interpolation in `src/db/models/*` (`S608`).
   New justified findings need an inline `# noqa: SXXX - reason`.
-- **Coverage floor**: `fail_under = 70` under `[tool.coverage.report]` (currently
-  hovering ~72%), enforced by `make test-cov`. Adding uncovered code can fail CI
-  even when all tests pass.
-- **Dependency audit**: the `audit.yml` workflow fails on `pip-audit -r requirements.txt`
+- **Coverage floors** (T2): backend `fail_under` under `[tool.coverage.report]`
+  (83, against 85.6% actual in Oct 2026), enforced by `make test-cov`; frontend
+  `coverage.thresholds` in `web/vitest.config.ts`, enforced by
+  `npm run test:coverage`. Both sit about two points under actual and only go
+  up. Adding uncovered code can fail CI even when all tests pass.
+- **Dependency audit**: the `audit.yml` workflow fails on `pip-audit` findings in both Python locks
   findings and on `npm audit --audit-level=high` in `web/`. Locally, `make audit` runs
   the same scans but is report-only (`|| true`), so read its output.
 - **TOML-ordering pitfall**: `[tool.ruff.lint.per-file-ignores]` must come **after**

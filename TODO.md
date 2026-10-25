@@ -82,7 +82,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Security: timeouts for the 4 baselined Gemini clients, sized from measured call durations in prod logs (S5), log-field test (S8), deploy lock + `make rollback` + atomic asset swap (S11).
   - Spend (S12, via `/new-feature`): a banner for a user past $10 in a day (no notifications, never a block), and a total-spend view for the admin in the app.
-  - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), actionlint in CI (P4), dev lock split (P5), Docker + Chromium CI job (P7).
+  - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), actionlint in CI (P4), Docker + Chromium CI job (P7).
   - Lint: ruff rule sets (C3) incl. `C901`/`PLR0915`, `BLE`, `TID251`, `PLC0415`; ESLint type-aware + `max-lines-per-function`/`max-depth` (C1, F4); tsconfig stage 1 (F5); import-linter + ESLint import zones (B1, F1); knip/vulture/deptry (C2, F10); Prettier for CSS/YAML/JSON (C4).
   - Tests: coverage floors (T2), placeholder/sleep/private-import checks (T3, T4, T7), E2E mock schema validation (T5), flaky-test gate (T6).
 - [ ] **Split the files where bugs cluster** (Oct 25 2026 ranking by churn and fix commits over 90 days; the 500-line file limit was dropped for function limits, see docs/conventions.md):

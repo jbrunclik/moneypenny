@@ -18,10 +18,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh   # one-time, user-local
 systemctl --user restart moneypenny
 ```
 
-Python dependencies are **locked**: `requirements.txt` pins every package
-(generated from the ranges in `requirements.in` by `make lock`, Oct 2026), so
-`make update`'s `pip install -r requirements.txt` installs exactly what CI
-tested. Before the lock, the ranges re-resolved on every install and the
+Python dependencies are **locked**: `requirements.txt` pins every runtime
+package (generated from the ranges in `requirements.in` by `make lock`, Oct
+2026), so `make update`'s `pip install -r requirements.txt` installs exactly
+what CI tested. Development and test tools live in `requirements-dev.txt`
+(from `requirements-dev.in`, constrained to the runtime pins): the laptop and
+CI install both, production only the runtime lock. Before the lock, the ranges re-resolved on every install and the
 host, CI and laptop drifted apart.
 
 Upgrading Python later = the same steps with a new version (keep the old
