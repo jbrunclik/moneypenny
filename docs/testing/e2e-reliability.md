@@ -254,6 +254,13 @@ by guessing):
   its trace shows the reload's document request issued with no response, and
   the server's access log shows it never arrived. A server without keep-alive
   (HTTP/1.0) stalled just as often, so it is not a reused connection.
+  `settings.spec.ts` "Color Scheme" hit it in every full run on Oct 25 2026
+  (1 in 21 in isolation): its `beforeEach` loaded the page only to clear an
+  already-empty localStorage, then every test reloaded while the app was still
+  starting - twice the navigations, half of them mid-startup. A trace again
+  showed the reload's `GET /` never reaching the server (no app request
+  pending it). The group now loads once per test. Keep tests to the
+  navigations they assert on: a fresh context needs no clean-up load.
 - **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
   label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
   `#messages` with its app caller (minified bundle frames - `make

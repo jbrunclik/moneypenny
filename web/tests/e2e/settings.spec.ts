@@ -238,16 +238,13 @@ test.describe('Settings', () => {
 });
 
 test.describe('Color Scheme', () => {
-  // Clear localStorage before each test to ensure clean state
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      localStorage.removeItem('ai-chatbot-color-scheme');
-    });
-  });
+  // Each test starts in a fresh browser context (empty localStorage), so the
+  // first load is a plain goto. Every extra navigation - above all a reload
+  // while the app is still starting up - is another chance for the upstream
+  // Playwright-WebKit navigation stall (docs/testing/e2e-reliability.md).
 
   test('shows color scheme options in settings popup', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings popup
@@ -266,7 +263,7 @@ test.describe('Color Scheme', () => {
   });
 
   test('system is selected by default', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings popup
@@ -280,7 +277,7 @@ test.describe('Color Scheme', () => {
   });
 
   test('switches to light theme when clicking Light option', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings popup
@@ -300,11 +297,11 @@ test.describe('Color Scheme', () => {
   });
 
   test('switches to dark theme when clicking Dark option', async ({ page }) => {
-    // First set to light theme via localStorage (beforeEach clears it, so we set it again)
-    await page.evaluate(() => {
+    // Start from the light theme, stored before the first load
+    await page.addInitScript(() => {
       localStorage.setItem('ai-chatbot-color-scheme', 'light');
     });
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Verify light theme is active
@@ -327,7 +324,7 @@ test.describe('Color Scheme', () => {
   });
 
   test('persists theme selection across page reload', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings popup and select light theme
@@ -356,7 +353,7 @@ test.describe('Color Scheme', () => {
   });
 
   test('theme applies immediately without needing to save', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings popup
@@ -376,7 +373,7 @@ test.describe('Color Scheme', () => {
   });
 
   test('theme affects visual appearance', async ({ page }) => {
-    await page.reload();
+    await page.goto('/');
     await page.waitForSelector('#user-info');
 
     // Open settings and select dark theme to ensure consistent starting point
