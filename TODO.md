@@ -82,7 +82,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Security: timeouts for the 4 baselined Gemini clients, sized from measured call durations in prod logs (S5).
   - Spend (S12, via `/new-feature`): a banner for a user past $10 in a day (no notifications, never a block), and a total-spend view for the admin in the app.
-  - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), actionlint in CI (P4), Docker + Chromium CI job (P7).
+  - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), Docker + Chromium CI job (P7).
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); madge cycle allow-list (F1); knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
 - [ ] **Shrink the ruff baseline** (Oct 25 2026: 407 bare `# noqa: CODE`, 273 in `src/` - 58 `BLE001`, 41 `C901`, 40 `G201`, 23 `PLR0912`, 22 `TRY400`, 21 `G004`, 15 `PLR0915`): fix them file by file when touching a file anyway; `grep -rn "# noqa: [A-Z0-9, ]*$" src` lists them. Ten files still use `requests` (B9, `pyproject.toml`).

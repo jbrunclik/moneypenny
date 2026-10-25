@@ -77,6 +77,11 @@ jobs:
         with:
           fetch-depth: 0 # every commit of the push, not just the final tree
 
+      # P4: catches workflow mistakes (bad expressions, shell bugs via
+      # shellcheck) before they silently disable a check
+      - name: Workflows are valid (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+
       # A committed config or ignore file could switch rules off: adding one
       # must be a visible decision, so it fails here until this job allows it
       - name: Scanner configuration is not overridden
