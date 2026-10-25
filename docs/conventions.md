@@ -33,12 +33,12 @@ session and points here for the rest.
 | S2 | `require_auth` checks `ALLOWED_EMAILS` on every request | test (`test_routes_auth.py`) |
 | S3 | The browser tool checks every request against the SSRF blocklist and refuses redirect landings on blocked addresses | test (`test_browser_request_guard.py`) |
 | S4 | Every route requires auth or is on the explicit public list | test (`test_route_auth_coverage.py`) |
-| S5 | Every outbound call has an explicit timeout, LLM clients included | planned: AST test |
+| S5 | Every outbound call has an explicit timeout, LLM clients included | test (`test_outbound_timeouts.py`; 4 Gemini clients baselined) |
 | S6 | Model output never loads external resources by itself (external markdown images render as links; CSP `img-src` allows only the app and Google profile photos) | test (`markdown.test.ts`, `test_security_headers.py`) |
 | S7 | Production requires a valid `TOKEN_ENCRYPTION_KEY` | test (`test_config.py`) |
 | S8 | Logging follows the [privacy policy below](#logging-and-privacy) | planned: test over `extra=` keys |
 | S9 | No secrets or infrastructure details in tracked files or commit messages (the repo is public) | gitleaks locally; planned: CI secret + hostname scan |
-| S10 | Public API docs (`/api/docs`) are off in production | planned: config + test |
+| S10 | Public API docs (`/api/docs`, `/api/openapi.json`) are off in production | test (`test_security_headers.py`) |
 | S11 | Deploys can't overlap and can be rolled back (lock, previous SHA, backup, atomic asset swap) | planned: `make update` / `make rollback` |
 | S12 | Spend of more than $10 per user per day raises a very visible warning - never a block | planned |
 
@@ -48,7 +48,7 @@ session and points here for the rest.
 |----|------|-------------|
 | P1 | Generated files never drift: `static/openapi.json` and `generated-api.ts` match the schemas, `requirements.txt` matches `requirements.in`, `.env.example` lists every config variable | CI (regenerate and diff); test (`test_env_example.py`, 46-name baseline) |
 | P2 | Migrations form one chain with unique numbers; each step has a rollback or an `# irreversible:` reason | test (`test_migration_chain.py`) |
-| P3 | Dependabot auto-merges patch and minor updates only, after the audit passes | planned: workflow |
+| P3 | Dependabot auto-merges patch and minor updates only | workflow + test (`test_dependabot_majors.py`); planned: audit as a merge condition |
 | P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | workflows; planned: actionlint |
 | P5 | Production installs runtime dependencies only (separate dev lock) | planned |
 | P6 | Toolchain versions agree: Node `engines` = `.nvmrc`, npm pinned via `packageManager`, `make setup` uses uv | planned |

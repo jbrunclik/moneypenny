@@ -1,7 +1,8 @@
 name: Dependabot auto-merge
 
 # Merge Dependabot PRs only AFTER the full Tests workflow (lint + backend +
-# frontend unit + E2E) has completed SUCCESSFULLY for that PR.
+# frontend unit + E2E) has completed SUCCESSFULLY for that PR, and only for
+# patch and minor updates - majors wait for a person (P3).
 #
 # This triggers on `workflow_run` (Tests finishing), NOT on `pull_request`.
 # The previous pull_request-triggered version ran `gh pr merge --auto --squash
@@ -29,6 +30,11 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     steps:
+      # Only the classifier script (the merge itself needs no checkout)
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
       - name: Squash-merge the Dependabot PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,6 +47,13 @@ jobs:
                  --state open --json number --jq '.[0].number')
           if [ -z "$pr" ]; then
             echo "No open PR for branch '$HEAD_BRANCH'; nothing to merge."
+            exit 0
+          fi
+          # P3: a major update can break behavior the tests don't cover - a
+          # person reviews it. Patch and minor updates merge on green.
+          text=$(gh pr view "$pr" --repo "$REPO" --json title,body --jq '.title + "\n" + .body')
+          if PR_TEXT="$text" python3 .github/scripts/major_update.py; then
+            echo "PR #$pr includes a major update; leaving it open for review."
             exit 0
           fi
           echo "Tests passed for PR #$pr ($HEAD_BRANCH); squash-merging."
