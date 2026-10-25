@@ -17,7 +17,7 @@ session and points here for the rest.
   gradually. Never add to a baseline to get a change through. For ruff the
   baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407); a
   deliberate exception carries a reason instead: `# noqa: CODE - <why>`.
-  For ESLint it is `web/eslint-suppressions.json` (267): after fixing some,
+  For ESLint it is `web/eslint-suppressions.json` (286): after fixing some,
   `npx eslint src --prune-suppressions` (ESLint fails on stale entries).
 - **One home per rule.** Other pages link here instead of restating the rule,
   so it can't drift. To change a rule, edit it here and its enforcer in the
@@ -78,7 +78,7 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| F1 | Imports only point down the [layer order](#layers); no new import cycles | planned: ESLint import zones + cycle allow-list that only shrinks |
+| F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); planned: cycle allow-list that only shrinks |
 | F2 | Store state changes only through slice actions; re-read `getState()` after any `await`; module-level `let` only for UI-ephemeral handles (timers, observers) | planned: ESLint + counter |
 | F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | planned: scan with baseline |
 | F4 | No floating promises (`void` marks a deliberate one) or async callbacks where a sync one is expected; no non-null `!` | typescript-eslint (type-aware; baselined in `eslint-suppressions.json`) |

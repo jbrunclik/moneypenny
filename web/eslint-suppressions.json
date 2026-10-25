@@ -39,6 +39,11 @@
       "count": 1
     }
   },
+  "src/components/ClaimCard.ts": {
+    "no-restricted-imports": {
+      "count": 2
+    }
+  },
   "src/components/ClaimsSheet.ts": {
     "@typescript-eslint/no-non-null-assertion": {
       "count": 4
@@ -111,6 +116,9 @@
   "src/components/PdfViewer.ts": {
     "complexity": {
       "count": 1
+    },
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "src/components/PlannerDashboard.ts": {
@@ -155,6 +163,9 @@
   "src/components/SettingsPopup.ts": {
     "@typescript-eslint/no-unnecessary-type-assertion": {
       "count": 1
+    },
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "src/components/Sidebar.ts": {
@@ -169,6 +180,11 @@
     },
     "max-lines-per-function": {
       "count": 1
+    }
+  },
+  "src/components/SidebarSelection.ts": {
+    "no-restricted-imports": {
+      "count": 3
     }
   },
   "src/components/SportsDashboard.ts": {
@@ -216,6 +232,11 @@
       "count": 1
     }
   },
+  "src/components/messages/artifacts.ts": {
+    "no-restricted-imports": {
+      "count": 2
+    }
+  },
   "src/components/messages/attachments.ts": {
     "max-lines-per-function": {
       "count": 1
@@ -246,6 +267,9 @@
     },
     "complexity": {
       "count": 1
+    },
+    "no-restricted-imports": {
+      "count": 2
     }
   },
   "src/components/messages/research-progress.ts": {
@@ -253,8 +277,28 @@
       "count": 1
     }
   },
+  "src/components/messages/streaming.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/components/messages/turn-anchor.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "src/components/settings/calendar.ts": {
     "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    }
+  },
+  "src/components/settings/integrations.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/components/settings/notifications.ts": {
+    "no-restricted-imports": {
       "count": 1
     }
   },
@@ -507,6 +551,9 @@
     },
     "max-lines-per-function": {
       "count": 1
+    },
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "src/utils/dom.ts": {
@@ -527,6 +574,11 @@
       "count": 1
     }
   },
+  "src/utils/markdown.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "src/utils/thumbnails.ts": {
     "@typescript-eslint/no-floating-promises": {
       "count": 1
@@ -536,6 +588,9 @@
     },
     "max-depth": {
       "count": 1
+    },
+    "no-restricted-imports": {
+      "count": 2
     }
   }
 }

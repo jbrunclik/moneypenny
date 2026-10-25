@@ -44,6 +44,41 @@ export default tseslint.config(
       'no-console': 'error',
     },
   },
+  // F1: imports point down the layers (docs/conventions.md "Layers")
+  {
+    files: ['src/components/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/core/*', '@/core/*'],
+          message: 'Components report upward through callbacks or core/events (F1).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/utils/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/components/*', '**/core/*', '**/state/*', '**/sync/*', '**/api/*',
+            '@/components/*', '@/core/*', '@/state/*', '@/sync/*', '@/api/*'],
+          message: 'utils is the bottom layer: pass what it needs in (F1).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/sync/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/components/*', '@/components/*'],
+          message: 'sync never imports UI (F1).',
+        }],
+      }],
+    },
+  },
   {
     // The logger itself, and the sandboxed artifact frame (no logger there)
     files: ['src/utils/logger.ts', 'src/artifact/**/*.ts'],
