@@ -84,7 +84,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Spend (S12, via `/new-feature`): a banner for a user past $10 in a day (no notifications, never a block), and a total-spend view for the admin in the app.
   - Delivery: document the 46 settings missing from `.env.example` and realign both `.env` files (P1 baseline), audit as a Dependabot merge condition (P3), actionlint in CI (P4), Docker + Chromium CI job (P7).
   - Lint: ruff rule sets (C3) incl. `C901`/`PLR0915`, `BLE`, `TID251`, `PLC0415`; ESLint type-aware + `max-lines-per-function`/`max-depth` (C1, F4); tsconfig stage 1 (F5); import-linter + ESLint import zones (B1, F1); knip/vulture/deptry (C2, F10); Prettier for CSS/YAML/JSON (C4).
-  - Tests: coverage floors (T2), placeholder/sleep/private-import checks (T3, T4, T7), E2E mock schema validation (T5), flaky-test gate (T6).
+  - Tests: placeholder/sleep/private-import checks (T3, T4, T7), E2E mock schema validation (T5), flaky-test gate (T6).
 - [ ] **Split the files where bugs cluster** (Oct 25 2026 ranking by churn and fix commits over 90 days; the 500-line file limit was dropped for function limits, see docs/conventions.md):
   - `web/src/core/init.ts` (711 lines, 52 commits, 14 fixes; `init()` is 202 lines) - one startup module per feature with a one-line hook-up; the main conflict point between parallel sessions.
   - `web/src/utils/thumbnails.ts` (1094, 10 of 12 commits were fixes, 12 functions over 50 lines) with `components/messages/streaming.ts` (705, 7 fixes) - mostly scroll-after-image-load logic under the wrong name; the two overlap.

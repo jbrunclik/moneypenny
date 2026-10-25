@@ -104,7 +104,7 @@ Details: [testing.md](testing.md).
 | ID | Rule | Enforced by |
 |----|------|-------------|
 | T1 | Bug fixes are test-first: a failing test, then the fix, then the full suite | judgment (`/fix-bug`) |
-| T2 | Coverage floors follow actual coverage (backend 83%, frontend just under actual) | backend `fail_under` (70 today); planned: raise + vitest thresholds |
+| T2 | Coverage floors follow actual coverage, about two points under it (backend 83%; frontend lines 44%, branches 40%) | `fail_under` (pyproject), vitest `coverage.thresholds` |
 | T3 | No placeholder tests: a test asserts, uses `pytest.raises`, or says `# no-raise` | planned: AST check |
 | T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a comment saying why | planned: banned-API rules + shrinking count |
 | T5 | E2E mock responses validate against the API schema | planned |

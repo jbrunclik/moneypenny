@@ -84,8 +84,9 @@ source = ["src"]
 omit = ["src/app.py"]
 
 [tool.coverage.report]
-# Ratchet: currently at 72% - raise the floor as coverage grows (T3)
-fail_under = 70
+# Ratchet (T2): about 2 points under actual (85.6% in CI, Oct 25 2026). Raise
+# it as coverage grows; never lower it to get a change through.
+fail_under = 83
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
