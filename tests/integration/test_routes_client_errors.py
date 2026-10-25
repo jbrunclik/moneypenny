@@ -4,6 +4,7 @@ Errors used to live only in each device's console. A report becomes one row
 per user and fingerprint, so a recurring error counts up instead of piling up.
 """
 
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import patch
@@ -92,6 +93,19 @@ class TestReport:
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         assert client.post(URL, json=_report(kind="panic"), headers=auth_headers).status_code == 400
+
+    def test_a_report_leaves_no_write_lock_behind(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_database: Database
+    ) -> None:
+        # An uncommitted report held chatbot.db's write lock on its idle
+        # request thread, so every other write failed (Oct 25 2026 outages)
+        client.post(URL, json=_report(), headers=auth_headers)
+        other = sqlite3.connect(test_database.db_path, timeout=0)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+        finally:
+            other.close()
 
 
 class TestRetention:

@@ -76,6 +76,7 @@ class ClientErrorsMixin:
                 ),
             )
             self._prune_client_errors(conn, user_id, now or datetime.now())
+            conn.commit()
 
     def _prune_client_errors(self, conn: sqlite3.Connection, user_id: str, now: datetime) -> None:
         cutoff = (now - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS)).isoformat()
