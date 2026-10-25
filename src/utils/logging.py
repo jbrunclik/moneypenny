@@ -100,7 +100,7 @@ class JSONFormatter(logging.Formatter):
 
 def setup_logging() -> None:
     """Configure structured logging for the application."""
-    from src.config import Config
+    from src.config import Config  # noqa: PLC0415
 
     # Get log level from config (default to INFO)
     log_level_str = Config.LOG_LEVEL

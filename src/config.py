@@ -943,7 +943,7 @@ class Config:
 
     @classmethod
     def _langdetect_language_errors(cls) -> list[str]:
-        from langdetect.detector_factory import PROFILES_DIRECTORY
+        from langdetect.detector_factory import PROFILES_DIRECTORY  # noqa: PLC0415
 
         if len(cls.LANGDETECT_LANGUAGES) < 2:
             return ["LANGDETECT_LANGUAGES needs at least two language codes (e.g. cs,en)"]
@@ -961,8 +961,7 @@ class Config:
     @classmethod
     def _token_encryption_key_errors(cls) -> list[str]:
         """Without a valid key, OAuth tokens and the Rouvy password are stored in plaintext."""
-        # lazy: only validation needs cryptography; the rest of Config stays import-light
-        from cryptography.fernet import Fernet
+        from cryptography.fernet import Fernet  # noqa: PLC0415 - only validation needs it
 
         hint = "Generate one with: make token-key"
         if not cls.TOKEN_ENCRYPTION_KEY:

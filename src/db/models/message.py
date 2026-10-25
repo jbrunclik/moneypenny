@@ -375,7 +375,7 @@ class MessageMixin:
         write-path complete without touching each save site. The embed itself
         runs on a daemon thread; this only resolves the conversation owner.
         """
-        from src.config import Config
+        from src.config import Config  # noqa: PLC0415
 
         if not Config.EMBEDDINGS_ENABLED or not content.strip():
             return
@@ -388,7 +388,7 @@ class MessageMixin:
                 ).fetchone()
             if not row:
                 return
-            import src.utils.embeddings as embeddings_util
+            import src.utils.embeddings as embeddings_util  # noqa: PLC0415
 
             embeddings_util.embed_and_store_async(row["user_id"], "message", message_id, content)
         except Exception:

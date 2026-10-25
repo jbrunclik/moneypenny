@@ -165,7 +165,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
 
 def freshness_tool_event(kind: str, decision: FreshnessDecision) -> dict[str, Any]:
     """tool_start / tool_end for the prefetched research, as the stream sends tools."""
-    from src.agent.tool_display import TOOL_METADATA
+    from src.agent.tool_display import TOOL_METADATA  # noqa: PLC0415
 
     event: dict[str, Any] = {"type": kind, "tool": "research"}
     if kind == "tool_start":

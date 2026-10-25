@@ -95,7 +95,7 @@ def apply_proxy_fix(app: APIFlask) -> None:
     """Wrap the WSGI app with ProxyFix for TRUSTED_PROXY_COUNT proxies."""
     if Config.TRUSTED_PROXY_COUNT <= 0:
         return
-    from werkzeug.middleware.proxy_fix import ProxyFix
+    from werkzeug.middleware.proxy_fix import ProxyFix  # noqa: PLC0415
 
     app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
         app.wsgi_app,
@@ -164,7 +164,7 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
     @app.before_request
     def add_request_id() -> None:
         """Generate and store request ID for correlation."""
-        from flask import g
+        from flask import g  # noqa: PLC0415
 
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
         set_request_id(request_id)
@@ -242,7 +242,7 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
         For APIError (our custom class), the error data is in extra_data.
         For standard HTTPError, we wrap the message in our format.
         """
-        from src.api.errors import APIError, ErrorCode, is_retryable
+        from src.api.errors import APIError, ErrorCode, is_retryable  # noqa: PLC0415
 
         if isinstance(error, APIError):
             # Our custom error - extra_data already has the correct format
@@ -399,7 +399,7 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
 
     # Start dev scheduler in development mode
     if Config.is_development():
-        from src.agent.dev_scheduler import start_dev_scheduler
+        from src.agent.dev_scheduler import start_dev_scheduler  # noqa: PLC0415
 
         start_dev_scheduler()
 
@@ -422,7 +422,7 @@ def main() -> None:
         sys.exit(1)
 
     # Check database connectivity before starting app
-    from src.db.models import check_database_connectivity
+    from src.db.models import check_database_connectivity  # noqa: PLC0415
 
     db_ok, db_error = check_database_connectivity()
     if not db_ok:

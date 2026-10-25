@@ -28,13 +28,13 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
         Status message indicating if the agent was triggered successfully
     """
     # Import here to avoid circular imports
-    from src.agent.executor import (
+    from src.agent.executor import (  # noqa: PLC0415
         AgentBlockedError,
         AgentExecutor,
         get_agent_context,
         get_trigger_chain,
     )
-    from src.agent.tools.request_approval import ApprovalRequestedException
+    from src.agent.tools.request_approval import ApprovalRequestedException  # noqa: PLC0415
 
     # Get current context to find user
     context = get_agent_context()

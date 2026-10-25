@@ -715,7 +715,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
 def is_garmin_available() -> bool:
     """Check if garminconnect package is installed."""
     try:
-        import garminconnect  # noqa: F401
+        import garminconnect  # noqa: F401, PLC0415
 
         return True
     except ImportError:

@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 def _db() -> Database:
     """Resolve the database at call time so test patches of
     src.db.models.db are honored."""
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     return db
 

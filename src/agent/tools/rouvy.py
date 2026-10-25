@@ -210,7 +210,7 @@ def is_rouvy_available() -> bool:
 
 def _resolve_user() -> User | None:
     """Resolve the current request's user (same seam garmin.py uses)."""
-    from src.agent.tools.context import get_conversation_context
+    from src.agent.tools.context import get_conversation_context  # noqa: PLC0415
 
     _, user_id = get_conversation_context()
     if not user_id:

@@ -24,7 +24,7 @@ _NAMESPACE = "oauth_state"
 
 def _db() -> Any:
     # Resolved at call time so test fixtures patching src.db.models.db apply
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     return db
 

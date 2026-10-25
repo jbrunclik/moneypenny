@@ -43,8 +43,8 @@ def run_scheduled_agents() -> SchedulerResult:  # noqa: C901, PLR0915
     Returns:
         SchedulerResult with counts of executed, skipped, and failed agents.
     """
-    from src.agent.executor import AgentBlockedError, execute_agent
-    from src.agent.tools.request_approval import ApprovalRequestedException
+    from src.agent.executor import AgentBlockedError, execute_agent  # noqa: PLC0415
+    from src.agent.tools.request_approval import ApprovalRequestedException  # noqa: PLC0415
 
     now = datetime.now(UTC).replace(tzinfo=None)  # Naive UTC for DB comparison
     logger.info("Scheduler: evaluating agent schedules", extra={"now": now.isoformat()})

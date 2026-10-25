@@ -15,7 +15,7 @@ def get_currency_rates() -> dict[str, float]:
         Dictionary of currency code to rate (USD base)
     """
     # Import here to avoid circular dependency
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     # Try to get rates from database first
     db_rates = db.get_currency_rates()

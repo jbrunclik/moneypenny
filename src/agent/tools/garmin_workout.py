@@ -160,7 +160,7 @@ def _resolve_exercise(term: Any) -> dict[str, str] | None:
     """Resolve a display name / fuzzy term / code to a catalog {name, category, exercise}."""
     if not isinstance(term, str) or not term.strip():
         return None
-    from garminconnect.exercises import EXERCISES, find, resolve
+    from garminconnect.exercises import EXERCISES, find, resolve  # noqa: PLC0415
 
     found: dict[str, str] | None = resolve(term)
     if found:
@@ -182,7 +182,7 @@ def _search_exercises(query: str | None) -> str:
     """Fuzzy-search the bundled Garmin exercise catalog; return capped matches."""
     if not query or not query.strip():
         return json.dumps({"error": "query is required for search_exercises"})
-    from garminconnect.exercises import find
+    from garminconnect.exercises import find  # noqa: PLC0415
 
     hits = find(query)
     return json.dumps(
@@ -205,7 +205,7 @@ def _new_block(
     (24.0 == 24 kg, per the user's own workouts), so we overwrite weightValue in
     kg to match every other step.
     """
-    from garminconnect import workout as gw
+    from garminconnect import workout as gw  # noqa: PLC0415
 
     grp: dict[str, Any] = gw.create_strength_set(
         category=entry["category"],

@@ -38,6 +38,7 @@ select = [
     "C90",    # complexity (C1)
     "PLR0912",  # too many branches (C1)
     "PLR0915",  # too many statements (C1)
+    "PLC0415",  # import inside a function: say why (B10; src only)
 ]
 
 ignore = [
@@ -57,12 +58,12 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Tests assert constantly and use fake tokens/credentials by design; their
 # output and the scripts' and evals' is meant for a terminal
-"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251"]
-"scripts/**" = ["S101", "S603", "S607", "T20"]
-"evals/**" = ["T20"]
-"tests/e2e-server.py" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "N999"]
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "PLC0415"]
+"scripts/**" = ["S101", "S603", "S607", "T20", "PLC0415"]
+"evals/**" = ["T20", "PLC0415"]
+"tests/e2e-server.py" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "N999", "PLC0415"]
 # SQL built from the module-constant conversation-type CASE expression, not user input
-"scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608", "T20"]
+"scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608", "T20", "PLC0415"]
 # B9 baseline: still on requests (the list only shrinks)
 "src/utils/planner_data.py" = ["TID251"]
 "src/agent/tools/todoist_client.py" = ["TID251"]

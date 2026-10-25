@@ -38,7 +38,7 @@ def _get_saved_place(name: str) -> dict[str, Any] | None:
     _, user_id = get_conversation_context()
     if not user_id:
         return None
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     raw = db.kv_get(user_id, PLACES_KV_NAMESPACE, name.strip().lower())
     if not raw:
@@ -169,7 +169,7 @@ def save_place(name: str, address: str) -> str:
     # "Nádražní 12" + "Praha 5 - Smíchov, Česko" -> full human-readable address
     location = items[0].get("location", "")
     resolved = f"{items[0]['name']}, {location}" if location else items[0]["name"]
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     key = name.strip().lower()
     db.kv_set(
@@ -194,7 +194,7 @@ def list_places() -> str:
     _, user_id = get_conversation_context()
     if not user_id:
         return "Cannot list places: no user context is available in this conversation."
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     entries = db.kv_list(user_id, PLACES_KV_NAMESPACE)
     if not entries:
@@ -224,7 +224,7 @@ def delete_place(name: str) -> str:
     _, user_id = get_conversation_context()
     if not user_id:
         return "Cannot delete places: no user context is available in this conversation."
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     key = name.strip().lower()
     if db.kv_delete(user_id, PLACES_KV_NAMESPACE, key):

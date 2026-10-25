@@ -253,7 +253,7 @@ def chat_stream(
     Uses SSE keepalive heartbeats to prevent proxy timeouts during long LLM thinking phases.
     Keepalives are sent as SSE comments (: keepalive) which clients ignore but proxies see as activity.
     """
-    from src.api.helpers.chat_streaming import create_stream_generator
+    from src.api.helpers.chat_streaming import create_stream_generator  # noqa: PLC0415
 
     logger.info("Stream chat request", extra={"user_id": user.id, "conversation_id": conv_id})
     running = _steerable_running_turn(user, data, conv_id)
@@ -388,7 +388,7 @@ when the turn failed and nothing was saved.
 @require_auth
 def chat_stream_resume(user: User, conv_id: str, message_id: str) -> Response:
     """Resume streaming for an in-flight or recently finished assistant message."""
-    from src.api.helpers.stream_resume import stream_resume_events
+    from src.api.helpers.stream_resume import stream_resume_events  # noqa: PLC0415
 
     conv = db.get_conversation(conv_id, user.id)
     if not conv:

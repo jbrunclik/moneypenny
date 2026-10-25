@@ -59,10 +59,10 @@ def delegate_task(task: str, expected_output: str = "") -> str:
 
     # Imported here: delegate -> agent -> tools/__init__ -> delegate would be
     # a circular import at module load time
-    from src.agent.agent import ChatAgent
-    from src.agent.content import extract_read_sources
-    from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT
-    from src.agent.tools import fetch_url, research, web_search
+    from src.agent.agent import ChatAgent  # noqa: PLC0415
+    from src.agent.content import extract_read_sources  # noqa: PLC0415
+    from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT  # noqa: PLC0415
+    from src.agent.tools import fetch_url, research, web_search  # noqa: PLC0415
 
     prompt = task.strip()
     if expected_output.strip():

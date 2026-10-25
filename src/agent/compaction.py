@@ -59,7 +59,7 @@ def run_summary_model(prompt: str) -> str | None:
     or raised. Callers supply their own fallback text.
     """
     # Import here to avoid circular imports
-    from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
+    from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel  # noqa: PLC0415
 
     try:
         client = shared_genai_client()
@@ -113,7 +113,7 @@ def _segmented_agent_summary(agent: Agent, messages: list[dict[str, Any]]) -> st
     messages after it are summarized, from full text, in batches.
     """
     # Lazy: compaction_segments imports this module for run_summary_model
-    from src.agent.compaction_segments import (
+    from src.agent.compaction_segments import (  # noqa: PLC0415
         Segment,
         extend_segments,
         render_segments,

@@ -73,7 +73,7 @@ def _probe_docker_available() -> bool:
     global _docker_available
 
     try:
-        import subprocess
+        import subprocess  # noqa: PLC0415
 
         # Check if the custom sandbox image exists
         result = subprocess.run(  # noqa: S603 - fixed args, no untrusted input
@@ -104,7 +104,7 @@ def _probe_docker_available() -> bool:
 
         # Verify Docker connectivity with a quick test, using the SAME
         # session settings as execute_code
-        from llm_sandbox import SandboxSession
+        from llm_sandbox import SandboxSession  # noqa: PLC0415
 
         with SandboxSession(
             image=Config.CODE_SANDBOX_IMAGE,

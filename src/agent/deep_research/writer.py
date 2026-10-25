@@ -99,7 +99,7 @@ def report_messages(
 
 
 def writer_model() -> ChatGoogleGenerativeAI:
-    from src.agent.graph import create_chat_model
+    from src.agent.graph import create_chat_model  # noqa: PLC0415
 
     return create_chat_model(Config.DEEP_RESEARCH_WRITER_MODEL, with_tools=False)
 

@@ -81,7 +81,7 @@ def program_to_item(
 ) -> dict[str, Any]:
     """Shape a stored program dict as the API's program item."""
     if conv_program_ids is None:
-        from src.db.models.programs import PROGRAM_FEATURES
+        from src.db.models.programs import PROGRAM_FEATURES  # noqa: PLC0415
 
         column = PROGRAM_FEATURES[namespace].program_column
         conv_program_ids = {
@@ -112,7 +112,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
 
         # Check which programs have conversations
         convs = db.list_program_conversations(ns, user.id)
-        from src.db.models.programs import PROGRAM_FEATURES
+        from src.db.models.programs import PROGRAM_FEATURES  # noqa: PLC0415
 
         program_column = PROGRAM_FEATURES[ns].program_column
         conv_programs = {getattr(c, program_column) for c in convs}
@@ -127,7 +127,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     @validate_request(cfg.create_request)
     def create_program(user: User, data: Any) -> dict[str, Any]:
         """Create a new program."""
-        from datetime import datetime
+        from datetime import datetime  # noqa: PLC0415
 
         programs = _get_programs(user.id, ns)
 
@@ -192,7 +192,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     @require_auth
     def get_conversation(user: User, program: str) -> dict[str, Any]:
         """Get or create the program conversation."""
-        from src.api.utils import serialize_messages_for_response
+        from src.api.utils import serialize_messages_for_response  # noqa: PLC0415
 
         # Verify program exists
         programs = _get_programs(user.id, ns)

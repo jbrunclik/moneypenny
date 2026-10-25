@@ -233,7 +233,7 @@ def validate_tool_names() -> None:
     pill, which is how garmin_connect, kv_store and (the since-removed) cite_sources - three of the
     five most-called tools - ended up unlabelled for months.
     """
-    from src.agent.tools import get_all_tool_names, get_available_tools
+    from src.agent.tools import get_all_tool_names, get_available_tools  # noqa: PLC0415
 
     # Two different sets, deliberately. Whether a metadata entry is LEGITIMATE
     # is config-independent (get_all_tool_names), because integration tools
@@ -472,8 +472,8 @@ def _fetch_memory_content(memory_id: str) -> str | None:
     if not memory_id:
         return None
     try:
-        from src.agent.tools.context import get_conversation_context
-        from src.db.models import db
+        from src.agent.tools.context import get_conversation_context  # noqa: PLC0415
+        from src.db.models import db  # noqa: PLC0415
 
         _, user_id = get_conversation_context()
         if not user_id:
@@ -535,8 +535,8 @@ def _fetch_conversation_title(conversation_id: str) -> str | None:
     if not conversation_id:
         return None
     try:
-        from src.agent.tools.context import get_conversation_context
-        from src.db.models import db
+        from src.agent.tools.context import get_conversation_context  # noqa: PLC0415
+        from src.db.models import db  # noqa: PLC0415
 
         _, user_id = get_conversation_context()
         if not user_id:

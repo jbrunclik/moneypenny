@@ -94,7 +94,7 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
     schedule = json_data.schedule
     if schedule:
         try:
-            from croniter import croniter
+            from croniter import croniter  # noqa: PLC0415
 
             croniter(schedule)
         except Exception:  # noqa: BLE001
@@ -103,7 +103,7 @@ def create_agent(user: User, json_data: CreateAgentRequest) -> dict[str, Any]:
     # Validate timezone if provided
     timezone = json_data.timezone
     try:
-        from zoneinfo import ZoneInfo
+        from zoneinfo import ZoneInfo  # noqa: PLC0415
 
         ZoneInfo(timezone)
     except Exception:  # noqa: BLE001
@@ -168,7 +168,7 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
     - conversation: Object with message_count and updated_at, or null if no conversation
     - server_time: Current server timestamp to use for next sync
     """
-    from datetime import datetime
+    from datetime import datetime  # noqa: PLC0415
 
     agent = db.get_agent(agent_id, user.id)
     if not agent:
@@ -229,7 +229,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
     schedule = json_data.schedule
     if schedule is not None and schedule != "":
         try:
-            from croniter import croniter
+            from croniter import croniter  # noqa: PLC0415
 
             croniter(schedule)
         except Exception:  # noqa: BLE001
@@ -239,7 +239,7 @@ def update_agent(user: User, agent_id: str, json_data: UpdateAgentRequest) -> di
     timezone = json_data.timezone
     if timezone:
         try:
-            from zoneinfo import ZoneInfo
+            from zoneinfo import ZoneInfo  # noqa: PLC0415
 
             ZoneInfo(timezone)
         except Exception:  # noqa: BLE001
@@ -347,7 +347,7 @@ def trigger_agent(user: User, agent_id: str) -> dict[str, Any]:
 
     Returns the execution record with status.
     """
-    from src.agent.executor import execute_agent
+    from src.agent.executor import execute_agent  # noqa: PLC0415
 
     logger.info(
         "Manually triggering agent",

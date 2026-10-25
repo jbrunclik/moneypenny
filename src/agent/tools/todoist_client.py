@@ -30,7 +30,7 @@ def get_todoist_token() -> str | None:
     if not user_id:
         return None
 
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     user = db.get_user_by_id(user_id)
     if not user:
@@ -61,7 +61,7 @@ def todoist_api_request(
     Raises:
         Exception: On API errors
     """
-    import requests
+    import requests  # noqa: PLC0415
 
     url = f"{Config.TODOIST_API_BASE_URL}{endpoint}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -134,7 +134,7 @@ def todoist_sync_request(
         Exception: On API errors
     """
 
-    import requests
+    import requests  # noqa: PLC0415
 
     url = "https://api.todoist.com/api/v1/sync"
     headers = {"Authorization": f"Bearer {token}"}

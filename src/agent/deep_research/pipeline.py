@@ -191,7 +191,7 @@ def _write(
     A writer model that is down before the first token falls back to the
     other tier (as chat turns do, src/agent/graph.py).
     """
-    from src.agent.graph import create_chat_model, other_model_tier
+    from src.agent.graph import create_chat_model, other_model_tier  # noqa: PLC0415
 
     model_name = Config.DEEP_RESEARCH_WRITER_MODEL
     try:

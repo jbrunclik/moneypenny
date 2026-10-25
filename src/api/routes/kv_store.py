@@ -75,7 +75,7 @@ def get_value(user: User, namespace: str, key: str) -> dict[str, Any]:
 @require_auth
 def set_value(user: User, namespace: str, key: str, json_data: KVSetRequest) -> dict[str, Any]:
     """Set a key's value (create or update). Value must be valid JSON."""
-    import json
+    import json  # noqa: PLC0415
 
     if len(key) > 256:
         raise_validation_error("Key too long (max 256 characters)")

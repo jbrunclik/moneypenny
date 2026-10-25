@@ -42,9 +42,9 @@ class AgentScheduleMixin:
             Next run datetime in UTC (naive), or None if invalid
         """
         try:
-            from zoneinfo import ZoneInfo
+            from zoneinfo import ZoneInfo  # noqa: PLC0415
 
-            from croniter import croniter
+            from croniter import croniter  # noqa: PLC0415
 
             tz = ZoneInfo(timezone)
             now = datetime.now(tz)

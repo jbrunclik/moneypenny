@@ -361,7 +361,7 @@ def _notify_if_degraded(served_by: str) -> None:
         if operator is None:
             return
         # Imported here to avoid a module-load cycle (push imports db/config)
-        from src.utils.push import send_push_to_user
+        from src.utils.push import send_push_to_user  # noqa: PLC0415
 
         send_push_to_user(
             operator.id,

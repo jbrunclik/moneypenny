@@ -37,7 +37,7 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     Returns:
         Formatted string with the user's current memories
     """
-    import json as _json
+    import json as _json  # noqa: PLC0415
 
     memories = db.list_memories(user_id)
     memory_count = len(memories)

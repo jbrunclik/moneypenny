@@ -15,7 +15,7 @@ session and points here for the rest.
 - **Existing violations get a baseline that only shrinks.** A new rule applies
   to new code at once; the cleanup of old code is a TODO item, done
   gradually. Never add to a baseline to get a change through. For ruff the
-  baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407); a
+  baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407, plus 178 `PLC0415`); a
   deliberate exception carries a reason instead: `# noqa: CODE - <why>`.
   For ESLint it is `web/eslint-suppressions.json` (286): after fixing some,
   `npx eslint src --prune-suppressions` (ESLint fails on stale entries).
@@ -71,7 +71,7 @@ session and points here for the rest.
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); constant collections are immutable | planned: test |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` (10 files baselined in `pyproject.toml`) |
-| B10 | An import inside a function says why (`# lazy: <reason>`) | judgment; planned: ruff `PLC0415` once the ~1,000 existing ones are sorted |
+| B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (178 baselined) |
 | B11 | Env vars are read only in `src/config.py`; time and size settings carry their unit (`_SECONDS`, `_MS`, `_BYTES`); true constants live in `constants.py` | judgment; planned: test |
 
 ### Frontend architecture (F)
@@ -96,7 +96,7 @@ session and points here for the rest.
 |----|------|-------------|
 | C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - all baselined |
 | C2 | No dead code or unused dependencies | planned: vulture, knip, deptry |
-| C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). Not yet: `DTZ` (needs the timezone migration in TODO first - partial adoption mixes aware and naive datetimes), `PT` | ruff; existing violations carry `# noqa: CODE` |
+| C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). `PLC0415` in `src/`. Not yet: `DTZ` (needs the timezone migration in TODO first - partial adoption mixes aware and naive datetimes), `PT` | ruff; existing violations carry `# noqa: CODE` |
 | C4 | Formatting: ruff format (Python), ESLint (TS), Prettier (CSS, YAML, JSON; not Markdown); `.editorconfig` | ruff, ESLint, Prettier `format:check` in `make lint`; the PostToolUse hook formats on edit |
 | C5 | Type hints everywhere (mypy strict), TypeScript strict | mypy, tsc |
 | C6 | No backward-compatibility re-exports when moving code; update the imports | judgment |

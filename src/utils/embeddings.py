@@ -30,8 +30,8 @@ def _get_client() -> Any:
     if _client is None:
         with _client_lock:
             if _client is None:
-                from google import genai
-                from google.genai import types
+                from google import genai  # noqa: PLC0415
+                from google.genai import types  # noqa: PLC0415
 
                 _client = genai.Client(
                     api_key=Config.GEMINI_API_KEY,
@@ -104,7 +104,7 @@ def embed_and_store_async(user_id: str, kind: str, ref_id: str, text: str) -> No
         return
 
     def _work() -> None:
-        from src.db.models import db
+        from src.db.models import db  # noqa: PLC0415
 
         vec = embed_text(text)
         if vec is None:

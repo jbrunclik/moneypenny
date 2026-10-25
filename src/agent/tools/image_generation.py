@@ -124,8 +124,8 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
         # Handle history image reference (from earlier in conversation)
         if history_image_message_id:
             # Import here to avoid circular imports
-            from src.db.blob_store import get_blob_store
-            from src.db.models import db, make_blob_key
+            from src.db.blob_store import get_blob_store  # noqa: PLC0415
+            from src.db.models import db, make_blob_key  # noqa: PLC0415
 
             conv_id, user_id = get_conversation_context()
 

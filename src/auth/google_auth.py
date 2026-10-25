@@ -37,7 +37,7 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
     logger.debug("Verifying Google ID token")
     # Verify token with Google's tokeninfo endpoint
     try:
-        from src.config import Config
+        from src.config import Config  # noqa: PLC0415
 
         response = requests.get(
             GOOGLE_TOKENINFO_URL,

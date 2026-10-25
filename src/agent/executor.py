@@ -249,7 +249,7 @@ def execute_agent(  # noqa: PLR0915
         return False, error_msg
 
     # Check if conversation needs compaction
-    from src.agent.compaction import compact_conversation
+    from src.agent.compaction import compact_conversation  # noqa: PLC0415
 
     try:
         compact_conversation(agent)

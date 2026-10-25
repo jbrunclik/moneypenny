@@ -74,7 +74,7 @@ def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
 
 def _get_db() -> Any:
     """Indirection for the DB singleton (lazy import, patchable in tests)."""
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     return db
 
@@ -107,7 +107,7 @@ class ContextCacheManager:
     def _get_client(self) -> Any:
         """Lazy-initialize the google.genai Client."""
         if self._client is None:
-            from google import genai
+            from google import genai  # noqa: PLC0415
 
             self._client = genai.Client(api_key=Config.GEMINI_API_KEY)
         return self._client
@@ -278,7 +278,7 @@ class ContextCacheManager:
     def _extend_cache(self, cache_name: str, ttl_seconds: int) -> bool:
         """Extend a cached content's TTL via the Gemini API (False on failure)."""
         try:
-            from google.genai import types
+            from google.genai import types  # noqa: PLC0415
 
             self._get_client().caches.update(
                 name=cache_name,
@@ -335,8 +335,8 @@ class ContextCacheManager:
         Returns the cache name or None on failure.
         """
         try:
-            from google.genai import types
-            from langchain_google_genai._function_utils import (
+            from google.genai import types  # noqa: PLC0415
+            from langchain_google_genai._function_utils import (  # noqa: PLC0415
                 convert_to_genai_function_declarations,
             )
 

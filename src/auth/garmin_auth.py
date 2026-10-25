@@ -51,7 +51,7 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
         GarminAuthError: If authentication fails
     """
     try:
-        from garminconnect import Garmin
+        from garminconnect import Garmin  # noqa: PLC0415
 
         garmin = Garmin(email=email, password=password, return_on_mfa=True)
         result = garmin.login()
@@ -95,7 +95,7 @@ def authenticate_with_mfa(email: str, password: str, mfa_code: str) -> tuple[str
         GarminAuthError: If the MFA code is wrong or the login otherwise fails
     """
     try:
-        from garminconnect import Garmin
+        from garminconnect import Garmin  # noqa: PLC0415
 
         # prompt_mfa is invoked synchronously by garminconnect when the MFA
         # step is reached; returning our code completes the flow inline.
@@ -151,7 +151,7 @@ def create_client_from_tokens(tokens_b64: str) -> Any:
         GarminAuthError: If tokens are invalid or expired
     """
     try:
-        from garminconnect import Garmin
+        from garminconnect import Garmin  # noqa: PLC0415
 
         # Use login(tokenstore=...) which loads tokens AND fetches the user
         # profile (display_name, full_name) — required for API URL construction.

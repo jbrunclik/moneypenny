@@ -76,7 +76,7 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     )
 
     # Execute the agent with a message indicating the approved action
-    from src.agent.executor import execute_agent
+    from src.agent.executor import execute_agent  # noqa: PLC0415
 
     resume_message = f"[Action approved: {approval.description}]"
 

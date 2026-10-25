@@ -77,7 +77,7 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
         retry_after = None
         if hasattr(e, "description") and "retry after" in str(e.description).lower():
             # Try to extract retry-after seconds from the error message
-            import re
+            import re  # noqa: PLC0415
 
             match = re.search(r"(\d+)\s*second", str(e.description))
             if match:
@@ -96,7 +96,7 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
         # Use our standard error response format
         # Note: We can't use raise_rate_limited_error here because we need to return
         # a tuple, not raise an exception (Flask error handler convention)
-        from src.api.errors import ErrorCode, is_retryable
+        from src.api.errors import ErrorCode, is_retryable  # noqa: PLC0415
 
         error_body = {
             "error": {

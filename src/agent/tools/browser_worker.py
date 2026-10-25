@@ -162,7 +162,7 @@ class BrowserWorker:
 
     def _run(self) -> None:
         """Main loop on the dedicated browser thread."""
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import sync_playwright  # noqa: PLC0415
 
         self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(

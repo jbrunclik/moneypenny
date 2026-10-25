@@ -24,10 +24,10 @@ class ItemResult:
 def run_subagent(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
     """Research one sub-question. Raises TurnCancelled when its token is cancelled."""
     # Imported here: tools -> ... -> agent would be circular at module load
-    from src.agent.agent import ChatAgent
-    from src.agent.prompt_texts.deep_research import DEEP_RESEARCH_SUBAGENT_PROMPT
-    from src.agent.tools import fetch_url, research, web_search
-    from src.agent.tools.delegate import _in_delegate
+    from src.agent.agent import ChatAgent  # noqa: PLC0415
+    from src.agent.prompt_texts.deep_research import DEEP_RESEARCH_SUBAGENT_PROMPT  # noqa: PLC0415
+    from src.agent.tools import fetch_url, research, web_search  # noqa: PLC0415
+    from src.agent.tools.delegate import _in_delegate  # noqa: PLC0415
 
     tools: list[Any] = [
         *wrap_research_tools([research, web_search, fetch_url], board, index),

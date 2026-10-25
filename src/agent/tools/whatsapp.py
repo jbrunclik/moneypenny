@@ -366,7 +366,7 @@ def _get_user_whatsapp_phone(user_id: str) -> str | None:
     Returns:
         The user's WhatsApp phone number, or None if not set
     """
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     user = db.get_user_by_id(user_id)
     if not user:

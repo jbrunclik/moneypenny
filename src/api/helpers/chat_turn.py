@@ -414,15 +414,15 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
     # per-turn input cost. Agent conversations use their own destructive
     # compaction, so they are left untouched.
     if not ctx.is_autonomous:
-        from src.agent.conversation_compaction import build_compacted_history
+        from src.agent.conversation_compaction import build_compacted_history  # noqa: PLC0415
 
         ctx.history = build_compacted_history(user.id, conv.id, ctx.history)
     return ctx
 
 
 def _load_planner_dashboard(user: User) -> dict[str, Any]:
-    from src.api.routes.calendar import _get_valid_calendar_access_token
-    from src.utils.planner_data import build_planner_dashboard
+    from src.api.routes.calendar import _get_valid_calendar_access_token  # noqa: PLC0415
+    from src.utils.planner_data import build_planner_dashboard  # noqa: PLC0415
 
     # Refresh calendar token if needed (expires hourly)
     calendar_token = _get_valid_calendar_access_token(user)
@@ -439,7 +439,7 @@ def _load_planner_dashboard(user: User) -> dict[str, Any]:
 
 def _attach_agent_context(ctx: TurnContext, user: User, agent_id: str) -> None:
     """Apply an interactive agent conversation's tool permissions and goals."""
-    from src.agent.daily_briefing import resolve_agent_system_prompt
+    from src.agent.daily_briefing import resolve_agent_system_prompt  # noqa: PLC0415
 
     agent_record = db.get_agent(agent_id, user.id)
     if not agent_record:

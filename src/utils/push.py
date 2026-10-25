@@ -64,7 +64,7 @@ def send_push_to_user_sync(
     """Send to all of a user's subscriptions; returns delivered count."""
     # Imported here so tests can patch src.db.models.db and to avoid
     # import cycles at module load
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     subscriptions = db.get_push_subscriptions(user_id)
     if not subscriptions:

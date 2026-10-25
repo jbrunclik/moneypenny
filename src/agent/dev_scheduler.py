@@ -26,7 +26,7 @@ SCHEDULER_INTERVAL_SECONDS = 60
 
 def _scheduler_loop(stop_event: threading.Event) -> None:
     """Main scheduler loop that runs in a background thread."""
-    from src.agent.scheduler import run_scheduled_agents
+    from src.agent.scheduler import run_scheduled_agents  # noqa: PLC0415
 
     logger.info("Dev scheduler: starting background loop")
 
@@ -39,7 +39,7 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
         # Dev stand-in for the moneypenny-file-cleanup systemd timer
         # (kv last-run stamp keeps this to at most one sweep per day)
         try:
-            from src.utils.file_retention import run_file_cleanup_if_due
+            from src.utils.file_retention import run_file_cleanup_if_due  # noqa: PLC0415
 
             run_file_cleanup_if_due()
         except Exception as e:

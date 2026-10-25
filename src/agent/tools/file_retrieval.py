@@ -50,8 +50,8 @@ def retrieve_file(  # noqa: C901
         generate_image(prompt="...", history_image_message_id="msg-abc123", history_image_file_index=0)
     """
     # Import here to avoid circular imports
-    from src.db.blob_store import get_blob_store
-    from src.db.models import db, make_blob_key
+    from src.db.blob_store import get_blob_store  # noqa: PLC0415
+    from src.db.models import db, make_blob_key  # noqa: PLC0415
 
     conv_id, user_id = get_conversation_context()
 
@@ -124,7 +124,7 @@ def retrieve_file(  # noqa: C901
 
     # Age-based retention gate: stays truthful even before the physical
     # sweep has deleted the blob (videos 7 days, images 30 days)
-    from src.utils.file_retention import is_file_expired, retention_note
+    from src.utils.file_retention import is_file_expired, retention_note  # noqa: PLC0415
 
     if is_file_expired(mime_type, message.created_at):
         return json.dumps(
@@ -200,7 +200,7 @@ def _build_file_content(
     # Videos always, and oversized images/PDFs, go via the Gemini Files API;
     # skip the base64 encoding - a 100MB video would be needlessly inflated
     if mime_type.startswith("video/") or (is_visual and too_big_inline):
-        from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri
+        from src.agent.gemini_files import GeminiFileError, ensure_gemini_file_uri  # noqa: PLC0415
 
         kind = "video" if mime_type.startswith("video/") else "file"
         try:

@@ -220,7 +220,7 @@ def get_weather_for_location(
         if cached_data:
             logger.debug("Returning cached weather", extra={"location": location})
             # Convert dict back to WeatherForecast
-            from dataclasses import asdict
+            from dataclasses import asdict  # noqa: PLC0415
 
             periods = [WeatherPeriod(**p) for p in cached_data.get("periods", [])]
             return WeatherForecast(
@@ -237,7 +237,7 @@ def get_weather_for_location(
 
         # Cache the result if db provided
         if db:
-            from dataclasses import asdict
+            from dataclasses import asdict  # noqa: PLC0415
 
             forecast_dict = asdict(forecast)
             db.cache_weather(location, forecast_dict, ttl_seconds=Config.WEATHER_CACHE_TTL_SECONDS)

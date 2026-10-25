@@ -138,9 +138,9 @@ _pool_init_lock = threading.Lock()
 
 def _make_docker_session() -> Any:
     """Factory for real Docker sandbox sessions (shared settings with execute_code)."""
-    from llm_sandbox import SandboxSession
+    from llm_sandbox import SandboxSession  # noqa: PLC0415
 
-    from src.agent.tools.code_execution import _SANDBOX_SESSION_KWARGS, _sandbox_runtime_configs
+    from src.agent.tools.code_execution import _SANDBOX_SESSION_KWARGS, _sandbox_runtime_configs  # noqa: PLC0415
 
     return SandboxSession(
         image=Config.CODE_SANDBOX_IMAGE,

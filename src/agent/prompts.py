@@ -293,7 +293,7 @@ def get_dynamic_prompt_parts(
     Returns:
         Dynamic prompt string
     """
-    from datetime import datetime
+    from datetime import datetime  # noqa: PLC0415
 
     now = datetime.now().astimezone()
     parts: list[str] = [f"Current date and time: {now.strftime('%A %Y-%m-%d %H:%M %Z')}"]
@@ -371,7 +371,7 @@ def get_system_prompt(  # noqa: C901
         is_language: If True, include language tutor system prompt
         language_context: Language context dict with keys: program_name, program_id
     """
-    from src.agent.tools import get_available_tools
+    from src.agent.tools import get_available_tools  # noqa: PLC0415
 
     # Include timezone info using astimezone() to get local timezone
     now = datetime.now().astimezone()

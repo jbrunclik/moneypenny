@@ -62,7 +62,7 @@ def tool_usage_details(messages: Iterable[BaseMessage]) -> tuple[list[str], int]
     (graph._tool_message_error): status=="error" or a JSON error envelope.
     Feeds the per-turn observability columns on message_costs.
     """
-    from src.agent.graph import _tool_message_error
+    from src.agent.graph import _tool_message_error  # noqa: PLC0415
 
     names: set[str] = set()
     errors = 0

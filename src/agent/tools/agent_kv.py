@@ -72,10 +72,10 @@ def kv_store(  # noqa: C901, PLR0912, PLR0915
     Returns:
         The result of the operation as a string
     """
-    import json
+    import json  # noqa: PLC0415
 
-    from src.agent.executor import get_agent_context
-    from src.agent.tools.context import get_language_context, get_sports_context
+    from src.agent.executor import get_agent_context  # noqa: PLC0415
+    from src.agent.tools.context import get_language_context, get_sports_context  # noqa: PLC0415
 
     # Get user context
     _, user_id = get_conversation_context()

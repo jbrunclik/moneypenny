@@ -34,13 +34,13 @@ def _get_google_calendar_access_token() -> tuple[str, str | None] | None:
     Uses the shared concurrency-safe refresh helper (previously a divergent
     copy of the route logic with an unlocked read-refresh-write race).
     """
-    from src.auth.google_calendar import get_valid_access_token
+    from src.auth.google_calendar import get_valid_access_token  # noqa: PLC0415
 
     _, user_id = get_conversation_context()
     if not user_id:
         return None
 
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     user = db.get_user_by_id(user_id)
     if not user or not user.google_calendar_access_token:
@@ -207,7 +207,7 @@ def _format_calendar_event(event: dict[str, Any]) -> dict[str, Any]:
 
 def _google_calendar_list_calendars(token: str) -> dict[str, Any]:
     """List calendars - filtered to only show user's selected calendars."""
-    from src.db.models import db
+    from src.db.models import db  # noqa: PLC0415
 
     # Get user's selected calendar IDs
     _, user_id = get_conversation_context()

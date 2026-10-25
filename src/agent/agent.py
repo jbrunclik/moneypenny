@@ -55,7 +55,7 @@ class ChatAgent:
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
     ) -> None:
-        from src.agent.context_cache import get_cached_content_name
+        from src.agent.context_cache import get_cached_content_name  # noqa: PLC0415
 
         self.model_name = model_name
         self.with_tools = with_tools
@@ -118,7 +118,7 @@ class ChatAgent:
                 "cached": self._cached_content_name is not None,
             },
         )
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph import get_compiled_graph  # noqa: PLC0415
 
         # Memoized by build signature - the compiled graph is stateless and a
         # pure function of these args, so it is reused across requests instead
@@ -187,7 +187,7 @@ class ChatAgent:
         conversation_title: str | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
-        from src.agent.prompts import get_dynamic_prompt_parts
+        from src.agent.prompts import get_dynamic_prompt_parts  # noqa: PLC0415
 
         messages: list[BaseMessage] = []
 
@@ -328,7 +328,7 @@ class ChatAgent:
         )
 
         # Run the graph
-        from src.agent.graph import get_graph_config
+        from src.agent.graph import get_graph_config  # noqa: PLC0415
 
         config = get_graph_config()
         turn_started = time.monotonic()
@@ -415,7 +415,7 @@ class ChatAgent:
             conversation_title=conversation_title,
         )
         # Stream the graph execution with messages mode for token-level streaming
-        from src.agent.graph import get_graph_config
+        from src.agent.graph import get_graph_config  # noqa: PLC0415
 
         config = get_graph_config()
         turn_started = time.monotonic()
@@ -495,7 +495,7 @@ class ChatAgent:
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
-        from src.agent.graph import get_graph_config
+        from src.agent.graph import get_graph_config  # noqa: PLC0415
 
         config = get_graph_config()
         turn_started = time.monotonic()

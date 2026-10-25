@@ -84,7 +84,7 @@ def update_research_offer(
     user: User, data: ResearchOfferUpdate, message_id: str
 ) -> tuple[dict[str, str], int]:
     """Decline a deep-research offer (starting one goes through the chat stream)."""
-    from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer
+    from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer  # noqa: PLC0415
 
     message = db.get_message_by_id(message_id)
     if not message or not db.get_conversation(message.conversation_id, user.id):

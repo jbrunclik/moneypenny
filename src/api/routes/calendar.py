@@ -66,7 +66,7 @@ def _get_valid_calendar_access_token(user: User) -> str | None:
 
     IMPORTANT: This function is exported for use by planner and chat routes.
     """
-    from src.auth.google_calendar import (
+    from src.auth.google_calendar import (  # noqa: PLC0415
         GoogleCalendarTokenRevoked,
         GoogleCalendarTransientError,
         get_valid_access_token,
@@ -98,7 +98,7 @@ def get_calendar_auth_url(user: User) -> dict[str, str]:
     if not _is_google_calendar_configured():
         raise_validation_error("Google Calendar integration is not configured")
 
-    from src.auth.oauth_state import issue_state
+    from src.auth.oauth_state import issue_state  # noqa: PLC0415
 
     # State is stored server-side and validated on connect (S7)
     state = issue_state(user.id, "calendar")
@@ -119,7 +119,7 @@ def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> d
 
     logger.info("Google Calendar connection attempt", extra={"user_id": user.id})
 
-    from src.auth.oauth_state import consume_state
+    from src.auth.oauth_state import consume_state  # noqa: PLC0415
 
     # CSRF defense (S7): the state must be one this server issued to THIS
     # user, unexpired and never used before
@@ -211,7 +211,7 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
     needs_reconnect = False
 
     if connected and current_user.google_calendar_access_token:
-        from src.auth.google_calendar import (
+        from src.auth.google_calendar import (  # noqa: PLC0415
             GoogleCalendarTokenRevoked,
             GoogleCalendarTransientError,
         )
@@ -221,7 +221,7 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
         if not refresh_token:
             needs_reconnect = True
         else:
-            from src.auth.google_calendar import get_valid_access_token
+            from src.auth.google_calendar import get_valid_access_token  # noqa: PLC0415
 
             # Shared helper refreshes proactively (within 10 minutes of
             # expiry) and stores via compare-and-swap (concurrency-safe)
@@ -278,7 +278,7 @@ def list_available_calendars(user: User) -> dict[str, Any]:
         return cached
 
     try:
-        import requests
+        import requests  # noqa: PLC0415
 
         headers = {"Authorization": f"Bearer {calendar_token}"}
         response = requests.get(
