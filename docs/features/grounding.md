@@ -125,7 +125,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   inline `_(neověřeno)_` / `_(unverified)_` markers into `not_found`
   annotations with `{"checked": true, "legacy": true}` (no reason or source),
   updating `search_index` too.
-- **Deep research**: a [deep research](deep-research.md) report is checked
+- **Deep research**: a [deep research](deep-research-pipeline.md) report is checked
   by `check_grounding_pages()` against the run's merged pages with
   `DEEP_RESEARCH_GROUNDING_MAX_SOURCE_CHARS` / `DEEP_RESEARCH_GROUNDING_MAX_CLAIMS`
   (`validate_claims(max_claims=...)`); `check_grounding()` wraps the same
@@ -154,7 +154,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   draft is untouched, and while a reply streams it toasts "wait" instead). The
   message renders as an action row ("Looking up “...” · from the answer above
   ↑"), and once its reply exists the card shows "Looked up below ↓", jumping to
-  it - see [Action messages](deep-research.md#action-messages).
+  it - see [Action messages](deep-research-data.md#action-messages).
   Clicking the footer (when there are problems) opens
   [ClaimsSheet.ts](../../web/src/components/ClaimsSheet.ts): a bottom sheet
   below 768px, a popover above, rows ordered contradicted, not_found, partial,

@@ -12,7 +12,10 @@ Feature-specific documentation covering user-facing functionality:
 - **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
 - **[freshness.md](features/freshness.md)** - Current facts: freshness gate (lookup before the turn, dated queries, failed-lookup note), `published` dates and the `_recency` note on search results, snippets-are-not-verification directive, recent-news grounding scope, config, evals
 - **[grounding.md](features/grounding.md)** - Post-answer grounding check: numbered turn pages, two-list verifier, claim validation, annotations storage and API, `MSG_CONTEXT` entry, claim card / claims sheet / footer UI
-- **[deep-research.md](features/deep-research.md)** - Deep research: `propose_deep_research` offer card, parallel subagents with a shared board, Pro report with grounding, Finish now / Stop, `messages.research` and `messages.action`, `research_*` SSE events, action rows, config, telemetry, evals
+- **[deep-research.md](features/deep-research.md)** - Deep research overview and what the user sees: `propose_deep_research` offer card, Start / No thanks, autostart, rounds, progress panel and report summary
+- **[deep-research-pipeline.md](features/deep-research-pipeline.md)** - Deep research pipeline: start, briefs, parallel subagents with a shared board, merge, Pro report, grounding check, follow-ups; deadlines, Finish now / Stop, concurrency
+- **[deep-research-data.md](features/deep-research-data.md)** - Deep research storage and events: `messages.research`, `research_*` SSE events, `messages.action` and action rows
+- **[deep-research-ops.md](features/deep-research-ops.md)** - Deep research cost, estimate and push, configuration, telemetry, evals, pitfalls, tests
 - **[artifacts.md](features/artifacts.md)** - Inline artifacts: `create_artifact` / `update_artifact` / `read_artifact`, versions and triggers, the sandboxed `/artifact-frame` and its CSP, the `mp` bridge, the `--mp-*` design system, per-device sizing, `artifact` SSE event, evals
 - **[chat-and-streaming.md](features/chat-and-streaming.md)** - Chat turn lifecycle (shared turn setup, streaming producer/consumer/finalize), stop, placeholder recovery, resumable streams, outbox, frontend send / re-run / retry
 - **[thinking-and-sources.md](features/thinking-and-sources.md)** - Thinking indicator and tool trace, retry status line, automatic source chips
@@ -34,7 +37,11 @@ Feature-specific documentation covering user-facing functionality:
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
 - **[cost-tracking.md](features/cost-tracking.md)** - Token usage tracking, image generation costs, currency rates, monthly aggregation
-- **[ui-features.md](features/ui-features.md)** - Input toolbar, conversation management and trash, deep linking, version banner, color scheme, clipboard operations, sports training programs UI
+- **[ui-features.md](features/ui-features.md)** - UI features overview, linking the pages below
+- **[ui-composer.md](features/ui-composer.md)** - Input toolbar, Enter-to-send, force tools, clipboard paste, program quick actions
+- **[ui-messages.md](features/ui-messages.md)** - Message content: link detection and security, image lightbox, copy to clipboard, Mermaid diagrams, inline artifact cards
+- **[ui-conversations.md](features/ui-conversations.md)** - Conversation rename, delete, bulk delete and trash
+- **[ui-app-shell.md](features/ui-app-shell.md)** - Deep linking, version update banner, color scheme
 
 ### Architecture (`architecture/`)
 System design and architectural decisions:

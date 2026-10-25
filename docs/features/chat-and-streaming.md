@@ -29,7 +29,7 @@ Chat endpoints ([routes/chat.py](../../src/api/routes/chat.py), all under `/api`
 |----------|---------|
 | `POST /conversations/<id>/chat/batch` | One request, one complete reply |
 | `POST /conversations/<id>/chat/stream` | Same turn over SSE |
-| `POST /conversations/<id>/chat/finish-now` | Cut a running [deep research](deep-research.md) run and write the report now (`{message_id}`, kv flag like Stop) |
+| `POST /conversations/<id>/chat/finish-now` | Cut a running [deep research](deep-research-pipeline.md#deadlines-finish-now-and-stop) run and write the report now (`{message_id}`, kv flag like Stop) |
 | `POST /conversations/<id>/chat/interject` | Mid-run steering: guidance for the turn that is running (see [Agent Graph](../architecture/agent-graph.md#self-correction-node)) |
 | `GET /conversations/<id>/chat/stream/<message_id>/resume?after_seq=N` | Replay + tail an in-flight stream ([Resumable Streams](#resumable-streams)) |
 
@@ -93,7 +93,7 @@ claims as the `grounding` key of that message's `MSG_CONTEXT`
 stays clean.
 
 **Deep research.** A request with `deep_research` (an offer's final plan) runs
-the [deep research](deep-research.md) pipeline as the turn: `prepare_turn()`
+the [deep research](deep-research-pipeline.md) pipeline as the turn: `prepare_turn()`
 starts the plan before saving the user message, and the producer runs
 `run_deep_research()` instead of `stream_chat_events()`, with
 `TurnContext.timeout_seconds` = `DEEP_RESEARCH_RUN_TIMEOUT_SECONDS`. It is
@@ -490,5 +490,5 @@ Continue / Edit"), [send-failure.spec.ts](../../web/tests/e2e/chat/send-failure.
 - [Deep Research](deep-research.md) - the multi-minute research turn, Finish now, action messages
 - [Streaming Metadata](../architecture/streaming-metadata.md) - MSG_CONTEXT stripping, client-side recovery
 - [File Handling](file-handling.md) - uploads, thumbnails, video
-- [UI Features](ui-features.md) - Input toolbar, message sending behavior
+- [Composer](ui-composer.md) - Input toolbar, message sending behavior
 - [Frontend and E2E Testing](../testing/frontend.md) - chat E2E specs

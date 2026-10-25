@@ -208,7 +208,7 @@ document.documentElement.setAttribute('data-theme', 'light');
 ```
 
 How the user's choice (system / light / dark) is stored and applied is covered under
-Color Scheme in [UI Features](../features/ui-features.md#color-scheme).
+Color Scheme in [App Shell](../features/ui-app-shell.md#color-scheme).
 
 ## Key Files
 

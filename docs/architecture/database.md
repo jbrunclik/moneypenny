@@ -41,7 +41,7 @@ Blobs are stored with keys that encode the message and file index:
 - Falls back to legacy `thumbnail` field in files JSON
 
 **4. Conversation deletion**:
-- A user delete first only sets `deleted_at` (the [trash](../features/ui-features.md#trash)); blobs go when the trash entry is purged, deleted forever, or emptied
+- A user delete first only sets `deleted_at` (the [trash](../features/ui-conversations.md#trash)); blobs go when the trash entry is purged, deleted forever, or emptied
 - Uses `delete_by_prefixes()` to delete all blobs for all messages in a single SQL query (batched deletion)
 
 ### Indexing

@@ -46,7 +46,7 @@ use its id as the FTS rowid, and delete through it. Its rowid is an explicit INT
 VACUUM cannot renumber it (an implicit `messages.rowid` could). Any new trigger or code that writes
 `search_index` must keep the two tables in step.
 
-Moving a conversation to the [trash](ui-features.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
+Moving a conversation to the [trash](ui-conversations.md#trash) does not touch the index: the search query joins `conversations` and filters `c.deleted_at IS NULL`, so restoring needs no reindex. Rows leave the index only when the conversation is permanently deleted (purge, delete forever, empty trash).
 
 ## How It Works
 

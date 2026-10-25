@@ -193,7 +193,7 @@ When fullSync returns conversations beyond the initial paginated load (e.g., use
 Full sync compares local conversation IDs with server response:
 - Conversations missing from server are removed from local state
 - Shows toast if user was viewing a deleted conversation
-- A conversation moved to the [trash](ui-features.md#trash) on another device counts as deleted: sync
+- A conversation moved to the [trash](ui-conversations.md#trash) on another device counts as deleted: sync
   queries filter `deleted_at IS NULL`, so it simply stops appearing
 - Since the change log, incremental syncs remove trashed / archived / deleted conversations directly; the full sync remains the safety net (start, >5 min hidden, `online`)
 

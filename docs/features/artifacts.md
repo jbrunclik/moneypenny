@@ -351,7 +351,7 @@ Client constants in [config.ts](../../web/src/config.ts):
 
 - [Agent Tools](agent-tools.md) - binding, permissions, `_NON_PERMISSIONED_TOOLS`
 - [Chat and Streaming](chat-and-streaming.md) - the `artifact` event, resume
-- [UI Features](ui-features.md) - inline artifact cards
+- [Message Content](ui-messages.md#inline-artifacts) - inline artifact cards
 - [Design System](../ui/design-system.md) - the app tokens the `--mp-*` ones alias
 - [Database](../architecture/database.md) - tables and triggers
 - [Evals](../testing/evals.md) - `forbidden_arg_patterns`, `artifacts:` seeding

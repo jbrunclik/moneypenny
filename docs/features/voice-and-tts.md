@@ -93,5 +93,5 @@ For existing messages without language data:
 
 ## See Also
 
-- [UI Features](ui-features.md) - Input toolbar, microphone button
+- [Composer](ui-composer.md) - Input toolbar, microphone button
 - [Thinking Indicator and Source Chips](thinking-and-sources.md) - response metadata (sources) and the streamed trace

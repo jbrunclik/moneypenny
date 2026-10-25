@@ -69,7 +69,7 @@ compact_history: true           # optional: compact `history` with the REAL
                                 # summarized part is stored + searchable)
 deep_research:                  # optional: run the deep-research pipeline on
   question: Headphones under 7 000 Kč   # this fixed plan instead of a chat
-  context: Runs outside, rides the tram # turn (docs/features/deep-research.md);
+  context: Runs outside, rides the tram # turn (docs/features/deep-research-ops.md#evals);
   sub_questions: [Fit when running?, ANC on a tram?]  # gets the run timeout
 artifacts:                      # optional: seeded in the case's conversation;
   - title: Tip calculator       # their ids replace {artifact_0}, {artifact_1}...

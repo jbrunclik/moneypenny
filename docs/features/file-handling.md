@@ -194,7 +194,7 @@ If the server dies while generating thumbnails, pending thumbnails would be stuc
 
 ## Copy to Clipboard
 
-The app provides copy-to-clipboard functionality at two levels. (User-facing summary: [UI Features](ui-features.md#copy-to-clipboard).)
+The app provides copy-to-clipboard functionality at two levels. (User-facing summary: [Message Content](ui-messages.md#copy-to-clipboard).)
 
 ### Features
 
@@ -256,7 +256,7 @@ Attachments are not permanent storage: **videos are kept 7 days, images and all 
 
 - **Production**: a daily systemd timer runs [scripts/cleanup_files.py](../../scripts/cleanup_files.py) (installed by `make deploy`), consistent with the other scheduled jobs - see [Scheduled Jobs](../architecture/scheduled-jobs.md).
 - **Development**: the dev scheduler loop calls `run_file_cleanup_if_due()` (at most one sweep per day, tracked via a `kv_store` stamp under `_system`/`file_cleanup`).
-- The sweep deletes full-size blobs and stale Gemini URI cache entries, and purges conversations trashed more than `TRASH_RETENTION_DAYS` ago (see [Trash](ui-features.md#trash)). **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
+- The sweep deletes full-size blobs and stale Gemini URI cache entries, and purges conversations trashed more than `TRASH_RETENTION_DAYS` ago (see [Trash](ui-conversations.md#trash)). **Thumbnails are kept** so old conversations still render a placeholder. Runs are idempotent.
 - Expiry is *age-derived* everywhere, so behavior is correct even before the sweep runs: history metadata marks files `"expired": true`, `retrieve_file` returns a clear "cleaned up" error, and the file endpoint returns **410 Gone** (`ErrorCode.GONE`).
 
 ### Playback
@@ -296,4 +296,4 @@ FILE_RETENTION_DAYS=30
 - [Code Execution Sandbox](code-execution.md) - `execute_code` and its output files
 - [API Design](../architecture/api-design.md#two-phase-file-validation) - file validation, magic bytes
 - [Database](../architecture/database.md#blob-storage) - Blob storage for files and thumbnails
-- [UI Features](ui-features.md) - Input toolbar, file upload UI
+- [Composer](ui-composer.md) - Input toolbar, file upload UI

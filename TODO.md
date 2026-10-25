@@ -88,7 +88,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Input (B4): 11 handlers read raw `request.args` (pagination in conversations/messages/organize/sync, costs, search, planner) - needs a query-string counterpart to `@validate_request` first.
   - Frontend: runtime import cycles: 189 edges across 50 modules in `web/tests/unit/import-cycles.baseline.json` (F1; the guard fails on new ones); 26 hand-written API types duplicating generated ones (F6; the request types are aliases since Oct 25 2026); 134 baselined `innerHTML` writes (F3, `no-unsanitized` in `web/eslint-suppressions.json`) - mostly static icons, which an icon helper (`setIcon(el, ICON)`) would clear in bulk.
   - Ops: rate limits use `memory://`, so each worker counts separately (limits are effectively x2) and a reload resets them - low risk (sign-in is a Google-verified token checked against the allow-list; the limits only stop runaway clients), and the production host has no Redis; fix with a small SQLite-backed `limits` storage (a registered `STORAGE_SCHEME`) in its own database file; backups share the server's disk (see the off-site item).
-  - Docs: `features/deep-research.md` (513 lines) and `features/ui-features.md` (509) need splitting; `tests/e2e-server.py` is 1,800 lines.
+  - `tests/e2e-server.py` is 1,800 lines.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
