@@ -8,6 +8,7 @@ neither retry nor tell the user.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Generator
 from typing import TYPE_CHECKING
 
@@ -351,7 +352,7 @@ class TestSearchMemory:
 
         result = str(search_memory.invoke({"query": "  "}))
 
-        assert "Error" in result
+        assert json.loads(result) == {"error": "'query' is required."}
 
 
 class TestMemoryEmbeddingHook:

@@ -6,6 +6,7 @@ sensitive or potentially dangerous actions.
 
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -99,9 +100,10 @@ def request_approval(
     agent_context = get_agent_context()
 
     if not agent_context:
-        return (
-            "Error: request_approval can only be used by autonomous agents. "
-            "In interactive mode, simply ask the user directly."
+        return tool_error(
+            "request_approval can only be used by autonomous agents. "
+            "In interactive mode, simply ask the user directly.",
+            retriable=False,
         )
 
     agent = agent_context.agent

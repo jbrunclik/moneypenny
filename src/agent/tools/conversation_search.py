@@ -18,6 +18,7 @@ from langchain_core.tools import tool
 
 from src.agent.conversation_compaction import summarized_message_ids
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.db.models import db
 from src.utils.embeddings import embed_text, top_k_similar
@@ -164,11 +165,13 @@ def search_conversations(query: str, limit: int = 10) -> str:
     """
     conversation_id, user_id = get_conversation_context()
     if not user_id:
-        return "Error: no user context available, cannot search conversations."
+        return tool_error(
+            "No user context available, cannot search conversations.", retriable=False
+        )
 
     query = query.strip()
     if not query:
-        return "Error: 'query' is required."
+        return tool_error("'query' is required.")
 
     limit = max(1, min(int(limit), Config.CONVERSATION_SEARCH_MAX_RESULTS))
 
@@ -226,7 +229,7 @@ def read_conversation(conversation_id: str, max_messages: int = 30) -> str:
     """
     _, user_id = get_conversation_context()
     if not user_id:
-        return "Error: no user context available, cannot read conversations."
+        return tool_error("No user context available, cannot read conversations.", retriable=False)
 
     # Ownership check: get_conversation is scoped by user_id, so another user's
     # conversation is indistinguishable from a nonexistent one.

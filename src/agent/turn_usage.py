@@ -59,10 +59,10 @@ def tool_usage_details(messages: Iterable[BaseMessage]) -> tuple[list[str], int]
     """(sorted unique tool names, error count) over a turn's ToolMessages.
 
     Errors use the same structural detection as self-correction
-    (graph._tool_message_error): status=="error" or a JSON error envelope.
+    (graph.tool_message_error): status=="error" or a JSON error envelope.
     Feeds the per-turn observability columns on message_costs.
     """
-    from src.agent.graph import _tool_message_error  # noqa: PLC0415
+    from src.agent.graph import tool_message_error  # noqa: PLC0415
 
     names: set[str] = set()
     errors = 0
@@ -71,7 +71,7 @@ def tool_usage_details(messages: Iterable[BaseMessage]) -> tuple[list[str], int]
             continue
         if message.name:
             names.add(message.name)
-        if _tool_message_error(message) is not None:
+        if tool_message_error(message) is not None:
             errors += 1
     return sorted(names), errors
 

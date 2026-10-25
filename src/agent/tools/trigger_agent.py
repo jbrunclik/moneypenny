@@ -6,6 +6,7 @@ enabling multi-agent workflows and coordination.
 
 from langchain_core.tools import tool
 
+from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -39,7 +40,7 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     # Get current context to find user
     context = get_agent_context()
     if not context:
-        return "Error: trigger_agent can only be used by autonomous agents"
+        return tool_error("trigger_agent can only be used by autonomous agents", retriable=False)
 
     user_id = context.user.id
 

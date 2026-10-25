@@ -10,6 +10,7 @@ from dataclasses import asdict
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.db.models import db
 from src.utils.logging import get_logger
 from src.utils.planner_data import build_planner_dashboard
@@ -73,16 +74,18 @@ def refresh_planner_dashboard() -> str:
     user_id, todoist_token, calendar_token, garmin_token = _get_user_tokens()
 
     if not user_id:
-        return (
-            "Error: Unable to refresh dashboard - no active user context. "
-            "This tool can only be used in authenticated conversations."
+        return tool_error(
+            "Unable to refresh dashboard - no active user context. "
+            "This tool can only be used in authenticated conversations.",
+            retriable=False,
         )
 
     # Check if at least one integration is connected
     if not todoist_token and not calendar_token:
-        return (
-            "Error: No integrations connected. Please connect Todoist or "
-            "Google Calendar in Settings before using the planner."
+        return tool_error(
+            "No integrations connected. Please connect Todoist or "
+            "Google Calendar in Settings before using the planner.",
+            retriable=False,
         )
 
     try:

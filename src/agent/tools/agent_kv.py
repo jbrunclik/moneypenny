@@ -10,6 +10,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.db.models import db
 from src.utils.logging import get_logger
 
@@ -80,14 +81,17 @@ def kv_store(  # noqa: C901, PLR0912, PLR0915
     # Get user context
     _, user_id = get_conversation_context()
     if not user_id:
-        return "Error: No user context available. Cannot access K/V store."
+        return tool_error("No user context available. Cannot access K/V store.", retriable=False)
 
     # Available during autonomous agent execution, sports, or language conversations
     agent_context = get_agent_context()
     sports_program = get_sports_context()
     language_program = get_language_context()
     if not agent_context and not sports_program and not language_program:
-        return "Error: kv_store is only available during autonomous agent, sports, or language conversations."
+        return tool_error(
+            "kv_store is only available during autonomous agent, sports, or language conversations.",
+            retriable=False,
+        )
 
     # Auto-default namespace
     if not namespace:
@@ -100,15 +104,17 @@ def kv_store(  # noqa: C901, PLR0912, PLR0915
 
     # Validate action
     if action not in ("get", "set", "merge", "delete", "list"):
-        return f"Error: Invalid action '{action}'. Use 'get', 'set', 'merge', 'delete', or 'list'."
+        return tool_error(
+            f"Invalid action '{action}'. Use 'get', 'set', 'merge', 'delete', or 'list'."
+        )
 
     # Validate key length
     if key and len(key) > _MAX_KEY_LENGTH:
-        return f"Error: Key too long ({len(key)} chars). Maximum is {_MAX_KEY_LENGTH}."
+        return tool_error(f"Key too long ({len(key)} chars). Maximum is {_MAX_KEY_LENGTH}.")
 
     if action == "get":
         if not key:
-            return "Error: 'key' is required for 'get' action."
+            return tool_error("'key' is required for 'get' action.")
         result = db.kv_get(user_id, namespace, key)
         if result is None:
             return f"Key '{key}' not found in namespace '{namespace}'."
@@ -116,63 +122,79 @@ def kv_store(  # noqa: C901, PLR0912, PLR0915
 
     if action == "set":
         if not key:
-            return "Error: 'key' is required for 'set' action."
+            return tool_error("'key' is required for 'set' action.")
         if not value:
-            return "Error: 'value' is required for 'set' action."
+            return tool_error("'value' is required for 'set' action.")
         if len(value) > _MAX_VALUE_SIZE:
-            return f"Error: Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            return tool_error(
+                f"Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            )
         # Validate JSON
         try:
             json.loads(value)
         except json.JSONDecodeError, TypeError:
-            return "Error: Value must be valid JSON."
+            return tool_error("Value must be valid JSON.")
         # Check key count limit
         current_count = db.kv_count(user_id, namespace)
         existing = db.kv_get(user_id, namespace, key)
         if existing is None and current_count >= _MAX_KEYS_PER_NAMESPACE:
-            return f"Error: Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys."
+            return tool_error(
+                f"Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys.",
+                retriable=False,
+            )
         db.kv_set(user_id, namespace, key, value)
         return f"Stored '{key}' in namespace '{namespace}'."
 
     if action == "merge":
         if not key:
-            return "Error: 'key' is required for 'merge' action."
+            return tool_error("'key' is required for 'merge' action.")
         if not value:
-            return "Error: 'value' is required for 'merge' action."
+            return tool_error("'value' is required for 'merge' action.")
         if len(value) > _MAX_VALUE_SIZE:
-            return f"Error: Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            return tool_error(
+                f"Value too large ({len(value)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            )
         try:
             patch = json.loads(value)
         except json.JSONDecodeError, TypeError:
-            return "Error: Value must be valid JSON."
+            return tool_error("Value must be valid JSON.")
         if not isinstance(patch, dict):
-            return "Error: 'merge' requires a JSON object. Use 'set' to replace a non-object value."
+            return tool_error(
+                "'merge' requires a JSON object. Use 'set' to replace a non-object value."
+            )
 
         stored = db.kv_get(user_id, namespace, key)
         base: dict[str, Any] = {}
         if stored is None:
             if db.kv_count(user_id, namespace) >= _MAX_KEYS_PER_NAMESPACE:
-                return f"Error: Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys."
+                return tool_error(
+                    f"Namespace '{namespace}' has reached the maximum of {_MAX_KEYS_PER_NAMESPACE} keys.",
+                    retriable=False,
+                )
         else:
             try:
                 decoded = json.loads(stored)
             except json.JSONDecodeError, TypeError:
-                return (
-                    f"Error: Stored value for '{key}' is not valid JSON. Use 'set' to replace it."
+                return tool_error(
+                    f"Stored value for '{key}' is not valid JSON. Use 'set' to replace it."
                 )
             if not isinstance(decoded, dict):
-                return f"Error: Stored value for '{key}' is not a JSON object. Use 'set' to replace it."
+                return tool_error(
+                    f"Stored value for '{key}' is not a JSON object. Use 'set' to replace it."
+                )
             base = decoded
 
         merged = json.dumps(_deep_merge(base, patch))
         if len(merged) > _MAX_VALUE_SIZE:
-            return f"Error: Merged value too large ({len(merged)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            return tool_error(
+                f"Merged value too large ({len(merged)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
+            )
         db.kv_set(user_id, namespace, key, merged)
         return f"Merged into '{key}' in namespace '{namespace}'. New value:\n{merged}"
 
     if action == "delete":
         if not key:
-            return "Error: 'key' is required for 'delete' action."
+            return tool_error("'key' is required for 'delete' action.")
         deleted = db.kv_delete(user_id, namespace, key)
         if deleted:
             return f"Deleted '{key}' from namespace '{namespace}'."

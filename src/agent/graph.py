@@ -404,7 +404,7 @@ def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:
     return {**config, "callbacks": callbacks}
 
 
-def _tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
+def tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
     """Return (error_text, retriable) if the ToolMessage is a failure, else None.
 
     Detection is structural — never substring matching, which false-positived
@@ -541,7 +541,7 @@ def check_tool_results(  # noqa: C901, PLR0912, PLR0915
     error_details: list[str] = []
     for msg in reversed(messages):
         if isinstance(msg, ToolMessage):
-            found = _tool_message_error(msg)
+            found = tool_message_error(msg)
             if found is not None:
                 error_text, retriable = found
                 has_error = True

@@ -7,6 +7,7 @@ Tests for:
 - refresh_planner_dashboard tool
 """
 
+import json
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -791,8 +792,9 @@ class TestRefreshPlannerDashboardTool:
 
         # Call the tool without setting user context
         result = refresh_planner_dashboard.invoke({})
-        assert "Error: Unable to refresh dashboard" in result
-        assert "no active user context" in result
+        error = json.loads(result)
+        assert "no active user context" in error["error"]
+        assert error["retriable"] is False
 
     def test_tool_requires_integrations(self, mocker: Any) -> None:
         """Test that the tool returns an error when no integrations are connected."""
@@ -818,7 +820,7 @@ class TestRefreshPlannerDashboardTool:
 
         # Call the tool
         result = refresh_planner_dashboard.invoke({})
-        assert "Error: No integrations connected" in result
+        assert json.loads(result)["error"].startswith("No integrations connected")
 
     def test_tool_refreshes_dashboard_successfully(self, mocker: Any) -> None:
         """Test that the tool successfully refreshes the dashboard."""

@@ -22,6 +22,7 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.models import db
@@ -185,7 +186,7 @@ def manage_memory(operations: list[dict[str, Any]]) -> str:
 
     conversation_id, user_id = get_conversation_context()
     if not user_id:
-        return "Error: no user context available, memories were not changed."
+        return tool_error("No user context available, memories were not changed.", retriable=False)
 
     if not operations:
         return "No operations submitted."
@@ -259,11 +260,11 @@ def search_memory(query: str) -> str:
     """
     _, user_id = get_conversation_context()
     if not user_id:
-        return "Error: no user context available, cannot search memories."
+        return tool_error("No user context available, cannot search memories.", retriable=False)
 
     query = (query or "").strip()
     if not query:
-        return "Error: 'query' is required."
+        return tool_error("'query' is required.")
 
     memories = db.list_memories(user_id)
     by_id = {mem.id: mem for mem in memories}

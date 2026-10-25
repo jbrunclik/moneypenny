@@ -66,7 +66,7 @@ session and points here for the rest.
 | B2 | No importing another module's `_private` names - make it public or move it | planned: test |
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | planned: test |
-| B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined) |
+| B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined); `tests/unit/test_tool_errors.py` (no `"Error: ..."` tool results) |
 | B6 | Typing follows [Typing](#typing) | mypy strict; planned: `Any` ratchet |
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
@@ -153,8 +153,9 @@ through callbacks or `core/events`, not by importing `core`; `utils` and
 - API errors go through `raise_*_error()` from `src/api/errors.py`. Never
   return `str(e)` to a client, and never return HTTP 200 with an `error`
   field.
-- Agent tools report failures through one shape (a single helper), so the
-  model always sees the same structure.
+- Agent tools report failures through `tool_error()`
+  (`src/agent/tools/errors.py`): a JSON `{"error": ...}` envelope the graph's
+  self-correction recognises; `retriable=False` when a retry cannot help.
 - Project exceptions end in `Error`.
 
 ## Logging and privacy
