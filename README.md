@@ -158,8 +158,8 @@ Built for a household of a few users, deployed on a single box.
 
 ### Prerequisites
 
-- Python 3.14+
-- Node.js 18+ and npm
+- Python 3.14+ ([uv](https://docs.astral.sh/uv/) recommended: `make setup` then uses `.python-version`)
+- Node.js 24+ and npm 11+ (`.nvmrc`; `npm ci` refuses older versions)
 - Git LFS (for visual test screenshots)
 - Google Gemini API key ([Get one here](https://aistudio.google.com/apikey))
 - (Optional) Google Cloud project for authentication

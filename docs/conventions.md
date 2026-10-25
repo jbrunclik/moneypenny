@@ -51,7 +51,7 @@ session and points here for the rest.
 | P3 | Dependabot auto-merges patch and minor updates only | workflow + test (`test_dependabot_majors.py`); planned: audit as a merge condition |
 | P4 | CI cancels superseded runs, has read-only permissions and job timeouts, and takes Python from `.python-version` | workflows; planned: actionlint |
 | P5 | Production installs runtime dependencies only (separate dev lock) | planned |
-| P6 | Toolchain versions agree: Node `engines` = `.nvmrc`, npm pinned via `packageManager`, `make setup` uses uv | planned |
+| P6 | Toolchain versions agree: Node 24+ and npm 11+ (`engines` = `.nvmrc` major, `engine-strict`), Python from `.python-version` (`make setup` via uv, CI) | `web/.npmrc`, Makefile, workflows |
 | P7 | Tests that need Docker or Chromium run in CI (a parallel job), never skip silently there | planned: CI job |
 
 ### Backend architecture (B)

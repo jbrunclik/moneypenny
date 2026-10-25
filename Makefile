@@ -74,11 +74,16 @@ help:
 	@echo "  backup-list           List existing database backups"
 	@echo "  defrag-memories       Run memory defragmentation manually"
 
+# uv takes the Python version from .python-version (plain venv uses whatever
+# python3 is); npm ci installs the lockfile as is (npm install rewrites it)
 setup:
-	python3 -m venv $(VENV)
-	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
-	cd web && $(NPM) install
+	@if command -v uv >/dev/null 2>&1; then \
+		uv venv --seed --allow-existing --python "$$(cat .python-version)" $(VENV) && \
+		uv pip install --python $(VENV)/bin/python -r requirements.txt; \
+	else \
+		python3 -m venv $(VENV) && $(PIP) install --upgrade pip && $(PIP) install -r requirements.txt; \
+	fi
+	cd web && $(NPM) ci
 	@echo ""
 	@echo "Setup complete. Activate with: source $(VENV)/bin/activate"
 	@echo ""
