@@ -40,7 +40,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: requirements*.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -51,7 +51,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install --system -r requirements.txt -r requirements-dev.txt
 
       - name: Install Node dependencies
         run: cd web && npm ci
@@ -60,12 +60,12 @@ jobs:
         run: make lint
 
       # P1: the committed OpenAPI spec, TS types and lock must match their
-      # sources. uv keeps the pins already in requirements.txt, so only an
-      # edit to requirements.in without `make lock` shows up here.
+      # sources. uv keeps the pins already in the locks, so only an edit to
+      # requirements*.in without `make lock` shows up here.
       - name: Generated files match their sources
         run: |
           make openapi types lock
-          git diff --exit-code static/openapi.json web/src/types/generated-api.ts requirements.txt
+          git diff --exit-code static/openapi.json web/src/types/generated-api.ts requirements.txt requirements-dev.txt
 
   # S9: the repo is public - no secrets and no infrastructure details
   public-repo-scan:
@@ -74,22 +74,53 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # every commit of the push, not just the final tree
 
-      - name: No secrets in tracked files (gitleaks)
+      # A committed config or ignore file could switch rules off: adding one
+      # must be a visible decision, so it fails here until this job allows it
+      - name: Scanner configuration is not overridden
         run: |
-          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
-            dir /repo --no-banner --redact
+          if git ls-files --error-unmatch .gitleaks.toml .gitleaksignore >/dev/null 2>&1; then
+            echo "::error::.gitleaks.toml/.gitleaksignore is tracked - review it, then allow it in this job"
+            exit 1
+          fi
+
+      - name: No secrets in the tree or in the pushed commits (gitleaks)
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            range="origin/$BASE_REF..HEAD"
+          elif [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            range="$BEFORE..HEAD"
+          else
+            range="-1"
+          fi
+          image=ghcr.io/gitleaks/gitleaks:v8.30.1
+          docker run --rm -v "$PWD:/repo:ro" "$image" dir /repo --no-banner --redact
+          # The container's user doesn't own the checkout: git needs it marked safe
+          docker run --rm -v "$PWD:/repo:ro" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+            "$image" git /repo --no-banner --redact --log-opts="$range"
 
       # Hostnames, IPs and provider names live in the FORBIDDEN_PATTERNS secret
       # (one per line), never in the repo. Only file:line is printed: a public
-      # repo's CI logs are public too.
+      # repo's CI logs are public too. Dependabot and fork PRs get no secrets,
+      # so only they may skip; everywhere else a missing secret fails.
       - name: No infrastructure details in tracked files
         env:
           FORBIDDEN_PATTERNS: ${{ secrets.FORBIDDEN_PATTERNS }}
+          NO_SECRETS: ${{ github.actor == 'dependabot[bot]' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
         run: |
           if [ -z "$FORBIDDEN_PATTERNS" ]; then
-            echo "::warning::FORBIDDEN_PATTERNS secret not set; infrastructure scan skipped"
-            exit 0
+            if [ "$NO_SECRETS" = "true" ]; then
+              echo "::warning::No secrets for this run (Dependabot or fork); infrastructure scan skipped"
+              exit 0
+            fi
+            echo "::error::The FORBIDDEN_PATTERNS repository secret is not set"
+            exit 1
           fi
           printf '%s\n' "$FORBIDDEN_PATTERNS" | sed '/^$/d' > "$RUNNER_TEMP/patterns"
           hits=$(git grep -n -I -i -F -f "$RUNNER_TEMP/patterns" | cut -d: -f1,2 || true)
@@ -116,10 +147,10 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: requirements*.txt
 
       - name: Install dependencies
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install --system -r requirements.txt -r requirements-dev.txt
 
       - name: Run backend tests with coverage
         run: make test-cov
@@ -150,10 +181,10 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: requirements*.txt
 
       - name: Install dependencies
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install --system -r requirements.txt -r requirements-dev.txt
 
       - name: Install Chromium
         run: python -m playwright install --with-deps chromium
@@ -268,7 +299,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: requirements*.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -279,7 +310,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install --system -r requirements.txt -r requirements-dev.txt
 
       - name: Install Node dependencies
         run: cd web && npm ci
@@ -364,7 +395,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: requirements.txt
+          cache-dependency-glob: requirements*.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -375,7 +406,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies
-        run: uv pip install --system -r requirements.txt
+        run: uv pip install --system -r requirements.txt -r requirements-dev.txt
 
       - name: Install Node dependencies
         run: cd web && npm ci
