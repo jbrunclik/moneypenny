@@ -48,6 +48,18 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
       latest_migration: '0068_unique_planner_conversation',
       users: 5,
     },
+    browser_errors: [
+      {
+        kind: 'unhandled_rejection',
+        message: 'TypeError: <img> is undefined',
+        stack: 'TypeError: x\n    at renderList (main.js:2:5)',
+        path: '#/chat/abc',
+        app_version: 'abc123',
+        count: 7,
+        users: 2,
+        last_seen: '2026-10-25T14:02:00',
+      },
+    ],
     ...overrides,
   };
 }
@@ -99,6 +111,21 @@ describe('renderAdminOverview', () => {
     expect(page.querySelector('.admin-search-degraded')).not.toBeNull();
     expect(page.querySelector('[data-provider="brave"]')?.textContent).toContain('1000 / 1000');
     expect(page.querySelector('[data-provider="ddgs"]')?.textContent).toContain('unmetered');
+  });
+
+  it('lists browser errors with how often, for how many and where', () => {
+    const item = render(overview()).querySelector('.admin-browser-errors li');
+    expect(item?.textContent).toContain('TypeError: <img> is undefined'); // escaped, as text
+    expect(item?.querySelector('img')).toBeNull();
+    expect(item?.textContent).toContain('7×');
+    expect(item?.textContent).toContain('2 people');
+    expect(item?.textContent).toContain('#/chat/abc');
+    expect(item?.querySelector('details pre')?.textContent).toContain('renderList');
+  });
+
+  it('says when the browser reported no errors', () => {
+    const page = render(overview({ browser_errors: [] }));
+    expect(page.textContent).toContain('No browser errors in the last 7 days');
   });
 
   it('shows response quality and system facts readably', () => {

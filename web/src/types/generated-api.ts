@@ -1311,6 +1311,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record an error the browser caught, for the admin page and reviews. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ClientErrorReport"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/garmin/status": {
         parameters: {
             query?: never;
@@ -8082,6 +8147,37 @@ export interface components {
             message: string;
         };
         /**
+         * ClientErrorKind
+         * @description How the browser caught the error.
+         * @enum {string}
+         */
+        "ClientErrorReport.ClientErrorKind": "error" | "unhandled_rejection" | "logged";
+        /**
+         * ClientErrorReport
+         * @description One error from the browser. Long text is accepted and cut server-side.
+         */
+        ClientErrorReport: {
+            kind: components["schemas"]["ClientErrorReport.ClientErrorKind"];
+            /** Message */
+            message: string;
+            /**
+             * Stack
+             * @default null
+             */
+            stack: string | null;
+            /**
+             * Path
+             * @description Route path, no query
+             * @default null
+             */
+            path: string | null;
+            /**
+             * App Version
+             * @default null
+             */
+            app_version: string | null;
+        };
+        /**
          * GarminStatusResponse
          * @description Response containing Garmin connection status.
          */
@@ -8158,6 +8254,45 @@ export interface components {
             pending_approvals: number;
             /** Recent Failures */
             recent_failures: components["schemas"]["AdminOverviewResponse.AgentFailure"][];
+        };
+        /** BrowserError */
+        "AdminOverviewResponse.BrowserError": {
+            /**
+             * Kind
+             * @description error, unhandled_rejection or logged
+             */
+            kind: string;
+            /**
+             * Message
+             * @description Cut to 300 characters
+             */
+            message: string;
+            /**
+             * Stack
+             * @description The first frames
+             * @default null
+             */
+            stack: string | null;
+            /**
+             * Path
+             * @description Route path of the latest occurrence
+             * @default null
+             */
+            path: string | null;
+            /**
+             * App Version
+             * @default null
+             */
+            app_version: string | null;
+            /**
+             * Count
+             * @description Occurrences across users
+             */
+            count: number;
+            /** Users */
+            users: number;
+            /** Last Seen */
+            last_seen: string;
         };
         /** DailySpend */
         "AdminOverviewResponse.DailySpend": {
@@ -8310,6 +8445,11 @@ export interface components {
             search: components["schemas"]["AdminOverviewResponse.SearchSection"];
             quality: components["schemas"]["AdminOverviewResponse.QualitySection"];
             system: components["schemas"]["AdminOverviewResponse.SystemSection"];
+            /**
+             * Browser Errors
+             * @description Seen in the last 7 days, most frequent first
+             */
+            browser_errors: components["schemas"]["AdminOverviewResponse.BrowserError"][];
         };
         /**
          * TodoistStatusResponse

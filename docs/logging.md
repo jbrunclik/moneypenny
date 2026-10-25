@@ -151,6 +151,11 @@ def process_chat_request(user_id: str, data: dict) -> dict:
 
 The frontend uses a structured logging utility similar to the backend, providing consistent logging across the application.
 
+Errors also reach the server: `log.error(...)` entries, uncaught errors and
+unhandled rejections are reported to `POST /api/client-errors` (message,
+stack, route, build - never the context object) and listed on the admin page.
+See [Browser errors](features/admin.md#browser-errors).
+
 ### Log Format
 
 **Development** - Colored console output:

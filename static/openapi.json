@@ -63,6 +63,9 @@
     },
     {
       "name": "Admin"
+    },
+    {
+      "name": "Client errors"
     }
   ],
   "paths": {
@@ -922,6 +925,59 @@
         ],
         "summary": "Manually reset the planner conversation.",
         "description": "Physically deletes all messages from the planner conversation\n(not soft delete). Message costs are preserved for accurate\ncost tracking.\n\nThis also clears the dashboard cache so the next request fetches\nfresh data.\n\nReturns:\n- success: True if reset was successful\n- message: Human-readable status message"
+      }
+    },
+    "/api/client-errors": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Client errors"
+        ],
+        "summary": "Record an error the browser caught, for the admin page and reviews.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientErrorReport"
+              }
+            }
+          }
+        }
       }
     },
     "/auth/garmin/status": {
@@ -8141,6 +8197,76 @@
         "title": "PlannerResetResponse",
         "type": "object"
       },
+      "ClientErrorReport.ClientErrorKind": {
+        "description": "How the browser caught the error.",
+        "enum": [
+          "error",
+          "unhandled_rejection",
+          "logged"
+        ],
+        "title": "ClientErrorKind",
+        "type": "string"
+      },
+      "ClientErrorReport": {
+        "description": "One error from the browser. Long text is accepted and cut server-side.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ClientErrorReport.ClientErrorKind"
+          },
+          "message": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stack"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Route path, no query",
+            "title": "Path"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Version"
+          }
+        },
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "ClientErrorReport",
+        "type": "object"
+      },
       "GarminStatusResponse": {
         "description": "Response containing Garmin connection status.",
         "properties": {
@@ -8271,6 +8397,80 @@
           "recent_failures"
         ],
         "title": "AgentsSection",
+        "type": "object"
+      },
+      "AdminOverviewResponse.BrowserError": {
+        "properties": {
+          "kind": {
+            "description": "error, unhandled_rejection or logged",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "description": "Cut to 300 characters",
+            "title": "Message",
+            "type": "string"
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The first frames",
+            "title": "Stack"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Route path of the latest occurrence",
+            "title": "Path"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Version"
+          },
+          "count": {
+            "description": "Occurrences across users",
+            "title": "Count",
+            "type": "integer"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          },
+          "last_seen": {
+            "title": "Last Seen",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "message",
+          "count",
+          "users",
+          "last_seen"
+        ],
+        "title": "BrowserError",
         "type": "object"
       },
       "AdminOverviewResponse.DailySpend": {
@@ -8601,6 +8801,14 @@
           },
           "system": {
             "$ref": "#/components/schemas/AdminOverviewResponse.SystemSection"
+          },
+          "browser_errors": {
+            "description": "Seen in the last 7 days, most frequent first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.BrowserError"
+            },
+            "title": "Browser Errors",
+            "type": "array"
           }
         },
         "required": [
@@ -8610,7 +8818,8 @@
           "agents",
           "search",
           "quality",
-          "system"
+          "system",
+          "browser_errors"
         ],
         "title": "AdminOverviewResponse",
         "type": "object"

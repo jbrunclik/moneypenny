@@ -49,6 +49,7 @@ from src.api.routes import (
     auth,
     calendar,
     chat,
+    client_errors,
     conversation_messages,  # noqa: F401
     conversation_organize,  # noqa: F401
     conversation_search,  # noqa: F401
@@ -108,6 +109,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(language.api)
     app.register_blueprint(push.api)
     app.register_blueprint(admin.api)
+    app.register_blueprint(client_errors.api)
 
 
 __all__ = [

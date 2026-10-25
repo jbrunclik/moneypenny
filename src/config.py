@@ -57,6 +57,10 @@ class Config:
     ]
     # A user whose spend today passes this sees a banner (S12) - never a block
     SPEND_WARNING_DAILY_USD: float = float(os.getenv("SPEND_WARNING_DAILY_USD", "10"))
+    # Browser errors reported to the server (admin page, regular reviews):
+    # rows unseen this long are pruned, and each user keeps at most this many
+    CLIENT_ERROR_RETENTION_DAYS: int = int(os.getenv("CLIENT_ERROR_RETENTION_DAYS", "30"))
+    CLIENT_ERROR_MAX_ROWS_PER_USER: int = int(os.getenv("CLIENT_ERROR_MAX_ROWS_PER_USER", "200"))
 
     # Server
     PORT: int = int(os.getenv("PORT", "8000"))

@@ -7,7 +7,7 @@ This directory contains detailed documentation for the Moneypenny project, organ
 ### Features (`features/`)
 Feature-specific documentation covering user-facing functionality:
 
-- **[admin.md](features/admin.md)** - Admin page (ADMIN_EMAILS: spend, agent health, web-search quotas, response quality, system facts) and the daily spend warning banner
+- **[admin.md](features/admin.md)** - Admin page (ADMIN_EMAILS: spend, agent health, web-search quotas, response quality, browser errors, system facts), browser error reporting, and the daily spend warning banner
 - **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention
 - **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
 - **[freshness.md](features/freshness.md)** - Current facts: freshness gate (lookup before the turn, dated queries, failed-lookup note), `published` dates and the `_recency` note on search results, snippets-are-not-verification directive, recent-news grounding scope, config, evals
@@ -70,6 +70,7 @@ User interface patterns and implementations:
 - **[testing/visual.md](testing/visual.md)** - Visual regression tests: darwin vs Linux baselines, regeneration via Docker or CI
 - **[testing/evals.md](testing/evals.md)** - Agent behavior evals: golden cases + LLM judge (`make eval`), when to run, case authoring
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
+- **[regular-review.md](regular-review.md)** - The weekly/monthly review checklist (`/product-review`): errors users hit (browser and server), agents, cost and speed, answer quality, code-health baselines, dependencies and parked TODO triggers; report template
 - **[conventions.md](conventions.md)** - Engineering standards: every rule with its ID and enforcer (security, layers, errors, logging, typing, size, testing, agent workflow)
 - **[superpowers/specs/](superpowers/specs/)** - Design specs still referenced by open work (parked or with deferred follow-ups). Shipped specs and plans are deleted; git history keeps them
 

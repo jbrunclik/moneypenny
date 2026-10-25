@@ -54,6 +54,29 @@ export function getRequestId(): string | null {
 }
 
 /**
+ * Receives every error-level entry: the logger's name, the message and the
+ * first Error in its context. Set by core/error-reporting (utils cannot call
+ * the API itself); the context is never passed on - it can hold content.
+ */
+export type ErrorSink = (loggerName: string, message: string, error?: Error) => void;
+
+let errorSink: ErrorSink | null = null;
+
+export function setErrorSink(sink: ErrorSink | null): void {
+  errorSink = sink;
+}
+
+function notifyErrorSink(loggerName: string, message: string, context?: LogContext): void {
+  if (!errorSink) return;
+  const error = Object.values(context ?? {}).find((v): v is Error => v instanceof Error);
+  try {
+    errorSink(loggerName, message, error);
+  } catch {
+    // A broken sink must never break the caller's error handling
+  }
+}
+
+/**
  * Generate a unique request ID.
  */
 export function generateRequestId(): string {
@@ -228,6 +251,7 @@ export function createLogger(name: string): Logger {
         const entry = formatLogEntry('error', name, message, context);
         outputLog('error', entry);
       }
+      notifyErrorSink(name, message, context);
     },
   };
 }

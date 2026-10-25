@@ -80,6 +80,17 @@ class SystemSection(BaseModel):
     users: int
 
 
+class BrowserError(BaseModel):
+    kind: str = Field(..., description="error, unhandled_rejection or logged")
+    message: str = Field(..., description="Cut to 300 characters")
+    stack: str | None = Field(None, description="The first frames")
+    path: str | None = Field(None, description="Route path of the latest occurrence")
+    app_version: str | None = None
+    count: int = Field(..., description="Occurrences across users")
+    users: int
+    last_seen: str
+
+
 class AdminOverviewResponse(BaseModel):
     """Everything the admin page shows - names and numbers, no conversation content."""
 
@@ -90,6 +101,9 @@ class AdminOverviewResponse(BaseModel):
     search: SearchSection
     quality: QualitySection
     system: SystemSection
+    browser_errors: list[BrowserError] = Field(
+        ..., description="Seen in the last 7 days, most frequent first"
+    )
 
 
 class SpendStatusResponse(BaseModel):

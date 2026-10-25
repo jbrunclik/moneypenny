@@ -28,6 +28,7 @@ from src.db.models.agent_stats import AgentStatsMixin
 from src.db.models.artifacts import ArtifactMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
+from src.db.models.client_errors import ClientErrorsMixin
 from src.db.models.conversation import ConversationMixin
 from src.db.models.conversation_archive import ConversationArchiveMixin
 from src.db.models.conversation_listing import ConversationListingMixin
@@ -105,6 +106,7 @@ class Database(
     SyncChangesMixin,
     ArtifactMixin,
     AdminMixin,
+    ClientErrorsMixin,
 ):
     """Main database class combining all mixins.
 

@@ -56,6 +56,7 @@ import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../componen
 import { initTurnAnchorResizeHold } from '../components/messages/turn-anchor';
 import { initHeaderAutoHide } from './header-autohide';
 import { initVersionBanner } from '../components/VersionBanner';
+import { initErrorReporting } from './error-reporting';
 import { getElementById, clearElement } from '../utils/dom';
 import { initializeTheme } from '../utils/theme';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
@@ -492,6 +493,9 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
  */
 export async function init(): Promise<void> {
   log.info('Initializing application');
+
+  // First, so errors from the rest of startup reach the server too
+  initErrorReporting();
 
   // Initialize theme early to prevent flash of wrong theme
   const { scheme, effectiveTheme } = initializeTheme();

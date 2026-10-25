@@ -136,6 +136,35 @@ function renderQuality(quality: AdminOverview['quality']): string {
   );
 }
 
+const BROWSER_ERROR_KINDS: Record<string, string> = {
+  error: 'Uncaught',
+  unhandled_rejection: 'Unhandled rejection',
+  logged: 'Logged',
+};
+
+function renderBrowserError(e: AdminOverview['browser_errors'][number]): string {
+  const people = e.users === 1 ? '1 person' : `${e.users} people`;
+  const meta = [
+    BROWSER_ERROR_KINDS[e.kind] ?? e.kind,
+    `${e.count}×`,
+    people,
+    `last ${dateTime(e.last_seen)}`,
+    e.path ?? '',
+    e.app_version ? `build ${e.app_version}` : '',
+  ].filter(Boolean);
+  const stack = e.stack
+    ? `<details><summary>Stack</summary><pre>${escapeHtml(e.stack)}</pre></details>`
+    : '';
+  return `<li><span class="admin-error-text">${escapeHtml(e.message)}</span><br><span class="admin-browser-error-meta">${escapeHtml(meta.join(' · '))}</span>${stack}</li>`;
+}
+
+function renderBrowserErrors(errors: AdminOverview['browser_errors']): string {
+  const body = errors.length
+    ? `<ul class="admin-failures admin-browser-errors">${errors.map(renderBrowserError).join('')}</ul>`
+    : '<p class="admin-note">No browser errors in the last 7 days.</p>';
+  return section('Browser errors (7 days)', body);
+}
+
 function renderSystem(system: AdminOverview['system']): string {
   const facts: [string, string][] = [
     ['Version', system.version ?? '-'],
@@ -156,6 +185,7 @@ export function renderAdminOverview(data: AdminOverview): string {
     renderAgents(data.agents),
     renderSearch(data.search),
     renderQuality(data.quality),
+    renderBrowserErrors(data.browser_errors),
     renderSystem(data.system),
     `<p class="admin-note">Updated ${escapeHtml(dateTime(data.generated_at))}</p>`,
   ].join('');

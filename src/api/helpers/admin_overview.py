@@ -17,6 +17,8 @@ from src.utils.search_provider import degraded_today, quota_status
 
 SPEND_CHART_DAYS = 30
 RECENT_WINDOW = timedelta(days=7)
+BROWSER_ERRORS_SHOWN = 15
+STACK_FRAMES_SHOWN = 6  # the message line and five frames
 RECENT_FAILURES_SHOWN = 5
 # scripts/backup_databases.py writes backups/<database file name>/
 _BACKUP_DIR_NAME = "backups"
@@ -131,6 +133,15 @@ def _system() -> dict[str, Any]:
     }
 
 
+def _browser_errors(now: datetime) -> list[dict[str, Any]]:
+    errors = db.top_client_errors(now - RECENT_WINDOW, limit=BROWSER_ERRORS_SHOWN)
+    for error in errors:
+        error.pop("fingerprint")
+        if error["stack"]:
+            error["stack"] = "\n".join(error["stack"].splitlines()[:STACK_FRAMES_SHOWN])
+    return errors
+
+
 def build_overview(now: datetime | None = None) -> dict[str, Any]:
     """The whole admin page payload. `now` is a test seam."""
     now = now or datetime.now()
@@ -142,6 +153,7 @@ def build_overview(now: datetime | None = None) -> dict[str, Any]:
         "search": {"degraded_today": degraded_today(), "providers": quota_status()},
         "quality": _quality(now),
         "system": _system(),
+        "browser_errors": _browser_errors(now),
     }
 
 

@@ -70,6 +70,9 @@ export const SEND_CONFLICT_REPLY_POLL_DELAYS_MS = [
  */
 export const STALE_CHUNK_RELOAD_GUARD_MS = 30 * MS_PER_SECOND;
 
+/** Browser errors sent to the server per page load (one bad loop must not flood it) */
+export const ERROR_REPORTS_PER_PAGE_MAX = 20;
+
 /** Debounce for persisting the composer draft while typing */
 export const DRAFT_SAVE_DEBOUNCE_MS = 300;
 

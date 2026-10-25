@@ -65,6 +65,28 @@ const OVERVIEW = {
     latest_migration: '0068_unique_planner_conversation',
     users: 4,
   },
+  browser_errors: [
+    {
+      kind: 'unhandled_rejection',
+      message: "TypeError: Cannot read properties of undefined (reading 'scope')",
+      stack: "TypeError: Cannot read properties of undefined (reading 'scope')\n    at registerPush (main.js:2:5186)",
+      path: '#/settings',
+      app_version: '072db55d',
+      count: 14,
+      users: 3,
+      last_seen: '2026-10-25T14:02:00',
+    },
+    {
+      kind: 'logged',
+      message: '[sync] Sync failed: Network error. Please check your connection.',
+      stack: null,
+      path: '#/chat/4f2a',
+      app_version: '072db55d',
+      count: 3,
+      users: 1,
+      last_seen: '2026-10-24T21:40:00',
+    },
+  ],
 };
 
 async function openAdmin(page: Page): Promise<void> {
