@@ -1,8 +1,7 @@
 """Tests for the quota-aware search provider router.
 
-Providers are tried in priority order (brave -> tavily -> exa -> linkup ->
-ddgs);
-a provider is skipped when unconfigured or over its monthly quota, and a
+Providers are tried in priority order (SEARCH_PROVIDER_ORDER, default
+brave -> tavily -> exa -> linkup, then ddgs); a provider is skipped when unconfigured or over its monthly quota, and a
 failing provider falls through to the next one. Usage counters live in
 kv_store under a system sentinel user.
 """
@@ -31,6 +30,7 @@ from src.utils.search_provider import (
     get_monthly_usage,
     is_degraded,
     period_start,
+    quota_status,
     search_web,
     usage_key,
 )
@@ -106,6 +106,53 @@ class TestActiveProvider:
             patch("src.utils.search_provider.db", _fake_db(usage)),
         ):
             assert active_provider() == "tavily"
+
+
+class TestProviderOrder:
+    def _all_keys(self, order: str) -> Any:
+        return patch.multiple(
+            Config,
+            BRAVE_SEARCH_API_KEY="bk",
+            TAVILY_API_KEY="tk",
+            EXA_API_KEY="ek",
+            LINKUP_API_KEY="lk",
+            SEARCH_PROVIDER_ORDER=order,
+        )
+
+    def test_configured_order_decides_who_goes_first(self) -> None:
+        with (
+            self._all_keys("tavily,exa,linkup,brave"),
+            patch("src.utils.search_provider.db", _fake_db()),
+        ):
+            assert active_provider() == "tavily"
+            assert [s["provider"] for s in quota_status()] == [
+                "tavily",
+                "exa",
+                "linkup",
+                "brave",
+                "ddgs",
+            ]
+
+    def test_unlisted_providers_follow_in_default_order(self) -> None:
+        with (
+            self._all_keys(" linkup , nonsense"),
+            patch("src.utils.search_provider.db", _fake_db()),
+        ):
+            assert [s["provider"] for s in quota_status()] == [
+                "linkup",
+                "brave",
+                "tavily",
+                "exa",
+                "ddgs",
+            ]
+
+    def test_ddgs_stays_last_even_when_listed_first(self) -> None:
+        with (
+            self._all_keys("ddgs,exa"),
+            patch("src.utils.search_provider.db", _fake_db()),
+        ):
+            assert active_provider() == "exa"
+            assert quota_status()[-1]["provider"] == "ddgs"
 
 
 class TestRouting:
@@ -348,6 +395,14 @@ class TestExaSearch:
 
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "body text"}]
         assert mock_post.call_args.kwargs["headers"]["x-api-key"] == "exa-key"
+
+    @patch("src.utils.search_provider.httpx.post")
+    def test_requests_configured_search_type(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {"results": []}
+        with patch.multiple(Config, EXA_API_KEY="exa-key", EXA_SEARCH_TYPE="lite"):
+            _search_exa("q", 3)
+        assert mock_post.call_args.kwargs["json"]["type"] == "lite"
 
     @patch("src.utils.search_provider.httpx.post")
     def test_exa_out_of_credits_falls_through(self, mock_post: MagicMock) -> None:

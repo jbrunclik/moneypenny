@@ -361,14 +361,22 @@ class Config:
     FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 
     # Web search settings
-    # Providers are tried in priority order (brave -> tavily -> exa -> ddgs);
-    # a provider is skipped when its key is empty or its monthly quota is
-    # used up. DuckDuckGo (ddgs) is the unmetered terminal fallback.
-    # See src/utils/search_provider.py; usage counters live in kv_store.
+    # Providers are tried in priority order (SEARCH_PROVIDER_ORDER, default
+    # brave -> tavily -> exa -> linkup); a provider is skipped when its key is
+    # empty or its monthly quota is used up. DuckDuckGo (ddgs) is always the
+    # unmetered terminal fallback. See src/utils/search_provider.py; usage
+    # counters live in kv_store.
     BRAVE_SEARCH_API_KEY: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
     LINKUP_API_KEY: str = os.getenv("LINKUP_API_KEY", "")
+    # Comma-separated metered providers, first tried first; unlisted ones
+    # follow in the default order. Put a paid provider last so free credit
+    # elsewhere is spent before it.
+    SEARCH_PROVIDER_ORDER: str = os.getenv("SEARCH_PROVIDER_ORDER", "brave,tavily,exa,linkup")
+    # Exa search type: auto (default) | lite. lite is cheaper ($4/1k vs $7/1k
+    # before snippet text) and faster, served from Exa's index without live fetch.
+    EXA_SEARCH_TYPE: str = os.getenv("EXA_SEARCH_TYPE", "auto")
     # Linkup search depth: flash | fast | standard | deep. Cheaper tiers buy
     # more searches per credit at lower result quality.
     LINKUP_SEARCH_DEPTH: str = os.getenv("LINKUP_SEARCH_DEPTH", "standard")
@@ -392,9 +400,10 @@ class Config:
     # be classified - the consecutive-failure threshold benches it instead.
     SEARCH_QUOTA_LINKUP_MONTHLY = int(os.getenv("SEARCH_QUOTA_LINKUP_MONTHLY", "1500"))
     # Day of month each provider's billing period starts (1 = calendar
-    # month). As of Sep 2026 Brave, Tavily, Exa and Linkup ALL reset free
-    # credits on calendar months, so the default fits - the knob exists in
-    # case a provider moves to signup-anniversary cycles.
+    # month). Checked Oct 2026: Tavily and Exa document a reset on the 1st,
+    # Brave's dashboard invoices on the 1st. Linkup recharges its wallet back
+    # to $20 (4,000 standard searches) monthly on the signup anniversary, not
+    # the 1st - set SEARCH_BILLING_DAY_LINKUP to that day (the top-up email).
     SEARCH_BILLING_DAY_BRAVE = int(os.getenv("SEARCH_BILLING_DAY_BRAVE", "1"))
     SEARCH_BILLING_DAY_TAVILY = int(os.getenv("SEARCH_BILLING_DAY_TAVILY", "1"))
     SEARCH_BILLING_DAY_EXA = int(os.getenv("SEARCH_BILLING_DAY_EXA", "1"))

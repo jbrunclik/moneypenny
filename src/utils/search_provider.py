@@ -236,7 +236,7 @@ def _provider_available(provider: _Provider) -> bool:
 
 def active_provider() -> str:
     """Name of the provider that search_web() will try first."""
-    for provider in _PROVIDERS:
+    for provider in _ordered_providers():
         if _provider_available(provider):
             return provider.name
     return "ddgs"
@@ -244,7 +244,7 @@ def active_provider() -> str:
 
 def _configured_metered() -> list[_Provider]:
     """Metered providers with a key set (i.e. ones we expect to serve)."""
-    return [p for p in _PROVIDERS if p.monthly_quota() is not None and p.api_key()]
+    return [p for p in _ordered_providers() if p.monthly_quota() is not None and p.api_key()]
 
 
 def has_metered_providers() -> bool:
@@ -297,7 +297,7 @@ def search_web_detailed(query: str, num_results: int) -> tuple[list[dict[str, st
     """
     last_error: SearchProviderError | None = None
 
-    for provider in _PROVIDERS:
+    for provider in _ordered_providers():
         if not _provider_available(provider):
             continue
         metered = provider.monthly_quota() is not None
@@ -522,6 +522,7 @@ def _search_exa(query: str, num_results: int) -> list[dict[str, str]]:
             _EXA_ENDPOINT,
             json={
                 "query": query,
+                "type": Config.EXA_SEARCH_TYPE,
                 "numResults": num_results,
                 # Short text excerpts double as snippets
                 "contents": {"text": {"maxCharacters": 500}},
@@ -652,6 +653,19 @@ _PROVIDERS: tuple[_Provider, ...] = (
 )
 
 
+def _ordered_providers() -> list[_Provider]:
+    """Providers in SEARCH_PROVIDER_ORDER, the rest in default order, ddgs last."""
+    metered = {p.name: p for p in _PROVIDERS if p.monthly_quota() is not None}
+    ordered: list[_Provider] = []
+    for name in (n.strip() for n in Config.SEARCH_PROVIDER_ORDER.split(",")):
+        if name in metered and metered[name] not in ordered:
+            ordered.append(metered[name])
+        elif name and name != "ddgs":
+            logger.warning("Unknown provider in SEARCH_PROVIDER_ORDER", extra={"provider": name})
+    ordered += [p for p in metered.values() if p not in ordered]
+    return ordered + [p for p in _PROVIDERS if p.monthly_quota() is None]
+
+
 def quota_status() -> list[dict[str, Any]]:
     """Each provider this billing period, in priority order (the admin page).
 
@@ -666,7 +680,7 @@ def quota_status() -> list[dict[str, Any]]:
             "quota": provider.monthly_quota(),
             "available": _provider_available(provider),
         }
-        for provider in _PROVIDERS
+        for provider in _ordered_providers()
     ]
 
 
