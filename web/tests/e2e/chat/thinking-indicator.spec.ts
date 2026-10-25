@@ -135,8 +135,10 @@ test.describe('Chat - Thinking Indicator', () => {
       const icon = await centre('.thinking-trace-item.current .thinking-icon svg');
       expect(Math.abs((await centre('.thinking-live-expand svg')) - icon)).toBeLessThanOrEqual(0.5);
 
+      // Let the turn finish (Stop would race it: the short mock reply can end
+      // before the button is clicked - Oct 25 2026, 4 of 4 attempts in CI)
       await request.post('/test/release-thinking');
-      await clickStop(page);
+      await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
     });
   }
 });
