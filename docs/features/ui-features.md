@@ -107,6 +107,7 @@ All links include security attributes:
 - Markdown links are rendered by the `marked` library
 - Custom link renderer in [markdown.ts](../../web/src/utils/markdown.ts) adds security attributes
 - Works for all markdown link formats: `[text](url)`, `<url>`, etc.
+- External images in model output (`![](https://...)`) render as a `🖼️` link, never an `<img>`: a prompt-injected page could make the model emit an image URL carrying conversation data, which would load as soon as the reply renders. Same-origin, `data:` and `blob:` images still render, and the production CSP `img-src` allows only those plus Google profile photos.
 
 ### Key Files
 

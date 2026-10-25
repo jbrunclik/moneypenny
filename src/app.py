@@ -18,13 +18,15 @@ from src.utils.memory_profile import install_memory_profiler
 # Production CSP (S10). Notes on the non-obvious sources:
 # - script-src/frame-src/connect-src accounts.google.com: Google Identity Services
 # - style-src 'unsafe-inline': KaTeX and the GSI client inject inline styles
-# - img-src data:/blob:/https:: thumbnails, generated images, markdown images
+# - img-src data:/blob:: thumbnails, generated images; googleusercontent: Google
+#   profile photos. No other https: an external markdown image could carry
+#   conversation data out (the markdown renderer turns those into links)
 _CSP_POLICY = "; ".join(
     [
         "default-src 'self'",
         "script-src 'self' https://accounts.google.com",
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https:",
+        "img-src 'self' data: blob: https://*.googleusercontent.com",
         "font-src 'self' data:",
         # blob:: video attachments play from object URLs (authenticated fetch)
         "media-src 'self' blob:",

