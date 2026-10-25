@@ -114,5 +114,5 @@ class TestAuthenticateWithMfa:
             instance.login.side_effect = Exception("Rate limited by Garmin (429)")
             mock_cls.return_value = instance
 
-            with pytest.raises(GarminAuthError, match="[Rr]ate limited"):  # noqa: RUF043
+            with pytest.raises(GarminAuthError, match=r"[Rr]ate limited"):
                 authenticate_with_mfa("u@x.com", "pw", "123456")

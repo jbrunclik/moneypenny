@@ -89,9 +89,11 @@ class JSONFormatter(logging.Formatter):
             "stack_info",
             "taskName",
         }
-        for key, value in record.__dict__.items():
-            if key not in skip_attrs and not key.startswith("_"):
-                log_data[key] = value  # noqa: PERF403
+        log_data.update(
+            (key, value)
+            for key, value in record.__dict__.items()
+            if key not in skip_attrs and not key.startswith("_")
+        )
 
         # Also check for custom extra_fields attribute (from log_with_extra helper)
         if hasattr(record, "extra_fields"):
@@ -177,10 +179,7 @@ def log_payload_snippet(
     """
     try:
         payload_str = json.dumps(payload, default=str)
-        if len(payload_str) > max_length:  # noqa: SIM108
-            snippet = payload_str[:max_length] + "..."
-        else:
-            snippet = payload_str
+        snippet = payload_str[:max_length] + "..." if len(payload_str) > max_length else payload_str
         logger.debug("Payload snippet", extra={"payload_snippet": snippet})
     except Exception:  # default=str runs arbitrary __str__; logging must not raise
         logger.debug("Failed to serialize payload for logging", exc_info=True)

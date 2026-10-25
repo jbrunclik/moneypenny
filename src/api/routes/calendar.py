@@ -27,7 +27,7 @@ from src.api.validation import validate_request
 from src.auth.google_calendar import (
     GoogleCalendarApiError,
     GoogleCalendarAuthError,
-    GoogleCalendarTokenRevoked,
+    GoogleCalendarTokenRevokedError,
     GoogleCalendarTransientError,
     fetch_calendar_list,
     get_valid_access_token,
@@ -197,7 +197,7 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
             # expiry) and stores via compare-and-swap (concurrency-safe)
             try:
                 get_valid_access_token(user.id)
-            except GoogleCalendarTokenRevoked:
+            except GoogleCalendarTokenRevokedError:
                 needs_reconnect = True
                 logger.warning(
                     "Google Calendar token permanently revoked",

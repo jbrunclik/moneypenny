@@ -159,11 +159,7 @@ class TestStoppingJournaled:
 
 
 def _drain_sse(gen) -> list[dict]:
-    out = []
-    for chunk in gen:
-        if chunk.startswith("data: "):
-            out.append(json.loads(chunk[len("data: ") :]))  # noqa: PERF401
-    return out
+    return [json.loads(chunk[len("data: ") :]) for chunk in gen if chunk.startswith("data: ")]
 
 
 class TestStreamResumeEvents:

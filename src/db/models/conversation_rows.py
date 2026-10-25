@@ -40,45 +40,45 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
     """Convert a database row to a Conversation object."""
     # Check if optional columns exist (added in migrations)
     last_reset = None
-    if "last_reset" in row.keys():  # noqa: SIM118
+    if "last_reset" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         last_reset = datetime.fromisoformat(row["last_reset"]) if row["last_reset"] else None
 
     is_agent = False
     agent_id = None
-    if "is_agent" in row.keys():  # noqa: SIM118
+    if "is_agent" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         is_agent = bool(row["is_agent"]) if row["is_agent"] else False
         agent_id = row["agent_id"]
 
     archived = False
-    if "archived" in row.keys():  # noqa: SIM118
+    if "archived" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         archived = bool(row["archived"]) if row["archived"] else False
 
     pinned = False
-    if "pinned" in row.keys():  # noqa: SIM118
+    if "pinned" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         pinned = bool(row["pinned"]) if row["pinned"] else False
 
     is_sports = False
     sports_program = None
-    if "is_sports" in row.keys():  # noqa: SIM118
+    if "is_sports" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         is_sports = bool(row["is_sports"]) if row["is_sports"] else False
         sports_program = row["sports_program"]
 
     is_language = False
     language_program = None
-    if "is_language" in row.keys():  # noqa: SIM118
+    if "is_language" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         is_language = bool(row["is_language"]) if row["is_language"] else False
         language_program = row["language_program"]
 
     anonymous_mode = False
-    if "anonymous_mode" in row.keys():  # noqa: SIM118
+    if "anonymous_mode" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         anonymous_mode = bool(row["anonymous_mode"]) if row["anonymous_mode"] else False
 
     read_message_count = 0
-    if "read_message_count" in row.keys():  # noqa: SIM118
+    if "read_message_count" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         read_message_count = int(row["read_message_count"] or 0)
 
     deleted_at = None
-    if "deleted_at" in row.keys():  # noqa: SIM118
+    if "deleted_at" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         deleted_at = datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None
 
     return Conversation(

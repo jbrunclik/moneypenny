@@ -305,6 +305,38 @@ class TestExecuteCode:
     @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
     @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
     @patch("llm_sandbox.SandboxSession")
+    def test_unreadable_output_file_is_skipped(
+        self, mock_session_class: MagicMock, mock_check: MagicMock
+    ) -> None:
+        """One output file that fails to copy is logged and skipped, not fatal."""
+        mock_result = MagicMock()
+        mock_result.exit_code = 0
+        mock_result.stdout = '__OUTPUT_FILES__:["broken.pdf", "report.pdf"]\n'
+        mock_result.stderr = ""
+        mock_result.plots = []
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = mock_result
+
+        def copy_from_runtime(src: str, dest: str) -> None:
+            if src.endswith("broken.pdf"):
+                raise RuntimeError("copy failed")
+            with open(dest, "wb") as f:
+                f.write(b"PDF content here")
+
+        mock_session.copy_from_runtime = copy_from_runtime
+        mock_session_class.return_value = mock_session
+
+        parsed = json.loads(execute_code.invoke({"code": "generate_pdfs()"}))
+
+        assert parsed["success"] is True
+        assert [f["name"] for f in parsed["files"]] == ["report.pdf"]
+
+    @patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True)
+    @patch("src.agent.tools.code_execution._check_docker_available", return_value=True)
+    @patch("llm_sandbox.SandboxSession")
     def test_handles_timeout(self, mock_session_class: MagicMock, mock_check: MagicMock) -> None:
         """Should handle execution timeout."""
         mock_session = MagicMock()

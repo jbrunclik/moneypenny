@@ -24,8 +24,8 @@ from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.deep_research.offer import PlanError
 from src.agent.deep_research.plan import (
     DeepResearchPlan,
-    OfferConflict,
-    OfferNotFound,
+    OfferConflictError,
+    OfferNotFoundError,
     start_plan,
 )
 from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
@@ -150,9 +150,9 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
         return start_plan(conv_id, start.offer_message_id, start.sub_questions, start.context)
     except PlanError as e:
         raise_validation_error(str(e), field="deep_research")
-    except OfferNotFound:
+    except OfferNotFoundError:
         raise_not_found_error("Research offer")
-    except OfferConflict as e:
+    except OfferConflictError as e:
         # Not 409: the client reads 409 as "this message already landed"
         raise_validation_error(str(e), field="deep_research")
 

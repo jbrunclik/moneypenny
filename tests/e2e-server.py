@@ -10,6 +10,7 @@ Usage:
 
 import atexit
 import base64
+import contextlib
 import faulthandler
 import os
 import signal
@@ -329,8 +330,7 @@ def create_mock_gemini_files_client() -> MagicMock:
     )
     client.files.upload.return_value = uploaded
     client.files.get.return_value = uploaded
-    factory = MagicMock(return_value=client)
-    return factory  # noqa: RET504
+    return MagicMock(return_value=client)
 
 
 def create_mock_genai() -> MagicMock:
@@ -743,10 +743,8 @@ def mock_check_grounding(
 def cleanup_pid_file() -> None:
     """Remove PID file on exit."""
     if E2E_PID_FILE.exists():
-        try:  # noqa: SIM105
+        with contextlib.suppress(Exception):
             E2E_PID_FILE.unlink()
-        except Exception:  # noqa: BLE001
-            pass
 
 
 def cleanup_databases() -> None:
@@ -755,10 +753,8 @@ def cleanup_databases() -> None:
     patterns = [f"e2e-template-{E2E_PORT}*.db*", f"e2e-test-{E2E_PORT}-*.db*"]
     for pattern in patterns:
         for f in E2E_DB_DIR.glob(pattern):
-            try:  # noqa: SIM105
+            with contextlib.suppress(OSError):  # e.g. the file is still open
                 f.unlink()
-            except Exception:  # noqa: BLE001
-                pass  # Ignore errors (e.g. if file is still open)
 
 
 def signal_handler(signum: int, frame: Any) -> None:
@@ -814,7 +810,7 @@ def main() -> None:  # noqa: C901, PLR0915
         # Also register signal handlers for cleanup
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 - the server runs without a PID file
         print(f"Warning: Could not write PID file: {e}")
 
     import shutil
@@ -1530,16 +1526,19 @@ def main() -> None:  # noqa: C901, PLR0915
         def intercept_search() -> Any | None:
             from flask import jsonify, request
 
-            if request.path == "/api/search" and request.method == "GET":  # noqa: SIM102
-                if MOCK_CONFIG.get("search_results") is not None:
-                    query = request.args.get("q", "")
-                    return jsonify(
-                        {
-                            "results": MOCK_CONFIG["search_results"],
-                            "total": MOCK_CONFIG.get("search_total", 0),
-                            "query": query,
-                        }
-                    )
+            if (
+                request.path == "/api/search"
+                and request.method == "GET"
+                and MOCK_CONFIG.get("search_results") is not None
+            ):
+                query = request.args.get("q", "")
+                return jsonify(
+                    {
+                        "results": MOCK_CONFIG["search_results"],
+                        "total": MOCK_CONFIG.get("search_total", 0),
+                        "query": query,
+                    }
+                )
             return None
 
         # Override planner endpoints to return mock data
@@ -1776,9 +1775,12 @@ def main() -> None:  # noqa: C901, PLR0915
 
             from src.config import Config
 
-            if request.path == "/api/kv" and request.method == "GET":  # noqa: SIM102
-                if MOCK_CONFIG.get("kv_namespaces") is not None:
-                    return jsonify({"namespaces": MOCK_CONFIG["kv_namespaces"]})
+            if (
+                request.path == "/api/kv"
+                and request.method == "GET"
+                and MOCK_CONFIG.get("kv_namespaces") is not None
+            ):
+                return jsonify({"namespaces": MOCK_CONFIG["kv_namespaces"]})
 
             if (
                 request.path.startswith("/api/kv/")
@@ -1789,14 +1791,17 @@ def main() -> None:  # noqa: C901, PLR0915
                 keys = MOCK_CONFIG["kv_keys"].get(namespace, [])
                 return jsonify({"namespace": namespace, "keys": keys})
 
-            if request.path == "/api/memories" and request.method == "GET":  # noqa: SIM102
-                if MOCK_CONFIG.get("memories") is not None:
-                    return jsonify(
-                        {
-                            "memories": MOCK_CONFIG["memories"],
-                            "limit": Config.MEMORY_MAX_ENTRIES,
-                        }
-                    )
+            if (
+                request.path == "/api/memories"
+                and request.method == "GET"
+                and MOCK_CONFIG.get("memories") is not None
+            ):
+                return jsonify(
+                    {
+                        "memories": MOCK_CONFIG["memories"],
+                        "limit": Config.MEMORY_MAX_ENTRIES,
+                    }
+                )
 
             # The storage page also loads the soft-deleted list; served here so
             # tests can drive the "Recently deleted" section explicitly.

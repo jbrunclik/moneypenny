@@ -7,6 +7,7 @@ queued events as SSE with keepalives, and finalizes the turn
 
 from __future__ import annotations
 
+import contextlib
 import json
 import queue
 import threading
@@ -375,10 +376,8 @@ def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[
 
     context.producer_failed = True
     error_data = _build_error_data(error)
-    try:  # noqa: SIM105
+    with contextlib.suppress(BrokenPipeError, ConnectionError, OSError):
         yield f"data: {json.dumps(error_data)}\n\n"
-    except BrokenPipeError, ConnectionError, OSError:
-        pass
 
 
 def _build_error_data(error: Exception) -> dict[str, Any]:
@@ -455,7 +454,7 @@ def _handle_generator_error(context: _StreamContext, error: Exception) -> Genera
             "conversation_id": context.conv_id,
             "error": str(error),
         },
-        exc_info=True,  # noqa: LOG014
+        exc_info=error,
     )
 
     # Delete placeholder if no useful content was generated AND nothing was

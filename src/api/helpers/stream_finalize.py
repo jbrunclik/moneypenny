@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
@@ -58,10 +59,8 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
                     stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
                 )
                 _flag_unanswered_steering(done_data, context)
-                try:  # noqa: SIM105
+                with contextlib.suppress(BrokenPipeError, ConnectionError, OSError):
                     yield f"data: {json.dumps(done_data)}\n\n"
-                except BrokenPipeError, ConnectionError, OSError:
-                    pass
             return
 
         save_result = save_message_to_db(

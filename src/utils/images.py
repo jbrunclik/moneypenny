@@ -27,7 +27,7 @@ MIME_TYPE_TO_EXT: dict[str, str] = {
 }
 
 
-def generate_thumbnail(  # noqa: C901
+def generate_thumbnail(
     image_data: str, mime_type: str, max_size: tuple[int, int] | None = None
 ) -> str | None:
     """Generate a thumbnail from base64-encoded image data.
@@ -52,14 +52,13 @@ def generate_thumbnail(  # noqa: C901
         img: Image.Image = Image.open(io.BytesIO(image_bytes))
 
         # Handle RGBA images (PNG with transparency)
-        if img.mode in ("RGBA", "LA", "P"):  # noqa: SIM102
-            # Convert to RGB with white background for JPEG output
-            if mime_type == "image/jpeg":
-                background = Image.new("RGB", img.size, (255, 255, 255))
-                if img.mode == "P":
-                    img = img.convert("RGBA")
-                background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
-                img = background
+        # Convert to RGB with white background for JPEG output
+        if img.mode in ("RGBA", "LA", "P") and mime_type == "image/jpeg":
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            if img.mode == "P":
+                img = img.convert("RGBA")
+            background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+            img = background
 
         # Generate thumbnail (maintains aspect ratio)
         # Use configurable resampling algorithm (BILINEAR is faster, LANCZOS is higher quality)

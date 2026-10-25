@@ -8,7 +8,7 @@ from typing import Any
 
 from flask import request
 
-from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer
+from src.agent.deep_research.plan import OfferConflictError, OfferNotFoundError, decline_offer
 from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
@@ -92,9 +92,9 @@ def update_research_offer(
         raise_not_found_error("Message")
     try:
         decline_offer(message)
-    except OfferNotFound:
+    except OfferNotFoundError:
         raise_not_found_error("Research offer")
-    except OfferConflict as e:
+    except OfferConflictError as e:
         raise_conflict_error(str(e))
     return {"status": data.status}, 200
 

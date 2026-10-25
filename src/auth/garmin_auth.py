@@ -26,7 +26,7 @@ class GarminAuthError(Exception):
     pass
 
 
-class GarminMfaRequired(Exception):  # noqa: N818
+class GarminMfaRequired(Exception):  # noqa: N818 - a signal to ask for the code, not an error
     """Marker exception: caller should prompt the user for an MFA code and
     then call ``authenticate_with_mfa(email, password, mfa_code)``.
 
@@ -204,5 +204,5 @@ def _raise_typed_error(e: Exception) -> NoReturn:
     if "connection" in error_str or "timeout" in error_str or "network" in error_str:
         raise GarminAuthError("Cannot connect to Garmin. Please try again.") from e
 
-    logger.error("Garmin authentication failed", extra={"error": str(e)}, exc_info=True)  # noqa: LOG014
+    logger.error("Garmin authentication failed", extra={"error": str(e)}, exc_info=e)
     raise GarminAuthError(f"Authentication failed: {e}") from e

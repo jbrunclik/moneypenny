@@ -36,8 +36,8 @@ class FileMetadataResponse(ResponseModel):
 
     name: str
     type: str
-    messageId: str | None = None  # noqa: N815
-    fileIndex: int | None = None  # noqa: N815
+    messageId: str | None = None  # noqa: N815 - camelCase is the API wire format
+    fileIndex: int | None = None  # noqa: N815 - camelCase is the API wire format
 
 
 class SourceResponse(ResponseModel):

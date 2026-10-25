@@ -1,7 +1,10 @@
 """Tests for ConnectionPool dead-thread reaping."""
 
+import sqlite3
 import threading
 from pathlib import Path
+
+import pytest
 
 from src.utils.connection_pool import ConnectionPool
 
@@ -147,11 +150,8 @@ class TestIdentRecyclingSafety:
         new_conn.execute("SELECT 1")
 
         # The dead thread's connection was closed
-        try:
+        with pytest.raises(sqlite3.ProgrammingError):
             old_conn.execute("SELECT 1")
-            raise AssertionError("old connection should be closed")
-        except Exception:  # noqa: BLE001
-            pass
 
         new_conn.close()
 
@@ -189,7 +189,7 @@ class TestCloseAllWithLiveThreads:
                 try:
                     conn.execute("INSERT INTO t VALUES (1)")
                     conn.commit()
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:  # noqa: BLE001 - collected and asserted after join
                     errors.append(e)
 
         t = threading.Thread(target=worker)

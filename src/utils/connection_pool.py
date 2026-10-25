@@ -19,7 +19,7 @@ import sqlite3
 import threading
 import weakref
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 
 from src.utils.logging import get_logger
@@ -82,10 +82,8 @@ class ConnectionPool:
         with lock:
             if connections.get(thread_id) is conn:
                 connections.pop(thread_id, None)
-        try:  # noqa: SIM105
+        with suppress(sqlite3.Error):
             conn.close()
-        except sqlite3.Error:
-            pass
 
     def _reap_dead_threads(self) -> None:
         """Close connections for threads that no longer exist.
@@ -98,10 +96,8 @@ class ConnectionPool:
         dead_thread_ids = [tid for tid in self._connections if tid not in alive_thread_ids]
         for tid in dead_thread_ids:
             conn = self._connections.pop(tid)
-            try:  # noqa: SIM105
+            with suppress(sqlite3.Error):
                 conn.close()
-            except sqlite3.Error:
-                pass
         if dead_thread_ids:
             logger.debug(
                 "Reaped dead thread connections",
@@ -212,10 +208,8 @@ class ConnectionPool:
         conn = getattr(self._local, "connection", None)
 
         if conn is not None:
-            try:  # noqa: SIM105
+            with suppress(sqlite3.Error):
                 conn.close()
-            except sqlite3.Error:
-                pass
             self._local.connection = None
 
             with self._lock:
@@ -246,10 +240,8 @@ class ConnectionPool:
                 if thread_id != current and thread_id in alive_thread_ids:
                     continue
                 self._connections.pop(thread_id, None)
-                try:  # noqa: SIM105
+                with suppress(sqlite3.Error):
                     conn.close()
-                except sqlite3.Error:
-                    pass
 
         # Also clear the thread-local storage for the current thread
         if hasattr(self._local, "connection"):

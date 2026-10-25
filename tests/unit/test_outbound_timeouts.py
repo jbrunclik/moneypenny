@@ -26,9 +26,11 @@ def _calls() -> list[tuple[str, str, ast.Call]]:
         tree = ast.parse(path.read_text())
         for func in ast.walk(tree):
             if isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
-                for node in ast.walk(func):
-                    if isinstance(node, ast.Call):
-                        found.append((str(path.relative_to(_SRC)), func.name, node))  # noqa: PERF401
+                found.extend(
+                    (str(path.relative_to(_SRC)), func.name, node)
+                    for node in ast.walk(func)
+                    if isinstance(node, ast.Call)
+                )
     return found
 
 

@@ -29,7 +29,7 @@ wrapper over it - `get_valid_calendar_access_token(user)` in the same module
 
 | Exception | When raised | Reconnect required? |
 |-----------|-------------|---------------------|
-| `GoogleCalendarTokenRevoked` | `invalid_grant` from Google (token permanently revoked) | Yes |
+| `GoogleCalendarTokenRevokedError` | `invalid_grant` from Google (token permanently revoked) | Yes |
 | `GoogleCalendarTransientError` | Network error or Google 5xx | No — retried once |
 | `GoogleCalendarAuthError` (base) | Other non-200 responses | Yes |
 
@@ -45,7 +45,7 @@ rotated refresh token.
 
 **`/auth/calendar/status` behavior**: `needs_reconnect` is set to `True` only when:
 - The refresh token is missing, or
-- Refresh fails with `GoogleCalendarTokenRevoked` or `GoogleCalendarAuthError`
+- Refresh fails with `GoogleCalendarTokenRevokedError` or `GoogleCalendarAuthError`
 
 Transient errors do **not** set `needs_reconnect` — the connection remains valid and will succeed when Google recovers.
 

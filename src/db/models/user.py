@@ -58,7 +58,7 @@ class UserMixin:
 
         # Parse selected calendar IDs (JSON array)
         calendar_selected_ids = None
-        if "google_calendar_selected_ids" in row.keys() and row["google_calendar_selected_ids"]:  # noqa: SIM118
+        if "google_calendar_selected_ids" in row.keys() and row["google_calendar_selected_ids"]:  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             try:
                 calendar_selected_ids = json.loads(row["google_calendar_selected_ids"])
             except json.JSONDecodeError:
@@ -89,34 +89,34 @@ class UserMixin:
             google_calendar_email=row["google_calendar_email"],
             google_calendar_selected_ids=calendar_selected_ids,
             planner_last_reset_at=planner_last_reset,
-            whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,  # noqa: SIM118
+            whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             garmin_token=(
-                decrypt_token(row["garmin_token"]) if "garmin_token" in row.keys() else None  # noqa: SIM118
+                decrypt_token(row["garmin_token"]) if "garmin_token" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             garmin_connected_at=(
                 datetime.fromisoformat(row["garmin_connected_at"])
-                if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]  # noqa: SIM118
+                if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
                 else None
             ),
             rouvy_email=(
-                decrypt_token(row["rouvy_email"]) if "rouvy_email" in row.keys() else None  # noqa: SIM118
+                decrypt_token(row["rouvy_email"]) if "rouvy_email" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             rouvy_password=(
-                decrypt_token(row["rouvy_password"]) if "rouvy_password" in row.keys() else None  # noqa: SIM118
+                decrypt_token(row["rouvy_password"]) if "rouvy_password" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             rouvy_session=(
-                decrypt_token(row["rouvy_session"]) if "rouvy_session" in row.keys() else None  # noqa: SIM118
+                decrypt_token(row["rouvy_session"]) if "rouvy_session" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             rouvy_connected_at=(
                 datetime.fromisoformat(row["rouvy_connected_at"])
-                if "rouvy_connected_at" in row.keys() and row["rouvy_connected_at"]  # noqa: SIM118
+                if "rouvy_connected_at" in row.keys() and row["rouvy_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
                 else None
             ),
             daily_briefing_agent_id=(
-                row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None  # noqa: SIM118
+                row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             preferred_language=(
-                row["preferred_language"] if "preferred_language" in row.keys() else None  # noqa: SIM118
+                row["preferred_language"] if "preferred_language" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
         )
 

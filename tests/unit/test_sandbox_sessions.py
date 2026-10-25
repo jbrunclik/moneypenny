@@ -71,7 +71,7 @@ class TestSandboxSessionPool:
     def test_broken_session_replaced(self) -> None:
         pool = make_pool()
         s1 = None
-        with pytest.raises(RuntimeError), pool.session("conv-1") as s1:  # noqa: F811
+        with pytest.raises(RuntimeError), pool.session("conv-1") as s1:  # noqa: F811 - pre-set: the assert must not NameError
             raise RuntimeError("run failed")
         assert s1 is not None
         assert s1.closed

@@ -81,12 +81,8 @@ def extract_file_metadata(file_data: dict[str, Any]) -> dict[str, Any]:
 
     Returns a new dict with 'data' and 'thumbnail' removed, plus 'size' added.
     """
-    metadata = {}
-
     # Copy over non-data fields
-    for key, value in file_data.items():
-        if key not in ("data", "thumbnail"):
-            metadata[key] = value  # noqa: PERF403
+    metadata = {key: value for key, value in file_data.items() if key not in ("data", "thumbnail")}
 
     # Calculate and store size from data
     if "data" in file_data:
@@ -217,11 +213,10 @@ def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str 
         return False, error
 
     # Check if database file exists and is accessible
-    if db_path.exists():  # noqa: SIM102
-        if not os.access(db_path, os.R_OK | os.W_OK):
-            error = f"Database file is not readable/writable: {db_path}"
-            logger.error("Database connectivity check failed", extra={"error": error})
-            return False, error
+    if db_path.exists() and not os.access(db_path, os.R_OK | os.W_OK):
+        error = f"Database file is not readable/writable: {db_path}"
+        logger.error("Database connectivity check failed", extra={"error": error})
+        return False, error
 
     # Try to connect and run a simple query
     try:

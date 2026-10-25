@@ -230,7 +230,7 @@ class TestGetMessagesAround:
         # Use older_cursor to load more older messages
         from src.enums import PaginationDirection
 
-        older_msgs, older_pagination = test_database.get_messages_paginated(  # noqa: RUF059
+        older_msgs, _older_pagination = test_database.get_messages_paginated(
             conversation_id=test_conversation.id,
             cursor=pagination.older_cursor,
             direction=PaginationDirection.OLDER,
@@ -242,7 +242,7 @@ class TestGetMessagesAround:
         assert older_msgs[-1].content == "Message 7"
 
         # Use newer_cursor to load more newer messages
-        newer_msgs, newer_pagination = test_database.get_messages_paginated(  # noqa: RUF059
+        newer_msgs, _newer_pagination = test_database.get_messages_paginated(
             conversation_id=test_conversation.id,
             cursor=pagination.newer_cursor,
             direction=PaginationDirection.NEWER,

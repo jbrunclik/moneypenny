@@ -27,7 +27,7 @@ class GoogleCalendarAuthError(Exception):
     """Raised when Google Calendar OAuth fails."""
 
 
-class GoogleCalendarTokenRevoked(GoogleCalendarAuthError):  # noqa: N818
+class GoogleCalendarTokenRevokedError(GoogleCalendarAuthError):
     """Refresh token permanently revoked (invalid_grant)."""
 
 
@@ -140,7 +140,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         )
 
         if error_code == "invalid_grant":
-            raise GoogleCalendarTokenRevoked(
+            raise GoogleCalendarTokenRevokedError(
                 "Google refresh token has been revoked or expired. User must reconnect."
             )
 
@@ -206,7 +206,7 @@ def get_valid_access_token(user_id: str) -> str | None:
     copies of this logic).
 
     Returns None when calendar is not connected or no refresh token exists.
-    Raises GoogleCalendarTokenRevoked when the refresh token is permanently
+    Raises GoogleCalendarTokenRevokedError when the refresh token is permanently
     invalid and GoogleCalendarTransientError on transient failures (after one
     retry).
 
@@ -286,12 +286,12 @@ def get_valid_calendar_access_token(user: User) -> str | None:
     and the chat turn setup.
 
     Returns None if calendar not connected or refresh fails permanently.
-    Raises GoogleCalendarTokenRevoked if the refresh token is permanently invalid.
+    Raises GoogleCalendarTokenRevokedError if the refresh token is permanently invalid.
     Raises GoogleCalendarTransientError on transient failures (after 1 retry).
     """
     try:
         return get_valid_access_token(user.id)
-    except GoogleCalendarTokenRevoked, GoogleCalendarTransientError:
+    except GoogleCalendarTokenRevokedError, GoogleCalendarTransientError:
         raise
     except GoogleCalendarAuthError as e:
         logger.error(  # noqa: TRY400 - handled auth failure; the caller asks to reconnect

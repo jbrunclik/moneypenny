@@ -416,9 +416,9 @@ def main() -> None:
     errors = Config.validate()
     if errors:
         logger.error("Configuration validation failed", extra={"errors": errors})
-        print("Configuration errors:")  # noqa: T201
+        print("Configuration errors:")  # noqa: T201 - startup failure: shown on the terminal before exiting
         for error in errors:
-            print(f"  - {error}")  # noqa: T201
+            print(f"  - {error}")  # noqa: T201 - startup failure: shown on the terminal before exiting
         sys.exit(1)
 
     # Check database connectivity before starting app
@@ -427,7 +427,7 @@ def main() -> None:
     db_ok, db_error = check_database_connectivity()
     if not db_ok:
         logger.error("Database connectivity check failed", extra={"error": db_error})
-        print(f"Database error: {db_error}")  # noqa: T201
+        print(f"Database error: {db_error}")  # noqa: T201 - startup failure: shown on the terminal before exiting
         sys.exit(1)
 
     logger.info("Database connectivity verified", extra={"db_path": str(Config.DATABASE_PATH)})

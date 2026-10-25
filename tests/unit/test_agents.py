@@ -130,7 +130,7 @@ class TestCreateAgentRequest:
     def test_name_is_required(self):
         """Test that name field is required."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest()  # type: ignore  # noqa: PGH003
+            CreateAgentRequest()  # type: ignore[call-arg]
 
     def test_name_min_length(self):
         """Test name minimum length validation."""

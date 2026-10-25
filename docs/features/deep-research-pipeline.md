@@ -11,7 +11,7 @@ agent loop:
 1. **Start** ([chat_turn.py](../../src/api/helpers/chat_turn.py)):
    `prepare_turn()` calls `start_plan()` ([plan.py](../../src/agent/deep_research/plan.py))
    before saving the user message, so an unrunnable plan leaves nothing
-   behind: `PlanError` → 400, `OfferNotFound` → 404, `OfferConflict` (already
+   behind: `PlanError` → 400, `OfferNotFoundError` → 404, `OfferConflictError` (already
    started, declined or superseded) → 400 with its message - not 409, which
    the client reads as "this message already landed". A retry of a start that
    did land is caught first by the `client_message_id` dedupe (409). It

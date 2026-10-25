@@ -7,6 +7,7 @@ least-summarized adjacent pair, and failure handling.
 
 from __future__ import annotations
 
+import itertools
 from typing import Any
 
 import pytest
@@ -67,7 +68,7 @@ class TestPlanChunks:
         chunks = plan_chunks(0, 100)
         assert len(chunks) == 4
         assert chunks[0][0] == 0 and chunks[-1][1] == 100
-        assert all(a[1] == b[0] for a, b in zip(chunks, chunks[1:], strict=False))  # noqa: RUF007
+        assert all(a[1] == b[0] for a, b in itertools.pairwise(chunks))
 
     def test_empty_range(self) -> None:
         assert plan_chunks(5, 5) == []

@@ -48,7 +48,7 @@ def build_approval_message(
     )
 
 
-class ApprovalRequestedException(Exception):  # noqa: N818
+class ApprovalRequestedException(Exception):  # noqa: N818 - control flow (pause for approval), not an error
     """Raised when an agent requests approval.
 
     This exception signals the executor to pause and wait for user approval.

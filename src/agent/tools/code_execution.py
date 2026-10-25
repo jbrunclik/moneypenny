@@ -1,6 +1,7 @@
 """Code execution tool using Docker sandbox."""
 
 import base64
+import contextlib
 import json
 import mimetypes
 import os as local_os
@@ -79,7 +80,7 @@ def _probe_docker_available() -> bool:
 
         # Check if the custom sandbox image exists
         result = subprocess.run(  # noqa: S603 - fixed args, no untrusted input
-            ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],  # noqa: S607
+            ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],  # noqa: S607 - docker from PATH: its location differs per host
             capture_output=True,
             text=True,
             timeout=5,
@@ -250,10 +251,8 @@ def _parse_output_files_from_stdout(stdout: str) -> tuple[list[str], str]:
 
     for line in stdout.split("\n"):
         if line.startswith("__OUTPUT_FILES__:"):
-            try:  # noqa: SIM105
+            with contextlib.suppress(json.JSONDecodeError):
                 output_files = json.loads(line[17:])
-            except json.JSONDecodeError:
-                pass
         else:
             clean_lines.append(line)
 
@@ -309,16 +308,14 @@ def _extract_file_from_sandbox(
     except Exception as e:  # one unreadable output file must not fail the run
         logger.warning(
             "Failed to extract file from sandbox",
-            extra={"filename": filename, "error": str(e)},  # noqa: G101
+            extra={"file_name": filename, "error": str(e)},
             exc_info=True,
         )
         return None, None
     finally:
         # Always remove the host temp file - error paths leaked it before
-        try:  # noqa: SIM105
+        with contextlib.suppress(OSError):
             local_os.unlink(tmp_path)
-        except OSError:
-            pass
 
 
 def _extract_output_files(

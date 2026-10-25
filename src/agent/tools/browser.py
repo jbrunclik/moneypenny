@@ -283,7 +283,7 @@ def _with_screenshot(
     ss_data = worker.execute("screenshot", conversation_id=conversation_id)
     if share:
         _save_screenshot_attachment(ss_data)
-    return [{"type": "text", "text": json.dumps(result)}] + _format_screenshot_internal(ss_data)  # noqa: RUF005
+    return [{"type": "text", "text": json.dumps(result)}, *_format_screenshot_internal(ss_data)]
 
 
 def _run_steps(

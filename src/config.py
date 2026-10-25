@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import ClassVar
 
 from dotenv import load_dotenv
 
@@ -21,7 +22,7 @@ class Config:
     # Available models - each model has a full name and short name for compact display.
     # Optional per-model key "thinking_level" (e.g. "low"/"high") sets Gemini 3+
     # native reasoning depth; omit it to use the API default (create_chat_model).
-    MODELS = {  # noqa: RUF012
+    MODELS: ClassVar[dict[str, dict[str, str]]] = {
         "gemini-3.8-flash": {
             "name": "Gemini 3.8 Flash",
             "short_name": "Fast",
@@ -48,7 +49,7 @@ class Config:
     JWT_EXPIRATION_SECONDS = SECONDS_PER_WEEK  # 1 week
 
     # Email whitelist
-    ALLOWED_EMAILS: list[str] = [  # noqa: RUF012
+    ALLOWED_EMAILS: ClassVar[list[str]] = [
         email.strip() for email in os.getenv("ALLOWED_EMAILS", "").split(",") if email.strip()
     ]
     # Accounts that see the admin page (S12). Empty = no admins.
@@ -133,7 +134,7 @@ class Config:
 
     # Languages a reply's `language` is detected among (langdetect profile codes,
     # at least two). Each profile costs ~1 MB per worker; all 55 cost ~55 MB
-    LANGDETECT_LANGUAGES: list[str] = [  # noqa: RUF012
+    LANGDETECT_LANGUAGES: ClassVar[list[str]] = [
         code.strip()
         for code in os.getenv("LANGDETECT_LANGUAGES", "cs,en").split(",")
         if code.strip()
@@ -168,7 +169,7 @@ class Config:
     # (usage_metadata.input_token_details.cache_read). Cache storage cost is
     # not attributed per message - caches are shared across workers with
     # short TTLs, so it is negligible.
-    MODEL_PRICING = {  # noqa: RUF012
+    MODEL_PRICING: ClassVar[dict[str, dict[str, float]]] = {
         "gemini-3.8-flash": {
             # Introductory pricing through Dec 31, 2026; doubles to
             # $1.50 / $0.15 / $7.50 on Jan 1, 2027
@@ -225,7 +226,7 @@ class Config:
     # Currency conversion rates (USD to other currencies)
     # These are fallback defaults - actual rates are loaded from database
     # Updated daily via scripts/update_currency_rates.py (systemd timer)
-    CURRENCY_RATES = {  # noqa: RUF012
+    CURRENCY_RATES: ClassVar[dict[str, float]] = {
         "USD": 1.0,
         "CZK": 23.0,
         "EUR": 0.92,
@@ -296,7 +297,7 @@ class Config:
         "application/pdf,text/plain,text/markdown,application/json,text/csv,"
         "video/mp4,video/quicktime,video/webm"
     )
-    ALLOWED_FILE_TYPES: set[str] = set(  # noqa: RUF012
+    ALLOWED_FILE_TYPES: ClassVar[set[str]] = set(
         os.getenv("ALLOWED_FILE_TYPES", DEFAULT_ALLOWED_FILE_TYPES).split(",")
     )
 
@@ -334,7 +335,7 @@ class Config:
     )  # Default to 12 months
 
     # Currency formatting (decimal places)
-    CURRENCY_DECIMALS = {  # noqa: RUF012
+    CURRENCY_DECIMALS: ClassVar[dict[str, int]] = {
         "USD": 4,
         "EUR": 4,
         "GBP": 4,

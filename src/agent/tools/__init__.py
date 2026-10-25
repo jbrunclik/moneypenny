@@ -200,10 +200,7 @@ def _is_whatsapp_available_for_user(user_id: str) -> bool:
         return False
 
     user = db.get_user_by_id(user_id)
-    if not user or not user.whatsapp_phone:  # noqa: SIM103
-        return False
-
-    return True
+    return bool(user and user.whatsapp_phone)
 
 
 def get_tools_for_request(  # noqa: C901, PLR0912
@@ -474,7 +471,7 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:  # noqa: C901, PLR0912
 
 
 # Export all public symbols
-__all__ = [  # noqa: RUF022
+__all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     # Tools
     "fetch_url",
     "web_search",

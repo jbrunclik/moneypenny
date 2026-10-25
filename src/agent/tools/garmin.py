@@ -481,7 +481,7 @@ _GARMIN_ACTIONS = {
 
 
 @tool
-def garmin_connect(  # noqa: C901, PLR0912, PLR0915
+def garmin_connect(  # noqa: C901, PLR0912
     action: str,
     date_str: str | None = None,
     activity_id: str | None = None,
@@ -639,10 +639,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
             end = date.today().isoformat()
             result = _safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
             if isinstance(result, list):
-                if limit:  # noqa: SIM108
-                    result = result[:limit]
-                else:
-                    result = result[:10]
+                result = result[:limit] if limit else result[:10]
             return json.dumps(
                 {
                     "action": "get_activities",
@@ -721,7 +718,7 @@ def garmin_connect(  # noqa: C901, PLR0912, PLR0915
 def is_garmin_available() -> bool:
     """Check if garminconnect package is installed."""
     try:
-        import garminconnect  # noqa: F401, PLC0415
+        import garminconnect  # noqa: F401, PLC0415 - the import is the availability probe
 
         return True
     except ImportError:

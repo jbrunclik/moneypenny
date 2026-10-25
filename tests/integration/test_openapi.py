@@ -99,7 +99,7 @@ class TestOpenAPISpec:
 
         for pattern in expected_patterns:
             # Check if schema exists directly or as a nested reference
-            found = any(pattern in name for name in schemas.keys())  # noqa: SIM118
+            found = any(pattern in name for name in schemas)
             assert found, f"Missing schema matching: {pattern}. Available: {sorted(schemas.keys())}"
 
     def test_error_responses_documented(self, app: APIFlask) -> None:
@@ -127,7 +127,7 @@ class TestOpenAPISpec:
                         continue
 
                     # At least one success response should be documented
-                    success_codes = [c for c in responses.keys() if c.startswith("2")]  # noqa: SIM118
+                    success_codes = [c for c in responses if c.startswith("2")]
                     assert len(success_codes) > 0, (
                         f"No success response documented for {method.upper()} {path}"
                     )
@@ -159,7 +159,7 @@ class TestOpenAPISpec:
 
         # Check that endpoints use tags for organization
         tags_used = set()
-        for _path, methods in spec["paths"].items():  # noqa: PERF102
+        for methods in spec["paths"].values():
             for method, details in methods.items():
                 if method in ["get", "post", "patch", "delete", "put"]:
                     endpoint_tags = details.get("tags", [])

@@ -91,5 +91,5 @@ def test_starting_a_stale_offer_conflicts(
     plan_mod.start_plan(test_conversation.id, offer_id, ["a"], "")  # the other device
     monkeypatch.setattr(test_database, "get_message_by_id", lambda _id: stale)
 
-    with pytest.raises(plan_mod.OfferConflict):
+    with pytest.raises(plan_mod.OfferConflictError):
         plan_mod.start_plan(test_conversation.id, offer_id, ["a"], "")

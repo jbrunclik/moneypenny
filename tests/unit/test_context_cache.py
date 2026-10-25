@@ -608,7 +608,7 @@ class TestContextCacheManager:
             try:
                 r = manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", [tool])
                 results.append(r)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  # noqa: BLE001 - collected and asserted after join
                 errors.append(e)
 
         with (

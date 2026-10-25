@@ -1,5 +1,7 @@
 """Integration tests for settings API endpoints."""
 
+from typing import Any, ClassVar
+
 from flask.testing import FlaskClient
 
 
@@ -172,7 +174,11 @@ class TestUpdateUserSettings:
 class TestDailyBriefingSettings:
     """Daily Briefing opt-in via settings (backed by a system agent)."""
 
-    BRIEFING = {"enabled": True, "time": "07:30", "timezone": "Europe/Prague"}  # noqa: RUF012
+    BRIEFING: ClassVar[dict[str, Any]] = {
+        "enabled": True,
+        "time": "07:30",
+        "timezone": "Europe/Prague",
+    }
 
     def test_defaults_disabled(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         response = client.get("/api/users/me/settings", headers=auth_headers)

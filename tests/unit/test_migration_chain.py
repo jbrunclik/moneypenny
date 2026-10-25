@@ -7,6 +7,7 @@ __depends__ and run in filename order.
 """
 
 import ast
+import itertools
 import re
 from pathlib import Path
 
@@ -52,7 +53,7 @@ def test_each_migration_depends_on_the_one_before() -> None:
     names = sorted(migrations)
     broken = [
         f"{name} depends on {migrations[name]}, expected [{previous!r}]"
-        for previous, name in zip(names, names[1:], strict=False)  # noqa: RUF007
+        for previous, name in itertools.pairwise(names)
         if name[:4] >= _FIRST_CHAINED and migrations[name] != [previous]
     ]
     assert broken == []

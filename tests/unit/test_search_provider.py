@@ -246,7 +246,7 @@ class TestRouting:
     ) -> None:
         mock_brave.side_effect = SearchProviderError("brave down", retriable=True)
         mock_ddgs.side_effect = SearchProviderError("ddgs down", retriable=True)
-        with (  # noqa: SIM117
+        with (
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
@@ -255,9 +255,9 @@ class TestRouting:
                 LINKUP_API_KEY="",
             ),
             patch("src.utils.search_provider.db", _fake_db()),
+            pytest.raises(SearchProviderError) as exc_info,
         ):
-            with pytest.raises(SearchProviderError) as exc_info:
-                search_web("q", 3)
+            search_web("q", 3)
         assert exc_info.value.retriable is True
 
 
@@ -452,9 +452,12 @@ class TestDdgsSearch:
         mock_ddgs.text.side_effect = RatelimitException("rate limited")
         mock_ddgs_class.return_value = mock_ddgs
 
-        with _no_keys(), patch("src.utils.search_provider.db", _fake_db()):  # noqa: SIM117
-            with pytest.raises(SearchProviderError) as exc_info:
-                search_web("q", 5)
+        with (
+            _no_keys(),
+            patch("src.utils.search_provider.db", _fake_db()),
+            pytest.raises(SearchProviderError) as exc_info,
+        ):
+            search_web("q", 5)
         assert exc_info.value.retriable is True
 
 
@@ -837,7 +840,7 @@ class TestCircuitBreaker:
         mock_brave.side_effect = SearchProviderError("brave down")
         mock_ddgs.side_effect = SearchProviderError("ddgs down")
         store: dict[str, str] = {}
-        with (  # noqa: SIM117
+        with (
             patch.multiple(
                 Config,
                 BRAVE_SEARCH_API_KEY="bk",
@@ -847,9 +850,9 @@ class TestCircuitBreaker:
                 SEARCH_BREAKER_THRESHOLD=3,
             ),
             patch("src.utils.search_provider.db", _stateful_db(store)),
+            pytest.raises(SearchProviderError),
         ):
-            with pytest.raises(SearchProviderError):
-                search_web("q", 3)
+            search_web("q", 3)
         assert breaker_key("brave") in store  # metered provider recorded a failure
         assert breaker_key("ddgs") not in store  # unmetered terminal fallback did not
 

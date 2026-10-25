@@ -41,19 +41,19 @@ from apiflask import APIFlask
 # same for conversations.api.
 from src.api.routes import (
     admin,
-    agent_approvals,  # noqa: F401
-    agent_assist,  # noqa: F401
-    agent_command_center,  # noqa: F401
+    agent_approvals,  # noqa: F401 - imported for its routes
+    agent_assist,  # noqa: F401 - imported for its routes
+    agent_command_center,  # noqa: F401 - imported for its routes
     agents,
     artifacts,
     auth,
     calendar,
     chat,
     client_errors,
-    conversation_messages,  # noqa: F401
-    conversation_organize,  # noqa: F401
-    conversation_search,  # noqa: F401
-    conversation_trash,  # noqa: F401
+    conversation_messages,  # noqa: F401 - imported for its routes
+    conversation_organize,  # noqa: F401 - imported for its routes
+    conversation_search,  # noqa: F401 - imported for its routes
+    conversation_trash,  # noqa: F401 - imported for its routes
     conversations,
     costs,
     files,
@@ -69,10 +69,6 @@ from src.api.routes import (
     system,
     todoist,
 )
-
-# Import db and get_blob_store for backwards compatibility with tests
-from src.db.blob_store import get_blob_store  # noqa: F401
-from src.db.models import db  # noqa: F401
 
 # For backwards compatibility, export the two main blueprints
 # These match the original names used in src/app.py

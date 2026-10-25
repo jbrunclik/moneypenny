@@ -38,7 +38,7 @@ api = APIBlueprint("files", __name__, url_prefix="/api", tag="Files")
 # ============================================================================
 
 
-@api.route("/messages/<message_id>/files/<int:file_index>/thumbnail", methods=["GET"])  # noqa: RET503
+@api.route("/messages/<message_id>/files/<int:file_index>/thumbnail", methods=["GET"])  # noqa: RET503 - ends in raise_not_found_error() (NoReturn, in another module)
 @api.doc(
     summary="Get thumbnail for an image file",
     description="Returns thumbnail binary data (200) or pending status (202).",
@@ -264,7 +264,7 @@ def get_message_thumbnail(  # noqa: C901, PLR0912, PLR0915
     raise_not_found_error("Image data")
 
 
-@api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])  # noqa: RET503
+@api.route("/messages/<message_id>/files/<int:file_index>", methods=["GET"])  # noqa: RET503 - ends in raise_not_found_error() (NoReturn, in another module)
 @api.doc(
     summary="Get full file from a message",
     description="Returns the file as binary data with appropriate content-type header.",

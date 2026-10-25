@@ -39,11 +39,11 @@ from src.utils.tls import shared_ssl_context
 logger = get_logger(__name__)
 
 
-class RouvyNotConnected(Exception):  # noqa: N818
+class RouvyNotConnectedError(Exception):
     """User has not connected Rouvy."""
 
 
-class RouvySessionExpired(Exception):  # noqa: N818
+class RouvySessionExpiredError(Exception):
     """Session expired and automated refresh failed — user must reconnect."""
 
 
@@ -74,9 +74,7 @@ def _looks_expired(resp: httpx.Response) -> bool:
         return True
     ctype = resp.headers.get("content-type", "")
     # A `.data` endpoint returning an HTML login page means the cookie is dead.
-    if "text/html" in ctype and "sign in" in resp.text[:500].lower():  # noqa: SIM103
-        return True
-    return False
+    return bool("text/html" in ctype and "sign in" in resp.text[:500].lower())
 
 
 def _is_refresh_redirect(resp: httpx.Response) -> bool:
@@ -98,7 +96,7 @@ def _persist_rotated_cookies(user: User, resp: httpx.Response) -> dict[str, str]
 def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.Response:
     """Issue a request, retrying once on token rotation and re-logging-in once on expiry."""
     if not user.rouvy_session:
-        raise RouvyNotConnected()
+        raise RouvyNotConnectedError()
     jar = rouvy_auth.cookies_to_jar(user.rouvy_session)
     resp = _client_request(method, url, kwargs, jar)
     rotated_jar = _persist_rotated_cookies(user, resp)
@@ -108,17 +106,17 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
         return resp
     # Refresh: re-login with stored creds, persist, retry once.
     if not (user.rouvy_email and user.rouvy_password):
-        raise RouvySessionExpired()
+        raise RouvySessionExpiredError()
     try:
         new_session = rouvy_auth.login(user.rouvy_email, user.rouvy_password)
     except rouvy_auth.RouvyAuthError as e:
-        raise RouvySessionExpired() from e
+        raise RouvySessionExpiredError() from e
     db.update_user_rouvy_session(user.id, new_session)
     user.rouvy_session = new_session
     jar = rouvy_auth.cookies_to_jar(new_session)
     resp = _client_request(method, url, kwargs, jar)
     if _looks_expired(resp):
-        raise RouvySessionExpired()
+        raise RouvySessionExpiredError()
     return resp
 
 
@@ -265,9 +263,9 @@ def rouvy_workout(  # noqa: C901, PLR0912
                 return tool_error("delete needs workout_id.", success=False)
             return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
         return tool_error(f"Unknown action: {action}", success=False)
-    except RouvyNotConnected:
+    except RouvyNotConnectedError:
         return not_connected_result("rouvy", success=False)
-    except RouvySessionExpired:
+    except RouvySessionExpiredError:
         # Automatic re-login failed: the stored credentials no longer work
         return not_connected_result("rouvy", was_connected=True, success=False)
     except Exception as e:  # tool must return, not raise

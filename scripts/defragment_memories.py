@@ -439,10 +439,9 @@ Please analyze these memories and provide consolidation recommendations."""
         return result
 
     except Exception as e:
-        logger.error(  # noqa: G201
+        logger.exception(
             "Error during memory defragmentation",
             extra={"user_id": user.id, "error": str(e)},
-            exc_info=True,
         )
         result["skipped"] = True
         return result
@@ -502,8 +501,8 @@ def main() -> int:
             google_api_key=Config.GEMINI_API_KEY,
             temperature=0.3,  # Lower temperature for more consistent results
         )
-    except Exception as e:  # noqa: BLE001
-        logger.error("Failed to initialize LLM", extra={"error": str(e)})  # noqa: TRY400
+    except Exception as e:
+        logger.exception("Failed to initialize LLM", extra={"error": str(e)})
         return 1
 
     # Get users to process
@@ -551,10 +550,9 @@ def main() -> int:
                 total_stats["added"] += result["added"]
 
         except Exception as e:
-            logger.error(  # noqa: G201
+            logger.exception(
                 "Error processing user",
                 extra={"user_id": user.id, "error": str(e)},
-                exc_info=True,
             )
             has_errors = True
             total_stats["users_skipped"] += 1

@@ -392,7 +392,7 @@ class TestMemoryEmbeddingHook:
             "src.agent.tools.memory.embed_and_store_async",
             lambda *args: calls.append(args),
         )
-        test_database, test_user = memory_context  # noqa: RUF059
+        _test_database, test_user = memory_context
 
         result = _invoke([{"action": "add", "content": "Loves hiking", "category": "fact"}])
 

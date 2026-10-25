@@ -49,13 +49,15 @@ class TestGetRateLimitKey:
 
     def test_returns_ip_key_when_user_is_none(self, app: Flask) -> None:
         """Test that requests with g.user=None use IP address."""
-        with app.app_context():  # noqa: SIM117
-            with app.test_request_context("/api/version", environ_base={"REMOTE_ADDR": "10.0.0.1"}):
-                g.user = None
+        with (
+            app.app_context(),
+            app.test_request_context("/api/version", environ_base={"REMOTE_ADDR": "10.0.0.1"}),
+        ):
+            g.user = None
 
-                key = get_rate_limit_key()
+            key = get_rate_limit_key()
 
-                assert key == "ip:10.0.0.1"
+            assert key == "ip:10.0.0.1"
 
 
 class TestInitRateLimiting:

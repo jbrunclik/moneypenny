@@ -94,7 +94,7 @@ class TestStreamingMsgContextHandling:
     def test_msg_context_single_chunk_stripped(self) -> None:
         """MSG_CONTEXT in a single chunk should be completely stripped."""
         chunks = ['<!-- MSG_CONTEXT: {"timestamp":"2024-01-01"} -->Hello world']
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "MSG_CONTEXT" not in full_response
         assert "timestamp" not in full_response
@@ -108,7 +108,7 @@ class TestStreamingMsgContextHandling:
             '"2024-01-01","relative_time":"1 hour ago"} ',
             "--> Here is the response.",
         ]
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "MSG_CONTEXT" not in full_response
         assert "timestamp" not in full_response
@@ -141,7 +141,7 @@ class TestStreamingMsgContextHandling:
     def test_msg_context_marker_split_across_chunks(self) -> None:
         """MSG_CONTEXT marker split across chunk boundary."""
         chunks = ["Hello <!-- MSG_", "CONTEXT: {} --> world"]
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "Hello" in full_response
         assert "world" in full_response
@@ -151,7 +151,7 @@ class TestStreamingMsgContextHandling:
     def test_msg_context_end_marker_split_across_chunks(self) -> None:
         """MSG_CONTEXT end marker (-->) split across chunk boundary."""
         chunks = ['<!-- MSG_CONTEXT: {"key":"value"} -', "-> The response."]
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "The response" in full_response
         assert "MSG_CONTEXT" not in full_response
@@ -160,7 +160,7 @@ class TestStreamingMsgContextHandling:
     def test_content_immediately_after_msg_context_end(self) -> None:
         """Content immediately after --> of MSG_CONTEXT (no space)."""
         chunks = ["<!-- MSG_CONTEXT: {} -->Response starts here."]
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, _had_ctx = self._process_chunks(chunks)
 
         assert "Response starts here" in full_response
         assert "MSG_CONTEXT" not in full_response
@@ -168,7 +168,7 @@ class TestStreamingMsgContextHandling:
     def test_empty_chunks_between_markers(self) -> None:
         """Empty or whitespace-only chunks within metadata block."""
         chunks = ["<!-- MSG_CONTEXT:", " ", '{"key": "value"}', "", " --> Content"]
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "Content" in full_response
         assert "MSG_CONTEXT" not in full_response
@@ -177,7 +177,7 @@ class TestStreamingMsgContextHandling:
     def test_multiple_msg_context_blocks(self) -> None:
         """Multiple MSG_CONTEXT blocks (shouldn't happen but handle gracefully)."""
         chunks = ['<!-- MSG_CONTEXT: {"a":1} --> First ', '<!-- MSG_CONTEXT: {"b":2} --> Second']
-        full_response, tokens, had_ctx = self._process_chunks(chunks)  # noqa: RUF059
+        full_response, _tokens, had_ctx = self._process_chunks(chunks)
 
         assert "First" in full_response
         assert "Second" in full_response

@@ -217,7 +217,7 @@ class UserIntegrationsMixin:
 
         # Always ensure primary calendar is included
         if "primary" not in calendar_ids:
-            calendar_ids = ["primary"] + calendar_ids  # noqa: RUF005
+            calendar_ids = ["primary", *calendar_ids]
 
         calendar_ids_json = json.dumps(calendar_ids)
 

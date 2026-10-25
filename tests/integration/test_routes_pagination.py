@@ -119,8 +119,7 @@ class TestConversationsPagination:
             response = client.get(url, headers=auth_headers)
             data = json.loads(response.data)
 
-            for c in data["conversations"]:
-                all_conv_ids.append(c["id"])  # noqa: PERF401
+            all_conv_ids.extend(c["id"] for c in data["conversations"])
 
             if not data["pagination"]["has_more"]:
                 break

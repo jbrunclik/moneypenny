@@ -1,5 +1,7 @@
 """Unit tests for src/utils/costs.py."""
 
+from typing import ClassVar
+
 import pytest
 
 from src.utils.costs import (
@@ -197,7 +199,7 @@ class TestConvertCurrency:
     """Tests for convert_currency function."""
 
     # Fixed rates for testing (mocked to avoid dependency on DB/Config values)
-    MOCK_RATES = {"CZK": 23.0, "EUR": 0.92, "GBP": 0.79}  # noqa: RUF012
+    MOCK_RATES: ClassVar[dict[str, float]] = {"CZK": 23.0, "EUR": 0.92, "GBP": 0.79}
 
     @pytest.fixture(autouse=True)
     def mock_rates(self, monkeypatch: pytest.MonkeyPatch) -> None:

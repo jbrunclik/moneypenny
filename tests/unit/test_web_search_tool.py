@@ -1,7 +1,7 @@
 """Unit tests for the web_search tool in src/agent/tools/web.py."""
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 from src.agent.tools import web_search
@@ -18,7 +18,9 @@ class TestWebSearchDegradedNotice:
     through to ddgs inside the same call.
     """
 
-    _RESULTS = [{"title": "T", "url": "https://a.example", "snippet": "S"}]  # noqa: RUF012
+    _RESULTS: ClassVar[list[dict[str, str]]] = [
+        {"title": "T", "url": "https://a.example", "snippet": "S"}
+    ]
 
     @staticmethod
     def _metered_configured() -> Any:
@@ -177,7 +179,9 @@ class TestWebSearch:
 class TestWebSearchBatching:
     """Tests for batched multi-query web_search calls."""
 
-    _ONE_RESULT = [{"title": "T", "url": "https://example.com", "snippet": "S"}]  # noqa: RUF012
+    _ONE_RESULT: ClassVar[list[dict[str, str]]] = [
+        {"title": "T", "url": "https://example.com", "snippet": "S"}
+    ]
     # search_web_detailed returns (results, served_by)
     _ONE_SERVED = (_ONE_RESULT, "brave")
 

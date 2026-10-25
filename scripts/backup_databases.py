@@ -62,7 +62,10 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         True if successful, False otherwise
     """
     if not db_path.exists():
-        logger.warning(f"{db_name} not found at {db_path}, skipping backup")  # noqa: G004
+        logger.warning(
+            "Database not found, skipping backup",
+            extra={"database": db_name, "path": str(db_path)},
+        )
         return True  # Not an error if DB doesn't exist yet
 
     backup_dir = get_backup_dir(db_path)
@@ -77,8 +80,9 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         source_size = db_path.stat().st_size
 
         logger.info(
-            f"Starting backup of {db_name}",  # noqa: G004
+            "Starting backup",
             extra={
+                "database": db_name,
                 "source": str(db_path),
                 "destination": str(backup_path),
                 "source_size_bytes": source_size,
@@ -101,15 +105,16 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         backup_size = backup_path.stat().st_size
         if backup_size == 0:
             logger.error(
-                f"Backup file is empty for {db_name}",  # noqa: G004
-                extra={"backup_path": str(backup_path)},
+                "Backup file is empty",
+                extra={"database": db_name, "backup_path": str(backup_path)},
             )
             backup_path.unlink()  # Remove empty backup
             return False
 
         logger.info(
-            f"Backup completed for {db_name}",  # noqa: G004
+            "Backup completed",
             extra={
+                "database": db_name,
                 "backup_path": str(backup_path),
                 "backup_size_bytes": backup_size,
             },
@@ -117,20 +122,18 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         return True
 
     except sqlite3.Error as e:
-        logger.error(  # noqa: G201
-            f"SQLite error during backup of {db_name}",  # noqa: G004
-            extra={"path": str(db_path), "error": str(e)},
-            exc_info=True,
+        logger.exception(
+            "SQLite error during backup",
+            extra={"database": db_name, "path": str(db_path), "error": str(e)},
         )
         # Clean up partial backup if it exists
         if backup_path.exists():
             backup_path.unlink()
         return False
     except OSError as e:
-        logger.error(  # noqa: G201
-            f"File error during backup of {db_name}",  # noqa: G004
-            extra={"path": str(db_path), "error": str(e)},
-            exc_info=True,
+        logger.exception(
+            "File error during backup",
+            extra={"database": db_name, "path": str(db_path), "error": str(e)},
         )
         return False
 
@@ -182,8 +185,12 @@ def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int
 
     if removed_count > 0:
         logger.info(
-            f"Cleaned up old backups for {db_name}",  # noqa: G004
-            extra={"removed_count": removed_count, "retention_days": retention_days},
+            "Cleaned up old backups",
+            extra={
+                "database": db_name,
+                "removed_count": removed_count,
+                "retention_days": retention_days,
+            },
         )
 
     return removed_count

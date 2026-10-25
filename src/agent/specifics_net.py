@@ -85,9 +85,10 @@ def missed_sites(
     aicom.com in a domain-auction answer, cesko.cz the user had asked about).
     """
     read = {_site(p.url) for p in pages} | _mentioned_sites(mentioned)
-    found: list[tuple[int, int, str, str]] = []  # start, end, quote, site
-    for link in _LINK.finditer(answer):
-        found.append((link.start(), link.end(), link.group(1).strip(), _site(link.group(2))))  # noqa: PERF401
+    found: list[tuple[int, int, str, str]] = [  # start, end, quote, site
+        (link.start(), link.end(), link.group(1).strip(), _site(link.group(2)))
+        for link in _LINK.finditer(answer)
+    ]
     for domain in _DOMAIN.finditer(answer):
         if not any(start <= domain.start() < end for start, end, _q, _s in found):
             found.append((domain.start(), domain.end(), domain.group(1), _site(domain.group(1))))

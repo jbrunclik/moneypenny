@@ -23,8 +23,8 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from src.db.models import db  # noqa: E402
-from src.utils.search_provider import (  # noqa: E402
+from src.db.models import db  # noqa: E402 - after load_dotenv: Config reads the environment on import
+from src.utils.search_provider import (  # noqa: E402 - after load_dotenv: Config reads the environment on import
     _PROVIDERS,
     _SYSTEM_USER_ID,
     USAGE_NAMESPACE,

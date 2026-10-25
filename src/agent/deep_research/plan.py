@@ -12,11 +12,11 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class OfferNotFound(LookupError):  # noqa: N818
+class OfferNotFoundError(LookupError):
     """No offer with that id in this conversation."""
 
 
-class OfferConflict(RuntimeError):  # noqa: N818
+class OfferConflictError(RuntimeError):
     """The offer was already started, declined or superseded."""
 
 
@@ -35,19 +35,19 @@ class DeepResearchPlan:
 
 
 def _open_offer(message: Any) -> tuple[dict[str, Any], bool]:
-    """(offer, is_followup) of a message, or raise OfferConflict."""
+    """(offer, is_followup) of a message, or raise OfferConflictError."""
     research = message.research or {}
     followup = (research.get("run") or {}).get("followup")
     offer = followup or research.get("offer")
     if not offer:
-        raise OfferNotFound(message.id)
+        raise OfferNotFoundError(message.id)
     if offer.get("status") != "offered":
-        raise OfferConflict(f"This research offer was already {offer.get('status')}.")
+        raise OfferConflictError(f"This research offer was already {offer.get('status')}.")
     return offer, followup is not None
 
 
 def _decide(message: Any, decided: dict[str, Any], is_followup: bool) -> None:
-    """Store the decided offer atomically: OfferConflict if another device won."""
+    """Store the decided offer atomically: OfferConflictError if another device won."""
     research = message.research or {}
     if is_followup:
         path, updated = (
@@ -57,7 +57,7 @@ def _decide(message: Any, decided: dict[str, Any], is_followup: bool) -> None:
     else:
         path, updated = "$.offer.status", {**research, "offer": decided}
     if not db.decide_research_offer(message.id, path, updated):
-        raise OfferConflict("This research offer was already decided.")
+        raise OfferConflictError("This research offer was already decided.")
 
 
 def start_plan(
@@ -65,11 +65,11 @@ def start_plan(
 ) -> DeepResearchPlan:
     """Validate the user's final plan, mark the offer started, return the plan.
 
-    Raises PlanError (bad plan), OfferNotFound, OfferConflict.
+    Raises PlanError (bad plan), OfferNotFoundError, OfferConflictError.
     """
     message = db.get_message_by_id(offer_message_id)
     if message is None or message.conversation_id != conv_id:
-        raise OfferNotFound(offer_message_id)
+        raise OfferNotFoundError(offer_message_id)
     offer, is_followup = _open_offer(message)
     items, context = validate_plan(sub_questions, context)
     final_estimate = estimate(len(items))

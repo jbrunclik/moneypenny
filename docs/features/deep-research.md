@@ -67,7 +67,7 @@ This page covers what the user sees. The rest of the feature:
   [plan.py](../../src/agent/deep_research/plan.py)): the new research JSON is
   written only while the offer's status (`$.offer.status` or
   `$.run.followup.status`) is still `offered`, so two devices cannot both
-  start it; the loser gets `OfferConflict`.
+  start it; the loser gets `OfferConflictError`.
 - **Autostart.** For an explicit request ("prozkoumej to důkladně", "deep
   research") the agent sets `run_now`. The model's `run_now` alone is not
   enough (it was seen setting it on an ordinary question): `extract_offer()`

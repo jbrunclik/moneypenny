@@ -441,4 +441,4 @@ def build_compacted_history(
         # No usable summary yet — safest to send the full history unchanged.
         return history
 
-    return [_summary_message(prior_summary)] + uncovered + recent  # noqa: RUF005
+    return [_summary_message(prior_summary), *uncovered, *recent]

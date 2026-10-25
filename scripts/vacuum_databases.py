@@ -34,7 +34,10 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         True if successful, False otherwise
     """
     if not db_path.exists():
-        logger.warning(f"{db_name} not found at {db_path}, skipping")  # noqa: G004
+        logger.warning(
+            "Database not found, skipping",
+            extra={"database": db_name, "path": str(db_path)},
+        )
         return True  # Not an error if DB doesn't exist yet
 
     try:
@@ -60,8 +63,9 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         size_diff_pct = (size_diff / size_before * 100) if size_before > 0 else 0
 
         logger.info(
-            f"VACUUM completed on {db_name}",  # noqa: G004
+            "VACUUM completed",
             extra={
+                "database": db_name,
                 "path": str(db_path),
                 "size_before_bytes": size_before,
                 "size_after_bytes": size_after,
@@ -72,17 +76,15 @@ def vacuum_database(db_path: Path, db_name: str) -> bool:
         return True
 
     except sqlite3.Error as e:
-        logger.error(  # noqa: G201
-            f"VACUUM failed on {db_name}",  # noqa: G004
-            extra={"path": str(db_path), "error": str(e)},
-            exc_info=True,
+        logger.exception(
+            "VACUUM failed",
+            extra={"database": db_name, "path": str(db_path), "error": str(e)},
         )
         return False
     except OSError as e:
-        logger.error(  # noqa: G201
-            f"File error during VACUUM on {db_name}",  # noqa: G004
-            extra={"path": str(db_path), "error": str(e)},
-            exc_info=True,
+        logger.exception(
+            "File error during VACUUM",
+            extra={"database": db_name, "path": str(db_path), "error": str(e)},
         )
         return False
 

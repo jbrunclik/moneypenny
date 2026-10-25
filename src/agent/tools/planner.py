@@ -134,8 +134,7 @@ def refresh_planner_dashboard() -> str:
 
         if errors:
             summary_parts.append("\nWarnings:")
-            for error in errors:
-                summary_parts.append(f"  - {error}")  # noqa: PERF401
+            summary_parts.extend(f"  - {error}" for error in errors)
 
         logger.info(
             "Dashboard refresh completed",

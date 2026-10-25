@@ -111,7 +111,7 @@ def test_converts_to_genai_declarations() -> None:
         from langchain_google_genai._function_utils import (
             convert_to_genai_function_declarations,
         )
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - private langchain helper: skip when it moved or broke
         return
     convert_to_genai_function_declarations([create_artifact, update_artifact, read_artifact])
 
@@ -123,7 +123,10 @@ def test_bound_in_chats_but_not_programs_or_agents(monkeypatch: pytest.MonkeyPat
     from src.agent.tools import get_tools_for_request
 
     monkeypatch.setattr(Config, "ARTIFACTS_ENABLED", True)
-    names = lambda tools: {t.name for t in tools}  # noqa: E731
+
+    def names(tools):
+        return {t.name for t in tools}
+
     assert names(get_tools_for_request()) >= _NAMES
     assert names(get_tools_for_request(anonymous_mode=True)) >= _NAMES
     assert not _NAMES & names(get_tools_for_request(is_sports=True))

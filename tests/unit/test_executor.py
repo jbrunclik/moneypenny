@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from dataclasses import replace
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,7 +34,7 @@ USAGE = {"input_tokens": 1200, "output_tokens": 300}
 class FakeChatAgent:
     """Stands in for ChatAgent: records how it was built and called."""
 
-    instances: list[FakeChatAgent] = []  # noqa: RUF012
+    instances: ClassVar[list[FakeChatAgent]] = []
     response: str = "Report ready\nSecond line with details"
     error: Exception | None = None
 

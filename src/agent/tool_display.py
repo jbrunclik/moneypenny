@@ -589,8 +589,7 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
         return str(tool_args["prompt"])
     if tool_name == "execute_code" and "code" in tool_args:
         # Show first line of code as detail
-        code_preview = str(tool_args["code"]).split("\n")[0][:50]
-        return code_preview  # noqa: RET504
+        return str(tool_args["code"]).split("\n")[0][:50]
     if tool_name == "todoist" and "action" in tool_args:
         return _format_todoist_detail(tool_args)
     if tool_name == "google_calendar" and "action" in tool_args:

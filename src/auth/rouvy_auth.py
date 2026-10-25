@@ -155,5 +155,5 @@ def _raise_typed_error(e: Exception) -> NoReturn:
         ) from e
     if "timeout" in s or "timed out" in s:
         raise RouvyAuthError("Rouvy login timed out. Please try again.") from e
-    logger.error("Rouvy login failed", extra={"error": str(e)}, exc_info=True)  # noqa: LOG014
+    logger.error("Rouvy login failed", extra={"error": str(e)}, exc_info=e)
     raise RouvyAuthError(f"Rouvy login failed: {e}") from e

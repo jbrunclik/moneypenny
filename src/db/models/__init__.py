@@ -165,7 +165,7 @@ def use_database(database: Database) -> Iterator[Database]:
 
 
 # Re-export all public symbols
-__all__ = [  # noqa: RUF022
+__all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     # Database class and instance
     "Database",
     "db",

@@ -19,7 +19,7 @@ from src.agent.tools.garmin_workout import (
 
 
 def _exec_step(step_id, order, kind, end_key, end_val, exercise=None, weight=None):
-    step = {
+    return {
         "type": "ExecutableStepDTO",
         "stepId": step_id,
         "stepOrder": order,
@@ -33,7 +33,6 @@ def _exec_step(step_id, order, kind, end_key, end_val, exercise=None, weight=Non
             {"unitId": 8, "unitKey": "kilogram", "factor": 1000.0} if weight is not None else None
         ),
     }
-    return step  # noqa: RET504
 
 
 def _fixture():
@@ -142,7 +141,7 @@ class TestApplyEdits:
 
     def test_add_weight_to_bodyweight_move_stamps_unit(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"step_id": 101, "weight_kg": 5}])  # noqa: RUF059
+        raw, _applied, warnings = _apply_edits(raw, [{"step_id": 101, "weight_kg": 5}])
         assert not warnings
         pullup = raw["workoutSegments"][0]["workoutSteps"][0]["workoutSteps"][0]
         assert pullup["weightValue"] == 5.0
@@ -150,7 +149,7 @@ class TestApplyEdits:
 
     def test_change_rest(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"step_id": 102, "rest_s": 120}])  # noqa: RUF059
+        raw, _applied, warnings = _apply_edits(raw, [{"step_id": 102, "rest_s": 120}])
         assert not warnings
         assert _slim_workout(raw)["blocks"][0]["steps"][1]["rest_s"] == 120
 
@@ -242,7 +241,7 @@ class TestStructuralOps:
 
     def test_swap_can_also_set_numbers(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(  # noqa: RUF059
+        _, applied, _warnings = _apply_edits(
             raw, [{"op": "swap", "step_id": 103, "exercise": "Goblet Squat", "weight_kg": 20}]
         )
         fields = [c["field"] for c in applied[0]["changes"]]
@@ -266,7 +265,7 @@ class TestStructuralOps:
 
     def test_remove_exercise_drops_trailing_rest(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"op": "remove", "step_id": 103}])  # noqa: RUF059
+        raw, applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 103}])
         assert applied[0]["removed"] == ["KETTLEBELL_DEADLIFT", "rest"]
         # block 100 now has only PULL_UP + its rest
         steps = _slim_workout(raw)["blocks"][0]["steps"]
@@ -274,7 +273,7 @@ class TestStructuralOps:
 
     def test_remove_block_by_id(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"op": "remove", "step_id": 200}])  # noqa: RUF059
+        raw, _applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 200}])
         blocks = _slim_workout(raw)["blocks"]
         assert len(blocks) == 1
         assert blocks[0]["block_id"] == 100
@@ -282,7 +281,7 @@ class TestStructuralOps:
     def test_removing_only_exercise_prunes_block(self):
         raw = _fixture()
         # block 200 holds only FARMERS_CARRY (201); removing it empties the block
-        raw, applied, warnings = _apply_edits(raw, [{"op": "remove", "step_id": 201}])  # noqa: RUF059
+        raw, _applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 201}])
         blocks = _slim_workout(raw)["blocks"]
         assert len(blocks) == 1  # block 200 pruned
 
@@ -319,7 +318,7 @@ class TestStructuralOps:
 
     def test_add_block(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(  # noqa: RUF059
+        raw, _applied, warnings = _apply_edits(
             raw,
             [{"op": "add_block", "exercise": "Plank", "sets": 3, "reps": 30, "rest_s": 45}],
         )
@@ -426,7 +425,7 @@ class TestToolDispatch:
         assert len(result["workout"]["blocks"]) == 2
 
     def test_update_persists_and_returns_refreshed(self):
-        side_effect, store = _mock_client_calls(_fixture())  # noqa: RUF059
+        side_effect, _store = _mock_client_calls(_fixture())
         with (
             patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
             patch("src.agent.tools.garmin_workout._safe_api_call", side_effect=side_effect),
@@ -507,6 +506,6 @@ class TestToolSchema:
             from langchain_google_genai._function_utils import (
                 convert_to_genai_function_declarations,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - private langchain helper: skip when it moved or broke
             return
         convert_to_genai_function_declarations([garmin_workout])

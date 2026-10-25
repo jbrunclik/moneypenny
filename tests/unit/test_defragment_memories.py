@@ -87,16 +87,16 @@ class TestFormatMemoriesForLlm:
 
         result = format_memories_for_llm(memories)
 
-        protected_line = [line for line in result.splitlines() if "mem-1" in line][0]  # noqa: RUF015
-        ordinary_line = [line for line in result.splitlines() if "mem-2" in line][0]  # noqa: RUF015
+        protected_line = next(line for line in result.splitlines() if "mem-1" in line)
+        ordinary_line = next(line for line in result.splitlines() if "mem-2" in line)
         assert "PROTECTED" in protected_line
         assert "PROTECTED" not in ordinary_line
 
     def test_marks_recent_memories_read_only(self):
         result = format_memories_for_llm([_memory("mem-1", updated_at=_recent()), _memory("mem-2")])
 
-        recent_line = [line for line in result.splitlines() if "mem-1" in line][0]  # noqa: RUF015
-        ordinary_line = [line for line in result.splitlines() if "mem-2" in line][0]  # noqa: RUF015
+        recent_line = next(line for line in result.splitlines() if "mem-1" in line)
+        ordinary_line = next(line for line in result.splitlines() if "mem-2" in line)
         assert "RECENT" in recent_line
         assert "RECENT" not in ordinary_line
 

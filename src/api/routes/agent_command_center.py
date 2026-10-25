@@ -39,26 +39,21 @@ def get_command_center(user: User) -> dict[str, Any]:
     data = db.get_command_center_data(user.id)
 
     # Convert to response format
-    agents_response = []
-    for agent_data in data["agents"]:
-        agents_response.append(  # noqa: PERF401
-            agent_to_response(
-                agent_data["agent"],
-                agent_data["unread_count"],
-                agent_data["has_pending_approval"],
-                agent_data["has_error"],
-                agent_data["last_execution_status"],
-            )
+    agents_response = [
+        agent_to_response(
+            agent_data["agent"],
+            agent_data["unread_count"],
+            agent_data["has_pending_approval"],
+            agent_data["has_error"],
+            agent_data["last_execution_status"],
         )
+        for agent_data in data["agents"]
+    ]
 
-    approvals_response = []
-    for approval_data in data["pending_approvals"]:
-        approvals_response.append(  # noqa: PERF401
-            approval_to_response(
-                approval_data["approval"],
-                approval_data["agent_name"],
-            )
-        )
+    approvals_response = [
+        approval_to_response(approval_data["approval"], approval_data["agent_name"])
+        for approval_data in data["pending_approvals"]
+    ]
 
     executions_response = [execution_to_response(e) for e in data["recent_executions"]]
 

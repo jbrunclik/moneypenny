@@ -1,7 +1,7 @@
 """Unit tests for the post-answer grounding check (src/agent/grounding_check.py)."""
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -555,7 +555,9 @@ class TestPriceNet:
     and then (honesty probe, Oct 4 2026); every price not on a page read is
     marked even when the verifier skipped it."""
 
-    _PAGES = [SourcePage("Shop", "https://shop.cz", "Brompton C Line: 43 300 Kč. Doprava zdarma.")]  # noqa: RUF012
+    _PAGES: ClassVar[list[SourcePage]] = [
+        SourcePage("Shop", "https://shop.cz", "Brompton C Line: 43 300 Kč. Doprava zdarma.")
+    ]
 
     def _check(self, answer: str, claims: list[ClaimVerdict]) -> list[dict[str, Any]]:
         from src.agent.grounding_check import check_grounding_pages
@@ -712,7 +714,7 @@ class TestShopNet:
     """Linked or named sites the turn never read are marked (honesty probe:
     Cyklobazar, VeloRama, Citybikes left unmarked by the verifier)."""
 
-    _PAGES = [  # noqa: RUF012
+    _PAGES = [  # noqa: RUF012 - a test replaces it per instance
         SourcePage(
             "Cyklospeciality",
             "https://www.cyklospeciality.cz/brompton",
@@ -838,7 +840,7 @@ class TestEarlierVerifiedClaims:
     """Facts sourced in an earlier turn are not 'unverified' when restated
     (Oct 2026: a follow-up flagged red what the previous turns had verified)."""
 
-    _HISTORY: list[dict[str, Any]] = [  # noqa: RUF012
+    _HISTORY: ClassVar[list[dict[str, Any]]] = [
         {"role": "user", "content": "Kdo vyhrál?", "metadata": {}},
         {
             "role": "assistant",
