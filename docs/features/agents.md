@@ -158,8 +158,16 @@ When an agent calls `request_approval`:
 2. An approval request is created in the database with an expiration
 3. The agent's status changes to `waiting_approval`
 4. The user sees the request in the Command Center
-5. On approval: Agent re-runs from the beginning with access to the approval state
-6. On rejection: Execution fails with an error message
+5. On approval: the paused execution is closed as `completed`, an
+   `[Action approved: ...]` message joins the agent's conversation, and the
+   agent re-runs in a new execution with access to the approval state. A crash
+   in that re-run is recorded on its execution (`failed`); the approval itself
+   still succeeds.
+6. On rejection: the paused execution fails with "Action rejected by user" and
+   an `[Action rejected: ...]` message joins the conversation.
+
+Tests: `tests/integration/test_routes_agent_approvals.py` (the approval flow),
+`tests/unit/test_scheduler.py` (due, skipped, failed and resumed runs).
 
 **Note:** Approval requests expire after `AGENT_APPROVAL_TTL_HOURS` (default 24 hours). Expired requests block the agent until resolved or cleaned up.
 

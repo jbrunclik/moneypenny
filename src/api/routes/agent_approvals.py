@@ -68,6 +68,10 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     if not resolved:
         raise_not_found_error("Approval request")
 
+    # The paused run is done: the resumed one below carries on. Left alone it
+    # stayed waiting_approval until the zombie sweep marked it failed.
+    _close_waiting_execution(agent.id, status="completed")
+
     # Resume agent execution with a message about the approved action
     # Create a new execution record for the resumed run
     execution = db.create_execution(
@@ -88,7 +92,12 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
             resume_message,
         )
 
-    result, error_msg = execute_agent(agent, user, "manual", execution.id)
+    try:
+        result, error_msg = execute_agent(agent, user, "manual", execution.id)
+    except Exception as e:
+        # The approval went through: record the resumed run's crash, don't 500
+        logger.exception("Resumed agent run crashed", extra={"agent_id": agent.id})
+        result, error_msg = False, str(e)
 
     if result is True:
         db.update_execution(execution.id, status="completed")
@@ -148,13 +157,13 @@ def reject_request(user: User, approval_id: str) -> dict[str, Any]:
             rejection_message,
         )
 
-    # Update any waiting_approval execution to failed
-    executions = db.get_agent_executions(approval.agent_id, limit=1)
-    if executions and executions[0].status == "waiting_approval":
-        db.update_execution(
-            executions[0].id,
-            status="failed",
-            error_message="Action rejected by user",
-        )
+    _close_waiting_execution(approval.agent_id, status="failed", error="Action rejected by user")
 
     return {"status": "rejected"}
+
+
+def _close_waiting_execution(agent_id: str, status: str, error: str | None = None) -> None:
+    """Close the agent's run that paused for this approval, if it is the latest."""
+    executions = db.get_agent_executions(agent_id, limit=1)
+    if executions and executions[0].status == "waiting_approval":
+        db.update_execution(executions[0].id, status=status, error_message=error)
