@@ -251,13 +251,24 @@ pre-commit: lint test-all
 	@echo "All pre-commit checks passed!"
 
 # Dependency vulnerability scan
+# Findings are reported but non-blocking; an audit that cannot run fails.
+# Both tools exit 1 for findings and for errors alike, so the JSON report
+# decides: no parseable report (or npm's "error" key) means it did not run.
 audit:
 	@echo "Running Python dependency audit..."
-	$(PIP) install -q pip-audit 2>/dev/null || true
-	$(PYTHON) -m pip_audit -r requirements.txt -r requirements-dev.txt || true
+	@$(PIP) install -q pip-audit
+	@report=$$(mktemp); \
+	$(PYTHON) -m pip_audit -r requirements.txt -r requirements-dev.txt -f json -o $$report --progress-spinner off; \
+	$(PYTHON) -c 'import json, sys; deps = json.load(open(sys.argv[1]))["dependencies"]; found = ["  %s %s: %s" % (d["name"], d["version"], v["id"]) for d in deps for v in d.get("vulns", [])]; print("\n".join(found)); print("%d known vulnerabilities (non-blocking)" % len(found))' $$report \
+		|| { echo "pip-audit could not run"; rm -f $$report; exit 1; }; \
+	rm -f $$report
 	@echo ""
 	@echo "Running Node.js dependency audit..."
-	cd web && $(NPM) audit --audit-level=high || true
+	@report=$$(mktemp); \
+	(cd web && $(NPM) audit --audit-level=high --json > $$report); \
+	$(PYTHON) -c 'import json, sys; d = json.load(open(sys.argv[1])); sys.exit("npm audit could not run: %s" % d["error"]) if "error" in d else None; counts = d["metadata"]["vulnerabilities"]; print(", ".join("%s: %s" % kv for kv in counts.items())); print("Details: cd web && npm audit (non-blocking)") if counts["total"] else None' $$report \
+		|| { rm -f $$report; exit 1; }; \
+	rm -f $$report
 
 # Create a new database migration file
 # Usage: make migration NAME=add_preferences_table

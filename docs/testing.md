@@ -202,7 +202,8 @@ CI enforces these; a green test run alone does not guarantee a green build.
   up. Adding uncovered code can fail CI even when all tests pass.
 - **Dependency audit**: the `audit.yml` workflow fails on `pip-audit` findings in both Python locks
   findings and on `npm audit --audit-level=high` in `web/`. Locally, `make audit` runs
-  the same scans but is report-only (`|| true`), so read its output.
+  the same scans: findings are reported but don't fail it, while an audit that cannot
+  run (pip-audit missing, npm network error) does.
 - **TOML-ordering pitfall**: `[tool.ruff.lint.per-file-ignores]` must come **after**
   all other `[tool.ruff.lint]` keys (`select`, `ignore`). Inserting a subsection
   mid-`[tool.ruff.lint]` orphans the keys below it (e.g. silently un-ignoring
