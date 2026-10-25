@@ -1,9 +1,24 @@
 """Unit tests for configuration validation."""
 
 import os
+from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
+
+import src.config
+
+
+@pytest.fixture(autouse=True)
+def _restore_config_module() -> Iterator[None]:
+    """These tests reload src.config; put the original module contents back so
+    modules that imported Config at load time and the rest of the suite keep
+    sharing one Config class (a leftover reload made later tests patch a class
+    nobody else reads)."""
+    original = dict(vars(src.config))
+    yield
+    vars(src.config).clear()
+    vars(src.config).update(original)
 
 
 class TestConfigValidation:
