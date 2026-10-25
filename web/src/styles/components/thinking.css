@@ -187,12 +187,20 @@
     animation: thinking-bounce 1.4s ease-in-out infinite;
 }
 
-.thinking-dots span:nth-child(1) { animation-delay: 0s; }
-.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+.thinking-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+.thinking-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.thinking-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
 
 @keyframes thinking-bounce {
-    0%, 80%, 100% {
+    0%,
+    80%,
+    100% {
         transform: scale(0.8);
         opacity: 0.5;
     }
@@ -390,7 +398,9 @@
     cursor: pointer;
 }
 
-.thinking-indicator:not(.live-expanded) .thinking-indicator-content .thinking-trace-item:not(.current),
+.thinking-indicator:not(.live-expanded)
+    .thinking-indicator-content
+    .thinking-trace-item:not(.current),
 .thinking-indicator:not(.live-expanded) .thinking-indicator-content .thinking-markdown,
 .thinking-indicator.live-expanded .thinking-heading {
     display: none;

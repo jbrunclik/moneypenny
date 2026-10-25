@@ -97,7 +97,7 @@ session and points here for the rest.
 | C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - all baselined |
 | C2 | No dead code or unused dependencies | planned: vulture, knip, deptry |
 | C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). Not adopted: `DTZ` (local naive datetimes are deliberate - changing them is a behavior change), `PT` and `PLC0415` (later) | ruff; existing violations carry `# noqa: CODE` |
-| C4 | Formatting: ruff format (Python), ESLint (TS); Prettier for CSS, YAML and JSON; `.editorconfig` | ruff, ESLint, PostToolUse hook; planned: Prettier |
+| C4 | Formatting: ruff format (Python), ESLint (TS), Prettier (CSS, YAML, JSON; not Markdown); `.editorconfig` | ruff, ESLint, Prettier `format:check` in `make lint`; the PostToolUse hook formats on edit |
 | C5 | Type hints everywhere (mypy strict), TypeScript strict | mypy, tsc |
 | C6 | No backward-compatibility re-exports when moving code; update the imports | judgment |
 

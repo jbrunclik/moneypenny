@@ -43,9 +43,16 @@
 }
 
 @keyframes quiz-shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-4px); }
-    75% { transform: translateX(4px); }
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-4px);
+    }
+    75% {
+        transform: translateX(4px);
+    }
 }
 
 /* ----------------------------------------
@@ -116,12 +123,12 @@
 }
 
 .quiz-option.correct::after {
-    content: '✓';
+    content: "✓";
     color: var(--success);
 }
 
 .quiz-option.incorrect::after {
-    content: '✕';
+    content: "✕";
     color: var(--error);
 }
 

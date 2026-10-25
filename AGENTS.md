@@ -72,7 +72,7 @@ against). Agents in `.claude/agents/`: `test-writer`, `e2e-debugger`,
 `docs-updater`.
 
 Hooks: `PostToolUse` formats edited files (ruff format + fixes, keeping unused
-imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
+imports; eslint --fix; Prettier for CSS/YAML/JSON). `PreToolUse` blocks hand-edits to generated files
 (`web/src/types/generated-api.ts`, `static/openapi.json`) and sweeping or
 non-conventional git commands (`guard-git.py`).
 

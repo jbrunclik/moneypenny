@@ -12,5 +12,5 @@ expect:
     create_artifact.html:
       - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
       - '(?<![-\w])width\s*[:=]\s*["'']?\d{3,}(px)?(?![\d%])'
-      - 'https?://'
+      - "https?://"
       - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

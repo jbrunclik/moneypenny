@@ -11,7 +11,7 @@
    layout adapts to the frame's width (container queries), not the screen.
 */
 
-@import '../styles/variables.css';
+@import "../styles/variables.css";
 
 :root {
     --mp-bg: transparent;
@@ -50,7 +50,7 @@
     color-scheme: dark;
 }
 
-:root[data-theme='light'] {
+:root[data-theme="light"] {
     color-scheme: light;
 }
 
@@ -88,9 +88,15 @@ h3 {
     letter-spacing: -0.01em;
 }
 
-h1 { font-size: var(--mp-text-2xl); }
-h2 { font-size: var(--mp-text-xl); }
-h3 { font-size: var(--mp-text-lg); }
+h1 {
+    font-size: var(--mp-text-2xl);
+}
+h2 {
+    font-size: var(--mp-text-xl);
+}
+h3 {
+    font-size: var(--mp-text-lg);
+}
 
 p {
     margin: 0 0 var(--mp-space-3);
@@ -178,7 +184,8 @@ button {
     color: var(--color-user-text);
     background: var(--mp-accent);
     cursor: pointer;
-    transition: background var(--mp-duration) var(--mp-ease),
+    transition:
+        background var(--mp-duration) var(--mp-ease),
         transform var(--mp-duration) var(--mp-ease);
 }
 
@@ -219,8 +226,8 @@ textarea {
     background: var(--mp-surface);
 }
 
-input[type='checkbox'],
-input[type='radio'] {
+input[type="checkbox"],
+input[type="radio"] {
     width: 18px;
     min-height: 0;
     height: 18px;
@@ -228,7 +235,7 @@ input[type='radio'] {
     accent-color: var(--mp-accent);
 }
 
-input[type='range'] {
+input[type="range"] {
     padding: 0;
     border: 0;
     background: none;
@@ -431,7 +438,7 @@ th {
     gap: var(--mp-space-1);
 }
 
-.mp-tabs > input[type='radio'] {
+.mp-tabs > input[type="radio"] {
     position: absolute;
     opacity: 0;
     pointer-events: none;
@@ -445,12 +452,12 @@ th {
     cursor: pointer;
 }
 
-.mp-tabs > input[type='radio']:checked + label {
+.mp-tabs > input[type="radio"]:checked + label {
     color: var(--mp-text);
     background: var(--mp-surface-2);
 }
 
-.mp-tabs > input[type='radio']:focus-visible + label {
+.mp-tabs > input[type="radio"]:focus-visible + label {
     outline: 2px solid var(--mp-accent);
 }
 

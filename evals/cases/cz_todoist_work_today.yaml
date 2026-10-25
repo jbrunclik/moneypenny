@@ -5,13 +5,19 @@ description: >
 integrations:
   todoist:
     projects:
-      - {id: p1, name: Práce}
-      - {id: p2, name: Osobní}
+      - { id: p1, name: Práce }
+      - { id: p2, name: Osobní }
     tasks:
-      - {id: t1, content: "Poslat fakturu Novákovi", project_id: p1, priority: 4, due: {date: "{today}"}}
-      - {id: t2, content: "Objednat STK", project_id: p2, due: {date: "{today}"}}
-      - {id: t3, content: "Připravit prezentaci", project_id: p1, due: {date: "{in_5_days}"}}
-      - {id: t4, content: "Koupit dárek pro mámu", project_id: p2}
+      - {
+          id: t1,
+          content: "Poslat fakturu Novákovi",
+          project_id: p1,
+          priority: 4,
+          due: { date: "{today}" },
+        }
+      - { id: t2, content: "Objednat STK", project_id: p2, due: { date: "{today}" } }
+      - { id: t3, content: "Připravit prezentaci", project_id: p1, due: { date: "{in_5_days}" } }
+      - { id: t4, content: "Koupit dárek pro mámu", project_id: p2 }
 user: "co mám v práci na dnešek a co je urgentní?"
 expect:
   rubric: >

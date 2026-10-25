@@ -23,7 +23,9 @@
     "test:e2e:headed": "playwright test tests/e2e --headed",
     "test:visual": "playwright test tests/visual",
     "test:visual:update": "playwright test tests/visual --update-snapshots",
-    "test:all": "vitest run && playwright test"
+    "test:all": "vitest run && playwright test",
+    "format": "prettier --write \"src/**/*.css\" \"../.github/**/*.yml\" \"../evals/cases/*.yaml\" \"tsconfig*.json\" \"package.json\" \"../.prettierrc.json\"",
+    "format:check": "prettier --check \"src/**/*.css\" \"../.github/**/*.yml\" \"../evals/cases/*.yaml\" \"tsconfig*.json\" \"package.json\" \"../.prettierrc.json\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -33,6 +35,7 @@
     "eslint": "^10.13.0",
     "jsdom": "^30.1.3",
     "openapi-typescript": "^7.13.0",
+    "prettier": "3.9.10",
     "rollup-plugin-visualizer": "^7.1.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",

@@ -18,5 +18,12 @@ if [[ "$FILE_PATH" == *.py ]]; then
 elif [[ "$FILE_PATH" == *.ts || "$FILE_PATH" == *.tsx ]]; then
   cd "$CLAUDE_PROJECT_DIR/web" || exit 0
   npx eslint --fix "$FILE_PATH" > /dev/null 2>&1
+elif [[ "$FILE_PATH" == *.css || "$FILE_PATH" == *.yml || "$FILE_PATH" == *.yaml || "$FILE_PATH" == *.json ]]; then
+  # Prettier (C4) - but never generated JSON (OpenAPI spec, lockfile, ESLint baseline)
+  case "$FILE_PATH" in
+    */openapi.json|*/package-lock.json|*/eslint-suppressions.json|*/node_modules/*) exit 0 ;;
+  esac
+  cd "$CLAUDE_PROJECT_DIR/web" || exit 0
+  npx prettier --write "$FILE_PATH" > /dev/null 2>&1
 fi
 exit 0

@@ -101,7 +101,7 @@
 /* Flex items lose their list markers: number them with a counter */
 .research-offer__item::before {
     counter-increment: research-item;
-    content: counter(research-item) '.';
+    content: counter(research-item) ".";
     flex: none;
     min-width: 1.5em;
     color: var(--text-muted);
@@ -122,7 +122,9 @@
     font: inherit;
     resize: none;
     field-sizing: content;
-    transition: border-color 0.15s, background 0.15s;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
 }
 
 .research-offer__context textarea[hidden] {
@@ -517,7 +519,7 @@
 
 /* The separator wraps with the link, never dangling at a line end */
 .action-row__source::before {
-    content: '· ';
+    content: "· ";
     color: var(--text-muted);
 }
 

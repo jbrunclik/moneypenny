@@ -39,12 +39,12 @@
     color: var(--text-muted);
 }
 
-.grounding-footer[role='button'] {
+.grounding-footer[role="button"] {
     cursor: pointer;
 }
 
-.grounding-footer[role='button']::before {
-    content: '⚠ ';
+.grounding-footer[role="button"]::before {
+    content: "⚠ ";
     color: var(--claim-heading-unsourced);
 }
 

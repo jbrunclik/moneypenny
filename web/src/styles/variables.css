@@ -19,49 +19,49 @@
        Color Palette - Neutrals (Gray scale)
        Dark theme values
        ---------------------------------------- */
-    --color-neutral-950: #0f0f0f;   /* Darkest - primary bg */
-    --color-neutral-900: #1a1a1a;   /* Secondary bg */
-    --color-neutral-850: #1f1f1f;   /* Assistant message bg */
-    --color-neutral-800: #242424;   /* Tertiary bg */
-    --color-neutral-700: #2a2a2a;   /* Hover bg */
-    --color-neutral-600: #383838;   /* Borders */
-    --color-neutral-400: #8a8a8a;   /* Muted text (5.3:1 on bg-primary - AA) */
-    --color-neutral-300: #a0a0a0;   /* Secondary text */
-    --color-neutral-100: #e5e5e5;   /* Primary text */
+    --color-neutral-950: #0f0f0f; /* Darkest - primary bg */
+    --color-neutral-900: #1a1a1a; /* Secondary bg */
+    --color-neutral-850: #1f1f1f; /* Assistant message bg */
+    --color-neutral-800: #242424; /* Tertiary bg */
+    --color-neutral-700: #2a2a2a; /* Hover bg */
+    --color-neutral-600: #383838; /* Borders */
+    --color-neutral-400: #8a8a8a; /* Muted text (5.3:1 on bg-primary - AA) */
+    --color-neutral-300: #a0a0a0; /* Secondary text */
+    --color-neutral-100: #e5e5e5; /* Primary text */
 
     /* ----------------------------------------
        Color Palette - Brand (Indigo)
        ---------------------------------------- */
-    --color-brand-300: #a9a6f7;     /* Subtle accent text on dark */
-    --color-brand-400: #7b78f0;     /* Accent hover (dark) */
-    --color-brand-500: #5753e8;     /* Primary accent */
-    --color-brand-600: #4a46c6;     /* Pressed state / user bubble */
-    --color-brand-700: #3f3ba8;     /* Dark accent */
-    --color-brand-800: #34318a;     /* Version banner bg */
-    --color-brand-900: #2b2973;     /* Darker variant */
-    --color-brand-950: #1d1b4f;     /* Darkest - banner text */
+    --color-brand-300: #a9a6f7; /* Subtle accent text on dark */
+    --color-brand-400: #7b78f0; /* Accent hover (dark) */
+    --color-brand-500: #5753e8; /* Primary accent */
+    --color-brand-600: #4a46c6; /* Pressed state / user bubble */
+    --color-brand-700: #3f3ba8; /* Dark accent */
+    --color-brand-800: #34318a; /* Version banner bg */
+    --color-brand-900: #2b2973; /* Darker variant */
+    --color-brand-950: #1d1b4f; /* Darkest - banner text */
 
     /* Purple shades (for gradients) */
-    --color-purple-500: #7c5ce8;    /* Gradient middle */
-    --color-purple-400: #9b6cf2;    /* Gradient end */
+    --color-purple-500: #7c5ce8; /* Gradient middle */
+    --color-purple-400: #9b6cf2; /* Gradient end */
 
     /* ----------------------------------------
        Color Palette - Semantic
        ---------------------------------------- */
-    --color-success-400: #4ade80;   /* Success light */
-    --color-success-500: #22c55e;   /* Success green */
-    --color-success-600: #16a34a;   /* Success hover */
+    --color-success-400: #4ade80; /* Success light */
+    --color-success-500: #22c55e; /* Success green */
+    --color-success-600: #16a34a; /* Success hover */
     --color-success-900: rgba(34, 197, 94, 0.15); /* Success badge bg (dark) */
 
-    --color-error-400: #f87171;     /* Error light */
-    --color-error-500: #ef4444;     /* Error red */
-    --color-error-600: #dc2626;     /* Error hover */
+    --color-error-400: #f87171; /* Error light */
+    --color-error-500: #ef4444; /* Error red */
+    --color-error-600: #dc2626; /* Error hover */
     --color-error-900: rgba(239, 68, 68, 0.15); /* Error badge bg (dark) */
 
-    --color-warning-400: #fbbf24;   /* Warning light */
-    --color-warning-500: #f59e0b;   /* Warning amber */
-    --color-warning-600: #d97706;   /* Warning dark */
-    --color-warning-700: #b45309;   /* Warning darker (for text on light bg) */
+    --color-warning-400: #fbbf24; /* Warning light */
+    --color-warning-500: #f59e0b; /* Warning amber */
+    --color-warning-600: #d97706; /* Warning dark */
+    --color-warning-700: #b45309; /* Warning darker (for text on light bg) */
     --color-warning-900: rgba(245, 158, 11, 0.15); /* Warning badge bg (dark) */
 
     /* Warning text - theme-aware (dark uses light amber, light uses dark amber) */
@@ -73,8 +73,8 @@
     --claim-heading-unsourced: var(--color-warning-400);
     --claim-heading-contradicted: #f08a7a;
 
-    --color-info-500: #3b82f6;      /* Info blue */
-    --color-user-text: #ffffff;     /* User message text */
+    --color-info-500: #3b82f6; /* Info blue */
+    --color-user-text: #ffffff; /* User message text */
     --color-user-text-secondary: rgba(255, 255, 255, 0.85); /* User message secondary text */
     --color-user-overlay: rgba(255, 255, 255, 0.2); /* User message overlay bg */
 
@@ -99,7 +99,7 @@
     --accent: var(--color-brand-500);
     --accent-hover: var(--color-brand-400);
     --accent-muted: rgba(87, 83, 232, 0.15);
-    --accent-text: var(--color-brand-300);   /* accent-coloured text on a muted fill */
+    --accent-text: var(--color-brand-300); /* accent-coloured text on a muted fill */
 
     /* Borders */
     --border: var(--color-neutral-600);
@@ -124,18 +124,28 @@
        Alpha kept >= 0.7 so text contrast holds over busy content.
        ---------------------------------------- */
     --glass-blur: 26px;
-    --glass-blur-header: 32px;    /* heavier - the header spans full width over
+    --glass-blur-header: 32px; /* heavier - the header spans full width over
                                      scrolling content, so it needs more frost */
     --glass-blur-sidebar: 24px;
-    --glass-bg: rgba(24, 24, 24, 0.58);           /* chrome over content - content
+    --glass-bg: rgba(
+        24,
+        24,
+        24,
+        0.58
+    ); /* chrome over content - content
                                                      genuinely reads through it */
-    --glass-bg-strong: rgba(18, 18, 18, 0.74);    /* toasts, floating buttons */
+    --glass-bg-strong: rgba(18, 18, 18, 0.74); /* toasts, floating buttons */
     /* Dialogs and sheets (iOS alert/sheet material): a frost LIGHTER than the
        dimmed near-black page behind it reads as a distinct glass layer; the
        heavier blur turns content behind it into colour, never ghost text. */
     --glass-bg-dialog: rgba(44, 44, 48, 0.8);
     --glass-blur-dialog: 40px;
-    --glass-bg-menu: rgba(28, 28, 32, 0.95);      /* dropdown menus: near-opaque -
+    --glass-bg-menu: rgba(
+        28,
+        28,
+        32,
+        0.95
+    ); /* dropdown menus: near-opaque -
                                                      they sit right over the
                                                      translucent composer and must
                                                      stay legible */
@@ -148,8 +158,8 @@
        the frost reads as a distinct glass layer over the (now less-dimmed) chat
        content rather than a near-black solid. */
     --glass-bg-sidebar: rgba(40, 40, 46, 0.5);
-    --glass-border: rgba(255, 255, 255, 0.09);    /* hairline edge */
-    --glass-highlight: rgba(255, 255, 255, 0.10); /* top specular line (inset) */
+    --glass-border: rgba(255, 255, 255, 0.09); /* hairline edge */
+    --glass-highlight: rgba(255, 255, 255, 0.1); /* top specular line (inset) */
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 
     /* Code blocks */
@@ -191,7 +201,7 @@
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
-    --radius-pill: 10px;    /* For pill-shaped badges/counts */
+    --radius-pill: 10px; /* For pill-shaped badges/counts */
     --radius-full: 9999px;
 
     /* Legacy aliases */
@@ -202,9 +212,9 @@
        ---------------------------------------- */
     --space-0-5: 2px;
     --space-1: 4px;
-    --space-1-5: 6px;   /* For fine-tuned spacing */
+    --space-1-5: 6px; /* For fine-tuned spacing */
     --space-2: 8px;
-    --space-2-5: 10px;  /* For fine-tuned spacing */
+    --space-2-5: 10px; /* For fine-tuned spacing */
     --space-3: 12px;
     --space-4: 16px;
     --space-5: 20px;
@@ -216,22 +226,24 @@
     /* ----------------------------------------
        Typography
        ---------------------------------------- */
-    --font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-family-display: 'Bricolage Grotesque Variable', var(--font-family);
-    --font-family-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    --font-family:
+        "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
+    --font-family-display: "Bricolage Grotesque Variable", var(--font-family);
+    --font-family-mono: "SF Mono", "Consolas", "Monaco", monospace;
 
-    --font-size-2xs: 0.5rem;     /* 8px - dropdown arrows */
+    --font-size-2xs: 0.5rem; /* 8px - dropdown arrows */
     /* Smallest readable steps (Oct 2026: were 11/12px with a ~11.2px badge
        size - metadata sat below comfortable reading size app-wide) */
-    --font-size-xs: 0.75rem;     /* 12px - badges, timestamps, captions */
-    --font-size-sm: 0.8125rem;   /* 13px - helper text, secondary meta */
-    --font-size-ui: 0.875rem;    /* 14px - UI chrome default */
-    --font-size-md: 0.9375rem;   /* 15px */
-    --font-size-base: 1rem;      /* 16px - body/message text */
-    --font-size-xl: 1.125rem;    /* 18px */
-    --font-size-2xl: 1.25rem;    /* 20px */
-    --font-size-3xl: 1.5rem;     /* 24px */
-    --font-size-4xl: 2rem;       /* 32px */
+    --font-size-xs: 0.75rem; /* 12px - badges, timestamps, captions */
+    --font-size-sm: 0.8125rem; /* 13px - helper text, secondary meta */
+    --font-size-ui: 0.875rem; /* 14px - UI chrome default */
+    --font-size-md: 0.9375rem; /* 15px */
+    --font-size-base: 1rem; /* 16px - body/message text */
+    --font-size-xl: 1.125rem; /* 18px */
+    --font-size-2xl: 1.25rem; /* 20px */
+    --font-size-3xl: 1.5rem; /* 24px */
+    --font-size-4xl: 2rem; /* 32px */
 
     --line-height: 1.45;
     --line-height-relaxed: 1.6;
@@ -243,8 +255,8 @@
     --header-height: 56px;
     --input-height: 60px;
     --message-max-width: 800px;
-    --dialog-width-sm: 440px;   /* confirms, prompts, small single-purpose dialogs */
-    --dialog-width-md: 560px;   /* forms and editors */
+    --dialog-width-sm: 440px; /* confirms, prompts, small single-purpose dialogs */
+    --dialog-width-md: 560px; /* forms and editors */
     /* Desktop empty chat: the composer is translated up by (50vh - this), so
        a SMALLER value lifts it higher (tuned for a ~40px gap under the
        raised greeting) */
@@ -302,15 +314,15 @@
 
 [data-theme="light"] {
     /* Light theme neutral palette */
-    --color-neutral-950: #ffffff;   /* Lightest - primary bg */
-    --color-neutral-900: #f8f9fb;   /* Secondary bg */
-    --color-neutral-850: #f3f4f6;   /* Assistant message bg */
-    --color-neutral-800: #eceef1;   /* Tertiary bg */
-    --color-neutral-700: #eef0f4;   /* Hover bg */
-    --color-neutral-600: #e2e5ea;   /* Borders */
-    --color-neutral-400: #6b7280;   /* Muted text */
-    --color-neutral-300: #4b5563;   /* Secondary text */
-    --color-neutral-100: #111827;   /* Primary text */
+    --color-neutral-950: #ffffff; /* Lightest - primary bg */
+    --color-neutral-900: #f8f9fb; /* Secondary bg */
+    --color-neutral-850: #f3f4f6; /* Assistant message bg */
+    --color-neutral-800: #eceef1; /* Tertiary bg */
+    --color-neutral-700: #eef0f4; /* Hover bg */
+    --color-neutral-600: #e2e5ea; /* Borders */
+    --color-neutral-400: #6b7280; /* Muted text */
+    --color-neutral-300: #4b5563; /* Secondary text */
+    --color-neutral-100: #111827; /* Primary text */
 
     /* Accent adjustments for light theme */
     --accent-hover: var(--color-brand-600);

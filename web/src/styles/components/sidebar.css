@@ -42,7 +42,12 @@
     height: 40px;
     margin: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
-    background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-hover) 50%,
+        var(--bg-tertiary) 75%
+    );
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
@@ -91,7 +96,7 @@
 /* Hairline rule filling the rest of the label row: turns the label into
    an unmistakable separator */
 .conversation-group-label::after {
-    content: '';
+    content: "";
     flex: 1;
     height: 1px;
     background: var(--border);
@@ -124,7 +129,9 @@
     padding: var(--space-3);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background-color var(--transition-fast), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+        background-color var(--transition-fast),
+        transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -401,7 +408,9 @@
     font-family: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
 .user-menu-item:hover {
@@ -546,7 +555,10 @@
     border-radius: var(--radius-lg);
     color: var(--text-primary);
     font-size: var(--font-size-sm);
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background-color var(--transition-fast);
 }
 
 .search-input::placeholder {
@@ -576,7 +588,9 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-full);
-    transition: color var(--transition-fast), background-color var(--transition-fast);
+    transition:
+        color var(--transition-fast),
+        background-color var(--transition-fast);
 }
 
 .search-clear-btn:hover {

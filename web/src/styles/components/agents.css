@@ -18,7 +18,9 @@
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     color: var(--text-primary);
-    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast);
     background-color: var(--bg-secondary);
 }
 
@@ -78,7 +80,8 @@
 }
 
 @keyframes waiting-pulse {
-    0%, 100% {
+    0%,
+    100% {
         opacity: 1;
         transform: scale(1);
     }
@@ -122,7 +125,12 @@
     height: 12px;
     width: 100%;
     border-radius: var(--radius-xs);
-    background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-hover) 50%,
+        var(--bg-tertiary) 75%
+    );
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
@@ -1009,8 +1017,12 @@
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .execution-agent-name {
@@ -1450,7 +1462,7 @@
 }
 
 .tool-checkbox-indicator::after {
-    content: '';
+    content: "";
     display: block;
     width: 10px;
     height: 10px;
@@ -1505,7 +1517,7 @@
 }
 
 .toggle-switch::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 2px;
     left: 2px;

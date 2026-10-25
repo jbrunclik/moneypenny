@@ -30,7 +30,7 @@
    on desktop and non-notched devices. Sits above content but below the sidebar
    overlay and modals. */
 #app::before {
-    content: '';
+    content: "";
     position: fixed;
     top: 0;
     left: 0;
@@ -285,14 +285,14 @@
        fallback covers the pre-JS first paint). The list gap adds the
        breathing room above it. */
     .messages::after {
-        content: '';
+        content: "";
         display: block;
         flex-shrink: 0;
         height: var(--composer-height, 72px);
     }
 
     .messages::before {
-        content: '';
+        content: "";
         display: block;
         flex-shrink: 0;
         height: calc(var(--header-height) + env(safe-area-inset-top, 0));
@@ -302,7 +302,9 @@
        utils/dom.ts, search's scrollIntoView): land it where the first message
        rests at scrollTop 0 - below the header, not under it. */
     .messages {
-        scroll-padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3));
+        scroll-padding-top: calc(
+            var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3)
+        );
     }
 
     .input-area {
@@ -380,10 +382,15 @@
        height, and a hardware keyboard's shortcut bar sets --keyboard-inset
        on focus - either lifted the composer onto the greeting (Oct 2026). */
     .main:has(.welcome-message) .input-area {
-        transform: translateY(min(0px, calc(
-            var(--welcome-composer-lift-px)
-            - (var(--app-vh, 100vh) - var(--keyboard-inset, 0px)) / 2
-        )));
+        transform: translateY(
+            min(
+                0px,
+                calc(
+                    var(--welcome-composer-lift-px) -
+                        (var(--app-vh, 100vh) - var(--keyboard-inset, 0px)) / 2
+                )
+            )
+        );
         background: transparent;
     }
 
@@ -402,7 +409,7 @@
     }
 
     .messages::before {
-        content: '';
+        content: "";
         display: block;
         flex-shrink: 0;
         /* Default top breathing room when no toolbar is shown (welcome). */
@@ -432,7 +439,7 @@
     }
 
     .main:has(.input-area:not(.hidden)) .messages::after {
-        content: '';
+        content: "";
         display: block;
         flex-shrink: 0;
         height: var(--composer-height, 140px);

@@ -3,9 +3,9 @@ description: Adding one task must not load the weekly-planning skill
 integrations:
   todoist:
     projects:
-      - {id: p2, name: Personal}
+      - { id: p2, name: Personal }
     sections:
-      - {id: s2, project_id: p2, name: Errands}
+      - { id: s2, project_id: p2, name: Errands }
     tasks: []
 user: "Add 'buy bike chain lube' to my Todoist."
 expect:

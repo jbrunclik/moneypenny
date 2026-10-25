@@ -5,13 +5,13 @@ description: >
 integrations:
   todoist:
     projects:
-      - {id: p1, name: Práce}
-      - {id: p2, name: Osobní}
+      - { id: p1, name: Práce }
+      - { id: p2, name: Osobní }
     sections:
-      - {id: s1, project_id: p2, name: Nákupy}
-      - {id: s2, project_id: p2, name: Domácnost}
+      - { id: s1, project_id: p2, name: Nákupy }
+      - { id: s2, project_id: p2, name: Domácnost }
     tasks:
-      - {id: t1, content: "Koupit mléko", project_id: p2, section_id: s1}
+      - { id: t1, content: "Koupit mléko", project_id: p2, section_id: s1 }
 user: "připomeň mi zítra ten instalatér kvůli kapajícímu kohoutku v koupelně"
 expect:
   rubric: >

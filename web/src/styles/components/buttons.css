@@ -225,7 +225,8 @@
 }
 
 @keyframes stop-pulse {
-    0%, 100% {
+    0%,
+    100% {
         opacity: 1;
         transform: scale(1);
     }
@@ -264,7 +265,7 @@
 /* Registered so the ring sweep animates smoothly between progress updates
    (no-op in browsers without @property support - updates just snap) */
 @property --progress {
-    syntax: '<percentage>';
+    syntax: "<percentage>";
     inherits: true;
     initial-value: 0%;
 }
@@ -287,16 +288,20 @@
 
 .btn-send.uploading::after,
 .btn-stop.uploading::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 4px;
     border-radius: var(--radius-full);
     padding: 2.5px;
     background: conic-gradient(#fff var(--progress, 0%), rgb(255 255 255 / 25%) 0);
     /* Punch out the center so only a ring remains */
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
     mask-composite: exclude;
 }
 
@@ -394,8 +399,13 @@
 }
 
 @keyframes pulse-recording {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* ----------------------------------------
@@ -418,7 +428,12 @@
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-scroll-btn);
-    transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out), background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+    transition:
+        opacity var(--duration-base) var(--ease-out),
+        transform var(--duration-base) var(--ease-out),
+        background-color var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast);
     z-index: 20;
     opacity: 1;
     margin-top: -52px;
@@ -490,11 +505,16 @@
 }
 
 @keyframes scroll-button-pulse {
-    0%, 100% {
-        box-shadow: var(--shadow-scroll-btn), 0 0 0 0 rgba(87, 83, 232, 0.4);
+    0%,
+    100% {
+        box-shadow:
+            var(--shadow-scroll-btn),
+            0 0 0 0 rgba(87, 83, 232, 0.4);
     }
     50% {
-        box-shadow: var(--shadow-scroll-btn), 0 0 0 8px rgba(87, 83, 232, 0);
+        box-shadow:
+            var(--shadow-scroll-btn),
+            0 0 0 8px rgba(87, 83, 232, 0);
     }
 }
 
@@ -588,7 +608,7 @@
     .btn-send::before,
     .btn-stop::before,
     .mobile-header .btn-icon::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 50%;
         left: 50%;

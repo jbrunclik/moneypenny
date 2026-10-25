@@ -147,7 +147,7 @@ lint:
 	$(RUFF) format --check src/ tests/ scripts/ evals/
 	$(MYPY) src/ evals/
 	$(LINT_IMPORTS)
-	cd web && $(NPM) run typecheck && $(NPM) run lint
+	cd web && $(NPM) run typecheck && $(NPM) run lint && $(NPM) run format:check
 
 lint-fix:
 	$(RUFF) check --fix src/ tests/ scripts/ evals/

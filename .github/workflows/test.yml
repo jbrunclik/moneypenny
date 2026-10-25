@@ -34,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
@@ -45,9 +45,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           # npm's download cache, not node_modules: npm ci deletes node_modules
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0  # every commit of the push, not just the final tree
+          fetch-depth: 0 # every commit of the push, not just the final tree
 
       # A committed config or ignore file could switch rules off: adding one
       # must be a visible decision, so it fails here until this job allows it
@@ -142,7 +142,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
@@ -176,7 +176,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
@@ -217,9 +217,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           # npm's download cache, not node_modules: npm ci deletes node_modules
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
@@ -294,7 +294,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
@@ -305,9 +305,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           # npm's download cache, not node_modules: npm ci deletes node_modules
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies
@@ -390,7 +390,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version-file: '.python-version'
+          python-version-file: ".python-version"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.2
@@ -401,9 +401,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: ".nvmrc"
           # npm's download cache, not node_modules: npm ci deletes node_modules
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install Python dependencies

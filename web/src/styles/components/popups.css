@@ -98,7 +98,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
@@ -133,7 +135,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color var(--transition-fast), opacity var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        opacity var(--transition-fast);
     z-index: 301;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -914,7 +918,9 @@
     color: var(--text-secondary);
     cursor: pointer;
     border-radius: var(--radius-xs);
-    transition: background-color var(--transition-fast), color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
 .toast-dismiss:hover {
@@ -1056,7 +1062,9 @@
     color: var(--text-secondary);
     cursor: pointer;
     border-radius: var(--radius-xs);
-    transition: background-color var(--transition-fast), color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
 .modal-close:hover {
@@ -1174,14 +1182,18 @@
        tab order. visibility flips at the END of the slide-out. */
     transform: translateY(-100%);
     visibility: hidden;
-    transition: transform var(--transition-slow), visibility 0s linear 0.3s;
+    transition:
+        transform var(--transition-slow),
+        visibility 0s linear 0.3s;
 }
 
 .version-banner.visible {
     transform: translateY(0);
     visibility: visible;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    transition: transform var(--transition-slow), visibility 0s;
+    transition:
+        transform var(--transition-slow),
+        visibility 0s;
 }
 
 .version-banner-message {
@@ -1206,7 +1218,10 @@
     display: flex;
     align-items: center;
     gap: var(--space-1-5);
-    transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast);
 }
 
 .version-banner-reload:hover {
@@ -1233,7 +1248,10 @@
     display: flex;
     align-items: center;
     gap: var(--space-1-5);
-    transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        border-color var(--transition-fast),
+        transform var(--transition-fast);
 }
 
 .version-banner-dismiss:hover {
@@ -1325,7 +1343,9 @@
     font-family: inherit;
     color: var(--text-secondary);
     cursor: pointer;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
+    transition:
+        background-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
 .settings-tab:hover {
@@ -1704,7 +1724,7 @@
         width: 100%;
     }
 
-.settings-todoist-actions .btn {
+    .settings-todoist-actions .btn {
         width: 100%;
     }
 }
@@ -1944,7 +1964,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Mobile: stack Calendar connected state */
@@ -2112,7 +2134,11 @@
     /* A soft brand glow behind the card - a plain grey card on a flat page
        read as a stray dialog. The card itself is the dialog glass. */
     background:
-        radial-gradient(ellipse 60% 45% at 50% 38%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+        radial-gradient(
+            ellipse 60% 45% at 50% 38%,
+            color-mix(in srgb, var(--accent) 22%, transparent),
+            transparent 70%
+        ),
         var(--bg-primary);
     z-index: var(--z-modal-backdrop);
     display: flex;
@@ -2348,7 +2374,7 @@
     .info-popup-content::before,
     .modal::before,
     .action-sheet::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 6px;
         left: 50%;
