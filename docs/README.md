@@ -69,7 +69,7 @@ User interface patterns and implementations:
 - **[testing/visual.md](testing/visual.md)** - Visual regression tests: darwin vs Linux baselines, regeneration via Docker or CI
 - **[testing/evals.md](testing/evals.md)** - Agent behavior evals: golden cases + LLM judge (`make eval`), when to run, case authoring
 - **[logging.md](logging.md)** - Structured logging (backend JSON format, frontend logger utility), request IDs, logging guidelines
-- **[conventions.md](conventions.md)** - Code quality guidelines, refactoring patterns, file size rules
+- **[conventions.md](conventions.md)** - Engineering standards: every rule with its ID and enforcer (security, layers, errors, logging, typing, size, testing, agent workflow)
 - **[superpowers/specs/](superpowers/specs/)** - Design specs still referenced by open work (parked or with deferred follow-ups). Shipped specs and plans are deleted; git history keeps them
 
 ## Quick Links
@@ -113,77 +113,16 @@ Common debugging scenarios:
 
 ## Documentation Guidelines
 
-### When to Update Documentation
-
-**Update CLAUDE.md when:**
-- Adding new common tasks (e.g., new Make targets)
-- Changing development workflow
-- Updating quick reference commands
-- Adding code style guidelines that apply project-wide
-
-**Update feature docs when:**
-- Implementing new features
-- Changing how existing features work
-- Adding configuration options
-- Modifying API endpoints
-- Changing UI behavior
-
-**Update architecture docs when:**
-- Changing authentication/authorization
-- Modifying database schema
-- Adding new validation rules
-- Changing error handling patterns
-- Updating rate limits
-
-**Update UI docs when:**
-- Changing scroll behavior
-- Adding new mobile/PWA features
-- Modifying CSS architecture
-- Adding new component patterns
-
-### How to Update Documentation
-
-1. **Find the right doc** - Check this index
-2. **Update inline** - Documentation is next to code for easy maintenance
-3. **Update "See Also" sections** - Keep cross-references current
-4. **Test examples** - Verify code examples still work
-5. **Keep CLAUDE.md lean** - Detailed info goes in `docs/`, not here
-
-### Adding New Features - Documentation Checklist
-
-When implementing a significant new feature:
-
-1. ✅ Add feature documentation to appropriate `docs/features/` file
-2. ✅ Update architecture docs if system design changes
-3. ✅ Add testing section to feature doc
-4. ✅ Update `docs/README.md` index if adding new doc
-5. ✅ Add a pointer from AGENTS.md only for a new everyday command or hard rule
-6. ✅ Update `.env.example` if adding environment variables
-7. ✅ Update README.md if feature is user-facing
-
-### Style Guide
-
-- Use clear headings with `#`, `##`, `###` hierarchy
-- Include code examples with syntax highlighting (` ```python ` or ` ```typescript `)
-- Link to source files with relative paths (`../../src/...`)
-- Use tables for structured data (e.g., configuration options, API endpoints)
-- Add "See Also" sections at the end linking to related docs
-- Keep line length reasonable (~120 chars max) for readability
-
-### Quick Rules
-
-1. **Keep it DRY**: Don't duplicate content between files. Use links to reference related information.
-2. **Use relative links**: Link to other docs using relative paths (e.g., `[Database](architecture/database.md)`)
-3. **Add "See Also" sections**: Help readers find related content
-4. **Include code examples**: Show don't tell - provide concrete examples
-5. **Keep AGENTS.md lean**: add a pointer only for a new everyday command or hard rule
-
-## Contributing
-
-When adding new features:
-1. Update or create the appropriate documentation file in the relevant directory
-2. Add a link to it in this README
-3. Add a pointer from [../CLAUDE.md](../CLAUDE.md) if it's a common task
-4. Ensure all internal links work correctly
-5. Keep pages under ~500 lines - split by subsystem rather than growing one
-6. Link checks run in `tests/unit/test_docs_links.py`
+- **Where things go**: a feature's behavior, configuration and endpoints in
+  its `features/` page; system design in `architecture/`; UI patterns in
+  `ui/`; test practice in `testing/`; rules in [conventions.md](conventions.md).
+  AGENTS.md gets a pointer only for a new everyday command or hard rule.
+- **Update in the same commit** as the code change; a new pattern or pitfall
+  is worth a line where the next agent will look for it.
+- **One home per fact**: link instead of restating, so nothing drifts.
+- **Numbers carry a date** ("78 cases, Oct 2026"), or they read as current
+  forever.
+- **Keep pages under ~500 lines** - split by subsystem. A new page goes into
+  this index; `tests/unit/test_docs_links.py` checks links.
+- **Plans and specs** from `/new-feature` live in `superpowers/` while the work
+  is open and are deleted once it ships (git history keeps them).

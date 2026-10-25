@@ -179,6 +179,21 @@ Individual copy buttons on code blocks and tables.
 
 ---
 
+## Mermaid Diagrams
+
+A ```` ```mermaid ```` code block in an answer renders as an SVG diagram
+([mermaid.ts](../../web/src/utils/mermaid.ts), called from
+`messages/render.ts` and `messages/streaming.ts`):
+
+- The library (~2 MB) is imported only when a finished message contains a
+  diagram - never per streamed token - as its own lazy chunk.
+- It runs with `securityLevel: 'strict'` and the SVG is sanitized again with
+  DOMPurify, since the diagram source is model output.
+- The `base` theme is fed from the app's colour tokens, so diagrams match the
+  light and dark themes.
+- A block that doesn't parse stays the code block it was; the source stays in
+  the DOM (hidden) so the copy button still copies it.
+
 ## Inline Artifacts
 
 An [artifact](artifacts.md) renders as a card under the reply text, in tool-call

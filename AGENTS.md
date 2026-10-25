@@ -25,30 +25,56 @@ load automatically (API, agent, evals, frontend, migrations, programs, tests).
 
 ## Hard rules
 
+The full rule set, with what enforces each rule, is in
+[docs/conventions.md](docs/conventions.md). These apply to every session:
+
 - **The repo is public.** Never write infrastructure details (hostnames, ports,
   server topology, deploy commands naming them) into tracked files or commit
-  messages — say "the production host".
+  messages — say "the production host" (S9).
 - **Check exit codes directly.** Never judge `make lint`/`mypy`/`pytest` through a
   `grep`/`tail` pipe in an `&&` chain (the pipe masks the exit code; this has
-  shipped broken commits). Redirect to a log and branch on `$?`.
+  shipped broken commits). Redirect to a log and branch on `$?` (A3).
 - **Before committing:** `make lint` and the full suite (`make test-all`, or
-  `make pre-commit`) green in-session.
-- **TDD for bug fixes:** failing test first → fix → full suite.
-- **E2E runs the last `make build`**, not your source.
-- **Test UI changes on desktop and mobile** (768px breakpoint).
-- **Conventional Commits:** `type(scope): description` (`feat`, `fix`, `docs`,
-  `style`, `refactor`, `test`, `chore`).
+  `make pre-commit`) green in-session. Nothing gates `main` or the deploy, so
+  this is the gate (A3).
+- **TDD for bug fixes:** failing test first → fix → full suite (T1).
+- **E2E runs the last `make build`**, not your source (T10).
+- **Test UI changes on desktop and mobile** (768px breakpoint) (T11).
+- **Conventional Commits:** `type(scope): description` — a hook rejects others (A2).
+
+## Parallel sessions
+
+Several agent sessions often work in this checkout at once (A1):
+
+- **Stage explicit paths only.** Never `git add -A`/`.`/`-u`, `git commit -a`,
+  `git stash`, `git checkout .`/`git restore .`, `git reset --hard` or
+  `git clean -f` — they take or discard other sessions' work. A hook
+  blocks them. To undo your own change, restore that file by path.
+- **Leave files you didn't change alone** — unknown modifications in
+  `git status` belong to another session; don't commit or revert them.
+- **Run E2E on your own port** (`E2E_PORT=8011 make test-fe-e2e`) when another
+  session might be testing, and stop a server via its PID file
+  (`.e2e-server-<port>.pid`), never by killing whatever listens on a port.
+  `make build` replaces `static/assets` for everyone: for long UI work use a
+  worktree (`superpowers:using-git-worktrees`, under `.claude/worktrees/`).
+- **New migration while another session might add one:** check the highest
+  number on `main` right before committing; two sessions both creating the
+  same `NNNN_` break startup.
 
 ## Workflow
 
-`/new-feature` (superpowers brainstorming → TDD → review → docs) and `/fix-bug`
-(systematic debugging → failing test first) wire the `superpowers` skills to this
-repo. `/regen-baselines` regenerates the Linux visual baselines CI compares
-against. Agents in `.claude/agents/`: `test-writer`, `e2e-debugger`, `docs-updater`.
+Commands in `.claude/commands/` wire the `superpowers` skills to this repo:
+`/new-feature` (brainstorming → TDD → review → docs), `/fix-bug` (systematic
+debugging → failing test first), `/new-endpoint` (schema → route → OpenAPI →
+client → tests), `/new-tool` (agent tool checklist), `/split-file`,
+`/update-deps`, `/regen-baselines` (the Linux visual baselines CI compares
+against). Agents in `.claude/agents/`: `test-writer`, `e2e-debugger`,
+`docs-updater`.
 
 Hooks: `PostToolUse` formats edited files (ruff format + fixes, keeping unused
 imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
-(`web/src/types/generated-api.ts`, `static/openapi.json`).
+(`web/src/types/generated-api.ts`, `static/openapi.json`) and sweeping or
+non-conventional git commands (`guard-git.py`).
 
 ## Layout
 
@@ -64,14 +90,18 @@ imports; eslint --fix). `PreToolUse` blocks hand-edits to generated files
 
 ## Code conventions
 
+Summary — the rules, their IDs and enforcers are in [docs/conventions.md](docs/conventions.md):
+
 - Type hints everywhere (mypy strict); TypeScript strict.
 - Functions < 50 lines ideal, < 100 max; nesting ≤ 3. Split files by
-  responsibility, not line count (~800 lines = check it still has one purpose).
-  No backward-compatibility re-exports when splitting.
+  responsibility, not line count. No backward-compatibility re-exports.
+- Imports point down the layers (routes → helpers → agent → db → utils;
+  core → components → state → api → utils).
 - True constants in `constants.{ts,py}`, tunables in `config.{ts,py}`;
   `SCREAMING_SNAKE_CASE` with units (`_MS`, `_SECONDS`, `_PX`, `_BYTES`).
 - New env var: add to `src/config.py` with a default, to `.env.example`, and to the
   relevant `docs/features/` page.
-- Details and examples: [docs/conventions.md](docs/conventions.md).
+- Logs: user ids, never emails; truncated excerpts that help improve the agent
+  are fine, full conversations never.
 
 See also [TODO.md](TODO.md) (planned work) and [README.md](README.md) (user docs).

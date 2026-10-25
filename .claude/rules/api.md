@@ -15,4 +15,5 @@ Adding an endpoint:
 6. Integration test in `tests/integration/test_routes_<feature>.py` with the `client`, `test_user`, `auth_headers` fixtures.
 
 - **Do not hand-edit** `static/openapi.json` — it is generated (a hook blocks it).
+- Rules B1-B5 and S4 in [docs/conventions.md](../../docs/conventions.md); the end-to-end workflow is `/new-endpoint`.
 - See [docs/architecture/api-design.md](../../docs/architecture/api-design.md).
