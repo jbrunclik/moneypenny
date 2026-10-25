@@ -39,6 +39,7 @@ function createUser(): User {
     email: 'test@example.com',
     name: 'Test User',
     picture: 'https://example.com/pic.jpg',
+    is_admin: false,
   };
 }
 

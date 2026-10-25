@@ -3,10 +3,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createDashboardElement } from '@/components/PlannerDashboard';
-import type { PlannerDashboard, PlannerDay } from '@/types/api';
+import type { PlannerDashboard, PlannerDay, PlannerTask } from '@/types/api';
 
 function day(date: string, overrides: Partial<PlannerDay> = {}): PlannerDay {
-  return { date, day_name: 'Monday', events: [], tasks: [], ...overrides };
+  return { date, day_name: 'Monday', events: [], tasks: [], weather: null, ...overrides };
 }
 
 function dashboard(overrides: Partial<PlannerDashboard> = {}): PlannerDashboard {
@@ -17,6 +17,12 @@ function dashboard(overrides: Partial<PlannerDashboard> = {}): PlannerDashboard 
     calendar_connected: true,
     garmin_connected: false,
     weather_connected: false,
+    todoist_error: null,
+    calendar_error: null,
+    garmin_error: null,
+    weather_error: null,
+    weather_location: null,
+    health_summary: null,
     server_time: '2026-10-09T08:00:00',
     ...overrides,
   };
@@ -50,11 +56,23 @@ describe('PlannerDashboard empty state', () => {
 });
 
 describe('PlannerDashboard week section', () => {
-  const task = { id: 't1', content: 'Pay rent', priority: 1, due: null, project: null };
+  const task: PlannerTask = {
+    id: 't1',
+    content: 'Pay rent',
+    description: '',
+    due_date: null,
+    due_string: null,
+    priority: 1,
+    project_name: null,
+    section_name: null,
+    labels: [],
+    is_recurring: false,
+    url: null,
+  };
 
   it('uses the singular for one item', () => {
     const d = dashboard({
-      days: [day('2026-10-09'), day('2026-10-10'), day('2026-10-11', { tasks: [task] as PlannerDay['tasks'] })],
+      days: [day('2026-10-09'), day('2026-10-10'), day('2026-10-11', { tasks: [task] })],
     });
     expect(render(d).querySelector('.week summary')?.textContent).toContain('1 item');
     expect(render(d).querySelector('.week summary')?.textContent).not.toContain('1 items');

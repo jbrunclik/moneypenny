@@ -75,6 +75,7 @@ function createUser(email: string): User {
     email,
     name: 'Test User',
     picture: null,
+    is_admin: false,
   };
 }
 
@@ -1005,6 +1006,12 @@ describe('Store - Planner', () => {
         calendar_connected: false,
         garmin_connected: false,
         weather_connected: false,
+        todoist_error: null,
+        calendar_error: null,
+        garmin_error: null,
+        weather_error: null,
+        weather_location: null,
+        health_summary: null,
         server_time: '2024-01-01T00:00:00Z',
       };
       useStore.getState().setPlannerDashboard(dashboard);
@@ -1020,6 +1027,12 @@ describe('Store - Planner', () => {
         calendar_connected: false,
         garmin_connected: false,
         weather_connected: false,
+        todoist_error: null,
+        calendar_error: null,
+        garmin_error: null,
+        weather_error: null,
+        weather_location: null,
+        health_summary: null,
         server_time: '2024-01-01T00:00:00Z',
       });
       useStore.getState().setPlannerDashboard(null);
@@ -1052,6 +1065,12 @@ describe('Store - Planner', () => {
         calendar_connected: false,
         garmin_connected: false,
         weather_connected: false,
+        todoist_error: null,
+        calendar_error: null,
+        garmin_error: null,
+        weather_error: null,
+        weather_location: null,
+        health_summary: null,
         server_time: '2024-01-01T00:00:00Z',
       };
       useStore.getState().setPlannerDashboard(dashboard);
@@ -1074,6 +1093,12 @@ describe('Store - Planner', () => {
         calendar_connected: false,
         garmin_connected: false,
         weather_connected: false,
+        todoist_error: null,
+        calendar_error: null,
+        garmin_error: null,
+        weather_error: null,
+        weather_location: null,
+        health_summary: null,
         server_time: '2024-01-01T00:00:00Z',
       });
       useStore.getState().setPlannerConversation({

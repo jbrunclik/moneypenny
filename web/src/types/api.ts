@@ -1,20 +1,19 @@
 /**
  * API types for the Moneypenny frontend.
  *
- * This file defines types for API communication. While we have auto-generated
- * types from the OpenAPI spec (in generated-api.ts), we keep manual types here
- * for frontend flexibility (e.g., adding frontend-only fields like previewUrl).
- *
- * The generated types are available for reference and can be used for strict
- * validation in tests. To regenerate:
- *   npm run types:generate
+ * API types are aliases of the schemas generated from the OpenAPI spec
+ * (generated-api.ts, `make types`), extended only for frontend-only fields
+ * such as previewUrl (F6). Hand-written types remain for client state
+ * (Message, Conversation), SSE event shapes and the few places noted below
+ * where the client still relies on a shape the spec does not promise.
  */
 
 // Re-export generated types for reference and test validation
 export type { components, paths } from './generated-api';
 
-// Admin page and spend status (S12): aliases of the generated schemas (F6)
 type Schemas = import('./generated-api').components['schemas'];
+
+// Admin page and spend status (S12)
 export type AdminOverview = Schemas['AdminOverviewResponse'];
 export type SpendStatus = Schemas['SpendStatusResponse'];
 export type Money = Schemas['AdminOverviewResponse.Money'];
@@ -33,17 +32,11 @@ export type PaginationDirection = (typeof PaginationDirection)[keyof typeof Pagi
 // User types
 // =============================================================================
 
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  picture: string | null;
-  // Sees the admin page (from /auth/me; S12)
-  is_admin?: boolean;
+export type User = Schemas['UserContainerResponse.UserResponse'] & {
   // Integration status - populated client-side after fetching status endpoints
   todoist_connected?: boolean;
   calendar_connected?: boolean;
-}
+};
 
 // =============================================================================
 // Conversation types
@@ -82,10 +75,7 @@ export interface Conversation {
 // Message types
 // =============================================================================
 
-export interface Source {
-  title: string;
-  url: string;
-}
+export type Source = Schemas['MessageResponse.SourceResponse'];
 
 export interface GeneratedImage {
   prompt: string;
@@ -121,17 +111,10 @@ export interface Message {
 }
 
 /** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
-export interface ArtifactRef {
-  id: string;
-  version: number;
-  title: string;
-}
+export type ArtifactRef = Schemas['MessageResponse.ArtifactRef'];
 
 /** One artifact version's HTML and the artifact's saved state (GET /api/artifacts/<id>/versions/<v>) */
-export interface ArtifactVersion extends ArtifactRef {
-  html: string;
-  state: unknown;
-}
+export type ArtifactVersion = Schemas['ArtifactVersionResponse'];
 
 /** What the client needs to recompute an offer's estimate while it is edited */
 export interface ResearchRates {
@@ -183,11 +166,11 @@ export interface MessageResearch {
 }
 
 /** The chat request's deep_research field: start an offer with the edited plan */
-export interface DeepResearchStart {
-  offer_message_id: string;
-  sub_questions: string[];
-  context: string;
-}
+export type DeepResearchStart = Schemas['ChatRequest.DeepResearchStart'];
+
+// The action types stay hand-written: the spec reuses the request models in
+// MessageResponse, so items/minutes/source_message_id come out optional,
+// while every stored action has them and the action row reads them.
 
 /** Look it up on a claim card (source_message_id/claim_index null for converted old messages) */
 export interface VerifyClaimAction {
@@ -213,6 +196,10 @@ export interface SendExtras {
   deepResearch?: DeepResearchStart;
   action?: MessageAction;
 }
+
+// ClaimAnnotation and GroundingSummary stay hand-written: they also arrive on
+// the SSE done event (not in the spec) and are read back from the DOM, where
+// the optional fields can be missing.
 
 export type ClaimVerdict = 'supported' | 'partial' | 'not_found' | 'contradicted';
 
@@ -242,6 +229,9 @@ export interface GroundingSummary {
 // File types
 // =============================================================================
 
+// FileMetadata and GeneratedImage are Message state (local uploads, SSE done
+// events) with client-only fields, so they stay hand-written like Message.
+
 export interface FileMetadata {
   name: string;
   type: string;
@@ -250,14 +240,16 @@ export interface FileMetadata {
   previewUrl?: string; // blob URL for immediate display (local uploads only)
 }
 
-export interface FileUpload {
-  name: string;
-  type: string;
-  data: string; // base64
+/** `data` is base64 */
+export type FileUpload = Schemas['ChatRequest.FileAttachment'] & {
   previewUrl?: string; // blob URL for local preview
-}
+};
 
-/** Device GPS fix attached to chat requests when location sharing is enabled */
+/**
+ * Device GPS fix attached to chat requests when location sharing is enabled.
+ * Hand-written: the request schema lets timestamp_ms be omitted, but the
+ * client always sets it and reads it back to age its cached fix.
+ */
 export interface ClientLocation {
   lat: number;
   lon: number;
@@ -269,23 +261,18 @@ export interface ClientLocation {
 // Model types
 // =============================================================================
 
-export interface Model {
-  id: string;
-  name: string;
-  short_name: string; // Short display name for compact UI (e.g., 'Fast', 'Advanced')
-  description?: string; // One-line description shown in the model dropdown
-}
+export type Model = Schemas['ModelsListResponse.ModelResponse'] & {
+  // One-line description shown in the model dropdown. The /api/models route
+  // builds it, but ModelResponse does not declare it, so the output schema
+  // drops it (Oct 25 2026).
+  description?: string;
+};
 
 // =============================================================================
 // Upload config
 // =============================================================================
 
-export interface UploadConfig {
-  maxFileSize: number;
-  maxVideoFileSize: number;
-  maxFilesPerMessage: number;
-  allowedFileTypes: string[];
-}
+export type UploadConfig = Schemas['UploadConfigResponse'];
 
 // =============================================================================
 // Streaming types (SSE events - frontend only)
@@ -356,62 +343,41 @@ export interface ThinkingState {
 // API Response types
 // =============================================================================
 
-export interface AuthResponse {
-  token: string;
-  user: User;
-}
+export type AuthResponse = Schemas['AuthResponse'];
 
 // =============================================================================
 // Pagination types
 // =============================================================================
 
-export interface ConversationsPagination {
-  next_cursor: string | null;
-  has_more: boolean;
-  total_count: number;
-}
+export type ConversationsPagination =
+  Schemas['ConversationsListPaginatedResponse.ConversationsPaginationResponse'];
 
-export interface MessagesPagination {
-  older_cursor: string | null;
-  newer_cursor: string | null;
-  has_older: boolean;
-  has_newer: boolean;
-  total_count: number;
-}
+export type MessagesPagination = Schemas['MessagesListResponse.MessagesPaginationResponse'];
 
+/** Hand-written: conversations.list() normalizes each raw summary into a Conversation */
 export interface ConversationsResponse {
   conversations: Conversation[];
   pinned_conversations?: Conversation[];
   pagination: ConversationsPagination;
 }
 
-export interface ConversationDetailResponse {
-  id: string;
-  title: string;
-  model: string;
-  created_at: string;
-  updated_at: string;
-  is_agent?: boolean;
-  agent_id?: string | null;
-  has_pending_approval?: boolean; // True if agent has pending approval request
-  archived?: boolean;
-  anonymous_mode?: boolean; // Memory and integrations disabled for this conversation
+/** The spec types messages loosely (research is an open dict); the client reads them as Message */
+export type ConversationDetailResponse = Omit<
+  Schemas['ConversationDetailPaginatedResponse'],
+  'messages'
+> & {
   messages: Message[];
-  message_pagination: MessagesPagination;
-  streaming_message_id?: string | null; // Reply still being generated (e.g. on another device)
-  lost_reply?: boolean; // The last turn died (its worker was killed) with nothing saved
-}
+};
 
-export interface MessagesResponse {
+export type MessagesResponse = Omit<Schemas['MessagesListResponse'], 'messages'> & {
   messages: Message[];
-  pagination: MessagesPagination;
-}
+};
 
-export interface ModelsResponse {
+export type ModelsResponse = Omit<Schemas['ModelsListResponse'], 'models'> & {
   models: Model[];
-  default: string;
-}
+};
 
+/** Hand-written: the batch reply's fields go straight into a Message (optional, not null) */
 export interface ChatResponse {
   id: string;
   role: 'assistant';
@@ -434,6 +400,7 @@ export interface ChatResponse {
   unanswered_steering_id?: string | null; // Steering the turn never read (now after the reply)
 }
 
+/** The server's error envelope; the spec's HTTPError (APIFlask's default) does not describe it */
 export interface ErrorResponse {
   error: string | {
     code: string;
@@ -443,80 +410,29 @@ export interface ErrorResponse {
   };
 }
 
-export interface VersionResponse {
-  version: string | null;
-}
+export type VersionResponse = Schemas['VersionResponse'];
 
 // =============================================================================
 // Cost tracking types
 // =============================================================================
 
-export interface ConversationCostResponse {
-  conversation_id: string;
-  cost_usd: number;
-  cost: number;
-  currency: string;
-  formatted: string;
-}
+export type ConversationCostResponse = Schemas['ConversationCostResponse'];
 
-export interface MessageCostResponse {
-  message_id: string;
-  cost_usd: number;
-  cost: number;
-  currency: string;
-  formatted: string;
-  input_tokens: number;
-  output_tokens: number;
-  model: string;
-  image_generation_cost_usd?: number;
-  image_generation_cost?: number;
-  image_generation_cost_formatted?: string;
-}
+export type MessageCostResponse = Schemas['MessageCostResponse'];
 
-export interface ConversationCompactionResponse {
-  conversation_id: string;
-  active: boolean;
-  summarized_count: number;
-  total_count: number;
-  generation: number;
-  generation_estimated: boolean;
-  boundary_message_id: string | null;
-  summary: string | null;
-}
+export type ConversationCompactionResponse = Schemas['ConversationCompactionResponse'];
 
-export interface MonthlyCostResponse {
-  user_id: string;
-  year: number;
-  month: number;
-  total_usd: number;
-  total: number;
-  currency: string;
-  formatted: string;
-  message_count: number;
-  breakdown: Record<string, {
-    total: number;
-    total_usd: number;
-    message_count: number;
-    formatted: string;
-  }>;
-}
+export type MonthlyCostResponse = Schemas['MonthlyCostResponse'];
 
-export interface CostHistoryResponse {
-  user_id: string;
-  history: Array<{
-    year: number;
-    month: number;
-    total_usd: number;
-    total: number;
-    currency: string;
-    formatted: string;
-    message_count: number;
-  }>;
-}
+export type CostHistoryResponse = Schemas['CostHistoryResponse'];
 
 // =============================================================================
 // Sync types
 // =============================================================================
+
+// ConversationSummary and SyncResponse stay hand-written: the spec sends every
+// field, but SyncManager still branches on missing ones (read_count, pinned,
+// anonymous_mode, cursor, ...) and its tests drive those fallbacks.
 
 export interface ConversationSummary {
   id: string;
@@ -547,105 +463,47 @@ export interface SyncResponse {
 // Memory types
 // =============================================================================
 
-export interface Memory {
-  id: string;
-  content: string;
-  category: string | null;
-  created_at: string;
-  updated_at: string;
-  /** Exempt from LLM and defrag deletion; only the user can remove it. */
-  protected?: boolean;
-  /** Conversation the memory was learned in, for "why do you know this?". */
-  source_conversation_id?: string | null;
-  /** Set when soft-deleted; the memory is restorable until purged. */
-  deleted_at?: string | null;
-}
+/** `protected`: only the user can remove it; `source_conversation_id`: where it was learned */
+export type Memory = Schemas['MemoriesListResponse.MemoryResponse'];
 
-export interface MemoriesResponse {
-  memories: Memory[];
-  /** Server-side cap on stored memories. */
-  limit?: number;
-}
+/** `limit`: server-side cap on stored memories */
+export type MemoriesResponse = Schemas['MemoriesListResponse'];
 
 // =============================================================================
 // Settings types
 // =============================================================================
 
-export interface DailyBriefingSettings {
-  enabled: boolean;
-  /** Delivery time as HH:MM (24h) in the given timezone */
-  time: string;
-  timezone: string;
-}
+/** `time`: delivery time as HH:MM (24h) in `timezone` */
+export type DailyBriefingSettings = Schemas['UserSettingsResponse.DailyBriefingSettings'];
 
-export interface UserSettings {
-  custom_instructions: string;
-  whatsapp_phone: string | null;
-  /** Whether WhatsApp is configured at the app level */
-  whatsapp_available: boolean;
-  /** Primary response language (English name, e.g. "Czech"); null/"" = auto */
-  preferred_language: string | null;
-  daily_briefing: DailyBriefingSettings;
-}
+/** `preferred_language`: English name (e.g. "Czech"); null/"" = auto */
+export type UserSettings = Schemas['UserSettingsResponse'];
 
 // =============================================================================
 // Todoist types
 // =============================================================================
 
-export interface TodoistAuthUrl {
-  auth_url: string;
-  state: string;
-}
+export type TodoistAuthUrl = Schemas['TodoistAuthUrlResponse'];
 
-export interface TodoistConnectResponse {
-  connected: boolean;
-  todoist_email: string | null;
-}
+export type TodoistConnectResponse = Schemas['TodoistConnectResponse'];
 
-export interface TodoistStatus {
-  connected: boolean;
-  todoist_email: string | null;
-  connected_at: string | null;
-  needs_reconnect: boolean;
-}
+export type TodoistStatus = Schemas['TodoistStatusResponse'];
 
 // =============================================================================
 // Google Calendar types
 // =============================================================================
 
-export interface CalendarAuthUrl {
-  auth_url: string;
-  state: string;
-}
+export type CalendarAuthUrl = Schemas['GoogleCalendarAuthUrlResponse'];
 
-export interface CalendarConnectResponse {
-  connected: boolean;
-  calendar_email: string | null;
-}
+export type CalendarConnectResponse = Schemas['GoogleCalendarConnectResponse'];
 
-export interface CalendarStatus {
-  connected: boolean;
-  calendar_email: string | null;
-  connected_at: string | null;
-  needs_reconnect: boolean;
-}
+export type CalendarStatus = Schemas['GoogleCalendarStatusResponse'];
 
-export interface Calendar {
-  id: string;
-  summary: string;
-  primary: boolean;
-  access_role: string;
-  background_color?: string;
-}
+export type Calendar = Schemas['CalendarListResponse.Calendar'];
 
-export interface CalendarListResponse {
-  calendars: Calendar[];
-  error?: string;
-}
+export type CalendarListResponse = Schemas['CalendarListResponse'];
 
-export interface SelectedCalendarsResponse {
-  calendar_ids: string[];
-}
+export type SelectedCalendarsResponse = Schemas['SelectedCalendarsResponse'];
 
 /** POST /api/conversations/bulk-trash: hand-picked ids, or all (minus exclude_ids, plus ids) */
 export type BulkTrashRequest = Schemas['BulkTrashRequest'];
@@ -656,148 +514,51 @@ export type UpdateSelectedCalendarsRequest = Schemas['UpdateSelectedCalendarsReq
 // Garmin Connect types
 // =============================================================================
 
-export interface GarminConnectResponse {
-  connected: boolean;
-  mfa_required: boolean;
-  display_name: string | null;
-}
+export type GarminConnectResponse = Schemas['GarminConnectResponse'];
 
-export interface GarminStatus {
-  connected: boolean;
-  connected_at: string | null;
-  needs_reconnect: boolean;
-}
+export type GarminStatus = Schemas['GarminStatusResponse'];
 
 // =============================================================================
 // Search types
 // =============================================================================
 
-export interface SearchResult {
-  conversation_id: string;
-  conversation_title: string;
-  message_id: string | null;
-  message_snippet: string | null;
-  match_type: 'conversation' | 'message';
-  created_at: string | null;
-}
+export type SearchResult = Schemas['SearchResultsResponse.SearchResultResponse'];
 
-export interface SearchResponse {
-  results: SearchResult[];
-  total: number;
-  query: string;
-}
+export type SearchResponse = Schemas['SearchResultsResponse'];
 
 // =============================================================================
 // Planner types
 // =============================================================================
 
-export interface PlannerTask {
-  id: string;
-  content: string;
-  description?: string;
-  due_date?: string | null;
-  due_string?: string | null;
-  priority: number;
-  project_name?: string | null;
-  section_name?: string | null;
-  labels?: string[];
-  is_recurring?: boolean;
-  url?: string | null;
-}
+export type PlannerTask = Schemas['PlannerDashboardResponse.PlannerTaskResponse'];
 
-export interface PlannerEvent {
-  id: string;
-  summary: string;
-  description?: string | null;
-  start?: string | null;
-  end?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  location?: string | null;
-  html_link?: string | null;
-  is_all_day: boolean;
-  attendees?: Array<{
-    email?: string;
-    response_status?: string;
-    self?: boolean;
-  }>;
-  organizer?: {
-    email?: string;
-    display_name?: string;
-    self?: boolean;
-  } | null;
-  calendar_id?: string | null;
-  calendar_summary?: string | null;
-}
+export type PlannerEvent = Schemas['PlannerDashboardResponse.PlannerEventResponse'];
 
-export interface PlannerWeather {
-  temperature_high: number | null;
-  temperature_low: number | null;
-  precipitation: number;
-  symbol_code: string | null;
-  summary: string;
-}
+export type PlannerWeather = Schemas['PlannerDashboardResponse.PlannerWeatherResponse'];
 
-export interface PlannerHealthSummary {
+/** The spec types the Garmin blocks as open dicts; these are the keys the planner reads */
+export type PlannerHealthSummary = Omit<
+  Schemas['PlannerDashboardResponse.PlannerHealthSummaryResponse'],
+  'training_readiness' | 'sleep' | 'recent_activities'
+> & {
   training_readiness: { score?: number; level?: string } | null;
   sleep: { duration_hours?: number; quality?: string } | null;
-  stress_avg: number | null;
-  resting_hr: number | null;
-  body_battery: number | null;
-  steps_today: number | null;
   recent_activities: Array<{ name?: string; date?: string; distance_km?: number; duration_min?: number }>;
-}
+};
 
-export interface PlannerDay {
-  date: string;
-  day_name: string;
-  events: PlannerEvent[];
-  tasks: PlannerTask[];
-  weather?: PlannerWeather | null;
-}
+export type PlannerDay = Schemas['PlannerDashboardResponse.PlannerDayResponse'];
 
-export interface PlannerDashboard {
-  days: PlannerDay[];
-  overdue_tasks: PlannerTask[];
-  todoist_connected: boolean;
-  calendar_connected: boolean;
-  garmin_connected: boolean;
-  weather_connected: boolean;
-  todoist_error?: string | null;
-  calendar_error?: string | null;
-  garmin_error?: string | null;
-  weather_error?: string | null;
-  weather_location?: string | null;
-  health_summary?: PlannerHealthSummary | null;
-  server_time: string;
-}
+export type PlannerDashboard = Omit<Schemas['PlannerDashboardResponse'], 'health_summary'> & {
+  health_summary: PlannerHealthSummary | null;
+};
 
-export interface PlannerConversation {
-  id: string;
-  title: string;
-  model: string;
-  created_at: string;
-  updated_at: string;
+export type PlannerConversation = Omit<Schemas['PlannerConversationResponse'], 'messages'> & {
   messages: Message[];
-  was_reset: boolean;
-}
+};
 
-export interface PlannerResetResponse {
-  success: boolean;
-  message: string;
-}
+export type PlannerResetResponse = Schemas['PlannerResetResponse'];
 
-export interface PlannerConversationSyncData {
-  id: string;
-  updated_at: string;
-  message_count: number;
-  last_reset: string | null;
-}
-
-export interface PlannerSyncResponse {
-  conversation: PlannerConversationSyncData | null;
-  server_time: string;
-}
+export type PlannerSyncResponse = Schemas['PlannerSyncResponse'];
 
 // =============================================================================
 // Autonomous Agent types
@@ -825,220 +586,92 @@ export const ApprovalStatus = {
 } as const;
 export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
 
-export interface Agent {
-  id: string;
-  name: string;
-  description?: string | null;
-  system_prompt?: string | null;
-  schedule?: string | null;
-  timezone: string;
-  enabled: boolean;
-  tool_permissions?: string[] | null;
-  model: string;
-  conversation_id?: string | null;
-  last_run_at?: string | null;
-  next_run_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  budget_limit?: number | null; // Daily budget limit in USD (null = unlimited)
-  /** Run each execution without prior conversation history */
-  fresh_context: boolean;
-  /** System-managed agent marker ('daily_briefing', ...); null for regular agents */
-  system_type?: string | null;
-  /** Resolved prompt: stock default for system-managed agents on a NULL prompt */
-  effective_system_prompt?: string | null;
-  daily_spending: number; // Today's spending in USD
-  has_pending_approval: boolean;
-  has_error: boolean;
-  unread_count: number;
-  last_execution_status?: string | null;
-}
+/**
+ * `budget_limit`: daily USD limit (null = unlimited); `system_type`: system-managed
+ * agent marker ('daily_briefing', ...); `effective_system_prompt`: the stock default
+ * for a system-managed agent with a NULL prompt; `daily_spending`: today's USD
+ */
+export type Agent = Schemas['AgentResponse'];
 
 export type CreateAgentRequest = Schemas['CreateAgentRequest'];
 
 export type UpdateAgentRequest = Schemas['UpdateAgentRequest'];
 
-export interface AgentExecution {
-  id: string;
-  agent_id: string;
-  status: AgentStatus;
-  trigger_type: AgentTriggerType;
-  triggered_by_agent_id?: string | null;
-  started_at: string;
-  completed_at?: string | null;
-  error_message?: string | null;
-}
+export type AgentExecution = Schemas['AgentExecutionsListResponse.AgentExecutionResponse'];
 
-export interface ApprovalRequest {
-  id: string;
-  agent_id: string;
-  agent_name: string;
-  tool_name: string;
-  tool_args?: Record<string, unknown> | null;
-  description: string;
-  status: ApprovalStatus;
-  created_at: string;
-  resolved_at?: string | null;
-}
+export type ApprovalRequest = Schemas['PendingApprovalsResponse.ApprovalRequestResponse'];
 
-export interface AgentsListResponse {
-  agents: Agent[];
-}
+export type AgentsListResponse = Schemas['AgentsListResponse'];
 
-export interface AgentExecutionsListResponse {
-  executions: AgentExecution[];
-}
+export type AgentExecutionsListResponse = Schemas['AgentExecutionsListResponse'];
 
-export interface AgentWindowStats {
-  agent_id: string;
-  runs: number;
-  completed: number;
-  failed: number;
-  waiting_approval: number;
-  cost_usd: number;
-  /** Cost formatted in the display currency (e.g. "12.40 Kč") */
-  cost_display: string;
-  input_tokens: number;
-  output_tokens: number;
-}
+/** `cost_display`: cost formatted in the display currency (e.g. "12.40 Kč") */
+export type AgentWindowStats = Schemas['CommandCenterResponse.AgentWindowStats'];
 
-export interface AgentStatsBlock {
-  days: number;
-  total_runs: number;
-  total_completed: number;
-  total_failed: number;
-  total_cost_usd: number;
-  total_cost_display: string;
-  per_agent: AgentWindowStats[];
-}
+export type AgentStatsBlock = Schemas['CommandCenterResponse.AgentStatsBlock'];
 
-export interface CommandCenterResponse {
-  agents: Agent[];
-  pending_approvals: ApprovalRequest[];
-  recent_executions: AgentExecution[];
-  total_unread: number;
-  agents_waiting: number;
-  agents_with_errors: number;
-  stats: AgentStatsBlock;
-}
+export type CommandCenterResponse = Schemas['CommandCenterResponse'];
 
-export interface TriggerAgentResponse {
-  execution: AgentExecution;
-  message: string;
-}
+export type TriggerAgentResponse = Schemas['TriggerAgentResponse'];
 
-export interface AgentConversationSyncData {
-  message_count: number;
-  updated_at: string;
-}
-
-export interface AgentConversationSyncResponse {
-  conversation: AgentConversationSyncData | null;
-  server_time: string;
-}
+export type AgentConversationSyncResponse = Schemas['AgentConversationSyncResponse'];
 
 // =============================================================================
 // KV Store types
 // =============================================================================
 
-export interface KVNamespace {
-  namespace: string;
-  key_count: number;
-}
+export type KVNamespacesResponse = Schemas['KVNamespacesResponse'];
 
-export interface KVEntry {
-  key: string;
-  value: string;
-}
+export type KVKeysResponse = Schemas['KVKeysResponse'];
 
-export interface KVNamespacesResponse {
-  namespaces: KVNamespace[];
-}
-
-export interface KVKeysResponse {
-  namespace: string;
-  keys: KVEntry[];
-}
-
-export interface KVValueResponse {
-  namespace: string;
-  key: string;
-  value: string;
-}
+export type KVValueResponse = Schemas['KVValueResponse'];
 
 // =============================================================================
 // Sports types
 // =============================================================================
 
-/** A one-tap saved prompt for a program conversation (sports, language). */
-export interface QuickAction {
-  id: string;
-  emoji: string;
-  label: string;
-  body: string;
-  /** Ordered field labels asked for before sending; answers append as `Label: value`. */
-  fields: string[];
-}
+/**
+ * A one-tap saved prompt for a program conversation (sports, language).
+ * `fields`: ordered labels asked for before sending; answers append as `Label: value`.
+ * The server always sends `fields`; the spec marks it optional because the item
+ * model is shared with the update request.
+ */
+export type QuickAction = Required<Schemas['SportsProgramsResponse.QuickActionItem']>;
 
-export interface SportsProgram {
-  id: string;
-  name: string;
-  emoji: string;
-  created_at: string;
-  has_conversation: boolean;
+export type SportsProgram = Omit<Schemas['SportsProgramsResponse.SportsProgramItem'], 'quick_actions'> & {
   quick_actions: QuickAction[];
-}
+};
 
-export interface SportsProgramsResponse {
+export type SportsProgramsResponse = Omit<Schemas['SportsProgramsResponse'], 'programs'> & {
   programs: SportsProgram[];
-}
+};
 
-export interface SportsConversation {
-  id: string;
-  title: string;
-  model: string;
-  program: string;
-  created_at: string;
-  updated_at: string;
+export type SportsConversation = Omit<Schemas['SportsConversationResponse'], 'messages'> & {
   messages: Message[];
-}
+};
 
-export interface SportsResetResponse {
-  success: boolean;
-  message: string;
-}
+export type SportsResetResponse = Schemas['SportsResetResponse'];
 
 // =============================================================================
 // Language Learning types
 // =============================================================================
 
-export interface LanguageProgram {
-  id: string;
-  name: string;
-  emoji: string;
-  created_at: string;
-  has_conversation: boolean;
+export type LanguageProgram = Omit<
+  Schemas['LanguageProgramsResponse.LanguageProgramItem'],
+  'quick_actions'
+> & {
   quick_actions: QuickAction[];
-}
+};
 
-export interface LanguageProgramsResponse {
+export type LanguageProgramsResponse = Omit<Schemas['LanguageProgramsResponse'], 'programs'> & {
   programs: LanguageProgram[];
-}
+};
 
-export interface LanguageConversation {
-  id: string;
-  title: string;
-  model: string;
-  program: string;
-  created_at: string;
-  updated_at: string;
+export type LanguageConversation = Omit<Schemas['LanguageConversationResponse'], 'messages'> & {
   messages: Message[];
-}
+};
 
-export interface LanguageResetResponse {
-  success: boolean;
-  message: string;
-}
+export type LanguageResetResponse = Schemas['LanguageResetResponse'];
 
 // =============================================================================
 // AI Assist types
@@ -1046,15 +679,8 @@ export interface LanguageResetResponse {
 
 export type ParseScheduleRequest = Schemas['ParseScheduleRequest'];
 
-export interface ParseScheduleResponse {
-  cron?: string | null;
-  explanation?: string | null;
-  error?: string | null;
-}
+export type ParseScheduleResponse = Schemas['ParseScheduleResponse'];
 
 export type EnhancePromptRequest = Schemas['EnhancePromptRequest'];
 
-export interface EnhancePromptResponse {
-  enhanced_prompt?: string | null;
-  error?: string | null;
-}
+export type EnhancePromptResponse = Schemas['EnhancePromptResponse'];
