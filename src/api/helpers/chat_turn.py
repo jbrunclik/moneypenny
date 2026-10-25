@@ -19,6 +19,8 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from src.agent.agent import ChatAgent, _planner_dashboard_context
+from src.agent.conversation_compaction import build_compacted_history
+from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.deep_research.offer import PlanError
 from src.agent.deep_research.plan import (
     DeepResearchPlan,
@@ -42,6 +44,7 @@ from src.api.errors import raise_conflict_error, raise_not_found_error, raise_va
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
+from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
 from src.enums import MessageRole
@@ -51,6 +54,7 @@ from src.utils.background_thumbnails import (
 )
 from src.utils.files import validate_files
 from src.utils.logging import get_logger, log_payload_snippet
+from src.utils.planner_data import build_planner_dashboard
 
 logger = get_logger(__name__)
 
@@ -417,16 +421,11 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
     # per-turn input cost. Agent conversations use their own destructive
     # compaction, so they are left untouched.
     if not ctx.is_autonomous:
-        from src.agent.conversation_compaction import build_compacted_history  # noqa: PLC0415
-
         ctx.history = build_compacted_history(user.id, conv.id, ctx.history)
     return ctx
 
 
 def _load_planner_dashboard(user: User) -> dict[str, Any]:
-    from src.auth.google_calendar import get_valid_calendar_access_token  # noqa: PLC0415
-    from src.utils.planner_data import build_planner_dashboard  # noqa: PLC0415
-
     # Refresh calendar token if needed (expires hourly)
     calendar_token = get_valid_calendar_access_token(user)
     dashboard = build_planner_dashboard(
@@ -442,7 +441,6 @@ def _load_planner_dashboard(user: User) -> dict[str, Any]:
 
 def _attach_agent_context(ctx: TurnContext, user: User, agent_id: str) -> None:
     """Apply an interactive agent conversation's tool permissions and goals."""
-    from src.agent.daily_briefing import resolve_agent_system_prompt  # noqa: PLC0415
 
     agent_record = db.get_agent(agent_id, user.id)
     if not agent_record:

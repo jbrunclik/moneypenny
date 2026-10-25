@@ -100,7 +100,11 @@ def resolve_quick_actions(program: dict[str, Any], namespace: str) -> list[dict[
 
 def register_quick_action_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
     """Register PUT /{ns}/programs/<program_id>/quick-actions."""
-    from src.api.routes.programs import _get_programs, _save_programs, program_to_item  # noqa: PLC0415
+    from src.api.routes.programs import (  # noqa: PLC0415 - cycle: programs imports this module
+        _get_programs,
+        _save_programs,
+        program_to_item,
+    )
 
     ns = cfg.namespace
 

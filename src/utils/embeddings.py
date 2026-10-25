@@ -13,6 +13,9 @@ import struct
 import threading
 from typing import Any
 
+from google import genai
+from google.genai import types
+
 from src.config import Config
 from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
@@ -23,8 +26,6 @@ _MAX_EMBED_CHARS = 8000
 
 
 def _new_client() -> Any:
-    from google import genai  # noqa: PLC0415
-    from google.genai import types  # noqa: PLC0415
 
     return genai.Client(
         api_key=Config.GEMINI_API_KEY,
@@ -104,7 +105,7 @@ def embed_and_store_async(user_id: str, kind: str, ref_id: str, text: str) -> No
         return
 
     def _work() -> None:
-        from src.db.models import db  # noqa: PLC0415
+        from src.db.models import db  # noqa: PLC0415 - cycle: db.models.message imports this module
 
         vec = embed_text(text)
         if vec is None:

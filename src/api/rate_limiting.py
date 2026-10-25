@@ -7,6 +7,7 @@ Rate limits are applied per-user when authenticated, or per-IP for unauthenticat
 Different limits apply to different endpoint categories (auth, chat, files, etc.).
 """
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -14,6 +15,7 @@ from flask import Flask, g, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from src.api.errors import ErrorCode, is_retryable
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -78,8 +80,6 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
         retry_after = None
         if hasattr(e, "description") and "retry after" in str(e.description).lower():
             # Try to extract retry-after seconds from the error message
-            import re  # noqa: PLC0415
-
             match = re.search(r"(\d+)\s*second", str(e.description))
             if match:
                 retry_after = int(match.group(1))
@@ -97,8 +97,6 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
         # Use our standard error response format
         # Note: We can't use raise_rate_limited_error here because we need to return
         # a tuple, not raise an exception (Flask error handler convention)
-        from src.api.errors import ErrorCode, is_retryable  # noqa: PLC0415
-
         error_body = {
             "error": {
                 "code": ErrorCode.RATE_LIMITED.value,

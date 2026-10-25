@@ -5,11 +5,16 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Request
+from werkzeug.exceptions import HTTPException
 
 from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
-from src.utils.costs import calculate_total_cost
+from src.utils.costs import (
+    calculate_image_generation_cost,
+    calculate_token_cost,
+    calculate_total_cost,
+)
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -33,7 +38,6 @@ def get_request_json(request: Request) -> dict[str, Any] | None:
         HTTPException subclasses (like RequestEntityTooLarge for 413) are
         re-raised so Flask can handle them with proper error responses.
     """
-    from werkzeug.exceptions import HTTPException  # noqa: PLC0415
 
     try:
         return request.get_json(silent=True) or {}
@@ -355,7 +359,6 @@ def build_stream_done_event(
 
 def calculate_deep_research_cost(usage_info: dict[str, Any]) -> float:
     """USD of a deep-research run's subagents, each priced at its own model."""
-    from src.utils.costs import calculate_token_cost  # noqa: PLC0415
 
     return float(
         sum(
@@ -468,7 +471,6 @@ def calculate_image_generation_cost_from_tool_results(
     Returns:
         Total cost in USD for all image generations (0.0 if no images or missing usage_metadata)
     """
-    from src.utils.costs import calculate_image_generation_cost  # noqa: PLC0415
 
     total_cost = 0.0
 
@@ -515,7 +517,6 @@ def calculate_delegate_cost_from_tool_results(
     Returns:
         Total cost in USD (0.0 when no delegate runs happened)
     """
-    from src.utils.costs import calculate_token_cost  # noqa: PLC0415
 
     total_cost = 0.0
 
@@ -550,7 +551,6 @@ def calculate_delegate_cost_from_tool_results(
 
 def calculate_freshness_cost(usage_info: dict[str, Any]) -> float:
     """Cost of the freshness gate's call (src/agent/freshness.py), at its own model."""
-    from src.utils.costs import calculate_token_cost  # noqa: PLC0415
 
     usage = usage_info.get("freshness_usage")
     if not isinstance(usage, dict):
@@ -569,7 +569,6 @@ def calculate_grounding_cost(usage_info: dict[str, Any]) -> float:
     The verifier's usage rides in usage_info["grounding_usage"]
     (src/agent/grounding_check.py) - a different, cheaper model than the turn's.
     """
-    from src.utils.costs import calculate_token_cost  # noqa: PLC0415
 
     usage = usage_info.get("grounding_usage")
     if not isinstance(usage, dict):

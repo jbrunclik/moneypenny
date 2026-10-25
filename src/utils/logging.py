@@ -14,6 +14,8 @@ from typing import Any, cast
 
 from flask import g, has_request_context
 
+from src.config import Config
+
 # Context variable to store request ID per request
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
@@ -100,7 +102,6 @@ class JSONFormatter(logging.Formatter):
 
 def setup_logging() -> None:
     """Configure structured logging for the application."""
-    from src.config import Config  # noqa: PLC0415
 
     # Get log level from config (default to INFO)
     log_level_str = Config.LOG_LEVEL

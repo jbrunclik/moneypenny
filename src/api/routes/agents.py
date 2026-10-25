@@ -8,11 +8,14 @@ their routes to this module's blueprint (one "Agents" OpenAPI tag).
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from apiflask import APIBlueprint
+from croniter import croniter
 
+from src.agent.executor import execute_agent
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.agent_responses import agent_to_response, execution_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -95,8 +98,6 @@ def create_agent(user: User, data: CreateAgentRequest) -> dict[str, Any]:
     schedule = data.schedule
     if schedule:
         try:
-            from croniter import croniter  # noqa: PLC0415
-
             croniter(schedule)
         except Exception:  # noqa: BLE001
             raise_validation_error("Invalid cron expression")
@@ -104,8 +105,6 @@ def create_agent(user: User, data: CreateAgentRequest) -> dict[str, Any]:
     # Validate timezone if provided
     timezone = data.timezone
     try:
-        from zoneinfo import ZoneInfo  # noqa: PLC0415
-
         ZoneInfo(timezone)
     except Exception:  # noqa: BLE001
         raise_validation_error(f"Invalid timezone: {timezone}")
@@ -169,7 +168,6 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
     - conversation: Object with message_count and updated_at, or null if no conversation
     - server_time: Current server timestamp to use for next sync
     """
-    from datetime import datetime  # noqa: PLC0415
 
     agent = db.get_agent(agent_id, user.id)
     if not agent:
@@ -230,8 +228,6 @@ def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[st
     schedule = data.schedule
     if schedule is not None and schedule != "":
         try:
-            from croniter import croniter  # noqa: PLC0415
-
             croniter(schedule)
         except Exception:  # noqa: BLE001
             raise_validation_error("Invalid cron expression")
@@ -240,8 +236,6 @@ def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[st
     timezone = data.timezone
     if timezone:
         try:
-            from zoneinfo import ZoneInfo  # noqa: PLC0415
-
             ZoneInfo(timezone)
         except Exception:  # noqa: BLE001
             raise_validation_error(f"Invalid timezone: {timezone}")
@@ -348,7 +342,6 @@ def trigger_agent(user: User, agent_id: str) -> dict[str, Any]:
 
     Returns the execution record with status.
     """
-    from src.agent.executor import execute_agent  # noqa: PLC0415
 
     logger.info(
         "Manually triggering agent",

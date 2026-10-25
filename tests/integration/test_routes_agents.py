@@ -475,7 +475,7 @@ class TestTriggerAgent:
     ) -> None:
         """Should trigger agent and return execution record."""
         # Mock the execute_agent function to avoid actual LLM calls
-        with patch("src.agent.executor.execute_agent") as mock_execute:
+        with patch("src.api.routes.agents.execute_agent") as mock_execute:
             mock_execute.return_value = (True, None)
 
             response = client.post(
@@ -497,7 +497,7 @@ class TestTriggerAgent:
         test_agent: Agent,
     ) -> None:
         """Should return failure message on execution error."""
-        with patch("src.agent.executor.execute_agent") as mock_execute:
+        with patch("src.api.routes.agents.execute_agent") as mock_execute:
             mock_execute.return_value = (False, "LLM error")
 
             response = client.post(

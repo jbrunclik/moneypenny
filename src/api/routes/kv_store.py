@@ -6,6 +6,7 @@ stored per-user in namespaces.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -76,7 +77,6 @@ def get_value(user: User, namespace: str, key: str) -> dict[str, Any]:
 @validate_request(KVSetRequest)
 def set_value(user: User, data: KVSetRequest, namespace: str, key: str) -> dict[str, Any]:
     """Set a key's value (create or update). Value must be valid JSON."""
-    import json  # noqa: PLC0415
 
     if len(key) > 256:
         raise_validation_error("Key too long (max 256 characters)")

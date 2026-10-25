@@ -24,7 +24,7 @@ def _webpush_error(status: int) -> WebPushException:
 @pytest.fixture
 def push_user(test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch) -> User:
     """A user with one stored subscription and the module db patched."""
-    monkeypatch.setattr("src.db.models.db", test_database)
+    monkeypatch.setattr("src.utils.push.db", test_database)
     test_database.save_push_subscription(
         user_id=test_user.id,
         endpoint="https://push.example.com/sub-1",
@@ -58,7 +58,7 @@ class TestSendPushToUserSync:
     def test_no_subscriptions_returns_zero(
         self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("src.db.models.db", test_database)
+        monkeypatch.setattr("src.utils.push.db", test_database)
         with patch("src.utils.push.webpush") as mock_webpush:
             assert send_push_to_user_sync(test_user.id, "T", "B", None, None) == 0
         mock_webpush.assert_not_called()

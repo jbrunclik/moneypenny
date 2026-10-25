@@ -546,7 +546,7 @@ class TestDegradationAlert:
         db.get_user_by_email.return_value = operator
         return db
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     def test_ddgs_fallback_with_paid_providers_alerts_operator(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
@@ -568,7 +568,7 @@ class TestDegradationAlert:
         mock_push.assert_called_once()
         assert mock_push.call_args[0][0] == "op-user-id"
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     def test_alert_deduped_within_a_day(self, mock_ddgs: MagicMock, mock_push: MagicMock) -> None:
         mock_ddgs.return_value = []
@@ -588,7 +588,7 @@ class TestDegradationAlert:
             search_web("q2", 3)
         mock_push.assert_called_once()
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     def test_no_alert_when_no_paid_provider_configured(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
@@ -607,7 +607,7 @@ class TestDegradationAlert:
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_brave")
     def test_no_alert_when_paid_provider_serves(
         self, mock_brave: MagicMock, mock_push: MagicMock
@@ -626,7 +626,7 @@ class TestDegradationAlert:
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     @patch("src.utils.search_provider._search_exa")
     def test_no_alert_when_a_metered_provider_is_merely_failing(
@@ -655,7 +655,7 @@ class TestDegradationAlert:
             search_web("q", 3)
         mock_push.assert_not_called()
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     @patch("src.utils.search_provider._search_exa")
     def test_transient_failure_does_not_consume_the_daily_alert_slot(
@@ -684,7 +684,7 @@ class TestDegradationAlert:
         # would have read "providers failing" and left no slot for this.
         assert "quotas exhausted" in mock_push.call_args[0][2]
 
-    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider.send_push_to_user")
     @patch("src.utils.search_provider._search_ddgs")
     def test_a_provider_out_of_credits_reads_as_exhausted(
         self, mock_ddgs: MagicMock, mock_push: MagicMock

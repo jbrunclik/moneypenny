@@ -170,7 +170,7 @@ class TestChatInterject:
         # teardown, and the clear happens in the route body before the
         # generator exists - stub it out.
         with patch(
-            "src.api.helpers.chat_streaming.create_stream_generator",
+            "src.api.routes.chat.create_stream_generator",
             return_value=iter(()),
         ):
             client.post(
@@ -210,7 +210,7 @@ class TestSendDuringAnotherDevicesTurn:
         producer thread would race teardown) - called means a new turn."""
         payload = {"message": "Only the 2025 ones", "client_message_id": self.CLIENT_ID, **body}
         with patch(
-            "src.api.helpers.chat_streaming.create_stream_generator", return_value=iter(())
+            "src.api.routes.chat.create_stream_generator", return_value=iter(())
         ) as new_turn:
             response = client.post(
                 f"/api/conversations/{conv_id}/chat/stream", json=payload, headers=headers

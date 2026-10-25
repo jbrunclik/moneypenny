@@ -30,6 +30,7 @@ from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
+from src.utils.push import send_push_to_user
 from src.utils.tls import shared_ssl_context
 
 logger = get_logger(__name__)
@@ -367,9 +368,6 @@ def _notify_if_degraded(served_by: str) -> None:
         operator = db.get_user_by_email(Config.ALLOWED_EMAILS[0])
         if operator is None:
             return
-        # Imported here to avoid a module-load cycle (push imports db/config)
-        from src.utils.push import send_push_to_user  # noqa: PLC0415
-
         send_push_to_user(
             operator.id,
             "Web search degraded",

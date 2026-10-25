@@ -33,6 +33,7 @@ from src.agent.tools.request_approval import (
 from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES, _StreamJournal
 from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
+from src.db.blob_store import get_blob_store
 from src.db.models import db
 from src.utils.logging import get_logger
 from src.utils.push import send_push_to_user
@@ -108,8 +109,6 @@ def _close_thread_db_connections() -> None:
     except Exception:
         logger.debug("Closing thread-local db connection failed", exc_info=True)
     try:
-        from src.db.blob_store import get_blob_store  # noqa: PLC0415
-
         get_blob_store()._pool.close_thread_connection()
     except Exception:
         logger.debug("Closing thread-local blob connection failed", exc_info=True)

@@ -17,6 +17,7 @@ from src.api.schemas.integrations import (
 )
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
+from src.auth.oauth_state import consume_state, issue_state
 from src.auth.todoist_auth import (
     TodoistAuthError,
     exchange_code_for_token,
@@ -48,7 +49,6 @@ def get_todoist_auth_url(user: User) -> dict[str, str]:
     Returns a URL to redirect the user to for Todoist authorization.
     The state token should be stored and validated on callback.
     """
-    from src.auth.oauth_state import issue_state  # noqa: PLC0415
 
     # State is stored server-side and validated on connect (S7) - the
     # client still receives it to thread through the provider redirect
@@ -74,8 +74,6 @@ def connect_todoist(user: User, data: TodoistConnectRequest) -> dict[str, Any]:
     4. Frontend validates state matches, then calls this endpoint with code
     """
     logger.info("Todoist connection attempt", extra={"user_id": user.id})
-
-    from src.auth.oauth_state import consume_state  # noqa: PLC0415
 
     # CSRF defense (S7): the state must be one this server issued to THIS
     # user, unexpired and never used before

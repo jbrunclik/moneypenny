@@ -17,6 +17,7 @@ import threading
 from pywebpush import WebPushException, webpush
 
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -62,10 +63,6 @@ def send_push_to_user_sync(
     tag: str | None,
 ) -> int:
     """Send to all of a user's subscriptions; returns delivered count."""
-    # Imported here so tests can patch src.db.models.db and to avoid
-    # import cycles at module load
-    from src.db.models import db  # noqa: PLC0415
-
     subscriptions = db.get_push_subscriptions(user_id)
     if not subscriptions:
         logger.debug("No push subscriptions for user", extra={"user_id": user_id})

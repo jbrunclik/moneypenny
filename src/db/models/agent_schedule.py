@@ -5,6 +5,9 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
+
+from croniter import croniter
 
 from src.db.models.agent_rows import row_to_agent
 from src.db.models.dataclasses import Agent
@@ -42,10 +45,6 @@ class AgentScheduleMixin:
             Next run datetime in UTC (naive), or None if invalid
         """
         try:
-            from zoneinfo import ZoneInfo  # noqa: PLC0415
-
-            from croniter import croniter  # noqa: PLC0415
-
             tz = ZoneInfo(timezone)
             now = datetime.now(tz)
             cron = croniter(schedule, now)

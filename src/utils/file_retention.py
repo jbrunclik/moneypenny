@@ -19,6 +19,10 @@ Message timestamps are naive local datetimes; compare with datetime.now().
 from datetime import datetime, timedelta
 
 from src.config import Config
+from src.db import models
+from src.db.blob_store import get_blob_store
+from src.db.models import make_blob_key
+from src.utils.datetime_utils import utcnow_naive
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -60,11 +64,9 @@ def cleanup_expired_files() -> dict[str, int]:
     Thumbnails are intentionally kept so old conversations still render a
     placeholder. Idempotent: deleting an already-deleted blob is a no-op.
     """
-    # Imports at call time so tests can patch the module-level singletons
-    from src.agent.gemini_files import delete_cached_file_uri  # noqa: PLC0415
-    from src.db import models  # noqa: PLC0415
-    from src.db.blob_store import get_blob_store  # noqa: PLC0415
-    from src.db.models import make_blob_key  # noqa: PLC0415
+    from src.agent.gemini_files import (  # noqa: PLC0415 - utils must not import agent at load (B1)
+        delete_cached_file_uri,
+    )
 
     counts = {"videos_deleted": 0, "images_deleted": 0, "files_deleted": 0}
     blob_store = get_blob_store()
@@ -110,9 +112,6 @@ def run_file_cleanup_if_due() -> bool:
     directly). The kv timestamp keeps the minutely dev loop from sweeping
     more than daily; the sweep is idempotent, so races are harmless.
     """
-    from src.db import models  # noqa: PLC0415
-    from src.utils.datetime_utils import utcnow_naive  # noqa: PLC0415
-
     last_run = models.db.kv_get("_system", "file_cleanup", "last_run")
     if last_run:
         try:

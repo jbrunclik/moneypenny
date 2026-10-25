@@ -10,7 +10,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from src.config import Config
+from src.db.models import db
 from src.enums import ThumbnailStatus
+from src.utils.images import generate_thumbnail
 from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
 
@@ -95,10 +97,6 @@ def generate_and_save_thumbnail(
     Returns:
         The generated thumbnail (base64 string) or None if generation failed
     """
-    # Import here to avoid circular imports
-    from src.db.models import db  # noqa: PLC0415
-    from src.utils.images import generate_thumbnail  # noqa: PLC0415
-
     logger.debug(
         "Generating thumbnail",
         extra={"message_id": message_id, "file_index": file_index},
@@ -157,8 +155,6 @@ def _generate_thumbnail_task(
         )
         # Try to mark as failed in database
         try:
-            from src.db.models import db  # noqa: PLC0415
-
             db.update_message_file_thumbnail(
                 message_id, file_index, None, status=ThumbnailStatus.FAILED
             )
@@ -168,8 +164,6 @@ def _generate_thumbnail_task(
     finally:
         # Close thread-local DB connections so the pool doesn't leak them
         try:
-            from src.db.models import db  # noqa: PLC0415
-
             db._pool.close_thread_connection()
         except Exception:
             logger.debug("Thread-local db connection close failed", exc_info=True)

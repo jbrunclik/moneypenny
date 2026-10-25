@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
+
+from croniter import croniter
+from langchain_core.messages import HumanMessage
 
 from src.agent.content import extract_text_content
 from src.agent.gemini_clients import chat_model
@@ -154,10 +159,6 @@ def parse_schedule(user: User, data: ParseScheduleRequest) -> dict[str, Any]:
     Uses an LLM to convert user-friendly schedule descriptions
     (e.g., "every weekday at 9am") into standard cron expressions.
     """
-    import json  # noqa: PLC0415
-    import re  # noqa: PLC0415
-
-    from langchain_core.messages import HumanMessage  # noqa: PLC0415
 
     logger.info(
         "Parsing schedule",
@@ -196,8 +197,6 @@ Use standard 5-part cron format: minute hour day-of-month month day-of-week"""
 
             # Validate the cron expression
             if cron:
-                from croniter import croniter  # noqa: PLC0415
-
                 try:
                     croniter(cron)
                     return {"cron": cron, "explanation": explanation, "error": None}
@@ -228,7 +227,6 @@ def enhance_prompt(user: User, data: EnhancePromptRequest) -> dict[str, Any]:
     Takes the current prompt and agent context, then suggests
     improvements for clarity, completeness, and effectiveness.
     """
-    from langchain_core.messages import HumanMessage  # noqa: PLC0415
 
     logger.info(
         "Enhancing prompt",
@@ -236,8 +234,6 @@ def enhance_prompt(user: User, data: EnhancePromptRequest) -> dict[str, Any]:
     )
 
     try:
-        import json  # noqa: PLC0415
-
         # Use direct LLM call without system prompt overhead
         # This is a simple task that doesn't need tools or memory
         model = chat_model(Config.DEFAULT_MODEL, temperature=0.7)  # creative improvement

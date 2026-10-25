@@ -212,9 +212,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = True
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ) as mock_gen,
         ):
@@ -232,9 +232,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = True
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value=None,
             ),
         ):
@@ -251,9 +251,9 @@ class TestGenerateAndSaveThumbnail:
         mock_db.update_message_file_thumbnail.return_value = False  # DB update fails
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ),
         ):
@@ -273,9 +273,9 @@ class TestGenerateThumbnailTask:
 
         # db is imported inside the function, so we need to patch it in src.db.models
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail_data",
             ) as mock_gen,
         ):
@@ -291,9 +291,9 @@ class TestGenerateThumbnailTask:
         mock_db = MagicMock()
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value=None,
             ),
         ):
@@ -308,9 +308,9 @@ class TestGenerateThumbnailTask:
         mock_db = MagicMock()
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 side_effect=Exception("Test error"),
             ),
         ):
@@ -328,9 +328,9 @@ class TestGenerateThumbnailTask:
         mock_db.update_message_file_thumbnail.side_effect = Exception("Message not found")
 
         with (
-            patch("src.db.models.db", mock_db),
+            patch("src.utils.background_thumbnails.db", mock_db),
             patch(
-                "src.utils.images.generate_thumbnail",
+                "src.utils.background_thumbnails.generate_thumbnail",
                 return_value="thumbnail",
             ),
         ):

@@ -9,6 +9,8 @@ from typing import Any
 from apiflask import APIBlueprint
 from flask import request
 
+from src.agent.conversation_compaction import get_compaction_status
+from src.agent.history import enrich_history
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.schemas.costs import (
     ConversationCompactionResponse,
@@ -76,8 +78,6 @@ def get_conversation_cost(user: User, conv_id: str) -> tuple[dict[str, Any], int
 @require_auth
 def get_conversation_compaction(user: User, conv_id: str) -> tuple[dict[str, Any], int]:
     """Get how much of a conversation the model sees only as a summary."""
-    from src.agent.conversation_compaction import get_compaction_status  # noqa: PLC0415
-    from src.agent.history import enrich_history  # noqa: PLC0415
 
     logger.debug(
         "Getting conversation compaction", extra={"user_id": user.id, "conversation_id": conv_id}

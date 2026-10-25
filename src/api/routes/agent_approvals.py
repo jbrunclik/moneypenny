@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.agent.executor import execute_agent
 from src.api.errors import raise_not_found_error
 from src.api.helpers.agent_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -81,8 +82,6 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     )
 
     # Execute the agent with a message indicating the approved action
-    from src.agent.executor import execute_agent  # noqa: PLC0415
-
     resume_message = f"[Action approved: {approval.description}]"
 
     # Add the approval confirmation to the conversation first

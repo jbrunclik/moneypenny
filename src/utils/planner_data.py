@@ -5,15 +5,18 @@ and weather forecasts for the planner dashboard.
 """
 
 import json
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
+from src.auth.garmin_auth import create_client_from_tokens
 from src.config import Config
 from src.utils.logging import get_logger
+from src.utils.weather import get_weather_for_location
 
 logger = get_logger(__name__)
 
@@ -395,7 +398,6 @@ def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
         - events: Combined events from all calendars
         - error_message: Error message if any failures occurred
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: PLC0415
 
     logger.debug("Fetching calendar dashboard data")
 
@@ -665,7 +667,6 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
     Returns:
         PlannerDashboard with all data organized by day
     """
-    from dataclasses import asdict  # noqa: PLC0415
 
     # Check cache if not forcing refresh
     if not force_refresh and user_id and db:
@@ -714,8 +715,6 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
     )
 
     # Fetch all dashboard resources in parallel (Todoist, Calendar, Garmin, Weather)
-    from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
-
     def fetch_todoist_if_available() -> tuple[list[Any], list[Any], str | None]:
         """Fetch Todoist data if token available."""
         if todoist_token:
@@ -749,8 +748,6 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         try:
             if Config.WEATHER_LOCATION:
                 try:
-                    from src.utils.weather import get_weather_for_location  # noqa: PLC0415
-
                     forecast = get_weather_for_location(
                         Config.WEATHER_LOCATION,
                         db=db,
@@ -773,8 +770,6 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         if not garmin_token:
             return None, None
         try:
-            from src.auth.garmin_auth import create_client_from_tokens  # noqa: PLC0415
-
             garmin = create_client_from_tokens(garmin_token)
             today_str = datetime.now().strftime("%Y-%m-%d")
             summary = PlannerHealthSummary()
@@ -851,9 +846,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
 
             # Fetch recent activities (last 3)
             try:
-                from datetime import timedelta as td  # noqa: PLC0415
-
-                start = (datetime.now() - td(days=14)).strftime("%Y-%m-%d")
+                start = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
                 end = today_str
                 activities = garmin.get_activities_by_date(start, end)
                 if isinstance(activities, list):

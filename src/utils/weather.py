@@ -12,7 +12,7 @@ The API requires:
 - Latitude and longitude coordinates
 """
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -225,8 +225,6 @@ def get_weather_for_location(
         if cached_data:
             logger.debug("Returning cached weather", extra={"location": location})
             # Convert dict back to WeatherForecast
-            from dataclasses import asdict  # noqa: PLC0415
-
             periods = [WeatherPeriod(**p) for p in cached_data.get("periods", [])]
             return WeatherForecast(
                 location=cached_data["location"],
@@ -242,8 +240,6 @@ def get_weather_for_location(
 
         # Cache the result if db provided
         if db:
-            from dataclasses import asdict  # noqa: PLC0415
-
             forecast_dict = asdict(forecast)
             db.cache_weather(location, forecast_dict, ttl_seconds=Config.WEATHER_CACHE_TTL_SECONDS)
             logger.debug("Weather cached", extra={"location": location})

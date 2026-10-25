@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -23,10 +24,12 @@ from src.api.routes.program_quick_actions import (
     register_quick_action_routes,
     resolve_quick_actions,
 )
+from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.db.models.programs import PROGRAM_FEATURES
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -81,8 +84,6 @@ def program_to_item(
 ) -> dict[str, Any]:
     """Shape a stored program dict as the API's program item."""
     if conv_program_ids is None:
-        from src.db.models.programs import PROGRAM_FEATURES  # noqa: PLC0415
-
         column = PROGRAM_FEATURES[namespace].program_column
         conv_program_ids = {
             getattr(c, column) for c in db.list_program_conversations(namespace, user_id)
@@ -97,7 +98,7 @@ def program_to_item(
     }
 
 
-def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:  # noqa: C901, PLR0915
+def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:  # noqa: C901
     """Register the 5 program-feature endpoints on the given blueprint."""
     ns = cfg.namespace
 
@@ -112,7 +113,6 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
 
         # Check which programs have conversations
         convs = db.list_program_conversations(ns, user.id)
-        from src.db.models.programs import PROGRAM_FEATURES  # noqa: PLC0415
 
         program_column = PROGRAM_FEATURES[ns].program_column
         conv_programs = {getattr(c, program_column) for c in convs}
@@ -127,7 +127,6 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     @validate_request(cfg.create_request)
     def create_program(user: User, data: Any) -> dict[str, Any]:
         """Create a new program."""
-        from datetime import datetime  # noqa: PLC0415
 
         programs = _get_programs(user.id, ns)
 
@@ -192,7 +191,6 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     @require_auth
     def get_conversation(user: User, program: str) -> dict[str, Any]:
         """Get or create the program conversation."""
-        from src.api.utils import serialize_messages_for_response  # noqa: PLC0415
 
         # Verify program exists
         programs = _get_programs(user.id, ns)

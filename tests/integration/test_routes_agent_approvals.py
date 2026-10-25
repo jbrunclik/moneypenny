@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 from flask.testing import FlaskClient
 
-from src.agent import executor
+from src.api.routes import agent_approvals
 from src.db.models import Database, User
 from src.db.models.dataclasses import Agent, ApprovalRequest
 
@@ -21,7 +21,7 @@ from src.db.models.dataclasses import Agent, ApprovalRequest
 def resume(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     """The faked execute_agent the approve route resumes the agent with."""
     fake = MagicMock(return_value=(True, None))
-    monkeypatch.setattr(executor, "execute_agent", fake)
+    monkeypatch.setattr(agent_approvals, "execute_agent", fake)
     yield fake
 
 

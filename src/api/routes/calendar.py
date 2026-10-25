@@ -27,7 +27,10 @@ from src.api.validation import validate_request
 from src.auth.google_calendar import (
     GoogleCalendarApiError,
     GoogleCalendarAuthError,
+    GoogleCalendarTokenRevoked,
+    GoogleCalendarTransientError,
     fetch_calendar_list,
+    get_valid_access_token,
     get_valid_calendar_access_token,
 )
 from src.auth.google_calendar import (
@@ -43,6 +46,7 @@ from src.auth.google_calendar import (
     get_user_info as get_google_calendar_user_info,
 )
 from src.auth.jwt_auth import require_auth
+from src.auth.oauth_state import consume_state, issue_state
 from src.config import Config
 from src.db.models import User, db
 from src.utils.logging import get_logger
@@ -75,8 +79,6 @@ def get_calendar_auth_url(user: User) -> dict[str, str]:
     if not _is_google_calendar_configured():
         raise_validation_error("Google Calendar integration is not configured")
 
-    from src.auth.oauth_state import issue_state  # noqa: PLC0415
-
     # State is stored server-side and validated on connect (S7)
     state = issue_state(user.id, "calendar")
     auth_url = get_google_calendar_auth_url(state)
@@ -95,8 +97,6 @@ def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> d
         raise_validation_error("Google Calendar integration is not configured")
 
     logger.info("Google Calendar connection attempt", extra={"user_id": user.id})
-
-    from src.auth.oauth_state import consume_state  # noqa: PLC0415
 
     # CSRF defense (S7): the state must be one this server issued to THIS
     # user, unexpired and never used before
@@ -188,18 +188,11 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
     needs_reconnect = False
 
     if connected and current_user.google_calendar_access_token:
-        from src.auth.google_calendar import (  # noqa: PLC0415
-            GoogleCalendarTokenRevoked,
-            GoogleCalendarTransientError,
-        )
-
         refresh_token = current_user.google_calendar_refresh_token
 
         if not refresh_token:
             needs_reconnect = True
         else:
-            from src.auth.google_calendar import get_valid_access_token  # noqa: PLC0415
-
             # Shared helper refreshes proactively (within 10 minutes of
             # expiry) and stores via compare-and-swap (concurrency-safe)
             try:

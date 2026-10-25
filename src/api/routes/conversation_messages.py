@@ -8,6 +8,7 @@ from typing import Any
 
 from flask import request
 
+from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer
 from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
@@ -85,7 +86,6 @@ def update_research_offer(
     user: User, data: ResearchOfferUpdate, message_id: str
 ) -> tuple[dict[str, str], int]:
     """Decline a deep-research offer (starting one goes through the chat stream)."""
-    from src.agent.deep_research.plan import OfferConflict, OfferNotFound, decline_offer  # noqa: PLC0415
 
     message = db.get_message_by_id(message_id)
     if not message or not db.get_conversation(message.conversation_id, user.id):
