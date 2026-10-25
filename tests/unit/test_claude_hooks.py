@@ -40,6 +40,15 @@ def _run(command: str) -> subprocess.CompletedProcess[str]:
         "git reset --hard",
         "git reset --hard origin/main",
         "git clean -fd",
+        "git clean --force",
+        "git -C web add -A",
+        "git -c core.autocrlf=false commit -am 'fix: x'",
+        "git --no-pager add --all",
+        "git add -Av",
+        "git add -- .",
+        "git add ':/'",
+        "git restore --staged -- .",
+        "FOO=1 git stash",
     ],
 )
 def test_sweeping_commands_are_blocked(command: str) -> None:
@@ -91,6 +100,26 @@ def test_non_conventional_messages_are_blocked(command: str) -> None:
     result = _run(command)
     assert result.returncode == 2, command
     assert "Conventional Commits" in result.stderr
+
+
+def test_each_heredoc_belongs_to_its_own_command() -> None:
+    """The commit message is the commit's heredoc, not an earlier one."""
+    script = "python3 - <<'EOF'\nprint('x')\nEOF\n"
+    good = script + "git commit -q -F - <<'EOF'\nfix(x): y\nEOF"
+    bad = script + "git commit -q -F - <<'EOF'\nmade some changes\nEOF"
+    assert _run(good).returncode == 0
+    assert _run(bad).returncode == 2
+
+
+def test_no_edit_elsewhere_does_not_skip_the_message_check() -> None:
+    result = _run("git commit -m 'bad message' && echo --no-edit")
+    assert result.returncode == 2
+
+
+def test_an_unparsable_git_command_is_blocked() -> None:
+    result = _run("git commit -m 'fix: unbalanced")
+    assert result.returncode == 2
+    assert "parse" in result.stderr
 
 
 def test_non_bash_payloads_pass() -> None:
