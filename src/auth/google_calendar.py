@@ -76,7 +76,9 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
 
     token_data: dict[str, Any] = response.json()
     if "access_token" not in token_data:
-        logger.error("Google token response missing access_token", extra={"fields": sorted(token_data)})
+        logger.error(
+            "Google token response missing access_token", extra={"fields": sorted(token_data)}
+        )
         raise GoogleCalendarAuthError("No access token returned by Google")
 
     return token_data
@@ -133,7 +135,9 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
     token_data: dict[str, Any] = response.json()
     if "access_token" not in token_data:
-        logger.error("Google refresh response missing access_token", extra={"fields": sorted(token_data)})
+        logger.error(
+            "Google refresh response missing access_token", extra={"fields": sorted(token_data)}
+        )
         raise GoogleCalendarAuthError("No access token returned during refresh")
 
     # Refresh responses typically do not include refresh_token; preserve existing
