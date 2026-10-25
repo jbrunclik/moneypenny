@@ -25,6 +25,7 @@ from src.utils.search_provider import (
     _search_linkup,
     _search_tavily,
     active_provider,
+    breaker_exhausted_key,
     breaker_key,
     breaker_last_key,
     get_monthly_usage,
@@ -626,6 +627,33 @@ class TestDegradationAlert:
         mock_push.assert_called_once()
         # The surviving alert must be the real one, not the blip: the blip
         # would have read "providers failing" and left no slot for this.
+        assert "quotas exhausted" in mock_push.call_args[0][2]
+
+    @patch("src.utils.push.send_push_to_user")
+    @patch("src.utils.search_provider._search_ddgs")
+    def test_a_provider_out_of_credits_reads_as_exhausted(
+        self, mock_ddgs: MagicMock, mock_push: MagicMock
+    ) -> None:
+        """Oct 2026 prod: Tavily said "out of credits" at 845/1000 searches by
+        our count, so the alert blamed "providers unavailable" - it was quotas."""
+        mock_ddgs.return_value = []
+        store = {
+            usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY),
+            usage_key("tavily"): "845",
+            breaker_exhausted_key("tavily"): "1",
+        }
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="tk",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+                ALLOWED_EMAILS=["op@example.com"],
+            ),
+            patch("src.utils.search_provider.db", self._db_with_store(store)),
+        ):
+            search_web("q", 3)
         assert "quotas exhausted" in mock_push.call_args[0][2]
 
 

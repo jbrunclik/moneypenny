@@ -322,6 +322,13 @@ def search_web_detailed(query: str, num_results: int) -> tuple[list[dict[str, st
     raise last_error or SearchProviderError("No search provider available", retriable=True)
 
 
+def _out_of_credits(provider: _Provider) -> bool:
+    """Used up by our count, or the provider said so (our count can lag it)."""
+    if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider.name)):
+        return True
+    return get_monthly_usage(provider.name) >= (provider.monthly_quota() or 0)
+
+
 def _notify_if_degraded(served_by: str) -> None:
     """Alert the operator (once per day) when every metered provider is
     unavailable and ddgs is all that's left - otherwise quality degrades
@@ -348,7 +355,7 @@ def _notify_if_degraded(served_by: str) -> None:
             return
         db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key, "1")
 
-        exhausted = all(get_monthly_usage(p.name) >= (p.monthly_quota() or 0) for p in metered)
+        exhausted = all(_out_of_credits(p) for p in metered)
         reason = "quotas exhausted" if exhausted else "providers unavailable"
         logger.warning(
             "Web search degraded to DuckDuckGo fallback",
