@@ -56,12 +56,11 @@ describe('formatMessageTime', () => {
     expect(text).toContain('10');
   });
 
-  // BUG: "yesterday" is computed as today's midnight minus 24 hours. The day
-  // after a DST change that lands an hour off midnight, so messages from the
-  // previous day show a full date instead of "Yesterday HH:MM". Only
-  // observable in a time zone with DST (skipped in UTC, e.g. CI).
+  // "Yesterday" was once today's midnight minus 24 hours, which lands an hour
+  // off midnight the day after a DST change. Only observable in a time zone
+  // with DST (skipped in UTC, e.g. CI).
   const dstMidnight = midnightAfterDstChange();
-  it.skipIf(dstMidnight === null).fails('still says "yesterday" on the day after a DST change', () => {
+  it.skipIf(dstMidnight === null)('still says "yesterday" on the day after a DST change', () => {
     if (!dstMidnight) return;
     vi.useFakeTimers();
     vi.setSystemTime(new Date(dstMidnight.getTime() + 12 * 60 * 60 * 1000));

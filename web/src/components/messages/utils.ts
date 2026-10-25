@@ -16,7 +16,8 @@ export function formatMessageTime(isoString: string): string {
   const date = new Date(isoString);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  // Calendar arithmetic, not -24h: a day next to a DST change is 23 or 25 hours
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   const messageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
