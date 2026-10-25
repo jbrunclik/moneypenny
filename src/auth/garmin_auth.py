@@ -60,7 +60,7 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
         #   - Normal:    (OAuth1Token, OAuth2Token)
         #   - MFA needed: ("needs_mfa", None)
         if isinstance(result, tuple) and len(result) == 2 and result[0] == "needs_mfa":
-            logger.info("Garmin MFA required", extra={"email": email})
+            logger.info("Garmin MFA required")
             raise GarminMfaRequired()
 
         tokens = serialize_tokens(garmin)

@@ -70,13 +70,13 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
     if response.status_code != 200:
         logger.warning(
             "Google token exchange returned error",
-            extra={"status_code": response.status_code, "body": response.text},
+            extra={"status_code": response.status_code, "body": response.text[:500]},
         )
         raise GoogleCalendarAuthError("Failed to exchange authorization code for tokens")
 
     token_data: dict[str, Any] = response.json()
     if "access_token" not in token_data:
-        logger.error("Google token response missing access_token", extra={"body": token_data})
+        logger.error("Google token response missing access_token", extra={"fields": sorted(token_data)})
         raise GoogleCalendarAuthError("No access token returned by Google")
 
     return token_data
@@ -115,7 +115,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
             extra={
                 "status_code": response.status_code,
                 "error_code": error_code,
-                "body": response.text,
+                "body": response.text[:500],
             },
         )
 
@@ -133,7 +133,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
     token_data: dict[str, Any] = response.json()
     if "access_token" not in token_data:
-        logger.error("Google refresh response missing access_token", extra={"body": token_data})
+        logger.error("Google refresh response missing access_token", extra={"fields": sorted(token_data)})
         raise GoogleCalendarAuthError("No access token returned during refresh")
 
     # Refresh responses typically do not include refresh_token; preserve existing
@@ -157,7 +157,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
     if response.status_code != 200:
         logger.warning(
             "Google userinfo returned error",
-            extra={"status_code": response.status_code, "body": response.text},
+            extra={"status_code": response.status_code, "body": response.text[:500]},
         )
         raise GoogleCalendarAuthError("Failed to fetch Google profile")
 

@@ -95,7 +95,7 @@ def connect_todoist(user: User, data: TodoistConnectRequest) -> dict[str, Any]:
 
         logger.info(
             "Todoist connected successfully",
-            extra={"user_id": user.id, "todoist_email": todoist_email},
+            extra={"user_id": user.id},
         )
         return {"connected": True, "todoist_email": todoist_email}
 

@@ -67,7 +67,7 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
             raise GoogleAuthError("Token does not contain email")
 
         email = token_info.get("email", "")
-        logger.debug("Google token verified", extra={"email": email})
+        logger.debug("Google token verified")
         return {
             "email": email,
             "name": token_info.get("name", email),

@@ -122,7 +122,7 @@ class UserMixin:
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:
         """Get an existing user by email or create a new one."""
-        logger.debug("Getting or creating user", extra={"email": email})
+        logger.debug("Getting or creating user")
         with self._pool.get_connection() as conn:
             # Use INSERT OR IGNORE to handle race conditions when multiple
             # concurrent requests try to create the same user
@@ -137,7 +137,7 @@ class UserMixin:
 
             # Check if we created a new user or if one already existed
             if cursor.rowcount > 0:
-                logger.info("User created", extra={"user_id": user_id, "email": email})
+                logger.info("User created", extra={"user_id": user_id})
                 return User(
                     id=user_id,
                     email=email,
@@ -157,7 +157,7 @@ class UserMixin:
                 # This should never happen - if INSERT OR IGNORE didn't insert,
                 # the user must exist. But handle it defensively.
                 raise RuntimeError(f"User with email {email} should exist but was not found")
-            logger.debug("User found", extra={"user_id": row["id"], "email": email})
+            logger.debug("User found", extra={"user_id": row["id"]})
             return self._row_to_user(row)
 
     def refresh_google_profile(self, user: User, name: str, picture: str | None) -> User:

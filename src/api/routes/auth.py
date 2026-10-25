@@ -55,17 +55,18 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
         logger.debug("Verifying Google ID token")
         user_info = verify_google_id_token(id_token)
         email = user_info.get("email", "")
-        logger.debug("Google token verified", extra={"email": email})
+        logger.debug("Google token verified")
     except GoogleAuthError as e:
         logger.warning("Google token verification failed", extra={"error": str(e)})
         raise_auth_invalid_error(str(e))
 
     if not is_email_allowed(email):
-        logger.warning("Email not in whitelist", extra={"email": email})
+        # The domain shows whether it was a stranger or a family address typo
+        logger.warning("Email not in whitelist", extra={"email_domain": email.rpartition("@")[2]})
         raise_auth_forbidden_error("Email not authorized")
 
     # Create or get user
-    logger.debug("Getting or creating user", extra={"email": email})
+    logger.debug("Getting or creating user")
     user = db.get_or_create_user(
         email=email,
         name=user_info.get("name", email),
@@ -78,7 +79,7 @@ def google_auth(data: GoogleAuthRequest) -> tuple[dict[str, Any], int]:
 
     # Generate JWT token
     token = create_token(user)
-    logger.info("Google authentication successful", extra={"user_id": user.id, "email": email})
+    logger.info("Google authentication successful", extra={"user_id": user.id})
 
     return {
         "token": token,

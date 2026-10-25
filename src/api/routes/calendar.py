@@ -152,7 +152,7 @@ def connect_google_calendar(user: User, data: GoogleCalendarConnectRequest) -> d
 
         logger.info(
             "Google Calendar connected",
-            extra={"user_id": user.id, "calendar_email": calendar_email},
+            extra={"user_id": user.id},
         )
         return {"connected": True, "calendar_email": calendar_email}
 

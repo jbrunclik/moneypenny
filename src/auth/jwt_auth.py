@@ -41,7 +41,7 @@ class TokenResult:
 
 def create_token(user: User) -> str:
     """Create a JWT token for a user."""
-    logger.debug("Creating JWT token", extra={"user_id": user.id, "email": user.email})
+    logger.debug("Creating JWT token", extra={"user_id": user.id})
     payload = {
         "sub": user.id,
         "email": user.email,
