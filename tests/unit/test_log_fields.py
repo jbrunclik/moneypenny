@@ -41,9 +41,11 @@ def _logged_keys() -> list[tuple[str, int, str]]:
                 continue
             for keyword in node.keywords:
                 if keyword.arg == "extra" and isinstance(keyword.value, ast.Dict):
-                    for key in keyword.value.keys:
-                        if isinstance(key, ast.Constant) and isinstance(key.value, str):
-                            found.append((str(path.relative_to(_SRC)), node.lineno, key.value))
+                    found.extend(
+                        (str(path.relative_to(_SRC)), node.lineno, key.value)
+                        for key in keyword.value.keys
+                        if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                    )
     return found
 
 
