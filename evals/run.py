@@ -556,28 +556,8 @@ def _compacted_history(
     return [_summary_message(render_segments(segments)), *recent], usage
 
 
-def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
-    """Execute one case through ChatAgent and judge it."""
-    from langchain_core.messages import HumanMessage, ToolMessage
-
-    from src.agent.agent import ChatAgent
-    from src.agent.content import extract_read_sources, extract_text_content
-    from src.agent.tools.context import set_conversation_context
-    from src.config import Config
-
-    conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
-    set_conversation_context(conversation.id, user.id)
-    # Per-turn tool bookkeeping (batching nudges, web_search -> research
-    # upgrade) is keyed by request id; without one it is inert, so evals
-    # used to measure round counts with every efficiency mechanism off
-    import uuid
-
-    from src.agent.tool_results import set_current_request_id
-
-    request_id = f"eval-{case.id}-{uuid.uuid4().hex[:8]}"
-    set_current_request_id(request_id)
-
-    # Attachment fixtures -> the same shape the API layer hands to ChatAgent
+def _attachment_payload(case: EvalCase) -> list[dict[str, str]]:
+    """Attachment fixtures -> the same shape the API layer hands to ChatAgent."""
     import base64
     import mimetypes
 
@@ -591,6 +571,18 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
                 "data": base64.b64encode(fixture.read_bytes()).decode(),
             }
         )
+    return files_payload
+
+
+def _seed_case(
+    case: EvalCase, user: Any, db: Any, conversation_id: str
+) -> tuple[list[str], list[dict[str, Any]] | None, dict[str, float]]:
+    """Seed the case's memories, past conversation and artifacts.
+
+    Returns the seeded memory ids (for cleanup), the history the turn sees,
+    and the compaction summarizer's estimated token usage.
+    """
+    from src.config import Config
 
     # Seed memories (soft-deleted afterwards so they don't leak into later cases)
     seeded_memory_ids = [
@@ -607,72 +599,74 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         for msg in case.seed_conversation.get("messages", []):
             db.add_message(past.id, str(msg["role"]), str(msg["content"]))
 
-    # Sports mode: canned cycling program (mirrors load_sports_context's shape)
-    is_sports = case.mode == "sports"
-    sports_context = None
-    if is_sports:
-        from src.agent.tools import set_sports_context
-
-        sports_context = {
-            "program_name": "Cyklistika",
-            "program_id": "cycling",
-            "kv_data": dict(case.program_kv),
-        }
-        set_sports_context("cycling")
-
     # Seed artifacts for revision cases (they go with the eval conversation)
     artifact_ids = [
-        db.create_artifact(conversation.id, user.id, a["title"], a["html"])[0].id
+        db.create_artifact(conversation_id, user.id, a["title"], a["html"])[0].id
         for a in case.artifacts
     ]
     history = with_artifact_ids(case.history, artifact_ids) or None
     summarizer_usage = {"input": 0.0, "output": 0.0}
     if case.compact_history:
-        history, summarizer_usage = _compacted_history(case, user, db, conversation.id)
+        history, summarizer_usage = _compacted_history(case, user, db, conversation_id)
+    return seeded_memory_ids, history, summarizer_usage
 
+
+def _sports_context(case: EvalCase) -> dict[str, Any] | None:
+    """Sports mode: canned cycling program (mirrors load_sports_context's shape)."""
+    if case.mode != "sports":
+        return None
+    return {
+        "program_name": "Cyklistika",
+        "program_id": "cycling",
+        "kv_data": dict(case.program_kv),
+    }
+
+
+def _run_turn(
+    case: EvalCase,
+    user: Any,
+    conversation_id: str,
+    request_id: str,
+    history: list[dict[str, Any]] | None,
+    sports_context: dict[str, Any] | None,
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+    """The agent turn: (response, tool_results, usage, result_messages, integration changes)."""
     from evals.fakes import describe_actions, fake_integrations
+    from src.agent.agent import ChatAgent
+    from src.config import Config
 
-    integration_changes = "none"
-    try:
-        agent = ChatAgent(
-            model_name=Config.DEFAULT_MODEL,
-            is_sports=is_sports,
-            sports_context=sports_context,
-        )
-        turn_started = time.monotonic()
-        # Fake integration backends replace only the HTTP/client seams, so
-        # the real tool code runs (no-op when the case declares none)
-        with fake_integrations(case.integrations) as fakes:
-            # tool_results is needed for pricing: image generations and
-            # delegate_task subagent tokens are only visible in there.
-            if case.deep_research:
-                response, tool_results, usage, result_messages = run_deep_research_turn(
-                    case.deep_research, request_id
-                )
-            else:
-                response, tool_results, usage, result_messages = agent.chat_batch(
-                    text=case.user,
-                    files=files_payload or None,
-                    history=history,
-                    user_name="Eval User",
-                    user_id=user.id,
-                    conversation_id=conversation.id,
-                    is_sports=is_sports,
-                    sports_context=sports_context,
-                )
-            integration_changes = describe_actions(fakes)
-    finally:
-        set_conversation_context(None, None)
-        from src.agent.tools.turn_usage import reset_turn_usage
+    is_sports = sports_context is not None
+    agent = ChatAgent(
+        model_name=Config.DEFAULT_MODEL,
+        is_sports=is_sports,
+        sports_context=sports_context,
+    )
+    # Fake integration backends replace only the HTTP/client seams, so
+    # the real tool code runs (no-op when the case declares none)
+    with fake_integrations(case.integrations) as fakes:
+        # tool_results is needed for pricing: image generations and
+        # delegate_task subagent tokens are only visible in there.
+        if case.deep_research:
+            response, tool_results, usage, result_messages = run_deep_research_turn(
+                case.deep_research, request_id
+            )
+        else:
+            response, tool_results, usage, result_messages = agent.chat_batch(
+                text=case.user,
+                files=_attachment_payload(case) or None,
+                history=history,
+                user_name="Eval User",
+                user_id=user.id,
+                conversation_id=conversation_id,
+                is_sports=is_sports,
+                sports_context=sports_context,
+            )
+        return response, tool_results, usage, result_messages, describe_actions(fakes)
 
-        reset_turn_usage()
-        set_current_request_id(None)
-        if is_sports:
-            from src.agent.tools import set_sports_context
 
-            set_sports_context(None)
-        for memory_id in seeded_memory_ids:
-            db.delete_memory(memory_id, user.id)
+def _tools_used(result_messages: list[Any]) -> set[str]:
+    """Tools the turn executed, plus every tool call it requested."""
+    from langchain_core.messages import ToolMessage
 
     tools_used = {msg.name for msg in result_messages if isinstance(msg, ToolMessage) and msg.name}
     # set_conversation_title may be extract-only (never executed):
@@ -681,17 +675,23 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         for tool_call in getattr(msg, "tool_calls", None) or []:
             if tool_call.get("name"):
                 tools_used.add(tool_call["name"])
+    return tools_used
 
-    tool_rounds = int(usage.get("tool_rounds", 0))
-    failures = deterministic_failures(
-        case,
-        tools_used,
-        tool_rounds,
-        skills_loaded=skills_loaded_in(result_messages),
-        tool_calls=tool_calls_in(result_messages),
-    )
 
+def _judge(
+    case: EvalCase,
+    response: str,
+    usage: dict[str, Any],
+    result_messages: list[Any],
+    tools_used: set[str],
+    integration_changes: str,
+) -> tuple[int, bool, str, int, int]:
+    """Grade the response: (score, pass, reasoning, judge input tokens, judge output tokens)."""
+    from langchain_core.messages import HumanMessage
     from langchain_google_genai import ChatGoogleGenerativeAI
+
+    from src.agent.content import extract_read_sources, extract_text_content
+    from src.config import Config
 
     judge = ChatGoogleGenerativeAI(
         model=Config.EVAL_JUDGE_MODEL, google_api_key=Config.GEMINI_API_KEY, temperature=0.0
@@ -713,13 +713,62 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         ]
     )
     score, judge_pass, reasoning = parse_judge_response(extract_text_content(judge_reply.content))
+    return score, judge_pass, reasoning, *_judge_tokens(judge_reply)
+
+
+def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
+    """Execute one case through ChatAgent and judge it."""
+    import uuid
+
+    from src.agent.tool_results import set_current_request_id
+    from src.agent.tools import set_sports_context
+    from src.agent.tools.context import set_conversation_context
+    from src.agent.tools.turn_usage import reset_turn_usage
+    from src.config import Config
+    from src.utils.costs import calculate_token_cost
+
+    conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
+    set_conversation_context(conversation.id, user.id)
+    # Per-turn tool bookkeeping (batching nudges, web_search -> research
+    # upgrade) is keyed by request id; without one it is inert, so evals
+    # used to measure round counts with every efficiency mechanism off
+    request_id = f"eval-{case.id}-{uuid.uuid4().hex[:8]}"
+    set_current_request_id(request_id)
+
+    seeded_memory_ids, history, summarizer_usage = _seed_case(case, user, db, conversation.id)
+    sports_context = _sports_context(case)
+    if sports_context:
+        set_sports_context("cycling")
+    try:
+        turn_started = time.monotonic()
+        response, tool_results, usage, result_messages, integration_changes = _run_turn(
+            case, user, conversation.id, request_id, history, sports_context
+        )
+    finally:
+        set_conversation_context(None, None)
+        reset_turn_usage()
+        set_current_request_id(None)
+        if sports_context:
+            set_sports_context(None)
+        for memory_id in seeded_memory_ids:
+            db.delete_memory(memory_id, user.id)
+
+    tools_used = _tools_used(result_messages)
+    tool_rounds = int(usage.get("tool_rounds", 0))
+    failures = deterministic_failures(
+        case,
+        tools_used,
+        tool_rounds,
+        skills_loaded=skills_loaded_in(result_messages),
+        tool_calls=tool_calls_in(result_messages),
+    )
+    score, judge_pass, reasoning, judge_input, judge_output = _judge(
+        case, response, usage, result_messages, tools_used, integration_changes
+    )
 
     # The judge is a real billed API call - roughly a third of a run's spend,
     # since it re-sends the rubric plus the full response on a Pro model. It
     # went unmeasured before, so "a few cents per run" was a guess.
-    from src.utils.costs import calculate_token_cost
-
-    judge_input, judge_output = _judge_tokens(judge_reply)
     judge_cost = calculate_token_cost(Config.EVAL_JUDGE_MODEL, judge_input, judge_output)
     agent_cost = turn_cost(Config.DEFAULT_MODEL, usage, tool_results)
     # Compaction cases also pay for building the summary (estimated tokens)

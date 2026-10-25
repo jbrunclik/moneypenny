@@ -1,13 +1,14 @@
 """Tests for the eval harness (case loading + judge parsing + checks).
 
-Only the pure pieces are tested here - actually running evals hits the live
-Gemini API and happens via `make eval`, never in CI.
+The pure pieces, plus one case run with the agent and judge faked - actually
+running evals hits the live Gemini API and happens via `make eval`, never in CI.
 """
 
 import json
 import os
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -603,3 +604,93 @@ expect:
 
         assert history[0]["metadata"]["artifacts"] == "abc123 v1 'Tips'"
         assert case.history[0]["metadata"]["artifacts"] == "{artifact_0} v1 'Tips'"
+
+
+class TestRunCase:
+    """One case end to end with the agent and the judge faked (no API calls)."""
+
+    def test_seeds_runs_judges_and_cleans_up(
+        self, monkeypatch: pytest.MonkeyPatch, test_database: Any, test_user: Any
+    ) -> None:
+        from langchain_core.messages import AIMessage, ToolMessage
+
+        import evals.run as eval_run
+        from src.agent import agent as agent_module
+
+        calls: dict[str, Any] = {}
+
+        class FakeAgent:
+            def __init__(self, **kwargs: Any) -> None:
+                calls["init"] = kwargs
+
+            def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
+                calls["chat"] = kwargs
+                calls["memories_during_turn"] = [
+                    m.content for m in test_database.list_memories(test_user.id)
+                ]
+                messages = [
+                    ToolMessage(name="web_search", content="x", tool_call_id="1"),
+                    AIMessage(
+                        content="",
+                        tool_calls=[{"name": "set_conversation_title", "args": {}, "id": "2"}],
+                    ),
+                ]
+                usage = {"tool_rounds": 1, "input_tokens": 100, "output_tokens": 20}
+                return "The answer", [], usage, messages
+
+        class FakeJudge:
+            def __init__(self, **kwargs: Any) -> None:
+                pass
+
+            def invoke(self, messages: list[Any]) -> AIMessage:
+                calls["judge_prompt"] = messages[0].content
+                return AIMessage(
+                    content='{"score": 4, "pass": true, "reasoning": "fine"}',
+                    usage_metadata={"input_tokens": 50, "output_tokens": 10, "total_tokens": 60},
+                )
+
+        monkeypatch.setattr(agent_module, "ChatAgent", FakeAgent)
+        monkeypatch.setattr("langchain_google_genai.ChatGoogleGenerativeAI", FakeJudge)
+
+        case = EvalCase(
+            id="c1",
+            description="",
+            user="What did I say?",
+            rubric="Recalls the fact",
+            mode="sports",
+            program_kv={"ftp": "250"},
+            files=["fixtures/opening_hours_sign.png"],
+            memories=[{"content": "Likes tea", "category": "preference"}],
+            seed_conversation={
+                "title": "Old chat",
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+            artifacts=[{"title": "Chart", "html": "<p>x</p>"}],
+            history=[{"role": "user", "content": "see {artifact_0}"}],
+        )
+        result = eval_run._run_case(case, test_user, test_database)
+
+        assert calls["init"]["is_sports"] is True
+        assert calls["chat"]["sports_context"]["kv_data"] == {"ftp": "250"}
+        assert calls["chat"]["files"][0]["name"] == "opening_hours_sign.png"
+        assert calls["chat"]["files"][0]["type"] == "image/png"
+        assert "{artifact_0}" not in calls["chat"]["history"][0]["content"]
+        assert calls["memories_during_turn"] == ["Likes tea"]
+        assert "Recalls the fact" in calls["judge_prompt"]
+        assert "set_conversation_title, web_search" in calls["judge_prompt"]
+        titles = {c.title for c in test_database.list_conversations(test_user.id)}
+        assert {"Old chat", "eval-c1"} <= titles
+        # Seeded memories don't leak into later cases
+        assert test_database.list_memories(test_user.id) == []
+
+        assert result["pass"] is True
+        assert result["score"] == 4
+        assert result["tool_rounds"] == 1
+        assert result["tools_used"] == ["set_conversation_title", "web_search"]
+        assert result["judge_input_tokens"] == 50
+        assert result["cost_usd"] == pytest.approx(
+            result["agent_cost_usd"] + result["judge_cost_usd"], abs=1e-6
+        )
+        assert result["agent_cost_usd"] > 0 and result["judge_cost_usd"] > 0
+        assert result["deterministic_failures"] == []
+        assert result["response_preview"] == "The answer"
