@@ -9,7 +9,7 @@
  * 4. Update UI with recovered content or show error
  */
 
-import { settleTurnFor } from '../components/messages/turn-anchor';
+import { settleTurnFor } from './response-scroll';
 import { conversations as conversationsApi } from '../api/conversations';
 import { ApiError } from '../api/http';
 import { useStore } from '../state/store';

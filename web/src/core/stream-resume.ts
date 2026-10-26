@@ -18,7 +18,7 @@ import { clearInflightStream, readInflightStream } from './inflight-streams';
 import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './stream-recovery';
 import { handleStreamDone } from './stream-done';
 import { processStreamEvent } from './stream-events';
-import { hasInflightBatch } from './batch-resume';
+import { hasInflightBatch } from './inflight-batches';
 import {
   cleanupStreamingRequest,
   createStreamingState,

@@ -8,6 +8,7 @@
 import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO } from '../config';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { settleTurnSpace } from '../components/messages/turn-anchor';
+import { useStore } from '../state/store';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { enableScrollOnImageLoad } from '../components/messages/image-load-scroll';
 import { getThumbnailObserver, observeThumbnail } from '../components/messages/thumbnail-loader';
@@ -16,6 +17,7 @@ import {
   programmaticScrollToBottom,
   programmaticScrollToElementTop,
 } from '../utils/programmatic-scroll';
+import { hasTrackedRequestFor } from './active-requests';
 
 /**
  * Watch for a USER scroll between now and a deferred (rAF) scroll of ours.
@@ -171,4 +173,19 @@ export function scrollToBatchReply(
     }
     checkScrollButtonVisibility();
   });
+}
+
+/**
+ * A turn of `convId` ended in any way (done, stop, error, recovery, a
+ * resumed batch giving up): give back its reserved space if that
+ * conversation is on screen. Only a normal done used to - a stopped or
+ * failed turn left the empty area and the bottom-align switched off.
+ */
+export function settleTurnFor(convId: string): void {
+  if (useStore.getState().currentConversation?.id !== convId) return;
+  // A newer turn started meanwhile (a follow-up while this one's cleanup
+  // still ran): the anchor is its now
+  if (hasTrackedRequestFor(convId)) return;
+  const container = document.getElementById('messages');
+  if (container) settleTurnSpace(container);
 }

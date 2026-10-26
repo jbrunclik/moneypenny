@@ -28,10 +28,10 @@ import { updateConversationCost } from './toolbar';
 import { notifyTurnFinished } from './attention';
 import { hasTrackedRequestFor, trackRequest, untrackRequest } from './active-requests';
 import { confirmDelivery, markSendFailed } from './send-delivery';
-import { scrollToBatchReply, settleAnchoredReply } from './response-scroll';
-import { isTurnAnchored, reserveTurnSpace, settleTurnFor } from '../components/messages/turn-anchor';
+import { scrollToBatchReply, settleAnchoredReply, settleTurnFor } from './response-scroll';
+import { isTurnAnchored, reserveTurnSpace } from '../components/messages/turn-anchor';
 import { notifyModelFallback } from './model-fallback';
-import { clearInflightBatch, persistInflightBatch } from './batch-resume';
+import { clearInflightBatch, persistInflightBatch } from './inflight-batches';
 import { answerUnreadSteering } from './steering';
 
 const log = createLogger('messaging');

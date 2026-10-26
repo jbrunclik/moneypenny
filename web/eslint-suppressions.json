@@ -177,11 +177,6 @@
       "count": 1
     }
   },
-  "src/components/messages/turn-anchor.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/components/settings/integrations.ts": {
     "no-restricted-imports": {
       "count": 1

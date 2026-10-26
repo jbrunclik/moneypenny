@@ -9,7 +9,7 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { clearAllInflightStreams } from './inflight-streams';
-import { clearAllInflightBatches } from './batch-resume';
+import { clearAllInflightBatches } from './inflight-batches';
 
 const log = createLogger('messaging');
 

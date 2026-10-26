@@ -437,11 +437,11 @@ The send path is split by responsibility in `web/src/core/`:
 | [stream-send.ts](../../web/src/core/stream-send.ts) / [batch-send.ts](../../web/src/core/batch-send.ts) | `sendStreamingMessage()` / `sendBatchMessage()`: one turn in each mode |
 | [stream-session.ts](../../web/src/core/stream-session.ts), [stream-events.ts](../../web/src/core/stream-events.ts), [stream-done.ts](../../web/src/core/stream-done.ts) | Per-stream state, per-event handling, the terminal `done` event |
 | [stream-resume.ts](../../web/src/core/stream-resume.ts), [stream-recovery.ts](../../web/src/core/stream-recovery.ts), [inflight-streams.ts](../../web/src/core/inflight-streams.ts) | Journal resume, poll recovery, reload-resume |
-| [batch-resume.ts](../../web/src/core/batch-resume.ts), [reply-wait.ts](../../web/src/core/reply-wait.ts) | Batch reload-resume, polling for a delivered message's reply |
+| [batch-resume.ts](../../web/src/core/batch-resume.ts), [inflight-batches.ts](../../web/src/core/inflight-batches.ts), [reply-wait.ts](../../web/src/core/reply-wait.ts) | Batch reload-resume (entries persisted by inflight-batches.ts), polling for a delivered message's reply |
 | [send-delivery.ts](../../web/src/core/send-delivery.ts), [outbox.ts](../../web/src/core/outbox.ts) | Delivery state (`confirmDelivery`, `markSendFailed`, auto-retry claim) and the persisted outbox |
 | [active-requests.ts](../../web/src/core/active-requests.ts) | AbortControllers per in-flight request (stop button, logout) |
 | [rerun.ts](../../web/src/core/rerun.ts) | Actions on already-sent messages (below) |
-| [response-scroll.ts](../../web/src/core/response-scroll.ts), [thinking-state.ts](../../web/src/core/thinking-state.ts) | End-of-turn scroll, per-stream thinking trace |
+| [response-scroll.ts](../../web/src/core/response-scroll.ts), [thinking-state.ts](../../web/src/core/thinking-state.ts) | End-of-turn scroll (`settleTurnFor`: every turn end gives its reserved space back), per-stream thinking trace |
 
 **Actions on sent messages** ([rerun.ts](../../web/src/core/rerun.ts)). Message components
 dispatch document events; `initOutboxHandlers()` (called once from init) handles them.

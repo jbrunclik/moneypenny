@@ -15,17 +15,17 @@ const { waitForReplyTo, showLoadingIndicator, hideLoadingIndicator, settleTurnFo
   }));
 vi.mock('@/core/reply-wait', () => ({ waitForReplyTo }));
 vi.mock('@/components/messages', () => ({ showLoadingIndicator, hideLoadingIndicator }));
-vi.mock('@/components/messages/turn-anchor', () => ({ settleTurnFor }));
+vi.mock('@/core/response-scroll', () => ({ settleTurnFor }));
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => ({ incrementLocalMessageCount }) }));
 
+import { resumeInflightBatchIfAny } from '@/core/batch-resume';
 import {
   INFLIGHT_BATCH_MAX_AGE_MS,
   clearAllInflightBatches,
   clearInflightBatch,
   hasInflightBatch,
   persistInflightBatch,
-  resumeInflightBatchIfAny,
-} from '@/core/batch-resume';
+} from '@/core/inflight-batches';
 import { useStore } from '@/state/store';
 import type { Conversation, Message } from '@/types/api';
 

@@ -10,8 +10,6 @@
 import { TURN_REPLY_MIN_VISIBLE_PX, TURN_SPACE_RELEASE_MS } from '../../config';
 import { isSmoothScrolling, prefersReducedMotion, scrollDebug, stopMomentumScroll } from '../../utils/dom';
 import { onMessagesScroll } from '../../utils/scroll-manager';
-import { useStore } from '../../state/store';
-import { hasTrackedRequestFor } from '../../core/active-requests';
 import {
   beginProgrammaticScroll,
   endProgrammaticScroll,
@@ -243,21 +241,6 @@ export function settleTurnSpace(container: HTMLElement): void {
 // new turn anchors: measuring against a still-shrinking reply put the new
 // turn's glide target off by the remaining shrink
 let releasing: (() => void) | null = null;
-
-/**
- * A turn of `convId` ended in any way (done, stop, error, recovery, a
- * resumed batch giving up): give back its reserved space if that
- * conversation is on screen. Only a normal done used to - a stopped or
- * failed turn left the empty area and the bottom-align switched off.
- */
-export function settleTurnFor(convId: string): void {
-  if (useStore.getState().currentConversation?.id !== convId) return;
-  // A newer turn started meanwhile (a follow-up while this one's cleanup
-  // still ran): the anchor is its now
-  if (hasTrackedRequestFor(convId)) return;
-  const container = document.getElementById('messages');
-  if (container) settleTurnSpace(container);
-}
 
 /**
  * Keep an anchored turn anchored whenever the list itself changes height -

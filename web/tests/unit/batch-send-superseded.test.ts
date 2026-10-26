@@ -38,7 +38,11 @@ vi.mock('@/components/MessageInput', () => ({
 }));
 vi.mock('@/core/conversation-actions', () => ({ updateConversationTitle: vi.fn() }));
 vi.mock('@/core/attention', () => ({ notifyTurnFinished: vi.fn() }));
-vi.mock('@/core/response-scroll', () => ({ scrollToBatchReply: vi.fn(), settleAnchoredReply: vi.fn() }));
+vi.mock('@/core/response-scroll', () => ({
+  scrollToBatchReply: vi.fn(),
+  settleAnchoredReply: vi.fn(),
+  settleTurnFor: vi.fn(),
+}));
 
 let releaseCost: () => void = () => {};
 vi.mock('@/core/toolbar', () => ({

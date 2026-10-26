@@ -4,7 +4,7 @@
  * the live stream and the reload-resume path.
  */
 
-import { settleTurnFor } from '../components/messages/turn-anchor';
+import { settleTurnFor } from './response-scroll';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import {
