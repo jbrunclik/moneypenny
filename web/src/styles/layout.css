@@ -137,15 +137,17 @@
     position: relative;
 }
 
+/* Centered between 100px gutters, not left: 50% + translateX(-50%): the
+   transform put the text on a half device pixel, which iOS renders soft */
 .mobile-header #current-chat-title {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 100px;
+    right: 100px;
+    text-align: center;
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: calc(100% - 200px);
     pointer-events: none;
 }
 

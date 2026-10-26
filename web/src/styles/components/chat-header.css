@@ -177,6 +177,7 @@
 
     /* Keep the centered title clear of the extra chip */
     .mobile-header:has(#conversation-compaction-mobile:not(.hidden)) #current-chat-title {
-        max-width: calc(100% - 260px);
+        left: 130px;
+        right: 130px;
     }
 }
