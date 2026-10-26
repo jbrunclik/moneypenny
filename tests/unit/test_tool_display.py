@@ -134,6 +134,67 @@ class TestOtherToolDetails:
     def test_load_skill_shows_the_skill_name(self) -> None:
         assert extract_tool_detail("load_skill", {"name": "office-documents"}) == "office-documents"
 
+    def test_browser_batch_without_dict_steps_has_no_detail(self) -> None:
+        assert extract_tool_detail("browser", {"actions": ["navigate"]}) is None
+
+    def test_single_browser_action_shows_the_step(self) -> None:
+        detail = extract_tool_detail("browser", {"action": "click", "selector": "#go"})
+        assert detail == extract_tool_detail(
+            "browser", {"actions": [{"action": "click", "selector": "#go"}]}
+        )
+
+    def test_batched_web_search_joins_every_query(self) -> None:
+        detail = extract_tool_detail("web_search", {"query": "a", "queries": ["b", "c"]})
+        assert detail == "a | b | c"
+
+    def test_research_shows_the_question(self) -> None:
+        assert extract_tool_detail("research", {"question": "Why?"}) == "Why?"
+
+    def test_artifact_tools_show_the_title(self) -> None:
+        assert extract_tool_detail("create_artifact", {"title": "Plan"}) == "Plan"
+        assert extract_tool_detail("update_artifact", {"title": "Plan v2"}) == "Plan v2"
+
+    def test_delegated_task_is_cut_to_200_chars(self) -> None:
+        assert extract_tool_detail("delegate_task", {"task": "x" * 300}) == "x" * 200
+
+    def test_empty_url_still_shows_as_given(self) -> None:
+        assert extract_tool_detail("fetch_url", {"url": ""}) == ""
+
+    def test_empty_title_has_no_detail(self) -> None:
+        assert extract_tool_detail("set_conversation_title", {"title": ""}) is None
+
+    def test_search_conversations_shows_the_query(self) -> None:
+        assert extract_tool_detail("search_conversations", {"query": "trip"}) == "trip"
+
+    def test_calendar_needs_an_action(self) -> None:
+        assert extract_tool_detail("google_calendar", {}) is None
+        assert extract_tool_detail("google_calendar", {"action": "list_calendars"}) == (
+            _format_calendar_detail({"action": "list_calendars"})
+        )
+
+    def test_memory_needs_operations(self) -> None:
+        assert extract_tool_detail("manage_memory", {}) is None
+
+    def test_rouvy_needs_an_action(self) -> None:
+        assert extract_tool_detail("rouvy_workout", {}) is None
+        assert extract_tool_detail("rouvy_workout", {"action": "list"}) is not None
+
+    def test_file_tools_describe_the_file(self) -> None:
+        assert extract_tool_detail("create_file", {"filename": "a.csv"}) == "a.csv"
+        assert extract_tool_detail("retrieve_file", {"message_id": "m1", "file_index": 2}) == (
+            "file 2 from an earlier message"
+        )
+        assert extract_tool_detail("retrieve_file", {}) is None
+
+    def test_trigger_agent_shows_the_agent(self) -> None:
+        assert extract_tool_detail("trigger_agent", {"agent_name": "Watcher"}) == "Watcher"
+
+    def test_approval_shows_a_snippet_of_the_action(self) -> None:
+        assert extract_tool_detail("request_approval", {"action_description": "Send it"}) == (
+            "Send it"
+        )
+        assert extract_tool_detail("request_approval", {}) is None
+
     def test_unknown_tool_yields_no_detail(self) -> None:
         assert extract_tool_detail("not_a_tool", {"anything": 1}) is None
 

@@ -95,7 +95,55 @@ def _research_snippets(data: dict[str, Any]) -> list[SourcePage]:
     return [p for item in items if (p := _page(item, str(item.get("snippet") or "")))]
 
 
-def _read_and_searched(  # noqa: C901, PLR0912
+def _collect_research(
+    name: str,
+    data: dict[str, Any],
+    read: list[SourcePage],
+    searched: list[list[SourcePage]],
+    loose: list[str],
+) -> None:
+    """Collect a research or delegate_task result (or an escalated web_search)."""
+    for source in data.get("sources") or []:
+        # research lists failed fetches too; only pages with content were read
+        if isinstance(source, dict) and (name == "delegate_task" or "content" in source):
+            page = _page(source, str(source.get("content") or ""))
+            if page:
+                read.append(page)
+    if name == "delegate_task":
+        # The subagent's answer is evidence to check against, not KNOWN
+        if data.get("result"):
+            loose.append(str(data["result"]))
+    else:
+        searched.append(_research_snippets(data))
+
+
+def _fetched_page(
+    msg: ToolMessage, args: dict[str, Any], data: dict[str, Any] | None
+) -> SourcePage | None:
+    """The page a successful fetch_url call read."""
+    url = args.get("url")
+    failed = data is not None and bool(data.get("error"))
+    if not url or not msg.content or failed:
+        return None
+    return SourcePage(_title_from_url(str(url)), str(url), extract_text_content(msg.content))
+
+
+def _browser_page(data: dict[str, Any] | None) -> SourcePage | None:
+    """The page a successful browser call ended on."""
+    if not data or not data.get("success") or not data.get("url"):
+        return None
+    return _page(data, str(data.get("content") or ""))
+
+
+def _search_pages(data: dict[str, Any]) -> list[list[SourcePage]]:
+    """A web_search's result lists as pages carrying their snippets."""
+    return [
+        [p for r in results if isinstance(r, dict) and (p := _page(r, str(r.get("snippet") or "")))]
+        for results in _search_results(data)
+    ]
+
+
+def _read_and_searched(
     messages: list[BaseMessage],
 ) -> tuple[list[SourcePage], list[list[SourcePage]], list[str]]:
     """(read pages, search result lists, web tool text that parsed as neither)."""
@@ -111,40 +159,15 @@ def _read_and_searched(  # noqa: C901, PLR0912
         data = _json_object(msg.content)
         escalated = name == "web_search" and data is not None and "_escalated" in data
         if (name in ("research", "delegate_task") or escalated) and data:
-            for source in data.get("sources") or []:
-                # research lists failed fetches too; only pages with content were read
-                if isinstance(source, dict) and (name == "delegate_task" or "content" in source):
-                    page = _page(source, str(source.get("content") or ""))
-                    if page:
-                        read.append(page)
-            if name == "delegate_task":
-                # The subagent's answer is evidence to check against, not KNOWN
-                if data.get("result"):
-                    loose.append(str(data["result"]))
-            else:
-                searched.append(_research_snippets(data))
+            _collect_research(name, data, read, searched, loose)
         elif name == "fetch_url":
-            url = args.get("url")
-            failed = data is not None and bool(data.get("error"))
-            if url and msg.content and not failed:
-                read.append(
-                    SourcePage(
-                        _title_from_url(str(url)), str(url), extract_text_content(msg.content)
-                    )
-                )
-        elif name == "browser" and data and data.get("success") and data.get("url"):
-            page = _page(data, str(data.get("content") or ""))
+            page = _fetched_page(msg, args, data)
             if page:
                 read.append(page)
+        elif name == "browser" and (page := _browser_page(data)) is not None:
+            read.append(page)
         elif name == "web_search" and data:
-            searched.extend(
-                [
-                    p
-                    for r in results
-                    if isinstance(r, dict) and (p := _page(r, str(r.get("snippet") or "")))
-                ]
-                for results in _search_results(data)
-            )
+            searched.extend(_search_pages(data))
         elif name in WEB_TOOL_NAMES:
             text = extract_text_content(msg.content).strip()
             if text:

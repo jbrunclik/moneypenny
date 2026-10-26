@@ -202,35 +202,43 @@ class StreamEventProcessor:
         if message_chunk.content:
             yield from self._content(message_chunk)
 
-    def _tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:  # noqa: C901
+    def _tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:
         """tool_start events for tool calls first seen in this chunk."""
         # Get tool names and args from tool_calls or tool_call_chunks
         # tool_calls has complete args as dict, tool_call_chunks has partial args as string
-        tool_infos: list[tuple[str, str, dict[str, Any]]] = []
         if message_chunk.tool_calls:
-            for tool_call in message_chunk.tool_calls:
-                tc_id = tool_call.get("id")
-                tc_name = tool_call.get("name")
-                tc_args = tool_call.get("args", {})
-                if tc_id and tc_name is not None and isinstance(tc_args, dict):
-                    tool_infos.append((tc_id, tc_name, tc_args))
+            yield from self._complete_tool_starts(message_chunk)
         elif message_chunk.tool_call_chunks:
-            # tool_call_chunks have partial args - we just emit tool_start
-            # when we see the call id + name (continuation chunks
-            # carry neither). Details come from tool_calls later.
-            for tc_chunk in message_chunk.tool_call_chunks:
-                chunk_id: str | None = tc_chunk.get("id")
-                chunk_name: str | None = tc_chunk.get("name")
-                if chunk_id and chunk_name and chunk_id not in self.pending_tool_calls:
-                    self.pending_tool_calls.add(chunk_id)
-                    tool_start_event: dict[str, Any] = {
-                        "type": "tool_start",
-                        "tool": chunk_name,
-                    }
-                    if chunk_name in TOOL_METADATA:
-                        tool_start_event["metadata"] = TOOL_METADATA[chunk_name]
-                    yield tool_start_event
-            return
+            yield from self._chunk_tool_starts(message_chunk)
+
+    def _chunk_tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:
+        """tool_start events from tool_call_chunks, which have partial args.
+
+        We just emit tool_start when we see the call id + name (continuation
+        chunks carry neither). Details come from tool_calls later.
+        """
+        for tc_chunk in message_chunk.tool_call_chunks:
+            chunk_id: str | None = tc_chunk.get("id")
+            chunk_name: str | None = tc_chunk.get("name")
+            if chunk_id and chunk_name and chunk_id not in self.pending_tool_calls:
+                self.pending_tool_calls.add(chunk_id)
+                tool_start_event: dict[str, Any] = {
+                    "type": "tool_start",
+                    "tool": chunk_name,
+                }
+                if chunk_name in TOOL_METADATA:
+                    tool_start_event["metadata"] = TOOL_METADATA[chunk_name]
+                yield tool_start_event
+
+    def _complete_tool_starts(self, message_chunk: AIMessageChunk) -> Iterator[dict[str, Any]]:
+        """tool_start events, with their detail, from complete tool_calls."""
+        tool_infos: list[tuple[str, str, dict[str, Any]]] = []
+        for tool_call in message_chunk.tool_calls:
+            tc_id = tool_call.get("id")
+            tc_name = tool_call.get("name")
+            tc_args = tool_call.get("args", {})
+            if tc_id and tc_name is not None and isinstance(tc_args, dict):
+                tool_infos.append((tc_id, tc_name, tc_args))
 
         for tc_id, tool_name, tool_args in tool_infos:
             if tc_id not in self.pending_tool_calls:

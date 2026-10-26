@@ -4,6 +4,7 @@ This module contains tool metadata for UI display and functions
 for extracting human-readable details from tool calls.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from src.agent.tools import get_all_tool_names, get_available_tools
@@ -285,7 +286,7 @@ _GARMIN_ACTION_LABELS = {
 }
 
 
-def _format_todoist_detail(tool_args: dict[str, Any]) -> str:  # noqa: C901
+def _format_todoist_detail(tool_args: dict[str, Any]) -> str:
     """Format Todoist tool args into a human-readable detail string.
 
     Args:
@@ -328,9 +329,7 @@ def _format_todoist_detail(tool_args: dict[str, Any]) -> str:  # noqa: C901
     if action in {"delete_section", "get_section"}:
         return f"{action}: {tool_args.get('section_id', '')}"
 
-    if action == "list_projects":
-        return "list_projects"
-
+    # Anything else, list_projects included, shows the bare action
     return action
 
 
@@ -545,7 +544,109 @@ def _fetch_conversation_title(conversation_id: str) -> str | None:
         return None
 
 
-def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:  # noqa: C901, PLR0912
+DetailFormatter = Callable[[dict[str, Any]], str | None]
+
+
+def _truthy_arg(key: str, limit: int | None = None) -> DetailFormatter:
+    """A formatter showing a non-empty argument as is (cut to `limit` chars)."""
+    return lambda args: str(args[key])[:limit] if args.get(key) else None
+
+
+def _given_arg(key: str) -> DetailFormatter:
+    """A formatter showing an argument whenever it was passed, even empty."""
+    return lambda args: str(args[key]) if key in args else None
+
+
+def _with_action(formatter: DetailFormatter) -> DetailFormatter:
+    """A formatter applying an action-based one when an action was passed."""
+    return lambda args: formatter(args) if "action" in args else None
+
+
+def _web_search_detail(args: dict[str, Any]) -> str | None:
+    if not (args.get("query") or args.get("queries")):
+        return None
+    parts = [str(args["query"])] if args.get("query") else []
+    batched = args.get("queries")
+    if isinstance(batched, list):
+        parts.extend(str(q) for q in batched)
+    return " | ".join(parts)
+
+
+def _browser_detail(args: dict[str, Any]) -> str | None:
+    if isinstance(args.get("actions"), list):
+        steps = [s for s in args["actions"] if isinstance(s, dict)]
+        if not steps:
+            return None
+        return " → ".join(
+            [_format_browser_step(steps[0])] + [str(s.get("action")) for s in steps[1:]]
+        )
+    if "action" in args:
+        return _format_browser_step(args)
+    return None
+
+
+def _execute_code_detail(args: dict[str, Any]) -> str | None:
+    # Show first line of code as detail
+    return str(args["code"]).split("\n")[0][:50] if "code" in args else None
+
+
+def _memory_detail(args: dict[str, Any]) -> str | None:
+    return _format_memory_detail(args) if "operations" in args else None
+
+
+def _read_conversation_detail(args: dict[str, Any]) -> str | None:
+    if not args.get("conversation_id"):
+        return None
+    return _fetch_conversation_title(str(args["conversation_id"]).strip())
+
+
+def _whatsapp_detail(args: dict[str, Any]) -> str | None:
+    return _snippet(str(args["message"]), 60) if args.get("message") else None
+
+
+def _retrieve_file_detail(args: dict[str, Any]) -> str | None:
+    if not args.get("message_id"):
+        return None
+    return f"file {args.get('file_index', 0)} from an earlier message"
+
+
+def _approval_detail(args: dict[str, Any]) -> str | None:
+    if not args.get("action_description"):
+        return None
+    return _snippet(str(args["action_description"]), 70)
+
+
+_DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
+    "research": _truthy_arg("question"),
+    "create_artifact": _truthy_arg("title"),
+    "update_artifact": _truthy_arg("title"),
+    "delegate_task": _truthy_arg("task", 200),
+    "web_search": _web_search_detail,
+    "browser": _browser_detail,
+    "fetch_url": _given_arg("url"),
+    "generate_image": _given_arg("prompt"),
+    "execute_code": _execute_code_detail,
+    "todoist": _with_action(_format_todoist_detail),
+    "google_calendar": _with_action(_format_calendar_detail),
+    "manage_memory": _memory_detail,
+    "search_memory": _truthy_arg("query"),
+    "search_conversations": _truthy_arg("query"),
+    "read_conversation": _read_conversation_detail,
+    "garmin_connect": _with_action(_format_garmin_detail),
+    "garmin_workout": _with_action(_format_garmin_workout_detail),
+    "rouvy_workout": _with_action(_format_rouvy_detail),
+    "kv_store": _with_action(_format_kv_detail),
+    "whatsapp": _whatsapp_detail,
+    "load_skill": _truthy_arg("name"),
+    "create_file": _truthy_arg("filename"),
+    "retrieve_file": _retrieve_file_detail,
+    "trigger_agent": _truthy_arg("agent_name"),
+    "request_approval": _approval_detail,
+    "set_conversation_title": _truthy_arg("title"),
+}
+
+
+def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None:
     """Extract a human-readable detail string from complete tool arguments.
 
     This is used when we have the complete tool_calls with parsed args dict.
@@ -557,71 +658,10 @@ def extract_tool_detail(tool_name: str, tool_args: dict[str, Any]) -> str | None
     Returns:
         Detail string to display in UI, or None if no detail available
     """
-    if tool_name == "research" and tool_args.get("question"):
-        return str(tool_args["question"])
-    if tool_name in ("create_artifact", "update_artifact") and tool_args.get("title"):
-        return str(tool_args["title"])
-    if tool_name == "delegate_task" and tool_args.get("task"):
-        return str(tool_args["task"])[:200]
-    if tool_name == "web_search" and (tool_args.get("query") or tool_args.get("queries")):
-        parts = [str(tool_args["query"])] if tool_args.get("query") else []
-        batched = tool_args.get("queries")
-        if isinstance(batched, list):
-            parts.extend(str(q) for q in batched)
-        return " | ".join(parts)
-    if tool_name == "browser" and isinstance(tool_args.get("actions"), list):
-        steps = [s for s in tool_args["actions"] if isinstance(s, dict)]
-        if not steps:
-            return None
-        return " → ".join(
-            [_format_browser_step(steps[0])] + [str(s.get("action")) for s in steps[1:]]
-        )
-    if tool_name == "browser" and "action" in tool_args:
-        return _format_browser_step(tool_args)
-    if tool_name == "fetch_url" and "url" in tool_args:
-        return str(tool_args["url"])
-    if tool_name == "generate_image" and "prompt" in tool_args:
-        return str(tool_args["prompt"])
-    if tool_name == "execute_code" and "code" in tool_args:
-        # Show first line of code as detail
-        return str(tool_args["code"]).split("\n")[0][:50]
-    if tool_name == "todoist" and "action" in tool_args:
-        return _format_todoist_detail(tool_args)
-    if tool_name == "google_calendar" and "action" in tool_args:
-        return _format_calendar_detail(tool_args)
-    if tool_name == "manage_memory" and "operations" in tool_args:
-        return _format_memory_detail(tool_args)
-    if (tool_name == "search_memory" and tool_args.get("query")) or (
-        tool_name == "search_conversations" and tool_args.get("query")
-    ):
-        return str(tool_args["query"])
-    if tool_name == "read_conversation" and tool_args.get("conversation_id"):
-        return _fetch_conversation_title(str(tool_args["conversation_id"]).strip())
-    if tool_name == "garmin_connect" and "action" in tool_args:
-        return _format_garmin_detail(tool_args)
-    if tool_name == "garmin_workout" and "action" in tool_args:
-        return _format_garmin_workout_detail(tool_args)
-    if tool_name == "rouvy_workout" and "action" in tool_args:
-        return _format_rouvy_detail(tool_args)
-    if tool_name == "kv_store" and "action" in tool_args:
-        return _format_kv_detail(tool_args)
     if tool_name in _PLACE_TOOLS:
         return _format_places_detail(tool_name, tool_args)
-    if tool_name == "whatsapp" and tool_args.get("message"):
-        return _snippet(str(tool_args["message"]), 60)
-    if tool_name == "load_skill" and tool_args.get("name"):
-        return str(tool_args["name"])
-    if tool_name == "create_file" and tool_args.get("filename"):
-        return str(tool_args["filename"])
-    if tool_name == "retrieve_file" and tool_args.get("message_id"):
-        return f"file {tool_args.get('file_index', 0)} from an earlier message"
-    if tool_name == "trigger_agent" and tool_args.get("agent_name"):
-        return str(tool_args["agent_name"])
-    if tool_name == "request_approval" and tool_args.get("action_description"):
-        return _snippet(str(tool_args["action_description"]), 70)
-    if tool_name == "set_conversation_title" and tool_args.get("title"):
-        return str(tool_args["title"])
-    return None
+    formatter = _DETAIL_FORMATTERS.get(tool_name)
+    return formatter(tool_args) if formatter else None
 
 
 # Run validation on import to catch tool name mismatches early
