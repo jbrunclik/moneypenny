@@ -102,9 +102,9 @@ function itemHtml(question: string, state: ItemState, pages: number): string {
   const icon =
     state === 'started'
       ? '<span class="research-progress__spinner" aria-label="researching"></span>'
-      : `<span aria-label="${label}">${glyph}</span>`;
+      : `<span aria-label="${escapeHtml(label)}">${glyph}</span>`;
   const read = pages > 0 ? `<span class="research-progress__pages">${pagesText(pages)}</span>` : '';
-  return `<li class="research-progress__item research-progress__item--${state}">
+  return `<li class="research-progress__item research-progress__item--${escapeHtml(state)}">
       <span class="research-progress__state">${icon}</span>
       <span class="research-progress__question">${escapeHtml(question)}</span>
       ${read}
@@ -115,7 +115,7 @@ const FINISHED: ReadonlySet<ItemState> = new Set(['done', 'failed', 'skipped', '
 
 function findingHtml(agent: number, text: string, kind?: string): string {
   const lead = kind === 'lead' ? 'lead: ' : '';
-  return `<span class="research-progress__agent">${agentLabel(agent)}</span> ${lead}${escapeHtml(text)}`;
+  return `<span class="research-progress__agent">${escapeHtml(agentLabel(agent))}</span> ${lead}${escapeHtml(text)}`;
 }
 
 function clock(ms: number): string {
@@ -135,7 +135,7 @@ function panelHtml(progress: ResearchProgress, messageId: string, now: number): 
     .join('');
   const finishing = finishRequested.has(messageId);
   const title = progress.writing
-    ? `Writing the report${progress.sources ? ` from ${progress.sources} sources` : ''}…`
+    ? `Writing the report${progress.sources ? ` from ${escapeHtml(String(progress.sources))} sources` : ''}…`
     : 'Researching…';
   const finish = progress.writing
     ? ''
@@ -144,7 +144,7 @@ function panelHtml(progress: ResearchProgress, messageId: string, now: number): 
     <div class="research-progress__head">
       <span class="research-progress__icon">${SPARKLES_ICON}</span>
       <span class="research-progress__title">${title}</span>
-      <span class="research-progress__elapsed">${elapsedText(progress, now)}</span>
+      <span class="research-progress__elapsed">${escapeHtml(elapsedText(progress, now))}</span>
     </div>
     <div class="research-progress__bar"><span></span></div>
     <ol class="research-progress__items">${items}</ol>

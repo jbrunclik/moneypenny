@@ -147,6 +147,22 @@ describe('report chip and follow-up', () => {
     expect(el.querySelector('.research-offer__title')!.textContent).toBe('Research further?');
   });
 
+  it('renders unexpected event fields as text, not markup', () => {
+    const el = bubble();
+    const attack = '"><img src=x onerror="alert(1)">';
+    const progress = run([
+      { ...PLAN, minutes: attack },
+      { type: 'research_item', index: 0, status: attack },
+      { type: 'research_finding', agent: attack, text: 'Cena' },
+      { type: 'research_sources', count: attack },
+      { type: 'research_writing' },
+    ]);
+    renderResearchProgress(el, progress, { convId: 'c1', messageId: 'a1' }, START);
+    expect(el.querySelector('img')).toBeNull();
+    expect(el.querySelector('.research-progress__title')!.textContent).toContain(attack);
+    expect(el.querySelector('.research-progress__finding')!.textContent).toContain(attack);
+  });
+
   it('a message without research gets neither', () => {
     const el = bubble();
     finishResearchMessage(el, { id: 'a1' });
