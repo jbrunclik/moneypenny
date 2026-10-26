@@ -89,3 +89,42 @@ class TestEnhancePrompt:
 
     def test_auth_comes_before_validation(self, client: FlaskClient) -> None:
         assert client.post(self.URL, json={}).status_code == 401
+
+    def _tool_lines(self, client: FlaskClient, auth_headers: dict[str, str], **body) -> list[str]:
+        model = _model_saying('{"enhanced_prompt": "x", "error": null}')
+        with patch(_MODEL, return_value=model):
+            client.post(
+                self.URL, json={"prompt": "p", "agent_name": "A", **body}, headers=auth_headers
+            )
+        prompt = model.invoke.call_args[0][0][0].content
+        return [line.split(":")[0] for line in prompt.splitlines() if line.startswith("- ")]
+
+    def test_lists_only_tools_the_app_offers_and_the_user_connected(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        module = "src.api.routes.agent_assist"
+        with (
+            patch(f"{module}.Config.CODE_SANDBOX_ENABLED", False),
+            patch(f"{module}.Config.GEMINI_API_KEY", "key"),
+            patch(f"{module}._is_todoist_connected_for_user", return_value=True),
+            patch(f"{module}._is_calendar_connected_for_user", return_value=False),
+            patch(f"{module}._is_whatsapp_enabled_for_user", return_value=False),
+        ):
+            explicit = self._tool_lines(
+                client,
+                auth_headers,
+                tool_permissions=["todoist", "google_calendar", "whatsapp", "kv_store", "nope"],
+            )
+            detected = self._tool_lines(client, auth_headers)
+
+        base = ["- web_search", "- fetch_url", "- retrieve_file", "- generate_image"]
+        base += ["- request_approval", "- trigger_agent"]
+        assert explicit == [*base, "- todoist", "- kv_store"]
+        assert detected == [*base, "- todoist"]
+
+    def test_image_generation_needs_the_gemini_key(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        with patch("src.api.routes.agent_assist.Config.GEMINI_API_KEY", ""):
+            lines = self._tool_lines(client, auth_headers, tool_permissions=[])
+        assert "- generate_image" not in lines

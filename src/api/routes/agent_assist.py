@@ -99,7 +99,25 @@ def _resolve_requested_tools(user: User, tool_permissions: list[str] | None) -> 
     return filtered
 
 
-def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) -> str:  # noqa: C901
+def _tool_usable_for(user: User, tool_name: str) -> bool:
+    """Whether the app offers the tool and, for integration tools, the user connected it."""
+    # Respect runtime availability (app-level config)
+    if tool_name == "execute_code":
+        return Config.CODE_SANDBOX_ENABLED
+    if tool_name == "generate_image":
+        return bool(Config.GEMINI_API_KEY)
+
+    # Check user-level connections for integration tools
+    if tool_name == "todoist":
+        return _is_todoist_connected_for_user(user)
+    if tool_name == "google_calendar":
+        return _is_calendar_connected_for_user(user)
+    if tool_name == "whatsapp":
+        return _is_whatsapp_enabled_for_user(user)
+    return True
+
+
+def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) -> str:
     """Build a bullet list describing the tools available to the agent.
 
     Only includes tools that are:
@@ -113,23 +131,8 @@ def _format_tool_prompt_section(user: User, tool_permissions: list[str] | None) 
         if tool_name in added:
             return
         description = _PROMPT_TOOL_DESCRIPTIONS.get(tool_name)
-        if not description:
+        if not description or not _tool_usable_for(user, tool_name):
             return
-
-        # Respect runtime availability (app-level config)
-        if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
-            return
-        if tool_name == "generate_image" and not Config.GEMINI_API_KEY:
-            return
-
-        # Check user-level connections for integration tools
-        if tool_name == "todoist" and not _is_todoist_connected_for_user(user):
-            return
-        if tool_name == "google_calendar" and not _is_calendar_connected_for_user(user):
-            return
-        if tool_name == "whatsapp" and not _is_whatsapp_enabled_for_user(user):
-            return
-
         lines.append(f"- {tool_name}: {description}")
         added.add(tool_name)
 

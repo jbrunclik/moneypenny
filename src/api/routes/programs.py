@@ -98,7 +98,30 @@ def program_to_item(
     }
 
 
-def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:  # noqa: C901
+def _unique_program_id(slug: str, programs: list[dict[str, Any]]) -> str:
+    """The slug, suffixed -2, -3, ... until no existing program has it."""
+    existing_ids = {p["id"] for p in programs}
+    program_id = slug
+    counter = 1
+    while program_id in existing_ids:
+        counter += 1
+        program_id = f"{slug}-{counter}"
+    return program_id
+
+
+def _delete_program_data(
+    user_id: str, ns: str, program_id: str, kv_suffixes: tuple[str, ...]
+) -> None:
+    """Delete a program's conversation and its KV data."""
+    # Delete associated conversation
+    db.delete_program_conversation(ns, user_id, program_id)
+
+    # Clean up KV data for this program
+    for suffix in kv_suffixes:
+        db.kv_delete(user_id, ns, f"{program_id}:{suffix}")
+
+
+def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
     """Register the 5 program-feature endpoints on the given blueprint."""
     ns = cfg.namespace
 
@@ -130,15 +153,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
 
         programs = _get_programs(user.id, ns)
 
-        slug = _slugify(data.name)
-        # Ensure unique ID
-        existing_ids = {p["id"] for p in programs}
-        program_id = slug
-        counter = 1
-        while program_id in existing_ids:
-            counter += 1
-            program_id = f"{slug}-{counter}"
-
+        program_id = _unique_program_id(_slugify(data.name), programs)
         new_program = {
             "id": program_id,
             "name": data.name,
@@ -170,12 +185,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
 
         _save_programs(user.id, ns, new_programs)
 
-        # Delete associated conversation
-        db.delete_program_conversation(ns, user.id, program_id)
-
-        # Clean up KV data for this program
-        for suffix in cfg.kv_suffixes:
-            db.kv_delete(user.id, ns, f"{program_id}:{suffix}")
+        _delete_program_data(user.id, ns, program_id, cfg.kv_suffixes)
 
         logger.info(
             "Program deleted",
