@@ -301,7 +301,7 @@ export const KEYBOARD_STANDALONE_ACCESSORY_PX = 50;
  * overlay and sent with layout-check reports. Bump it whenever iterating on
  * keyboard-viewport.ts, so a screenshot or report names its bundle.
  */
-export const KEYBOARD_BUILD_MARKER = 'kb19';
+export const KEYBOARD_BUILD_MARKER = 'kb20';
 
 // =============================================================================
 // Layout checks (core/layout-checks.ts; docs/ui/mobile-and-pwa.md)
