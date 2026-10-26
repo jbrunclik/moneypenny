@@ -699,25 +699,25 @@ class TestAgeConsumedToolMessages:
         ]
 
     def test_consumed_multimodal_result_becomes_stub(self) -> None:
-        from src.agent.graph import AGED_MULTIMODAL_STUB, _age_consumed_tool_messages
+        from src.agent.tool_result_aging import AGED_MULTIMODAL_STUB, age_consumed_tool_messages
 
         messages = self._messages_two_rounds()
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[2].content == AGED_MULTIMODAL_STUB
 
     def test_fresh_results_untouched(self) -> None:
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         messages = self._messages_two_rounds()
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         # The web_search result answers the LATEST tool-calling AIMessage
         assert messages[4].content == '{"results": []}'
 
     def test_fresh_multimodal_untouched(self) -> None:
         """A binary result the model has NOT yet seen must pass through."""
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         pdf_content = [{"type": "image", "base64": "x" * 1000, "mime_type": "application/pdf"}]
         messages = [
@@ -725,12 +725,12 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c1"}]),
             ToolMessage(content=pdf_content, tool_call_id="c1", name="fetch_url"),
         ]
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[2].content == pdf_content
 
     def test_consumed_long_text_truncated(self) -> None:
-        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
+        from src.agent.tool_result_aging import AGED_TRUNCATION_MARKER, age_consumed_tool_messages
 
         long_text = "a" * 10_000
         messages = [
@@ -739,14 +739,14 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c2"}]),
             ToolMessage(content="fresh", tool_call_id="c2", name="web_search"),
         ]
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[1].content.endswith(AGED_TRUNCATION_MARKER)
         assert len(messages[1].content) < 10_000
         assert messages[3].content == "fresh"
 
     def test_short_consumed_text_untouched(self) -> None:
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         messages = [
             AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c1"}]),
@@ -754,7 +754,7 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}]),
             ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
         ]
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[1].content == "short result"
 
@@ -762,7 +762,7 @@ class TestAgeConsumedToolMessages:
         """Oct 2026 prod: the model answered a research round with only
         set_conversation_title (no text); the research was cut to 2000 chars
         before it wrote a word, and the answer lost its sources."""
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         long_text = "a" * 10_000
         messages = [
@@ -774,7 +774,7 @@ class TestAgeConsumedToolMessages:
             ),
             ToolMessage(content="Title set", tool_call_id="c2", name="set_conversation_title"),
         ]
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[1].content == long_text
 
@@ -783,8 +783,8 @@ class TestAgeConsumedToolMessages:
         it no longer parsed - its pages vanished from the source chips and the
         grounding check (52 of 156 research turns in 30 days). Only the copy
         sent to the model is aged."""
-        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
         from src.agent.source_pages import turn_pages
+        from src.agent.tool_result_aging import AGED_TRUNCATION_MARKER, age_consumed_tool_messages
 
         research = json.dumps(
             {"sources": [{"title": "Shop", "url": "https://shop.cz", "content": "x" * 10_000}]}
@@ -796,7 +796,7 @@ class TestAgeConsumedToolMessages:
             ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
         ]
         sent = list(state)
-        _age_consumed_tool_messages(sent)
+        age_consumed_tool_messages(sent)
 
         assert sent[1].content.endswith(AGED_TRUNCATION_MARKER)
         assert state[1].content == research
@@ -805,7 +805,7 @@ class TestAgeConsumedToolMessages:
     def test_each_result_is_logged_as_aged_once(self) -> None:
         """Aging re-runs on every model call now that the state keeps the full
         results; the log must still count each aged result once."""
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         state = [
             AIMessage(content="", tool_calls=[{"name": "research", "args": {}, "id": "c1"}]),
@@ -818,21 +818,21 @@ class TestAgeConsumedToolMessages:
             ToolMessage(content="fresh", tool_call_id="c3", name="web_search"),
         ]
 
-        with patch("src.agent.graph.logger") as log:
-            _age_consumed_tool_messages(list(state))
-            _age_consumed_tool_messages([*state, *later_round])
+        with patch("src.agent.tool_result_aging.logger") as log:
+            age_consumed_tool_messages(list(state))
+            age_consumed_tool_messages([*state, *later_round])
 
         aged = [c.kwargs["extra"]["tool"] for c in log.info.call_args_list]
         assert aged == ["research", "fetch_url"]
 
-    @patch("src.agent.graph.Config")
+    @patch("src.agent.tool_result_aging.Config")
     def test_disabled_when_zero(self, mock_config: MagicMock) -> None:
-        from src.agent.graph import _age_consumed_tool_messages
+        from src.agent.tool_result_aging import age_consumed_tool_messages
 
         mock_config.AGENT_AGED_TOOL_RESULT_MAX_CHARS = 0
         messages = self._messages_two_rounds()
         original = messages[2].content
-        _age_consumed_tool_messages(messages)
+        age_consumed_tool_messages(messages)
 
         assert messages[2].content == original
 
