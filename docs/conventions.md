@@ -72,7 +72,7 @@ session and points here for the rest.
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` |
 | B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (none baselined) |
-| B11 | Env vars are read only in `src/config.py`; time and size settings carry their unit (`_SECONDS`, `_MS`, `_BYTES`); true constants live in `constants.py` | judgment; planned: test |
+| B11 | Env vars are read only in `src/config.py`; time and size settings carry their unit (`_SECONDS`, `_MS`, `_BYTES`); true constants live in `constants.py` | `tests/unit/test_config_reads.py` (env reads outside `config.py`; duration and byte-size `Config` names without a unit, 20 baselined Oct 26 2026 - each is set in the real `.env` files, so a rename lands there in the same deploy); judgment (constants) |
 
 ### Frontend architecture (F)
 
