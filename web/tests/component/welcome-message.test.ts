@@ -3,13 +3,11 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from '@/state/store';
-import { createWelcomeMessage, renderWelcomeMessageHtml } from '@/components/WelcomeMessage';
+import { createWelcomeMessage } from '@/components/WelcomeMessage';
 import type { User } from '@/types/api';
 
 function heading(): string {
-  const el = document.createElement('div');
-  el.innerHTML = renderWelcomeMessageHtml();
-  return el.querySelector('.welcome-message h2')?.textContent ?? '';
+  return createWelcomeMessage().querySelector('h2')?.textContent ?? '';
 }
 
 describe('welcome message', () => {
@@ -24,20 +22,11 @@ describe('welcome message', () => {
     expect(heading()).toBe('What’s on your mind?');
   });
 
-  it('escapes the name', () => {
-    useStore.setState({ user: { name: '<b>Eve</b>' } as User });
-    const el = document.createElement('div');
-    el.innerHTML = renderWelcomeMessageHtml();
-    expect(el.querySelector('b')).toBeNull();
-    expect(el.querySelector('h2')?.textContent).toBe('What’s on your mind, <b>Eve</b>?');
-  });
-
-  it('builds the same element as the shell markup, the name as text', () => {
+  it('keeps the name as text', () => {
     useStore.setState({ user: { name: '<b>Eve</b> & co' } as User });
-    const fromHtml = document.createElement('div');
-    fromHtml.innerHTML = renderWelcomeMessageHtml();
     const welcome = createWelcomeMessage();
-    expect(welcome.outerHTML).toBe(fromHtml.querySelector('.welcome-message')?.outerHTML.replace(/>\s+</g, '><'));
+    expect(welcome.className).toBe('welcome-message');
     expect(welcome.querySelector('b')).toBeNull();
+    expect(welcome.querySelector('h2')?.textContent).toBe('What’s on your mind, <b>Eve</b>?');
   });
 });

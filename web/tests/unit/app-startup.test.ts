@@ -74,11 +74,11 @@ vi.mock('@/components/MessageCostPopup', () => ({
 }));
 vi.mock('@/components/CostHistoryPopup', () => ({
   costHistoryPopup: { init: h.rec('costHistoryPopup.init') },
-  getCostHistoryPopupHtml: () => '<div id="cost-history-popup"></div>',
+  createCostHistoryPopupShell: () => Object.assign(document.createElement('div'), { id: 'cost-history-popup' }),
 }));
 vi.mock('@/components/CompactionIndicator', () => ({
   initCompactionIndicator: h.rec('initCompactionIndicator'),
-  getCompactionPopupHtml: () => '<div id="compaction-popup"></div>',
+  createCompactionPopupShell: () => Object.assign(document.createElement('div'), { id: 'compaction-popup' }),
 }));
 vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),

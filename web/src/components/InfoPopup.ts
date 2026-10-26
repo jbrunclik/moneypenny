@@ -113,17 +113,10 @@ export function createPopup<T>(
 }
 
 /**
- * Create popup HTML shell for embedding in the app
+ * The popup shell for embedding in the app shell; its content is built on open
  *
  * @param id - Unique ID for the popup element
- * @returns HTML string for the popup container
  */
-export function createPopupHtml(id: string): string {
-  return `
-    <div id="${id}" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-  `;
+export function createPopupShell(id: string): HTMLElement {
+  return createElement('div', { id, class: 'info-popup hidden' }, [createElement('div', { class: 'info-popup-content' })]);
 }

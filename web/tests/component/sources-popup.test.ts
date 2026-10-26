@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openSourcesPopup } from '@/components/SourcesPopup';
-import { createPopupHtml } from '@/components/InfoPopup';
+import { createPopupShell } from '@/components/InfoPopup';
 
 function items(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>('#sources-popup .source-item')];
@@ -8,7 +8,7 @@ function items(): HTMLElement[] {
 
 describe('SourcesPopup', () => {
   beforeEach(() => {
-    document.body.innerHTML = createPopupHtml('sources-popup');
+    document.body.replaceChildren(createPopupShell('sources-popup'));
   });
 
   it('links an https source to its URL', () => {

@@ -4,7 +4,6 @@
  * list (renderMessages, leaving a feature page) so they can't drift apart.
  */
 import { useStore } from '../state/store';
-import { escapeHtml } from '../utils/dom';
 
 /** Personal greeting (plain text); nameless until the user is known (the pre-auth shell). */
 function greeting(): string {
@@ -12,16 +11,7 @@ function greeting(): string {
   return firstName ? `What’s on your mind, ${firstName}?` : 'What’s on your mind?';
 }
 
-/** The welcome markup, for the app shell's HTML string. */
-export function renderWelcomeMessageHtml(): string {
-  return `
-    <div class="welcome-message">
-      <h2>${escapeHtml(greeting())}</h2>
-    </div>
-  `;
-}
-
-/** The welcome element, for a message list being emptied. */
+/** The welcome element: the app shell's, and a message list being emptied. */
 export function createWelcomeMessage(): HTMLDivElement {
   const welcome = document.createElement('div');
   welcome.className = 'welcome-message';

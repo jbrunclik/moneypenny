@@ -195,10 +195,10 @@ describe('CompactionIndicator', () => {
   });
 
   it('opens a popup with stats and the rendered summary', async () => {
-    const { initCompactionIndicator, getCompactionPopupHtml } = await import(
+    const { initCompactionIndicator, createCompactionPopupShell } = await import(
       '@/components/CompactionIndicator'
     );
-    document.body.insertAdjacentHTML('beforeend', getCompactionPopupHtml());
+    document.body.append(createCompactionPopupShell());
     initCompactionIndicator();
     await showStatus(status({ generation: 3 }));
 

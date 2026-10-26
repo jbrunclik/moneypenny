@@ -22,7 +22,7 @@ import type { ConversationCompactionResponse } from '../types/api';
 import { createElement, getElementById, isScrolledToBottom, setSanitizedHtml } from '../utils/dom';
 import { COMPACTION_ICON, setIcon } from '../utils/icons';
 import { renderMarkdown } from '../utils/markdown';
-import { createPopup, createPopupHtml, type PopupInstance } from './InfoPopup';
+import { createPopup, createPopupShell, type PopupInstance } from './InfoPopup';
 
 const POPUP_ID = 'compaction-popup';
 const EVENT_NAME = 'compaction:open';
@@ -92,9 +92,9 @@ const compactionPopup: PopupInstance<ConversationCompactionResponse> = createPop
   compactionDetails
 );
 
-/** HTML shell for the popup (embedded in the app shell by core/startup/app-shell.ts) */
-export function getCompactionPopupHtml(): string {
-  return createPopupHtml(POPUP_ID);
+/** The popup's shell (embedded in the app shell by core/startup/app-shell.ts) */
+export function createCompactionPopupShell(): HTMLElement {
+  return createPopupShell(POPUP_ID);
 }
 
 function openCompactionPopup(): void {

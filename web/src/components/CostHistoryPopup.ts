@@ -1,4 +1,4 @@
-import { createPopup, createPopupHtml, type PopupInstance } from './InfoPopup';
+import { createPopup, createPopupShell, type PopupInstance } from './InfoPopup';
 import type { CostHistoryResponse } from '../types/api';
 import { createElement } from '../utils/dom';
 import { COST_HISTORY_ICON } from '../utils/icons';
@@ -92,10 +92,10 @@ export const costHistoryPopup: PopupInstance<CostHistoryResponse> = createPopup(
 );
 
 /**
- * Get HTML for cost history popup
+ * The cost history popup's shell (embedded in the app shell)
  */
-export function getCostHistoryPopupHtml(): string {
-  return createPopupHtml(POPUP_ID);
+export function createCostHistoryPopupShell(): HTMLElement {
+  return createPopupShell(POPUP_ID);
 }
 
 /**
