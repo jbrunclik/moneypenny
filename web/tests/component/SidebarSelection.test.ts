@@ -8,6 +8,7 @@ import {
   enterSelectionMode,
   exitSelectionMode,
   handleSelectionListClick,
+  initSidebarSelection,
   renderSelectionChrome,
 } from '@/components/SidebarSelection';
 import type { Conversation } from '@/types/api';
@@ -15,11 +16,8 @@ import type { Conversation } from '@/types/api';
 vi.mock('@/api/costs', () => ({
   costs: { getMonthlyCost: vi.fn().mockResolvedValue({ formatted: '0 CZK' }) },
 }));
-const bulkDelete = vi.hoisted(() => vi.fn());
-vi.mock('@/core/conversation-actions', () => ({ bulkDeleteConversations: bulkDelete }));
-const leaveViews = vi.hoisted(() => ({ trash: vi.fn(), archive: vi.fn() }));
-vi.mock('@/core/trash', () => ({ leaveTrashView: leaveViews.trash }));
-vi.mock('@/core/archive', () => ({ leaveArchiveView: leaveViews.archive }));
+const bulkDelete = vi.fn(() => Promise.resolve());
+const leaveViews = { trash: vi.fn(), archive: vi.fn() };
 
 function conv(id: string, extra: Partial<Conversation> = {}): Conversation {
   return { id, title: id, model: 'm', created_at: '', updated_at: new Date().toISOString(), ...extra };
@@ -58,6 +56,7 @@ beforeEach(() => {
     isTrashView: false,
   });
   vi.clearAllMocks();
+  initSidebarSelection({ bulkDelete, leaveTrashView: leaveViews.trash, leaveArchiveView: leaveViews.archive });
   exitSelectionMode();
 });
 

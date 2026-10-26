@@ -10,17 +10,22 @@ import { CHECK_ICON, DELETE_ICON, setIcon } from '../utils/icons';
 import { renderConversationsList } from './Sidebar';
 import { clearSearch } from './SearchInput';
 import { isSearchResultsVisible } from './SearchResults';
-import { bulkDeleteConversations } from '../core/conversation-actions';
-import { leaveTrashView } from '../core/trash';
-import { leaveArchiveView } from '../core/archive';
+
+/** The core actions selection mode triggers, passed in at startup (F1). */
+export interface SelectionActions {
+  bulkDelete: () => Promise<void>;
+  leaveTrashView: () => void;
+  leaveArchiveView: () => void;
+}
+let actions: SelectionActions | null = null;
 
 export function enterSelectionMode(): void {
   const store = useStore.getState();
   if (isSearchResultsVisible()) clearSearch();
   // Leave like the back button does: restores the hash and drops the
   // view's infinite-scroll listener
-  if (store.isTrashView) leaveTrashView();
-  if (store.isArchiveView) leaveArchiveView();
+  if (store.isTrashView) actions?.leaveTrashView();
+  if (store.isArchiveView) actions?.leaveArchiveView();
   store.startSelection();
   renderSelectionChrome();
   renderConversationsList();
@@ -83,7 +88,7 @@ export function handleSelectionListClick(e: MouseEvent): boolean {
     return true;
   }
   if (target.closest('#selection-trash')) {
-    void bulkDeleteConversations();
+    void actions?.bulkDelete();
     return true;
   }
   const wrapper = target.closest<HTMLElement>('#conversations-list [data-conv-id]');
@@ -99,7 +104,8 @@ export function handleSelectionListClick(e: MouseEvent): boolean {
 let initialized = false;
 
 /** Wire the sidebar click and Escape listeners (once). */
-export function initSidebarSelection(): void {
+export function initSidebarSelection(selectionActions: SelectionActions): void {
+  actions = selectionActions;
   if (initialized) return;
   initialized = true;
   // Capture phase: runs before the list's own row-open / action handlers

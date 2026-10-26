@@ -193,10 +193,17 @@ vi.mock('@/core/conversation-deeplink', () => ({
   loadDeepLinkedConversation: h.recAsync('loadDeepLinkedConversation'),
   handleDeepLinkNavigation: h.rec('handleDeepLinkNavigation'),
 }));
-vi.mock('@/core/conversation-actions', () => ({ deleteMessage: h.recAsync('deleteMessage') }));
-vi.mock('@/core/archive', () => ({ navigateToArchive: h.rec('navigateToArchive') }));
+vi.mock('@/core/conversation-actions', () => ({
+  deleteMessage: h.recAsync('deleteMessage'),
+  bulkDeleteConversations: h.recAsync('bulkDeleteConversations'),
+}));
+vi.mock('@/core/archive', () => ({
+  navigateToArchive: h.rec('navigateToArchive'),
+  leaveArchiveView: h.rec('leaveArchiveView'),
+}));
 vi.mock('@/core/trash', () => ({
   navigateToTrash: h.rec('navigateToTrash'),
+  leaveTrashView: h.rec('leaveTrashView'),
   loadTrashedConversations: h.recAsync('loadTrashedConversations'),
 }));
 vi.mock('@/core/planner', () => ({

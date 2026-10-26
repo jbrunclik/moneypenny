@@ -17,7 +17,9 @@ import { createLogger } from '../utils/logger';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
 import { initializeTheme } from '../utils/theme';
 import { initAgents } from './agents';
+import { leaveArchiveView } from './archive';
 import { initComposerHeight } from './composer-height';
+import { bulkDeleteConversations } from './conversation-actions';
 import { handleDeepLinkNavigation } from './conversation-deeplink';
 import { initErrorReporting } from './error-reporting';
 import { setupEventListeners } from './events';
@@ -25,6 +27,7 @@ import { setupTouchGestures } from './gestures';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initQuickActions } from './quick-actions';
 import { initToolbarButtons } from './toolbar';
+import { leaveTrashView } from './trash';
 import { initTTSVoices } from './tts';
 import { mountAppShell } from './startup/app-shell';
 import { initAppStatus } from './startup/app-status';
@@ -75,7 +78,7 @@ export async function init(): Promise<void> {
   initSearch();
   initTTSVoices();
   setupEventListeners();
-  initSidebarSelection();
+  initSidebarSelection({ bulkDelete: bulkDeleteConversations, leaveTrashView, leaveArchiveView });
   setupTouchGestures();
   initToolbarButtons();
 
