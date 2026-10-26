@@ -3,16 +3,15 @@
  * Command Center, Data): a tinted icon, a title, a muted hint and an
  * optional call to action. Styles: components/empty-state.css.
  */
-import { createElement, escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { createIconElement, type IconHtml } from '../utils/icons';
 
-export interface EmptyStateOptions {
-  /** SVG icon markup (trusted - from utils/icons) */
-  icon: string;
+export interface EmptyStateElementOptions {
+  icon: IconHtml;
   title: string;
   hint?: string;
-  /** Trusted button markup for the one action the empty page offers */
-  ctaHtml?: string;
+  /** The one action the empty page offers */
+  cta?: HTMLElement;
   /** 'success' tints the icon green (e.g. the planner's "all clear") */
   variant?: 'success';
   /** Tighter spacing for an empty section inside a page */
@@ -21,7 +20,7 @@ export interface EmptyStateOptions {
   className?: string;
 }
 
-function emptyStateClasses(options: Pick<EmptyStateOptions, 'variant' | 'compact' | 'className'>): string {
+function emptyStateClasses(options: Pick<EmptyStateElementOptions, 'variant' | 'compact' | 'className'>): string {
   return [
     'empty-state',
     options.variant ? `empty-state--${options.variant}` : '',
@@ -30,28 +29,7 @@ function emptyStateClasses(options: Pick<EmptyStateOptions, 'variant' | 'compact
   ].filter(Boolean).join(' ');
 }
 
-/** The empty state as markup, for pages built as an HTML string (the planner). */
-export function renderEmptyStateHtml(options: EmptyStateOptions): string {
-  const classes = emptyStateClasses(options);
-  const icon = options.icon ? `<div class="empty-state__icon">${options.icon}</div>` : '';
-  const hint = options.hint ? `<p class="empty-state__hint">${escapeHtml(options.hint)}</p>` : '';
-  return `
-    <div class="${classes}">
-      ${icon}
-      <p class="empty-state__title">${escapeHtml(options.title)}</p>
-      ${hint}
-      ${options.ctaHtml ?? ''}
-    </div>
-  `;
-}
-
-export interface EmptyStateElementOptions extends Omit<EmptyStateOptions, 'icon' | 'ctaHtml'> {
-  icon: IconHtml;
-  /** The one action the empty page offers */
-  cta?: HTMLElement;
-}
-
-/** The empty state as an element: the same nodes renderEmptyStateHtml produces. */
+/** The empty state as an element. */
 export function createEmptyState(options: EmptyStateElementOptions): HTMLDivElement {
   const el = createElement('div', { class: emptyStateClasses(options) });
   el.appendChild(createIconElement('empty-state__icon', options.icon, 'div'));
