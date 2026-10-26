@@ -16,6 +16,7 @@ import {
   PLUS_ICON,
   SLIDERS_ICON,
   SPORTS_ICON,
+  createIconButton,
   createIconElement,
   setIcon,
 } from '../utils/icons';
@@ -158,30 +159,32 @@ function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => v
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
 
-  modal.innerHTML = `
-    <div class="sports-modal-header">
-      <div class="sports-modal-title-row">
-        <span class="sports-modal-icon">${SPORTS_ICON}</span>
-        <h2 class="dialog-title">New Program</h2>
-      </div>
-      <button class="sports-modal-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
-    </div>
-    <div class="sports-modal-body">
-      <div class="sports-add-input-row">
-        <div class="sports-emoji-wrapper">
-          <button type="button" class="sports-emoji-trigger" title="Choose icon">${selectedEmoji}</button>
-          <div class="sports-emoji-popover">
-            <div class="sports-emoji-grid"></div>
-          </div>
-        </div>
-        <input type="text" class="sports-add-name" placeholder="Program name" maxlength="100" />
-      </div>
-    </div>
-    <div class="sports-modal-footer">
-      <button class="sports-modal-cancel">Cancel</button>
-      <button class="sports-add-submit">Create</button>
-    </div>
-  `;
+  modal.append(
+    createElement('div', { class: 'sports-modal-header' }, [
+      createElement('div', { class: 'sports-modal-title-row' }, [
+        createIconElement('sports-modal-icon', SPORTS_ICON),
+        createElement('h2', { class: 'dialog-title' }, ['New Program']),
+      ]),
+      createIconButton({ class: 'sports-modal-close dialog-close', title: 'Close', 'aria-label': 'Close' }, CLOSE_ICON),
+    ]),
+    createElement('div', { class: 'sports-modal-body' }, [
+      createElement('div', { class: 'sports-add-input-row' }, [
+        createElement('div', { class: 'sports-emoji-wrapper' }, [
+          createElement('button', { type: 'button', class: 'sports-emoji-trigger', title: 'Choose icon' }, [
+            selectedEmoji,
+          ]),
+          createElement('div', { class: 'sports-emoji-popover' }, [
+            createElement('div', { class: 'sports-emoji-grid' }),
+          ]),
+        ]),
+        createElement('input', { type: 'text', class: 'sports-add-name', placeholder: 'Program name', maxlength: '100' }),
+      ]),
+    ]),
+    createElement('div', { class: 'sports-modal-footer' }, [
+      createElement('button', { class: 'sports-modal-cancel' }, ['Cancel']),
+      createElement('button', { class: 'sports-add-submit' }, ['Create']),
+    ])
+  );
 
   overlay.appendChild(modal);
 

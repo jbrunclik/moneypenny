@@ -16,10 +16,11 @@ import {
   REFRESH_ICON,
   SLIDERS_ICON,
   LANGUAGE_ICON,
+  createIconButton,
   createIconElement,
   setIcon,
 } from '../utils/icons';
-import { escapeHtml, createElement } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { createEmptyState } from './EmptyState';
 
@@ -180,29 +181,31 @@ function showNewProgramModal(
   modal.setAttribute('aria-modal', 'true');
 
   const availableLanguages = LANGUAGES.filter((lang) => !existingNames.has(lang.name.toLowerCase()));
-  const optionsHtml = availableLanguages.map(
-    (lang) => `<option value="${escapeHtml(lang.name)}" data-emoji="${escapeHtml(lang.emoji)}">${lang.emoji} ${escapeHtml(lang.name)}</option>`,
-  ).join('');
+  const options = availableLanguages.map((lang) =>
+    createElement('option', { value: lang.name, 'data-emoji': lang.emoji }, [`${lang.emoji} ${lang.name}`])
+  );
+  const create = createElement('button', { class: 'language-add-submit' }, ['Create']);
+  create.disabled = true;
 
-  modal.innerHTML = `
-    <div class="language-modal-header">
-      <div class="language-modal-title-row">
-        <span class="language-modal-icon">${LANGUAGE_ICON}</span>
-        <h2 class="dialog-title">New Program</h2>
-      </div>
-      <button class="language-modal-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
-    </div>
-    <div class="language-modal-body">
-      <select class="language-select">
-        <option value="" disabled selected>Choose a language...</option>
-        ${optionsHtml}
-      </select>
-    </div>
-    <div class="language-modal-footer">
-      <button class="language-modal-cancel">Cancel</button>
-      <button class="language-add-submit" disabled>Create</button>
-    </div>
-  `;
+  modal.append(
+    createElement('div', { class: 'language-modal-header' }, [
+      createElement('div', { class: 'language-modal-title-row' }, [
+        createIconElement('language-modal-icon', LANGUAGE_ICON),
+        createElement('h2', { class: 'dialog-title' }, ['New Program']),
+      ]),
+      createIconButton({ class: 'language-modal-close dialog-close', title: 'Close', 'aria-label': 'Close' }, CLOSE_ICON),
+    ]),
+    createElement('div', { class: 'language-modal-body' }, [
+      createElement('select', { class: 'language-select' }, [
+        createElement('option', { value: '', disabled: '', selected: '' }, ['Choose a language...']),
+        ...options,
+      ]),
+    ]),
+    createElement('div', { class: 'language-modal-footer' }, [
+      createElement('button', { class: 'language-modal-cancel' }, ['Cancel']),
+      create,
+    ])
+  );
 
   overlay.appendChild(modal);
 

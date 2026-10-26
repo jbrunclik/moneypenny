@@ -3,7 +3,7 @@
  * Shows memories section first, K/V storage second.
  */
 
-import { escapeHtml, clearElement, createElement } from '../utils/dom';
+import { clearElement, createElement } from '../utils/dom';
 import { createEmptyState } from './EmptyState';
 import {
   DELETE_ICON,
@@ -14,6 +14,7 @@ import {
   LOCK_ICON,
   UNLOCK_ICON,
   RESTORE_ICON,
+  createIconButton,
   createIconElement,
   setIcon,
   type IconHtml,
@@ -184,9 +185,12 @@ function renderMemoryItem(
   item.className = 'memory-item';
 
   const categoryConfig = memory.category ? CATEGORY_CONFIG[memory.category] : null;
-  const categoryBadge = categoryConfig
-    ? `<span class="memory-category memory-category--${categoryConfig.class}">${categoryConfig.label}</span>`
-    : '';
+  const categoryBadge = (): HTMLElement | null =>
+    categoryConfig
+      ? createElement('span', { class: `memory-category memory-category--${categoryConfig.class}` }, [
+          categoryConfig.label,
+        ])
+      : null;
 
   let isProtected = memory.protected === true;
 
@@ -194,24 +198,22 @@ function renderMemoryItem(
     const protectTitle = isProtected
       ? 'Protected - the assistant cannot delete this. Click to unprotect.'
       : 'Protect from automatic deletion';
-    const protectedBadge = isProtected
-      ? '<span class="memory-protected-badge">Protected</span>'
-      : '';
-
     item.classList.toggle('memory-item--protected', isProtected);
-    item.innerHTML = `
-      <div class="memory-content-row">
-        <span class="memory-text">${escapeHtml(memory.content)}</span>
-        <button class="memory-protect" aria-pressed="${String(isProtected)}"
-                title="${escapeHtml(protectTitle)}">${isProtected ? LOCK_ICON : UNLOCK_ICON}</button>
-        <button class="memory-delete" title="Delete memory">${DELETE_ICON}</button>
-      </div>
-      <div class="memory-meta">
-        ${categoryBadge}
-        ${protectedBadge}
-        <span class="memory-time">${formatRelativeTime(memory.updated_at)}</span>
-      </div>
-    `;
+    item.replaceChildren(
+      createElement('div', { class: 'memory-content-row' }, [
+        createElement('span', { class: 'memory-text' }, [memory.content]),
+        createIconButton(
+          { class: 'memory-protect', 'aria-pressed': String(isProtected), title: protectTitle },
+          isProtected ? LOCK_ICON : UNLOCK_ICON
+        ),
+        createIconButton({ class: 'memory-delete', title: 'Delete memory' }, DELETE_ICON),
+      ]),
+      createElement('div', { class: 'memory-meta' }, [
+        categoryBadge(),
+        isProtected && createElement('span', { class: 'memory-protected-badge' }, ['Protected']),
+        createElement('span', { class: 'memory-time' }, [formatRelativeTime(memory.updated_at)]),
+      ])
+    );
     attachHandlers();
   };
 
@@ -286,17 +288,17 @@ function renderDeletedMemoriesSection(
   for (const memory of deletedMemories) {
     const item = document.createElement('div');
     item.className = 'memory-item memory-item--deleted';
-    item.innerHTML = `
-      <div class="memory-content-row">
-        <span class="memory-text">${escapeHtml(memory.content)}</span>
-        <button class="memory-restore" title="Restore this memory">${RESTORE_ICON}</button>
-      </div>
-      <div class="memory-meta">
-        <span class="memory-time">deleted ${escapeHtml(
-          memory.deleted_at ? formatRelativeTime(memory.deleted_at) : ''
-        )}</span>
-      </div>
-    `;
+    item.append(
+      createElement('div', { class: 'memory-content-row' }, [
+        createElement('span', { class: 'memory-text' }, [memory.content]),
+        createIconButton({ class: 'memory-restore', title: 'Restore this memory' }, RESTORE_ICON),
+      ]),
+      createElement('div', { class: 'memory-meta' }, [
+        createElement('span', { class: 'memory-time' }, [
+          `deleted ${memory.deleted_at ? formatRelativeTime(memory.deleted_at) : ''}`,
+        ]),
+      ])
+    );
 
     const restoreMemory = async (): Promise<void> => {
       try {
@@ -435,26 +437,50 @@ function createNamespaceCard(
   return card;
 }
 
-/**
- * Syntax-highlight a JSON string with colored spans.
- */
-function highlightJson(jsonString: string): string {
-  try {
-    const parsed = JSON.parse(jsonString);
-    const formatted = JSON.stringify(parsed, null, 2);
-    return formatted
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Strings (including keys in "key": patterns)
-      .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="json-string">"$1"</span>')
-      // Numbers
-      .replace(/\b(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, '<span class="json-number">$1</span>')
-      // Booleans and null
-      .replace(/\b(true|false|null)\b/g, '<span class="json-keyword">$1</span>');
-  } catch {
-    return escapeHtml(jsonString);
+// JSON token classes, applied in this order to the text (a later pass also
+// splits the text inside earlier tokens: a number inside a string is colored)
+const JSON_TOKENS: [RegExp, string][] = [
+  // Strings (including keys in "key": patterns)
+  [/"([^"\\]*(\\.[^"\\]*)*)"/g, 'json-string'],
+  [/\b(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, 'json-number'],
+  // Booleans and null
+  [/\b(true|false|null)\b/g, 'json-keyword'],
+];
+
+/** Wrap each match of `pattern` in the text nodes under `root` in a span of `className`. */
+function wrapMatches(root: Node, pattern: RegExp, className: string): void {
+  for (const child of [...root.childNodes]) {
+    if (child.nodeType !== Node.TEXT_NODE) {
+      wrapMatches(child, pattern, className);
+      continue;
+    }
+    const text = child.textContent ?? '';
+    const parts: (Node | string)[] = [];
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+      parts.push(text.slice(last, match.index), createElement('span', { class: className }, [match[0]]));
+      last = match.index + match[0].length;
+    }
+    if (last === 0) continue;
+    parts.push(text.slice(last));
+    (child as Text).replaceWith(...parts.filter((part) => part !== ''));
   }
+}
+
+/**
+ * Syntax-highlight a JSON string with colored spans (pretty-printed); text
+ * that isn't JSON stays as it is.
+ */
+function highlightJson(jsonString: string): HTMLPreElement {
+  const pre = createElement('pre', { class: 'kv-key-value' });
+  try {
+    pre.textContent = JSON.stringify(JSON.parse(jsonString), null, 2);
+  } catch {
+    pre.textContent = jsonString;
+    return pre;
+  }
+  for (const [pattern, className] of JSON_TOKENS) wrapMatches(pre, pattern, className);
+  return pre;
 }
 
 /**
@@ -479,22 +505,22 @@ function renderKeysInBody(
     keyRow.className = 'kv-key-row';
 
     const highlighted = highlightJson(entry.value);
-    const lineCount = highlighted.split('\n').length;
+    const lineCount = (highlighted.textContent ?? '').split('\n').length;
     const isLong = lineCount > 6;
 
-    keyRow.innerHTML = `
-      <div class="kv-key-info">
-        <div class="kv-key-header">
-          <span class="kv-key-name">${escapeHtml(entry.key)}</span>
-          <button class="kv-key-delete" title="Delete key">${DELETE_ICON}</button>
-        </div>
-        <div class="kv-key-value-wrapper${isLong ? ' collapsed' : ''}">
-          <pre class="kv-key-value">${highlighted}</pre>
-          ${isLong ? '<div class="kv-key-value-fade"></div>' : ''}
-        </div>
-        ${isLong ? '<button class="kv-key-expand">Show all ' + lineCount + ' lines</button>' : ''}
-      </div>
-    `;
+    keyRow.append(
+      createElement('div', { class: 'kv-key-info' }, [
+        createElement('div', { class: 'kv-key-header' }, [
+          createElement('span', { class: 'kv-key-name' }, [entry.key]),
+          createIconButton({ class: 'kv-key-delete', title: 'Delete key' }, DELETE_ICON),
+        ]),
+        createElement('div', { class: `kv-key-value-wrapper${isLong ? ' collapsed' : ''}` }, [
+          highlighted,
+          isLong && createElement('div', { class: 'kv-key-value-fade' }),
+        ]),
+        isLong && createElement('button', { class: 'kv-key-expand' }, [`Show all ${lineCount} lines`]),
+      ])
+    );
 
     const deleteKey = async (): Promise<void> => {
       try {

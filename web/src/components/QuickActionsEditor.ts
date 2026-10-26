@@ -7,7 +7,7 @@
  * detail form is open commits it first. Presentation + local draft state only.
  */
 import type { QuickAction } from '../types/api';
-import { escapeHtml, clearElement, createElement } from '../utils/dom';
+import { clearElement, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import {
   CLOSE_ICON,
@@ -16,8 +16,10 @@ import {
   PLUS_ICON,
   CHEVRON_DOWN_ICON,
   SLIDERS_ICON,
+  createIconButton,
   createIconElement,
   setIcon,
+  type IconHtml,
 } from '../utils/icons';
 import { toast } from './Toast';
 
@@ -128,18 +130,26 @@ interface DetailDraft {
   fields: string[];
 }
 
-function listRowHtml(a: QuickAction, i: number, count: number): string {
+/** An icon button, disabled when `disabled` (the move buttons at either end). */
+function iconButton(attributes: Record<string, string>, icon: IconHtml, disabled = false): HTMLButtonElement {
+  const button = createIconButton({ type: 'button', ...attributes }, icon);
+  button.disabled = disabled;
+  return button;
+}
+
+function listRow(a: QuickAction, i: number, count: number): HTMLElement[] {
   const fieldsText = a.fields.length
     ? `${a.fields.length} question${a.fields.length > 1 ? 's' : ''}`
     : '';
-  return `
-        <span class="qa-editor-row-emoji">${escapeHtml(a.emoji)}</span>
-        <span class="qa-editor-row-label">${escapeHtml(a.label)}</span>
-        <span class="qa-editor-row-fields">${fieldsText}</span>
-        <button type="button" class="btn-icon qa-editor-move-up" title="Move up" ${i === 0 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
-        <button type="button" class="btn-icon qa-editor-move-down" title="Move down" ${i === count - 1 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
-        <button type="button" class="btn-icon qa-editor-edit" title="Edit">${EDIT_ICON}</button>
-        <button type="button" class="btn-icon qa-editor-delete" title="Delete">${DELETE_ICON}</button>`;
+  return [
+    createElement('span', { class: 'qa-editor-row-emoji' }, [a.emoji]),
+    createElement('span', { class: 'qa-editor-row-label' }, [a.label]),
+    createElement('span', { class: 'qa-editor-row-fields' }, [fieldsText]),
+    iconButton({ class: 'btn-icon qa-editor-move-up', title: 'Move up' }, CHEVRON_DOWN_ICON, i === 0),
+    iconButton({ class: 'btn-icon qa-editor-move-down', title: 'Move down' }, CHEVRON_DOWN_ICON, i === count - 1),
+    iconButton({ class: 'btn-icon qa-editor-edit', title: 'Edit' }, EDIT_ICON),
+    iconButton({ class: 'btn-icon qa-editor-delete', title: 'Delete' }, DELETE_ICON),
+  ];
 }
 
 /** A list row's move/delete/edit click; re-renders and persists after a change. */
@@ -179,7 +189,7 @@ function renderList(session: EditorSession): void {
     const row = document.createElement('div');
     row.className = 'qa-editor-row';
     row.dataset.index = String(i);
-    row.innerHTML = listRowHtml(a, i, draftList.length);
+    row.append(...listRow(a, i, draftList.length));
     list.appendChild(row);
   });
   const add = document.createElement('button');
@@ -195,33 +205,73 @@ function renderList(session: EditorSession): void {
   add.addEventListener('click', () => renderDetail(session, {}, null));
 }
 
-function detailFormHtml(initial: Partial<QuickAction>, emoji: string): string {
-  return `
-      <div class="qa-detail-row">
-        <div class="qa-detail-emoji-wrapper">
-          <input type="text" class="qa-detail-emoji-input" value="${escapeHtml(emoji)}" maxlength="16" autocomplete="off" aria-label="Icon - type any emoji or pick a suggestion" title="Type any emoji" />
-          <div class="qa-detail-emoji-popover"><div class="qa-detail-emoji-grid"></div></div>
-        </div>
-        <input type="text" class="qa-detail-label" placeholder="Label" maxlength="${LABEL_MAX}" value="${escapeHtml(initial.label ?? '')}" aria-label="Label" />
-      </div>
-      <textarea class="qa-detail-body" rows="3" maxlength="${BODY_MAX}" placeholder="Message" aria-label="Message">${escapeHtml(initial.body ?? '')}</textarea>
-      <div class="qa-detail-fields">
-        <div class="qa-detail-section-title">Questions</div>
-        <div class="qa-detail-field-list"></div>
-        <div class="qa-detail-field-add-row">
-          <input type="text" class="qa-detail-field-input" placeholder="New question" maxlength="40" aria-label="New question" />
-          <button type="button" class="qa-detail-field-add">Add</button>
-        </div>
-      </div>
-      <div class="qa-detail-preview-wrap">
-        <div class="qa-detail-section-title">Preview</div>
-        <pre class="qa-detail-preview"></pre>
-      </div>
-      <div class="qa-detail-error" role="alert"></div>
-      <div class="qa-detail-actions">
-        <button type="button" class="qa-detail-back">Cancel</button>
-        <button type="button" class="qa-detail-done">Done</button>
-      </div>`;
+function sectionTitle(title: string): HTMLElement {
+  return createElement('div', { class: 'qa-detail-section-title' }, [title]);
+}
+
+function textButton(className: string, label: string): HTMLButtonElement {
+  return createElement('button', { type: 'button', class: className }, [label]);
+}
+
+function detailForm(initial: Partial<QuickAction>, emoji: string): HTMLElement[] {
+  const body = createElement('textarea', {
+    class: 'qa-detail-body',
+    rows: '3',
+    maxlength: String(BODY_MAX),
+    placeholder: 'Message',
+    'aria-label': 'Message',
+  });
+  body.textContent = initial.body ?? '';
+  return [
+    createElement('div', { class: 'qa-detail-row' }, [
+      createElement('div', { class: 'qa-detail-emoji-wrapper' }, [
+        createElement('input', {
+          type: 'text',
+          class: 'qa-detail-emoji-input',
+          value: emoji,
+          maxlength: '16',
+          autocomplete: 'off',
+          'aria-label': 'Icon - type any emoji or pick a suggestion',
+          title: 'Type any emoji',
+        }),
+        createElement('div', { class: 'qa-detail-emoji-popover' }, [
+          createElement('div', { class: 'qa-detail-emoji-grid' }),
+        ]),
+      ]),
+      createElement('input', {
+        type: 'text',
+        class: 'qa-detail-label',
+        placeholder: 'Label',
+        maxlength: String(LABEL_MAX),
+        value: initial.label ?? '',
+        'aria-label': 'Label',
+      }),
+    ]),
+    body,
+    createElement('div', { class: 'qa-detail-fields' }, [
+      sectionTitle('Questions'),
+      createElement('div', { class: 'qa-detail-field-list' }),
+      createElement('div', { class: 'qa-detail-field-add-row' }, [
+        createElement('input', {
+          type: 'text',
+          class: 'qa-detail-field-input',
+          placeholder: 'New question',
+          maxlength: '40',
+          'aria-label': 'New question',
+        }),
+        textButton('qa-detail-field-add', 'Add'),
+      ]),
+    ]),
+    createElement('div', { class: 'qa-detail-preview-wrap' }, [
+      sectionTitle('Preview'),
+      createElement('pre', { class: 'qa-detail-preview' }),
+    ]),
+    createElement('div', { class: 'qa-detail-error', role: 'alert' }),
+    createElement('div', { class: 'qa-detail-actions' }, [
+      textButton('qa-detail-back', 'Cancel'),
+      textButton('qa-detail-done', 'Done'),
+    ]),
+  ];
 }
 
 /**
@@ -262,16 +312,23 @@ function wireEmojiPicker(detail: HTMLElement, parts: DetailParts, draft: DetailD
   });
 }
 
-function fieldRowHtml(f: string, i: number, count: number): string {
-  return `
-          <div class="qa-detail-field-row" data-index="${i}">
-            <span class="qa-detail-field-name">${escapeHtml(f)}</span>
-            <span class="qa-detail-field-controls">
-              <button type="button" class="btn-icon qa-detail-field-up" title="Move up" aria-label="Move ${escapeHtml(f)} up" ${i === 0 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
-              <button type="button" class="btn-icon qa-detail-field-down" title="Move down" aria-label="Move ${escapeHtml(f)} down" ${i === count - 1 ? 'disabled' : ''}>${CHEVRON_DOWN_ICON}</button>
-              <button type="button" class="qa-detail-field-remove" aria-label="Remove ${escapeHtml(f)}" title="Remove">${CLOSE_ICON}</button>
-            </span>
-          </div>`;
+function fieldRow(f: string, i: number, count: number): HTMLElement {
+  return createElement('div', { class: 'qa-detail-field-row', 'data-index': String(i) }, [
+    createElement('span', { class: 'qa-detail-field-name' }, [f]),
+    createElement('span', { class: 'qa-detail-field-controls' }, [
+      iconButton(
+        { class: 'btn-icon qa-detail-field-up', title: 'Move up', 'aria-label': `Move ${f} up` },
+        CHEVRON_DOWN_ICON,
+        i === 0
+      ),
+      iconButton(
+        { class: 'btn-icon qa-detail-field-down', title: 'Move down', 'aria-label': `Move ${f} down` },
+        CHEVRON_DOWN_ICON,
+        i === count - 1
+      ),
+      iconButton({ class: 'qa-detail-field-remove', 'aria-label': `Remove ${f}`, title: 'Remove' }, CLOSE_ICON),
+    ]),
+  ]);
 }
 
 /** The message as it will be sent: the body, then a line per question. */
@@ -283,7 +340,7 @@ function renderPreview(parts: DetailParts, fields: string[]): void {
 
 function renderFields(parts: DetailParts, fields: string[]): void {
   const { fieldList, fieldInput, fieldAdd } = parts;
-  fieldList.innerHTML = fields.map((f, i) => fieldRowHtml(f, i, fields.length)).join('');
+  fieldList.replaceChildren(...fields.map((f, i) => fieldRow(f, i, fields.length)));
   const full = fields.length >= QUICK_ACTION_FIELDS_MAX;
   fieldAdd.disabled = full;
   fieldInput.disabled = full;
@@ -363,7 +420,7 @@ function renderDetail(session: EditorSession, initial: Partial<QuickAction>, ind
   const draft: DetailDraft = { emoji: initial.emoji ?? DEFAULT_EMOJI, fields: [...(initial.fields ?? [])] };
   const detail = document.createElement('div');
   detail.className = 'qa-detail';
-  detail.innerHTML = detailFormHtml(initial, draft.emoji);
+  detail.append(...detailForm(initial, draft.emoji));
   body.appendChild(detail);
 
   const parts = queryDetailParts(detail);
