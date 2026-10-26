@@ -35,7 +35,7 @@ import {
 import type { Agent } from '../types/api';
 
 import { renderChatHeader } from '../components/ChatHeader';
-import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
+import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { selectConversation } from './conversation';
@@ -420,7 +420,7 @@ export function leaveAgentsView(clearMessages: boolean = true): void {
     // Clear messages to show welcome state
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {
-      messagesContainer.innerHTML = renderWelcomeMessageHtml();
+      messagesContainer.replaceChildren(createWelcomeMessage());
     }
 
     // Focus input after leaving agents view (respects iOS auto-focus preferences)

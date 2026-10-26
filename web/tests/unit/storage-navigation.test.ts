@@ -45,7 +45,7 @@ vi.mock('@/components/messages', () => ({
 
 vi.mock('@/components/ModelSelector', () => ({ renderModelDropdown: vi.fn() }));
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: vi.fn() }));
-vi.mock('@/components/WelcomeMessage', () => ({ renderWelcomeMessageHtml: vi.fn(() => '') }));
+vi.mock('@/components/WelcomeMessage', () => ({ createWelcomeMessage: vi.fn(() => document.createElement('div')) }));
 
 vi.mock('@/utils/dom', () => ({
   getElementById: vi.fn(),

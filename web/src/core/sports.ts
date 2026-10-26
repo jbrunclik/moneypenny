@@ -50,7 +50,7 @@ import {
 } from '../components/MessageInput';
 import { sendMessage } from './messaging';
 import { renderChatHeader } from '../components/ChatHeader';
-import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
+import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -382,7 +382,7 @@ export function leaveSportsView(): void {
 
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
-    messagesContainer.innerHTML = renderWelcomeMessageHtml();
+    messagesContainer.replaceChildren(createWelcomeMessage());
   }
 
   ensureInputAreaVisible();

@@ -194,7 +194,7 @@
   },
   "src/components/messages/render.ts": {
     "no-unsanitized/property": {
-      "count": 5
+      "count": 4
     }
   },
   "src/components/messages/research-offer.ts": {
@@ -246,7 +246,7 @@
   },
   "src/core/agents.ts": {
     "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/core/gestures.ts": {
@@ -263,21 +263,6 @@
     }
   },
   "src/core/kv-store.ts": {
-    "no-unsanitized/property": {
-      "count": 2
-    }
-  },
-  "src/core/language.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/planner.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/sports.ts": {
     "no-unsanitized/property": {
       "count": 1
     }

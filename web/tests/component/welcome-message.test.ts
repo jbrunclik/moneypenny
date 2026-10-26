@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from '@/state/store';
-import { renderWelcomeMessageHtml } from '@/components/WelcomeMessage';
+import { createWelcomeMessage, renderWelcomeMessageHtml } from '@/components/WelcomeMessage';
 import type { User } from '@/types/api';
 
 function heading(): string {
@@ -29,5 +29,15 @@ describe('welcome message', () => {
     const el = document.createElement('div');
     el.innerHTML = renderWelcomeMessageHtml();
     expect(el.querySelector('b')).toBeNull();
+    expect(el.querySelector('h2')?.textContent).toBe('What’s on your mind, <b>Eve</b>?');
+  });
+
+  it('builds the same element as the shell markup, the name as text', () => {
+    useStore.setState({ user: { name: '<b>Eve</b> & co' } as User });
+    const fromHtml = document.createElement('div');
+    fromHtml.innerHTML = renderWelcomeMessageHtml();
+    const welcome = createWelcomeMessage();
+    expect(welcome.outerHTML).toBe(fromHtml.querySelector('.welcome-message')?.outerHTML.replace(/>\s+</g, '><'));
+    expect(welcome.querySelector('b')).toBeNull();
   });
 });

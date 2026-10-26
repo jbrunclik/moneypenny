@@ -32,7 +32,7 @@ import {
 } from '../components/MessageInput';
 
 import { renderChatHeader } from '../components/ChatHeader';
-import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
+import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { APP_NAME, STORAGE_CACHE_MS } from '../config';
@@ -313,7 +313,7 @@ export function leaveStorageView(clearMessages: boolean = true): void {
 
     const messagesContainer = getElementById<HTMLDivElement>('messages');
     if (messagesContainer) {
-      messagesContainer.innerHTML = renderWelcomeMessageHtml();
+      messagesContainer.replaceChildren(createWelcomeMessage());
     }
 
     if (shouldAutoFocusInput()) {

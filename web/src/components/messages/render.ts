@@ -15,7 +15,7 @@ import {
   setDeferImageObservation,
 } from '../../utils/thumbnails';
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
-import { renderWelcomeMessageHtml } from '../WelcomeMessage';
+import { createWelcomeMessage } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, setIcon } from '../../utils/icons';
 import { agents } from '../../api/agents';
 import { toast } from '../Toast';
@@ -244,7 +244,7 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   clearNewMessagesPill();
 
   if (messages.length === 0) {
-    container.innerHTML = renderWelcomeMessageHtml();
+    container.replaceChildren(createWelcomeMessage());
     // A button shown for a previous (scrollable) conversation would
     // otherwise stay visible - no scroll event fires on content swap
     checkScrollButtonVisibility();

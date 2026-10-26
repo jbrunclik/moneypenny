@@ -42,7 +42,7 @@ import {
 
 import { sendMessage } from './messaging';
 import { renderChatHeader } from '../components/ChatHeader';
-import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
+import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';
 
@@ -324,7 +324,7 @@ export function leavePlannerView(): void {
   // Clear messages to show welcome state
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
-    messagesContainer.innerHTML = renderWelcomeMessageHtml();
+    messagesContainer.replaceChildren(createWelcomeMessage());
   }
 
   // Ensure input area is visible and focus input after leaving planner
