@@ -1,6 +1,7 @@
 import json
 import sys
 import uuid
+from logging import Logger
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -108,60 +109,8 @@ def apply_proxy_fix(app: APIFlask) -> None:
     )
 
 
-def create_app() -> APIFlask:  # noqa: C901, PLR0915
-    """Create and configure the Flask application."""
-    # Setup structured logging first
-    setup_logging()
-    logger = get_logger(__name__)
-    logger.info(
-        "Flask app created",
-        extra={
-            "environment": Config.FLASK_ENV,
-            "log_level": Config.LOG_LEVEL,
-        },
-    )
-    # gunicorn starts the app here, never through main(): refuse to serve with
-    # a configuration that main() would reject (e.g. a placeholder JWT secret)
-    if not Config.is_testing():
-        errors = Config.validate()
-        if errors:
-            logger.error("Configuration validation failed", extra={"errors": errors})
-            raise RuntimeError("Configuration errors: " + "; ".join(errors))
-    # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
-    install_memory_profiler()
-    start_malloc_trimmer()
-
-    # The docs UI and spec map the whole API for anyone who asks: served in
-    # development and tests only (app.spec still works for `make openapi`)
-    serve_docs = Config.is_development() or Config.is_testing()
-    app = APIFlask(
-        __name__,
-        static_folder="../static",
-        static_url_path="/static",
-        template_folder="templates",
-        title=f"{Config.APP_NAME} API",
-        version="1.0.0",
-        spec_path="/api/openapi.json" if serve_docs else None,
-        docs_path="/api/docs" if serve_docs else None,
-        docs_ui="swagger-ui",  # Use 'redoc' for ReDoc
-    )
-    # Note: APIFlask's @api.output() decorator auto-serializes responses.
-    # Error responses are returned as Flask Response objects to bypass this serialization.
-    # See errors.py for details.
-
-    # Set max request size to prevent DoS attacks
-    app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
-
-    # Expose the product name to all Jinja templates (index, privacy).
-    @app.context_processor
-    def inject_app_name() -> dict[str, str]:
-        return {"app_name": Config.APP_NAME}
-
-    # Honor X-Forwarded-* from the trusted reverse proxy so remote_addr is
-    # the real client IP (rate limiting keys on it) and is_secure reflects
-    # the TLS termination (HSTS). With TRUSTED_PROXY_COUNT=0 forwarded
-    # headers are ignored entirely - they would be client-spoofable.
-    apply_proxy_fix(app)
+def _register_request_logging(app: APIFlask, logger: Logger) -> None:
+    """Give every request an id and log requests and responses."""
 
     # Request ID middleware - must be before blueprints
     @app.before_request
@@ -200,6 +149,10 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
         )
         return response
 
+
+def _register_security_headers(app: APIFlask) -> None:
+    """Add the security headers (and the production CSP) to every response."""
+
     # Security headers (S10). No CORS headers are set anywhere on purpose:
     # the API is same-origin only, and the browser's default policy blocks
     # cross-origin reads without Access-Control-Allow-Origin.
@@ -227,12 +180,9 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
             headers.setdefault("Content-Security-Policy", _CSP_POLICY)
         return response
 
-    # Initialize rate limiting before registering blueprints
-    # This ensures the limiter is available when routes are registered
-    init_rate_limiting(app)
 
-    # Register all blueprints from routes module
-    register_blueprints(app)
+def _register_error_processor(app: APIFlask) -> None:
+    """Return every HTTP error in the API's standard error format."""
 
     # Custom error processor to return our standardized error format
     # APIFlask calls this for all HTTPError exceptions (including APIError)
@@ -275,6 +225,9 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
             error.headers or {},
         )
 
+
+def _load_vite_manifest(app: APIFlask, logger: Logger) -> dict[str, dict[str, str | list[str]]]:
+    """The production build's Vite manifest, or {} when there is none (dev, unbuilt)."""
     # Load Vite manifest for production builds
     vite_manifest: dict[str, dict[str, str | list[str]]] = {}
     manifest_path = Path(app.static_folder or "static") / "assets" / ".vite" / "manifest.json"
@@ -287,7 +240,11 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
                 "Failed to load Vite manifest",
                 extra={"path": str(manifest_path), "error": str(e)},
             )
+    return vite_manifest
 
+
+def _app_version(vite_manifest: dict[str, dict[str, str | list[str]]]) -> str | None:
+    """The app version: the main JS bundle's hash from the manifest."""
     # Extract app version from manifest (JS bundle hash)
     app_version: str | None = None
     if vite_manifest:
@@ -296,9 +253,16 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
         # Extract hash: "assets/main-y-VVsbiY.js" -> "y-VVsbiY"
         if "-" in js_file and js_file.endswith(".js"):
             app_version = js_file.rsplit("-", 1)[1].replace(".js", "")
+    return app_version
 
-    # Store version in app config for access by routes
-    app.config["APP_VERSION"] = app_version
+
+def _register_page_routes(
+    app: APIFlask,
+    logger: Logger,
+    vite_manifest: dict[str, dict[str, str | list[str]]],
+    app_version: str | None,
+) -> None:
+    """The HTML pages, the service worker and static files."""
 
     @app.route("/")
     def index() -> Response | tuple[str, int]:
@@ -395,6 +359,81 @@ def create_app() -> APIFlask:  # noqa: C901, PLR0915
     @app.route("/<path:path>")
     def static_files(path: str) -> Response:
         return send_from_directory(app.static_folder or "static", path)
+
+
+def create_app() -> APIFlask:
+    """Create and configure the Flask application."""
+    # Setup structured logging first
+    setup_logging()
+    logger = get_logger(__name__)
+    logger.info(
+        "Flask app created",
+        extra={
+            "environment": Config.FLASK_ENV,
+            "log_level": Config.LOG_LEVEL,
+        },
+    )
+    # gunicorn starts the app here, never through main(): refuse to serve with
+    # a configuration that main() would reject (e.g. a placeholder JWT secret)
+    if not Config.is_testing():
+        errors = Config.validate()
+        if errors:
+            logger.error("Configuration validation failed", extra={"errors": errors})
+            raise RuntimeError("Configuration errors: " + "; ".join(errors))
+    # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
+    install_memory_profiler()
+    start_malloc_trimmer()
+
+    # The docs UI and spec map the whole API for anyone who asks: served in
+    # development and tests only (app.spec still works for `make openapi`)
+    serve_docs = Config.is_development() or Config.is_testing()
+    app = APIFlask(
+        __name__,
+        static_folder="../static",
+        static_url_path="/static",
+        template_folder="templates",
+        title=f"{Config.APP_NAME} API",
+        version="1.0.0",
+        spec_path="/api/openapi.json" if serve_docs else None,
+        docs_path="/api/docs" if serve_docs else None,
+        docs_ui="swagger-ui",  # Use 'redoc' for ReDoc
+    )
+    # Note: APIFlask's @api.output() decorator auto-serializes responses.
+    # Error responses are returned as Flask Response objects to bypass this serialization.
+    # See errors.py for details.
+
+    # Set max request size to prevent DoS attacks
+    app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
+
+    # Expose the product name to all Jinja templates (index, privacy).
+    @app.context_processor
+    def inject_app_name() -> dict[str, str]:
+        return {"app_name": Config.APP_NAME}
+
+    # Honor X-Forwarded-* from the trusted reverse proxy so remote_addr is
+    # the real client IP (rate limiting keys on it) and is_secure reflects
+    # the TLS termination (HSTS). With TRUSTED_PROXY_COUNT=0 forwarded
+    # headers are ignored entirely - they would be client-spoofable.
+    apply_proxy_fix(app)
+
+    _register_request_logging(app, logger)
+    _register_security_headers(app)
+
+    # Initialize rate limiting before registering blueprints
+    # This ensures the limiter is available when routes are registered
+    init_rate_limiting(app)
+
+    # Register all blueprints from routes module
+    register_blueprints(app)
+
+    _register_error_processor(app)
+
+    vite_manifest = _load_vite_manifest(app, logger)
+    app_version = _app_version(vite_manifest)
+    # Store version in app config for access by routes
+    app.config["APP_VERSION"] = app_version
+
+    _register_page_routes(app, logger, vite_manifest, app_version)
 
     # Start dev scheduler in development mode
     if Config.is_development():
