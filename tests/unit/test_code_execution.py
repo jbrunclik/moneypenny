@@ -7,36 +7,36 @@ from src.agent.tools import (
     execute_code,
     is_code_sandbox_available,
 )
-from src.agent.tools.code_execution import _get_mime_type
+from src.agent.tools.code_execution_output import get_mime_type
 
 
 class TestGetMimeType:
-    """Tests for _get_mime_type helper function."""
+    """Tests for get_mime_type helper function."""
 
     def test_pdf_mime_type(self) -> None:
         """Should return correct MIME type for PDF."""
-        assert _get_mime_type("report.pdf") == "application/pdf"
+        assert get_mime_type("report.pdf") == "application/pdf"
 
     def test_png_mime_type(self) -> None:
         """Should return correct MIME type for PNG."""
-        assert _get_mime_type("image.png") == "image/png"
+        assert get_mime_type("image.png") == "image/png"
 
     def test_jpg_mime_type(self) -> None:
         """Should return correct MIME type for JPG."""
-        assert _get_mime_type("photo.jpg") == "image/jpeg"
-        assert _get_mime_type("photo.jpeg") == "image/jpeg"
+        assert get_mime_type("photo.jpg") == "image/jpeg"
+        assert get_mime_type("photo.jpeg") == "image/jpeg"
 
     def test_csv_mime_type(self) -> None:
         """Should return correct MIME type for CSV."""
-        assert _get_mime_type("data.csv") == "text/csv"
+        assert get_mime_type("data.csv") == "text/csv"
 
     def test_unknown_extension(self) -> None:
         """Should return octet-stream for unknown extensions."""
-        assert _get_mime_type("file.qwxyz123") == "application/octet-stream"
+        assert get_mime_type("file.qwxyz123") == "application/octet-stream"
 
     def test_no_extension(self) -> None:
         """Should return octet-stream for files without extension."""
-        assert _get_mime_type("filename") == "application/octet-stream"
+        assert get_mime_type("filename") == "application/octet-stream"
 
 
 class TestExecuteCode:
@@ -44,9 +44,9 @@ class TestExecuteCode:
 
     def test_wrapped_code_resets_output_and_creates_work(self) -> None:
         """Each run starts with a clean /output; /work persists across runs."""
-        from src.agent.tools.code_execution import _wrap_user_code
+        from src.agent.tools.code_execution_output import wrap_user_code
 
-        wrapped = _wrap_user_code("print('hi')")
+        wrapped = wrap_user_code("print('hi')")
         assert "shutil.rmtree('/output', ignore_errors=True)" in wrapped
         assert "os.makedirs('/output', exist_ok=True)" in wrapped
         assert "os.makedirs('/work', exist_ok=True)" in wrapped
@@ -495,7 +495,8 @@ class TestKillUserCode:
         import threading
         import time
 
-        from src.agent.tools.code_execution import _kill_user_code
+        from src.agent import cancellation
+        from src.agent.tool_results import set_current_request_id
 
         release = threading.Event()
         called = threading.Event()
@@ -504,13 +505,31 @@ class TestKillUserCode:
             called.set()
             release.wait(5)
 
+        set_current_request_id("req-code-kill")
+        token = cancellation.register_token("req-code-kill")
         session = MagicMock()
         session.container.exec_run.side_effect = slow_exec
-        started = time.monotonic()
+        cancel_took: list[float] = []
+
+        def run(_code: str) -> MagicMock:
+            started = time.monotonic()
+            token.cancel()  # Stop pressed while the code runs
+            cancel_took.append(time.monotonic() - started)
+            return MagicMock(exit_code=137, stdout="", stderr="")
+
+        session.run.side_effect = run
+        pool = MagicMock()
+        pool.session.return_value.__enter__.return_value = session
         try:
-            _kill_user_code(session)
-            elapsed = time.monotonic() - started
+            with (
+                patch("src.agent.tools.code_execution._check_docker_available", return_value=True),
+                patch("src.agent.tools.code_execution.get_sandbox_pool", return_value=pool),
+                patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True),
+            ):
+                execute_code.invoke({"code": "print(1)"})
             assert called.wait(2)
         finally:
             release.set()
-        assert elapsed < 0.5
+            cancellation.unregister_token("req-code-kill")
+            set_current_request_id(None)
+        assert cancel_took[0] < 0.5

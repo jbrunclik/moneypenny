@@ -151,6 +151,7 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 ## Key Files
 
 - [code_execution.py](../../src/agent/tools/code_execution.py) - `execute_code()` tool, `is_code_sandbox_available()`, `_check_docker_available()`
+- [code_execution_output.py](../../src/agent/tools/code_execution_output.py) - the wrapper/output protocol: `wrap_user_code()`, the `/output` file marker, plots, the response with `_full_result`
 - [Dockerfile](../../docker/code-sandbox/Dockerfile) - Custom Docker image with pre-installed fonts and libraries
 - [Makefile](../../Makefile) - `sandbox-image` target for building custom image
 - [images.py](../../src/utils/images.py) - `extract_code_output_files_from_tool_results()` for file extraction
