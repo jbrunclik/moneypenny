@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from src.agent.graph import check_tool_results
 from src.agent.graph_state import AgentState
+from src.agent.tool_round_check import check_tool_results
 from src.agent.tools.context import set_conversation_context
 from src.config import Config
 

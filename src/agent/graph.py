@@ -15,18 +15,16 @@ thinking_level knob in Config.MODELS); the old classifier+plan-node subsystem
 was removed in Aug 2026 (git history has it).
 """
 
-import json
 import threading
 import time
 from collections import OrderedDict
 from typing import Any, Literal
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
-from src.agent import interjection
-from src.agent.cancellation import TurnCancelled, raise_if_cancelled
+from src.agent.cancellation import TurnCancelled
 from src.agent.chat_model import create_chat_model, fallback_model_factory
 from src.agent.chat_node import chat_node
 from src.agent.content import (
@@ -36,10 +34,9 @@ from src.agent.content import (
 )
 from src.agent.graph_state import AgentState
 from src.agent.permissions import PermissionResult, check_tool_permission
-from src.agent.round_cap import tool_round_cap
 from src.agent.tool_results import get_current_request_id, store_tool_result
+from src.agent.tool_round_check import check_tool_results
 from src.agent.tools import get_available_tools
-from src.agent.tools.context import get_conversation_context
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
@@ -99,202 +96,6 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
         return "tools"
 
     return "end"
-
-
-def tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
-    """Return (error_text, retriable) if the ToolMessage is a failure, else None.
-
-    Detection is structural — never substring matching, which false-positived
-    on legitimate content (e.g. a fetched page that *describes* a failure):
-    - status == "error": set by the ToolNode exception handler and the
-      permission-blocked path
-    - a JSON object with a truthy "error" key: the envelope every tool in
-      src/agent/tools returns on failure
-
-    Tools mark permanent failures (integration not configured, invalid
-    action, ...) with "retriable": false so self-correction skips pointless
-    retries; absent flag defaults to retriable.
-    """
-    if getattr(msg, "status", None) == "error":
-        return str(msg.content)[:200], True
-    if isinstance(msg.content, str):
-        try:
-            data = json.loads(msg.content)
-        except json.JSONDecodeError, TypeError:
-            return None
-        if isinstance(data, dict) and data.get("error"):
-            return str(data["error"])[:200], bool(data.get("retriable", True))
-    return None
-
-
-def check_tool_results(  # noqa: C901, PLR0912, PLR0915
-    state: AgentState,
-    use_cache: bool = False,
-) -> dict[str, Any]:
-    """Inspect tool results and provide self-correction guidance if errors occurred.
-
-    After tools execute, this node checks for errors:
-    - If errors found and retries < max: increment retries, add correction guidance
-    - If errors found and retries >= max: increment retries, add give-up guidance
-    - If no errors: reset retries to 0
-    Always routes back to "chat" - the LLM decides whether to retry or respond.
-
-    When use_cache is True, guidance is sent as HumanMessage (not SystemMessage)
-    because LangChain drops mid-conversation SystemMessages in cached mode.
-    """
-    # Server-side Stop: the round that just finished is the last one
-    raise_if_cancelled()
-
-    messages = state["messages"]
-    tool_retries = state.get("tool_retries", 0)
-    max_retries = Config.AGENT_MAX_TOOL_RETRIES
-
-    # This node runs once per completed tool round, so it is the natural place
-    # to count them. Each round re-invokes the model with the full accumulated
-    # context, so unbounded rounds multiply input-token cost.
-    tool_rounds = state.get("tool_rounds", 0) + 1
-    max_rounds = tool_round_cap()
-
-    # Mid-run steering: the user may have sent guidance while this turn was
-    # running (stored cross-worker in kv_store by the interject route).
-    # Checked FIRST so steering is never swallowed by the round-cap or
-    # nudge early-returns below - redirecting the work takes priority over
-    # telling the model to wrap up.
-    conv_id, user_id = get_conversation_context()
-    if conv_id and user_id:
-        steer_text = interjection.pop_interjection(user_id, conv_id)
-        if steer_text:
-            logger.info(
-                "Interjection injected between tool rounds",
-                extra={"conversation_id": conv_id, "tool_rounds": tool_rounds},
-            )
-            guidance_message = HumanMessage if use_cache else SystemMessage
-            steer_content = (
-                "[USER INTERJECTION] The user just sent this while you were "
-                f'working: "{steer_text}"\n'
-                "Adjust course immediately: incorporate this guidance into the "
-                "current task, drop work it makes irrelevant, and acknowledge "
-                "the change in your final answer."
-            )
-            if use_cache:
-                steer_content = f"[SYSTEM GUIDANCE]\n{steer_content}\n[/SYSTEM GUIDANCE]"
-            return {
-                "tool_rounds": tool_rounds,
-                "tool_retries": state.get("tool_retries", 0),
-                "messages": [guidance_message(content=steer_content)],
-            }
-
-    # Soft round cap: once hit, stop gathering and answer with what we have.
-    # Fires on every subsequent round too (tool_rounds stays >= cap), so the
-    # pressure escalates naturally if the model ignores the first nudge. The
-    # recursion limit remains the hard backstop.
-    if max_rounds > 0 and tool_rounds >= max_rounds:
-        logger.info(
-            "Tool round cap reached, nudging model to answer",
-            extra={"tool_rounds": tool_rounds, "max_rounds": max_rounds},
-        )
-        guidance_message = HumanMessage if use_cache else SystemMessage
-        cap_content = (
-            f"You have run {tool_rounds} rounds of tool calls for this request. "
-            "Stop calling tools now and answer the user with the information you "
-            "already have. If you searched for something you could not find, say so "
-            "and give your best answer with what is available. Do not issue more "
-            "tool calls unless absolutely essential."
-        )
-        if use_cache:
-            cap_content = f"[SYSTEM GUIDANCE]\n{cap_content}\n[/SYSTEM GUIDANCE]"
-        return {
-            "tool_rounds": tool_rounds,
-            "tool_retries": 0,
-            "messages": [guidance_message(content=cap_content)],
-        }
-
-    # Soft efficiency nudge, well before the hard cap: overruns observed in
-    # evals came from drip-feeding single tool calls; a gentle reminder at
-    # this point cuts rounds without forcing a premature answer.
-    soft_nudge = Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE
-    if soft_nudge > 0 and tool_rounds == soft_nudge:
-        guidance_message = HumanMessage if use_cache else SystemMessage
-        nudge_content = (
-            f"You have used {tool_rounds} tool rounds. Be efficient from here: "
-            "consolidate remaining lookups (batch queries, prefer the research "
-            "tool over separate fetches) and aim to answer within the next "
-            "round or two."
-        )
-        if use_cache:
-            nudge_content = f"[SYSTEM GUIDANCE]\n{nudge_content}\n[/SYSTEM GUIDANCE]"
-        logger.info("Soft round nudge injected", extra={"tool_rounds": tool_rounds})
-        return {
-            "tool_rounds": tool_rounds,
-            "tool_retries": 0,
-            "messages": [guidance_message(content=nudge_content)],
-        }
-
-    # Scan latest ToolMessages for errors
-    has_error = False
-    any_retriable = False
-    error_details: list[str] = []
-    for msg in reversed(messages):
-        if isinstance(msg, ToolMessage):
-            found = tool_message_error(msg)
-            if found is not None:
-                error_text, retriable = found
-                has_error = True
-                any_retriable = any_retriable or retriable
-                error_details.append(error_text)
-        elif isinstance(msg, AIMessage):
-            # Stop scanning once we hit the AIMessage that triggered the tools
-            break
-
-    if not has_error:
-        # No errors - reset retry counter
-        if tool_retries > 0:
-            logger.debug("Tool retries reset after successful execution")
-        return {"tool_retries": 0, "tool_rounds": tool_rounds}
-
-    new_retries = tool_retries + 1
-    error_summary = "; ".join(error_details[:3])
-
-    # Use HumanMessage in cached mode (LangChain drops mid-conversation SystemMessages)
-    guidance_message = HumanMessage if use_cache else SystemMessage
-
-    if not any_retriable:
-        # Every failure is marked permanent (e.g. integration not configured) -
-        # retrying with different arguments cannot help; go straight to give-up
-        logger.info(
-            "Tool error is non-retriable, skipping self-correction retries",
-            extra={"errors": error_summary},
-        )
-        new_retries = max_retries + 1
-
-    if new_retries <= max_retries:
-        logger.info(
-            "Tool error detected, providing self-correction guidance",
-            extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
-        )
-        guidance_content = (
-            "The tool call failed with the following error. "
-            "Analyze the error and try a different approach or different arguments. "
-            "Do not repeat the same failing call.\n\n"
-            f"Error: {error_summary}"
-        )
-        if use_cache:
-            guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
-        guidance = guidance_message(content=guidance_content)
-        return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
-    logger.warning(
-        "Tool error after max retries, providing give-up guidance",
-        extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
-    )
-    guidance_content = (
-        "The tool has failed after multiple retries. "
-        "Respond to the user explaining what happened and offer alternatives. "
-        "Do not attempt to call the same tool again."
-    )
-    if use_cache:
-        guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
-    guidance = guidance_message(content=guidance_content)
-    return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
 
 
 # ============ Tool Node Factory ============

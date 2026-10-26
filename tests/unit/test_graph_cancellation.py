@@ -12,8 +12,9 @@ from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResu
 from src.agent import cancellation
 from src.agent.cancellation import TurnCancelled
 from src.agent.chat_node import chat_node
-from src.agent.graph import _handle_tool_errors, check_tool_results
+from src.agent.graph import _handle_tool_errors
 from src.agent.tool_results import set_current_request_id
+from src.agent.tool_round_check import check_tool_results
 
 
 @pytest.fixture

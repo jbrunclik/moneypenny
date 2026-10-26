@@ -1,6 +1,6 @@
 """The one shape an agent tool reports a failure in (rule B5).
 
-check_tool_results (src/agent/graph.py) recognises a failure as a JSON object
+check_tool_results (src/agent/tool_round_check.py) recognises a failure as a JSON object
 with an "error" key and guides the model to retry, unless the failure is marked
 permanent with "retriable": false. A plain "Error: ..." string reads as a
 success: no retry guidance, and the UI shows the call as fine.

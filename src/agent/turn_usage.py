@@ -12,6 +12,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 
+from src.agent.tool_round_check import tool_message_error
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -59,11 +60,9 @@ def tool_usage_details(messages: Iterable[BaseMessage]) -> tuple[list[str], int]
     """(sorted unique tool names, error count) over a turn's ToolMessages.
 
     Errors use the same structural detection as self-correction
-    (graph.tool_message_error): status=="error" or a JSON error envelope.
+    (tool_round_check.tool_message_error): status=="error" or a JSON error envelope.
     Feeds the per-turn observability columns on message_costs.
     """
-    from src.agent.graph import tool_message_error  # noqa: PLC0415 - cycle: graph imports this module
-
     names: set[str] = set()
     errors = 0
     for message in messages:

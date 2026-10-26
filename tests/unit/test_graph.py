@@ -10,7 +10,6 @@ from langchain_core.tools import tool
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph import (
-    check_tool_results,
     compile_graph,
     create_chat_graph,
     create_tool_node,
@@ -18,6 +17,7 @@ from src.agent.graph import (
     should_continue,
 )
 from src.agent.graph_state import AgentState
+from src.agent.tool_round_check import check_tool_results
 from src.config import Config
 
 
@@ -207,7 +207,7 @@ class TestInterjectionInjection:
     def test_injects_pending_interjection(self) -> None:
         with (
             patch(
-                "src.agent.graph.get_conversation_context",
+                "src.agent.tool_round_check.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch(
@@ -230,7 +230,7 @@ class TestInterjectionInjection:
         state["tool_rounds"] = 99
         with (
             patch(
-                "src.agent.graph.get_conversation_context",
+                "src.agent.tool_round_check.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch(
@@ -245,7 +245,7 @@ class TestInterjectionInjection:
     def test_no_interjection_no_change(self) -> None:
         with (
             patch(
-                "src.agent.graph.get_conversation_context",
+                "src.agent.tool_round_check.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch("src.agent.interjection.pop_interjection", return_value=None),
@@ -257,7 +257,7 @@ class TestInterjectionInjection:
     def test_cached_mode_uses_human_message_with_wrapper(self) -> None:
         with (
             patch(
-                "src.agent.graph.get_conversation_context",
+                "src.agent.tool_round_check.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch("src.agent.interjection.pop_interjection", return_value="steer"),
