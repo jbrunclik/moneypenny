@@ -2,12 +2,12 @@
  * "Model busy - retrying" status during transient-error backoff.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { addStreamingMessage } from '@/components/messages/streaming';
 import {
-  addStreamingMessage,
   updateStreamingRetryStatus,
   updateStreamingThinking,
   updateStreamingToolStart,
-} from '@/components/messages/streaming';
+} from '@/components/messages/stream-progress';
 import { cleanupStreamingContext } from '@/components/messages/streaming-context';
 
 function note(): HTMLElement | null {

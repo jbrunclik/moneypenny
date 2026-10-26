@@ -29,12 +29,14 @@ export {
   updateStreamingMessage,
   finalizeStreamingMessage,
   restoreStreamingMessage,
+} from './streaming';
+export {
   updateStreamingThinking,
   updateStreamingToolStart,
   updateStreamingToolDetail,
   updateStreamingToolEnd,
   updateStreamingRetryStatus,
-} from './streaming';
+} from './stream-progress';
 export {
   cleanupStreamingContext,
   hasActiveStreamingContext,
