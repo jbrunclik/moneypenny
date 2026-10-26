@@ -1115,18 +1115,18 @@ class TestCompiledGraphCache:
 
     @pytest.fixture(autouse=True)
     def _isolate_cache(self) -> Any:
-        from src.agent.graph import clear_graph_cache
+        from src.agent.graph_cache import clear_graph_cache
 
         clear_graph_cache()
         yield
         clear_graph_cache()
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_same_signature_returns_cached_instance(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
         g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1135,12 +1135,12 @@ class TestCompiledGraphCache:
         assert mock_create.call_count == 1
         assert mock_compile.call_count == 1
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_different_cached_content_rebuilds(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
         g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1148,35 +1148,35 @@ class TestCompiledGraphCache:
         assert g1 is not g2
         assert mock_compile.call_count == 2
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_different_tool_set_rebuilds(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         g1 = get_compiled_graph("m", tools=[self._tool("web_search")], cached_content="c1")
         g2 = get_compiled_graph("m", tools=[self._tool("fetch_url")], cached_content="c1")
         assert g1 is not g2
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_tool_order_does_not_matter(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         a, b = self._tool("a"), self._tool("b")
         g1 = get_compiled_graph("m", tools=[a, b], cached_content="c1")
         g2 = get_compiled_graph("m", tools=[b, a], cached_content="c1")
         assert g1 is g2  # signature is order-independent (sorted names)
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_thinking_level_gets_its_own_graph(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
         full = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1185,12 +1185,12 @@ class TestCompiledGraphCache:
         assert mock_create.call_args.kwargs["thinking_level"] == "low"
         assert get_compiled_graph("m", tools=tools, cached_content="c1") is full
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_lru_evicts_oldest(
         self, mock_create: MagicMock, mock_compile: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         monkeypatch.setattr(Config, "AGENT_GRAPH_CACHE_SIZE", 2)
         tools = [self._tool("web_search")]
@@ -1202,14 +1202,14 @@ class TestCompiledGraphCache:
         assert again is not first  # c1 was evicted and rebuilt fresh
         assert mock_compile.call_count == builds_before + 1
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_rotated_cache_names_do_not_accumulate(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
         """The context-cache name rotates on renewal; dead names for the same
         signature must not fill the LRU (~2.5 MB per compiled graph in prod)."""
-        from src.agent.graph import (
+        from src.agent.graph_cache import (
             _MAX_CACHE_NAMES_PER_SIGNATURE,
             _compiled_graph_cache,
             get_compiled_graph,
@@ -1220,14 +1220,14 @@ class TestCompiledGraphCache:
             get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
         assert len(_compiled_graph_cache) == _MAX_CACHE_NAMES_PER_SIGNATURE
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_live_cache_names_sharing_a_signature_stay_cached(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
         """SPORTS and LANGUAGE bind the same tools, so two live names (plus the
         uncached fallback) share one signature - alternating must not rebuild."""
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("kv_store")]
         for name in (None, "sports", "language"):
@@ -1237,12 +1237,12 @@ class TestCompiledGraphCache:
             get_compiled_graph("m", tools=tools, cached_content=name)
         assert mock_compile.call_count == builds
 
-    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph.create_chat_graph")
+    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph_cache.create_chat_graph")
     def test_name_rotation_keeps_other_signatures(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph import get_compiled_graph
+        from src.agent.graph_cache import get_compiled_graph
 
         other = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
         tools = [self._tool("web_search")]

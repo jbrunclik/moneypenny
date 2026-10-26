@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 # These are only used when is_autonomous=True
 def _get_permission_modules() -> dict[str, Any]:
     """The permission helpers; get_agent_context is imported lazily (cycle)."""
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> agent -> graph -> tool_node
+    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> agent -> graph_cache -> graph -> tool_node
 
     return {
         "get_agent_context": get_agent_context,
