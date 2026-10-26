@@ -74,6 +74,9 @@ from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.sync_changes import ConversationChange, SyncChangesMixin
 from src.db.models.user import UserMixin
 from src.db.models.user_integrations import UserIntegrationsMixin
+from src.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class Database(
@@ -115,14 +118,15 @@ class Database(
     Uses connection pooling for efficient database access.
     """
 
-    def __init__(self, db_path: Path | None = None) -> None:
+    def __init__(self, db_path: Path | None = None, *, apply_migrations: bool = True) -> None:
         """Initialize the database.
 
         Args:
             db_path: Optional path to the database file.
                     Defaults to Config.DATABASE_PATH.
+            apply_migrations: Apply pending migrations now (see DatabaseBase).
         """
-        super().__init__(db_path)
+        super().__init__(db_path, apply_migrations=apply_migrations)
 
 
 class _DatabaseHandle:
@@ -141,7 +145,9 @@ class _DatabaseHandle:
         return getattr(self.target, name)
 
 
-_handle = _DatabaseHandle(Database())
+# Never migrates on import: every timer and script imports this module, and only
+# the web app may apply migrations (create_app calls db.migrate())
+_handle = _DatabaseHandle(Database(apply_migrations=False))
 
 # Global database instance
 db = cast(Database, _handle)
@@ -152,6 +158,18 @@ def set_database(database: Database) -> Database:
     previous = _handle.target
     _handle.target = database
     return previous
+
+
+def skip_if_migrations_pending(job: str) -> bool:
+    """True (and an info log) when the schema is behind this code.
+
+    Timers and scripts call this first and skip their run: the new web
+    workers apply the migrations at deploy, after the backup.
+    """
+    pending = db.pending_migration_count()
+    if pending:
+        logger.info("Migrations pending, skipping", extra={"job": job, "pending": pending})
+    return bool(pending)
 
 
 @contextmanager
@@ -171,6 +189,7 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "db",
     "ConversationChange",
     "set_database",
+    "skip_if_migrations_pending",
     "use_database",
     # Dataclasses
     "User",

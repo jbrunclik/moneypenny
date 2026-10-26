@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from src.db.models import db  # noqa: E402 - after load_dotenv: Config reads the environment on import
+from src.db.models import db, skip_if_migrations_pending  # noqa: E402 - after load_dotenv: Config reads the environment on import
 from src.services.search_provider import (  # noqa: E402 - after load_dotenv: Config reads the environment on import
     _PROVIDERS,
     _SYSTEM_USER_ID,
@@ -59,6 +59,8 @@ def main() -> None:
     parser.add_argument("count", nargs="?", type=int, help="Searches already used this month")
     parser.add_argument("--month", help="Month key YYYY-MM (default: current month)")
     args = parser.parse_args()
+    if skip_if_migrations_pending("seed-search-usage"):
+        return
 
     if args.month and not re.fullmatch(r"\d{4}-\d{2}", args.month):
         sys.exit("--month must be YYYY-MM")

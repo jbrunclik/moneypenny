@@ -255,8 +255,13 @@ At startup, the application verifies database connectivity before starting the F
 
 ### Migration lock
 
-Every process that opens the database (web workers, scheduler timers, scripts) runs
-`Database._init_db`. It takes yoyo's migration lock (a `yoyo_lock` row) **only when a
+Only the web app applies migrations: `create_app()` calls `db.migrate()` (`Database._init_db`),
+and harnesses that build a fresh database construct `Database(path)` (the default,
+`apply_migrations=True`). The process-wide `db` is built with `apply_migrations=False`, and
+timers and scripts start with `skip_if_migrations_pending(job)`, which logs and skips the run
+while the schema is behind the code (see [deployment.md](../deployment.md#deploying-and-rolling-back)).
+A worker waits up to `MIGRATION_LOCK_TIMEOUT_SECONDS` (default 300) for another one's
+migration. `_init_db` takes yoyo's migration lock (a `yoyo_lock` row) **only when a
 migration is pending**, and re-checks under the lock. Before Oct 13 2026 it locked on every
 start: a scheduler run that died while SQLite was busy left the row behind, and the next
 deploy's workers crash-looped on `LockTimeout`. If that ever recurs (`yoyo_lock` holds a pid

@@ -24,6 +24,7 @@ def _init_worker() -> None:
     isolate_environment()
     from src.db.models import db
 
+    db.migrate()  # each worker's fresh temp database
     _worker["db"] = db
     _worker["user"] = db.get_or_create_user("eval@example.com", "Eval User")
 

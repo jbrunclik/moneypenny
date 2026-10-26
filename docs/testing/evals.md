@@ -19,8 +19,8 @@ of CI or `make test`.
 ## How it works
 
 1. Each YAML file in `evals/cases/` is one single-turn case.
-2. `evals/run.py` creates an isolated temp database (migrations apply
-   automatically) and a temp blob store next to it (`BLOB_STORAGE_PATH`, so
+2. `evals/run.py` creates an isolated temp database (each worker
+   migrates it, `evals/pool.py`) and a temp blob store next to it (`BLOB_STORAGE_PATH`, so
    attachments and generated files never land in the repo's dev `files.db`),
    and an eval user, then runs each case through
    `ChatAgent.chat_batch` with the production `DEFAULT_MODEL`.

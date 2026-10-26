@@ -260,7 +260,7 @@ def app(test_database: Database, test_blob_store) -> Generator[Flask]:
 
         from src.app import create_app
 
-        flask_app = create_app()
+        flask_app = create_app(apply_migrations=False)  # test_database is migrated
         flask_app.config["TESTING"] = True
         yield flask_app
 

@@ -111,6 +111,10 @@ def main() -> int:
     Returns:
         0 if all databases vacuumed successfully, 1 if any failed
     """
+    from src.db.models import skip_if_migrations_pending
+
+    if skip_if_migrations_pending("vacuum"):
+        return 0
     logger.info("Starting database vacuum")
 
     cleanup_stream_journal()

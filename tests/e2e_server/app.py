@@ -81,7 +81,7 @@ def main() -> None:
         # get_blob_store() reads this global, so every caller sees the proxy
         stack.enter_context(blob_store_module._blob_store.override(proxy_blob_store))  # type: ignore[arg-type]
 
-        app = create_app()
+        app = create_app(apply_migrations=False)  # the templates are migrated
         app.config["TESTING"] = True
 
         from flask import request

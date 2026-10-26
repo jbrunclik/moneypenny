@@ -22,7 +22,7 @@ import httpx
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
-from src.db.models import db
+from src.db.models import db, skip_if_migrations_pending
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -116,6 +116,8 @@ def main() -> int:
     Returns:
         0 if rates updated successfully, 1 if fetch failed (existing rates kept).
     """
+    if skip_if_migrations_pending("currency-update"):
+        return 0
     logger.info("Starting currency rate update")
 
     # Load existing rates as fallback

@@ -49,8 +49,11 @@ def main() -> int:
     args = parser.parse_args()
 
     from src.config import Config
-    from src.db.models import db
+    from src.db.models import db, skip_if_migrations_pending
     from src.utils.embeddings import embed_text, pack_vector
+
+    if skip_if_migrations_pending("backfill-embeddings"):
+        return 0
 
     kinds = [args.kind] if args.kind else ["memory", "message"]
 

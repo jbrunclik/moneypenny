@@ -28,13 +28,34 @@ class DatabaseBase:
     Extended via mixins for specific entity operations.
     """
 
-    def __init__(self, db_path: Path | None = None) -> None:
+    def __init__(self, db_path: Path | None = None, *, apply_migrations: bool = True) -> None:
+        """Open the database; ``apply_migrations`` brings its schema up to date.
+
+        Only the web app (``create_app``) and harnesses that build a fresh
+        database apply migrations. The process-wide ``db`` is built without:
+        timers and scripts run from the same checkout, so after a deploy's pull
+        they would otherwise apply a new migration before its backup and
+        outside the health gate (see ``skip_if_migrations_pending``).
+        """
         self.db_path = db_path or Config.DATABASE_PATH
         # Query logging is only active in development/debug mode
         self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
         # Use connection pool for efficient connection reuse
         self._pool = ConnectionPool(self.db_path)
+        if apply_migrations:
+            self._init_db()
+
+    def migrate(self) -> None:
+        """Apply pending migrations (the web app calls this at startup)."""
         self._init_db()
+
+    def pending_migration_count(self) -> int:
+        """Number of migrations this code has that the database lacks (no lock taken)."""
+        backend = get_backend(f"sqlite:///{self.db_path}")
+        try:
+            return len(backend.to_apply(read_migrations(str(MIGRATIONS_DIR))))
+        finally:
+            backend.connection.close()
 
     def close(self) -> None:
         """Close all connections in the pool.
@@ -74,7 +95,9 @@ class DatabaseBase:
             # (Oct 13 2026). Re-checked under the lock, so two processes never
             # apply the same migration.
             if backend.to_apply(migrations):
-                with backend.lock():
+                # A long migration keeps the other new workers waiting here;
+                # yoyo's 10 s default made them fail to boot (LockTimeout)
+                with backend.lock(timeout=Config.MIGRATION_LOCK_TIMEOUT_SECONDS):
                     migrations_to_apply = backend.to_apply(migrations)
                     if migrations_to_apply:
                         logger.info(

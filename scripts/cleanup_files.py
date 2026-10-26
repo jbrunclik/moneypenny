@@ -20,6 +20,7 @@ from pathlib import Path
 # Add parent directory to path so we can import from src
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.db.models import skip_if_migrations_pending
 from src.services.file_retention import cleanup_expired_files
 from src.utils.logging import get_logger, setup_logging
 
@@ -28,6 +29,8 @@ logger = get_logger(__name__)
 
 def main() -> int:
     setup_logging()
+    if skip_if_migrations_pending("file-cleanup"):
+        return 0
     logger.info("Starting file retention cleanup")
     try:
         counts = cleanup_expired_files()

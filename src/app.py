@@ -14,7 +14,7 @@ from src.api.errors import APIError, ErrorCode, is_retryable
 from src.api.rate_limiting import init_rate_limiting
 from src.api.routes import register_blueprints
 from src.config import Config
-from src.db.models import check_database_connectivity
+from src.db.models import check_database_connectivity, db
 from src.utils.assets import collect_entry_css
 from src.utils.logging import get_logger, set_request_id, setup_logging
 from src.utils.malloc_trim import start_malloc_trimmer
@@ -361,8 +361,13 @@ def _register_page_routes(
         return send_from_directory(app.static_folder or "static", path)
 
 
-def create_app() -> APIFlask:
-    """Create and configure the Flask application."""
+def create_app(*, apply_migrations: bool = True) -> APIFlask:
+    """Create and configure the Flask application.
+
+    ``apply_migrations``: bring the database schema up to date first. Only the
+    web app does (gunicorn and ``make run``); the agent-scheduler timer and the
+    test harnesses, which own their databases' schema, pass False.
+    """
     # Setup structured logging first
     setup_logging()
     logger = get_logger(__name__)
@@ -380,6 +385,8 @@ def create_app() -> APIFlask:
         if errors:
             logger.error("Configuration validation failed", extra={"errors": errors})
             raise RuntimeError("Configuration errors: " + "; ".join(errors))
+    if apply_migrations:
+        db.migrate()
     # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
     install_memory_profiler()
     start_malloc_trimmer()

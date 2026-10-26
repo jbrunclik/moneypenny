@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 
 from src.agent.tools.memory import VALID_CATEGORIES
 from src.config import Config
-from src.db.models import Memory, User, db
+from src.db.models import Memory, User, db, skip_if_migrations_pending
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -628,4 +628,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(0 if skip_if_migrations_pending("memory-defrag") else main())

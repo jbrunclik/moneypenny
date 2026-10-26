@@ -23,13 +23,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Initialize the Flask app context for database access
 from src.app import create_app
 
-app = create_app()
+# Never migrates: the new web workers do, after the deploy's backup
+app = create_app(apply_migrations=False)
 
 
 def main() -> None:
-    """Run the agent scheduler."""
+    """Run the agent scheduler (skipped while migrations are pending)."""
     from src.agent.scheduler import run_scheduled_agents
+    from src.db.models import skip_if_migrations_pending
 
+    if skip_if_migrations_pending("agent-scheduler"):
+        return
     with app.app_context():
         run_scheduled_agents()
 

@@ -273,6 +273,9 @@ class Config:
     # /api/ready waits this long for the write lock; a normal write holds it
     # for milliseconds, a leaked transaction forever
     READY_WRITE_LOCK_TIMEOUT_SECONDS = 2.0
+    # How long a starting web worker waits for another one's migration (yoyo's
+    # lock); yoyo's own 10 s failed the second worker's boot on a long one
+    MIGRATION_LOCK_TIMEOUT_SECONDS: int = int(os.getenv("MIGRATION_LOCK_TIMEOUT_SECONDS", "300"))
 
     # Request size limits (DoS protection)
     # Must be larger than MAX_FILE_SIZE * MAX_FILES_PER_MESSAGE to allow multi-file uploads

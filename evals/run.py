@@ -813,7 +813,7 @@ EVAL_BLANKED_SEARCH_KEYS = (
 
 def isolate_environment() -> None:
     """Isolated temp DB and blob store + prod Gemini key + ddgs-only web search, BEFORE
-    importing src.* (Config reads env at import). Migrations run automatically on Database init. Called by the
+    importing src.* (Config reads env at import). Each process migrates its database (evals/pool.py). Called by the
     main process and by every worker, so each owns its own database."""
     from dotenv import load_dotenv
 
