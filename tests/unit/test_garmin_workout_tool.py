@@ -1,6 +1,6 @@
 """Unit tests for the garmin_workout tool.
 
-Covers the pure projection/patch helpers (_slim_workout, _apply_edits) against
+Covers the pure projection/patch helpers (slim_workout, apply_edits) against
 a fixture that mirrors the real Garmin strength structure — repeat groups
 (supersets), interval/rest child steps, a lap.button carry, and a bodyweight
 (null-weight) move — plus the tool's action dispatch and guards. The garth API
@@ -11,11 +11,8 @@ import copy
 import json
 from unittest.mock import MagicMock, patch
 
-from src.agent.tools.garmin_workout import (
-    _apply_edits,
-    _slim_workout,
-    garmin_workout,
-)
+from src.agent.tools.garmin_workout import garmin_workout
+from src.agent.tools.garmin_workout_edits import apply_edits, slim_workout
 
 
 def _exec_step(step_id, order, kind, end_key, end_val, exercise=None, weight=None):
@@ -71,7 +68,7 @@ def _fixture():
 
 class TestSlimWorkout:
     def test_blocks_and_sets(self):
-        slim = _slim_workout(_fixture())
+        slim = slim_workout(_fixture())
         assert slim["workout_id"] == 1647614440
         assert slim["name"] == "Man Cave - Monday"
         assert slim["sport"] == "strength_training"
@@ -80,7 +77,7 @@ class TestSlimWorkout:
         assert slim["blocks"][0]["sets"] == 4
 
     def test_exercise_step_projection(self):
-        slim = _slim_workout(_fixture())
+        slim = slim_workout(_fixture())
         deadlift = slim["blocks"][0]["steps"][2]
         assert deadlift == {
             "step_id": 103,
@@ -92,19 +89,19 @@ class TestSlimWorkout:
         }
 
     def test_rest_step_projection(self):
-        slim = _slim_workout(_fixture())
+        slim = slim_workout(_fixture())
         rest = slim["blocks"][0]["steps"][1]
         assert rest == {"step_id": 102, "kind": "rest", "rest_s": 90}
 
     def test_bodyweight_move_has_null_weight(self):
-        slim = _slim_workout(_fixture())
+        slim = slim_workout(_fixture())
         pullup = slim["blocks"][0]["steps"][0]
         assert pullup["exercise"] == "PULL_UP"
         assert pullup["reps"] == 4
         assert pullup["weight_kg"] is None
 
     def test_lap_button_move_has_null_reps(self):
-        slim = _slim_workout(_fixture())
+        slim = slim_workout(_fixture())
         carry = slim["blocks"][1]["steps"][0]
         assert carry["exercise"] == "FARMERS_CARRY"
         assert carry["end_condition"] == "lap.button"
@@ -115,7 +112,7 @@ class TestSlimWorkout:
 class TestApplyEdits:
     def test_change_reps(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"step_id": 103, "reps": 6}])
+        raw, applied, warnings = apply_edits(raw, [{"step_id": 103, "reps": 6}])
         assert not warnings
         assert applied == [
             {
@@ -125,23 +122,23 @@ class TestApplyEdits:
                 "changes": [{"field": "reps", "old": 5, "new": 6}],
             }
         ]
-        assert _slim_workout(raw)["blocks"][0]["steps"][2]["reps"] == 6
+        assert slim_workout(raw)["blocks"][0]["steps"][2]["reps"] == 6
 
     def test_change_weight_and_reps_together(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"step_id": 103, "reps": 6, "weight_kg": 26}])
+        raw, applied, warnings = apply_edits(raw, [{"step_id": 103, "reps": 6, "weight_kg": 26}])
         assert not warnings
         fields = [c["field"] for c in applied[0]["changes"]]
         assert fields == ["reps", "weight_kg"]
         weight_change = applied[0]["changes"][1]
         assert weight_change == {"field": "weight_kg", "old": 24.0, "new": 26.0}
-        step = _slim_workout(raw)["blocks"][0]["steps"][2]
+        step = slim_workout(raw)["blocks"][0]["steps"][2]
         assert step["reps"] == 6
         assert step["weight_kg"] == 26.0
 
     def test_add_weight_to_bodyweight_move_stamps_unit(self):
         raw = _fixture()
-        raw, _applied, warnings = _apply_edits(raw, [{"step_id": 101, "weight_kg": 5}])
+        raw, _applied, warnings = apply_edits(raw, [{"step_id": 101, "weight_kg": 5}])
         assert not warnings
         pullup = raw["workoutSegments"][0]["workoutSteps"][0]["workoutSteps"][0]
         assert pullup["weightValue"] == 5.0
@@ -149,30 +146,30 @@ class TestApplyEdits:
 
     def test_change_rest(self):
         raw = _fixture()
-        raw, _applied, warnings = _apply_edits(raw, [{"step_id": 102, "rest_s": 120}])
+        raw, _applied, warnings = apply_edits(raw, [{"step_id": 102, "rest_s": 120}])
         assert not warnings
-        assert _slim_workout(raw)["blocks"][0]["steps"][1]["rest_s"] == 120
+        assert slim_workout(raw)["blocks"][0]["steps"][1]["rest_s"] == 120
 
     def test_change_sets_updates_iterations_and_mirror(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(raw, [{"step_id": 100, "sets": 5}])
+        raw, applied, warnings = apply_edits(raw, [{"step_id": 100, "sets": 5}])
         assert not warnings
         assert applied[0]["exercise"] == "set-block"
         assert applied[0]["changes"] == [{"field": "sets", "old": 4, "new": 5}]
         block = raw["workoutSegments"][0]["workoutSteps"][0]
         assert block["numberOfIterations"] == 5
         assert block["endConditionValue"] == 5.0
-        assert _slim_workout(raw)["blocks"][0]["sets"] == 5
+        assert slim_workout(raw)["blocks"][0]["sets"] == 5
 
     def test_reps_on_lap_button_rejected(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 201, "reps": 15}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 201, "reps": 15}])
         assert applied == []
         assert any("reps not editable" in w for w in warnings)
 
     def test_reps_on_lap_button_still_allows_weight(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 201, "reps": 15, "weight_kg": 28}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 201, "reps": 15, "weight_kg": 28}])
         assert applied == [
             {
                 "op": "set",
@@ -185,31 +182,31 @@ class TestApplyEdits:
 
     def test_sets_on_exercise_step_rejected(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 103, "sets": 5}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 103, "sets": 5}])
         assert applied == []
         assert any("only applies to a set-block" in w for w in warnings)
 
     def test_rest_on_exercise_step_rejected(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 103, "rest_s": 30}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 103, "rest_s": 30}])
         assert applied == []
         assert any("only applies to a rest step" in w for w in warnings)
 
     def test_weight_on_rest_step_rejected(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 102, "weight_kg": 20}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 102, "weight_kg": 20}])
         assert applied == []
         assert warnings == ["step 102: weight not applicable"]
 
     def test_unknown_step_id_warns(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": 999, "reps": 6}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": 999, "reps": 6}])
         assert applied == []
         assert any("unknown step_id: 999" in w for w in warnings)
 
     def test_string_step_id_coerced(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"step_id": "103", "reps": 7}])
+        _, applied, warnings = apply_edits(raw, [{"step_id": "103", "reps": 7}])
         assert applied[0]["step_id"] == 103
         assert applied[0]["changes"] == [{"field": "reps", "old": 5, "new": 7}]
         assert not warnings
@@ -234,7 +231,7 @@ class TestStructuralOps:
 
     def test_swap_exercise(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(
+        raw, applied, warnings = apply_edits(
             raw, [{"op": "swap", "step_id": 103, "exercise": "Goblet Squat"}]
         )
         assert not warnings
@@ -243,11 +240,11 @@ class TestStructuralOps:
             "old": "KETTLEBELL_DEADLIFT",
             "new": "GOBLET_SQUAT",
         } in applied[0]["changes"]
-        assert _slim_workout(raw)["blocks"][0]["steps"][2]["exercise"] == "GOBLET_SQUAT"
+        assert slim_workout(raw)["blocks"][0]["steps"][2]["exercise"] == "GOBLET_SQUAT"
 
     def test_swap_can_also_set_numbers(self):
         raw = _fixture()
-        _, applied, _warnings = _apply_edits(
+        _, applied, _warnings = apply_edits(
             raw, [{"op": "swap", "step_id": 103, "exercise": "Goblet Squat", "weight_kg": 20}]
         )
         fields = [c["field"] for c in applied[0]["changes"]]
@@ -255,7 +252,7 @@ class TestStructuralOps:
 
     def test_swap_unknown_exercise_warns(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(
+        _, applied, warnings = apply_edits(
             raw, [{"op": "swap", "step_id": 103, "exercise": "zzzz not a real move"}]
         )
         assert applied == []
@@ -263,7 +260,7 @@ class TestStructuralOps:
 
     def test_swap_on_rest_rejected(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(
+        _, applied, warnings = apply_edits(
             raw, [{"op": "swap", "step_id": 102, "exercise": "Goblet Squat"}]
         )
         assert applied == []
@@ -271,29 +268,29 @@ class TestStructuralOps:
 
     def test_remove_exercise_drops_trailing_rest(self):
         raw = _fixture()
-        raw, applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 103}])
+        raw, applied, _warnings = apply_edits(raw, [{"op": "remove", "step_id": 103}])
         assert applied[0]["removed"] == ["KETTLEBELL_DEADLIFT", "rest"]
         # block 100 now has only PULL_UP + its rest
-        steps = _slim_workout(raw)["blocks"][0]["steps"]
+        steps = slim_workout(raw)["blocks"][0]["steps"]
         assert [s.get("exercise") for s in steps if s["kind"] == "exercise"] == ["PULL_UP"]
 
     def test_remove_block_by_id(self):
         raw = _fixture()
-        raw, _applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 200}])
-        blocks = _slim_workout(raw)["blocks"]
+        raw, _applied, _warnings = apply_edits(raw, [{"op": "remove", "step_id": 200}])
+        blocks = slim_workout(raw)["blocks"]
         assert len(blocks) == 1
         assert blocks[0]["block_id"] == 100
 
     def test_removing_only_exercise_prunes_block(self):
         raw = _fixture()
         # block 200 holds only FARMERS_CARRY (201); removing it empties the block
-        raw, _applied, _warnings = _apply_edits(raw, [{"op": "remove", "step_id": 201}])
-        blocks = _slim_workout(raw)["blocks"]
+        raw, _applied, _warnings = apply_edits(raw, [{"op": "remove", "step_id": 201}])
+        blocks = slim_workout(raw)["blocks"]
         assert len(blocks) == 1  # block 200 pruned
 
     def test_add_exercise_into_block(self):
         raw = _fixture()
-        raw, applied, warnings = _apply_edits(
+        raw, applied, warnings = apply_edits(
             raw,
             [
                 {
@@ -308,7 +305,7 @@ class TestStructuralOps:
         )
         assert not warnings
         assert applied[0]["op"] == "add_exercise"
-        block = _slim_workout(raw)["blocks"][0]
+        block = slim_workout(raw)["blocks"][0]
         exs = [s for s in block["steps"] if s["kind"] == "exercise"]
         assert exs[-1]["exercise"] == "GOBLET_SQUAT"
         assert exs[-1]["reps"] == 10
@@ -316,7 +313,7 @@ class TestStructuralOps:
 
     def test_add_exercise_unknown_block_warns(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(
+        _, applied, warnings = apply_edits(
             raw, [{"op": "add_exercise", "block_id": 999, "exercise": "Goblet Squat", "reps": 10}]
         )
         assert applied == []
@@ -324,19 +321,19 @@ class TestStructuralOps:
 
     def test_add_block(self):
         raw = _fixture()
-        raw, _applied, warnings = _apply_edits(
+        raw, _applied, warnings = apply_edits(
             raw,
             [{"op": "add_block", "exercise": "Plank", "sets": 3, "reps": 30, "rest_s": 45}],
         )
         assert not warnings
-        blocks = _slim_workout(raw)["blocks"]
+        blocks = slim_workout(raw)["blocks"]
         assert len(blocks) == 3
         assert blocks[-1]["sets"] == 3
         assert blocks[-1]["steps"][0]["exercise"] == "PLANK"
 
     def test_add_block_requires_reps_and_sets(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(
+        _, applied, warnings = apply_edits(
             raw, [{"op": "add_block", "exercise": "Plank", "sets": 3}]
         )
         assert applied == []
@@ -344,13 +341,13 @@ class TestStructuralOps:
 
     def test_unknown_op_warns(self):
         raw = _fixture()
-        _, applied, warnings = _apply_edits(raw, [{"op": "explode", "step_id": 103}])
+        _, applied, warnings = apply_edits(raw, [{"op": "explode", "step_id": 103}])
         assert applied == []
         assert any("unknown op: explode" in w for w in warnings)
 
     def test_steporder_renumbered_after_add(self):
         raw = _fixture()
-        raw, _, _ = _apply_edits(
+        raw, _, _ = apply_edits(
             raw, [{"op": "add_block", "exercise": "Plank", "sets": 2, "reps": 30}]
         )
         orders = _flat_orders(raw)

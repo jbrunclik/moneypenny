@@ -61,7 +61,7 @@ All date parameters default to today. `date_str` format: `YYYY-MM-DD`.
 
 Unlike `garmin_connect`, this tool **writes** back to Garmin. It lets the agent keep the targets shown on the watch accurate before a session and evolve the program over time. Edits are applied in place via `update_workout` (HTTP PUT), so a workout keeps its id and any calendar schedule.
 
-The raw Garmin workout JSON is deeply nested (repeat groups of interval/rest steps). The tool never hands that to the LLM: `_slim_workout` projects it to a compact view keyed by `step_id`, and `_apply_edits` maps step-id-keyed edit ops back onto the raw tree before PUTting it.
+The raw Garmin workout JSON is deeply nested (repeat groups of interval/rest steps). The tool never hands that to the LLM: `slim_workout` projects it to a compact view keyed by `step_id`, and `apply_edits` maps step-id-keyed edit ops back onto the raw tree before PUTting it (both in `tools/garmin_workout_edits.py`).
 
 | Action | Parameters | Description |
 |--------|------------|-------------|
@@ -116,7 +116,10 @@ No client ID or secret is required — the user authenticates with their own Gar
 - [config.py](../../src/config.py) - `GARMIN_API_TIMEOUT`, `GARMIN_SESSION_TTL_SECONDS`
 - [garmin_auth.py](../../src/auth/garmin_auth.py) - Authentication helpers (login, MFA, token serialization)
 - [tools/garmin.py](../../src/agent/tools/garmin.py) - `garmin_connect` read-only LangGraph tool
+- [tools/garmin_payloads.py](../../src/agent/tools/garmin_payloads.py) - payload slimming (bulky series, sets, HR zones, laps)
+- [tools/garmin_courses.py](../../src/agent/tools/garmin_courses.py) - course altitude profile and climb detection
 - [tools/garmin_workout.py](../../src/agent/tools/garmin_workout.py) - `garmin_workout` read/write workout-editing tool
+- [tools/garmin_workout_edits.py](../../src/agent/tools/garmin_workout_edits.py) - the slim workout view and the edit engine
 - [tools/garmin_session.py](../../src/agent/tools/garmin_session.py) - per-user cached client sessions
 - [routes/garmin.py](../../src/api/routes/garmin.py) - Auth endpoints
 - [migrations/0028_add_garmin_fields.py](../../migrations/0028_add_garmin_fields.py) - Database schema

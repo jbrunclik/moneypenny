@@ -14,6 +14,13 @@ from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
+from src.agent.tools.garmin_courses import slim_course_detail, slim_course_summary
+from src.agent.tools.garmin_payloads import (
+    slim_exercise_set,
+    slim_hr_zones,
+    slim_lap,
+    strip_bulky_fields,
+)
 from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
 from src.agent.tools.integration_status import not_connected_result
 from src.utils.logging import get_logger
@@ -64,121 +71,9 @@ def safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> A
         raise
 
 
-# Known per-minute/per-epoch time-series keys in Garmin payloads. Pure
-# bulk for an LLM: a single night's sleepMovement alone is hundreds of
-# entries (one un-stripped get_sleep_data blew a Daily Briefing run to
-# ~150k input tokens / ~$0.29). Summaries carry everything coaching needs.
-_BULKY_KEYS = frozenset(
-    {
-        "sleepMovement",
-        "sleepLevels",
-        "sleepRestlessMoments",
-        "sleepHeartRate",
-        "sleepStress",
-        "sleepBodyBattery",
-        "wellnessEpochSPO2DataDTOList",
-        "wellnessEpochRespirationDataDTOList",
-        "hrvReadings",
-        "stressValuesArray",
-        "bodyBatteryValuesArray",
-        "heartRateValues",
-        "respirationValuesArray",
-    }
-)
-
-
-def _strip_bulky_fields(obj: Any, max_list_items: int = 20) -> Any:
-    """Recursively drop bulky arrays from Garmin API responses.
-
-    Two mechanisms: known time-series keys are removed outright, and any
-    remaining list longer than max_list_items is replaced with a count
-    note. Summary scalars pass through untouched. Applied to EVERY
-    action's payload before it reaches the LLM.
-    """
-    if isinstance(obj, dict):
-        return {
-            k: _strip_bulky_fields(v, max_list_items)
-            for k, v in obj.items()
-            if k not in _BULKY_KEYS
-        }
-    if isinstance(obj, list):
-        if len(obj) > max_list_items:
-            return f"[{len(obj)} items omitted - ask for specific metrics if needed]"
-        return [_strip_bulky_fields(v, max_list_items) for v in obj]
-    return obj
-
-
-def _slim_exercise_set(s: dict[str, Any]) -> dict[str, Any]:
-    """Project one Garmin exercise set down to the coaching-relevant fields.
-
-    The raw set carries startTime, wktStepIndex, messageIndex, per-exercise
-    probability etc. - noise for an LLM. We keep set type, the exercise, reps,
-    weight and duration, which is what answers "how many reps per set".
-
-    Weight is reported in KILOGRAMS. Note the activity endpoint stores it in
-    grams (e.g. 24000 for a 24 kg kettlebell), so we divide by 1000 here to
-    match the kg convention used everywhere else the agent sees weight
-    (including the garmin_workout editing tool).
-    """
-    exercises = s.get("exercises") or []
-    category = None
-    if exercises and isinstance(exercises[0], dict):
-        category = exercises[0].get("category")
-    duration = s.get("duration")
-    weight_g = s.get("weight")
-    return {
-        "setType": s.get("setType"),
-        "category": category,
-        "reps": s.get("repetitionCount"),
-        "weight_kg": round(weight_g / 1000.0, 1) if isinstance(weight_g, int | float) else None,
-        "duration_s": round(duration, 1) if isinstance(duration, int | float) else None,
-    }
-
-
-def _num(value: Any, ndigits: int = 1) -> float | None:
-    """Round a numeric value, or None if it isn't a number."""
-    return round(value, ndigits) if isinstance(value, int | float) else None
-
-
-def _slim_hr_zones(zones: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Compact the per-activity HR time-in-zone breakdown (minutes per zone)."""
-    out = []
-    for z in zones:
-        if not isinstance(z, dict):
-            continue
-        secs = z.get("secsInZone")
-        out.append(
-            {
-                "zone": z.get("zoneNumber"),
-                "minutes": _num((secs / 60.0) if isinstance(secs, int | float) else None),
-                "low_bpm": z.get("zoneLowBoundary"),
-            }
-        )
-    return out
-
-
 # Max laps to expose per activity - covers interval sessions without letting a
 # long auto-lapped ride (one lap per km) flood the context.
 _MAX_LAPS = 40
-
-
-def _slim_lap(lap: dict[str, Any], index: int) -> dict[str, Any]:
-    """Project one lap/split to coaching-relevant fields, dropping empty ones."""
-    dist = lap.get("distance")
-    dur = lap.get("duration")
-    speed = lap.get("averageSpeed")
-    slim = {
-        "lap": index,
-        "distance_km": _num((dist / 1000.0) if isinstance(dist, int | float) else None, 2),
-        "duration_min": _num((dur / 60.0) if isinstance(dur, int | float) else None),
-        "avg_hr": lap.get("averageHR"),
-        "max_hr": lap.get("maxHR"),
-        "avg_power": lap.get("averagePower"),
-        "norm_power": lap.get("normalizedPower"),
-        "avg_cadence": lap.get("averageBikeCadence") or lap.get("averageRunCadence"),
-        "avg_speed_kmh": _num((speed * 3.6) if isinstance(speed, int | float) else None),
-    }
-    return {k: v for k, v in slim.items() if v is not None}
 
 
 def _gather(tasks: dict[str, Any]) -> None:
@@ -218,13 +113,13 @@ def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str
         raw_sets = sets_result.get("exerciseSets") if isinstance(sets_result, dict) else sets_result
         if isinstance(raw_sets, list) and raw_sets:
             payload["exercise_sets"] = [
-                _slim_exercise_set(s) for s in raw_sets if isinstance(s, dict)
+                slim_exercise_set(s) for s in raw_sets if isinstance(s, dict)
             ]
 
     def _zones() -> None:
         zones = safe_api_call(garmin, "get_activity_hr_in_timezones", activity_id)
         if isinstance(zones, list) and zones:
-            payload["hr_zones"] = _slim_hr_zones(zones)
+            payload["hr_zones"] = slim_hr_zones(zones)
 
     def _laps() -> None:
         # A single lap == the whole activity, already covered by the summary,
@@ -232,7 +127,7 @@ def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str
         splits = safe_api_call(garmin, "get_activity_splits", activity_id)
         laps = splits.get("lapDTOs") if isinstance(splits, dict) else None
         if isinstance(laps, list) and len(laps) >= 2:
-            payload["laps"] = [_slim_lap(lap, i) for i, lap in enumerate(laps[:_MAX_LAPS], start=1)]
+            payload["laps"] = [slim_lap(lap, i) for i, lap in enumerate(laps[:_MAX_LAPS], start=1)]
             if len(laps) > _MAX_LAPS:
                 payload["laps_note"] = f"showing first {_MAX_LAPS} of {len(laps)} laps"
 
@@ -243,169 +138,6 @@ def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str
 # garminconnect library, so we hit the raw endpoints via connectapi.
 _COURSE_LIST_URL = "/course-service/course"
 _COURSE_DETAIL_URL = "/course-service/course/{}"
-
-# How many (distance, elevation) samples to expose for a course's altitude
-# profile. Raw geoPoints run to thousands per course - far too many for an LLM;
-# ~32 evenly-distance-spaced samples convey the shape at negligible token cost.
-_PROFILE_SAMPLES = 32
-
-# Climb detection tuning (derived from the profile - Garmin gives no climb
-# breakdown). A "climb" is a sustained ascent; small dips inside it are
-# tolerated up to _CLIMB_MAX_DROP_M before it's considered over.
-_CLIMB_RESAMPLE_M = 50.0
-_CLIMB_MIN_GAIN_M = 25.0
-_CLIMB_MIN_GRADE = 0.03
-_CLIMB_MAX_DROP_M = 12.0
-
-
-def _course_points(detail: dict[str, Any]) -> list[tuple[float, float]]:
-    """Extract sorted (cumulative_distance_m, elevation_m) points from a course."""
-    pts = []
-    for p in detail.get("geoPoints") or []:
-        if not isinstance(p, dict):
-            continue
-        d, e = p.get("distance"), p.get("elevation")
-        if isinstance(d, int | float) and isinstance(e, int | float):
-            pts.append((float(d), float(e)))
-    pts.sort(key=lambda x: x[0])
-    return pts
-
-
-def _resample_fixed(points: list[tuple[float, float]], step_m: float) -> list[tuple[float, float]]:
-    """Resample the profile at fixed distance intervals (smooths GPS elevation noise)."""
-    if len(points) < 2:
-        return points
-    total = points[-1][0]
-    out: list[tuple[float, float]] = []
-    j = 0
-    d = points[0][0]
-    while d <= total:
-        while j < len(points) - 1 and points[j][0] < d:
-            j += 1
-        out.append((d, points[j][1]))
-        d += step_m
-    if out[-1][0] < total:
-        out.append(points[-1])
-    return out
-
-
-def _profile_samples(points: list[tuple[float, float]], n: int) -> list[dict[str, float]]:
-    """Downsample the elevation profile to ~n evenly-distance-spaced points."""
-    if not points:
-        return []
-    if len(points) <= n:
-        return [{"km": round(d / 1000, 2), "elev_m": round(e)} for d, e in points]
-    total = points[-1][0]
-    out: list[dict[str, float]] = []
-    j = 0
-    for k in range(n):
-        target = total * k / (n - 1)
-        while j < len(points) - 1 and points[j][0] < target:
-            j += 1
-        out.append({"km": round(points[j][0] / 1000, 2), "elev_m": round(points[j][1])})
-    return out
-
-
-def _climb_record(prof: list[tuple[float, float]], a: int, b: int) -> dict[str, float]:
-    """Build one climb summary from resampled profile indices a..b."""
-    gain = prof[b][1] - prof[a][1]
-    length = prof[b][0] - prof[a][0]
-    max_grade = 0.0
-    for k in range(a, b):
-        seg, dl = prof[k + 1][1] - prof[k][1], prof[k + 1][0] - prof[k][0]
-        if dl > 0:
-            max_grade = max(max_grade, seg / dl)
-    return {
-        "start_km": round(prof[a][0] / 1000, 1),
-        "length_km": round(length / 1000, 2),
-        "gain_m": round(gain),
-        "avg_grade_pct": round(gain / length * 100, 1) if length else 0.0,
-        "max_grade_pct": round(max_grade * 100, 1),
-    }
-
-
-def _qualifying_climb(
-    prof: list[tuple[float, float]], base_i: int, peak_i: int
-) -> list[dict[str, float]]:
-    """The climb from base to peak as a one-item list, or [] below the thresholds."""
-    gain = prof[peak_i][1] - prof[base_i][1]
-    length = prof[peak_i][0] - prof[base_i][0]
-    if gain >= _CLIMB_MIN_GAIN_M and length > 0 and gain / length >= _CLIMB_MIN_GRADE:
-        return [_climb_record(prof, base_i, peak_i)]
-    return []
-
-
-def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:
-    """Derive sustained climbs from an elevation profile (Garmin gives none).
-
-    Walks a fixed-step resample tracking the current valley (base) and running
-    peak; a climb is recorded when the rise from the base clears the gain and
-    average-grade thresholds and is then followed by a drop past the tolerance.
-    """
-    prof = _resample_fixed(points, _CLIMB_RESAMPLE_M)
-    if len(prof) < 2:
-        return []
-    climbs: list[dict[str, float]] = []
-    base_i = peak_i = 0
-    in_climb = False
-
-    for i in range(1, len(prof)):
-        elev = prof[i][1]
-        if elev > prof[peak_i][1]:
-            peak_i = i
-        if not in_climb:
-            if elev < prof[base_i][1]:
-                base_i = peak_i = i
-            elif prof[peak_i][1] - prof[base_i][1] >= _CLIMB_MIN_GAIN_M:
-                in_climb = True
-        elif prof[peak_i][1] - elev > _CLIMB_MAX_DROP_M:
-            climbs.extend(_qualifying_climb(prof, base_i, peak_i))
-            base_i = peak_i = i
-            in_climb = False
-    if in_climb:
-        climbs.extend(_qualifying_climb(prof, base_i, peak_i))
-    return climbs
-
-
-def _slim_course_summary(c: dict[str, Any]) -> dict[str, Any]:
-    """Project a course list item to length + total climb + type."""
-    dist = c.get("distanceInMeters")
-    gain = c.get("elevationGainInMeters")
-    loss = c.get("elevationLossInMeters")
-    return {
-        "course_id": c.get("courseId"),
-        "name": c.get("courseName"),
-        "activity_type": (c.get("activityType") or {}).get("typeKey"),
-        "distance_km": round(dist / 1000, 2) if isinstance(dist, int | float) else None,
-        "elevation_gain_m": round(gain) if isinstance(gain, int | float) else None,
-        "elevation_loss_m": round(loss) if isinstance(loss, int | float) else None,
-        "favorite": c.get("favorite"),
-    }
-
-
-def _slim_course_detail(d: dict[str, Any]) -> dict[str, Any]:
-    """Project a full course to summary + derived climbs + a compact profile."""
-    points = _course_points(d)
-    elevs = [e for _, e in points]
-    dist = d.get("distanceMeter")
-    gain = d.get("elevationGainMeter")
-    loss = d.get("elevationLossMeter")
-    climbs = _detect_climbs(points)
-    return {
-        "course_id": d.get("courseId"),
-        "name": d.get("courseName"),
-        "distance_km": round(dist / 1000, 2) if isinstance(dist, int | float) else None,
-        "elevation_gain_m": round(gain) if isinstance(gain, int | float) else None,
-        "elevation_loss_m": round(loss) if isinstance(loss, int | float) else None,
-        "min_elevation_m": round(min(elevs)) if elevs else None,
-        "max_elevation_m": round(max(elevs)) if elevs else None,
-        # Climbs are DERIVED from the profile (Garmin exposes no climb API), so
-        # they approximate Garmin's own climb list; the totals above are exact.
-        "climb_count": len(climbs),
-        "climbs": climbs,
-        "profile": _profile_samples(points, _PROFILE_SAMPLES),
-        "description": d.get("description") or None,
-    }
 
 
 def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dict[str, Any]:
@@ -425,7 +157,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
     def _section(key: str, method: str, *args: Any) -> Any:
         def run() -> None:
             try:
-                payload[key] = _strip_bulky_fields(safe_api_call(garmin, method, *args))
+                payload[key] = strip_bulky_fields(safe_api_call(garmin, method, *args))
             except Exception as e:  # best-effort section; the error goes to the model
                 logger.debug(
                     "Garmin readiness section failed", extra={"section": key}, exc_info=True
@@ -442,7 +174,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
             result = safe_api_call(garmin, "get_activities_by_date", start, end, None)
             if isinstance(result, list):
                 result = result[: limit or 5]
-            payload["recent_activities"] = _strip_bulky_fields(result, max_list_items=50)
+            payload["recent_activities"] = strip_bulky_fields(result, max_list_items=50)
         except Exception as e:  # best-effort section; the error goes to the model
             logger.debug(
                 "Garmin readiness section failed",
@@ -581,7 +313,7 @@ def garmin_connect(
             api_method, result_key = _DAILY_ACTIONS[action]
             result = safe_api_call(garmin, api_method, target_date)
             return json.dumps(
-                {"action": action, "date": target_date, result_key: _strip_bulky_fields(result)}
+                {"action": action, "date": target_date, result_key: strip_bulky_fields(result)}
             )
 
         if action == "get_activities":
@@ -629,7 +361,7 @@ def _activities_result(garmin: Any, limit: int | None, activity_type: str | None
         {
             "action": "get_activities",
             "count": len(result) if isinstance(result, list) else 0,
-            "activities": _strip_bulky_fields(result, max_list_items=50),
+            "activities": strip_bulky_fields(result, max_list_items=50),
         }
     )
 
@@ -641,7 +373,7 @@ def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
     payload: dict[str, Any] = {
         "action": "get_activity_details",
         "activity_id": activity_id,
-        "activity": _strip_bulky_fields(result),
+        "activity": strip_bulky_fields(result),
     }
     # get_activity returns only summaryDTO. The granular breakdowns
     # (strength sets, HR time-in-zone, per-lap splits) each live in a
@@ -653,7 +385,7 @@ def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
 def _courses_result(garmin: Any, activity_type: str | None) -> str:
     result = safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
     courses = (
-        [_slim_course_summary(c) for c in result if isinstance(c, dict)]
+        [slim_course_summary(c) for c in result if isinstance(c, dict)]
         if isinstance(result, list)
         else []
     )
@@ -666,7 +398,7 @@ def _course_details_result(garmin: Any, course_id: str | None) -> str:
     if not course_id:
         return tool_error("course_id is required for get_course_details")
     result = safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
-    return json.dumps({"action": "get_course_details", "course": _slim_course_detail(result)})
+    return json.dumps({"action": "get_course_details", "course": slim_course_detail(result)})
 
 
 def is_garmin_available() -> bool:

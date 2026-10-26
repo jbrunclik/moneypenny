@@ -10,16 +10,21 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.tools.garmin import (
-    _GARMIN_ACTIONS,
-    _detect_climbs,
-    _profile_samples,
-    _slim_course_detail,
-    _slim_course_summary,
-    _strip_bulky_fields,
-    garmin_connect,
-    safe_api_call,
+from src.agent.tools.garmin import garmin_connect, safe_api_call
+from src.agent.tools.garmin_courses import (
+    detect_climbs,
+    profile_samples,
+    slim_course_detail,
+    slim_course_summary,
 )
+from src.agent.tools.garmin_payloads import strip_bulky_fields
+
+
+def _advertised_actions() -> list[str]:
+    """The actions the tool offers, as it lists them for an unknown one."""
+    with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
+        result = json.loads(garmin_connect.invoke({"action": "fly_to_moon"}))
+    return list(result["available_actions"])
 
 
 def _ramp(d0, d1, e0, e1, step=50):
@@ -37,12 +42,12 @@ def _ramp(d0, d1, e0, e1, step=50):
 class TestClimbDetection:
     def test_flat_profile_has_no_climbs(self):
         pts = _ramp(0, 3000, 100, 100)
-        assert _detect_climbs(pts) == []
+        assert detect_climbs(pts) == []
 
     def test_single_climb(self):
         # 100 m gain over 2 km = 5% grade
         pts = _ramp(0, 2000, 100, 200)
-        climbs = _detect_climbs(pts)
+        climbs = detect_climbs(pts)
         assert len(climbs) == 1
         c = climbs[0]
         assert c["gain_m"] == 100
@@ -51,11 +56,11 @@ class TestClimbDetection:
 
     def test_small_bump_below_threshold_ignored(self):
         # 15 m gain — below the 25 m minimum
-        assert _detect_climbs(_ramp(0, 500, 100, 115)) == []
+        assert detect_climbs(_ramp(0, 500, 100, 115)) == []
 
     def test_climb_descent_climb_gives_two(self):
         pts = _ramp(0, 1000, 100, 170) + _ramp(1000, 2000, 170, 100) + _ramp(2000, 3000, 100, 160)
-        climbs = _detect_climbs(pts)
+        climbs = detect_climbs(pts)
         assert len(climbs) == 2
         assert climbs[0]["start_km"] == 0.0
         assert climbs[1]["start_km"] == 2.0
@@ -63,21 +68,21 @@ class TestClimbDetection:
     def test_small_dip_within_climb_does_not_split(self):
         # rise, tiny 8 m dip (< 12 m tolerance), rise again -> one climb
         pts = _ramp(0, 1000, 100, 160) + _ramp(1000, 1100, 160, 152) + _ramp(1100, 2000, 152, 210)
-        climbs = _detect_climbs(pts)
+        climbs = detect_climbs(pts)
         assert len(climbs) == 1
 
 
 class TestProfileAndSummary:
     def test_profile_downsamples_to_n(self):
         pts = _ramp(0, 10000, 100, 300, step=10)  # 1001 points
-        prof = _profile_samples(pts, 32)
+        prof = profile_samples(pts, 32)
         assert len(prof) == 32
         assert prof[0] == {"km": 0.0, "elev_m": 100}
         assert prof[-1]["km"] == 10.0
 
     def test_profile_keeps_all_when_fewer_than_n(self):
         pts = [(0.0, 100.0), (500.0, 120.0), (1000.0, 110.0)]
-        prof = _profile_samples(pts, 32)
+        prof = profile_samples(pts, 32)
         assert len(prof) == 3
 
     def test_slim_course_summary(self):
@@ -90,7 +95,7 @@ class TestProfileAndSummary:
             "elevationLossInMeters": 1221.3,
             "favorite": False,
         }
-        assert _slim_course_summary(item) == {
+        assert slim_course_summary(item) == {
             "course_id": 1,
             "name": "Test",
             "activity_type": "gravel_cycling",
@@ -110,7 +115,7 @@ class TestProfileAndSummary:
             "elevationLossMeter": 0.0,
             "geoPoints": geo,
         }
-        out = _slim_course_detail(detail)
+        out = slim_course_detail(detail)
         assert out["distance_km"] == 2.0
         assert out["elevation_gain_m"] == 101  # exact Garmin value, not derived
         assert out["climb_count"] == 1
@@ -154,7 +159,7 @@ class TestCourseDispatch:
         assert "course_id is required" in out["error"]
 
     def test_course_actions_in_action_set(self):
-        assert {"get_courses", "get_course_details"} <= _GARMIN_ACTIONS
+        assert {"get_courses", "get_course_details"} <= set(_advertised_actions())
 
 
 class TestGarminGuards:
@@ -168,7 +173,8 @@ class TestGarminGuards:
         with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_connect.invoke({"action": "fly_to_moon"}))
         assert "Unknown action" in result["error"]
-        assert result["available_actions"] == sorted(_GARMIN_ACTIONS)
+        assert result["available_actions"] == sorted(result["available_actions"])
+        assert "get_stats" in result["available_actions"]
 
     def test_activity_details_requires_id(self) -> None:
         with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
@@ -277,17 +283,17 @@ class TestSafeApiCall:
 class TestStripBulkyFields:
     def test_long_lists_are_summarized(self) -> None:
         data = {"waypoints": list(range(500)), "name": "Run"}
-        stripped = _strip_bulky_fields(data, max_list_items=20)
+        stripped = strip_bulky_fields(data, max_list_items=20)
         assert stripped["name"] == "Run"
         assert "500 items omitted" in stripped["waypoints"]
 
     def test_short_lists_pass_through(self) -> None:
         data = {"splits": [1, 2, 3]}
-        assert _strip_bulky_fields(data)["splits"] == [1, 2, 3]
+        assert strip_bulky_fields(data)["splits"] == [1, 2, 3]
 
     def test_nested_structures(self) -> None:
         data = {"summary": {"laps": [{"metrics": list(range(100))}]}}
-        stripped = _strip_bulky_fields(data, max_list_items=10)
+        stripped = strip_bulky_fields(data, max_list_items=10)
         assert "100 items omitted" in stripped["summary"]["laps"][0]["metrics"]
 
 
@@ -296,7 +302,7 @@ class TestBulkyFieldStripping:
     to ~150k input tokens - stripping keeps summaries only."""
 
     def test_time_series_keys_dropped_summaries_kept(self) -> None:
-        from src.agent.tools.garmin import _strip_bulky_fields
+        from src.agent.tools.garmin import strip_bulky_fields
 
         sleep_payload = {
             "dailySleepDTO": {
@@ -311,7 +317,7 @@ class TestBulkyFieldStripping:
             "avgOvernightHrv": 55,
         }
 
-        slimmed = _strip_bulky_fields(sleep_payload)
+        slimmed = strip_bulky_fields(sleep_payload)
         assert slimmed["dailySleepDTO"]["sleepScores"]["overall"]["value"] == 82
         assert slimmed["avgOvernightHrv"] == 55
         assert "sleepMovement" not in slimmed
@@ -320,10 +326,10 @@ class TestBulkyFieldStripping:
         assert slimmed["hrvData"] == [{"value": 55}] * 3
 
     def test_unknown_long_lists_collapse_to_note(self) -> None:
-        from src.agent.tools.garmin import _strip_bulky_fields
+        from src.agent.tools.garmin import strip_bulky_fields
 
         payload = {"someNewSeries": [{"t": i} for i in range(300)], "avg": 7}
-        slimmed = _strip_bulky_fields(payload)
+        slimmed = strip_bulky_fields(payload)
         assert slimmed["avg"] == 7
         assert isinstance(slimmed["someNewSeries"], str)
         assert "300 items omitted" in slimmed["someNewSeries"]
@@ -331,7 +337,7 @@ class TestBulkyFieldStripping:
     def test_payload_size_reduction_is_drastic(self) -> None:
         import json
 
-        from src.agent.tools.garmin import _strip_bulky_fields
+        from src.agent.tools.garmin import strip_bulky_fields
 
         payload = {
             "dailySleepDTO": {"sleepTimeSeconds": 27360},
@@ -341,7 +347,7 @@ class TestBulkyFieldStripping:
             "stressValuesArray": [[1718000000 + i, 25] for i in range(480)],
         }
         before = len(json.dumps(payload))
-        after = len(json.dumps(_strip_bulky_fields(payload)))
+        after = len(json.dumps(strip_bulky_fields(payload)))
         assert after < before / 10
 
 

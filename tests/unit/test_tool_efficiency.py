@@ -321,6 +321,8 @@ class TestReadinessSnapshot:
         assert "no HRV" in out["hrv"]["error"]
 
     def test_snapshot_is_an_advertised_action(self) -> None:
-        from src.agent.tools.garmin import _GARMIN_ACTIONS
+        from src.agent.tools.garmin import garmin_connect
 
-        assert "get_readiness_snapshot" in _GARMIN_ACTIONS
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
+            listed = json.loads(garmin_connect.invoke({"action": "no_such_action"}))
+        assert "get_readiness_snapshot" in listed["available_actions"]
