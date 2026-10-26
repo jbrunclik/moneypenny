@@ -10,7 +10,6 @@
  * - Visibility-aware polling (pauses when tab hidden)
  */
 
-import { agents as agentsApi } from '../api/agents';
 import { conversations as conversationsApi } from '../api/conversations';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
@@ -26,6 +25,7 @@ import { SyncState, type SyncManagerCallbacks } from './sync-state';
 import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
+import { syncCommandCenter } from './command-center-sync';
 
 const log = createLogger('sync');
 
@@ -228,7 +228,7 @@ export class SyncManager {
       });
 
       // Also sync command center to show badges immediately
-      await this.syncCommandCenter();
+      await syncCommandCenter();
     } catch (error) {
       log.warn('Full sync failed', { error });
       // Don't throw - syncing is best-effort
@@ -301,7 +301,7 @@ export class SyncManager {
       await this.agentConversation.sync();
 
       // Sync command center to keep badges updated
-      await this.syncCommandCenter();
+      await syncCommandCenter();
     } catch (error) {
       log.warn('Incremental sync failed', { error });
       // Don't throw - syncing is best-effort
@@ -1038,34 +1038,6 @@ export class SyncManager {
    */
   setViewedAgent(agentId: string | null, messageCount?: number): void {
     this.agentConversation.setViewedAgent(agentId, messageCount);
-  }
-
-  /**
-   * Sync command center data to keep sidebar badges updated.
-   * This fetches the latest command center summary and updates the store.
-   */
-  private async syncCommandCenter(): Promise<void> {
-    try {
-      const data = await agentsApi.getCommandCenter();
-      const store = useStore.getState();
-
-      // Only update if values changed (to avoid unnecessary re-renders)
-      const currentData = store.commandCenterData;
-      if (!currentData ||
-          currentData.total_unread !== data.total_unread ||
-          currentData.agents_waiting !== data.agents_waiting ||
-          currentData.agents_with_errors !== data.agents_with_errors) {
-        store.setCommandCenterData(data);
-        log.debug('Command center sync updated', {
-          totalUnread: data.total_unread,
-          agentsWaiting: data.agents_waiting,
-          agentsWithErrors: data.agents_with_errors,
-        });
-      }
-    } catch (error) {
-      log.warn('Command center sync failed', { error });
-      // Don't throw - syncing is best-effort
-    }
   }
 }
 
