@@ -12,11 +12,11 @@ from langgraph.graph import END, StateGraph
 from src.agent.graph import (
     compile_graph,
     create_chat_graph,
-    create_tool_node,
     get_graph_config,
     should_continue,
 )
 from src.agent.graph_state import AgentState
+from src.agent.tool_node import create_tool_node
 from src.agent.tool_round_check import check_tool_results
 from src.config import Config
 
