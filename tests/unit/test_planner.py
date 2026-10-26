@@ -13,6 +13,7 @@ from typing import Any
 
 from src.agent.prompts import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
+from src.services.planner.dates import day_name, parse_date, parse_datetime
 from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
@@ -22,9 +23,6 @@ from src.services.planner.models import (
 from src.services.planner_data import (
     _format_event_for_dashboard,
     _format_task_for_dashboard,
-    _get_day_name,
-    _parse_date,
-    _parse_datetime,
 )
 
 
@@ -125,33 +123,33 @@ class TestShouldResetPlanner:
 
 
 class TestGetDayName:
-    """Tests for _get_day_name helper function."""
+    """Tests for the day_name helper."""
 
     def test_today(self) -> None:
         """Test that today returns 'Today'."""
         now = datetime.now()
-        assert _get_day_name(now, now) == "Today"
+        assert day_name(now, now) == "Today"
 
     def test_tomorrow(self) -> None:
         """Test that tomorrow returns 'Tomorrow'."""
         now = datetime.now()
         tomorrow = now + timedelta(days=1)
-        assert _get_day_name(tomorrow, now) == "Tomorrow"
+        assert day_name(tomorrow, now) == "Tomorrow"
 
     def test_weekday(self) -> None:
         """Test that other days return weekday name."""
         now = datetime.now()
         future = now + timedelta(days=3)
-        result = _get_day_name(future, now)
+        result = day_name(future, now)
         assert result == future.strftime("%A")
 
 
 class TestParseDate:
-    """Tests for _parse_date helper function."""
+    """Tests for the parse_date helper."""
 
     def test_valid_date(self) -> None:
         """Test parsing a valid date string."""
-        result = _parse_date("2024-12-25")
+        result = parse_date("2024-12-25")
         assert result is not None
         assert result.year == 2024
         assert result.month == 12
@@ -159,20 +157,20 @@ class TestParseDate:
 
     def test_none_returns_none(self) -> None:
         """Test that None input returns None."""
-        assert _parse_date(None) is None
+        assert parse_date(None) is None
 
     def test_invalid_format_returns_none(self) -> None:
         """Test that invalid format returns None."""
-        assert _parse_date("25-12-2024") is None
-        assert _parse_date("invalid") is None
+        assert parse_date("25-12-2024") is None
+        assert parse_date("invalid") is None
 
 
 class TestParseDatetime:
-    """Tests for _parse_datetime helper function."""
+    """Tests for the parse_datetime helper."""
 
     def test_iso_format(self) -> None:
         """Test parsing ISO datetime string."""
-        result = _parse_datetime("2024-12-25T10:30:00")
+        result = parse_datetime("2024-12-25T10:30:00")
         assert result is not None
         assert result.year == 2024
         assert result.month == 12
@@ -182,13 +180,13 @@ class TestParseDatetime:
 
     def test_z_suffix(self) -> None:
         """Test parsing datetime with Z suffix (UTC)."""
-        result = _parse_datetime("2024-12-25T10:30:00Z")
+        result = parse_datetime("2024-12-25T10:30:00Z")
         assert result is not None
         assert result.year == 2024
 
     def test_none_returns_none(self) -> None:
         """Test that None input returns None."""
-        assert _parse_datetime(None) is None
+        assert parse_datetime(None) is None
 
 
 class TestFormatTaskForDashboard:

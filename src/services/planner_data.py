@@ -15,6 +15,7 @@ import httpx
 
 from src.auth.garmin_auth import create_client_from_tokens
 from src.config import Config
+from src.services.planner.dates import day_name, parse_date, parse_datetime
 from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
@@ -42,39 +43,6 @@ def _close_thread_pool_connections(db: Any = None) -> None:
             db._pool.close_thread_connection()
         except Exception:
             logger.debug("Thread-local db connection close failed", exc_info=True)
-
-
-def _get_day_name(date: datetime, today: datetime) -> str:
-    """Get a human-readable name for a day relative to today."""
-    days_diff = (date.date() - today.date()).days
-    if days_diff == 0:
-        return "Today"
-    if days_diff == 1:
-        return "Tomorrow"
-    return date.strftime("%A")  # Full weekday name
-
-
-def _parse_date(date_str: str | None) -> datetime | None:
-    """Parse a date string (YYYY-MM-DD) to datetime."""
-    if not date_str:
-        return None
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        return None
-
-
-def _parse_datetime(datetime_str: str | None) -> datetime | None:
-    """Parse an ISO datetime string to datetime."""
-    if not datetime_str:
-        return None
-    try:
-        # Handle timezone-aware strings
-        if datetime_str.endswith("Z"):
-            datetime_str = datetime_str[:-1] + "+00:00"
-        return datetime.fromisoformat(datetime_str)
-    except ValueError:
-        return None
 
 
 def _format_task_for_dashboard(
@@ -274,7 +242,7 @@ def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
 
             # Determine if task is overdue or upcoming
             if planner_task.due_date:
-                task_date = _parse_date(planner_task.due_date)
+                task_date = parse_date(planner_task.due_date)
                 if task_date and task_date.date() < today:
                     overdue_tasks.append(planner_task)
                 else:
@@ -558,7 +526,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         days.append(
             PlannerDay(
                 date=day_date.strftime("%Y-%m-%d"),
-                day_name=_get_day_name(day_date, now),
+                day_name=day_name(day_date, now),
             )
         )
 
@@ -777,9 +745,9 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         # For multi-day events (all-day events spanning multiple days),
         # add the event to every day it occurs
         if event.is_all_day and event.start_date and event.end_date:
-            start_dt = _parse_date(event.start_date)
+            start_dt = parse_date(event.start_date)
             # Google Calendar's end_date is exclusive (the day after the event ends)
-            end_dt = _parse_date(event.end_date)
+            end_dt = parse_date(event.end_date)
 
             if start_dt and end_dt:
                 # Add event to each day it spans (end_date is exclusive)
@@ -795,7 +763,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         if event.start_date:
             event_date = event.start_date
         elif event.start:
-            parsed = _parse_datetime(event.start)
+            parsed = parse_datetime(event.start)
             if parsed:
                 event_date = parsed.strftime("%Y-%m-%d")
             else:
@@ -814,7 +782,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         weather_by_date: dict[str, list[Any]] = {}
         for period in forecast.periods:
             # Parse period time to get date
-            period_time = _parse_datetime(period.time)
+            period_time = parse_datetime(period.time)
             if period_time:
                 date_key = period_time.strftime("%Y-%m-%d")
                 if date_key not in weather_by_date:
