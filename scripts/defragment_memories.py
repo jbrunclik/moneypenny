@@ -476,7 +476,6 @@ def defragment_user_memories(
         "Starting memory defragmentation for user",
         extra={
             "user_id": user.id,
-            "user_email": user.email,
             "memory_count": memory_count,
             "target_count": target_count,
         },
