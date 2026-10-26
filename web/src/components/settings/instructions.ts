@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../utils/dom';
 import { EDIT_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
@@ -40,7 +41,7 @@ export function renderInstructionsSection(): string {
           class="settings-textarea"
           placeholder="Enter your custom instructions here..."
           maxlength="${CHAR_LIMIT}"
-        >${instructions}</textarea>
+        >${escapeHtml(instructions)}</textarea>
         <span class="settings-char-count ${charCountClass}">${charCount}/${CHAR_LIMIT}</span>
         <span class="settings-saved-indicator" data-saved-for="custom-instructions">Saved</span>
       </div>

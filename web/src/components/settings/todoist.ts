@@ -1,3 +1,4 @@
+import { escapeHtml } from '../../utils/dom';
 import { CHECK_ICON, WARNING_ICON, CHECKLIST_ICON } from '../../utils/icons';
 import { todoist } from '../../api/integrations';
 import { toast } from '../Toast';
@@ -53,7 +54,7 @@ function renderTodoistBody(status: TodoistStatus | null): string {
       <div class="settings-todoist-connected">
         <span class="settings-todoist-status">
           <span class="settings-todoist-icon connected">${CHECK_ICON}</span>
-          Connected${status.todoist_email ? ` as ${status.todoist_email}` : ''}
+          Connected${status.todoist_email ? ` as ${escapeHtml(status.todoist_email)}` : ''}
         </span>
         <button type="button" class="btn btn-secondary btn-sm settings-todoist-disconnect">
           Disconnect

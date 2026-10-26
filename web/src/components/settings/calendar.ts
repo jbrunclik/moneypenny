@@ -146,7 +146,7 @@ function renderCalendarBody(status: CalendarStatus | null): string {
         <div class="settings-calendar-connected">
           <span class="settings-calendar-status">
             <span class="settings-calendar-icon connected">${CHECK_ICON}</span>
-            Connected${status.calendar_email ? ` as ${status.calendar_email}` : ''}
+            Connected${status.calendar_email ? ` as ${escapeHtml(status.calendar_email)}` : ''}
           </span>
           <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
             Disconnect
