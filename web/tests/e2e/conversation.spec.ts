@@ -5,6 +5,7 @@ import { deflateSync } from 'zlib';
 import { test, expect } from '../global-setup';
 import { TEST_IMAGES } from '../fixtures/test-images';
 import { attachScrollLog, installScrollLog } from './chat/fixtures';
+import { nextFrames, scrollSettled } from './waits';
 
 /**
  * Generate a minimal valid PNG image buffer programmatically.
@@ -288,7 +289,7 @@ test.describe('Conversations', () => {
     resolveApiCall!();
 
     // Give a moment for any erroneous state update
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for an erroneous late update to show (none must)
 
     // The welcome message should STILL be visible (regression test - this used to fail)
     await expect(welcomeMessage).toBeVisible();
@@ -828,7 +829,7 @@ test.describe('Scroll to bottom behavior', () => {
     );
 
     // Wait a bit to ensure no scroll hijacking occurs
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for a hijacking scroll to show (none must)
 
     // Verify scroll was NOT hijacked to the bottom
     // The test intent is to ensure user's scroll-up position is respected
@@ -890,7 +891,7 @@ test.describe('Scroll to bottom behavior', () => {
     const messagesContainer = page.locator('#messages');
 
     // Wait for initial scroll to complete and image to be rendered
-    await page.waitForTimeout(300);
+    await scrollSettled(page);
 
     // Scroll to the top of the conversation (user browsing history). The
     // user's input comes first: a bare scrollTop write is layout to the app
@@ -901,7 +902,7 @@ test.describe('Scroll to bottom behavior', () => {
     });
 
     // Wait for scroll event to be processed
-    await page.waitForTimeout(200);
+    await nextFrames(page);
 
     // Verify we're at the top
     const scrollTopAtTop = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -924,7 +925,7 @@ test.describe('Scroll to bottom behavior', () => {
     }, scrollPosition);
 
     // Wait for scroll event to be processed
-    await page.waitForTimeout(200);
+    await nextFrames(page);
 
     // Verify we're scrolled up (not at bottom)
     const scrollTopAfterScroll = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -943,7 +944,8 @@ test.describe('Scroll to bottom behavior', () => {
     // Wait for image to actually load (src attribute set and image rendered)
     // This tests the race condition: image finishes loading while user is scrolled up
     // The fix should prevent scroll hijacking even if the image loads quickly
-    await page.waitForTimeout(500);
+    await expect.poll(() => image.evaluate((img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0), { timeout: 5000 }).toBe(true);
+    await nextFrames(page, 3);
 
     // Verify we're still at the same scroll position (not hijacked back to bottom)
     // This is the critical assertion - even though the image loaded, we shouldn't scroll
@@ -1006,7 +1008,7 @@ test.describe('Scroll to bottom behavior', () => {
     const messagesContainer = page.locator('#messages');
 
     // Wait for initial render
-    await page.waitForTimeout(500);
+    await scrollSettled(page);
 
     // Scroll to top (user browsing history; input first - see above)
     await messagesContainer.evaluate((el) => {
@@ -1033,7 +1035,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Wait a very short time - this is the race condition window
     // The scroll listener has a 100ms debounce, but image might load faster
-    await page.waitForTimeout(50);
+    await page.waitForTimeout(50); // inside the 100ms debounce: the race window under test
 
     // Verify we're scrolled up (not at bottom)
     const scrollTopBeforeLoad = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -1110,7 +1112,7 @@ test.describe('Scroll to bottom behavior', () => {
     );
 
     // Wait a bit for scroll to happen after image loads
-    await page.waitForTimeout(500);
+    await expect.poll(() => page.locator('#messages').evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), { timeout: 5000 }).toBeLessThanOrEqual(50);
 
     // Verify we're scrolled to the bottom - the last message should be visible
     const messagesContainer = page.locator('#messages');
@@ -1197,7 +1199,7 @@ test.describe('Scroll to bottom behavior', () => {
     );
 
     // Wait a bit for scroll to happen after images load
-    await page.waitForTimeout(500);
+    await expect.poll(() => page.locator('#messages').evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), { timeout: 5000 }).toBeLessThanOrEqual(50);
 
     // Verify we're scrolled to the bottom - the last message should be visible
     const messagesContainer = page.locator('#messages');
@@ -1334,7 +1336,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Wait for renderMessages() to complete its initial scroll and layout settling
     // renderMessages() uses double RAF for scroll, then counts images, then observes them
-    await page.waitForTimeout(500);
+    await scrollSettled(page);
 
     // Get initial scroll position after renderMessages() completes
     // This helps us understand if the initial scroll worked correctly
@@ -1356,7 +1358,7 @@ test.describe('Scroll to bottom behavior', () => {
       await messagesContainer.evaluate((el) => {
         el.scrollTop = el.scrollHeight;
       });
-      await page.waitForTimeout(100);
+      await nextFrames(page);
     }
 
     // STEP 3: Wait for IntersectionObserver to fire and images to load
@@ -1400,12 +1402,11 @@ test.describe('Scroll to bottom behavior', () => {
     );
 
     // Give a moment for any async operations to complete (image load handlers, etc.)
-    await page.waitForTimeout(300);
+    await expect.poll(() => page.locator('#messages').evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), { timeout: 5000 }).toBeLessThanOrEqual(50);
 
     // STEP 4: Wait for scroll to happen after images load
     // The scroll happens in triple RAF (requestAnimationFrame) to ensure layout has settled
     // Also wait for any delayed retries in case images loaded in quick succession
-    await page.waitForTimeout(500);
 
     // STEP 5: Verify final scroll position
     // After all images load, we should be scrolled to the bottom
@@ -1488,7 +1489,7 @@ test.describe('Scroll to bottom behavior', () => {
     );
 
     // Wait a bit for scroll to happen after image loads
-    await page.waitForTimeout(500);
+    await expect.poll(() => page.locator('#messages').evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight), { timeout: 5000 }).toBeLessThanOrEqual(50);
 
     // Verify we're scrolled to the bottom - the last message should be visible
     const messagesContainer = page.locator('#messages');
@@ -1591,7 +1592,7 @@ test.describe('Scroll to bottom behavior', () => {
     await expect(assistantMessage).toBeVisible();
 
     // Wait for layout to stabilize after message render
-    await page.waitForTimeout(200);
+    await scrollSettled(page);
 
     // Verify scroll position is reasonable (at or near top since content fits)
     const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
