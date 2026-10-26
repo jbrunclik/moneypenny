@@ -190,7 +190,7 @@ def _write(
     """Stream the report as token events; returns the model that wrote it.
 
     A writer model that is down before the first token falls back to the
-    other tier (as chat turns do, src/agent/graph.py).
+    other tier (as chat turns do, src/agent/chat_node.py).
     """
     model_name = Config.DEEP_RESEARCH_WRITER_MODEL
     try:

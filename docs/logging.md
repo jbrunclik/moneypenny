@@ -381,7 +381,7 @@ logger.debug("Processing complete")
 
 **Agent** ([../../src/agent/](../src/agent/)):
 - LLM invocations with token counts ([agent.py](../src/agent/agent.py))
-- Tool calls and results ([graph.py](../src/agent/graph.py))
+- Tool calls and results ([chat_node.py](../src/agent/chat_node.py), [tool_node.py](../src/agent/tool_node.py))
 - Response extraction and metadata parsing ([content.py](../src/agent/content.py))
 
 **Tools** ([../../src/agent/tools/](../src/agent/tools/)):

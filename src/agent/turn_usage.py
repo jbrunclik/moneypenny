@@ -123,7 +123,7 @@ def build_usage_info(
         "tools_used": tools_used,
         "tool_errors": tool_errors,
     }
-    # The other model tier answered (graph.chat_node): price the turn at it
+    # The other model tier answered (chat_node.chat_node): price the turn at it
     fallback = next(
         (
             m.response_metadata["model_fallback"]

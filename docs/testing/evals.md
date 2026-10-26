@@ -8,7 +8,7 @@ LLM judge. Lives in [evals/](../../evals/).
 
 Run `make eval` **before and after** changing:
 - the system prompt or tool descriptions ([prompts.py](../../src/agent/prompts.py) assembles; texts in [prompt_texts/](../../src/agent/prompt_texts/))
-- the graph flow ([graph.py](../../src/agent/graph.py))
+- the graph flow ([graph.py](../../src/agent/graph.py) and its nodes: `chat_node.py`, `tool_node.py`, `tool_round_check.py`)
 - tool registration/bindings
 - the default model or thinking settings
 

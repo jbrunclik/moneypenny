@@ -1,7 +1,9 @@
-"""LangGraph chat graph construction for the chat agent.
+"""LangGraph chat graph construction for the chat agent: topology and routing.
 
-This module handles creating and configuring the LangGraph state machine
-that powers the chat agent's conversation flow with tool support.
+This module wires the LangGraph state machine that powers the chat agent's
+conversation flow with tool support. The nodes live in chat_node.py,
+tool_node.py and tool_round_check.py; compiled graphs are memoized in
+graph_cache.py.
 
 Graph flow (with tools):
   START -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
@@ -22,25 +24,13 @@ from langgraph.graph import END, StateGraph
 
 from src.agent.chat_model import create_chat_model, fallback_model_factory
 from src.agent.chat_node import chat_node
-from src.agent.content import (
-    extract_text_content,
-    strip_echoed_msg_context,
-)
+from src.agent.content import extract_text_content, strip_echoed_msg_context
 from src.agent.graph_state import AgentState
 from src.agent.tool_node import create_tool_node
 from src.agent.tool_round_check import check_tool_results
 from src.agent.tools import get_available_tools
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
 from src.config import Config
-from src.utils.logging import get_logger
-
-logger = get_logger(__name__)
-
-
-# ============ Model Creation ============
-
-
-# ============ Graph Nodes ============
 
 
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
@@ -77,10 +67,59 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"
 
 
-# ============ Tool Node Factory ============
+def _add_chat_node(
+    graph: StateGraph[AgentState],
+    model_name: str,
+    *,
+    with_tools: bool,
+    include_thoughts: bool,
+    tools: list[Any],
+    cached_content: str | None,
+    thinking_level: str | None,
+) -> None:
+    """The chat node: the turn's model, with the other tier as its fallback."""
+    model = create_chat_model(
+        model_name,
+        with_tools=with_tools,
+        include_thoughts=include_thoughts,
+        tools=tools,
+        cached_content=cached_content,
+        thinking_level=thinking_level,
+    )
+    use_cache = cached_content is not None
+    fallback = fallback_model_factory(model_name, with_tools, include_thoughts, tools)
+    graph.add_node(
+        "chat",
+        lambda state, config: chat_node(
+            state, model, use_cache=use_cache, config=config, fallback=fallback
+        ),
+    )
 
 
-# ============ Graph Factory ============
+def _add_tool_loop(
+    graph: StateGraph[AgentState], tools: list[Any], is_autonomous: bool, use_cache: bool
+) -> None:
+    """chat -> should_continue -> tools -> check_tool_results -> chat."""
+    # Add tool node with stripping of large results and error handling
+    tool_node = create_tool_node(tools, is_autonomous=is_autonomous)
+    graph.add_node("tools", tool_node)
+
+    # Add self-correction node
+    graph.add_node(
+        "check_tool_results",
+        lambda state: check_tool_results(state, use_cache=use_cache),
+    )
+
+    graph.set_entry_point("chat")
+
+    # Add conditional edge based on whether to use tools
+    graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})
+
+    # After tools, check results for errors
+    graph.add_edge("tools", "check_tool_results")
+
+    # After checking results, go back to chat
+    graph.add_edge("check_tool_results", "chat")
 
 
 def create_chat_graph(
@@ -109,7 +148,12 @@ def create_chat_graph(
         thinking_level: Overrides the model's configured thinking_level
     """
     active_tools = tools if tools is not None else get_available_tools()
-    model = create_chat_model(
+    # Capture whether cache is active for nodes that inject guidance messages
+    use_cache = cached_content is not None
+
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
+    _add_chat_node(
+        graph,
         model_name,
         with_tools=with_tools,
         include_thoughts=include_thoughts,
@@ -118,58 +162,14 @@ def create_chat_graph(
         thinking_level=thinking_level,
     )
 
-    # Capture whether cache is active for nodes that inject guidance messages
-    use_cache = cached_content is not None
-
-    # Define the graph
-    graph: StateGraph[AgentState] = StateGraph(AgentState)
-
-    fallback = fallback_model_factory(model_name, with_tools, include_thoughts, active_tools)
-
-    # Add the chat node
-    graph.add_node(
-        "chat",
-        lambda state, config: chat_node(
-            state, model, use_cache=use_cache, config=config, fallback=fallback
-        ),
-    )
-
     if with_tools and active_tools:
-        # Add tool node with stripping of large results and error handling
-        tool_node = create_tool_node(active_tools, is_autonomous=is_autonomous)
-        graph.add_node("tools", tool_node)
-
-        # Add self-correction node
-        graph.add_node(
-            "check_tool_results",
-            lambda state: check_tool_results(state, use_cache=use_cache),
-        )
-
-        graph.set_entry_point("chat")
-
-        # Add conditional edge based on whether to use tools
-        graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})
-
-        # After tools, check results for errors
-        graph.add_edge("tools", "check_tool_results")
-
-        # After checking results, go back to chat
-        graph.add_edge("check_tool_results", "chat")
+        _add_tool_loop(graph, active_tools, is_autonomous, use_cache)
     else:
         # Simple graph without tools
         graph.set_entry_point("chat")
         graph.add_edge("chat", END)
 
     return graph
-
-
-# ============ Compiled-graph memoization ============
-#
-# create_chat_graph + compile_graph ran in ChatAgent.__init__ on every request,
-# rebuilding + recompiling a graph that is a pure function of its build
-# signature. The compiled graph is stateless (state is passed per invoke; the
-# request id rides a contextvar, not the graph), so it is safe to compile once
-# per signature and share across requests and threads.
 
 
 def compile_graph(graph: StateGraph[AgentState]) -> Any:

@@ -116,12 +116,12 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Lint: knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
-- [ ] **Shrink the ruff baseline** (Oct 26 2026: 15 bare complexity `# noqa` lines, 2 in `src/` - 13 `C901` (2 in `src/`), 9 `PLR0912` (2), 6 `PLR0915` (1); the `src/` ones are `agent/graph.py` `check_tool_results` (goes with the graph.py split) and `config.py` `Config.validate`, the rest are in `scripts/`, `evals/` and the E2E server; every other code is fixed or carries a reason): `grep -rn "# noqa: [A-Z0-9, ]*$" src evals scripts tests` lists them.
+- [ ] **Shrink the ruff baseline** (Oct 26 2026: 14 bare complexity `# noqa` lines, 1 in `src/` - 12 `C901` (1 in `src/`), 8 `PLR0912` (1), 5 `PLR0915` (0); the `src/` one is `config.py` `Config.validate`, the rest are in `scripts/`, `evals/` and the E2E server; every other code is fixed or carries a reason): `grep -rn "# noqa: [A-Z0-9, ]*$" src evals scripts tests` lists them.
+
 - [ ] **Timezone-aware datetimes** (decided Oct 25 2026, a migration, not a lint rollout): ~280 naive `datetime.now()`/`datetime()` uses store host-local time, so behavior depends on the production host's timezone and the 4am planner reset and "today" shift at DST changes. Store UTC everywhere, convert only for display and day boundaries, migrate the stored timestamps, then turn on ruff `DTZ` with no baseline. Partial adoption is unsafe: comparing aware and naive datetimes raises `TypeError`.
 - [ ] **Split the files where bugs cluster** (Oct 25 2026 ranking by churn and fix commits over 90 days; the 500-line file limit was dropped for function limits, see docs/conventions.md):
   - `web/src/utils/thumbnails.ts` (1094, 10 of 12 commits were fixes, 12 functions over 50 lines) with `components/messages/streaming.ts` (705, 7 fixes) - mostly scroll-after-image-load logic under the wrong name; the two overlap.
   - `web/src/core/keyboard-viewport.ts` (553, 25 fixes in 90 days; `initKeyboardViewportPinning` 251 lines) - the most bug-dense file, but only verifiable on a real iPhone: do it with a device session.
-  - `src/agent/graph.py` (1082; `check_tool_results` 171 lines, 8 functions over 50) - pair with an eval run that is happening anyway.
 
 ## Parked (reopen on the trigger)
 

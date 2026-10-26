@@ -29,12 +29,13 @@ _MAX_CACHE_NAMES_PER_SIGNATURE = 3
 
 def _graph_signature(
     model_name: str,
+    *,
     with_tools: bool,
     include_thoughts: bool,
     tools: list[Any],
     is_autonomous: bool,
-    thinking_level: str | None,
     cached_content: str | None,
+    thinking_level: str | None,
 ) -> tuple[Any, ...]:
     """Everything the compiled graph depends on. Tool names are sorted so the
     key is order-independent (the tool set, not its ordering, matters).
@@ -103,15 +104,7 @@ def get_compiled_graph(
     }
     if not memoize:
         return compile_graph(create_chat_graph(model_name, **build_args))
-    key = _graph_signature(
-        model_name,
-        with_tools,
-        include_thoughts,
-        active_tools,
-        is_autonomous,
-        thinking_level,
-        cached_content,
-    )
+    key = _graph_signature(model_name, **build_args)
 
     with _compiled_graph_lock:
         cached = _compiled_graph_cache.get(key)
