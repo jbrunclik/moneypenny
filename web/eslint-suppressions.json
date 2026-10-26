@@ -152,11 +152,6 @@
       "count": 1
     }
   },
-  "src/core/gestures.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "src/core/startup/app-shell.ts": {
     "no-unsanitized/property": {
       "count": 1

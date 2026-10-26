@@ -89,30 +89,16 @@ function createConversationSwipe(swipe: SwipeState): SwipeHandlers {
   });
 }
 
-/**
- * Setup touch gestures for mobile devices.
- */
-export function setupTouchGestures(): void {
-  if (!isTouchDevice()) return;
-
-  const conversationsList = getElementById('conversations-list');
-  const sidebar = getElementById('sidebar');
-  const main = document.querySelector<HTMLElement>('.main');
-
-  if (!conversationsList || !sidebar || !main) return;
-
-  // Track active swipe type to prevent conflicts
-  const swipe: SwipeState = { activeSwipeType: 'none' };
-
-  // Swipe to reveal rename and delete on conversations
-  const conversationSwipe = createConversationSwipe(swipe);
-
-  conversationsList.addEventListener('touchstart', conversationSwipe.handleTouchStart, { passive: true });
-  conversationsList.addEventListener('touchmove', conversationSwipe.handleTouchMove, { passive: true });
-  conversationsList.addEventListener('touchend', conversationSwipe.handleTouchEnd, { passive: true });
-  conversationsList.addEventListener('touchcancel', conversationSwipe.handleTouchCancel, { passive: true });
-
-  // Sidebar edge swipe - swipe from left edge to open, swipe left to close
+/** The sidebar edge/close swipe handlers; share the active swipe type with the rows'. */
+function createSidebarSwipeHandlers(
+  sidebar: HTMLElement,
+  swipe: SwipeState
+): {
+  handleSidebarTouchStart: (e: TouchEvent) => void;
+  handleSidebarTouchMove: (e: TouchEvent) => void;
+  handleSidebarTouchEnd: () => void;
+  handleSidebarTouchCancel: () => void;
+} {
   let sidebarSwipeStartX = 0;
   let sidebarSwipeStartY = 0;
   let sidebarSwipeCurrentX = 0;
@@ -238,6 +224,36 @@ export function setupTouchGestures(): void {
     isSidebarSwiping = false;
     swipe.activeSwipeType = 'none';
   };
+
+  return { handleSidebarTouchStart, handleSidebarTouchMove, handleSidebarTouchEnd, handleSidebarTouchCancel };
+}
+
+/**
+ * Setup touch gestures for mobile devices.
+ */
+export function setupTouchGestures(): void {
+  if (!isTouchDevice()) return;
+
+  const conversationsList = getElementById('conversations-list');
+  const sidebar = getElementById('sidebar');
+  const main = document.querySelector<HTMLElement>('.main');
+
+  if (!conversationsList || !sidebar || !main) return;
+
+  // Track active swipe type to prevent conflicts
+  const swipe: SwipeState = { activeSwipeType: 'none' };
+
+  // Swipe to reveal rename and delete on conversations
+  const conversationSwipe = createConversationSwipe(swipe);
+
+  conversationsList.addEventListener('touchstart', conversationSwipe.handleTouchStart, { passive: true });
+  conversationsList.addEventListener('touchmove', conversationSwipe.handleTouchMove, { passive: true });
+  conversationsList.addEventListener('touchend', conversationSwipe.handleTouchEnd, { passive: true });
+  conversationsList.addEventListener('touchcancel', conversationSwipe.handleTouchCancel, { passive: true });
+
+  // Sidebar edge swipe - swipe from left edge to open, swipe left to close
+  const { handleSidebarTouchStart, handleSidebarTouchMove, handleSidebarTouchEnd, handleSidebarTouchCancel } =
+    createSidebarSwipeHandlers(sidebar, swipe);
 
   // Attach sidebar swipe to main area (for edge swipe to open).
   // touchmove is passive:false so it can preventDefault the edge swipe and
