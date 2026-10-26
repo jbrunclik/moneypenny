@@ -32,9 +32,9 @@ describe('image-load chase vs a clamp', () => {
     vi.resetModules();
   });
 
-  async function armed(): Promise<{ el: HTMLElement; set: (top: number, height: number) => void; thumbs: typeof import('@/utils/thumbnails'); dom: typeof import('@/utils/dom') }> {
+  async function armed(): Promise<{ el: HTMLElement; set: (top: number, height: number) => void; thumbs: typeof import('@/components/messages/image-load-scroll'); dom: typeof import('@/utils/dom') }> {
     const l = list();
-    const thumbs = await import('@/utils/thumbnails');
+    const thumbs = await import('@/components/messages/image-load-scroll');
     const dom = await import('@/utils/dom');
     thumbs.enableScrollOnImageLoad();
     // Past the grace period after enabling

@@ -41,7 +41,8 @@ class FakeIntersectionObserver {
   }
 }
 
-type Thumbs = typeof import('@/utils/thumbnails');
+type Thumbs = typeof import('@/components/messages/image-load-scroll');
+type Loader = typeof import('@/components/messages/thumbnail-loader');
 
 let frames = new Map<number, FrameRequestCallback>();
 let nextFrameId = 0;
@@ -78,6 +79,7 @@ function finishLoad(img: HTMLImageElement): void {
 
 describe('image-load chase scheduling', () => {
   let thumbs: Thumbs;
+  let loader: Loader;
   let container: HTMLElement;
 
   beforeEach(async () => {
@@ -100,7 +102,8 @@ describe('image-load chase scheduling', () => {
     Object.defineProperty(container, 'scrollHeight', { value: 3000, configurable: true });
     Object.defineProperty(container, 'clientHeight', { value: 1000, configurable: true });
     container.scrollTop = 2000; // pinned to the bottom
-    thumbs = await import('@/utils/thumbnails');
+    thumbs = await import('@/components/messages/image-load-scroll');
+    loader = await import('@/components/messages/thumbnail-loader');
   });
 
   afterEach(() => {
@@ -120,7 +123,7 @@ describe('image-load chase scheduling', () => {
     fetchThumbnail.mockResolvedValue(new Blob(['x']));
     thumbs.enableScrollOnImageLoad();
     const img = image(0);
-    thumbs.observeThumbnail(img);
+    loader.observeThumbnail(img);
     io().intersect(img);
     await flush();
     finishLoad(img);
@@ -144,7 +147,7 @@ describe('image-load chase scheduling', () => {
     const first = image(0);
     const second = image(1);
     [first, second].forEach((img) => {
-      thumbs.observeThumbnail(img);
+      loader.observeThumbnail(img);
       io().intersect(img);
     });
     await flush();
@@ -199,7 +202,7 @@ describe('image-load chase scheduling', () => {
     fetchThumbnail.mockRejectedValue(new Error('404'));
     thumbs.enableScrollOnImageLoad();
     const img = image(0);
-    thumbs.observeThumbnail(img);
+    loader.observeThumbnail(img);
     io().intersect(img);
     await flush();
     vi.advanceTimersByTime(IMAGE_LOAD_RETRY_DELAY_MS * 5);

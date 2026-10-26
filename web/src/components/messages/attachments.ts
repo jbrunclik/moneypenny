@@ -4,7 +4,7 @@
 
 import { files as filesApi } from '../../api/files';
 import { escapeHtml } from '../../utils/dom';
-import { observeThumbnail } from '../../utils/thumbnails';
+import { observeThumbnail } from './thumbnail-loader';
 import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON, setIcon } from '../../utils/icons';
 import type { FileMetadata } from '../../types/api';
 

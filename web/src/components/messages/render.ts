@@ -7,11 +7,8 @@ import { escapeHtml, getElementById, scrollToBottom, clearElement } from '../../
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
-import {
-  observeThumbnail,
-  countVisibleImagesForScroll,
-  setDeferImageObservation,
-} from '../../utils/thumbnails';
+import { observeThumbnail, setDeferImageObservation } from './thumbnail-loader';
+import { countVisibleImagesForScroll } from './image-load-scroll';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { createWelcomeMessage } from '../WelcomeMessage';

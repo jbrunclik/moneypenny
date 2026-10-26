@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const observeThumbnail = vi.hoisted(() => vi.fn());
-vi.mock('@/utils/thumbnails', () => ({ observeThumbnail }));
+vi.mock('@/components/messages/thumbnail-loader', () => ({ observeThumbnail }));
 
 import { renderMessageFiles } from '@/components/messages/attachments';
 import type { FileMetadata } from '@/types/api';

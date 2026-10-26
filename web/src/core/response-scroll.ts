@@ -9,11 +9,8 @@ import { RESPONSE_JUMP_MIN_VIEWPORT_RATIO } from '../config';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { settleTurnSpace } from '../components/messages/turn-anchor';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
-import {
-  enableScrollOnImageLoad,
-  getThumbnailObserver,
-  observeThumbnail,
-} from '../utils/thumbnails';
+import { enableScrollOnImageLoad } from '../components/messages/image-load-scroll';
+import { getThumbnailObserver, observeThumbnail } from '../components/messages/thumbnail-loader';
 import {
   isProgrammaticScrollActive,
   programmaticScrollToBottom,

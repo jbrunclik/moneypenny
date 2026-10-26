@@ -31,7 +31,7 @@ import {
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById } from '../utils/dom';
-import { enableScrollOnImageLoad } from '../utils/thumbnails';
+import { enableScrollOnImageLoad } from '../components/messages/image-load-scroll';
 import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import { setConversationHash } from '../router/deeplink';
 import type { Conversation } from '../types/api';

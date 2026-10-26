@@ -36,7 +36,7 @@ class FakeIntersectionObserver {
   }
 }
 
-type Loader = typeof import('@/utils/thumbnails');
+type Loader = typeof import('@/components/messages/thumbnail-loader');
 type BlobUrls = typeof import('@/utils/thumbnail-blob-urls');
 
 const flush = async (): Promise<void> => {
@@ -68,7 +68,7 @@ describe('thumbnail loader', () => {
     URL.createObjectURL = vi.fn(() => `blob:thumb-${++urlCount}`);
     URL.revokeObjectURL = vi.fn();
     document.body.innerHTML = '<div id="messages"></div>';
-    loader = await import('@/utils/thumbnails');
+    loader = await import('@/components/messages/thumbnail-loader');
     blobUrls = await import('@/utils/thumbnail-blob-urls');
   });
 

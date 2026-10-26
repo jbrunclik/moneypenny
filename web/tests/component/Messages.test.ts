@@ -36,8 +36,8 @@ vi.mock('@/utils/dom', async (importOriginal) => {
 });
 
 // Mock observeThumbnail to track image observations
-vi.mock('@/utils/thumbnails', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/thumbnails')>();
+vi.mock('@/components/messages/thumbnail-loader', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/messages/thumbnail-loader')>();
   return {
     ...actual,
     observeThumbnail: (...args: Parameters<typeof actual.observeThumbnail>) => {
@@ -48,10 +48,7 @@ vi.mock('@/utils/thumbnails', async (importOriginal) => {
 
 // Import after mocks are set up
 import { renderMessages, addMessageToUI, removeRenderedMessagesFrom } from '@/components/messages';
-import {
-  enableScrollOnImageLoad,
-  disableScrollOnImageLoad,
-} from '@/utils/thumbnails';
+import { enableScrollOnImageLoad, disableScrollOnImageLoad } from '@/components/messages/image-load-scroll';
 
 // Helper to create mock message
 function createMessage(

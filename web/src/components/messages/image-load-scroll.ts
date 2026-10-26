@@ -1,23 +1,23 @@
-import { files } from '../api/files';
-import { getElementById, scrollToBottom, isScrolledToBottom, cancelSmoothScroll, userScrolledRecently } from './dom';
-import { beginProgrammaticScroll, endProgrammaticScroll, isProgrammaticScrollActive } from './programmatic-scroll';
-import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
-import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
-import { createLogger } from './logger';
-import { trackBlobUrl, untrackBlobUrl } from './thumbnail-blob-urls';
+/**
+ * Scroll after image load: while a freshly opened (or just-answered) chat is
+ * armed, keep it pinned to the bottom as its lazy-loaded images arrive - one
+ * smooth scroll once every visible image has loaded - and stand down as soon
+ * as the user scrolls up.
+ */
+import { getElementById, scrollToBottom, isScrolledToBottom, cancelSmoothScroll, userScrolledRecently } from '../../utils/dom';
+import { beginProgrammaticScroll, endProgrammaticScroll, isProgrammaticScrollActive } from '../../utils/programmatic-scroll';
+import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
+import { checkScrollButtonVisibility } from '../ScrollToBottom';
+import { createLogger } from '../../utils/logger';
+import { observeThumbnail, setDeferImageObservation, setThumbnailLoadHooks } from './thumbnail-loader';
 import {
-    THUMBNAIL_MAX_CONCURRENT_FETCHES,
     SCROLL_USER_DETECTION_THRESHOLD_PX,
     SCROLL_MODE_GRACE_PERIOD_MS,
     IMAGE_LOAD_RETRY_DELAY_MS,
     IMAGE_LOAD_MAX_RETRY_ATTEMPTS,
-    INTERSECTION_OBSERVER_ROOT_MARGIN,
-    INTERSECTION_OBSERVER_THRESHOLD,
-} from '../config';
+} from '../../config';
 
-const log = createLogger('thumbnails');
-const loadingQueue: Array<() => Promise<void>> = [];
-let activeFetches = 0;
+const log = createLogger('image-load-scroll');
 
 // Flag to indicate we should scroll to bottom after images load
 // This is set when opening a conversation and cleared when switching away
@@ -25,10 +25,6 @@ let shouldScrollOnImageLoad = false;
 
 // Guard to prevent multiple concurrent enableScrollOnImageLoad calls
 let isEnablingScrollMode = false;
-
-// Flag to defer image observation until after counting
-// Used in renderMessages() to prevent IntersectionObserver from firing before we count
-let deferImageObservation = false;
 
 // Track pending image loads for debounced scroll
 let pendingImageLoads = 0;
@@ -75,7 +71,7 @@ export function enableScrollOnImageLoad(): void {
 
         shouldScrollOnImageLoad = true;
         pendingImageLoads = 0;
-        deferImageObservation = false;
+        setDeferImageObservation(false);
         isSchedulingScroll = false; // Reset scheduling flag
         // Seed the "deepest followed position" from the current scroll; the
         // listener keeps it in sync as the app pins to the growing bottom.
@@ -111,14 +107,6 @@ export function enableScrollOnImageLoad(): void {
  */
 export function getPendingImageLoads(): number {
     return pendingImageLoads;
-}
-
-/**
- * Set flag to defer image observation until after counting.
- * Used in renderMessages() to prevent IntersectionObserver from firing before we count.
- */
-export function setDeferImageObservation(defer: boolean): void {
-    deferImageObservation = defer;
 }
 
 /**
@@ -725,168 +713,23 @@ function scheduleScrollAfterImageLoad(): void {
     });
 }
 
-/**
- * Process the loading queue with concurrency limit
- */
-function processQueue(): void {
-    while (activeFetches < THUMBNAIL_MAX_CONCURRENT_FETCHES && loadingQueue.length > 0) {
-        const task = loadingQueue.shift();
-        if (task) {
-            activeFetches++;
-            void task().finally(() => {
-                activeFetches--;
-                processQueue();
-            });
+// The loader reports each thumbnail load to the scroll mode
+setThumbnailLoadHooks({
+    onLoadStart: (img) => {
+        // Track this image load if we're in scroll mode
+        // Check if we already tracked it (to avoid double-counting for cached images)
+        if (shouldScrollOnImageLoad && !img.dataset.scrollTracked) {
+            pendingImageLoads++;
+            img.dataset.scrollTracked = 'true';
         }
-    }
-}
-
-/**
- * Queue a thumbnail load with concurrency limiting
- */
-function queueLoad(loadFn: () => Promise<void>): void {
-    loadingQueue.push(loadFn);
-    processQueue();
-}
-
-/**
- * Create an Intersection Observer for lazy loading images
- */
-export function createThumbnailObserver(): IntersectionObserver {
-    return new IntersectionObserver(
-        (entries) => {
-            entries.forEach((entry) => {
-                if (entry.isIntersecting) {
-                    const img = entry.target as HTMLImageElement;
-                    const messageId = img.dataset.messageId;
-                    const fileIndex = img.dataset.fileIndex;
-
-                    if (messageId && fileIndex) {
-                        // Track this image load if we're in scroll mode
-                        // Check if we already tracked it (to avoid double-counting for cached images)
-                        if (shouldScrollOnImageLoad && !img.dataset.scrollTracked) {
-                            pendingImageLoads++;
-                            img.dataset.scrollTracked = 'true';
-                        }
-
-                        queueLoad(async () => {
-                            try {
-                                const blob = await files.fetchThumbnail(
-                                    messageId,
-                                    parseInt(fileIndex, 10)
-                                );
-                                const url = URL.createObjectURL(blob);
-                                img.src = url;
-
-                                // Track blob URL for cleanup on conversation switch
-                                trackBlobUrl(messageId, url);
-
-                                // Wait for the image to actually load and render
-                                await new Promise<void>((resolve) => {
-                                    if (img.complete && img.naturalHeight !== 0) {
-                                        // Image already loaded
-                                        resolve();
-                                    } else {
-                                        img.addEventListener('load', () => resolve(), { once: true });
-                                        img.addEventListener('error', () => resolve(), { once: true });
-                                    }
-                                });
-
-                                // Remove loading state from wrapper (if exists) or image
-                                const wrapper = img.closest('.message-image-wrapper');
-                                if (wrapper) {
-                                    wrapper.classList.remove('loading');
-                                }
-                                img.classList.remove('loading');
-                                img.classList.add('loaded');
-
-                                // Decrement pending loads and schedule scroll
-                                // Check both the flag AND scroll position to prevent race conditions
-                                // (user might have scrolled up while image was loading)
-                                if (shouldScrollOnImageLoad) {
-                                    const messagesContainer = getElementById<HTMLDivElement>('messages');
-                                    handleImageLoadCompletion(messagesContainer, false);
-                                }
-
-                                // Clean up blob URL when image is removed from DOM
-                                const cleanup = () => {
-                                    untrackBlobUrl(messageId, url);
-                                    URL.revokeObjectURL(url);
-                                };
-
-                                // Use MutationObserver to detect removal
-                                const parent = img.parentElement;
-                                if (parent) {
-                                    const mutationObserver = new MutationObserver((mutations) => {
-                                        for (const mutation of mutations) {
-                                            if (mutation.removedNodes.length > 0) {
-                                                for (let i = 0; i < mutation.removedNodes.length; i++) {
-                                                    const node = mutation.removedNodes[i];
-                                                    if (node === img || (node as Element).contains?.(img)) {
-                                                        cleanup();
-                                                        mutationObserver.disconnect();
-                                                        return;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    });
-                                    mutationObserver.observe(parent, { childList: true, subtree: true });
-                                }
-                            } catch (error) {
-                                log.error('Failed to load thumbnail', { error });
-                                // Remove loading state from wrapper (if exists) or image
-                                const wrapper = img.closest('.message-image-wrapper');
-                                if (wrapper) {
-                                    wrapper.classList.remove('loading');
-                                    wrapper.classList.add('error');
-                                }
-                                img.classList.remove('loading');
-                                img.classList.add('error');
-
-                                // Decrement pending loads even on error, and schedule scroll
-                                // Check both the flag AND scroll position to prevent race conditions
-                                // Error path uses same logic as success path for consistency
-                                if (shouldScrollOnImageLoad) {
-                                    const messagesContainer = getElementById<HTMLDivElement>('messages');
-                                    handleImageLoadCompletion(messagesContainer, true);
-                                }
-                            }
-                        });
-                    }
-
-                    // Stop observing this image
-                    thumbnailObserver?.unobserve(img);
-                }
-            });
-        },
-        {
-            rootMargin: INTERSECTION_OBSERVER_ROOT_MARGIN,
-            threshold: INTERSECTION_OBSERVER_THRESHOLD,
+    },
+    onLoadEnd: (isError) => {
+        // Decrement pending loads (even on error) and schedule scroll.
+        // Check the flag again: the user may have scrolled up while the
+        // image was loading
+        if (shouldScrollOnImageLoad) {
+            const messagesContainer = getElementById<HTMLDivElement>('messages');
+            handleImageLoadCompletion(messagesContainer, isError);
         }
-    );
-}
-
-let thumbnailObserver: IntersectionObserver | null = null;
-
-/**
- * Get or create the thumbnail observer
- */
-export function getThumbnailObserver(): IntersectionObserver {
-    if (!thumbnailObserver) {
-        thumbnailObserver = createThumbnailObserver();
-    }
-    return thumbnailObserver;
-}
-
-/**
- * Observe an image element for lazy loading
- */
-export function observeThumbnail(img: HTMLImageElement): void {
-    // If observation is deferred, don't observe yet
-    // It will be observed later after counting in renderMessages()
-    if (deferImageObservation) {
-        return;
-    }
-    getThumbnailObserver().observe(img);
-}
+    },
+});

@@ -4,7 +4,7 @@
 
 import { getElementById } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
-import { observeThumbnail } from '../../utils/thumbnails';
+import { observeThumbnail } from './thumbnail-loader';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
 import { conversations } from '../../api/conversations';
 import { useStore } from '../../state/store';

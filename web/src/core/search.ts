@@ -15,7 +15,7 @@ import {
   setupNewerMessagesScrollListener,
 } from '../components/messages';
 import { getElementById, prefersReducedMotion } from '../utils/dom';
-import { disableScrollOnImageLoad } from '../utils/thumbnails';
+import { disableScrollOnImageLoad } from '../components/messages/image-load-scroll';
 import { getSyncManager } from '../sync/SyncManager';
 import { SEARCH_HIGHLIGHT_DURATION_MS, SEARCH_RESULT_MESSAGES_LIMIT } from '../config';
 

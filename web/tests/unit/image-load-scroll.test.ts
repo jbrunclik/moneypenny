@@ -1,12 +1,12 @@
 /**
- * Unit tests for thumbnail lazy loading and scroll-on-image-load behavior
+ * Unit tests for the scroll-on-image-load mode
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   enableScrollOnImageLoad,
   disableScrollOnImageLoad,
   isScrollOnImageLoadEnabled,
-} from '@/utils/thumbnails';
+} from '@/components/messages/image-load-scroll';
 import { beginProgrammaticScroll } from '@/utils/programmatic-scroll';
 import { noteUserScrollIntent } from '@/utils/dom';
 import { SCROLL_MODE_GRACE_PERIOD_MS } from '@/config';

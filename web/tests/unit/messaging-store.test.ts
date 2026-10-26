@@ -91,10 +91,13 @@ vi.mock('@/components/VoiceInput', () => ({
   stopVoiceRecording: vi.fn(),
 }));
 
-vi.mock('@/utils/thumbnails', () => ({
-  enableScrollOnImageLoad: vi.fn(),
+vi.mock('@/components/messages/thumbnail-loader', () => ({
   getThumbnailObserver: vi.fn(() => ({ unobserve: vi.fn() })),
   observeThumbnail: vi.fn(),
+}));
+
+vi.mock('@/components/messages/image-load-scroll', () => ({
+  enableScrollOnImageLoad: vi.fn(),
 }));
 
 vi.mock('@/utils/programmatic-scroll', () => ({
