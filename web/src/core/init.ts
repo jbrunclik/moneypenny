@@ -8,15 +8,12 @@ import { initToast } from '../components/Toast';
 import { initModal } from '../components/Modal';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
-import { initMessageInput } from '../components/MessageInput';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
 import { registerServiceWorker } from './push';
-import { initModelSelector } from '../components/ModelSelector';
-import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
 import { initSourcesPopup } from '../components/SourcesPopup';
 import { initClaimCard } from '../components/ClaimCard';
@@ -28,7 +25,6 @@ import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup } from '../components/CostHistoryPopup';
 import { initCompactionIndicator } from '../components/CompactionIndicator';
-import { initVoiceInput } from '../components/VoiceInput';
 import { initVersionBanner } from '../components/VersionBanner';
 import { initErrorReporting } from './error-reporting';
 import { getElementById } from '../utils/dom';
@@ -36,9 +32,6 @@ import { initializeTheme } from '../utils/theme';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
 import { initDeepLinking } from '../router/deeplink';
 
-import { sendMessage } from './messaging';
-import { handleStopStreaming } from './active-requests';
-import { initOutboxHandlers } from './rerun';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { initSidebarSelection } from '../components/SidebarSelection';
@@ -52,6 +45,7 @@ import { mountAppShell } from './startup/app-shell';
 import { initAuthEvents, startSession } from './startup/auth';
 import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
+import { initComposer } from './startup/composer';
 
 const log = createLogger('init');
 
@@ -81,13 +75,7 @@ export async function init(): Promise<void> {
   initToast();
   initModal();
   initPopupEscapeListener(); // Single Escape key listener for all popups
-  initMessageInput(() => {
-    void sendMessage().catch((error: unknown) => log.error('Failed to send message', { error }));
-  }, handleStopStreaming);
-  initOutboxHandlers();
-  initModelSelector();
-  initFileUpload();
-  initVoiceInput();
+  initComposer();
   initLightbox();
   initSourcesPopup();
   initClaimCard();
