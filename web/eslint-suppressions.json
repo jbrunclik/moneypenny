@@ -40,9 +40,6 @@
     }
   },
   "src/components/MessageInput.ts": {
-    "complexity": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }

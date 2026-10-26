@@ -94,6 +94,23 @@ function subscribeSendButtonToStream(): void {
   );
 }
 
+/** Modifier-only and navigation keys: they type nothing into the composer. */
+function isNonTypingKey(e: KeyboardEvent): boolean {
+  return (
+    e.key === 'Shift' ||
+    e.key === 'Control' ||
+    e.key === 'Alt' ||
+    e.key === 'Meta' ||
+    e.key === 'Escape' ||
+    e.key === 'Tab' ||
+    e.key === 'CapsLock' ||
+    e.key === 'ArrowUp' ||
+    e.key === 'ArrowDown' ||
+    e.key === 'ArrowLeft' ||
+    e.key === 'ArrowRight'
+  );
+}
+
 /**
  * Initialize message input handlers
  * @param onSend - Callback when send button is clicked (in send mode)
@@ -218,19 +235,7 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
       }
 
       // Skip modifier-only keys and special keys
-      if (
-        e.key === 'Shift' ||
-        e.key === 'Control' ||
-        e.key === 'Alt' ||
-        e.key === 'Meta' ||
-        e.key === 'Escape' ||
-        e.key === 'Tab' ||
-        e.key === 'CapsLock' ||
-        e.key === 'ArrowUp' ||
-        e.key === 'ArrowDown' ||
-        e.key === 'ArrowLeft' ||
-        e.key === 'ArrowRight'
-      ) {
+      if (isNonTypingKey(e)) {
         return;
       }
 
