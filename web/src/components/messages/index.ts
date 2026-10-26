@@ -29,16 +29,18 @@ export {
   updateStreamingMessage,
   finalizeStreamingMessage,
   restoreStreamingMessage,
-  cleanupStreamingContext,
-  hasActiveStreamingContext,
-  getStreamingContextConversationId,
-  getStreamingMessageElement,
   updateStreamingThinking,
   updateStreamingToolStart,
   updateStreamingToolDetail,
   updateStreamingToolEnd,
   updateStreamingRetryStatus,
 } from './streaming';
+export {
+  cleanupStreamingContext,
+  hasActiveStreamingContext,
+  getStreamingContextConversationId,
+  getStreamingMessageElement,
+} from './streaming-context';
 
 // Loading indicators
 export {

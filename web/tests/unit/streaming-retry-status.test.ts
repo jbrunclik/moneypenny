@@ -4,11 +4,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   addStreamingMessage,
-  cleanupStreamingContext,
   updateStreamingRetryStatus,
   updateStreamingThinking,
   updateStreamingToolStart,
 } from '@/components/messages/streaming';
+import { cleanupStreamingContext } from '@/components/messages/streaming-context';
 
 function note(): HTMLElement | null {
   return document.querySelector('.streaming-retry-status');

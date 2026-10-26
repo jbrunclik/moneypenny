@@ -17,10 +17,12 @@ vi.mock('@/components/ScrollToBottom', () => ({
 }));
 
 type Streaming = typeof import('@/components/messages/streaming');
+type StreamingContext = typeof import('@/components/messages/streaming-context');
 type Dom = typeof import('@/utils/dom');
 
 describe('streaming follow', () => {
   let streaming: Streaming;
+  let context: StreamingContext;
   let dom: Dom;
   let container: HTMLElement;
   let top: number;
@@ -54,11 +56,12 @@ describe('streaming follow', () => {
       top = Math.min(opts.top ?? top, height - 1000);
     }) as typeof container.scrollTo;
     streaming = await import('@/components/messages/streaming');
+    context = await import('@/components/messages/streaming-context');
     dom = await import('@/utils/dom');
   });
 
   afterEach(() => {
-    streaming.cleanupStreamingContext();
+    context.cleanupStreamingContext();
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
@@ -137,7 +140,7 @@ describe('streaming follow', () => {
     const el = following();
     expect(streaming.finalizeStreamingMessage(el, 'msg-1')).toBe(true);
     expect(setStreamingPausedIndicator).toHaveBeenLastCalledWith(false);
-    expect(streaming.hasActiveStreamingContext()).toBe(false);
+    expect(context.hasActiveStreamingContext()).toBe(false);
 
     const paused = streaming.addStreamingMessage('conv-1', { anchor: false });
     expect(streaming.finalizeStreamingMessage(paused, 'msg-2')).toBe(false);
@@ -145,10 +148,10 @@ describe('streaming follow', () => {
 
   it('cleanup for another conversation leaves the live stream alone', () => {
     const el = streaming.addStreamingMessage('conv-1', { anchor: false });
-    streaming.cleanupStreamingContext('conv-2');
-    expect(streaming.getStreamingMessageElement('conv-1')).toBe(el);
-    expect(streaming.getStreamingContextConversationId()).toBe('conv-1');
-    streaming.cleanupStreamingContext('conv-1');
-    expect(streaming.getStreamingMessageElement()).toBeNull();
+    context.cleanupStreamingContext('conv-2');
+    expect(context.getStreamingMessageElement('conv-1')).toBe(el);
+    expect(context.getStreamingContextConversationId()).toBe('conv-1');
+    context.cleanupStreamingContext('conv-1');
+    expect(context.getStreamingMessageElement()).toBeNull();
   });
 });

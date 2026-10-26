@@ -42,13 +42,14 @@ import { createMessageActions } from './actions';
 import { anchorTurn } from './turn-anchor';
 import { renderMessageFiles } from './attachments';
 import { lockOlderQuizBlocks } from './render';
-import type { StreamingMessageContext } from './types';
+import {
+  cleanupStreamingContext,
+  getStreamingContext,
+  setStreamingContext,
+} from './streaming-context';
 import type { Source, GeneratedImage, FileMetadata, ThinkingState, ToolMetadata } from '../../types/api';
 
 const log = createLogger('messages');
-
-// Global context for the current streaming message
-let currentStreamingContext: StreamingMessageContext | null = null;
 
 /**
  * Add a streaming message placeholder
@@ -75,7 +76,7 @@ export function addStreamingMessage(
   // Clean up any existing streaming context before creating a new one.
   // This prevents "zombie" scroll listeners if addStreamingMessage is called
   // while there's already an active streaming context (e.g., rapid message sends).
-  if (currentStreamingContext) {
+  if (getStreamingContext()) {
     log.warn('addStreamingMessage called with existing context - cleaning up previous context');
     cleanupStreamingContext();
   }
@@ -107,7 +108,7 @@ export function addStreamingMessage(
 
   // Send-to-top: the view stays on the turn instead of following the reply
   // down; scrolling to the bottom (or the pill) re-arms following
-  currentStreamingContext = {
+  setStreamingContext({
     element: messageEl,
     thinkingIndicator,
     thinkingState,
@@ -115,7 +116,7 @@ export function addStreamingMessage(
     scrollListenerCleanup: null,
     conversationId,
     hasReplyText: false,
-  };
+  });
 
   container.appendChild(messageEl);
   // anchor=false: following another device's reply while the user reads
@@ -149,7 +150,7 @@ function logThinkingBarPosition(bar: HTMLElement): void {
       barBot: Math.round(r.bottom),
       pillTop: pill ? Math.round(pill.top) : null,
       gap: pill ? Math.round(pill.top - r.bottom) : null,
-      follow: currentStreamingContext?.shouldAutoScroll ?? null,
+      follow: getStreamingContext()?.shouldAutoScroll ?? null,
     });
   };
   requestAnimationFrame(() => snap('bar@0'));
@@ -169,11 +170,12 @@ function logThinkingBarPosition(bar: HTMLElement): void {
  * - wheel/touchmove events ONLY fire on actual user input
  */
 function setupStreamingScrollListener(container: HTMLElement): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
 
   // Clean up any existing listener
-  if (currentStreamingContext.scrollListenerCleanup) {
-    currentStreamingContext.scrollListenerCleanup();
+  if (context.scrollListenerCleanup) {
+    context.scrollListenerCleanup();
   }
 
   // Debounce timeout is ONLY used for re-enabling auto-scroll (when user scrolls back to bottom)
@@ -183,14 +185,15 @@ function setupStreamingScrollListener(container: HTMLElement): void {
   // Handle user scroll interaction (wheel or touch)
   // This immediately pauses auto-scroll since it's definitely user-initiated
   const handleUserScroll = (): void => {
-    if (!currentStreamingContext?.shouldAutoScroll) return;
+    const current = getStreamingContext();
+    if (!current?.shouldAutoScroll) return;
 
-    currentStreamingContext.shouldAutoScroll = false;
+    current.shouldAutoScroll = false;
     log.debug('Streaming auto-scroll paused (user interaction detected)');
 
     // Show visual indicator on scroll button - once there is answer text
     // (a growing thinking trace isn't "new messages")
-    if (currentStreamingContext.hasReplyText) setStreamingPausedIndicator(true);
+    if (current.hasReplyText) setStreamingPausedIndicator(true);
 
     // Clear any pending resume timeout
     if (resumeDebounceTimeout) {
@@ -206,7 +209,8 @@ function setupStreamingScrollListener(container: HTMLElement): void {
   // Handle scroll events: pause on a real upward scroll while following,
   // re-enable when the user scrolls back to the bottom
   const scrollHandler = (): void => {
-    if (!currentStreamingContext) return;
+    const current = getStreamingContext();
+    if (!current) return;
 
     const scrollTop = container.scrollTop;
     const previousScrollTop = lastScrollTop;
@@ -215,7 +219,7 @@ function setupStreamingScrollListener(container: HTMLElement): void {
       lastScrollTop = scrollTop;
     }
 
-    if (currentStreamingContext.shouldAutoScroll) {
+    if (current.shouldAutoScroll) {
       // Direction-based pause, complementing the wheel/touchmove listeners.
       // Content growth and our own follow scrolls only move scrollTop DOWN
       // (or clamp it while staying at the bottom), so an upward move that
@@ -250,12 +254,13 @@ function setupStreamingScrollListener(container: HTMLElement): void {
       }
 
       resumeDebounceTimeout = window.setTimeout(() => {
-        if (!currentStreamingContext) return;
+        const resumed = getStreamingContext();
+        if (!resumed) return;
 
         // Re-check position after debounce (user might have scrolled away again)
         const stillAtBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
-        if (stillAtBottom && !currentStreamingContext.shouldAutoScroll) {
-          currentStreamingContext.shouldAutoScroll = true;
+        if (stillAtBottom && !resumed.shouldAutoScroll) {
+          resumed.shouldAutoScroll = true;
           log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
 
           // Clear the visual indicator
@@ -278,18 +283,19 @@ function setupStreamingScrollListener(container: HTMLElement): void {
   // scrollHeight during the smooth animation, so "bottom" is a moving target
   // and the debounced re-attach could miss.
   setOnJumpToBottom(() => {
-    if (!currentStreamingContext || currentStreamingContext.shouldAutoScroll) return;
+    const current = getStreamingContext();
+    if (!current || current.shouldAutoScroll) return;
     if (resumeDebounceTimeout) {
       clearTimeout(resumeDebounceTimeout);
       resumeDebounceTimeout = undefined;
     }
-    currentStreamingContext.shouldAutoScroll = true;
+    current.shouldAutoScroll = true;
     setStreamingPausedIndicator(false);
     log.debug('Streaming auto-scroll resumed (scroll button tapped)');
   });
 
   // Store cleanup function
-  currentStreamingContext.scrollListenerCleanup = () => {
+  context.scrollListenerCleanup = () => {
     if (resumeDebounceTimeout) {
       clearTimeout(resumeDebounceTimeout);
     }
@@ -298,53 +304,6 @@ function setupStreamingScrollListener(container: HTMLElement): void {
     offMessagesScroll('streaming-autoscroll-resume');
     setOnJumpToBottom(null);
   };
-}
-
-/**
- * Clean up streaming context and scroll listener.
- * Called when streaming ends (success or error).
- */
-export function cleanupStreamingContext(conversationId?: string): void {
-  // A turn ending in another conversation (a background stream finishing)
-  // must not tear down the live reply on screen: its thinking, tool and
-  // autoscroll updates all go through this context
-  if (conversationId !== undefined && currentStreamingContext && currentStreamingContext.conversationId !== conversationId) {
-    return;
-  }
-  if (currentStreamingContext) {
-    if (currentStreamingContext.scrollListenerCleanup) {
-      currentStreamingContext.scrollListenerCleanup();
-    }
-    currentStreamingContext = null;
-  }
-  // Always clear the streaming paused indicator when streaming ends
-  setStreamingPausedIndicator(false);
-}
-
-/**
- * Check if there is an active streaming context
- */
-export function hasActiveStreamingContext(): boolean {
-  return currentStreamingContext !== null;
-}
-
-/**
- * Get the conversation ID of the current streaming context, if any.
- * Used to determine if we should clean up the context when switching conversations.
- */
-export function getStreamingContextConversationId(): string | null {
-  return currentStreamingContext?.conversationId ?? null;
-}
-
-/**
- * Get the current streaming message element, if any.
- * This is the single source of truth for the streaming element.
- * @param conversationId - Optional: only return element if it matches this conversation
- */
-export function getStreamingMessageElement(conversationId?: string): HTMLElement | null {
-  if (!currentStreamingContext) return null;
-  if (conversationId && currentStreamingContext.conversationId !== conversationId) return null;
-  return currentStreamingContext.element;
 }
 
 /**
@@ -391,7 +350,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   const wasAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
 
   // Store context for updates
-  currentStreamingContext = {
+  setStreamingContext({
     element: messageEl,
     thinkingIndicator,
     thinkingState: restoredThinkingState,
@@ -399,7 +358,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
     scrollListenerCleanup: null,
     conversationId,
     hasReplyText: content.trim() !== '',
-  };
+  });
 
   // Update thinking indicator with the restored state
   updateThinkingIndicator(thinkingIndicator, restoredThinkingState);
@@ -431,16 +390,17 @@ export function restoreStreamingMessage(conversationId: string, content: string,
  * wheel/touchmove events which only fire on real user input.
  */
 function autoScrollForStreaming(): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
 
   const messagesContainer = getElementById('messages');
   if (!messagesContainer) return;
 
-  if (!currentStreamingContext.shouldAutoScroll) {
+  if (!context.shouldAutoScroll) {
     // Not following: once the ANSWER runs past the screen, the scroll button
     // pulses - more of this reply is below (see hasReplyText)
     if (
-      currentStreamingContext.hasReplyText &&
+      context.hasReplyText &&
       !isScrolledToBottom(messagesContainer, SCROLL_BUTTON_SHOW_THRESHOLD_PX)
     ) {
       setStreamingPausedIndicator(true);
@@ -457,17 +417,18 @@ function autoScrollForStreaming(): void {
  * Update the thinking state of the current streaming message
  */
 export function updateStreamingThinking(thinkingText?: string): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
   clearStreamingRetryStatus();
 
   if (thinkingText) {
-    addThinkingToTrace(currentStreamingContext.thinkingState, thinkingText);
+    addThinkingToTrace(context.thinkingState, thinkingText);
   }
-  currentStreamingContext.thinkingState.isThinking = true;
+  context.thinkingState.isThinking = true;
 
   updateThinkingIndicator(
-    currentStreamingContext.thinkingIndicator,
-    currentStreamingContext.thinkingState
+    context.thinkingIndicator,
+    context.thinkingState
   );
 
   // Auto-scroll to keep thinking indicator visible
@@ -485,14 +446,15 @@ export function updateStreamingToolStart(
   detail?: string,
   metadata?: ToolMetadata
 ): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
   clearStreamingRetryStatus();
 
-  addToolStartToTrace(currentStreamingContext.thinkingState, toolName, detail, metadata);
+  addToolStartToTrace(context.thinkingState, toolName, detail, metadata);
 
   updateThinkingIndicator(
-    currentStreamingContext.thinkingIndicator,
-    currentStreamingContext.thinkingState
+    context.thinkingIndicator,
+    context.thinkingState
   );
 
   // Auto-scroll to keep tool indicator visible
@@ -505,13 +467,14 @@ export function updateStreamingToolStart(
  * @param detail The detail to show (e.g., action, query)
  */
 export function updateStreamingToolDetail(toolName: string, detail: string): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
 
-  updateToolDetailInTrace(currentStreamingContext.thinkingState, toolName, detail);
+  updateToolDetailInTrace(context.thinkingState, toolName, detail);
 
   updateThinkingIndicator(
-    currentStreamingContext.thinkingIndicator,
-    currentStreamingContext.thinkingState
+    context.thinkingIndicator,
+    context.thinkingState
   );
 
   // Auto-scroll to keep tool indicator visible
@@ -522,13 +485,14 @@ export function updateStreamingToolDetail(toolName: string, detail: string): voi
  * Signal that a tool has finished executing
  */
 export function updateStreamingToolEnd(toolName: string): void {
-  if (!currentStreamingContext) return;
+  const context = getStreamingContext();
+  if (!context) return;
 
-  markToolCompletedInTrace(currentStreamingContext.thinkingState, toolName);
+  markToolCompletedInTrace(context.thinkingState, toolName);
 
   updateThinkingIndicator(
-    currentStreamingContext.thinkingIndicator,
-    currentStreamingContext.thinkingState
+    context.thinkingIndicator,
+    context.thinkingState
   );
 
   // Auto-scroll after tool completion
@@ -545,8 +509,9 @@ const RETRY_STATUS_CLASS = 'streaming-retry-status';
  * as the model makes progress (thinking, tool call, token) or the turn ends.
  */
 export function updateStreamingRetryStatus(attempt: number, maxRetries?: number): void {
-  if (!currentStreamingContext) return;
-  const indicator = currentStreamingContext.thinkingIndicator;
+  const context = getStreamingContext();
+  if (!context) return;
+  const indicator = context.thinkingIndicator;
   let status = indicator.querySelector<HTMLElement>(`.${RETRY_STATUS_CLASS}`);
   if (!status) {
     status = document.createElement('div');
@@ -560,7 +525,7 @@ export function updateStreamingRetryStatus(attempt: number, maxRetries?: number)
 
 /** Remove the retry status line, if shown. */
 export function clearStreamingRetryStatus(): void {
-  currentStreamingContext?.thinkingIndicator
+  getStreamingContext()?.thinkingIndicator
     .querySelector(`.${RETRY_STATUS_CLASS}`)
     ?.remove();
 }
@@ -594,12 +559,13 @@ export function updateStreamingMessage(
   // When the answer starts: thinking is done, and its line collapses to
   // the summary so the answer starts right under the user's message (a
   // later round's thinking or tool reopens it)
-  if (content && currentStreamingContext) {
-    currentStreamingContext.hasReplyText = true;
-    currentStreamingContext.thinkingState.isThinking = false;
+  const context = getStreamingContext();
+  if (content && context) {
+    context.hasReplyText = true;
+    context.thinkingState.isThinking = false;
     collapseThinkingIndicator(
-      currentStreamingContext.thinkingIndicator,
-      currentStreamingContext.thinkingState
+      context.thinkingIndicator,
+      context.thinkingState
     );
   }
 
@@ -638,24 +604,25 @@ export function finalizeStreamingMessage(
   clearStreamingRetryStatus();
 
   // Finalize thinking indicator and clean up streaming context
-  if (currentStreamingContext && currentStreamingContext.element === messageEl) {
+  const context = getStreamingContext();
+  if (context && context.element === messageEl) {
     // Capture auto-scroll state before cleanup
-    wasFollowing = currentStreamingContext.shouldAutoScroll;
+    wasFollowing = context.shouldAutoScroll;
 
     finalizeThinkingIndicator(
-      currentStreamingContext.thinkingIndicator,
-      currentStreamingContext.thinkingState
+      context.thinkingIndicator,
+      context.thinkingState
     );
     // Clean up scroll listener
-    if (currentStreamingContext.scrollListenerCleanup) {
-      currentStreamingContext.scrollListenerCleanup();
+    if (context.scrollListenerCleanup) {
+      context.scrollListenerCleanup();
     }
 
     // Ensure the streaming paused indicator is cleared
     setStreamingPausedIndicator(false);
 
     // Clear the context
-    currentStreamingContext = null;
+    setStreamingContext(null);
   }
 
   // Apply syntax highlighting to code blocks
