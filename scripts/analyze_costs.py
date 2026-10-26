@@ -45,24 +45,8 @@ def _percentile(sorted_values: list[int], pct: float) -> int:
     return sorted_values[index]
 
 
-def main() -> None:  # noqa: C901, PLR0912, PLR0915
-    days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
-    db_path = sys.argv[2] if len(sys.argv) > 2 else "chatbot.db"
-    if not Path(db_path).exists():
-        sys.exit(f"DB not found: {db_path}")
-
-    since = (datetime.now() - timedelta(days=days)).isoformat()
-    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    conv_type = _conv_type_case()
-    # Older DBs lack telemetry columns added by later migrations
-    cost_columns = {r["name"] for r in conn.execute("PRAGMA table_info(message_costs)")}
-    has_cache_column = "cached_input_tokens" in cost_columns
-    has_tool_columns = "tool_rounds" in cost_columns
-
-    print(f"=== Cost analysis: last {days} days (since {since[:10]}) ===\n")
-
-    # ---- Totals
+def _print_totals(conn: sqlite3.Connection, since: str, has_cache_column: bool) -> sqlite3.Row:
+    """Totals."""
     total = conn.execute(
         """SELECT COUNT(*) n, COALESCE(SUM(cost_usd),0) usd,
                   COALESCE(SUM(input_tokens),0) tin, COALESCE(SUM(output_tokens),0) tout,
@@ -88,8 +72,12 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         ).fetchone()["c"]
         print(f"  cached input:  {cached:>12,}  ({_pct(cached, total['tin'])} of input tokens)")
     print()
+    return total
 
-    # ---- By conversation type
+
+def _print_by_conversation_type(conn: sqlite3.Connection, since: str, total_usd: float) -> None:
+    """By conversation type."""
+    conv_type = _conv_type_case()
     print("BY CONVERSATION TYPE:")
     rows = conn.execute(
         f"""SELECT CASE WHEN c.id IS NULL THEN 'deleted' ELSE {conv_type} END ctype,
@@ -101,12 +89,14 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
     ).fetchall()
     for r in rows:
         print(
-            f"  {r['ctype']:<9} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total['usd'])} "
+            f"  {r['ctype']:<9} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total_usd)} "
             f"| {r['n']:>5} msgs | avg in {r['avg_in']:>9,.0f} tok"
         )
     print()
 
-    # ---- By model
+
+def _print_by_model(conn: sqlite3.Connection, since: str, total_usd: float) -> None:
+    """By model."""
     print("BY MODEL:")
     for r in conn.execute(
         """SELECT model, COUNT(*) n, SUM(cost_usd) usd FROM message_costs
@@ -114,11 +104,13 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         (since,),
     ):
         print(
-            f"  {r['model']:<28} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total['usd'])} | {r['n']:>5} msgs"
+            f"  {r['model']:<28} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total_usd)} | {r['n']:>5} msgs"
         )
     print()
 
-    # ---- Turn metrics (per-turn observability, columns exist since 0050)
+
+def _print_turn_metrics(conn: sqlite3.Connection, since: str) -> None:
+    """Turn metrics (per-turn observability, columns exist since 0050)."""
     print("TURN METRICS (rows with duration recorded):")
     for r in conn.execute(
         """SELECT CASE WHEN tool_rounds=0 THEN '0 rounds'
@@ -145,7 +137,9 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         print(f"    {r['tool']:<24} {r['n']:>5}")
     print()
 
-    # ---- Web search correlation (cited sources as the marker)
+
+def _print_web_search_correlation(conn: sqlite3.Connection, since: str, total_usd: float) -> None:
+    """Web search correlation (cited sources as the marker)."""
     print("WEB SEARCH CORRELATION (messages with cited sources vs without):")
     for r in conn.execute(
         """SELECT CASE WHEN m.id IS NULL THEN 'deleted msg'
@@ -158,13 +152,16 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         (since,),
     ):
         print(
-            f"  {r['grp']:<13} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total['usd'])} "
+            f"  {r['grp']:<13} {_fmt_usd(r['usd']):>9} {_pct(r['usd'], total_usd)} "
             f"| {r['n']:>5} msgs | avg {_fmt_usd(r['avg_usd'])} "
             f"| avg in {r['avg_in']:>9,.0f} | avg out {r['avg_out']:>6,.0f}"
         )
     print()
 
-    # ---- Input token distribution per type (context bloat finder)
+
+def _print_input_token_distribution(conn: sqlite3.Connection, since: str) -> None:
+    """Input token distribution per type (context bloat finder)."""
+    conv_type = _conv_type_case()
     print("INPUT TOKEN DISTRIBUTION (p50 / p90 / max):")
     by_type: dict[str, list[int]] = {}
     for r in conn.execute(
@@ -182,7 +179,10 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         )
     print()
 
-    # ---- Top messages
+
+def _print_top_messages(conn: sqlite3.Connection, since: str) -> None:
+    """Top messages."""
+    conv_type = _conv_type_case()
     print("TOP 10 MOST EXPENSIVE MESSAGES:")
     for r in conn.execute(
         f"""SELECT mc.created_at, mc.cost_usd, mc.input_tokens, mc.output_tokens,
@@ -202,7 +202,10 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         )
     print()
 
-    # ---- Top conversations
+
+def _print_top_conversations(conn: sqlite3.Connection, since: str, total_usd: float) -> None:
+    """Top conversations."""
+    conv_type = _conv_type_case()
     print("TOP 10 MOST EXPENSIVE CONVERSATIONS:")
     for r in conn.execute(
         f"""SELECT c.title, {conv_type} ctype, COUNT(*) n, SUM(mc.cost_usd) usd,
@@ -213,44 +216,47 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         (since,),
     ):
         print(
-            f"  {_fmt_usd(r['usd']):>8} {_pct(r['usd'], total['usd'])} | {r['n']:>4} msgs "
+            f"  {_fmt_usd(r['usd']):>8} {_pct(r['usd'], total_usd)} | {r['n']:>4} msgs "
             f"| in {r['tin']:>10,} | {r['ctype']:<8} | {(r['title'] or '')[:38]}"
         )
     print()
 
-    # ---- Round multiplication (tool-heavy turns re-send the prefix each round)
-    if has_tool_columns:
-        print("ROUND MULTIPLICATION (turns with the most tool rounds):")
-        rows = conn.execute(
-            """SELECT mc.created_at, mc.cost_usd, mc.input_tokens, mc.tool_rounds,
-                      mc.tool_call_count, c.title
-               FROM message_costs mc LEFT JOIN conversations c ON mc.conversation_id = c.id
-               WHERE mc.created_at >= ? AND mc.tool_rounds > 0
-               ORDER BY mc.tool_rounds DESC, mc.cost_usd DESC LIMIT 10""",
-            (since,),
-        ).fetchall()
-        if rows:
-            for r in rows:
-                print(
-                    f"  {r['created_at'][:16]} {_fmt_usd(r['cost_usd']):>7} "
-                    f"| {r['tool_rounds']:>2} rounds, {r['tool_call_count']:>2} calls "
-                    f"| in {r['input_tokens']:>8,} | {(r['title'] or '')[:34]}"
-                )
-            agg = conn.execute(
-                """SELECT SUM(tool_rounds * cost_usd) / NULLIF(SUM(cost_usd), 0) wavg_rounds,
-                          MAX(tool_rounds) max_rounds
-                   FROM message_costs WHERE created_at >= ? AND tool_rounds > 0""",
-                (since,),
-            ).fetchone()
-            print(
-                f"  -> cost-weighted avg {agg['wavg_rounds']:.1f} rounds/turn, "
-                f"max {agg['max_rounds']} (each round re-sends the ~30k prefix)"
-            )
-        else:
-            print("  (no tool-using turns in window)")
-        print()
 
-    # ---- Daily trend
+def _print_round_multiplication(conn: sqlite3.Connection, since: str) -> None:
+    """Round multiplication (tool-heavy turns re-send the prefix each round)."""
+    print("ROUND MULTIPLICATION (turns with the most tool rounds):")
+    rows = conn.execute(
+        """SELECT mc.created_at, mc.cost_usd, mc.input_tokens, mc.tool_rounds,
+                  mc.tool_call_count, c.title
+           FROM message_costs mc LEFT JOIN conversations c ON mc.conversation_id = c.id
+           WHERE mc.created_at >= ? AND mc.tool_rounds > 0
+           ORDER BY mc.tool_rounds DESC, mc.cost_usd DESC LIMIT 10""",
+        (since,),
+    ).fetchall()
+    if rows:
+        for r in rows:
+            print(
+                f"  {r['created_at'][:16]} {_fmt_usd(r['cost_usd']):>7} "
+                f"| {r['tool_rounds']:>2} rounds, {r['tool_call_count']:>2} calls "
+                f"| in {r['input_tokens']:>8,} | {(r['title'] or '')[:34]}"
+            )
+        agg = conn.execute(
+            """SELECT SUM(tool_rounds * cost_usd) / NULLIF(SUM(cost_usd), 0) wavg_rounds,
+                      MAX(tool_rounds) max_rounds
+               FROM message_costs WHERE created_at >= ? AND tool_rounds > 0""",
+            (since,),
+        ).fetchone()
+        print(
+            f"  -> cost-weighted avg {agg['wavg_rounds']:.1f} rounds/turn, "
+            f"max {agg['max_rounds']} (each round re-sends the ~30k prefix)"
+        )
+    else:
+        print("  (no tool-using turns in window)")
+    print()
+
+
+def _print_daily_trend(conn: sqlite3.Connection, has_cache_column: bool) -> None:
+    """Daily trend."""
     print("DAILY TREND (last 14 days):")
     cached_expr = "SUM(cached_input_tokens)" if has_cache_column else "0"
     for r in conn.execute(
@@ -263,6 +269,35 @@ def main() -> None:  # noqa: C901, PLR0912, PLR0915
         bar = "#" * min(int(r["usd"] * 20), 60)
         cache_note = f" | cached {_pct(r['cached'], r['tin'])}" if has_cache_column else ""
         print(f"  {r['day']}  {_fmt_usd(r['usd']):>8} | {r['n']:>4} msgs{cache_note} | {bar}")
+
+
+def main() -> None:
+    days = int(sys.argv[1]) if len(sys.argv) > 1 else 30
+    db_path = sys.argv[2] if len(sys.argv) > 2 else "chatbot.db"
+    if not Path(db_path).exists():
+        sys.exit(f"DB not found: {db_path}")
+
+    since = (datetime.now() - timedelta(days=days)).isoformat()
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    # Older DBs lack telemetry columns added by later migrations
+    cost_columns = {r["name"] for r in conn.execute("PRAGMA table_info(message_costs)")}
+    has_cache_column = "cached_input_tokens" in cost_columns
+    has_tool_columns = "tool_rounds" in cost_columns
+
+    print(f"=== Cost analysis: last {days} days (since {since[:10]}) ===\n")
+
+    total = _print_totals(conn, since, has_cache_column)
+    _print_by_conversation_type(conn, since, total["usd"])
+    _print_by_model(conn, since, total["usd"])
+    _print_turn_metrics(conn, since)
+    _print_web_search_correlation(conn, since, total["usd"])
+    _print_input_token_distribution(conn, since)
+    _print_top_messages(conn, since)
+    _print_top_conversations(conn, since, total["usd"])
+    if has_tool_columns:
+        _print_round_multiplication(conn, since)
+    _print_daily_trend(conn, has_cache_column)
 
     conn.close()
 

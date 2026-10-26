@@ -153,7 +153,73 @@ def _valid_category(category: str | None) -> str | None:
     return None
 
 
-def validate_changes(  # noqa: C901, PLR0912
+def _valid_deletions(memory_ids: list[str], existing: dict[str, Memory]) -> list[str]:
+    """The proposed deletions that may be applied: existing, unprotected, not recent."""
+    to_delete: list[str] = []
+    for memory_id in memory_ids:
+        memory = existing.get(memory_id)
+        if memory is None:
+            logger.warning(
+                "LLM tried to delete non-existent memory", extra={"memory_id": memory_id}
+            )
+            continue
+        if memory.protected:
+            # Also enforced in the DB layer; logged here so the run is auditable
+            logger.warning("LLM tried to delete a protected memory", extra={"memory_id": memory_id})
+            continue
+        if is_recent(memory):
+            logger.warning("LLM tried to delete a recent memory", extra={"memory_id": memory_id})
+            continue
+        to_delete.append(memory_id)
+    return to_delete
+
+
+def _update_allowed(
+    update: MemoryUpdate, existing: dict[str, Memory], to_delete: list[str]
+) -> bool:
+    """Whether one proposed update may be applied; logs why when it may not."""
+    if not update.id or not update.content:
+        logger.warning("Invalid update entry", extra={"update": update.model_dump()})
+        return False
+    if update.id not in existing:
+        logger.warning("LLM tried to update non-existent memory", extra={"memory_id": update.id})
+        return False
+    if is_recent(existing[update.id]):
+        logger.warning("LLM tried to update a recent memory", extra={"memory_id": update.id})
+        return False
+    if update.id in to_delete:
+        logger.warning(
+            "LLM tried to update a memory it's also deleting",
+            extra={"memory_id": update.id},
+        )
+        return False
+    if len(update.content) > Config.MEMORY_MAX_ENTRY_CHARS:
+        logger.warning(
+            "Defrag update rejected - content too large",
+            extra={"memory_id": update.id, "content_chars": len(update.content)},
+        )
+        return False
+    return True
+
+
+def _valid_additions(additions: list[MemoryAddition]) -> list[dict[str, Any]]:
+    """The proposed additions that may be applied: non-empty and within the size bound."""
+    to_add: list[dict[str, Any]] = []
+    for add in additions:
+        if not add.content:
+            logger.warning("Invalid add entry (missing content)", extra={"add": add.model_dump()})
+            continue
+        if len(add.content) > Config.MEMORY_MAX_ENTRY_CHARS:
+            logger.warning(
+                "Defrag add rejected - content too large",
+                extra={"content_chars": len(add.content)},
+            )
+            continue
+        to_add.append({"content": add.content, "category": _valid_category(add.category)})
+    return to_add
+
+
+def validate_changes(
     changes: DefragPlan | dict[str, Any], existing: dict[str, Memory]
 ) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]]]:
     """Validate and extract changes from the LLM response.
@@ -171,76 +237,20 @@ def validate_changes(  # noqa: C901, PLR0912
     if isinstance(changes, dict):
         changes = DefragPlan.model_validate(changes)
 
-    to_delete: list[str] = []
-    to_update: list[dict[str, Any]] = []
-    to_add: list[dict[str, Any]] = []
-
     if changes.no_changes:
-        return to_delete, to_update, to_add
+        return [], [], []
 
-    # Validate deletions
-    for memory_id in changes.delete:
-        memory = existing.get(memory_id)
-        if memory is None:
-            logger.warning(
-                "LLM tried to delete non-existent memory", extra={"memory_id": memory_id}
-            )
-            continue
-        if memory.protected:
-            # Also enforced in the DB layer; logged here so the run is auditable
-            logger.warning("LLM tried to delete a protected memory", extra={"memory_id": memory_id})
-            continue
-        if is_recent(memory):
-            logger.warning("LLM tried to delete a recent memory", extra={"memory_id": memory_id})
-            continue
-        to_delete.append(memory_id)
-
-    # Validate updates
-    for update in changes.update:
-        if not update.id or not update.content:
-            logger.warning("Invalid update entry", extra={"update": update.model_dump()})
-            continue
-        if update.id not in existing:
-            logger.warning(
-                "LLM tried to update non-existent memory", extra={"memory_id": update.id}
-            )
-            continue
-        if is_recent(existing[update.id]):
-            logger.warning("LLM tried to update a recent memory", extra={"memory_id": update.id})
-            continue
-        if update.id in to_delete:
-            logger.warning(
-                "LLM tried to update a memory it's also deleting",
-                extra={"memory_id": update.id},
-            )
-            continue
-        if len(update.content) > Config.MEMORY_MAX_ENTRY_CHARS:
-            logger.warning(
-                "Defrag update rejected - content too large",
-                extra={"memory_id": update.id, "content_chars": len(update.content)},
-            )
-            continue
-        to_update.append(
-            {
-                "id": update.id,
-                "content": update.content,
-                "category": _valid_category(update.category),
-            }
-        )
-
-    # Validate additions
-    for add in changes.add:
-        if not add.content:
-            logger.warning("Invalid add entry (missing content)", extra={"add": add.model_dump()})
-            continue
-        if len(add.content) > Config.MEMORY_MAX_ENTRY_CHARS:
-            logger.warning(
-                "Defrag add rejected - content too large",
-                extra={"content_chars": len(add.content)},
-            )
-            continue
-        to_add.append({"content": add.content, "category": _valid_category(add.category)})
-
+    to_delete = _valid_deletions(changes.delete, existing)
+    to_update = [
+        {
+            "id": update.id,
+            "content": update.content,
+            "category": _valid_category(update.category),
+        }
+        for update in changes.update
+        if _update_allowed(update, existing, to_delete)
+    ]
+    to_add = _valid_additions(changes.add)
     return to_delete, to_update, to_add
 
 
@@ -255,7 +265,187 @@ def plan_grows_bank(to_delete: list[str], to_add: list[dict[str, Any]]) -> bool:
     return len(to_add) > len(to_delete)
 
 
-def defragment_user_memories(  # noqa: C901, PLR0912, PLR0915
+def _target_count(memory_count: int) -> int:
+    """How many memories the run should aim for.
+
+    Only push for reduction once the bank is actually large. Below the warning
+    threshold the bank is healthy, so ask for consolidation of genuine
+    duplicates only rather than a fixed percentage cut.
+    """
+    if memory_count > Config.MEMORY_WARNING_THRESHOLD:
+        return min(int(memory_count * 0.7), Config.MEMORY_WARNING_THRESHOLD)
+    return memory_count
+
+
+def _build_prompts(memories: list[Memory], target_count: int) -> tuple[str, str]:
+    """The (system, user) prompts asking the LLM for a consolidation plan."""
+    memory_count = len(memories)
+    if target_count < memory_count:
+        target_instruction = (
+            f"- The user currently has {memory_count} memories. Try to get this below "
+            f"{target_count} without losing important information."
+        )
+    else:
+        target_instruction = (
+            f"- The user has {memory_count} memories, which is a healthy size. Do not "
+            "cut for the sake of cutting: only merge genuine duplicates and remove "
+            "memories that are truly stale."
+        )
+
+    system_prompt = DEFRAG_SYSTEM_PROMPT.format(
+        max_entry_chars=Config.MEMORY_MAX_ENTRY_CHARS,
+        target_instruction=target_instruction,
+    )
+    user_prompt = f"""Here are the user's current memories:
+
+{format_memories_for_llm(memories)}
+
+Please analyze these memories and provide consolidation recommendations."""
+    return system_prompt, user_prompt
+
+
+def _request_plan(
+    llm: ChatGoogleGenerativeAI, system_prompt: str, user_prompt: str
+) -> DefragPlan | None:
+    """Ask for a schema-validated plan rather than JSON embedded in prose."""
+    changes = llm.with_structured_output(DefragPlan).invoke(
+        [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+    )
+    if changes is None:
+        return None
+    return (
+        changes
+        if isinstance(changes, DefragPlan)
+        else DefragPlan.model_validate(
+            changes if isinstance(changes, dict) else changes.model_dump()
+        )
+    )
+
+
+def _log_dry_run(
+    memories: list[Memory],
+    to_delete: list[str],
+    to_update: list[dict[str, Any]],
+    to_add: list[dict[str, Any]],
+) -> None:
+    """Log what a dry run would change."""
+    for memory_id in to_delete:
+        mem = next((m for m in memories if m.id == memory_id), None)
+        if mem:
+            logger.info(
+                "[DRY RUN] Would delete memory",
+                extra={"memory_id": memory_id, "content": mem.content[:100]},
+            )
+    for update in to_update:
+        logger.info(
+            "[DRY RUN] Would update memory",
+            extra={"memory_id": update["id"], "new_content": update["content"][:100]},
+        )
+    for add in to_add:
+        logger.info(
+            "[DRY RUN] Would add memory",
+            extra={"content": add["content"][:100], "category": add.get("category")},
+        )
+
+
+def _apply_plan(
+    user: User,
+    memory_count: int,
+    to_delete: list[str],
+    to_update: list[dict[str, Any]],
+    to_add: list[dict[str, Any]],
+    result: dict[str, int],
+) -> None:
+    """Write the validated changes in one bulk update; the counts go into `result`."""
+    db_result = db.bulk_update_memories(
+        user_id=user.id,
+        to_delete=to_delete,
+        to_update=[(u["id"], u["content"], u.get("category")) for u in to_update],
+        to_add=[(a["content"], a.get("category")) for a in to_add],
+    )
+
+    result["deleted"] = db_result["deleted"]
+    result["updated"] = db_result["updated"]
+    result["added"] = db_result["added"]
+
+    # Log final state
+    new_count = memory_count - result["deleted"] + result["added"]
+    logger.info(
+        "Memory defragmentation completed",
+        extra={
+            "user_id": user.id,
+            "old_count": memory_count,
+            "new_count": new_count,
+            "reduction": memory_count - new_count,
+            # IDs make a "my memory vanished" report traceable to this run
+            "deleted_ids": to_delete,
+            "updated_ids": [u["id"] for u in to_update],
+        },
+    )
+
+
+def _run_plan(
+    user: User,
+    memories: list[Memory],
+    plan: DefragPlan,
+    dry_run: bool,
+    result: dict[str, int],
+) -> dict[str, int]:
+    """Validate the plan, refuse one that grows the bank, then log or apply it."""
+    if plan.reasoning:
+        logger.info(
+            "Defragmentation reasoning",
+            extra={"user_id": user.id, "reasoning": plan.reasoning},
+        )
+
+    # Check for no-op
+    if plan.no_changes:
+        logger.info("No changes needed", extra={"user_id": user.id})
+        result["skipped"] = True
+        return result
+
+    existing = {m.id: m for m in memories}
+    to_delete, to_update, to_add = validate_changes(plan, existing)
+
+    logger.info(
+        "Planned memory changes",
+        extra={
+            "user_id": user.id,
+            "to_delete": len(to_delete),
+            "to_update": len(to_update),
+            "to_add": len(to_add),
+            "dry_run": dry_run,
+        },
+    )
+
+    # Refuse a plan that would grow the bank - see plan_grows_bank
+    if plan_grows_bank(to_delete, to_add):
+        logger.error(
+            "Defragmentation plan rejected - it would grow the memory bank",
+            extra={
+                "user_id": user.id,
+                "to_delete": len(to_delete),
+                "to_add": len(to_add),
+            },
+        )
+        result["skipped"] = True
+        return result
+
+    if dry_run:
+        _log_dry_run(memories, to_delete, to_update, to_add)
+        result["deleted"] = len(to_delete)
+        result["updated"] = len(to_update)
+        result["added"] = len(to_add)
+        return result
+
+    _apply_plan(user, len(memories), to_delete, to_update, to_add, result)
+    return result
+
+
+def defragment_user_memories(
     user: User,
     memories: list[Memory],
     llm: ChatGoogleGenerativeAI,
@@ -280,13 +470,7 @@ def defragment_user_memories(  # noqa: C901, PLR0912, PLR0915
         return result
 
     memory_count = len(memories)
-    # Only push for reduction once the bank is actually large. Below the warning
-    # threshold the bank is healthy, so ask for consolidation of genuine
-    # duplicates only rather than a fixed percentage cut.
-    if memory_count > Config.MEMORY_WARNING_THRESHOLD:
-        target_count = min(int(memory_count * 0.7), Config.MEMORY_WARNING_THRESHOLD)
-    else:
-        target_count = memory_count
+    target_count = _target_count(memory_count)
 
     logger.info(
         "Starting memory defragmentation for user",
@@ -298,145 +482,15 @@ def defragment_user_memories(  # noqa: C901, PLR0912, PLR0915
         },
     )
 
-    # Build the prompt
-    if target_count < memory_count:
-        target_instruction = (
-            f"- The user currently has {memory_count} memories. Try to get this below "
-            f"{target_count} without losing important information."
-        )
-    else:
-        target_instruction = (
-            f"- The user has {memory_count} memories, which is a healthy size. Do not "
-            "cut for the sake of cutting: only merge genuine duplicates and remove "
-            "memories that are truly stale."
-        )
-
-    system_prompt = DEFRAG_SYSTEM_PROMPT.format(
-        max_entry_chars=Config.MEMORY_MAX_ENTRY_CHARS,
-        target_instruction=target_instruction,
-    )
-    user_prompt = f"""Here are the user's current memories:
-
-{format_memories_for_llm(memories)}
-
-Please analyze these memories and provide consolidation recommendations."""
+    system_prompt, user_prompt = _build_prompts(memories, target_count)
 
     try:
-        # Ask for a schema-validated plan rather than JSON embedded in prose
-        changes = llm.with_structured_output(DefragPlan).invoke(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
-        )
-
-        if changes is None:
+        plan = _request_plan(llm, system_prompt, user_prompt)
+        if plan is None:
             logger.error("LLM returned no defragmentation plan", extra={"user_id": user.id})
             result["skipped"] = True
             return result
-
-        plan = (
-            changes
-            if isinstance(changes, DefragPlan)
-            else DefragPlan.model_validate(
-                changes if isinstance(changes, dict) else changes.model_dump()
-            )
-        )
-
-        if plan.reasoning:
-            logger.info(
-                "Defragmentation reasoning",
-                extra={"user_id": user.id, "reasoning": plan.reasoning},
-            )
-
-        # Check for no-op
-        if plan.no_changes:
-            logger.info("No changes needed", extra={"user_id": user.id})
-            result["skipped"] = True
-            return result
-
-        # Validate and extract changes
-        existing = {m.id: m for m in memories}
-        to_delete, to_update, to_add = validate_changes(plan, existing)
-
-        # Log planned changes
-        logger.info(
-            "Planned memory changes",
-            extra={
-                "user_id": user.id,
-                "to_delete": len(to_delete),
-                "to_update": len(to_update),
-                "to_add": len(to_add),
-                "dry_run": dry_run,
-            },
-        )
-
-        # Refuse a plan that would grow the bank - see plan_grows_bank
-        if plan_grows_bank(to_delete, to_add):
-            logger.error(
-                "Defragmentation plan rejected - it would grow the memory bank",
-                extra={
-                    "user_id": user.id,
-                    "to_delete": len(to_delete),
-                    "to_add": len(to_add),
-                },
-            )
-            result["skipped"] = True
-            return result
-
-        if dry_run:
-            # Log what would be changed
-            for memory_id in to_delete:
-                mem = next((m for m in memories if m.id == memory_id), None)
-                if mem:
-                    logger.info(
-                        "[DRY RUN] Would delete memory",
-                        extra={"memory_id": memory_id, "content": mem.content[:100]},
-                    )
-            for update in to_update:
-                logger.info(
-                    "[DRY RUN] Would update memory",
-                    extra={"memory_id": update["id"], "new_content": update["content"][:100]},
-                )
-            for add in to_add:
-                logger.info(
-                    "[DRY RUN] Would add memory",
-                    extra={"content": add["content"][:100], "category": add.get("category")},
-                )
-
-            result["deleted"] = len(to_delete)
-            result["updated"] = len(to_update)
-            result["added"] = len(to_add)
-            return result
-
-        # Apply changes using bulk update
-        db_result = db.bulk_update_memories(
-            user_id=user.id,
-            to_delete=to_delete,
-            to_update=[(u["id"], u["content"], u.get("category")) for u in to_update],
-            to_add=[(a["content"], a.get("category")) for a in to_add],
-        )
-
-        result["deleted"] = db_result["deleted"]
-        result["updated"] = db_result["updated"]
-        result["added"] = db_result["added"]
-
-        # Log final state
-        new_count = memory_count - result["deleted"] + result["added"]
-        logger.info(
-            "Memory defragmentation completed",
-            extra={
-                "user_id": user.id,
-                "old_count": memory_count,
-                "new_count": new_count,
-                "reduction": memory_count - new_count,
-                # IDs make a "my memory vanished" report traceable to this run
-                "deleted_ids": to_delete,
-                "updated_ids": [u["id"] for u in to_update],
-            },
-        )
-
-        return result
+        return _run_plan(user, memories, plan, dry_run, result)
 
     except Exception as e:
         logger.exception(

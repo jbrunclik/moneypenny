@@ -23,8 +23,8 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Sets the test environment before any src module is imported
-from tests.e2e_server import settings  # noqa: E402, F401
-from tests.e2e_server.app import main  # noqa: E402
+from tests.e2e_server import settings  # noqa: E402, F401 - imported for its side effect, after the path insert
+from tests.e2e_server.app import main  # noqa: E402 - needs the path insert and settings above
 
 if __name__ == "__main__":
     main()

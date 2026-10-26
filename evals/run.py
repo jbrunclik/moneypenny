@@ -34,6 +34,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -115,12 +116,25 @@ class EvalCase:
     deep_research: dict[str, Any] = field(default_factory=dict)
 
 
-def _resolve_dates(value: Any) -> Any:  # noqa: C901
+def _placeholder_date(placeholder: str, today: date) -> date | None:
+    """The day a date placeholder names ("today", "in_3_days"...), or None."""
+    if placeholder == "today":
+        return today
+    if placeholder == "tomorrow":
+        return today + timedelta(days=1)
+    if placeholder == "yesterday":
+        return today - timedelta(days=1)
+    if m := re.fullmatch(r"in_(\d+)_days", placeholder):
+        return today + timedelta(days=int(m.group(1)))
+    if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
+        return today - timedelta(days=int(m.group(1)))
+    return None
+
+
+def _resolve_dates(value: Any) -> Any:
     """Replace {today}, {tomorrow}, {yesterday}, {in_N_days}, {N_days_ago}
     placeholders in fixture strings, so date-relative fixtures stay valid.
     A `_weekday` suffix ({today_weekday}) gives the English weekday name."""
-    from datetime import date, timedelta
-
     if isinstance(value, dict):
         return {k: _resolve_dates(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -129,23 +143,10 @@ def _resolve_dates(value: Any) -> Any:  # noqa: C901
         return value
     today = date.today()
 
-    def resolve(placeholder: str) -> date | None:
-        if placeholder == "today":
-            return today
-        if placeholder == "tomorrow":
-            return today + timedelta(days=1)
-        if placeholder == "yesterday":
-            return today - timedelta(days=1)
-        if m := re.fullmatch(r"in_(\d+)_days", placeholder):
-            return today + timedelta(days=int(m.group(1)))
-        if m := re.fullmatch(r"(\d+)_days_ago", placeholder):
-            return today - timedelta(days=int(m.group(1)))
-        return None
-
     def sub(match: re.Match[str]) -> str:
         placeholder = match.group(1)
         weekday = placeholder.endswith("_weekday")
-        day = resolve(placeholder.removesuffix("_weekday"))
+        day = _placeholder_date(placeholder.removesuffix("_weekday"), today)
         if day is None:
             return match.group(0)
         return day.strftime("%A") if weekday else day.isoformat()

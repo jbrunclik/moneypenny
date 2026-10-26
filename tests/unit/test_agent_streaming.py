@@ -1,6 +1,20 @@
 """Unit tests for ChatAgent streaming event handling (src/agent/agent.py)."""
 
 
+def _run_stream(events: list) -> list[dict]:
+    """Drive the real stream_chat_events with a mocked graph."""
+    from unittest.mock import MagicMock
+
+    from src.agent.agent import ChatAgent
+
+    agent = ChatAgent.__new__(ChatAgent)
+    agent.graph = MagicMock()
+    # stream_mode=["messages", "custom"] yields (mode, payload) pairs
+    agent.graph.stream.return_value = iter(("messages", event) for event in events)
+    agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
+    return list(agent.stream_chat_events(text="hi"))
+
+
 class TestStreamingMsgContextHandling:
     """Tests for MSG_CONTEXT block handling during streaming.
 
@@ -10,11 +24,11 @@ class TestStreamingMsgContextHandling:
     via tool calls, not text blocks).
     """
 
-    def _process_chunks(self, chunks: list[str]) -> tuple[str, list[str], bool]:  # noqa: C901, PLR0912, PLR0915
-        """Simulate the MSG_CONTEXT chunk processing logic from stream_chat_events.
+    def _process_chunks(self, chunks: list[str]) -> tuple[str, list[str], bool]:
+        """Feed text chunks through the stream's MsgContextFilter.
 
-        This handles cross-chunk boundary scenarios where markers like
-        <!-- MSG_CONTEXT: or --> are split across chunks.
+        Mirrors StreamEventProcessor: empty chunks never reach the filter, and
+        a carryover left outside a block is flushed at the end (finish()).
 
         Args:
             chunks: List of text content chunks
@@ -22,74 +36,21 @@ class TestStreamingMsgContextHandling:
         Returns:
             Tuple of (full_response, yielded_tokens, had_msg_context)
         """
-        full_response = ""
+        from src.agent.stream_events import MsgContextFilter
+
+        msg_filter = MsgContextFilter()
         yielded_tokens: list[str] = []
-        in_msg_context = False
         had_msg_context = False
-
-        msg_context_marker = "<!-- MSG_CONTEXT:"
-        end_marker = "-->"
-
-        # Carryover buffer for cross-chunk marker detection
-        carryover = ""
-
         for chunk in chunks:
-            # Prepend carryover from previous chunk for cross-chunk marker detection
-            text_content = carryover + chunk
-            carryover = ""
-
-            # Handle MSG_CONTEXT blocks (echoed history context)
-            if in_msg_context:
-                if end_marker in text_content:
-                    end_pos = text_content.find(end_marker)
-                    text_content = text_content[end_pos + 3 :].lstrip()
-                    in_msg_context = False
-                    if not text_content:
-                        continue
-                else:
-                    for i in range(len(end_marker) - 1, 0, -1):
-                        if text_content.endswith(end_marker[:i]):
-                            carryover = end_marker[:i]
-                            break
-                    continue
-
-            # Check for MSG_CONTEXT marker
-            if msg_context_marker in text_content:
-                had_msg_context = True
-                marker_pos = text_content.find(msg_context_marker)
-                end_pos = text_content.find(end_marker, marker_pos)
-                if end_pos != -1:
-                    before = text_content[:marker_pos]
-                    after = text_content[end_pos + 3 :]
-                    text_content = (before + after).strip()
-                else:
-                    content_after_marker = text_content[marker_pos:]
-                    for i in range(len(end_marker) - 1, 0, -1):
-                        if content_after_marker.endswith(end_marker[:i]):
-                            carryover = end_marker[:i]
-                            break
-                    text_content = text_content[:marker_pos].rstrip()
-                    in_msg_context = True
-                if not text_content:
-                    continue
-            elif not in_msg_context:
-                for i in range(len(msg_context_marker) - 1, 0, -1):
-                    partial = msg_context_marker[:i]
-                    if text_content.endswith(partial):
-                        carryover = partial
-                        text_content = text_content[:-i]
-                        break
-
-            full_response += text_content
-            if text_content:
-                yielded_tokens.append(text_content)
-
-        # Handle any remaining carryover
-        if carryover and not in_msg_context:
-            full_response += carryover
-            yielded_tokens.append(carryover)
-
-        return full_response, yielded_tokens, had_msg_context
+            if not chunk:
+                continue
+            had_msg_context |= "<!-- MSG_CONTEXT:" in msg_filter.carryover + chunk
+            text = msg_filter.feed(chunk)
+            if text:
+                yielded_tokens.append(text)
+        if msg_filter.carryover and not msg_filter.in_msg_context:
+            yielded_tokens.append(msg_filter.carryover)
+        return "".join(yielded_tokens), yielded_tokens, had_msg_context
 
     def test_msg_context_single_chunk_stripped(self) -> None:
         """MSG_CONTEXT in a single chunk should be completely stripped."""
@@ -193,73 +154,19 @@ class TestStreamNodeFiltering:
     from all nodes is still tracked for cost accounting.
     """
 
-    def _simulate_stream_chat_events(self, events: list[tuple]) -> tuple[list[dict], dict | None]:  # noqa: C901
-        """Simulate stream_chat_events processing of raw graph.stream events.
-
-        Extracts the node-filtering logic to test it in isolation without
-        needing a real LangGraph graph or LLM.
+    def _simulate_stream_chat_events(self, events: list[tuple]) -> tuple[list[dict], dict | None]:
+        """Run graph stream events through the real stream_chat_events.
 
         Args:
             events: List of (message_chunk, metadata_dict) tuples
 
         Returns:
-            Tuple of (yielded_events, final_event)
+            Tuple of (token_events, final_event)
         """
-        from langchain_core.messages import AIMessageChunk, ToolMessage
-
-        from src.agent.graph_state import CHAT_NODE_NAME
-
-        yielded_events: list[dict] = []
-        full_response = ""
-        tool_results: list[dict] = []
-        total_input_tokens = 0
-        total_output_tokens = 0
-        chunk_count = 0
-
-        for event in events:
-            if isinstance(event, tuple) and len(event) >= 1:
-                message_chunk = event[0]
-                event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
-                source_node = event_meta.get("langgraph_node", "")
-
-                if isinstance(message_chunk, ToolMessage):
-                    tool_results.append({"type": "tool", "content": message_chunk.content})
-                    continue
-
-                if isinstance(message_chunk, AIMessageChunk):
-                    chunk_count += 1
-                    if hasattr(message_chunk, "usage_metadata") and message_chunk.usage_metadata:
-                        usage = message_chunk.usage_metadata
-                        if isinstance(usage, dict):
-                            total_input_tokens += usage.get("input_tokens", 0)
-                            total_output_tokens += usage.get("output_tokens", 0)
-
-                    # Filter non-chat node output
-                    if source_node and source_node != CHAT_NODE_NAME:
-                        continue
-
-                    if message_chunk.tool_calls or message_chunk.tool_call_chunks:
-                        continue
-                    if message_chunk.content:
-                        content = (
-                            message_chunk.content
-                            if isinstance(message_chunk.content, str)
-                            else str(message_chunk.content)
-                        )
-                        if content:
-                            full_response += content
-                            yielded_events.append({"type": "token", "text": content})
-
-        final_event = {
-            "type": "final",
-            "content": full_response,
-            "tool_results": tool_results,
-            "usage_info": {
-                "input_tokens": total_input_tokens,
-                "output_tokens": total_output_tokens,
-            },
-        }
-        return yielded_events, final_event
+        emitted = _run_stream(events)
+        tokens = [e for e in emitted if e["type"] == "token"]
+        final = next((e for e in emitted if e["type"] == "final"), None)
+        return tokens, final
 
     def test_non_chat_node_output_filtered(self) -> None:
         """AIMessageChunks from any non-chat graph node must not yield tokens.
@@ -368,19 +275,6 @@ class TestToolEventCallIdKeying:
     call was still running.
     """
 
-    def _run_stream(self, events: list) -> list[dict]:
-        """Drive the real stream_chat_events with a mocked graph."""
-        from unittest.mock import MagicMock
-
-        from src.agent.agent import ChatAgent
-
-        agent = ChatAgent.__new__(ChatAgent)
-        agent.graph = MagicMock()
-        # stream_mode=["messages", "custom"] yields (mode, payload) pairs
-        agent.graph.stream.return_value = iter(("messages", event) for event in events)
-        agent._build_messages = MagicMock(return_value=[])  # type: ignore[method-assign]
-        return list(agent.stream_chat_events(text="hi"))
-
     def test_parallel_calls_to_same_tool_emit_separate_events(self) -> None:
         """Two parallel web_search calls → two tool_start and two tool_end."""
         from langchain_core.messages import AIMessageChunk, ToolMessage
@@ -417,7 +311,7 @@ class TestToolEventCallIdKeying:
             (AIMessageChunk(content="Done"), {"langgraph_node": "chat"}),
         ]
 
-        emitted = self._run_stream(events)
+        emitted = _run_stream(events)
         starts = [e for e in emitted if e["type"] == "tool_start"]
         ends = [e for e in emitted if e["type"] == "tool_end"]
 
@@ -457,6 +351,6 @@ class TestToolEventCallIdKeying:
             ),
         ]
 
-        emitted = self._run_stream(events)
+        emitted = _run_stream(events)
         ends = [e for e in emitted if e["type"] == "tool_end"]
         assert len(ends) == 1

@@ -1,6 +1,7 @@
 """Gemini fakes: the chat model, the token streams and the grounding check."""
 
 import time
+from collections.abc import Generator, Iterator
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -106,14 +107,125 @@ def _mock_artifact_turn(
     return ({"type": "artifact", **ref} if ref else None), messages
 
 
-def create_mock_stream_chat_events() -> Any:  # noqa: C901, PLR0915
+def _mock_response_text(text: str) -> Any:
+    """The test's custom response if set, otherwise prefix + message."""
+    if MOCK_CONFIG["custom_response"]:
+        return MOCK_CONFIG["custom_response"]
+    prefix = MOCK_CONFIG["response_prefix"]
+    return f"{prefix}{text[:100]}"
+
+
+def _hold_until_released() -> None:
+    """Hold the thinking phase until the test releases it (or Stop, or the cap)."""
+    from src.agent.cancellation import is_cancelled as _cancelled
+
+    held_until = time.monotonic() + THINKING_RELEASE_MAX_SECONDS
+    while not MOCK_CONFIG.get("thinking_released") and not _cancelled():
+        if time.monotonic() > held_until:
+            break
+        time.sleep(THINKING_RELEASE_POLL_SECONDS)
+
+
+def _thinking_events(delay_s: float) -> Iterator[dict[str, Any]]:
+    """The thinking event, re-sent as the configured hold requires."""
+    time.sleep(delay_s)
+    thinking_event = {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
+    yield thinking_event
+    if MOCK_CONFIG["thinking_hold_ms"]:
+        # WebKit (Linux CI) holds an SSE chunk until the next one
+        # arrives: re-send the (accumulated, unchanged) thinking
+        # halfway, so the page sees it while the hold still runs -
+        # not together with the first answer token
+        half_hold_s = MOCK_CONFIG["thinking_hold_ms"] / 2000
+        time.sleep(half_hold_s)
+        yield thinking_event
+        time.sleep(half_hold_s)
+    elif MOCK_CONFIG.get("thinking_until_released"):
+        # Re-sent once to flush WebKit's held chunk (each re-send
+        # re-renders the live line under the test's taps), then held
+        # silently; capped so an unreleased test cannot wedge the thread
+        time.sleep(THINKING_RESEND_DELAY_SECONDS)
+        yield thinking_event
+        _hold_until_released()
+
+
+def _tool_events(force_tools: list[str], delay_s: float) -> Iterator[dict[str, Any]]:
+    """tool_start/tool_end for each forced tool."""
+    for tool in force_tools:
+        time.sleep(delay_s)
+        # Same display metadata the real stream attaches (stream_events.py)
+        from src.agent.tool_display import TOOL_METADATA
+
+        start: dict[str, Any] = {"type": "tool_start", "tool": tool}
+        if tool in TOOL_METADATA:
+            start["metadata"] = TOOL_METADATA[tool]
+        yield start
+        time.sleep(delay_s * 2)  # Simulate tool execution
+        yield {"type": "tool_end", "tool": tool}
+
+
+def _token_events(
+    response_text: str, delay_s: float
+) -> Generator[dict[str, Any], None, tuple[str, str | None]]:
+    """Stream tokens word-by-word; returns (streamed text, stop reason).
+
+    Honours server-side Stop like the real stream_chat_events (checked per
+    chunk, partial text is the reply).
+    """
+    from src.agent.cancellation import STOP_REASON_USER, is_cancelled
+
+    words = response_text.split()
+    streamed = ""
+    for i, word in enumerate(words):
+        if is_cancelled():
+            return streamed, STOP_REASON_USER
+        # Add space before word (except first)
+        token = f" {word}" if i > 0 else word
+        streamed += token
+        yield {"type": "token", "text": token}
+        time.sleep(delay_s)
+    return streamed, None
+
+
+def _final_event(
+    content: str, stop_reason: str | None, artifact_messages: list[Any]
+) -> dict[str, Any]:
+    """The final event, with the canned deep-research offer when one is set."""
+    input_tokens = MOCK_CONFIG["input_tokens"]
+    output_tokens = MOCK_CONFIG["output_tokens"]
+    final: dict[str, Any] = {
+        "type": "final",
+        "content": content,
+        "metadata": {},
+        "tool_results": [],
+        "usage_info": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+        },
+    }
+    if stop_reason:
+        final["stop_reason"] = stop_reason
+    if artifact_messages:
+        final["result_messages"] = artifact_messages
+    offer_args = MOCK_CONFIG.get("deep_research_offer")
+    if offer_args:
+        # The agent proposed deep research this turn (one-shot)
+        from langchain_core.messages import AIMessage
+
+        MOCK_CONFIG["deep_research_offer"] = None
+        call = {"name": "propose_deep_research", "args": offer_args, "id": "call-dr"}
+        final["result_messages"] = [AIMessage(content="", tool_calls=[call])]
+    return final
+
+
+def create_mock_stream_chat_events() -> Any:
     """Create a mock stream_chat_events method that yields structured events.
 
     This method yields events including thinking, tool_start, tool_end, token, and final.
     """
-    from collections.abc import Generator
 
-    def mock_stream_chat_events(  # noqa: C901, PLR0912, PLR0915
+    def mock_stream_chat_events(
         self: Any,
         text: str,
         files: list[dict[str, Any]] | None = None,
@@ -134,13 +246,7 @@ def create_mock_stream_chat_events() -> Any:  # noqa: C901, PLR0915
         conversation_title: str | None = None,
     ) -> Generator[dict[str, Any]]:
         """Mock streaming that yields structured events."""
-        # Use custom response if set, otherwise use prefix + message
-        if MOCK_CONFIG["custom_response"]:
-            response_text = MOCK_CONFIG["custom_response"]
-        else:
-            prefix = MOCK_CONFIG["response_prefix"]
-            response_text = f"{prefix}{text[:100]}"
-
+        response_text = _mock_response_text(text)
         delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
 
         if MOCK_CONFIG.get("fail_next_stream"):
@@ -154,105 +260,32 @@ def create_mock_stream_chat_events() -> Any:  # noqa: C901, PLR0915
 
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):
-            time.sleep(delay_s)
-            thinking_event = {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
-            yield thinking_event
-            if MOCK_CONFIG["thinking_hold_ms"]:
-                # WebKit (Linux CI) holds an SSE chunk until the next one
-                # arrives: re-send the (accumulated, unchanged) thinking
-                # halfway, so the page sees it while the hold still runs -
-                # not together with the first answer token
-                half_hold_s = MOCK_CONFIG["thinking_hold_ms"] / 2000
-                time.sleep(half_hold_s)
-                yield thinking_event
-                time.sleep(half_hold_s)
-            elif MOCK_CONFIG.get("thinking_until_released"):
-                # Re-sent once to flush WebKit's held chunk (each re-send
-                # re-renders the live line under the test's taps), then held
-                # silently; capped so an unreleased test cannot wedge the thread
-                from src.agent.cancellation import is_cancelled as _cancelled
-
-                time.sleep(THINKING_RESEND_DELAY_SECONDS)
-                yield thinking_event
-                held_until = time.monotonic() + THINKING_RELEASE_MAX_SECONDS
-                while not MOCK_CONFIG.get("thinking_released") and not _cancelled():
-                    if time.monotonic() > held_until:
-                        break
-                    time.sleep(THINKING_RELEASE_POLL_SECONDS)
+            yield from _thinking_events(delay_s)
 
         # Optionally yield tool events (if force_tools specified)
         if force_tools:
-            for tool in force_tools:
-                time.sleep(delay_s)
-                # Same display metadata the real stream attaches (stream_events.py)
-                from src.agent.tool_display import TOOL_METADATA
-
-                start: dict[str, Any] = {"type": "tool_start", "tool": tool}
-                if tool in TOOL_METADATA:
-                    start["metadata"] = TOOL_METADATA[tool]
-                yield start
-                time.sleep(delay_s * 2)  # Simulate tool execution
-                yield {"type": "tool_end", "tool": tool}
+            yield from _tool_events(force_tools, delay_s)
 
         artifact_event, artifact_messages = _mock_artifact_turn(user_id, conversation_id)
         if artifact_event:
             yield artifact_event
 
-        # Stream tokens word-by-word; honour server-side Stop like the real
-        # stream_chat_events (checked per chunk, partial text is the reply)
-        from src.agent.cancellation import STOP_REASON_USER, is_cancelled
-
-        words = response_text.split()
-        streamed = ""
-        stop_reason = None
-        for i, word in enumerate(words):
-            if is_cancelled():
-                stop_reason = STOP_REASON_USER
-                break
-            # Add space before word (except first)
-            token = f" {word}" if i > 0 else word
-            streamed += token
-            yield {"type": "token", "text": token}
-            time.sleep(delay_s)
+        streamed, stop_reason = yield from _token_events(response_text, delay_s)
 
         if MOCK_CONFIG.get("consume_steering") and user_id and conversation_id:
             from src.agent.interjection import pop_interjection
 
             pop_interjection(user_id, conversation_id)
 
-        # Yield final event
-        input_tokens = MOCK_CONFIG["input_tokens"]
-        output_tokens = MOCK_CONFIG["output_tokens"]
-        usage_info = {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": input_tokens + output_tokens,
-        }
-        final: dict[str, Any] = {
-            "type": "final",
-            "content": streamed if stop_reason else response_text,
-            "metadata": {},
-            "tool_results": [],
-            "usage_info": usage_info,
-        }
-        if stop_reason:
-            final["stop_reason"] = stop_reason
-        if artifact_messages:
-            final["result_messages"] = artifact_messages
-        offer_args = MOCK_CONFIG.get("deep_research_offer")
-        if offer_args:
-            # The agent proposed deep research this turn (one-shot)
-            from langchain_core.messages import AIMessage
-
-            MOCK_CONFIG["deep_research_offer"] = None
-            call = {"name": "propose_deep_research", "args": offer_args, "id": "call-dr"}
-            final["result_messages"] = [AIMessage(content="", tool_calls=[call])]
+        final = _final_event(
+            streamed if stop_reason else response_text, stop_reason, artifact_messages
+        )
         # Same post-answer step as ChatAgent.stream_chat_events (patched check below)
         from src.agent import grounding_check
 
         if grounding_check.should_check(final["content"], [], stop_reason):
             yield {"type": "grounding_started"}
-        grounding_check.apply_grounding(final["content"], [], usage_info, stop_reason)
+        grounding_check.apply_grounding(final["content"], [], final["usage_info"], stop_reason)
         yield final
 
     return mock_stream_chat_events

@@ -142,7 +142,7 @@ class FakeTodoist:
             'Todoist API error (404): {"error":"Task not found","error_tag":"NOT_FOUND"}'
         )
 
-    def api_request(  # noqa: C901
+    def api_request(
         self,
         method: str,
         endpoint: str,
@@ -156,49 +156,11 @@ class FakeTodoist:
         kind = parts[0]
         store = {"tasks": self.tasks, "projects": self.projects, "sections": self.sections}[kind]
         if method == "GET":
-            if endpoint == "/tasks/filter":
-                return copy.deepcopy(self._filter(params.get("query", "")))
-            if len(parts) == 1:
-                items = [t for t in store if not t.get("checked")]
-                if params.get("project_id"):
-                    items = [t for t in items if t.get("project_id") == params["project_id"]]
-                return copy.deepcopy(items)
-            if len(parts) == 3 and parts[2] == "collaborators":
-                return []
-            return copy.deepcopy(self._find(store, parts[1]))
+            return self._get(endpoint, parts, store, params)
         if method == "POST":
             if len(parts) == 1:
-                item: dict[str, Any] = {"id": self._new_id(kind[0]), **data}
-                if kind == "tasks":
-                    due = data.get("due_date") or data.get("due_string")
-                    item.update(
-                        {
-                            "checked": False,
-                            "priority": data.get("priority", 1),
-                            "labels": data.get("labels") or [],
-                            "due": {"date": str(due), "string": str(due)} if due else None,
-                            "section_id": data.get("section_id"),
-                            "parent_id": None,
-                            "responsible_uid": None,
-                        }
-                    )
-                store.append(item)
-                self.actions.append(
-                    f"created {kind[:-1]} {item.get('content') or item.get('name')!r} {data}"
-                )
-                return copy.deepcopy(item)
-            target = self._find(store, parts[1])
-            if len(parts) == 3 and parts[2] == "close":
-                target["checked"] = True
-                self.actions.append(f"completed task {target['content']!r}")
-                return None
-            if len(parts) == 3 and parts[2] == "reopen":
-                target["checked"] = False
-                self.actions.append(f"reopened task {target['content']!r}")
-                return None
-            target.update(data)
-            self.actions.append(f"updated {kind[:-1]} {parts[1]} {data}")
-            return copy.deepcopy(target)
+                return self._create(kind, store, data)
+            return self._post_to_item(kind, parts, store, data)
         if method == "DELETE":
             target = self._find(store, parts[1])
             store.remove(target)
@@ -207,6 +169,62 @@ class FakeTodoist:
             )
             return None
         raise ValueError(f"unsupported {method} {endpoint}")
+
+    def _get(
+        self,
+        endpoint: str,
+        parts: list[str],
+        store: list[dict[str, Any]],
+        params: dict[str, Any],
+    ) -> Any:
+        if endpoint == "/tasks/filter":
+            return copy.deepcopy(self._filter(params.get("query", "")))
+        if len(parts) == 1:
+            items = [t for t in store if not t.get("checked")]
+            if params.get("project_id"):
+                items = [t for t in items if t.get("project_id") == params["project_id"]]
+            return copy.deepcopy(items)
+        if len(parts) == 3 and parts[2] == "collaborators":
+            return []
+        return copy.deepcopy(self._find(store, parts[1]))
+
+    def _create(self, kind: str, store: list[dict[str, Any]], data: dict[str, Any]) -> Any:
+        item: dict[str, Any] = {"id": self._new_id(kind[0]), **data}
+        if kind == "tasks":
+            due = data.get("due_date") or data.get("due_string")
+            item.update(
+                {
+                    "checked": False,
+                    "priority": data.get("priority", 1),
+                    "labels": data.get("labels") or [],
+                    "due": {"date": str(due), "string": str(due)} if due else None,
+                    "section_id": data.get("section_id"),
+                    "parent_id": None,
+                    "responsible_uid": None,
+                }
+            )
+        store.append(item)
+        self.actions.append(
+            f"created {kind[:-1]} {item.get('content') or item.get('name')!r} {data}"
+        )
+        return copy.deepcopy(item)
+
+    def _post_to_item(
+        self, kind: str, parts: list[str], store: list[dict[str, Any]], data: dict[str, Any]
+    ) -> Any:
+        """Close, reopen or update one existing item."""
+        target = self._find(store, parts[1])
+        if len(parts) == 3 and parts[2] == "close":
+            target["checked"] = True
+            self.actions.append(f"completed task {target['content']!r}")
+            return None
+        if len(parts) == 3 and parts[2] == "reopen":
+            target["checked"] = False
+            self.actions.append(f"reopened task {target['content']!r}")
+            return None
+        target.update(data)
+        self.actions.append(f"updated {kind[:-1]} {parts[1]} {data}")
+        return copy.deepcopy(target)
 
     def sync_request(self, token: str, commands: list[dict[str, Any]]) -> dict[str, Any]:
         for cmd in commands:

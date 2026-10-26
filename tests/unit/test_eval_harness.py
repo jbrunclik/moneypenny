@@ -69,6 +69,20 @@ expect:
         later = today + timedelta(days=10)
         assert rubric == (f"Today is {today:%A} {today.isoformat()}; in 10 days is {later:%A}.")
 
+    def test_relative_date_placeholders_resolved(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "relative.yaml",
+            "id: relative\nuser: hi\nexpect:\n"
+            "  rubric: '{yesterday} {tomorrow} {3_days_ago} {in_2_days} {next_week}'\n",
+        )
+
+        rubric = load_cases(tmp_path)[0].rubric
+
+        today = date.today()
+        days = [today + timedelta(days=n) for n in (-1, 1, -3, 2)]
+        assert rubric == " ".join(d.isoformat() for d in days) + " {next_week}"
+
     def test_missing_rubric_rejected(self, tmp_path: Path) -> None:
         _write_case(tmp_path, "bad.yaml", "id: bad\nuser: hi\nexpect: {}\n")
 
