@@ -28,6 +28,7 @@ import { syncCommandCenter } from './command-center-sync';
 import { applyChanges, applyDeferredState } from './summary-merge';
 import { applyFullSync } from './full-sync-merge';
 import { applyChangeLog } from './change-log-merge';
+import { reportRead } from './read-reporting';
 
 const log = createLogger('sync');
 
@@ -342,7 +343,7 @@ export class SyncManager {
 
     // Also moves the planner/agent view baselines when that view is open
     this.applyLocalCount(convId, messageCount);
-    this.reportRead(convId, messageCount);
+    reportRead(this.state, convId, messageCount);
     useStore.getState().updateConversation(convId, {
       unreadCount: 0,
       hasExternalUpdate: false,
@@ -366,28 +367,13 @@ export class SyncManager {
   }
 
   /**
-   * Record on the server that this device has shown `count` messages - the
-   * read state behind every device's unread badge. Deduplicated; a failed
-   * report is retried with the next one.
-   */
-  private reportRead(convId: string, count: number): void {
-    if (convId.startsWith('temp-') || count < 0) return;
-    if (this.state.reportedReadCounts.get(convId) === count) return;
-    this.state.reportedReadCounts.set(convId, count);
-    conversationsApi.markRead(convId, count).catch((error: unknown) => {
-      this.state.reportedReadCounts.delete(convId);
-      log.debug('Reporting read state failed', { conversationId: convId, error });
-    });
-  }
-
-  /**
    * Our own message was saved: it is read (we wrote it) - reported right
    * away, or other devices badged our in-progress turn until it ended.
    * The reply placeholder still counts as one unread there: a reply coming.
    */
   noteOwnMessageSaved(convId: string): void {
     const known = this.state.localMessageCounts.get(convId);
-    if (known !== undefined) this.reportRead(convId, known + 1);
+    if (known !== undefined) reportRead(this.state, convId, known + 1);
   }
 
   /**
@@ -411,7 +397,7 @@ export class SyncManager {
     // Our own turn: shown if the chat is open; switched away, only our own
     // message counts as read - the reply stays unread on every device
     const isCurrent = useStore.getState().currentConversation?.id === convId;
-    this.reportRead(convId, isCurrent ? count : count - 1);
+    reportRead(this.state, convId, isCurrent ? count : count - 1);
   }
 
   /** The local baseline (+ planner/agent view baselines), no read report. */
