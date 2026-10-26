@@ -5,7 +5,7 @@
 import { CLAIM_FLASH_MS, MOBILE_BREAKPOINT_PX } from '../config';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, ClaimVerdict, Message, Source } from '../types/api';
-import { escapeHtml, prefersReducedMotion } from '../utils/dom';
+import { createElement, prefersReducedMotion } from '../utils/dom';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { closeClaimCard, plainQuote } from './ClaimCard';
 import { displayHost, getMessageAnnotations, getMessageGrounding } from './messages/annotations';
@@ -29,14 +29,18 @@ function citation(ann: ClaimAnnotation, sources: Source[] | undefined): string {
   return url ? `${ann.source} · ${displayHost(url)}` : groundingStrings().sourceNumber(ann.source);
 }
 
-function rowHtml(ann: ClaimAnnotation, index: number, sources?: Source[]): string {
+function row(ann: ClaimAnnotation, index: number, sources?: Source[]): HTMLButtonElement {
   const s = groundingStrings();
   const detail = ann.verdict === 'supported' ? citation(ann, sources) : (ann.reason ?? '');
-  return `<button type="button" class="claims-sheet__row" data-claim="${index}">
-      <span class="claims-sheet__verdict claims-sheet__verdict--${ann.verdict}">${escapeHtml(s.verdictLabels[ann.verdict])}</span>
-      <span class="claims-sheet__quote">${escapeHtml(plainQuote(ann.quote))}</span>
-      ${detail ? `<span class="claims-sheet__detail">${escapeHtml(detail)}</span>` : ''}
-    </button>`;
+  // An inline row: the spaces between verdict, quote and detail show
+  return createElement('button', { type: 'button', class: 'claims-sheet__row', 'data-claim': String(index) }, [
+    createElement('span', { class: `claims-sheet__verdict claims-sheet__verdict--${ann.verdict}` }, [
+      s.verdictLabels[ann.verdict],
+    ]),
+    ' ',
+    createElement('span', { class: 'claims-sheet__quote' }, [plainQuote(ann.quote)]),
+    ...(detail ? [' ', createElement('span', { class: 'claims-sheet__detail' }, [detail])] : []),
+  ]);
 }
 
 let opener: HTMLElement | null = null;
@@ -73,13 +77,24 @@ function openClaimsSheet(messageEl: HTMLElement): void {
   sheet.className = `claims-sheet ${mobile ? 'claims-sheet--sheet' : 'claims-sheet--popover'}`;
   sheet.setAttribute('role', 'dialog');
   sheet.setAttribute('aria-modal', 'true');
-  const meta = grounding.legacy ? '' : `<p class="claims-sheet__meta">${escapeHtml(s.sheetMeta(grounding.source_count ?? 0, sourced, annotations.length))}</p>`;
-  sheet.innerHTML = `<div class="claims-sheet__backdrop"></div>
-    <div class="claims-sheet__panel">
-      ${mobile ? '<div class="claims-sheet__grab"></div>' : ''}
-      <h4 class="claims-sheet__title">${escapeHtml(s.sheetTitle)}</h4>${meta}
-      <div class="claims-sheet__rows">${rows.map(({ ann, i }) => rowHtml(ann, i, stored?.sources)).join('')}</div>
-    </div>`;
+  const meta =
+    !grounding.legacy &&
+    createElement('p', { class: 'claims-sheet__meta' }, [
+      s.sheetMeta(grounding.source_count ?? 0, sourced, annotations.length),
+    ]);
+  sheet.append(
+    createElement('div', { class: 'claims-sheet__backdrop' }),
+    createElement('div', { class: 'claims-sheet__panel' }, [
+      mobile && createElement('div', { class: 'claims-sheet__grab' }),
+      createElement('h4', { class: 'claims-sheet__title' }, [s.sheetTitle]),
+      meta,
+      createElement(
+        'div',
+        { class: 'claims-sheet__rows' },
+        rows.map(({ ann, i }) => row(ann, i, stored?.sources))
+      ),
+    ])
+  );
   sheet.querySelector('.claims-sheet__backdrop')?.addEventListener('click', () => closeClaimsSheet(true));
   sheet.addEventListener('click', (e) => {
     const row = (e.target as Element).closest<HTMLElement>('.claims-sheet__row');

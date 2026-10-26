@@ -6,8 +6,8 @@
  * click handler never opens a trashed conversation - restore it first.
  */
 
-import { escapeHtml } from '../utils/dom';
-import { CHEVRON_RIGHT_ICON, DELETE_ICON, RESTORE_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CHEVRON_RIGHT_ICON, DELETE_ICON, RESTORE_ICON, createIconButton, createIconElement } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation } from '../types/api';
@@ -44,55 +44,53 @@ export function renderTrashEntry(): void {
   if (badge) badge.textContent = String(total);
 }
 
-function renderTrashedConversationItem(conv: Conversation): string {
-  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
-  const daysLeft = escapeHtml(daysLeftLabel(conv.purge_at));
-  const id = escapeHtml(conv.id);
-
-  return `
-    <div class="conversation-item-wrapper" data-trash-id="${id}">
-      <div class="conversation-item trash-item" tabindex="-1">
-        <div class="conversation-text">
-          <div class="conversation-title">${title}</div>
-        </div>
-        <span class="conversation-time trash-days-left">${daysLeft}</span>
-        <div class="conversation-actions">
-          <button class="conversation-unarchive" data-restore-id="${id}" aria-label="Restore">
-            ${RESTORE_ICON}
-          </button>
-          <button class="conversation-delete" data-delete-forever-id="${id}" aria-label="Delete forever">
-            ${DELETE_ICON}
-          </button>
-        </div>
-      </div>
-      <div class="conversation-actions-swipe">
-        <button class="conversation-delete-swipe" data-delete-forever-id="${id}" aria-label="Delete forever">
-          ${DELETE_ICON}
-        </button>
-        <button class="conversation-unarchive-swipe" data-restore-id="${id}" aria-label="Restore">
-          ${RESTORE_ICON}
-        </button>
-      </div>
-    </div>
-  `;
+function trashedConversationItem(conv: Conversation): HTMLElement {
+  const id = conv.id;
+  return createElement('div', { class: 'conversation-item-wrapper', 'data-trash-id': id }, [
+    createElement('div', { class: 'conversation-item trash-item', tabindex: '-1' }, [
+      createElement('div', { class: 'conversation-text' }, [
+        createElement('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+      ]),
+      createElement('span', { class: 'conversation-time trash-days-left' }, [daysLeftLabel(conv.purge_at)]),
+      createElement('div', { class: 'conversation-actions' }, [
+        createIconButton({ class: 'conversation-unarchive', 'data-restore-id': id, 'aria-label': 'Restore' }, RESTORE_ICON),
+        createIconButton(
+          { class: 'conversation-delete', 'data-delete-forever-id': id, 'aria-label': 'Delete forever' },
+          DELETE_ICON
+        ),
+      ]),
+    ]),
+    createElement('div', { class: 'conversation-actions-swipe' }, [
+      createIconButton(
+        { class: 'conversation-delete-swipe', 'data-delete-forever-id': id, 'aria-label': 'Delete forever' },
+        DELETE_ICON
+      ),
+      createIconButton({ class: 'conversation-unarchive-swipe', 'data-restore-id': id, 'aria-label': 'Restore' }, RESTORE_ICON),
+    ]),
+  ]);
 }
 
-function renderTrashHeader(totalCount: number, hasItems: boolean): string {
-  const emptyBtn = !hasItems
-    ? ''
-    : useStore.getState().isEmptyingTrash
-      ? '<button class="trash-empty-btn" data-empty-trash disabled>Emptying…</button>'
-      : '<button class="trash-empty-btn" data-empty-trash>Empty</button>';
-  return `
-    <div class="archive-view-header trash-view-header">
-      <button class="archive-back-btn" data-trash-back aria-label="Back to conversations">
-        <span class="archive-back-icon">${CHEVRON_RIGHT_ICON}</span>
-      </button>
-      <span class="archive-view-title">Trash</span>
-      <span class="archive-count">${totalCount}</span>
-      ${emptyBtn}
-    </div>
-  `;
+function trashHeader(totalCount: number, hasItems: boolean): HTMLElement {
+  const emptying = useStore.getState().isEmptyingTrash;
+  const emptyBtn =
+    hasItems &&
+    createElement('button', { class: 'trash-empty-btn', 'data-empty-trash': '' }, [emptying ? 'Emptying…' : 'Empty']);
+  if (emptyBtn) emptyBtn.disabled = emptying;
+  return createElement('div', { class: 'archive-view-header trash-view-header' }, [
+    createElement('button', { class: 'archive-back-btn', 'data-trash-back': '', 'aria-label': 'Back to conversations' }, [
+      createIconElement('archive-back-icon', CHEVRON_RIGHT_ICON),
+    ]),
+    createElement('span', { class: 'archive-view-title' }, ['Trash']),
+    createElement('span', { class: 'archive-count' }, [String(totalCount)]),
+    emptyBtn,
+  ]);
+}
+
+/** Three bouncing dots under the list while more rows can load. */
+function loadMoreDots(loading: boolean): HTMLElement {
+  return createElement('div', { class: `archive-load-more ${loading ? 'loading' : ''}` }, [
+    createElement('div', { class: 'loading-dots' }, [createElement('span'), createElement('span'), createElement('span')]),
+  ]);
 }
 
 /**
@@ -102,39 +100,34 @@ function renderTrashHeader(totalCount: number, hasItems: boolean): string {
 export function renderTrashView(container: HTMLDivElement, renderList: () => void): void {
   renderTrashEntry();
   const { trashedConversations, trashPagination } = useStore.getState();
-  const headerHtml = renderTrashHeader(trashPagination.totalCount, trashedConversations.length > 0);
+  const header = trashHeader(trashPagination.totalCount, trashedConversations.length > 0);
 
   if (trashedConversations.length === 0 && trashPagination.isLoadingMore) {
-    container.innerHTML = headerHtml + `
-      <div class="conversations-loading">
-        <div class="loading-spinner"></div>
-      </div>
-    `;
+    container.replaceChildren(
+      header,
+      createElement('div', { class: 'conversations-loading' }, [createElement('div', { class: 'loading-spinner' })])
+    );
     return;
   }
 
   if (trashedConversations.length === 0) {
-    container.innerHTML = headerHtml + `
-      <div class="conversations-empty">
-        <p>Trash is empty</p>
-        <p class="trash-empty-hint">Deleted conversations stay here for ${TRASH_RETENTION_DAYS} days.</p>
-      </div>
-    `;
+    container.replaceChildren(
+      header,
+      createElement('div', { class: 'conversations-empty' }, [
+        createElement('p', {}, ['Trash is empty']),
+        createElement('p', { class: 'trash-empty-hint' }, [
+          `Deleted conversations stay here for ${TRASH_RETENTION_DAYS} days.`,
+        ]),
+      ])
+    );
     return;
   }
 
-  const itemsHtml = trashedConversations.map(renderTrashedConversationItem).join('');
-  const loadMoreHtml = trashPagination.hasMore
-    ? `<div class="archive-load-more ${trashPagination.isLoadingMore ? 'loading' : ''}">
-        <div class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>`
-    : '';
-
-  container.innerHTML = headerHtml + itemsHtml + loadMoreHtml;
+  container.replaceChildren(
+    header,
+    ...trashedConversations.map(trashedConversationItem),
+    ...(trashPagination.hasMore ? [loadMoreDots(trashPagination.isLoadingMore)] : [])
+  );
   setupTrashInfiniteScroll(container, renderList);
 }
 

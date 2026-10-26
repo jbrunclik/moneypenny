@@ -7,7 +7,7 @@ import { CLAIM_CARD_HOVER_DELAY_MS } from '../config';
 import { findActionReply } from './messages/message-links';
 import { useStore } from '../state/store';
 import type { ClaimAnnotation, SendExtras, Source } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { flashElement } from './messages/action-row';
 import { displayHost, getMessageAnnotations } from './messages/annotations';
@@ -53,10 +53,13 @@ function contextFor(target: HTMLElement): CardContext | null {
   };
 }
 
-function sourceLine(ctx: CardContext): string {
-  if (!ctx.ann.source) return '';
+function sourceLine(ctx: CardContext): HTMLElement | null {
+  if (!ctx.ann.source) return null;
   const host = ctx.source ? displayHost(ctx.source.url) : `${ctx.ann.source}`;
-  return `<span class="claim-card__source"><sup>${ctx.ann.source}</sup> ${escapeHtml(host)}</span>`;
+  return createElement('span', { class: 'claim-card__source' }, [
+    createElement('sup', {}, [String(ctx.ann.source)]),
+    ` ${host}`,
+  ]);
 }
 
 /** The quote as it reads (no ** or link syntax) - for messages and lists. */
@@ -64,24 +67,29 @@ export function plainQuote(quote: string): string {
   return quote.replace(/\*\*|__|[*_`]|\]\([^)]*\)|[[\]]/g, '').trim();
 }
 
-function cardHtml(ctx: CardContext): string {
+function cardContent(ctx: CardContext): (Node | null | false)[] {
   const s = groundingStrings();
   const { ann } = ctx;
-  const passage = ann.source_quote ? `<blockquote>„${escapeHtml(ann.source_quote)}“</blockquote>` : '';
+  const passage = !!ann.source_quote && createElement('blockquote', {}, [`„${ann.source_quote}“`]);
   if (ann.verdict === 'supported') {
-    const title = ctx.source ? ` <small>· ${escapeHtml(ctx.source.title)}</small>` : '';
-    return `<div class="claim-card__heading claim-card__heading--cite">${sourceLine(ctx)}${title}</div>${passage}`;
+    const title = ctx.source ? [' ', createElement('small', {}, [`· ${ctx.source.title}`])] : [];
+    return [
+      createElement('div', { class: 'claim-card__heading claim-card__heading--cite' }, [sourceLine(ctx), ...title]),
+      passage,
+    ];
   }
   // Converted old claims and downgraded ones carry no reason of their own
   const reason = ann.reason ?? s.defaultReason;
-  return `
-    <div class="claim-card__heading claim-card__heading--${ann.verdict}">${escapeHtml(s.headings[ann.verdict])}</div>
-    ${reason ? `<p class="claim-card__reason">${escapeHtml(reason)}</p>` : ''}
-    ${passage}${ann.verdict === 'contradicted' ? sourceLine(ctx) : ''}
-    <div class="claim-card__actions">
-      <button type="button" class="claim-card__lookup">${escapeHtml(s.lookUp)}</button>
-      ${ctx.replyId ? `<button type="button" class="claim-card__reply">${escapeHtml(s.lookedUpBelow)}</button>` : ''}
-    </div>`;
+  return [
+    createElement('div', { class: `claim-card__heading claim-card__heading--${ann.verdict}` }, [s.headings[ann.verdict]]),
+    !!reason && createElement('p', { class: 'claim-card__reason' }, [reason]),
+    passage,
+    ann.verdict === 'contradicted' && sourceLine(ctx),
+    createElement('div', { class: 'claim-card__actions' }, [
+      createElement('button', { type: 'button', class: 'claim-card__lookup' }, [s.lookUp]),
+      !!ctx.replyId && createElement('button', { type: 'button', class: 'claim-card__reply' }, [s.lookedUpBelow]),
+    ]),
+  ];
 }
 
 /** Below the claim, or above it when the card would run under the composer. */
@@ -116,7 +124,7 @@ function openClaimCard(target: HTMLElement, focus = false): void {
   card.id = CARD_ID;
   card.className = 'claim-card';
   card.setAttribute('role', 'dialog');
-  card.innerHTML = cardHtml(ctx);
+  card.append(...cardContent(ctx).filter((node): node is Node => !!node));
   card.querySelector('.claim-card__lookup')?.addEventListener('click', () => {
     closeClaimCard();
     const quote = plainQuote(ctx.ann.quote);

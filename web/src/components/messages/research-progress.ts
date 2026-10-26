@@ -11,8 +11,8 @@
 import { conversations } from '../../api/conversations';
 import type { Message, ResearchRun } from '../../types/api';
 import { MS_PER_MINUTE } from '../../constants';
-import { escapeHtml } from '../../utils/dom';
-import { SPARKLES_ICON } from '../../utils/icons';
+import { createElement } from '../../utils/dom';
+import { SPARKLES_ICON, createIconElement } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
 import { refreshReportLinks, renderResearchOffer } from './research-offer';
 
@@ -97,25 +97,24 @@ const STATE_GLYPHS: Partial<Record<ItemState, [string, string]>> = {
 };
 
 /** A leading status icon, then the question, then the pages it read. */
-function itemHtml(question: string, state: ItemState, pages: number): string {
+function item(question: string, state: ItemState, pages: number): HTMLLIElement {
   const [glyph, label] = STATE_GLYPHS[state] ?? ['', state];
   const icon =
     state === 'started'
-      ? '<span class="research-progress__spinner" aria-label="researching"></span>'
-      : `<span aria-label="${escapeHtml(label)}">${glyph}</span>`;
-  const read = pages > 0 ? `<span class="research-progress__pages">${pagesText(pages)}</span>` : '';
-  return `<li class="research-progress__item research-progress__item--${escapeHtml(state)}">
-      <span class="research-progress__state">${icon}</span>
-      <span class="research-progress__question">${escapeHtml(question)}</span>
-      ${read}
-    </li>`;
+      ? createElement('span', { class: 'research-progress__spinner', 'aria-label': 'researching' })
+      : createElement('span', { 'aria-label': label }, [glyph]);
+  return createElement('li', { class: `research-progress__item research-progress__item--${state}` }, [
+    createElement('span', { class: 'research-progress__state' }, [icon]),
+    createElement('span', { class: 'research-progress__question' }, [question]),
+    pages > 0 && createElement('span', { class: 'research-progress__pages' }, [pagesText(pages)]),
+  ]);
 }
 
 const FINISHED: ReadonlySet<ItemState> = new Set(['done', 'failed', 'skipped', 'timed_out']);
 
-function findingHtml(agent: number, text: string, kind?: string): string {
+function finding(agent: number, text: string, kind?: string): (Node | string)[] {
   const lead = kind === 'lead' ? 'lead: ' : '';
-  return `<span class="research-progress__agent">${escapeHtml(agentLabel(agent))}</span> ${lead}${escapeHtml(text)}`;
+  return [createElement('span', { class: 'research-progress__agent' }, [agentLabel(agent)]), ` ${lead}${text}`];
 }
 
 function clock(ms: number): string {
@@ -128,28 +127,35 @@ function elapsedText(progress: ResearchProgress, now: number): string {
   return `${clock(now - progress.startedAt)}${of}`;
 }
 
-function panelHtml(progress: ResearchProgress, messageId: string, now: number): string {
-  const items = progress.items.map((q, i) => itemHtml(q, progress.states[i] ?? 'queued', progress.pages[i] ?? 0)).join('');
-  const feed = progress.findings
-    .map((f) => `<li class="research-progress__finding">${findingHtml(f.agent, f.text)}</li>`)
-    .join('');
+function panelContent(progress: ResearchProgress, messageId: string, now: number): HTMLElement[] {
+  const items = progress.items.map((q, i) => item(q, progress.states[i] ?? 'queued', progress.pages[i] ?? 0));
+  const feed = progress.findings.map((f) =>
+    createElement('li', { class: 'research-progress__finding' }, finding(f.agent, f.text))
+  );
   const finishing = finishRequested.has(messageId);
   const title = progress.writing
-    ? `Writing the report${progress.sources ? ` from ${escapeHtml(String(progress.sources))} sources` : ''}…`
+    ? `Writing the report${progress.sources ? ` from ${String(progress.sources)} sources` : ''}…`
     : 'Researching…';
-  const finish = progress.writing
-    ? ''
-    : `<button type="button" class="research-progress__finish"${finishing ? ' disabled' : ''}>${finishing ? 'Finishing…' : 'Finish now'}</button>`;
-  return `
-    <div class="research-progress__head">
-      <span class="research-progress__icon">${SPARKLES_ICON}</span>
-      <span class="research-progress__title">${title}</span>
-      <span class="research-progress__elapsed">${escapeHtml(elapsedText(progress, now))}</span>
-    </div>
-    <div class="research-progress__bar"><span></span></div>
-    <ol class="research-progress__items">${items}</ol>
-    ${feed ? `<div class="research-progress__label">Shared findings</div><ul class="research-progress__feed">${feed}</ul>` : ''}
-    ${finish ? `<div class="research-progress__footer">${finish}</div>` : ''}`;
+  const finish = createElement('button', { type: 'button', class: 'research-progress__finish' }, [
+    finishing ? 'Finishing…' : 'Finish now',
+  ]);
+  finish.disabled = finishing;
+  return [
+    createElement('div', { class: 'research-progress__head' }, [
+      createIconElement('research-progress__icon', SPARKLES_ICON),
+      createElement('span', { class: 'research-progress__title' }, [title]),
+      createElement('span', { class: 'research-progress__elapsed' }, [elapsedText(progress, now)]),
+    ]),
+    createElement('div', { class: 'research-progress__bar' }, [createElement('span')]),
+    createElement('ol', { class: 'research-progress__items' }, items),
+    ...(feed.length > 0
+      ? [
+          createElement('div', { class: 'research-progress__label' }, ['Shared findings']),
+          createElement('ul', { class: 'research-progress__feed' }, feed),
+        ]
+      : []),
+    ...(progress.writing ? [] : [createElement('div', { class: 'research-progress__footer' }, [finish])]),
+  ];
 }
 
 /** Render (or refresh) the panel at the top of a streaming bubble. */
@@ -169,7 +175,7 @@ export function renderResearchProgress(
   }
   panel.dataset.conversationId = ids.convId;
   panel.dataset.messageId = ids.messageId;
-  panel.innerHTML = panelHtml(progress, ids.messageId, now);
+  panel.replaceChildren(...panelContent(progress, ids.messageId, now));
   // Share of items finished (set here: no inline style attribute in the markup)
   const finished = progress.states.filter((state) => FINISHED.has(state)).length;
   const share = progress.writing ? 1 : finished / Math.max(progress.items.length, 1);
@@ -222,20 +228,28 @@ export function initResearchProgress(container = document.getElementById('messag
   container.addEventListener('click', onClick);
 }
 
-function chipHtml(run: ResearchRun): string {
+function chipContent(run: ResearchRun): HTMLElement[] {
   const minutes = Math.max(1, Math.round(run.duration_ms / MS_PER_MINUTE));
   const n = run.sub_questions.length;
   const early = run.finished_early ? ' · finished early' : '';
   const summary = `Deep research · ${n} ${n === 1 ? 'question' : 'questions'} · ${pagesText(run.pages_read)} · ${minutes} min${early}`;
-  const items = run.sub_questions
-    .map((q, i) => itemHtml(q, run.items[i]?.status ?? 'skipped', run.items[i]?.pages ?? 0))
-    .join('');
-  const board = run.board.map((b) => `<li>${findingHtml(b.agent, b.text, b.kind)}</li>`).join('');
-  return `<summary><span class="action-row__icon">${SPARKLES_ICON}</span><span class="research-chip__text">${escapeHtml(summary)}</span></summary>
-    <div class="research-chip__body">
-      <ol class="research-progress__items research-chip__items">${items}</ol>
-      ${board ? `<div class="research-chip__label">Shared findings</div><ul class="research-chip__board">${board}</ul>` : ''}
-    </div>`;
+  const items = run.sub_questions.map((q, i) => item(q, run.items[i]?.status ?? 'skipped', run.items[i]?.pages ?? 0));
+  const board = run.board.map((b) => createElement('li', {}, finding(b.agent, b.text, b.kind)));
+  return [
+    createElement('summary', {}, [
+      createIconElement('action-row__icon', SPARKLES_ICON),
+      createElement('span', { class: 'research-chip__text' }, [summary]),
+    ]),
+    createElement('div', { class: 'research-chip__body' }, [
+      createElement('ol', { class: 'research-progress__items research-chip__items' }, items),
+      ...(board.length > 0
+        ? [
+            createElement('div', { class: 'research-chip__label' }, ['Shared findings']),
+            createElement('ul', { class: 'research-chip__board' }, board),
+          ]
+        : []),
+    ]),
+  ];
 }
 
 function renderResearchChip(messageEl: HTMLElement, run: ResearchRun): void {
@@ -243,7 +257,7 @@ function renderResearchChip(messageEl: HTMLElement, run: ResearchRun): void {
   if (!wrapper) return;
   const chip = document.createElement('details');
   chip.className = CHIP_CLASS;
-  chip.innerHTML = chipHtml(run);
+  chip.replaceChildren(...chipContent(run));
   wrapper.prepend(chip);
 }
 

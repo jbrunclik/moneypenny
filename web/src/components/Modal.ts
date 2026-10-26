@@ -29,9 +29,9 @@
  *   });
  */
 
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
-import { CLOSE_ICON } from '../utils/icons';
+import { CLOSE_ICON, createIconButton } from '../utils/icons';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 
 // Modal container element
@@ -268,35 +268,31 @@ function renderModal(options: {
 }): void {
   if (!modalContainer) return;
 
-  const titleHtml = options.title
-    ? `<h2 class="modal-title dialog-title">${escapeHtml(options.title)}</h2>`
-    : '';
-
-  const inputHtml = options.showInput
-    ? `<input type="text" class="modal-input" value="${escapeHtml(options.defaultValue || '')}" placeholder="${escapeHtml(options.placeholder || '')}">`
-    : '';
-
-  const cancelHtml = options.showCancel
-    ? `<button class="modal-cancel">${escapeHtml(options.cancelLabel || 'Cancel')}</button>`
-    : '';
-
   const confirmClass = options.danger ? 'modal-confirm modal-danger' : 'modal-confirm';
 
-  modalContainer.innerHTML = `
-    <div class="modal" role="dialog" aria-modal="true" ${options.title ? `aria-labelledby="modal-title"` : ''}>
-      <button class="modal-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
-      ${titleHtml}
-      <p class="modal-message">${escapeHtml(options.message)}</p>
-      ${inputHtml}
-      <div class="modal-actions">
-        ${cancelHtml}
-        <button class="${confirmClass}">${escapeHtml(options.confirmLabel)}</button>
-      </div>
-    </div>
-  `;
+  const modal = createElement(
+    'div',
+    { class: 'modal', role: 'dialog', 'aria-modal': 'true', ...(options.title ? { 'aria-labelledby': 'modal-title' } : {}) },
+    [
+      createIconButton({ class: 'modal-close dialog-close', 'aria-label': 'Close' }, CLOSE_ICON),
+      !!options.title && createElement('h2', { class: 'modal-title dialog-title' }, [options.title]),
+      createElement('p', { class: 'modal-message' }, [options.message]),
+      !!options.showInput &&
+        createElement('input', {
+          type: 'text',
+          class: 'modal-input',
+          value: options.defaultValue || '',
+          placeholder: options.placeholder || '',
+        }),
+      createElement('div', { class: 'modal-actions' }, [
+        options.showCancel && createElement('button', { class: 'modal-cancel' }, [options.cancelLabel || 'Cancel']),
+        createElement('button', { class: confirmClass }, [options.confirmLabel]),
+      ]),
+    ]
+  );
+  modalContainer.replaceChildren(modal);
   // A bottom sheet on mobile: drag it down to dismiss
-  const modal = modalContainer.querySelector<HTMLElement>('.modal');
-  if (modal) attachSheetDismiss(modal, dismissModal);
+  attachSheetDismiss(modal, dismissModal);
 }
 
 /**

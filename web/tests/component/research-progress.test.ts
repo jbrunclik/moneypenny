@@ -29,7 +29,11 @@ function run(events: Record<string, unknown>[]): ResearchProgress {
 }
 
 const PLAN = { type: 'research_plan', items: ['Ceny?', 'Doba?', 'Doklady?'], minutes: 5, started_at: START };
-const lines = () => [...document.querySelectorAll('.research-progress__item')].map((li) => li.textContent!.replace(/\s+/g, ' ').trim());
+// The item's parts (state, question, pages) - a flex row, so no spaces in between
+const lines = () =>
+  [...document.querySelectorAll('.research-progress__item')].map((li) =>
+    [...li.children].map((part) => part.textContent).join(' ')
+  );
 
 describe('research progress panel', () => {
   beforeEach(() => {

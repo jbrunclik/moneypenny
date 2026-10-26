@@ -19,8 +19,8 @@ import { findActionReply } from './message-links';
 import { useStore } from '../../state/store';
 import { flashElement } from './action-row';
 import type { Message, MessageResearch, ResearchOffer, ResearchRates } from '../../types/api';
-import { escapeHtml } from '../../utils/dom';
-import { SPARKLES_ICON } from '../../utils/icons';
+import { createElement } from '../../utils/dom';
+import { SPARKLES_ICON, createIconElement } from '../../utils/icons';
 
 const CARD_CLASS = 'research-offer';
 // The estimate's amount is in the server's display currency (COST_CURRENCY)
@@ -63,36 +63,58 @@ function offerOf(research: MessageResearch | undefined): ResearchOffer | undefin
   return research?.offer ?? research?.run?.followup;
 }
 
-function itemHtml(text: string): string {
-  return `<li class="research-offer__item">
-      <textarea rows="1" maxlength="${DEEP_RESEARCH_MAX_ITEM_CHARS}" aria-label="Research question">${escapeHtml(text)}</textarea>
-      <button type="button" class="research-offer__remove" aria-label="Remove question">✕</button>
-    </li>`;
+/** A textarea holding `text` (as its value: a leading newline is kept). */
+function textarea(attributes: Record<string, string>, text: string): HTMLTextAreaElement {
+  const field = createElement('textarea', attributes);
+  field.textContent = text;
+  return field;
 }
 
-function editorHtml(offer: ResearchOffer): string {
+function item(text: string): HTMLLIElement {
+  return createElement('li', { class: 'research-offer__item' }, [
+    textarea({ rows: '1', maxlength: String(DEEP_RESEARCH_MAX_ITEM_CHARS), 'aria-label': 'Research question' }, text),
+    createElement('button', { type: 'button', class: 'research-offer__remove', 'aria-label': 'Remove question' }, ['✕']),
+  ]);
+}
+
+function button(className: string, label: string): HTMLButtonElement {
+  return createElement('button', { type: 'button', class: className }, [label]);
+}
+
+function editor(offer: ResearchOffer): HTMLElement[] {
   const title = offer.kind === 'followup' ? 'Research further?' : 'Research this in depth?';
-  return `
-    <div class="research-offer__head">
-      <span class="research-offer__icon">${SPARKLES_ICON}</span>
-      <span class="research-offer__title">${title}</span>
-      <span class="research-offer__estimate">
-        <span class="research-offer__tag research-offer__tag--time"></span>
-        <span class="research-offer__tag research-offer__tag--cost"></span>
-      </span>
-    </div>
-    <div class="research-offer__context">
-      <span class="research-offer__label">Context:</span>
-      <span class="research-offer__context-text">${escapeHtml(offer.context)}</span>
-      <button type="button" class="research-offer__context-edit" aria-label="Edit context">✎</button>
-      <textarea rows="2" maxlength="${DEEP_RESEARCH_MAX_CONTEXT_CHARS}" aria-label="Context" hidden>${escapeHtml(offer.context)}</textarea>
-    </div>
-    <ol class="research-offer__items">${offer.sub_questions.map(itemHtml).join('')}</ol>
-    <button type="button" class="research-offer__add">+ Add a question or topic</button>
-    <div class="research-offer__actions">
-      <button type="button" class="research-offer__start">Start</button>
-      <button type="button" class="research-offer__decline">No thanks</button>
-    </div>`;
+  const contextField = textarea(
+    { rows: '2', maxlength: String(DEEP_RESEARCH_MAX_CONTEXT_CHARS), 'aria-label': 'Context', hidden: '' },
+    offer.context
+  );
+  return [
+    createElement('div', { class: 'research-offer__head' }, [
+      createIconElement('research-offer__icon', SPARKLES_ICON),
+      createElement('span', { class: 'research-offer__title' }, [title]),
+      createElement('span', { class: 'research-offer__estimate' }, [
+        createElement('span', { class: 'research-offer__tag research-offer__tag--time' }),
+        createElement('span', { class: 'research-offer__tag research-offer__tag--cost' }),
+      ]),
+    ]),
+    // Inline flow: the spaces between label, text and ✎ show
+    createElement('div', { class: 'research-offer__context' }, [
+      createElement('span', { class: 'research-offer__label' }, ['Context:']),
+      ' ',
+      createElement('span', { class: 'research-offer__context-text' }, [offer.context]),
+      ' ',
+      createElement('button', { type: 'button', class: 'research-offer__context-edit', 'aria-label': 'Edit context' }, [
+        '✎',
+      ]),
+      ' ',
+      contextField,
+    ]),
+    createElement('ol', { class: 'research-offer__items' }, offer.sub_questions.map(item)),
+    button('research-offer__add', '+ Add a question or topic'),
+    createElement('div', { class: 'research-offer__actions' }, [
+      button('research-offer__start', 'Start'),
+      button('research-offer__decline', 'No thanks'),
+    ]),
+  ];
 }
 
 function collapse(card: HTMLElement, text: string): void {
@@ -218,7 +240,7 @@ function startCountdown(card: HTMLElement): void {
 function fillEditor(card: HTMLElement, offer: ResearchOffer): void {
   card.classList.remove(`${CARD_CLASS}--decided`);
   delete card.dataset.started;
-  card.innerHTML = editorHtml(offer);
+  card.replaceChildren(...editor(offer));
   refresh(card);
 }
 
@@ -257,7 +279,7 @@ function editPlan(card: HTMLElement, button: HTMLButtonElement): void {
   if (button.classList.contains('research-offer__remove')) {
     button.closest('.research-offer__item')?.remove();
   } else if (button.classList.contains('research-offer__add')) {
-    card.querySelector('.research-offer__items')?.insertAdjacentHTML('beforeend', itemHtml(''));
+    card.querySelector('.research-offer__items')?.append(item(''));
     card.querySelector<HTMLTextAreaElement>('.research-offer__item:last-child textarea')?.focus();
   } else if (button.classList.contains('research-offer__context-edit')) {
     editContext(card, button);

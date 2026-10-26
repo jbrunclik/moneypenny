@@ -1,7 +1,7 @@
-import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
+import { createElement, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from './messages/turn-anchor';
-import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON, setIcon } from '../utils/icons';
+import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON, createIconButton, createIconElement, setIcon } from '../utils/icons';
 import { useStore } from '../state/store';
 import type { FileUpload } from '../types/api';
 import { DRAFT_SAVE_DEBOUNCE_MS, MOBILE_BREAKPOINT_PX } from '../config';
@@ -587,39 +587,33 @@ export function renderFilePreview(): void {
   }
 
   container.classList.remove('hidden');
-  container.innerHTML = pendingFiles
-    .map((file, index) => renderFilePreviewItem(file, index))
-    .join('');
+  container.replaceChildren(...pendingFiles.map((file, index) => filePreviewItem(file, index)));
 }
 
 /**
- * Render a single file preview item
+ * A single file preview item
  */
-function renderFilePreviewItem(file: FileUpload, index: number): string {
+function filePreviewItem(file: FileUpload, index: number): HTMLElement {
   const isImage = file.type.startsWith('image/');
+  const remove = createIconButton(
+    { class: 'file-preview-remove', 'data-remove-index': String(index), 'aria-label': 'Remove file' },
+    CLOSE_ICON
+  );
 
   if (isImage && file.previewUrl) {
     // Image preview - just show thumbnail
-    return `
-      <div class="file-preview-item file-preview-image" data-index="${index}">
-        <img src="${file.previewUrl}" alt="${escapeHtml(file.name)}">
-        <button class="file-preview-remove" data-remove-index="${index}" aria-label="Remove file">
-          ${CLOSE_ICON}
-        </button>
-      </div>
-    `;
+    return createElement('div', { class: 'file-preview-item file-preview-image', 'data-index': String(index) }, [
+      createElement('img', { src: file.previewUrl, alt: file.name }),
+      remove,
+    ]);
   }
 
   // Document preview - show icon and filename
-  return `
-    <div class="file-preview-item file-preview-doc" data-index="${index}">
-      <div class="file-preview-icon">${getFileIcon(file.type)}</div>
-      <span class="file-preview-name">${escapeHtml(file.name)}</span>
-      <button class="file-preview-remove" data-remove-index="${index}" aria-label="Remove file">
-        ${CLOSE_ICON}
-      </button>
-    </div>
-  `;
+  return createElement('div', { class: 'file-preview-item file-preview-doc', 'data-index': String(index) }, [
+    createIconElement('file-preview-icon', getFileIcon(file.type), 'div'),
+    createElement('span', { class: 'file-preview-name' }, [file.name]),
+    remove,
+  ]);
 }
 
 /**
