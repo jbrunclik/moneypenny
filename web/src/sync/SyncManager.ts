@@ -12,7 +12,6 @@
 
 import { agents as agentsApi } from '../api/agents';
 import { conversations as conversationsApi } from '../api/conversations';
-import { planner as plannerApi } from '../api/planner';
 import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
@@ -25,6 +24,7 @@ import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/str
 import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse } from '../types/api';
 import { SyncState, type SyncManagerCallbacks } from './sync-state';
 import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
+import { PlannerSync } from './planner-sync';
 
 const log = createLogger('sync');
 
@@ -50,6 +50,7 @@ export class SyncManager {
   private isVisible: boolean = true;
   private callbacks: SyncManagerCallbacks;
   private readonly state: SyncState;
+  private readonly planner: PlannerSync;
 
   /**
    * Lock to prevent concurrent sync operations.
@@ -67,16 +68,6 @@ export class SyncManager {
   private stopped = false;
 
   /**
-   * Tracks planner conversation message count for sync.
-   */
-  private plannerMessageCount: number | null = null;
-
-  /**
-   * Tracks planner last reset timestamp for reset detection.
-   */
-  private plannerLastReset: string | null = null;
-
-  /**
    * Tracks the agent ID being viewed (for agent conversation sync).
    */
   private viewedAgentId: string | null = null;
@@ -89,6 +80,7 @@ export class SyncManager {
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
     this.state = new SyncState(callbacks, toast);
+    this.planner = new PlannerSync(callbacks);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handlePageShow = this.handlePageShow.bind(this);
     this.handleOnline = this.handleOnline.bind(this);
@@ -172,8 +164,7 @@ export class SyncManager {
     this.incrementalSyncQueued = false;
     this.stopped = true;
     this.isSyncing = false;
-    this.plannerMessageCount = null;
-    this.plannerLastReset = null;
+    this.planner.clear();
     this.viewedAgentId = null;
     this.agentConversationMessageCount = null;
   }
@@ -312,7 +303,7 @@ export class SyncManager {
       }
 
       // Additionally sync planner if user has integrations
-      await this.syncPlanner();
+      await this.planner.sync();
 
       // Sync agent conversation if viewing one
       await this.syncAgentConversation();
@@ -877,9 +868,7 @@ export class SyncManager {
     store.updateConversation(convId, { messageCount: count });
 
     if (store.currentConversation?.id !== convId) return;
-    if (store.isPlannerView && this.plannerMessageCount !== null) {
-      this.plannerMessageCount = count;
-    }
+    if (store.isPlannerView) this.planner.noteOwnCount(count);
     if (this.viewedAgentId && this.agentConversationMessageCount !== null) {
       this.agentConversationMessageCount = count;
     }
@@ -1049,64 +1038,6 @@ export class SyncManager {
   }
 
   /**
-   * Sync planner conversation state to detect external updates, resets, or deletion.
-   * This runs separately from normal conversation sync since planner is excluded
-   * from regular sync (has is_planning=1 flag).
-   */
-  private async syncPlanner(): Promise<void> {
-    try {
-      const response = await plannerApi.sync();
-
-      if (!response.conversation) {
-        // Planner doesn't exist yet or was deleted
-        if (this.plannerMessageCount !== null) {
-          // Was deleted - planner existed before but doesn't now
-          const store = useStore.getState();
-          if (store.isPlannerView) {
-            log.info('Planner conversation was deleted externally');
-            this.callbacks.onPlannerDeleted?.();
-          }
-          this.plannerMessageCount = null;
-          this.plannerLastReset = null;
-        }
-        return;
-      }
-
-      const { message_count, last_reset } = response.conversation;
-
-      // Check for reset (last_reset timestamp changed)
-      if (this.plannerLastReset && last_reset !== this.plannerLastReset) {
-        // Planner was reset in another tab
-        const store = useStore.getState();
-        if (store.isPlannerView) {
-          log.info('Planner conversation was reset externally');
-          this.callbacks.onPlannerReset?.();
-        }
-      }
-
-      // Check for new messages (message count increased)
-      if (this.plannerMessageCount !== null && message_count > this.plannerMessageCount) {
-        // New messages added in another tab/device
-        const store = useStore.getState();
-        if (store.isPlannerView) {
-          log.info('Planner conversation has new messages', {
-            previousCount: this.plannerMessageCount,
-            newCount: message_count,
-          });
-          this.callbacks.onPlannerExternalUpdate?.(message_count);
-        }
-      }
-
-      // Update tracking state
-      this.plannerMessageCount = message_count;
-      this.plannerLastReset = last_reset;
-    } catch (error) {
-      log.warn('Planner sync failed', { error });
-      // Don't throw - syncing is best-effort
-    }
-  }
-
-  /**
    * Sync agent conversation state to detect external updates.
    * This runs separately from normal conversation sync since agent conversations
    * are excluded from regular sync (have is_agent=1 flag).
@@ -1155,19 +1086,9 @@ export class SyncManager {
     }
   }
 
-  /**
-   * Baseline for the planner view's new-message check, set when it loads.
-   * Left to the first poll, a change made in the minute after opening the
-   * planner set the baseline instead of being noticed. (A baseline that is
-   * off by a filtered placeholder only causes a no-op merge.)
-   */
+  /** Baseline for the planner view's new-message check (see PlannerSync.setBaseline). */
   setPlannerBaseline(messageCount: number): void {
-    this.plannerMessageCount = messageCount;
-    // Re-baseline the reset marker too: this device just loaded (possibly
-    // auto-reset) or reset the planner itself - the next poll's new
-    // last_reset is ours, not "reset in another tab" (whose reload would
-    // re-render over the running analysis)
-    this.plannerLastReset = null;
+    this.planner.setBaseline(messageCount);
   }
 
   /**
