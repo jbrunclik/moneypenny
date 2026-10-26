@@ -16,9 +16,10 @@ import {
   PLUS_ICON,
   SLIDERS_ICON,
   SPORTS_ICON,
+  createIconElement,
   setIcon,
 } from '../utils/icons';
-import { escapeHtml, createElement } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import { createEmptyState } from './EmptyState';
 import { createLogger } from '../utils/logger';
@@ -41,23 +42,21 @@ export function createSportsProgramsElement(
 
   const header = document.createElement('div');
   header.className = 'sports-programs-header';
-  header.innerHTML = `
-    <div class="sports-programs-title-row">
-      <div class="sports-programs-title">
-        <span class="sports-programs-title-icon">${SPORTS_ICON}</span>
-        <h2>Sports Training</h2>
-      </div>
-      ${
-        // Empty: the empty state's "Create your first program" is the only
-        // create button (a header twin did the same thing)
-        programs.length > 0
-          ? `<div class="sports-programs-actions">
-        <button class="sports-add-btn" title="New program">${PLUS_ICON}<span>New Program</span></button>
-      </div>`
-          : ''
-      }
-    </div>
-  `;
+  const titleRow = createElement('div', { class: 'sports-programs-title-row' }, [
+    createElement('div', { class: 'sports-programs-title' }, [
+      createIconElement('sports-programs-title-icon', SPORTS_ICON),
+      createElement('h2', {}, ['Sports Training']),
+    ]),
+  ]);
+  // Empty: the empty state's "Create your first program" is the only
+  // create button (a header twin did the same thing)
+  if (programs.length > 0) {
+    const addBtn = createElement('button', { class: 'sports-add-btn', title: 'New program' });
+    setIcon(addBtn, PLUS_ICON);
+    addBtn.append(createElement('span', {}, ['New Program']));
+    titleRow.appendChild(createElement('div', { class: 'sports-programs-actions' }, [addBtn]));
+  }
+  header.appendChild(titleRow);
   container.appendChild(header);
 
   if (programs.length === 0) {
@@ -99,16 +98,18 @@ function createProgramCard(
   card.className = 'sports-program-card';
   card.dataset.programId = program.id;
 
-  card.innerHTML = `
-    <div class="sports-card-header">
-      <span class="sports-card-emoji">${escapeHtml(program.emoji)}</span>
-      <span class="sports-card-name">${escapeHtml(program.name)}</span>
-      <div class="sports-card-actions">
-        <button class="btn-icon sports-card-continue" title="Continue training">${PLAY_ICON}<span class="sports-card-action-label">Continue</span></button>
-        <button class="btn-icon sports-card-delete" title="Delete program">${DELETE_ICON}</button>
-      </div>
-    </div>
-  `;
+  const continueBtn = createElement('button', { class: 'btn-icon sports-card-continue', title: 'Continue training' });
+  setIcon(continueBtn, PLAY_ICON);
+  continueBtn.append(createElement('span', { class: 'sports-card-action-label' }, ['Continue']));
+  const deleteBtn = createElement('button', { class: 'btn-icon sports-card-delete', title: 'Delete program' });
+  setIcon(deleteBtn, DELETE_ICON);
+  card.appendChild(
+    createElement('div', { class: 'sports-card-header' }, [
+      createElement('span', { class: 'sports-card-emoji' }, [program.emoji]),
+      createElement('span', { class: 'sports-card-name' }, [program.name]),
+      createElement('div', { class: 'sports-card-actions' }, [continueBtn, deleteBtn]),
+    ])
+  );
 
   const confirmDelete = async (): Promise<void> => {
     const confirmed = await showConfirm({

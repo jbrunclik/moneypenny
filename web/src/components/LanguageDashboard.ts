@@ -16,6 +16,7 @@ import {
   REFRESH_ICON,
   SLIDERS_ICON,
   LANGUAGE_ICON,
+  createIconElement,
   setIcon,
 } from '../utils/icons';
 import { escapeHtml, createElement } from '../utils/dom';
@@ -38,23 +39,21 @@ export function createLanguageProgramsElement(
 
   const header = document.createElement('div');
   header.className = 'language-programs-header';
-  header.innerHTML = `
-    <div class="language-programs-title-row">
-      <div class="language-programs-title">
-        <span class="language-programs-title-icon">${LANGUAGE_ICON}</span>
-        <h2>Language Learning</h2>
-      </div>
-      ${
-        // Empty: the empty state's "Create your first program" is the only
-        // create button (a header twin did the same thing)
-        programs.length > 0
-          ? `<div class="language-programs-actions">
-        <button class="language-add-btn" title="New program">${PLUS_ICON}<span>New Program</span></button>
-      </div>`
-          : ''
-      }
-    </div>
-  `;
+  const titleRow = createElement('div', { class: 'language-programs-title-row' }, [
+    createElement('div', { class: 'language-programs-title' }, [
+      createIconElement('language-programs-title-icon', LANGUAGE_ICON),
+      createElement('h2', {}, ['Language Learning']),
+    ]),
+  ]);
+  // Empty: the empty state's "Create your first program" is the only
+  // create button (a header twin did the same thing)
+  if (programs.length > 0) {
+    const addBtn = createElement('button', { class: 'language-add-btn', title: 'New program' });
+    setIcon(addBtn, PLUS_ICON);
+    addBtn.append(createElement('span', {}, ['New Program']));
+    titleRow.appendChild(createElement('div', { class: 'language-programs-actions' }, [addBtn]));
+  }
+  header.appendChild(titleRow);
   container.appendChild(header);
 
   if (programs.length === 0) {
@@ -97,16 +96,18 @@ function createProgramCard(
   card.className = 'language-program-card';
   card.dataset.programId = program.id;
 
-  card.innerHTML = `
-    <div class="language-card-header">
-      <span class="language-card-emoji">${escapeHtml(program.emoji)}</span>
-      <span class="language-card-name">${escapeHtml(program.name)}</span>
-      <div class="language-card-actions">
-        <button class="btn-icon language-card-continue" title="Continue learning">${PLAY_ICON}<span class="language-card-action-label">Continue</span></button>
-        <button class="btn-icon language-card-delete" title="Delete program">${DELETE_ICON}</button>
-      </div>
-    </div>
-  `;
+  const continueBtn = createElement('button', { class: 'btn-icon language-card-continue', title: 'Continue learning' });
+  setIcon(continueBtn, PLAY_ICON);
+  continueBtn.append(createElement('span', { class: 'language-card-action-label' }, ['Continue']));
+  const deleteBtn = createElement('button', { class: 'btn-icon language-card-delete', title: 'Delete program' });
+  setIcon(deleteBtn, DELETE_ICON);
+  card.appendChild(
+    createElement('div', { class: 'language-card-header' }, [
+      createElement('span', { class: 'language-card-emoji' }, [program.emoji]),
+      createElement('span', { class: 'language-card-name' }, [program.name]),
+      createElement('div', { class: 'language-card-actions' }, [continueBtn, deleteBtn]),
+    ])
+  );
 
   const confirmDelete = async (): Promise<void> => {
     const confirmed = await showConfirm({
