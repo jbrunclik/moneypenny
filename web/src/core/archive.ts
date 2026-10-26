@@ -36,13 +36,15 @@ export async function archiveConversation(convId: string): Promise<void> {
     // Again once it's committed: a poll started during the request may
     // already see (or not yet see) the write - skip it either way
     getSyncManager()?.noteLocalChange(convId);
+    // Read after the request: the user may have opened another one meanwhile
+    const wasOpen = useStore.getState().currentConversation?.id === convId;
 
     // Move from active to archived list
     store.removeConversation(convId);
     store.addArchivedConversation({ ...conv, archived: true });
 
     // If this was the current conversation, clear it
-    if (store.currentConversation?.id === convId) {
+    if (wasOpen) {
       store.setCurrentConversation(null);
       renderMessages([]);
       updateChatTitle(APP_NAME);

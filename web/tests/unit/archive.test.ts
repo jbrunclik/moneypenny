@@ -139,12 +139,9 @@ describe('archiveConversation', () => {
     expect(hash.clearConversationHash).not.toHaveBeenCalled();
   });
 
-  // BUG: archiveConversation reads currentConversation from the state
-  // snapshot taken before the archive request. Switching to another
-  // conversation while the request is in flight therefore wipes the view of
-  // the conversation now open (messages emptied, title reset, URL cleared)
-  // and leaves no conversation selected.
-  it.fails('keeps a conversation opened while the archive request was in flight', async () => {
+  // The open conversation is read after the request: a snapshot from before
+  // it once wiped the conversation the user switched to meanwhile
+  it('keeps a conversation opened while the archive request was in flight', async () => {
     useStore.setState({ conversations: [conv('a'), conv('b')], currentConversation: conv('a') });
     const request = deferred();
     api.archive.mockReturnValue(request.promise);
