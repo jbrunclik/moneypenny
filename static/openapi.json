@@ -10863,7 +10863,7 @@
             "type": "array"
           },
           "server_time": {
-            "description": "ISO timestamp to use for next sync",
+            "description": "Server time of this sync (ISO); the client's baseline for what is new",
             "title": "Server Time",
             "type": "string"
           },

@@ -173,7 +173,9 @@ class SyncResponse(ResponseModel):
     """Response from sync endpoint."""
 
     conversations: list[SyncConversationResponse]
-    server_time: str = Field(..., description="ISO timestamp to use for next sync")
+    server_time: str = Field(
+        ..., description="Server time of this sync (ISO); the client's baseline for what is new"
+    )
     cursor: int = Field(..., description="Change-log position to pass as ?cursor= on the next sync")
     removed_ids: list[str] = Field(
         ..., description="Conversations permanently deleted since the cursor (empty on a full sync)"

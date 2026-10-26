@@ -9471,7 +9471,7 @@ export interface components {
             conversations: components["schemas"]["SyncResponse.SyncConversationResponse"][];
             /**
              * Server Time
-             * @description ISO timestamp to use for next sync
+             * @description Server time of this sync (ISO); the client's baseline for what is new
              */
             server_time: string;
             /**
