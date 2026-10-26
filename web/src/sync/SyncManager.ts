@@ -23,30 +23,9 @@ import {
 } from '../config';
 import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
 import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse } from '../types/api';
+import { SyncState, type SyncManagerCallbacks } from './sync-state';
 
 const log = createLogger('sync');
-
-/** Callbacks for SyncManager events */
-export interface SyncManagerCallbacks {
-  /** Called when conversations list should be re-rendered */
-  onConversationsUpdated: () => void;
-  /** Called when a conversation was deleted while user was viewing it */
-  onCurrentConversationDeleted: () => void;
-  /** Called when the current conversation has new messages from another device */
-  onCurrentConversationExternalUpdate: (messageCount: number) => void;
-  /** Called when the current conversation was renamed on another device */
-  onCurrentConversationRenamed?: (title: string) => void;
-  /** Called when the planner conversation was deleted in another tab */
-  onPlannerDeleted?: () => void;
-  /** Called when the planner conversation was reset in another tab */
-  onPlannerReset?: () => void;
-  /** Called when the planner has new messages from another tab/device */
-  onPlannerExternalUpdate?: (messageCount: number) => void;
-  /** Called when an agent conversation has new messages from another tab/device */
-  onAgentConversationExternalUpdate?: (messageCount: number) => void;
-  /** Called when another device moved chats into or out of the archive / trash (reload those lists) */
-  onArchiveOrTrashChanged?: (lists: { archive: boolean; trash: boolean }) => void;
-}
 
 /**
  * SyncManager class manages conversation synchronization with the server.
@@ -69,18 +48,7 @@ export class SyncManager {
   private pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isVisible: boolean = true;
   private callbacks: SyncManagerCallbacks;
-
-  /**
-   * Tracks when SyncManager first started (initial page load time).
-   * Used to distinguish pagination-discovered conversations from actually new ones.
-   */
-  private initialLoadTime: string | null = null;
-
-  /**
-   * Tracks the message count we last knew about for each conversation.
-   * Used to calculate unread counts.
-   */
-  private localMessageCounts: Map<string, number> = new Map();
+  private readonly state: SyncState;
 
   /**
    * Lock to prevent concurrent sync operations.
@@ -88,44 +56,14 @@ export class SyncManager {
    */
   private isSyncing: boolean = false;
 
-  /**
-   * Set of conversation IDs that are currently streaming.
-   * Sync updates for these conversations are deferred to avoid false unread counts.
-   */
-  private streamingConversations: Set<string> = new Set();
-
-  /**
-   * The latest server summary that arrived for a conversation while this
-   * device's own turn was running there. It was skipped (our own messages
-   * would read as unread), but the poll moved on past it - applied when the
-   * turn ends so a rename or the other device's messages aren't lost.
-   */
-  private deferredUpdates: Map<string, ConversationSummary> = new Map();
-
   /** A full sync was requested while another sync held the lock. */
   private fullSyncQueued = false;
 
   /** An incremental sync was requested while another sync held the lock. */
   private incrementalSyncQueued = false;
 
-  /**
-   * Local changes (rename, pin, archive, trash, restore, anonymous) bump a
-   * counter; a sync response requested BEFORE a conversation's latest local
-   * change carries its older state and must not re-apply it (the old title
-   * back, a trashed chat re-added) - the next poll brings the current one.
-   */
-  private localChangeSeq = 0;
-  private localChangeAt: Map<string, number> = new Map();
-  private syncRequestSeq = 0;
-
   /** Stopped (logout) - a start still awaiting its first sync must not go on. */
   private stopped = false;
-
-  /** The read count last reported to the server per conversation (dedupe). */
-  private reportedReadCounts: Map<string, number> = new Map();
-
-  /** applyChanges told the open conversation about an external update. */
-  private notifiedCurrentUpdate = false;
 
   /**
    * Tracks planner conversation message count for sync.
@@ -149,6 +87,7 @@ export class SyncManager {
 
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
+    this.state = new SyncState(callbacks, toast);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handlePageShow = this.handlePageShow.bind(this);
     this.handleOnline = this.handleOnline.bind(this);
@@ -177,7 +116,7 @@ export class SyncManager {
       const store = useStore.getState();
       for (const conv of store.conversations) {
         if (conv.messageCount !== undefined) {
-          this.localMessageCounts.set(conv.id, conv.messageCount);
+          this.state.localMessageCounts.set(conv.id, conv.messageCount);
         }
       }
 
@@ -205,7 +144,7 @@ export class SyncManager {
 
     log.debug('SyncManager started', {
       lastSyncTime: this.lastSyncTime,
-      initialLoadTime: this.initialLoadTime,
+      initialLoadTime: this.state.initialLoadTime,
     });
   }
 
@@ -227,12 +166,7 @@ export class SyncManager {
     this.lastSyncTime = null;
     this.changeCursor = null;
     this.lastHiddenTime = null;
-    this.initialLoadTime = null;
-    this.localMessageCounts.clear();
-    this.streamingConversations.clear();
-    this.deferredUpdates.clear();
-    this.reportedReadCounts.clear();
-    this.localChangeAt.clear();
+    this.state.clear();
     this.fullSyncQueued = false;
     this.incrementalSyncQueued = false;
     this.stopped = true;
@@ -252,9 +186,9 @@ export class SyncManager {
     const existingIds = new Set(store.conversations.map((c) => c.id));
     let pruned = 0;
 
-    for (const id of this.localMessageCounts.keys()) {
+    for (const id of this.state.localMessageCounts.keys()) {
       if (!existingIds.has(id)) {
-        this.localMessageCounts.delete(id);
+        this.state.localMessageCounts.delete(id);
         pruned++;
       }
     }
@@ -290,7 +224,7 @@ export class SyncManager {
       // removed (open: "This conversation was deleted.") until the change
       // log re-added it a minute later
       const knownBefore = new Set(useStore.getState().conversations.map((c) => c.id));
-      this.syncRequestSeq = this.localChangeSeq;
+      this.state.markSyncRequest();
       const result = await conversationsApi.sync(null, true);
       this.lastSyncTime = result.server_time;
       // Taken before the server's query: changes during it re-arrive next time
@@ -298,9 +232,9 @@ export class SyncManager {
 
       // Set initialLoadTime on first full sync (before applying results)
       // This allows us to distinguish pagination-discovered vs actually new conversations
-      if (!this.initialLoadTime) {
-        this.initialLoadTime = result.server_time;
-        log.debug('Initial load time established', { initialLoadTime: this.initialLoadTime });
+      if (!this.state.initialLoadTime) {
+        this.state.initialLoadTime = result.server_time;
+        log.debug('Initial load time established', { initialLoadTime: this.state.initialLoadTime });
       }
 
       this.applyFullSync(result.conversations, knownBefore);
@@ -331,14 +265,9 @@ export class SyncManager {
     }
   }
 
-  /** A local change to a conversation (see localChangeSeq). */
+  /** A local change to a conversation (see SyncState.noteLocalChange). */
   noteLocalChange(convId: string): void {
-    this.localChangeAt.set(convId, ++this.localChangeSeq);
-  }
-
-  /** Changed here after the in-flight sync request was made: skip its state. */
-  private changedLocallySinceRequest(convId: string): boolean {
-    return (this.localChangeAt.get(convId) ?? 0) > this.syncRequestSeq;
+    this.state.noteLocalChange(convId);
   }
 
   /**
@@ -401,7 +330,7 @@ export class SyncManager {
   /** Fetch and apply every change after the cursor (paging while has_more). */
   private async syncChangeLog(): Promise<void> {
     for (let page = 0; page < SYNC_MAX_CHANGE_PAGES && this.changeCursor !== null; page++) {
-      this.syncRequestSeq = this.localChangeSeq;
+      this.state.markSyncRequest();
       const result = await conversationsApi.syncChanges(this.changeCursor);
       this.lastSyncTime = result.server_time;
       this.applyChangeLog(result);
@@ -423,7 +352,7 @@ export class SyncManager {
 
     let changed = false;
     for (const id of result.removed_ids ?? []) {
-      if (this.changedLocallySinceRequest(id)) continue;
+      if (this.state.changedLocallySinceRequest(id)) continue;
       changed = this.removeExternally(id, 'deleted') || changed;
     }
 
@@ -431,7 +360,7 @@ export class SyncManager {
     const openConv = store.currentConversation;
     const existing: ConversationSummary[] = [];
     for (const conv of result.conversations) {
-      if (this.changedLocallySinceRequest(conv.id)) continue;
+      if (this.state.changedLocallySinceRequest(conv.id)) continue;
       // An archived chat that is OPEN here (archive view, search, deep link):
       // its changes - our own read echo included - are just changes to the
       // open chat, not "archived on another device"
@@ -447,7 +376,7 @@ export class SyncManager {
       }
     }
 
-    this.notifiedCurrentUpdate = false;
+    this.state.notifiedCurrentUpdate = false;
     if (existing.length > 0) {
       this.applyChanges(existing, false);
       changed = true;
@@ -464,8 +393,8 @@ export class SyncManager {
     if (
       open &&
       changedOpen &&
-      !this.notifiedCurrentUpdate &&
-      !this.streamingConversations.has(open.id) &&
+      !this.state.notifiedCurrentUpdate &&
+      !this.state.streamingConversations.has(open.id) &&
       (!changedOpen.archived || open.archived)
     ) {
       this.callbacks.onCurrentConversationExternalUpdate(changedOpen.message_count);
@@ -486,12 +415,12 @@ export class SyncManager {
     const trashed = new Set(trashedConversations.map((c) => c.id));
     const lists = { archive: false, trash: false };
     for (const id of result.removed_ids ?? []) {
-      if (this.changedLocallySinceRequest(id)) continue;
+      if (this.state.changedLocallySinceRequest(id)) continue;
       lists.archive ||= archived.has(id);
       lists.trash ||= trashed.has(id);
     }
     for (const conv of result.conversations) {
-      if (this.changedLocallySinceRequest(conv.id)) continue;
+      if (this.state.changedLocallySinceRequest(conv.id)) continue;
       const inArchive = Boolean(conv.archived) && !conv.trashed;
       lists.archive ||= inArchive !== archived.has(conv.id);
       lists.trash ||= Boolean(conv.trashed) !== trashed.has(conv.id);
@@ -512,7 +441,7 @@ export class SyncManager {
     if (reason !== 'archived') cancelRecovery(id);
     // The known count stays (pruned on the next full sync): a restore or
     // unarchive then compares against it instead of counting it all unread
-    this.deferredUpdates.delete(id);
+    this.state.deferredUpdates.delete(id);
     if (!inList && !current) return false;
     log.info('Conversation removed on another device', { conversationId: id, reason });
 
@@ -547,13 +476,13 @@ export class SyncManager {
   private addFromChangeLog(conv: ConversationSummary): boolean {
     const store = useStore.getState();
     if (!conv.pinned && !this.inLoadedWindow(conv.updated_at)) {
-      this.localMessageCounts.set(conv.id, conv.message_count);
+      this.state.localMessageCounts.set(conv.id, conv.message_count);
       return false;
     }
-    const known = this.localMessageCounts.get(conv.id);
+    const known = this.state.localMessageCounts.get(conv.id);
     const isNew = conv.created_at ? !this.isPaginationDiscovered(conv.created_at) : known === undefined;
     const baseline = known ?? (isNew ? 0 : conv.message_count);
-    this.localMessageCounts.set(conv.id, baseline);
+    this.state.localMessageCounts.set(conv.id, baseline);
     const unread =
       conv.read_count !== undefined
         ? Math.max(0, conv.message_count - conv.read_count)
@@ -627,7 +556,7 @@ export class SyncManager {
       }
 
       store.removeConversation(id);
-      this.localMessageCounts.delete(id);
+      this.state.localMessageCounts.delete(id);
     }
 
     // Separate existing conversations (for update) from new conversations (for add)
@@ -637,7 +566,7 @@ export class SyncManager {
     for (const serverConv of serverConversations) {
       if (localIds.has(serverConv.id)) {
         existingServerConvs.push(serverConv);
-      } else if (this.changedLocallySinceRequest(serverConv.id)) {
+      } else if (this.state.changedLocallySinceRequest(serverConv.id)) {
         // Trashed / archived here after this snapshot was read: not back
         continue;
       } else {
@@ -650,7 +579,7 @@ export class SyncManager {
           newServerConvs.push(serverConv);
         } else {
           // Pagination-discovered: just track the message count for when it's loaded via pagination
-          this.localMessageCounts.set(serverConv.id, serverConv.message_count);
+          this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
           log.debug('Full sync: skipping pagination-discovered conversation', {
             conversationId: serverConv.id,
             updated_at: serverConv.updated_at,
@@ -673,10 +602,10 @@ export class SyncManager {
       // Unread: the server's read state; without it, all of a conversation
       // created after this page loaded, or beyond a count we already knew -
       // an older one (continued, restored) isn't wholly new
-      const knownCount = this.localMessageCounts.get(serverConv.id);
+      const knownCount = this.state.localMessageCounts.get(serverConv.id);
       const createdBeforeLoad = this.isPaginationDiscovered(serverConv.created_at ?? serverConv.updated_at);
       const baseline = knownCount ?? (createdBeforeLoad ? serverConv.message_count : 0);
-      this.localMessageCounts.set(serverConv.id, baseline);
+      this.state.localMessageCounts.set(serverConv.id, baseline);
       const unreadCount =
         serverConv.read_count !== undefined
           ? Math.max(0, serverConv.message_count - serverConv.read_count)
@@ -722,17 +651,17 @@ export class SyncManager {
     const store = useStore.getState();
 
     for (const serverConv of serverConversations) {
-      if (this.changedLocallySinceRequest(serverConv.id)) continue;
+      if (this.state.changedLocallySinceRequest(serverConv.id)) continue;
       // Skip conversations that are currently streaming to avoid false unread counts
       // The local message count will be updated when streaming completes
-      if (this.streamingConversations.has(serverConv.id)) {
+      if (this.state.streamingConversations.has(serverConv.id)) {
         log.debug('Deferring sync for streaming conversation', { conversationId: serverConv.id });
-        this.deferredUpdates.set(serverConv.id, serverConv);
+        this.state.deferredUpdates.set(serverConv.id, serverConv);
         continue;
       }
 
       const existing = store.conversations.find((c) => c.id === serverConv.id);
-      const localCount = this.localMessageCounts.get(serverConv.id) || 0;
+      const localCount = this.state.localMessageCounts.get(serverConv.id) || 0;
       const isCurrentConv = store.currentConversation?.id === serverConv.id;
 
       // Calculate unread count (only for conversations not currently viewed)
@@ -747,9 +676,9 @@ export class SyncManager {
             conversationId: serverConv.id,
             serverMessageCount: serverConv.message_count,
             localMessageCount: localCount,
-            isStreaming: this.streamingConversations.has(serverConv.id),
+            isStreaming: this.state.streamingConversations.has(serverConv.id),
           });
-          this.notifiedCurrentUpdate = true;
+          this.state.notifiedCurrentUpdate = true;
           this.callbacks.onCurrentConversationExternalUpdate(serverConv.message_count);
         } else {
           // User is not viewing - count as unread
@@ -759,7 +688,7 @@ export class SyncManager {
       // The server's read state is what our reports dedupe against (a device
       // that reported the same count, or a higher one, makes ours moot)
       if (serverConv.read_count !== undefined) {
-        this.reportedReadCounts.set(serverConv.id, serverConv.read_count);
+        this.state.reportedReadCounts.set(serverConv.id, serverConv.read_count);
       }
       // Another device toggled anonymous mode: adopt it (the next send here
       // must not turn it back on)
@@ -811,7 +740,7 @@ export class SyncManager {
         // For pagination-discovered, no badge (user just hasn't scrolled to see it yet).
         // An older conversation continued on another device has a count we
         // already know (full sync tracks unloaded ones): only the rest is new.
-        const knownCount = this.localMessageCounts.get(serverConv.id);
+        const knownCount = this.state.localMessageCounts.get(serverConv.id);
         const unreadCount = isPaginationDiscovered
           ? 0
           : Math.max(0, serverConv.message_count - (knownCount ?? 0));
@@ -823,7 +752,7 @@ export class SyncManager {
           });
           // Don't add pagination-discovered conversations - they'll come via pagination when user scrolls
           // Just track the message count for when they do get loaded
-          this.localMessageCounts.set(serverConv.id, serverConv.message_count);
+          this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
           continue; // Skip to next conversation in loop
         }
 
@@ -838,7 +767,7 @@ export class SyncManager {
         // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
         // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
         // the baseline until the user views the conversation
-        if (knownCount === undefined) this.localMessageCounts.set(serverConv.id, 0);
+        if (knownCount === undefined) this.state.localMessageCounts.set(serverConv.id, 0);
 
         store.addConversation({
           id: serverConv.id,
@@ -859,12 +788,12 @@ export class SyncManager {
       // - On incremental sync for current conv: don't update (user might have sent messages)
       // - On incremental sync for non-current conv with unread: don't update (preserve unread state)
       // - On incremental sync for non-current conv without unread: update (no state to preserve)
-      const currentLocalCount = this.localMessageCounts.get(serverConv.id) ?? 0;
+      const currentLocalCount = this.state.localMessageCounts.get(serverConv.id) ?? 0;
       const isActuallyNewConversation = !existing && currentLocalCount === 0 && serverConv.message_count > 0;
       const shouldUpdateLocalCount =
         (isFullSync && !isActuallyNewConversation) || (!isCurrentConv && unreadCount === 0);
       if (shouldUpdateLocalCount) {
-        this.localMessageCounts.set(serverConv.id, serverConv.message_count);
+        this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
       }
     }
   }
@@ -892,8 +821,8 @@ export class SyncManager {
    * Call this after loading more conversations via pagination.
    */
   initializeLocalMessageCount(convId: string, messageCount: number): void {
-    if (!this.localMessageCounts.has(convId)) {
-      this.localMessageCounts.set(convId, messageCount);
+    if (!this.state.localMessageCounts.has(convId)) {
+      this.state.localMessageCounts.set(convId, messageCount);
       log.debug('Initialized local message count for paginated conversation', {
         convId,
         messageCount,
@@ -908,10 +837,10 @@ export class SyncManager {
    */
   private reportRead(convId: string, count: number): void {
     if (convId.startsWith('temp-') || count < 0) return;
-    if (this.reportedReadCounts.get(convId) === count) return;
-    this.reportedReadCounts.set(convId, count);
+    if (this.state.reportedReadCounts.get(convId) === count) return;
+    this.state.reportedReadCounts.set(convId, count);
     conversationsApi.markRead(convId, count).catch((error: unknown) => {
-      this.reportedReadCounts.delete(convId);
+      this.state.reportedReadCounts.delete(convId);
       log.debug('Reporting read state failed', { conversationId: convId, error });
     });
   }
@@ -922,7 +851,7 @@ export class SyncManager {
    * The reply placeholder still counts as one unread there: a reply coming.
    */
   noteOwnMessageSaved(convId: string): void {
-    const known = this.localMessageCounts.get(convId);
+    const known = this.state.localMessageCounts.get(convId);
     if (known !== undefined) this.reportRead(convId, known + 1);
   }
 
@@ -931,7 +860,7 @@ export class SyncManager {
    * Prefer setLocalMessageCount with the server's count when a turn reports it.
    */
   incrementLocalMessageCount(convId: string, increment: number = 1): void {
-    const currentCount = this.localMessageCounts.get(convId) || 0;
+    const currentCount = this.state.localMessageCounts.get(convId) || 0;
     this.setLocalMessageCount(convId, currentCount + increment);
   }
 
@@ -952,7 +881,7 @@ export class SyncManager {
 
   /** The local baseline (+ planner/agent view baselines), no read report. */
   private applyLocalCount(convId: string, count: number): void {
-    this.localMessageCounts.set(convId, count);
+    this.state.localMessageCounts.set(convId, count);
     const store = useStore.getState();
     store.updateConversation(convId, { messageCount: count });
 
@@ -972,20 +901,20 @@ export class SyncManager {
    */
   setConversationStreaming(convId: string, isStreaming: boolean): void {
     if (isStreaming) {
-      this.streamingConversations.add(convId);
+      this.state.streamingConversations.add(convId);
       log.debug('Conversation marked as streaming', {
         conversationId: convId,
-        allStreaming: Array.from(this.streamingConversations),
+        allStreaming: Array.from(this.state.streamingConversations),
       });
     } else {
-      this.streamingConversations.delete(convId);
+      this.state.streamingConversations.delete(convId);
       log.debug('Conversation streaming completed', {
         conversationId: convId,
-        allStreaming: Array.from(this.streamingConversations),
+        allStreaming: Array.from(this.state.streamingConversations),
       });
-      const deferred = this.deferredUpdates.get(convId);
+      const deferred = this.state.deferredUpdates.get(convId);
       if (deferred) {
-        this.deferredUpdates.delete(convId);
+        this.state.deferredUpdates.delete(convId);
         if (this.changeCursor !== null) {
           // The summary is a snapshot from DURING our turn. Its counts are
           // moot (the turn set the exact one), and its untitled "New
@@ -1144,7 +1073,7 @@ export class SyncManager {
    */
   private isPaginationDiscovered(updatedAt: string): boolean {
     // We need initialLoadTime (server time) to compare
-    if (!this.initialLoadTime) {
+    if (!this.state.initialLoadTime) {
       // If we don't have initialLoadTime yet (first sync), we can't distinguish.
       // Default to treating as pagination-discovered to be safe (no false unread badges).
       // This handles the case where conversations are discovered during the initial full sync
@@ -1157,13 +1086,13 @@ export class SyncManager {
     // Both timestamps are server time, so no clock skew issues
     try {
       const updatedDate = new Date(updatedAt);
-      const initialDate = new Date(this.initialLoadTime);
+      const initialDate = new Date(this.state.initialLoadTime);
 
       // Check for invalid dates (new Date() doesn't throw, returns Invalid Date)
       if (isNaN(updatedDate.getTime()) || isNaN(initialDate.getTime())) {
         log.warn('Invalid timestamp for pagination detection', {
           updatedAt,
-          initialLoadTime: this.initialLoadTime,
+          initialLoadTime: this.state.initialLoadTime,
         });
         return true; // Default to pagination-discovered to be safe
       }
@@ -1178,7 +1107,7 @@ export class SyncManager {
       // If timestamp parsing fails, default to pagination-discovered to be safe
       log.warn('Failed to parse timestamp for pagination detection', {
         updatedAt,
-        initialLoadTime: this.initialLoadTime,
+        initialLoadTime: this.state.initialLoadTime,
         error,
       });
       return true;
@@ -1257,7 +1186,7 @@ export class SyncManager {
     // Skip if the agent conversation is currently streaming
     const store = useStore.getState();
     const currentConv = store.currentConversation;
-    if (currentConv && this.streamingConversations.has(currentConv.id)) {
+    if (currentConv && this.state.streamingConversations.has(currentConv.id)) {
       log.debug('Skipping agent sync - conversation is streaming');
       return;
     }

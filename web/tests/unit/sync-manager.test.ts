@@ -54,7 +54,8 @@ vi.mock('@/components/Toast', () => ({
 }));
 
 // Import after mocks are set up
-import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
+import { SyncManager } from '@/sync/SyncManager';
+import type { SyncManagerCallbacks } from '@/sync/sync-state';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { planner as plannerApi } from '@/api/planner';
 import { agents as agentsApi } from '@/api/agents';
@@ -1138,7 +1139,7 @@ describe('SyncManager', () => {
       await syncManager.start();
 
       // Verify initialLoadTime is set
-      const firstSyncTime = (syncManager as unknown as { initialLoadTime: string }).initialLoadTime;
+      const firstSyncTime = (syncManager as unknown as { state: { initialLoadTime: string } }).state.initialLoadTime;
       expect(firstSyncTime).toBe(serverTime1);
 
       // Second full sync (e.g., after tab hidden >5 minutes)
@@ -1151,7 +1152,7 @@ describe('SyncManager', () => {
       await syncManager.fullSync();
 
       // initialLoadTime should still be the original value
-      const secondSyncTime = (syncManager as unknown as { initialLoadTime: string }).initialLoadTime;
+      const secondSyncTime = (syncManager as unknown as { state: { initialLoadTime: string } }).state.initialLoadTime;
       expect(secondSyncTime).toBe(serverTime1); // Still the first sync time, not the second
     });
 
@@ -1196,7 +1197,7 @@ describe('SyncManager', () => {
       expect(oldConv).toBeUndefined();
 
       // But message count should be tracked for when it does get loaded via pagination
-      const trackedCount = (syncManager as unknown as { localMessageCounts: Map<string, number> }).localMessageCounts.get('old-conv');
+      const trackedCount = (syncManager as unknown as { state: { localMessageCounts: Map<string, number> } }).state.localMessageCounts.get('old-conv');
       expect(trackedCount).toBe(10);
     });
 
@@ -2111,7 +2112,7 @@ describe('SyncManager', () => {
 
       syncManager.initializeLocalMessageCount('a', 9);
       syncManager.initializeLocalMessageCount('b', 9);
-      const counts = (syncManager as unknown as { localMessageCounts: Map<string, number> }).localMessageCounts;
+      const counts = (syncManager as unknown as { state: { localMessageCounts: Map<string, number> } }).state.localMessageCounts;
 
       expect(counts.get('a')).toBe(2);
       expect(counts.get('b')).toBe(9);
