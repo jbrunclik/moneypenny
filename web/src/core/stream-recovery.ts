@@ -407,8 +407,8 @@ async function fetchMessageWithRetry(
     } catch (error) {
       const is404 = error instanceof ApiError && error.status === 404;
 
-      if (is404 && attempt < STREAM_RECOVERY_RETRY_DELAYS_MS.length) {
-        const delay = STREAM_RECOVERY_RETRY_DELAYS_MS[attempt];
+      const delay = STREAM_RECOVERY_RETRY_DELAYS_MS[attempt];
+      if (is404 && delay !== undefined) {
         log.debug('Message not found, retrying', { messageId, attempt, delay });
         await sleep(delay);
         continue;

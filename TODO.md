@@ -90,7 +90,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Ops: backups share the server's disk (see the off-site item).
   - `tests/e2e-server.py` is 1,800 lines.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
-  - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors, `noUncheckedIndexedAccess` 138); knip/vulture/deptry (C2, F10).
+  - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors); knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
 - [ ] **Shrink the ruff baseline** (Oct 26 2026: 53 bare `# noqa: CODE` lines, 41 in `src/` - only complexity is left: 52 `C901` (40 in `src/`), 30 `PLR0912` (23), 19 `PLR0915` (13); every other code is fixed or carries a reason): plus 99 `PLC0415` imports inside functions (hoist each, or give it a reason); fix them file by file when touching a file anyway; `grep -rn "# noqa: [A-Z0-9, ]*$" src` lists them.
 - [ ] **Shrink the ESLint baseline** (`web/eslint-suppressions.json`, Oct 25 2026: 75 - 42 complexity, 18 long functions, 15 deep nesting; the 48 `!` are cleared).

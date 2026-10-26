@@ -83,7 +83,7 @@ function getLanguageDisplayName(langCode: string): string {
     return LANGUAGE_NAMES[langCode];
   }
   // Try base language (e.g., 'en' from 'en-US')
-  const baseLang = langCode.split('-')[0];
+  const baseLang = langCode.split('-')[0] ?? langCode;
   if (LANGUAGE_NAMES[baseLang]) {
     return LANGUAGE_NAMES[baseLang];
   }
@@ -175,6 +175,7 @@ function showLanguageSelector(voiceBtn: HTMLButtonElement): void {
   if (isTouchDevice()) {
     const handleTouchMove = (e: TouchEvent) => {
       const touch = e.touches[0];
+      if (!touch) return;
       const element = document.elementFromPoint(touch.clientX, touch.clientY);
       // Update visual highlight
       popup.querySelectorAll('.voice-lang-option').forEach(opt => {
@@ -192,6 +193,7 @@ function showLanguageSelector(voiceBtn: HTMLButtonElement): void {
 
       // Find which option the touch ended on
       const touch = e.changedTouches[0];
+      if (!touch) return;
       const element = document.elementFromPoint(touch.clientX, touch.clientY);
       if (element?.classList.contains('voice-lang-option')) {
         e.preventDefault();
@@ -324,10 +326,12 @@ export function initVoiceInput(): void {
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const result = event.results[i];
+      const alternative = result?.[0];
+      if (!result || !alternative) continue;
       if (result.isFinal) {
-        finalTranscript += result[0].transcript;
+        finalTranscript += alternative.transcript;
       } else {
-        interimTranscript += result[0].transcript;
+        interimTranscript += alternative.transcript;
       }
     }
 

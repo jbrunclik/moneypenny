@@ -51,7 +51,7 @@ describe('send state', () => {
       document.body.appendChild(row);
       row.querySelector<HTMLButtonElement>(`[data-action="${action}"]`)?.click();
       expect(listener).toHaveBeenCalledTimes(1);
-      const event = listener.mock.calls[0][0] as CustomEvent<{ messageId: string }>;
+      const event = listener.mock.calls[0]?.[0] as CustomEvent<{ messageId: string }>;
       expect(event.type).toBe(eventName);
       expect(event.detail).toEqual({ messageId: 'm1' });
     });

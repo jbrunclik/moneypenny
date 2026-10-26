@@ -5,6 +5,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { showQuickActionsEditor, closeQuickActionsEditor } from '@/components/QuickActionsEditor';
 import type { QuickAction } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const a: QuickAction = {
   id: 'a',
   emoji: '📋',
@@ -27,9 +33,9 @@ describe('QuickActionsEditor', () => {
     showQuickActionsEditor({ actions: [a, b], onChange: vi.fn() });
     const rows = document.querySelectorAll('.qa-editor-row');
     expect(rows.length).toBe(2);
-    expect(rows[0].querySelector('.qa-editor-row-label')!.textContent).toBe('Plan today');
-    expect(rows[0].querySelector('.qa-editor-move-up')).not.toBeNull();
-    expect(rows[0].querySelector('.qa-editor-delete')).not.toBeNull();
+    expect(rows[0]?.querySelector('.qa-editor-row-label')!.textContent).toBe('Plan today');
+    expect(at(rows, 0).querySelector('.qa-editor-move-up')).not.toBeNull();
+    expect(at(rows, 0).querySelector('.qa-editor-delete')).not.toBeNull();
     expect(document.querySelector('.qa-editor-save')).toBeNull();
   });
 
@@ -38,7 +44,7 @@ describe('QuickActionsEditor', () => {
     showQuickActionsEditor({ actions: [a, b], onChange });
     (document.querySelectorAll('.qa-editor-move-down')[0] as HTMLButtonElement).click();
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-    expect(ids(onChange.mock.calls[0][0])).toEqual(['b', 'a']);
+    expect(ids(onChange.mock.calls[0]?.[0])).toEqual(['b', 'a']);
   });
 
   it('delete removes the row and autosaves', async () => {
@@ -48,7 +54,7 @@ describe('QuickActionsEditor', () => {
     expect(document.querySelectorAll('.qa-editor-row').length).toBe(1);
     expect(q('.qa-editor-row-label').textContent).toBe('Log');
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-    expect(ids(onChange.mock.calls[0][0])).toEqual(['b']);
+    expect(ids(onChange.mock.calls[0]?.[0])).toEqual(['b']);
   });
 
   it('Add + Done appends a new action and autosaves it', async () => {
@@ -65,10 +71,10 @@ describe('QuickActionsEditor', () => {
     );
     expect(labels).toEqual(['Plan today', 'Week overview']);
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-    const saved = onChange.mock.calls[0][0] as QuickAction[];
+    const saved = onChange.mock.calls[0]?.[0] as QuickAction[];
     expect(saved.length).toBe(2);
-    expect(saved[1].label).toBe('Week overview');
-    expect(saved[1].fields).toEqual(['Notes']);
+    expect(saved[1]?.label).toBe('Week overview');
+    expect(saved[1]?.fields).toEqual(['Notes']);
   });
 
   it('closing over a valid, unfinished detail form commits it (regression: lost action)', async () => {
@@ -79,7 +85,7 @@ describe('QuickActionsEditor', () => {
     q<HTMLTextAreaElement>('.qa-detail-body').value = 'Evaluate my session.';
     q<HTMLButtonElement>('.qa-editor-close').click();
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-    const saved = onChange.mock.calls[0][0] as QuickAction[];
+    const saved = onChange.mock.calls[0]?.[0] as QuickAction[];
     expect(saved.map((x) => x.label)).toEqual(['Evaluate']);
     expect(document.querySelector('.qa-editor')).toBeNull();
   });
@@ -120,7 +126,7 @@ describe('QuickActionsEditor', () => {
     expect(q('.qa-detail-preview').textContent).toBe('Plan.\n\nComments: …\nHang time (s): …');
     q<HTMLButtonElement>('.qa-detail-done').click();
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-    expect((onChange.mock.calls[0][0] as QuickAction[])[0].fields).toEqual([
+    expect((onChange.mock.calls[0]?.[0] as QuickAction[])[0]?.fields).toEqual([
       'Comments',
       'Hang time (s)',
     ]);

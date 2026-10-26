@@ -53,7 +53,7 @@ function hasTransparency(ctx: CanvasRenderingContext2D, width: number, height: n
   const { data } = ctx.getImageData(0, 0, width, height);
   // Sample with a prime stride - full scans of 2048px images are wasteful
   for (let i = 3; i < data.length; i += 4 * 997) {
-    if (data[i] < 255) return true;
+    if ((data[i] ?? 255) < 255) return true;
   }
   return false;
 }

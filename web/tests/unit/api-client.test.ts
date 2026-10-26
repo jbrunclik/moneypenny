@@ -151,7 +151,7 @@ describe('API Client', () => {
         const result = await conversations.list();
 
         expect(result.conversations).toHaveLength(2);
-        expect(result.conversations[0].title).toBe('First');
+        expect(result.conversations[0]?.title).toBe('First');
         expect(result.pagination.total_count).toBe(2);
         expect(result.pagination.has_more).toBe(false);
       });
@@ -252,7 +252,7 @@ describe('API Client', () => {
         });
         const result = await conversations.listTrash(10, 'cur');
         expect(fetch).toHaveBeenCalledWith('/api/conversations/trash?limit=10&cursor=cur', expect.anything());
-        expect(result.conversations[0].messageCount).toBe(2);
+        expect(result.conversations[0]?.messageCount).toBe(2);
       });
 
       it('restore POSTs to /restore', async () => {
@@ -354,7 +354,7 @@ describe('API Client', () => {
 
         expect(collected).toHaveLength(3);
         expect(collected[0]).toEqual({ type: 'token', text: 'Hello' });
-        expect(collected[2].type).toBe('done');
+        expect(collected[2]?.type).toBe('done');
       });
 
       it('throws ApiError on non-ok response', async () => {
@@ -442,8 +442,8 @@ describe('API Client', () => {
 
         // Should complete normally without timeout interference
         expect(collected).toHaveLength(2);
-        expect(collected[0].type).toBe('token');
-        expect(collected[1].type).toBe('done');
+        expect(collected[0]?.type).toBe('token');
+        expect(collected[1]?.type).toBe('done');
       });
 
       it('includes force_tools in stream request', async () => {

@@ -39,6 +39,12 @@ import { deleteConversation } from '@/core/conversation-actions';
 import { renderConversationsList } from '@/components/Sidebar';
 import { restoreConversation, deleteConversationForever, emptyTrash } from '@/core/trash';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 function conv(id: string, extra: Partial<Conversation> = {}): Conversation {
   return { id, title: id, model: 'm', created_at: '', updated_at: '2026-01-01T00:00:00Z', ...extra };
 }
@@ -102,7 +108,7 @@ describe('deleteConversation (move to trash)', () => {
 
     await deleteConversation('a');
 
-    const row = useStore.getState().trashedConversations[0];
+    const row = at(useStore.getState().trashedConversations, 0);
     const days = (new Date(row.purge_at!).getTime() - new Date(row.deleted_at!).getTime()) / 86_400_000;
     expect(days).toBe(14);
   });
@@ -121,7 +127,7 @@ describe('deleteConversation (move to trash)', () => {
     useStore.setState({ archivedConversations: [conv('a', { archived: true })] });
 
     await deleteConversation('a');
-    const undo = toastMock.success.mock.calls[0][1].action.onClick as () => Promise<void>;
+    const undo = toastMock.success.mock.calls[0]?.[1].action.onClick as () => Promise<void>;
     await undo();
 
     expect(api.restore).toHaveBeenCalledWith('a');
@@ -137,7 +143,7 @@ describe('Undo for a conversation outside the loaded lists', () => {
     useStore.setState({ currentConversation: conv('a', { archived: true }) });
 
     await deleteConversation('a');
-    const undo = toastMock.success.mock.calls[0][1].action.onClick as () => Promise<void>;
+    const undo = toastMock.success.mock.calls[0]?.[1].action.onClick as () => Promise<void>;
     await undo();
 
     expect(api.restore).toHaveBeenCalledWith('a');
@@ -152,7 +158,7 @@ describe('restoreConversation', () => {
     await restoreConversation('a');
 
     expect(useStore.getState().conversations.map((c) => c.id)).toEqual(['a']);
-    expect(useStore.getState().conversations[0].purge_at).toBeNull();
+    expect(useStore.getState().conversations[0]?.purge_at).toBeNull();
     expect(useStore.getState().trashedConversations).toEqual([]);
   });
 

@@ -54,7 +54,7 @@ describe('ClaimsSheet', () => {
     ] as never);
     (document.querySelector('.grounding-footer') as HTMLElement).click();
     const rows = [...document.querySelectorAll('.claims-sheet__row')];
-    expect(rows[2].querySelector('.claims-sheet__detail')!.textContent).toBe('1 · spzsluzby.cz');
+    expect(rows[2]?.querySelector('.claims-sheet__detail')!.textContent).toBe('1 · spzsluzby.cz');
   });
 
   it('a sourced row without a known source list still names it as a source', () => {
@@ -62,7 +62,7 @@ describe('ClaimsSheet', () => {
     (document.querySelector('.grounding-footer') as HTMLElement).click();
     const rows = [...document.querySelectorAll('.claims-sheet__row')];
     // Not a bare "1"
-    expect(rows[2].querySelector('.claims-sheet__detail')!.textContent).toBe('Source 1');
+    expect(rows[2]?.querySelector('.claims-sheet__detail')!.textContent).toBe('Source 1');
   });
 
   it('moves focus to the first row and returns it to the footer on Escape', () => {

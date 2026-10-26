@@ -65,9 +65,11 @@ export function registerPopupEscapeHandler(
  */
 function findVisiblePopup(): { popup: HTMLElement; handler: PopupHandler } | null {
   for (let i = handlers.length - 1; i >= 0; i--) {
-    const popup = document.getElementById(handlers[i].popupId);
+    const handler = handlers[i];
+    if (!handler) continue;
+    const popup = document.getElementById(handler.popupId);
     if (popup && !popup.classList.contains('hidden')) {
-      return { popup, handler: handlers[i] };
+      return { popup, handler };
     }
   }
   return null;

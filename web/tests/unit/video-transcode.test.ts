@@ -129,7 +129,7 @@ describe('transcodeVideoFile', () => {
 
     // Drive onProgress from execute() like the real library does
     executeMock.mockImplementation(async function (this: void) {
-      const conv = await (Conversion.init as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const conv = await (Conversion.init as ReturnType<typeof vi.fn>).mock.results[0]?.value;
       conv.onProgress?.(0.5);
     });
 

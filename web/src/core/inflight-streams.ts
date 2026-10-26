@@ -61,7 +61,7 @@ export function persistInflightStream(convId: string, messageId: string): void {
  */
 export function clearInflightStream(convId: string, messageId?: string): void {
   const map = readInflightStreams();
-  if (convId in map && (messageId === undefined || map[convId].messageId === messageId)) {
+  if (convId in map && (messageId === undefined || map[convId]?.messageId === messageId)) {
     delete map[convId];
     writeInflightStreams(map);
   }

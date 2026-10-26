@@ -91,7 +91,7 @@ describe('renderQuizBlock', () => {
     container.innerHTML = html;
     const buttons = container.querySelectorAll('.quiz-continue');
     expect(buttons.length).toBe(1);
-    expect(buttons[0].textContent).toBe('Send answers');
+    expect(buttons[0]?.textContent).toBe('Send answers');
   });
 
   it('returns null for invalid JSON', () => {

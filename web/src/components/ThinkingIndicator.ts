@@ -268,8 +268,10 @@ const HEADING_MAX_CHARS = 80;
 export function latestThoughtHeading(text: string | undefined): string {
   const lines = (text ?? '').split('\n').map((line) => line.trim()).filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i--) {
-    const heading = /^(?:\*\*|__)(.+?)(?:\*\*|__):?$/.exec(lines[i]) ?? /^#{1,6}\s+(.+)$/.exec(lines[i]);
-    if (heading) return heading[1].trim();
+    const line = lines[i] ?? '';
+    const heading = /^(?:\*\*|__)(.+?)(?:\*\*|__):?$/.exec(line) ?? /^#{1,6}\s+(.+)$/.exec(line);
+    const title = heading?.[1];
+    if (title !== undefined) return title.trim();
   }
   const last = (lines.at(-1) ?? '').replace(/[*_`#>]/g, '').trim();
   return last.length > HEADING_MAX_CHARS ? `${last.slice(0, HEADING_MAX_CHARS).trimEnd()}…` : last;
@@ -306,8 +308,7 @@ export function updateThinkingIndicator(
   const current = currentTraceIndex(state);
 
   // Render all trace items
-  for (let i = 0; i < state.trace.length; i++) {
-    const item = state.trace[i];
+  for (const [i, item] of state.trace.entries()) {
     // Thinking item is active if isThinking is true and no tool is active
     // Tool item is active if it matches the currently active tool and is not completed
     const isActive =
@@ -521,8 +522,9 @@ export function addToolStartToTrace(
 ): void {
   // Mark thinking as completed (tool is now active)
   const thinkingIndex = state.trace.findIndex(item => item.type === 'thinking');
-  if (thinkingIndex !== -1) {
-    state.trace[thinkingIndex].completed = true;
+  const thinkingItem = state.trace[thinkingIndex];
+  if (thinkingItem) {
+    thinkingItem.completed = true;
   }
 
   // Create the new tool item with metadata for display

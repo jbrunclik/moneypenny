@@ -38,9 +38,9 @@ describe('renderSlashMenu', () => {
     expect(container.classList.contains('hidden')).toBe(false);
     const items = container.querySelectorAll('.qa-slash-item');
     expect(items.length).toBe(2);
-    expect(items[1].classList.contains('active')).toBe(true);
-    expect(items[1].getAttribute('aria-selected')).toBe('true');
-    (items[0].querySelector('.qa-slash-label') as HTMLElement).click();
+    expect(items[1]?.classList.contains('active')).toBe(true);
+    expect(items[1]?.getAttribute('aria-selected')).toBe('true');
+    (items[0]?.querySelector('.qa-slash-label') as HTMLElement).click();
     expect(onPick).toHaveBeenCalledWith(actions[0]);
   });
 

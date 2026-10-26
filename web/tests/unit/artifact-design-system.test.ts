@@ -18,8 +18,9 @@ describe('artifact design system', () => {
   it('defines every --mp-* token from app tokens only', () => {
     const tokenDefs = [...css.matchAll(/(--mp-[\w-]+)\s*:\s*([^;]+);/g)];
     expect(tokenDefs.length).toBeGreaterThan(10);
-    for (const [, name, value] of tokenDefs) {
+    for (const [, name, value = ''] of tokenDefs) {
       for (const [, used] of value.matchAll(/var\((--[\w-]+)/g)) {
+        if (used === undefined) continue;
         const ok = defined.has(used) || used.startsWith('--mp-');
         expect(ok, `${name} uses ${used}, not an app token`).toBe(true);
       }

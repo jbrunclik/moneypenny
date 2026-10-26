@@ -16,7 +16,8 @@ function makeContainer(...blocks: Array<{ lang?: string; code: string }>): HTMLE
     )
     .join('');
   container.querySelectorAll('pre code').forEach((el, i) => {
-    el.textContent = blocks[i].code;
+    const block = blocks[i];
+    if (block) el.textContent = block.code;
   });
   return container;
 }
@@ -94,7 +95,7 @@ describe('highlightLiveCodeBlocks', () => {
     container.innerHTML = next.innerHTML;
     highlightLiveCodeBlocks(container);
     expect(spy).toHaveBeenCalledTimes(3);
-    expect(spy.mock.calls[2][0]).toBe('x = 1');
+    expect(spy.mock.calls[2]?.[0]).toBe('x = 1');
   });
 
   it('skips oversized blocks to keep streaming updates cheap', () => {

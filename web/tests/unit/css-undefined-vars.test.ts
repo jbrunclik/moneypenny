@@ -24,10 +24,10 @@ function filesUnder(dir: string, ext: string): string[] {
 function definedProperties(): Set<string> {
   const defined = new Set<string>();
   for (const file of filesUnder(STYLES_DIR, '.css')) {
-    for (const m of readFileSync(file, 'utf8').matchAll(/(--[\w-]+)\s*:/g)) defined.add(m[1]);
+    for (const [, name] of readFileSync(file, 'utf8').matchAll(/(--[\w-]+)\s*:/g)) if (name) defined.add(name);
   }
   for (const file of filesUnder(SRC_DIR, '.ts')) {
-    for (const m of readFileSync(file, 'utf8').matchAll(/setProperty\(\s*['"`](--[\w-]+)/g)) defined.add(m[1]);
+    for (const [, name] of readFileSync(file, 'utf8').matchAll(/setProperty\(\s*['"`](--[\w-]+)/g)) if (name) defined.add(name);
   }
   return defined;
 }
@@ -38,7 +38,8 @@ describe('CSS custom properties', () => {
     const undefinedUses: string[] = [];
     for (const file of filesUnder(STYLES_DIR, '.css')) {
       for (const m of readFileSync(file, 'utf8').matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
-        if (!defined.has(m[1])) undefinedUses.push(`${relative(STYLES_DIR, file)}: ${m[1]}`);
+        const name = m[1];
+        if (name && !defined.has(name)) undefinedUses.push(`${relative(STYLES_DIR, file)}: ${name}`);
       }
     }
     expect(undefinedUses).toEqual([]);

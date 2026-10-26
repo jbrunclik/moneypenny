@@ -118,12 +118,13 @@ function buildDashboardContent(dashboard: PlannerDashboard): string {
   }
 
   // Today and Tomorrow - always expanded
-  if (dashboard.days.length >= 1) {
+  const [today, tomorrow] = dashboard.days;
+  if (today) {
     const serverNow = new Date(dashboard.server_time);
-    html += renderDaySection(dashboard.days[0], true, serverNow); // Today
+    html += renderDaySection(today, true, serverNow); // Today
 
-    if (dashboard.days.length >= 2) {
-      html += renderDaySection(dashboard.days[1]); // Tomorrow
+    if (tomorrow) {
+      html += renderDaySection(tomorrow); // Tomorrow
     }
   }
 

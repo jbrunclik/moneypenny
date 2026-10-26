@@ -25,10 +25,20 @@ export const QUICK_ACTION_FIELDS_MAX = 6;
 const LABEL_MAX = 40;
 const BODY_MAX = 2000;
 
+const DEFAULT_EMOJI = '📋';
 const EMOJIS = [
-  '📋', '📊', '🏋️', '🏃', '🚴', '🧗', '🧘', '📖',
+  DEFAULT_EMOJI, '📊', '🏋️', '🏃', '🚴', '🧗', '🧘', '📖',
   '🧠', '✍️', '🗣️', '🔁', '📅', '✅', '⭐', '❤️',
 ];
+
+/** Swap two entries in place; a no-op when either index is out of range. */
+function swapItems<T>(items: T[], i: number, j: number): void {
+  const a = items[i];
+  const b = items[j];
+  if (a === undefined || b === undefined) return;
+  items[i] = b;
+  items[j] = a;
+}
 
 export function newQuickActionId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -178,13 +188,14 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       if (!row) return;
       const i = Number(row.dataset.index);
       if (target.closest('.qa-editor-move-up') && i > 0) {
-        [draftList[i - 1], draftList[i]] = [draftList[i], draftList[i - 1]];
+        swapItems(draftList, i - 1, i);
       } else if (target.closest('.qa-editor-move-down') && i < draftList.length - 1) {
-        [draftList[i + 1], draftList[i]] = [draftList[i], draftList[i + 1]];
+        swapItems(draftList, i + 1, i);
       } else if (target.closest('.qa-editor-delete')) {
         draftList.splice(i, 1);
       } else if (target.closest('.qa-editor-edit')) {
-        renderDetail(draftList[i], i);
+        const action = draftList[i];
+        if (action) renderDetail(action, i);
         return;
       } else {
         return;
@@ -198,7 +209,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   const renderDetail = (initial: Partial<QuickAction>, index: number | null): void => {
     clearElement(body);
     const fields = [...(initial.fields ?? [])];
-    let emoji = initial.emoji ?? EMOJIS[0];
+    let emoji = initial.emoji ?? DEFAULT_EMOJI;
     const detail = document.createElement('div');
     detail.className = 'qa-detail';
     detail.innerHTML = `
@@ -312,9 +323,9 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       if (!row) return;
       const i = Number(row.dataset.index);
       if (target.closest('.qa-detail-field-up') && i > 0) {
-        [fields[i - 1], fields[i]] = [fields[i], fields[i - 1]];
+        swapItems(fields, i - 1, i);
       } else if (target.closest('.qa-detail-field-down') && i < fields.length - 1) {
-        [fields[i + 1], fields[i]] = [fields[i], fields[i + 1]];
+        swapItems(fields, i + 1, i);
       } else if (target.closest('.qa-detail-field-remove')) {
         fields.splice(i, 1);
       } else {
@@ -334,7 +345,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
       applyEmojiInput();
       const action: QuickAction = {
         id: initial.id ?? newQuickActionId(),
-        emoji: emoji || EMOJIS[0],
+        emoji: emoji || DEFAULT_EMOJI,
         label,
         body: text,
         fields: [...fields],

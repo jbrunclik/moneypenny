@@ -117,8 +117,8 @@ describe('querySelectorAll', () => {
   it('returns all matching elements', () => {
     const items = querySelectorAll<HTMLLIElement>('.item');
     expect(items.length).toBe(3);
-    expect(items[0].textContent).toBe('One');
-    expect(items[2].textContent).toBe('Three');
+    expect(items[0]?.textContent).toBe('One');
+    expect(items[2]?.textContent).toBe('Three');
   });
 
   it('returns empty NodeList when not found', () => {
@@ -153,7 +153,7 @@ describe('createElement', () => {
     const span = createElement('span', {}, ['Text']);
     const div = createElement('div', {}, [span]);
     expect(div.children.length).toBe(1);
-    expect(div.children[0].tagName).toBe('SPAN');
+    expect(div.children[0]?.tagName).toBe('SPAN');
   });
 
   it('creates element with mixed children', () => {

@@ -236,6 +236,7 @@ export async function installScrollLog(page: Page): Promise<void> {
     const proto = Element.prototype as unknown as Record<string, (...args: unknown[]) => void>;
     for (const name of ['scrollTo', 'scroll', 'scrollBy']) {
       const original = proto[name];
+      if (!original) continue;
       proto[name] = function (this: Element, ...args: unknown[]) {
         if (isList(this)) {
           const at = caller();
@@ -248,17 +249,19 @@ export async function installScrollLog(page: Page): Promise<void> {
       };
     }
     const intoView = proto.scrollIntoView;
-    proto.scrollIntoView = function (this: Element, ...args: unknown[]) {
-      if (this.closest('#messages')) {
-        const at = caller();
-        log(`scrollIntoView(${JSON.stringify(args)}) on ${this.tagName.toLowerCase()}.${this.className} :: ${at}`, `intoView ${at}`);
-        intoView.apply(this, args);
-        const list = this.closest('#messages');
-        landedAt = list ? Math.round(list.scrollTop) : null;
-        return;
-      }
-      return intoView.apply(this, args);
-    };
+    if (intoView) {
+      proto.scrollIntoView = function (this: Element, ...args: unknown[]) {
+        if (this.closest('#messages')) {
+          const at = caller();
+          log(`scrollIntoView(${JSON.stringify(args)}) on ${this.tagName.toLowerCase()}.${this.className} :: ${at}`, `intoView ${at}`);
+          intoView.apply(this, args);
+          const list = this.closest('#messages');
+          landedAt = list ? Math.round(list.scrollTop) : null;
+          return;
+        }
+        return intoView.apply(this, args);
+      };
+    }
     const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
     if (top?.get && top.set) {
       const { get, set } = top;

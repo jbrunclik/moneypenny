@@ -183,8 +183,8 @@ describe('restoreConversations', () => {
     await restoreConversations(ids, []);
 
     expect(api.bulkRestore).toHaveBeenCalledTimes(2);
-    expect(api.bulkRestore.mock.calls[0][0]).toHaveLength(500);
-    expect(api.bulkRestore.mock.calls[1][0]).toEqual(['x500']);
+    expect(api.bulkRestore.mock.calls[0]?.[0]).toHaveLength(500);
+    expect(api.bulkRestore.mock.calls[1]?.[0]).toEqual(['x500']);
   });
 
   it('unknown ids trigger an incremental sync', async () => {

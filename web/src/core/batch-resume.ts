@@ -65,7 +65,7 @@ export function persistInflightBatch(convId: string, messageId: string): void {
 /** Forget the conversation's entry (only if it is still `messageId`'s, when given). */
 export function clearInflightBatch(convId: string, messageId?: string): void {
   const map = readInflightBatches();
-  if (convId in map && (messageId === undefined || map[convId].messageId === messageId)) {
+  if (convId in map && (messageId === undefined || map[convId]?.messageId === messageId)) {
     delete map[convId];
     writeInflightBatches(map);
   }

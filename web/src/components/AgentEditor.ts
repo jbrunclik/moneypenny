@@ -90,8 +90,8 @@ function isValidCron(cron: string): boolean {
     /^(\*|[0-6]([-,][0-6])*|[0-6]-[0-6]|(\*\/[1-6]))$/, // day of week (0-6)
   ];
 
-  for (let i = 0; i < 5; i++) {
-    if (!patterns[i].test(parts[i])) {
+  for (const [i, pattern] of patterns.entries()) {
+    if (!pattern.test(parts[i] ?? '')) {
       return false;
     }
   }

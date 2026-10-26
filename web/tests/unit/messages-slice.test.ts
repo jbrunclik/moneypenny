@@ -8,6 +8,12 @@ import { useStore } from '@/state/store';
 import { initialMessagesData, type MessagesPaginationState } from '@/state/slices/messages';
 import type { Message, MessagesPagination } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 function msg(id: string, role: Message['role'] = 'user'): Message {
   return { id, role, content: id, created_at: '2026-10-01T00:00:00Z' };
 }
@@ -109,7 +115,7 @@ describe('messages slice', () => {
       useStore.getState().setMessages('c1', [msg('m1'), msg('r1', 'assistant'), msg('m2')], page(3));
       useStore.getState().appendMessage('c1', { ...msg('r1', 'assistant'), content: 'final' });
       expect(ids('c1')).toEqual(['m1', 'r1', 'm2']);
-      expect(useStore.getState().getMessages('c1')[1].content).toBe('final');
+      expect(useStore.getState().getMessages('c1')[1]?.content).toBe('final');
       expect(total('c1')).toBe(3);
     });
 
@@ -124,7 +130,9 @@ describe('messages slice', () => {
     it('updateMessage merges fields into the matching message only', () => {
       useStore.getState().setMessages('c1', [msg('m1'), msg('m2')], page(2));
       useStore.getState().updateMessage('c1', 'm2', { status: 'failed' });
-      const [m1, m2] = useStore.getState().getMessages('c1');
+      const msgs = useStore.getState().getMessages('c1');
+      const m1 = at(msgs, 0);
+      const m2 = at(msgs, 1);
       expect(m1.status).toBeUndefined();
       expect(m2.status).toBe('failed');
     });

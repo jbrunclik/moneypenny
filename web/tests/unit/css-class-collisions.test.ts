@@ -71,10 +71,10 @@ function cssFiles(dir: string): string[] {
 function definedClasses(css: string): Set<string> {
   const classes = new Set<string>();
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  for (const [, selectorList] of withoutComments.matchAll(/([^{}]+)\{/g)) {
+  for (const [, selectorList = ''] of withoutComments.matchAll(/([^{}]+)\{/g)) {
     for (const selector of selectorList.split(',')) {
       const match = selector.trim().match(/^\.([a-zA-Z][\w-]*)/);
-      if (match) classes.add(match[1]);
+      if (match?.[1]) classes.add(match[1]);
     }
   }
   return classes;

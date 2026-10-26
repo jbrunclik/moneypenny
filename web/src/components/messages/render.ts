@@ -84,6 +84,7 @@ export function hasPendingApproval(messages: Message[]): boolean {
   // Find the last assistant message
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
+    if (msg === undefined) continue;
     if (msg.role === 'assistant') {
       // Check if it's an approval request
       if (isApprovalRequestMessage(msg.content)) {
@@ -115,14 +116,15 @@ function parseApprovalRequestMessage(content: string): { approvalId: string; des
   if (!idMatch) return null;
 
   const approvalId = idMatch[1];
+  if (approvalId === undefined) return null;
 
   // Extract description from "I need your permission to: **description**"
   const descMatch = content.match(/I need your permission to: \*\*(.+?)\*\*/);
-  const description = descMatch ? descMatch[1] : 'Unknown action';
+  const description = descMatch?.[1] ?? 'Unknown action';
 
   // Extract tool name from "Tool: `tool_name`"
   const toolMatch = content.match(/Tool: `(.+?)`/);
-  const toolName = toolMatch ? toolMatch[1] : 'Unknown tool';
+  const toolName = toolMatch?.[1] ?? 'Unknown tool';
 
   return { approvalId, description, toolName };
 }
@@ -134,11 +136,9 @@ function parseApprovalRequestMessage(content: string): { approvalId: string; des
  */
 function parseTriggerMessage(content: string): { type: string; timestamp: string } | null {
   const match = content.trim().match(/^\[(Scheduled run|Manual trigger|Triggered by another agent) at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) UTC\]$/);
-  if (!match) return null;
-  return {
-    type: match[1],
-    timestamp: match[2],
-  };
+  const [, type, timestamp] = match ?? [];
+  if (type === undefined || timestamp === undefined) return null;
+  return { type, timestamp };
 }
 
 // ============================================================================
@@ -207,38 +207,28 @@ function buildApprovalResolutionMap(messages: Message[]): Map<string, { resolved
   const resolutions = new Map<string, { resolved: boolean; approved: boolean }>();
 
   // Find all approval request messages and check if they're followed by a resolution
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
+  for (const [i, msg] of messages.entries()) {
     if (msg.role === 'assistant' && isApprovalRequestMessage(msg.content)) {
-      // Look ahead for resolution message
-      let isResolved = false;
-      let wasApproved = true;
-
-      for (let j = i + 1; j < messages.length; j++) {
-        const laterMsg = messages[j];
-        if (laterMsg.role === 'user') {
-          if (isActionApprovedMessage(laterMsg.content)) {
-            isResolved = true;
-            wasApproved = true;
-            break;
-          }
-          if (isActionRejectedMessage(laterMsg.content)) {
-            isResolved = true;
-            wasApproved = false;
-            break;
-          }
-        }
-        // If we hit another assistant message (could be another approval or response), stop looking
-        if (laterMsg.role === 'assistant') {
-          break;
-        }
-      }
-
-      resolutions.set(msg.id, { resolved: isResolved, approved: wasApproved });
+      resolutions.set(msg.id, findApprovalResolution(messages, i + 1));
     }
   }
 
   return resolutions;
+}
+
+/** Look ahead from `start` for the user's approve/reject of an approval request. */
+function findApprovalResolution(messages: Message[], start: number): { resolved: boolean; approved: boolean } {
+  for (let j = start; j < messages.length; j++) {
+    const laterMsg = messages[j];
+    if (laterMsg === undefined) continue;
+    if (laterMsg.role === 'user') {
+      if (isActionApprovedMessage(laterMsg.content)) return { resolved: true, approved: true };
+      if (isActionRejectedMessage(laterMsg.content)) return { resolved: true, approved: false };
+    }
+    // If we hit another assistant message (could be another approval or response), stop looking
+    if (laterMsg.role === 'assistant') break;
+  }
+  return { resolved: false, approved: true };
 }
 
 /**
@@ -497,11 +487,11 @@ function addTriggerMessageToUI(message: Message, container: HTMLElement): void {
   };
 
   // [System: <action>] markers render as a plain system chip
-  const systemMatch = message.content.trim().match(SYSTEM_MESSAGE_PATTERN);
-  const systemDisplay = systemMatch
+  const systemAction = message.content.trim().match(SYSTEM_MESSAGE_PATTERN)?.[1];
+  const systemDisplay = systemAction !== undefined
     ? {
         icon: PLAY_ICON,
-        label: SYSTEM_ACTION_LABELS[systemMatch[1]] ?? systemMatch[1].replace(/-/g, ' '),
+        label: SYSTEM_ACTION_LABELS[systemAction] ?? systemAction.replace(/-/g, ' '),
         cssClass: 'trigger--system',
       }
     : null;
@@ -717,8 +707,9 @@ export function lockOlderQuizBlocks(container?: HTMLElement): void {
   // Find the last assistant message
   let lastAssistantMsg: Element | null = null;
   for (let i = allMessages.length - 1; i >= 0; i--) {
-    if (allMessages[i].classList.contains('assistant')) {
-      lastAssistantMsg = allMessages[i];
+    const candidate = allMessages[i];
+    if (candidate?.classList.contains('assistant')) {
+      lastAssistantMsg = candidate;
       break;
     }
   }

@@ -74,11 +74,12 @@ function tableMarkdown(table: HTMLElement): string {
       cleanLines(inline(cell)).replace(/\n/g, ' ').replace(/\|/g, '\\|')
     )
   );
-  if (!rows.length) return '';
+  const [header, ...body] = rows;
+  if (!header) return '';
   const width = Math.max(...rows.map((r) => r.length));
   const line = (cells: string[]) =>
     `| ${[...cells, ...Array(width - cells.length).fill('')].join(' | ')} |`;
-  return [line(rows[0]), line(Array(width).fill('---')), ...rows.slice(1).map(line)].join('\n');
+  return [line(header), line(Array(width).fill('---')), ...body.map(line)].join('\n');
 }
 
 /** Markdown blocks of an element's children, separated by blank lines. */

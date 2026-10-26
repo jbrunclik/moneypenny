@@ -36,7 +36,7 @@ describe('thinking-state', () => {
     updateLocalThinkingState(state, 'thinking', 'planning');
     updateLocalThinkingState(state, 'tool_start', 'web_search', 'cats', { query: 'cats' } as never);
     expect(state.trace.map((i) => i.type)).toEqual(['tool', 'thinking']);
-    expect(state.trace[1].completed).toBe(true);
+    expect(state.trace[1]?.completed).toBe(true);
     expect(state.trace[0]).toMatchObject({ label: 'web_search', detail: 'cats', completed: false });
     expect(state.activeTool).toBe('web_search');
     expect(state.isThinking).toBe(false);
@@ -47,12 +47,12 @@ describe('thinking-state', () => {
     updateLocalThinkingState(state, 'tool_start', 'fetch', 'a');
     updateLocalThinkingState(state, 'tool_detail', 'fetch', undefined, undefined);
     updateLocalThinkingState(state, 'tool_detail', 'fetch', 'b');
-    expect(state.trace[0].detail).toBe('b');
+    expect(state.trace[0]?.detail).toBe('b');
     expect(state.activeToolDetail).toBe('b');
 
     updateLocalThinkingState(state, 'tool_end', 'fetch');
     updateLocalThinkingState(state, 'tool_end', 'fetch');
-    expect(state.trace[0].completed).toBe(true);
+    expect(state.trace[0]?.completed).toBe(true);
     expect(state.completedTools).toEqual(['fetch']);
     expect(state.activeTool).toBeNull();
     expect(state.activeToolDetail).toBeUndefined();
@@ -63,7 +63,7 @@ describe('thinking-state', () => {
     updateLocalThinkingState(state, 'tool_start', 'fetch', 'a');
     const copy = deepCopyThinkingState(state);
     updateLocalThinkingState(state, 'tool_end', 'fetch');
-    expect(copy.trace[0].completed).toBe(false);
+    expect(copy.trace[0]?.completed).toBe(false);
     expect(copy.completedTools).toEqual([]);
   });
 });

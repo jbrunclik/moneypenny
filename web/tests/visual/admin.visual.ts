@@ -22,7 +22,7 @@ const OVERVIEW = {
     ],
     daily: Array.from({ length: 30 }, (_, i) => ({
       date: `2026-10-${String(i + 1).padStart(2, '0')}`,
-      amount: money([3, 5, 8, 4, 6, 7, 2][i % 7] + (i === 29 ? 9 : 0)),
+      amount: money(([3, 5, 8, 4, 6, 7, 2][i % 7] ?? 0) + (i === 29 ? 9 : 0)),
     })),
     by_feature: [
       { name: 'chat', amount: money(120.4) },

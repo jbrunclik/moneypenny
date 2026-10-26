@@ -19,7 +19,7 @@ describe('message actions - save as quick action', () => {
     document.addEventListener('message:save-quick-action', handler);
     btn!.click();
     expect(handler).toHaveBeenCalledTimes(1);
-    expect((handler.mock.calls[0][0] as CustomEvent).detail).toEqual({ messageId: 'm1' });
+    expect((handler.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({ messageId: 'm1' });
     document.removeEventListener('message:save-quick-action', handler);
   });
 

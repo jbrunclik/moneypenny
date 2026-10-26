@@ -271,9 +271,6 @@
     "complexity": {
       "count": 2
     },
-    "max-depth": {
-      "count": 4
-    },
     "no-unsanitized/property": {
       "count": 5
     }

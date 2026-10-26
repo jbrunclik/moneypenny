@@ -34,6 +34,12 @@ import { getOutboxEntry } from '@/core/outbox';
 import { messages } from '@/api/conversations';
 import { toast } from '@/components/Toast';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const CONV: Conversation = {
   id: 'c1',
   title: 'T',
@@ -59,7 +65,7 @@ describe('deep research send', () => {
       id: 'u1', content: 'Start deep research', files: [], forceTools: [], anonymousMode: false, deepResearch: PLAN,
     });
     expect(sendBatchMessage).not.toHaveBeenCalled();
-    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.deepResearch).toEqual(PLAN);
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0]?.[8]?.deepResearch).toEqual(PLAN);
   });
 
   it('a plain entry still uses batch with streaming off', async () => {
@@ -70,16 +76,16 @@ describe('deep research send', () => {
 
   it('startDeepResearch sends "Start deep research" with the plan and keeps it in the outbox', async () => {
     await startDeepResearch('m1', ['A?', 'B?'], 'ctx');
-    const [, content, , , tempId] = vi.mocked(sendStreamingMessage).mock.calls[0];
+    const [, content, , , tempId] = at(vi.mocked(sendStreamingMessage).mock.calls, 0);
     expect(content).toBe('Start deep research');
-    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.deepResearch).toEqual(PLAN);
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0]?.[8]?.deepResearch).toEqual(PLAN);
     // A retry after a failure resends the plan (the entry carries it)
     expect(getOutboxEntry('c1', tempId)?.deepResearch).toEqual(PLAN);
     const userMsg = useStore.getState().getMessages('c1').find((m) => m.id === tempId);
     expect(userMsg?.content).toBe('Start deep research');
     // The row renders as an action, linked to the offer
     expect(userMsg?.action).toEqual({ type: 'deep_research', offer_message_id: 'm1', items: 2, minutes: 0 });
-    expect(vi.mocked(sendStreamingMessage).mock.calls[0][8]?.action).toEqual(userMsg?.action);
+    expect(vi.mocked(sendStreamingMessage).mock.calls[0]?.[8]?.action).toEqual(userMsg?.action);
   });
 
   it('startDeepResearch waits while a reply is still running', async () => {
@@ -109,7 +115,7 @@ describe('deep research send', () => {
     ], PAGE);
     await declineDeepResearch('m1');
     expect(messages.declineResearchOffer).toHaveBeenCalledWith('m1');
-    const m = useStore.getState().getMessages('c1')[0];
+    const m = at(useStore.getState().getMessages('c1'), 0);
     expect(m.research?.offer?.status).toBe('declined');
   });
 });

@@ -280,7 +280,8 @@ function handleComposerKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter' || e.key === 'Tab') {
     e.preventDefault();
     e.stopImmediatePropagation();
-    pickFromSlashMenu(slash.items[slash.index]);
+    const picked = slash.items[slash.index];
+    if (picked) pickFromSlashMenu(picked);
     return;
   }
   if (e.key === 'Escape') {

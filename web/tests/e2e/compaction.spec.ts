@@ -31,7 +31,9 @@ async function seedCompactedConversation(page: Page, generation: number): Promis
   });
   expect(response.ok()).toBeTruthy();
   const body = (await response.json()) as { conversation_ids: string[] };
-  return body.conversation_ids[0];
+  const id = body.conversation_ids[0];
+  if (id === undefined) throw new Error('seed returned no conversation id');
+  return id;
 }
 
 test.describe('Conversation compaction indicator', () => {

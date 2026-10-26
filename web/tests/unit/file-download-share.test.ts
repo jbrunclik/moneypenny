@@ -16,6 +16,12 @@ vi.mock('@/components/Toast', () => ({
 import { downloadFile, openFileInNewTab } from '@/core/file-actions';
 import { showToast, toast } from '@/components/Toast';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const share = vi.fn(async (_data: ShareData) => undefined);
 
 function device(opts: { touch: boolean; standalone?: boolean; canShare?: boolean }): void {
@@ -48,7 +54,7 @@ describe('mobile file download', () => {
 
     await downloadFile('m1', 0, 'data.csv');
 
-    const shared = share.mock.calls[0][0].files![0];
+    const shared = at(at(share.mock.calls, 0)[0].files ?? [], 0);
     expect(shared.name).toBe('data.csv');
     expect(shared.type).toBe('text/csv');
     expect(click).not.toHaveBeenCalled();
@@ -60,7 +66,7 @@ describe('mobile file download', () => {
 
     await downloadFile('m1', 0, 'data.csv');
 
-    const options = vi.mocked(showToast).mock.calls[0][0];
+    const options = at(vi.mocked(showToast).mock.calls, 0)[0];
     expect(options.action?.label).toBe('Save');
     options.action!.onClick();
     expect(share).toHaveBeenCalledTimes(2);

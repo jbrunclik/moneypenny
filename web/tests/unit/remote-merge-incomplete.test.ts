@@ -66,8 +66,8 @@ describe('merging over an incomplete reply bubble', () => {
     await mergeExternalChanges('c1');
     const bubbles = document.querySelectorAll('#messages [data-message-id="a1"]');
     expect(bubbles).toHaveLength(1);
-    expect(bubbles[0].textContent).toBe('The full saved answer');
-    expect(bubbles[0].classList.contains('message-incomplete')).toBe(false);
+    expect(bubbles[0]?.textContent).toBe('The full saved answer');
+    expect(bubbles[0]?.classList.contains('message-incomplete')).toBe(false);
     expect(useStore.getState().getMessages('c1').map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(reloadCurrentConversation).not.toHaveBeenCalled();
   });

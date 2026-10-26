@@ -51,12 +51,12 @@ export function initImageGenPopup(): void {
   // Listen for popup open to fetch and display cost
   const showImageGenCost = async (e: Event): Promise<void> => {
     const event = e as CustomEvent<GeneratedImage[]>;
-    const images = event.detail;
-    if (images && images.length > 0 && images[0].message_id) {
+    const messageId = event.detail?.[0]?.message_id;
+    if (messageId) {
       const costPlaceholder = document.getElementById('imagegen-cost-placeholder');
       if (costPlaceholder) {
         try {
-          const costData = await costs.getMessageCost(images[0].message_id);
+          const costData = await costs.getMessageCost(messageId);
           // Show image generation cost if available, otherwise show nothing
           if (costData.image_generation_cost_formatted) {
             costPlaceholder.outerHTML = `

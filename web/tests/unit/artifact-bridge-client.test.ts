@@ -100,7 +100,7 @@ describe('links and errors', () => {
     window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
     const errors = posted.filter((m) => m.type === 'mp:error');
     expect(errors).toHaveLength(2);
-    expect(errors[0].type === 'mp:error' && errors[0].message.length).toBeLessThanOrEqual(300);
+    expect(errors[0]?.type === 'mp:error' && errors[0]?.message.length).toBeLessThanOrEqual(300);
     expect(errors[1]).toEqual({ type: 'mp:error', message: 'boom' });
     spy.mockRestore();
   });

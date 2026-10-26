@@ -59,9 +59,9 @@ describe('the live line', () => {
 
     const current = indicator.querySelectorAll('.thinking-trace-item.current');
     expect(current).toHaveLength(1);
-    expect(current[0].querySelector('.thinking-heading')?.textContent).toBe("Reframing the User's Needs");
+    expect(current[0]?.querySelector('.thinking-heading')?.textContent).toBe("Reframing the User's Needs");
     // The full text stays in the DOM for the expanded view
-    expect(current[0].querySelector('.thinking-markdown')?.textContent).toContain('single-dosing');
+    expect(current[0]?.querySelector('.thinking-markdown')?.textContent).toContain('single-dosing');
   });
 
   it('marks the running tool current, and the last tool once it is done', () => {

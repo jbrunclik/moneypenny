@@ -56,9 +56,9 @@ function withAddedConversation(
   conversation: Conversation
 ): Partial<ConversationsData> {
   const existingIndex = state.conversations.findIndex((c) => c.id === conversation.id);
-  if (existingIndex !== -1) {
+  const existing = state.conversations[existingIndex];
+  if (existing) {
     // Merge with existing, preserving unreadCount if not provided in new data
-    const existing = state.conversations[existingIndex];
     const merged = {
       ...existing,
       ...conversation,

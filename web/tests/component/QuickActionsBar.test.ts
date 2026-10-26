@@ -6,6 +6,12 @@ import { renderQuickActionsBar, setQuickActionsBarDisabled } from '@/components/
 import type { QuickAction } from '@/types/api';
 import { EDIT_ICON, SLIDERS_ICON } from '@/utils/icons';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const actions: QuickAction[] = [
   { id: 'a', emoji: '📋', label: 'Plan today', body: 'Plan.', fields: [] },
   { id: 'b', emoji: '📊', label: 'Log & review', body: 'Log.', fields: ['Comments'] },
@@ -22,15 +28,15 @@ describe('QuickActionsBar', () => {
     renderQuickActionsBar(container, actions, vi.fn());
     const chips = container.querySelectorAll<HTMLButtonElement>('.quick-action-chip');
     expect(chips.length).toBe(2);
-    expect(chips[0].dataset.actionId).toBe('a');
-    expect(chips[0].querySelector('.quick-action-chip-emoji')!.textContent).toBe('📋');
-    expect(chips[0].querySelector('.quick-action-chip-label')!.textContent).toBe('Plan today');
+    expect(chips[0]?.dataset.actionId).toBe('a');
+    expect(chips[0]?.querySelector('.quick-action-chip-emoji')!.textContent).toBe('📋');
+    expect(chips[0]?.querySelector('.quick-action-chip-label')!.textContent).toBe('Plan today');
   });
 
   it('escapes label text (no HTML injection)', () => {
     renderQuickActionsBar(
       container,
-      [{ ...actions[0], label: '<img src=x onerror=alert(1)>' }],
+      [{ ...at(actions, 0), label: '<img src=x onerror=alert(1)>' }],
       vi.fn()
     );
     expect(container.querySelector('img')).toBeNull();
@@ -40,7 +46,7 @@ describe('QuickActionsBar', () => {
   it('calls onTap with the action and chip element (event delegation)', () => {
     const onTap = vi.fn();
     renderQuickActionsBar(container, actions, onTap);
-    const chip = container.querySelectorAll<HTMLButtonElement>('.quick-action-chip')[1];
+    const chip = at(container.querySelectorAll<HTMLButtonElement>('.quick-action-chip'), 1);
     chip
       .querySelector('.quick-action-chip-label')!
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));

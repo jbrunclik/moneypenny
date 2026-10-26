@@ -205,10 +205,12 @@ export function setupEventListeners(): void {
       if (next < 0 || next >= items.length) return; // no wrap
     }
 
+    const nextItem = items[next];
+    if (!nextItem) return;
     e.preventDefault();
     items.forEach((item) => item.setAttribute('tabindex', '-1'));
-    items[next].setAttribute('tabindex', '0');
-    items[next].focus();
+    nextItem.setAttribute('tabindex', '0');
+    nextItem.focus();
   });
 
   // Conversation list clicks

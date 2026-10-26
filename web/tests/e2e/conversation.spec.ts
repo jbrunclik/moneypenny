@@ -15,12 +15,13 @@ import { attachScrollLog, installScrollLog } from './chat/fixtures';
  */
 function generatePngBuffer(width: number, height: number, color: string = 'red'): Buffer {
   // Color RGB values
+  const red: [number, number, number] = [255, 0, 0];
   const colors: Record<string, [number, number, number]> = {
-    red: [255, 0, 0],
+    red,
     blue: [0, 0, 255],
     green: [0, 255, 0],
   };
-  const [r, g, b] = colors[color] || colors.red;
+  const [r, g, b] = colors[color] ?? red;
 
   // PNG file signature
   const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -35,8 +36,8 @@ function generatePngBuffer(width: number, height: number, color: string = 'red')
   // Helper to calculate CRC32 (simplified - using a basic implementation)
   const crc32 = (data: Buffer): number => {
     let crc = 0xffffffff;
-    for (let i = 0; i < data.length; i++) {
-      crc ^= data[i];
+    for (const byte of data) {
+      crc ^= byte;
       for (let j = 0; j < 8; j++) {
         crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
       }

@@ -51,8 +51,8 @@ export function attachSheetDismiss(sheet: HTMLElement, onDismiss: () => void): (
 
   const onStart = (e: TouchEvent): void => {
     if (window.innerWidth > MOBILE_BREAKPOINT_PX || e.touches.length !== 1) return;
-    if (isInteractive(e.target)) return;
     const touch = e.touches[0];
+    if (!touch || isInteractive(e.target)) return;
     if (touch.clientY - sheet.getBoundingClientRect().top > SHEET_GRAB_ZONE_PX) return;
     dragging = true;
     startY = touch.clientY;
@@ -65,7 +65,9 @@ export function attachSheetDismiss(sheet: HTMLElement, onDismiss: () => void): (
     if (!dragging) return;
     // The drag owns this gesture - no page/overlay rubber-band behind it
     e.preventDefault();
-    const y = e.touches[0].clientY;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const y = touch.clientY;
     dy = y - startY;
     samples.push({ t: e.timeStamp, y });
     samples = samples.filter((s) => e.timeStamp - s.t <= SHEET_VELOCITY_WINDOW_MS);

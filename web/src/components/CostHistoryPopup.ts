@@ -33,7 +33,7 @@ function renderCostHistory(data: CostHistoryResponse): string {
     const monthName = monthNames[month.month - 1];
     return `
       <tr>
-        <td>${escapeHtml(monthName)} ${month.year}</td>
+        <td>${escapeHtml(monthName ?? '')} ${month.year}</td>
         <td class="cost-amount">${escapeHtml(month.formatted)}</td>
         <td class="cost-messages">${month.message_count}</td>
       </tr>

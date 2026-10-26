@@ -896,6 +896,7 @@ async function turnTopBelowHeader(
     const header = document.querySelector<HTMLElement>(sel)!;
     const turns = document.querySelectorAll<HTMLElement>('.message.user');
     const turn = turns[turns.length - 1];
+    if (!turn) throw new Error('no user message');
     return turn.getBoundingClientRect().top - header.getBoundingClientRect().bottom;
   }, headerSelector);
 }

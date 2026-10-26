@@ -411,7 +411,7 @@ describe('Messages - send status', () => {
     document.addEventListener('outbox:retry', handler as EventListener, { once: true });
     container.querySelector<HTMLButtonElement>('[data-action="retry-send"]')!.click();
     expect(handler).toHaveBeenCalledTimes(1);
-    expect((handler.mock.calls[0][0] as CustomEvent).detail.messageId).toBe('m1');
+    expect((handler.mock.calls[0]?.[0] as CustomEvent).detail.messageId).toBe('m1');
   });
 
   it('dispatches outbox:discard with the message id when discard is clicked', () => {
@@ -421,7 +421,7 @@ describe('Messages - send status', () => {
     document.addEventListener('outbox:discard', handler as EventListener, { once: true });
     container.querySelector<HTMLButtonElement>('[data-action="discard-send"]')!.click();
     expect(handler).toHaveBeenCalledTimes(1);
-    expect((handler.mock.calls[0][0] as CustomEvent).detail.messageId).toBe('m1');
+    expect((handler.mock.calls[0]?.[0] as CustomEvent).detail.messageId).toBe('m1');
   });
 });
 

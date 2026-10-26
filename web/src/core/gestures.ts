@@ -110,8 +110,10 @@ export function setupTouchGestures(): void {
   const handleSidebarTouchStart = (e: TouchEvent): void => {
     if (activeSwipeType === 'conversation') return;
 
+    const touch = e.touches[0];
+    if (!touch) return;
     const target = e.target as HTMLElement;
-    const startX = e.touches[0].clientX;
+    const startX = touch.clientX;
     const isSidebarOpen = sidebar.classList.contains('open');
 
     // Don't start sidebar swipe if touching a conversation item (let conversation swipe handle it)
@@ -132,7 +134,7 @@ export function setupTouchGestures(): void {
 
     if (shouldStartSwipe) {
       sidebarSwipeStartX = startX;
-      sidebarSwipeStartY = e.touches[0].clientY;
+      sidebarSwipeStartY = touch.clientY;
       sidebarSwipeCurrentX = startX;
       isSidebarSwiping = false;
       activeSwipeType = 'sidebar';
@@ -145,11 +147,12 @@ export function setupTouchGestures(): void {
   };
 
   const handleSidebarTouchMove = (e: TouchEvent): void => {
-    if (activeSwipeType !== 'sidebar') return;
+    const touch = e.touches[0];
+    if (activeSwipeType !== 'sidebar' || !touch) return;
 
-    sidebarSwipeCurrentX = e.touches[0].clientX;
+    sidebarSwipeCurrentX = touch.clientX;
     const deltaX = sidebarSwipeCurrentX - sidebarSwipeStartX;
-    const deltaY = e.touches[0].clientY - sidebarSwipeStartY;
+    const deltaY = touch.clientY - sidebarSwipeStartY;
     const isSidebarOpen = sidebar.classList.contains('open');
     const clearlyVertical = Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 10;
 
@@ -240,8 +243,10 @@ export function setupTouchGestures(): void {
 
   // Listen on document for overlay swipes and edge swipes
   document.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    if (!touch) return;
     const target = e.target as HTMLElement;
-    const startX = e.touches[0].clientX;
+    const startX = touch.clientX;
     // Handle overlay swipes or edge swipes outside sidebar
     if (target.closest('.sidebar-overlay') || (startX < EDGE_ZONE && !target.closest('.sidebar'))) {
       handleSidebarTouchStart(e);

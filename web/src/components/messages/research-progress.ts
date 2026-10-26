@@ -49,7 +49,7 @@ export function _resetResearchProgress(): void {
 
 /** ① for agent 0, ② for agent 1, ... (#11 beyond ten) - as the server labels them. */
 export function agentLabel(agent: number): string {
-  return agent < CIRCLED.length ? CIRCLED[agent] : `#${agent + 1}`;
+  return CIRCLED[agent] ?? `#${agent + 1}`;
 }
 
 /** The model after one event (undefined until research_plan arrives). */
@@ -129,7 +129,7 @@ function elapsedText(progress: ResearchProgress, now: number): string {
 }
 
 function panelHtml(progress: ResearchProgress, messageId: string, now: number): string {
-  const items = progress.items.map((q, i) => itemHtml(q, progress.states[i], progress.pages[i])).join('');
+  const items = progress.items.map((q, i) => itemHtml(q, progress.states[i] ?? 'queued', progress.pages[i] ?? 0)).join('');
   const feed = progress.findings
     .map((f) => `<li class="research-progress__finding">${findingHtml(f.agent, f.text)}</li>`)
     .join('');

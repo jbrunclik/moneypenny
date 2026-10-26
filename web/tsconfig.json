@@ -18,9 +18,9 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    /* Stage 1 of F5 (docs/conventions.md); next: exactOptionalPropertyTypes,
-       noUncheckedIndexedAccess */
+    /* F5 stages (docs/conventions.md); next: exactOptionalPropertyTypes */
     "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "verbatimModuleSyntax": true,
 

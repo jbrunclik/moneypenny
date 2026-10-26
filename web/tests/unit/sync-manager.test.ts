@@ -59,6 +59,12 @@ import { planner as plannerApi } from '@/api/planner';
 import { toast } from '@/components/Toast';
 import { hasPendingRecovery, markStreamForRecovery } from '@/core/stream-recovery';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const EMPTY_AGENT_STATS: AgentStatsBlock = {
   days: 7,
   total_runs: 0,
@@ -194,9 +200,9 @@ describe('SyncManager', () => {
 
       // Conversation should be updated, not added
       expect(useStore.getState().conversations).toHaveLength(1);
-      expect(useStore.getState().conversations[0].id).toBe('conv-1');
-      expect(useStore.getState().conversations[0].title).toBe('Updated');
-      expect(useStore.getState().conversations[0].messageCount).toBe(5);
+      expect(useStore.getState().conversations[0]?.id).toBe('conv-1');
+      expect(useStore.getState().conversations[0]?.title).toBe('Updated');
+      expect(useStore.getState().conversations[0]?.messageCount).toBe(5);
       expect(callbacks.onConversationsUpdated).toHaveBeenCalled();
     });
 
@@ -272,7 +278,7 @@ describe('SyncManager', () => {
 
       // Temp conversation should not be removed
       expect(useStore.getState().conversations).toHaveLength(1);
-      expect(useStore.getState().conversations[0].id).toBe('temp-123');
+      expect(useStore.getState().conversations[0]?.id).toBe('temp-123');
     });
   });
 
@@ -894,7 +900,7 @@ describe('SyncManager', () => {
       const summaries = [
         createConversationSummary('existing-conv', 'Existing', 7), // Updated from 5 to 7
       ];
-      summaries[0].updated_at = '2024-01-01T00:00:00Z';
+      at(summaries, 0).updated_at = '2024-01-01T00:00:00Z';
 
       const syncResponse: SyncResponse = {
         conversations: summaries,
@@ -985,8 +991,8 @@ describe('SyncManager', () => {
       // Verify only existing conversation exists (others not added by full sync)
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(1);
-      expect(convs[0].id).toBe('conv-1');
-      expect(convs[0].messageCount).toBe(5); // Updated count from server
+      expect(convs[0]?.id).toBe('conv-1');
+      expect(convs[0]?.messageCount).toBe(5); // Updated count from server
     });
 
     it('distinguishes pagination-discovered from actually new conversations', async () => {
@@ -1595,7 +1601,7 @@ describe('SyncManager', () => {
       expect(useStore.getState().currentConversation?.archived).toBe(true);
       expect(callbacks.onCurrentConversationDeleted).not.toHaveBeenCalled();
 
-      useStore.getState().setCurrentConversation(useStore.getState().conversations[0]);
+      useStore.getState().setCurrentConversation(at(useStore.getState().conversations, 0));
       mockSyncChanges().mockResolvedValue(changes([], { removed_ids: ['other'] }));
       await syncManager.incrementalSync();
       expect(callbacks.onCurrentConversationDeleted).toHaveBeenCalled();

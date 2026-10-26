@@ -9,6 +9,12 @@ import {
 } from '@/components/QuickActionComposer';
 import type { QuickAction } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const action: QuickAction = {
   id: 'log',
   emoji: '📊',
@@ -34,9 +40,9 @@ describe('QuickActionComposer', () => {
     expect(container.querySelector('.qa-mode-label')!.textContent).toBe('Log & review');
     const inputs = container.querySelectorAll<HTMLInputElement>('.qa-mode-field-input');
     expect(inputs.length).toBe(2);
-    expect(container.querySelectorAll('.qa-mode-field-label')[1].textContent).toBe('RPE');
-    expect(inputs[0].getAttribute('enterkeyhint')).toBe('next');
-    expect(inputs[1].getAttribute('enterkeyhint')).toBe('send');
+    expect(container.querySelectorAll('.qa-mode-field-label')[1]?.textContent).toBe('RPE');
+    expect(inputs[0]?.getAttribute('enterkeyhint')).toBe('next');
+    expect(inputs[1]?.getAttribute('enterkeyhint')).toBe('send');
     expect(container.querySelector('img')).toBeNull();
   });
 
@@ -48,7 +54,7 @@ describe('QuickActionComposer', () => {
       onFieldEnter: vi.fn(),
     });
     const inputs = container.querySelectorAll<HTMLInputElement>('.qa-mode-field-input');
-    inputs[0].value = '54';
+    at(inputs, 0).value = '54';
     expect(readQuickActionComposerValues(container)).toEqual({ 'Hang time (s)': '54', RPE: '' });
   });
 
@@ -68,8 +74,8 @@ describe('QuickActionComposer', () => {
     const onFieldEnter = vi.fn();
     renderQuickActionComposer(container, { action, onCancel: vi.fn(), onEscape: vi.fn(), onFieldEnter });
     const inputs = container.querySelectorAll<HTMLInputElement>('.qa-mode-field-input');
-    inputs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    inputs[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    at(inputs, 0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    at(inputs, 1).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(onFieldEnter.mock.calls).toEqual([
       [0, false],
       [1, true],

@@ -21,7 +21,7 @@ export const sports = {
     return data.programs;
   },
 
-  async createProgram(data: { name: string; emoji: string }): Promise<SportsProgram> {
+  async createProgram(data: { name: string; emoji: string }): Promise<SportsProgram | undefined> {
     const response = await request<SportsProgramsResponse>('/api/sports/programs', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -50,7 +50,9 @@ export const sports = {
       `/api/sports/programs/${encodeURIComponent(programId)}/quick-actions`,
       { method: 'PUT', body: JSON.stringify({ quick_actions: actions }) }
     );
-    return response.programs[0];
+    const updated = response.programs[0];
+    if (updated === undefined) throw new Error('Quick-action update returned no program');
+    return updated;
   },
 };
 
@@ -61,7 +63,7 @@ export const language = {
     return data.programs;
   },
 
-  async createProgram(data: { name: string; emoji: string }): Promise<LanguageProgram> {
+  async createProgram(data: { name: string; emoji: string }): Promise<LanguageProgram | undefined> {
     const response = await request<LanguageProgramsResponse>('/api/language/programs', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -90,6 +92,8 @@ export const language = {
       `/api/language/programs/${encodeURIComponent(programId)}/quick-actions`,
       { method: 'PUT', body: JSON.stringify({ quick_actions: actions }) }
     );
-    return response.programs[0];
+    const updated = response.programs[0];
+    if (updated === undefined) throw new Error('Quick-action update returned no program');
+    return updated;
   },
 };

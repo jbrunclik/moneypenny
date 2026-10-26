@@ -64,7 +64,7 @@ function handleLocationSharingChange(checkbox: HTMLInputElement): void {
       toast.success('Location sharing enabled');
       return;
     }
-    const messages: Record<string, string> = {
+    const messages: Record<typeof result.reason, string> = {
       unsupported: 'This browser does not support location.',
       denied:
         'Location permission denied - allow location for this site in your browser settings, then try again.',

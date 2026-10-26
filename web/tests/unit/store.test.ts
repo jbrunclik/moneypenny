@@ -5,6 +5,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import type { Conversation, ConversationsPagination, User, FileUpload, Model } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 // Helper to reset store state
 function resetStore() {
   useStore.setState({
@@ -185,7 +191,7 @@ describe('Store - Conversations', () => {
       useStore.getState().addConversation(createConversation('1', 'Old'));
       useStore.getState().setConversations([createConversation('2', 'New')], createPagination(false, 1));
       expect(useStore.getState().conversations).toHaveLength(1);
-      expect(useStore.getState().conversations[0].title).toBe('New');
+      expect(useStore.getState().conversations[0]?.title).toBe('New');
     });
 
     it('updates pagination state', () => {
@@ -210,8 +216,8 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(2);
-      expect(convs[0].id).toBe('temp-123'); // Temp conversation always at top
-      expect(convs[1].id).toBe('1');
+      expect(convs[0]?.id).toBe('temp-123'); // Temp conversation always at top
+      expect(convs[1]?.id).toBe('1');
     });
 
     it('inserts non-temp conversation at correct sorted position', () => {
@@ -226,8 +232,8 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(2);
-      expect(convs[0].id).toBe('2'); // Newer first
-      expect(convs[1].id).toBe('1');
+      expect(convs[0]?.id).toBe('2'); // Newer first
+      expect(convs[1]?.id).toBe('1');
     });
 
     it('re-sorts existing conversation when merged with newer updated_at', () => {
@@ -246,8 +252,8 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(2);
-      expect(convs[0].id).toBe('1'); // Bumped conversation moved to top
-      expect(convs[1].id).toBe('2');
+      expect(convs[0]?.id).toBe('1'); // Bumped conversation moved to top
+      expect(convs[1]?.id).toBe('2');
     });
 
     it('handles conversation with same timestamp (prepends)', () => {
@@ -262,8 +268,8 @@ describe('Store - Conversations', () => {
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(2);
       // With <= comparison, conv2 should be prepended (newer first)
-      expect(convs[0].id).toBe('2');
-      expect(convs[1].id).toBe('1');
+      expect(convs[0]?.id).toBe('2');
+      expect(convs[1]?.id).toBe('1');
     });
   });
 
@@ -272,7 +278,7 @@ describe('Store - Conversations', () => {
       useStore.getState().addConversation(createConversation('1', 'Original'));
       useStore.getState().updateConversation('1', { title: 'Updated' });
 
-      expect(useStore.getState().conversations[0].title).toBe('Updated');
+      expect(useStore.getState().conversations[0]?.title).toBe('Updated');
     });
 
     it('updates current conversation if matching', () => {
@@ -300,7 +306,7 @@ describe('Store - Conversations', () => {
       useStore.getState().addConversation(conv);
       useStore.getState().updateConversation('1', { title: 'Updated' });
 
-      expect(useStore.getState().conversations[0].model).toBe('gemini-3-flash-preview');
+      expect(useStore.getState().conversations[0]?.model).toBe('gemini-3-flash-preview');
     });
 
     it('moves conversation to correct sorted position when updated_at is bumped', () => {
@@ -336,8 +342,8 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs.map((c) => c.id)).toEqual(['2', '1']);
-      expect(convs[0].updated_at.startsWith('2024-06-15T10:00:00')).toBe(true);
-      expect(convs[0].last_message_preview).toBe('hello there');
+      expect(convs[0]?.updated_at.startsWith('2024-06-15T10:00:00')).toBe(true);
+      expect(convs[0]?.last_message_preview).toBe('hello there');
     });
 
     it('bumpConversationActivity writes server-format timestamps (local-naive, no Z)', () => {
@@ -352,7 +358,7 @@ describe('Store - Conversations', () => {
       useStore.setState({ conversations: [createConversation('1', 'Test')] });
       useStore.getState().bumpConversationActivity('1');
 
-      const stamp = useStore.getState().conversations[0].updated_at;
+      const stamp = at(useStore.getState().conversations, 0).updated_at;
       expect(stamp.startsWith('2024-06-15T14:30:45')).toBe(true);
       expect(stamp.includes('Z')).toBe(false);
       vi.useRealTimers();
@@ -365,7 +371,7 @@ describe('Store - Conversations', () => {
 
       useStore.getState().bumpConversationActivity('1');
 
-      expect(useStore.getState().conversations[0].last_message_preview).toBe('existing preview');
+      expect(useStore.getState().conversations[0]?.last_message_preview).toBe('existing preview');
     });
 
     it('keeps position when updated_at is unchanged', () => {
@@ -382,7 +388,7 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs.map((c) => c.id)).toEqual(['1', '2']);
-      expect(convs[1].title).toBe('Renamed');
+      expect(convs[1]?.title).toBe('Renamed');
     });
   });
 
@@ -394,7 +400,7 @@ describe('Store - Conversations', () => {
       useStore.getState().removeConversation('1');
 
       expect(useStore.getState().conversations).toHaveLength(1);
-      expect(useStore.getState().conversations[0].id).toBe('2');
+      expect(useStore.getState().conversations[0]?.id).toBe('2');
     });
 
     it('clears current conversation if removed', () => {
@@ -443,9 +449,9 @@ describe('Store - Conversations', () => {
 
       const convs = useStore.getState().conversations;
       expect(convs).toHaveLength(3);
-      expect(convs[0].id).toBe('1');
-      expect(convs[1].id).toBe('2');
-      expect(convs[2].id).toBe('3');
+      expect(convs[0]?.id).toBe('1');
+      expect(convs[1]?.id).toBe('2');
+      expect(convs[2]?.id).toBe('3');
     });
 
     it('updates pagination state', () => {
@@ -621,7 +627,7 @@ describe('Store - Files', () => {
       useStore.getState().removePendingFile(0);
 
       expect(useStore.getState().pendingFiles).toHaveLength(1);
-      expect(useStore.getState().pendingFiles[0].name).toBe('test2.png');
+      expect(useStore.getState().pendingFiles[0]?.name).toBe('test2.png');
     });
   });
 
@@ -697,7 +703,7 @@ describe('Store - Archive', () => {
 
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(1);
-      expect(archived[0].title).toBe('New Archived');
+      expect(archived[0]?.title).toBe('New Archived');
     });
 
     it('updates pagination state from API response', () => {
@@ -735,9 +741,9 @@ describe('Store - Archive', () => {
 
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(3);
-      expect(archived[0].id).toBe('1');
-      expect(archived[1].id).toBe('2');
-      expect(archived[2].id).toBe('3');
+      expect(archived[0]?.id).toBe('1');
+      expect(archived[1]?.id).toBe('2');
+      expect(archived[2]?.id).toBe('3');
     });
 
     it('does not append duplicate conversations', () => {
@@ -800,7 +806,7 @@ describe('Store - Archive', () => {
 
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(1);
-      expect(archived[0].id).toBe('1');
+      expect(archived[0]?.id).toBe('1');
     });
 
     it('decrements totalCount when removing', () => {
@@ -834,8 +840,8 @@ describe('Store - Archive', () => {
 
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(2);
-      expect(archived[0].id).toBe('2');
-      expect(archived[1].id).toBe('1');
+      expect(archived[0]?.id).toBe('2');
+      expect(archived[1]?.id).toBe('1');
     });
 
     it('increments totalCount when adding', () => {
@@ -851,7 +857,7 @@ describe('Store - Archive', () => {
 
       const archived = useStore.getState().archivedConversations;
       expect(archived).toHaveLength(1);
-      expect(archived[0].id).toBe('1');
+      expect(archived[0]?.id).toBe('1');
     });
 
     it('inserts an old conversation at its sorted position, not at the top', () => {
@@ -903,7 +909,7 @@ describe('Store - Archive', () => {
 
       useStore.getState().updateArchivedConversation('1', { title: 'Updated Title' });
 
-      expect(useStore.getState().archivedConversations[0].title).toBe('Updated Title');
+      expect(useStore.getState().archivedConversations[0]?.title).toBe('Updated Title');
     });
 
     it('preserves other properties when updating', () => {
@@ -914,7 +920,7 @@ describe('Store - Archive', () => {
 
       useStore.getState().updateArchivedConversation('1', { title: 'Updated' });
 
-      expect(useStore.getState().archivedConversations[0].model).toBe('gemini-3-flash-preview');
+      expect(useStore.getState().archivedConversations[0]?.model).toBe('gemini-3-flash-preview');
     });
 
     it('does not affect other archived conversations', () => {
@@ -925,7 +931,7 @@ describe('Store - Archive', () => {
 
       useStore.getState().updateArchivedConversation('1', { title: 'Updated' });
 
-      expect(useStore.getState().archivedConversations[1].title).toBe('Second');
+      expect(useStore.getState().archivedConversations[1]?.title).toBe('Second');
     });
   });
 
@@ -1151,7 +1157,7 @@ describe('Store - Message updates', () => {
       const messages = useStore.getState().getMessages('c1');
       expect(messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
       // The later append wins, in place
-      expect(messages[1].content).toBe('final');
+      expect(messages[1]?.content).toBe('final');
       // Only genuinely new messages count towards the total
       expect(useStore.getState().getMessagesPagination('c1')?.totalCount).toBe(3);
     });
@@ -1162,14 +1168,14 @@ describe('Store - Message updates', () => {
       const store = useStore.getState();
       store.appendMessage('c1', msg('m1', 'pending'));
       store.updateMessage('c1', 'm1', { status: 'failed' });
-      expect(useStore.getState().getMessages('c1')[0].status).toBe('failed');
+      expect(useStore.getState().getMessages('c1')[0]?.status).toBe('failed');
     });
 
     it('clears a field when patched with undefined', () => {
       const store = useStore.getState();
       store.appendMessage('c1', msg('m1', 'pending'));
       store.updateMessage('c1', 'm1', { status: undefined });
-      expect(useStore.getState().getMessages('c1')[0].status).toBeUndefined();
+      expect(at(useStore.getState().getMessages('c1'), 0).status).toBeUndefined();
     });
 
     it('ignores unknown conversation or message ids', () => {
@@ -1177,7 +1183,7 @@ describe('Store - Message updates', () => {
       store.appendMessage('c1', msg('m1'));
       store.updateMessage('c1', 'nope', { status: 'failed' });
       store.updateMessage('nope', 'm1', { status: 'failed' });
-      expect(useStore.getState().getMessages('c1')[0].status).toBeUndefined();
+      expect(at(useStore.getState().getMessages('c1'), 0).status).toBeUndefined();
     });
   });
 
@@ -1189,7 +1195,7 @@ describe('Store - Message updates', () => {
       store.removeMessage('c1', 'm1');
       const messages = useStore.getState().getMessages('c1');
       expect(messages).toHaveLength(1);
-      expect(messages[0].id).toBe('m2');
+      expect(messages[0]?.id).toBe('m2');
     });
   });
 });

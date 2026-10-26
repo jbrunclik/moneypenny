@@ -59,9 +59,10 @@ function indexText(root: HTMLElement): TextIndex {
   for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
     const value = node.data;
     for (let i = 0; i < value.length; i++) {
-      const isSpace = /\s/.test(value[i]);
+      const char = value.charAt(i);
+      const isSpace = /\s/.test(char);
       if (isSpace && lastWasSpace) continue;
-      text += isSpace ? ' ' : value[i].toLowerCase();
+      text += isSpace ? ' ' : char.toLowerCase();
       map.push([node, i]);
       lastWasSpace = isSpace;
     }
@@ -82,14 +83,16 @@ function findOccurrence(index: TextIndex, quote: string, prefix: string): number
   if (starts.length <= 1 || !tail) return starts[0] ?? -1;
   // Rendered text has no space where a <br> or list item break was
   const before = (at: number) => index.text.slice(0, at).replace(/\s/g, '');
-  return starts.find((at) => before(at).endsWith(tail)) ?? starts[0];
+  return starts.find((at) => before(at).endsWith(tail)) ?? starts[0] ?? -1;
 }
 
 /** Wrap [start, end) of the index in spans, one per text node it crosses. */
 function wrapRange(index: TextIndex, start: number, end: number, make: () => HTMLElement): HTMLElement | null {
   const segments = new Map<Text, [number, number]>();
   for (let i = start; i < end; i++) {
-    const [node, offset] = index.map[i];
+    const entry = index.map[i];
+    if (entry === undefined) continue;
+    const [node, offset] = entry;
     const seg = segments.get(node);
     segments.set(node, seg ? [seg[0], offset + 1] : [offset, offset + 1]);
   }
@@ -137,8 +140,9 @@ export function applyAnnotations(contentEl: HTMLElement, annotations: ClaimAnnot
     if (at < 0) return;
     const end = at + quote.length;
     if (ann.verdict === 'supported') {
-      if (ann.source) {
-        const [node, offset] = index.map[end - 1];
+      const lastChar = index.map[end - 1];
+      if (ann.source && lastChar) {
+        const [node, offset] = lastChar;
         const after = node.splitText(offset + 1);
         after.before(citeSup(i, ann.source));
       }

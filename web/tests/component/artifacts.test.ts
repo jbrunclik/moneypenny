@@ -22,9 +22,14 @@ function messageHtml(id: string): string {
   return `<div class="message assistant" data-message-id="${id}"><div class="message-content-wrapper"><div class="message-content"><p>Here.</p></div><div class="message-actions"></div></div></div>`;
 }
 
-function setup(...ids: string[]): HTMLElement[] {
+function setup(...ids: string[]): void {
   document.body.innerHTML = `<div id="messages">${ids.map(messageHtml).join('')}</div>`;
-  return ids.map((id) => document.querySelector<HTMLElement>(`[data-message-id="${id}"]`)!);
+}
+
+function msg(id: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+  if (!el) throw new Error(`no message ${id}`);
+  return el;
 }
 
 const cards = (el: ParentNode = document) => [...el.querySelectorAll<HTMLElement>('.artifact-card')];
@@ -35,7 +40,8 @@ beforeEach(() => {
 
 describe('decorateArtifacts', () => {
   it('renders one sandboxed frame per ref between the text and the actions', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1', artifacts: [ref('a', 1), ref('b', 1, 'Recipe')] });
 
     expect(cards(m1).map((c) => c.dataset.artifactKey)).toEqual(['a@1', 'b@1']);
@@ -52,7 +58,8 @@ describe('decorateArtifacts', () => {
   });
 
   it('keeps live frames when decorated again and drops removed refs', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1', artifacts: [ref('a', 1), ref('b', 1)] });
     const first = m1.querySelector('iframe');
 
@@ -64,7 +71,8 @@ describe('decorateArtifacts', () => {
   });
 
   it('a message without artifacts gets no list', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1' });
     expect(m1.querySelector('.artifact-list')).toBeNull();
   });
@@ -72,7 +80,8 @@ describe('decorateArtifacts', () => {
 
 describe('addLiveArtifact', () => {
   it('adds the card during streaming and the done decoration keeps it', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     addLiveArtifact(m1, ref('a', 1));
     const frame = m1.querySelector('iframe');
     decorateArtifacts(m1, { id: 'm1', artifacts: [ref('a', 1)] });
@@ -83,7 +92,9 @@ describe('addLiveArtifact', () => {
 
 describe('version badges', () => {
   it('an older version points to the newer one below, none when absent', () => {
-    const [m1, m2] = setup('m1', 'm2');
+    setup('m1', 'm2');
+    const m1 = msg('m1');
+    const m2 = msg('m2');
     decorateArtifacts(m1, { id: 'm1', artifacts: [ref('a', 1)] });
     expect(m1.querySelector('.artifact-card__newer')).toBeNull();
 
@@ -101,9 +112,11 @@ describe('version badges', () => {
 
 describe('artifactCopyText', () => {
   it('names each artifact for the copied text', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1', artifacts: [ref('a', 1, 'Tips'), ref('b', 1, 'Recipe')] });
     expect(artifactCopyText(m1)).toBe('[Artifact: Tips]\n[Artifact: Recipe]');
-    expect(artifactCopyText(setup('m3')[0])).toBe('');
+    setup('m3');
+    expect(artifactCopyText(msg('m3'))).toBe('');
   });
 });

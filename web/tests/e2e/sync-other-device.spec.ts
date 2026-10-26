@@ -27,6 +27,7 @@ test.beforeEach(async ({ page, request }) => {
     },
   });
   const [alpha, beta] = (await seeded.json()).conversation_ids as string[];
+  if (alpha === undefined || beta === undefined) throw new Error('seed returned fewer than two conversations');
   ids = { alpha, beta };
   await page.goto('/');
   await expect(page.locator('.conversation-item-wrapper', { hasText: 'Alpha' })).toBeVisible();

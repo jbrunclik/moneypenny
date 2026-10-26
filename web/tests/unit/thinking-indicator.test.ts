@@ -75,9 +75,9 @@ describe('ThinkingIndicator', () => {
       addThinkingToTrace(state, 'Analyzing the question');
 
       expect(state.trace.length).toBe(1);
-      expect(state.trace[0].type).toBe('thinking');
-      expect(state.trace[0].detail).toBe('Analyzing the question');
-      expect(state.trace[0].completed).toBe(false);
+      expect(state.trace[0]?.type).toBe('thinking');
+      expect(state.trace[0]?.detail).toBe('Analyzing the question');
+      expect(state.trace[0]?.completed).toBe(false);
       expect(state.thinkingText).toBe('Analyzing the question');
     });
 
@@ -86,7 +86,7 @@ describe('ThinkingIndicator', () => {
       addThinkingToTrace(state, 'Updated thought');
 
       expect(state.trace.length).toBe(1);
-      expect(state.trace[0].detail).toBe('Updated thought');
+      expect(state.trace[0]?.detail).toBe('Updated thought');
     });
 
     it('addToolStartToTrace should add tool BEFORE thinking and mark thinking as completed', () => {
@@ -95,12 +95,12 @@ describe('ThinkingIndicator', () => {
 
       expect(state.trace.length).toBe(2);
       // Tool is inserted BEFORE thinking to keep thinking at the end for auto-scroll
-      expect(state.trace[0].type).toBe('tool');
-      expect(state.trace[0].label).toBe('web_search');
-      expect(state.trace[0].detail).toBe('best restaurants');
+      expect(state.trace[0]?.type).toBe('tool');
+      expect(state.trace[0]?.label).toBe('web_search');
+      expect(state.trace[0]?.detail).toBe('best restaurants');
       // Thinking is now at the end and marked completed
-      expect(state.trace[1].type).toBe('thinking');
-      expect(state.trace[1].completed).toBe(true);
+      expect(state.trace[1]?.type).toBe('thinking');
+      expect(state.trace[1]?.completed).toBe(true);
       expect(state.activeTool).toBe('web_search');
     });
 
@@ -111,8 +111,8 @@ describe('ThinkingIndicator', () => {
 
       // trace[0] is the tool (marked completed by markToolCompletedInTrace)
       // trace[1] is thinking (at the end for auto-scroll)
-      expect(state.trace[0].type).toBe('tool');
-      expect(state.trace[0].completed).toBe(true);
+      expect(state.trace[0]?.type).toBe('tool');
+      expect(state.trace[0]?.completed).toBe(true);
       expect(state.completedTools).toContain('web_search');
       expect(state.activeTool).toBeNull();
     });
@@ -126,10 +126,10 @@ describe('ThinkingIndicator', () => {
 
       // Should still be only 2 items: tool + thinking (thinking at end for auto-scroll)
       expect(state.trace.length).toBe(2);
-      expect(state.trace[0].type).toBe('tool');
-      expect(state.trace[1].type).toBe('thinking');
-      expect(state.trace[1].detail).toBe('More thinking after tool');
-      expect(state.trace[1].completed).toBe(false); // Now active again
+      expect(state.trace[0]?.type).toBe('tool');
+      expect(state.trace[1]?.type).toBe('thinking');
+      expect(state.trace[1]?.detail).toBe('More thinking after tool');
+      expect(state.trace[1]?.completed).toBe(false); // Now active again
     });
 
     describe('updateToolDetailInTrace', () => {
@@ -137,7 +137,7 @@ describe('ThinkingIndicator', () => {
         addToolStartToTrace(state, 'todoist');
         updateToolDetailInTrace(state, 'todoist', 'list_tasks: today');
 
-        expect(state.trace[0].detail).toBe('list_tasks: today');
+        expect(state.trace[0]?.detail).toBe('list_tasks: today');
         expect(state.activeToolDetail).toBe('list_tasks: today');
       });
 
@@ -148,7 +148,7 @@ describe('ThinkingIndicator', () => {
         updateToolDetailInTrace(state, 'web_search', 'new query');
 
         // Detail unchanged because tool is completed
-        expect(state.trace[0].detail).toBe('initial query');
+        expect(state.trace[0]?.detail).toBe('initial query');
       });
 
       it('should update correct tool when multiple tools in trace', () => {
@@ -160,8 +160,8 @@ describe('ThinkingIndicator', () => {
         updateToolDetailInTrace(state, 'todoist', 'add_task: Buy milk');
 
         // Second tool (todoist) at index 1 should be updated
-        expect(state.trace[1].label).toBe('todoist');
-        expect(state.trace[1].detail).toBe('add_task: Buy milk');
+        expect(state.trace[1]?.label).toBe('todoist');
+        expect(state.trace[1]?.detail).toBe('add_task: Buy milk');
         expect(state.activeToolDetail).toBe('add_task: Buy milk');
       });
 
@@ -171,7 +171,7 @@ describe('ThinkingIndicator', () => {
         updateToolDetailInTrace(state, 'fetch_url', 'https://example.com');
 
         // web_search unchanged - detail stays as 'initial query'
-        expect(state.trace[0].detail).toBe('initial query');
+        expect(state.trace[0]?.detail).toBe('initial query');
         // activeToolDetail set by addToolStartToTrace, not changed by updateToolDetailInTrace for wrong tool
         expect(state.activeToolDetail).toBe('initial query');
       });

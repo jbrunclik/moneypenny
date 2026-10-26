@@ -17,7 +17,7 @@ describe.each([
     const el = create([], noop, noop, noop);
     const buttons = el.querySelectorAll(addSelector);
     expect(buttons).toHaveLength(1);
-    expect(buttons[0].classList.contains('program-empty-cta')).toBe(true);
+    expect(buttons[0]?.classList.contains('program-empty-cta')).toBe(true);
   });
 
   it('keeps the header button once programs exist', () => {

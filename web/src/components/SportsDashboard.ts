@@ -146,7 +146,7 @@ const SPORTS_EMOJIS = [
 ];
 
 function showNewProgramModal(onAdd: (data: { name: string; emoji: string }) => void): void {
-  let selectedEmoji = SPORTS_EMOJIS[0];
+  let selectedEmoji = SPORTS_EMOJIS[0] ?? '';
 
   // Create overlay
   const overlay = document.createElement('div');

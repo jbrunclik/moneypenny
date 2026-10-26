@@ -16,14 +16,19 @@ vi.mock('@/api/artifacts', () => ({
 import { fetchArtifactVersion } from '@/api/artifacts';
 import { addLiveArtifact, decorateArtifacts } from '@/components/messages/artifacts';
 
-function setup(...ids: string[]): HTMLElement[] {
+function setup(...ids: string[]): void {
   document.body.innerHTML = `<div id="messages">${ids
     .map(
       (id) =>
         `<div class="message assistant" data-message-id="${id}"><div class="message-content-wrapper"><div class="message-content"><p>x</p></div></div></div>`
     )
     .join('')}</div>`;
-  return ids.map((id) => document.querySelector<HTMLElement>(`[data-message-id="${id}"]`)!);
+}
+
+function msg(id: string): HTMLElement {
+  const el = document.querySelector<HTMLElement>(`[data-message-id="${id}"]`);
+  if (!el) throw new Error(`no message ${id}`);
+  return el;
 }
 
 const keys = (el: ParentNode) =>
@@ -31,14 +36,17 @@ const keys = (el: ParentNode) =>
 
 describe('live cards during a turn', () => {
   it('an update in the same turn replaces the card it revises', () => {
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     addLiveArtifact(m1, { id: 'a', version: 1, title: 'T' });
     addLiveArtifact(m1, { id: 'a', version: 2, title: 'T' });
     expect(keys(m1)).toEqual(['a@2']);
   });
 
   it('keeps an earlier message’s card of the same artifact', () => {
-    const [m1, m2] = setup('m1', 'm2');
+    setup('m1', 'm2');
+    const m1 = msg('m1');
+    const m2 = msg('m2');
     decorateArtifacts(m1, { id: 'm1', artifacts: [{ id: 'a', version: 1, title: 'T' }] });
     addLiveArtifact(m2, { id: 'a', version: 2, title: 'T' });
     expect(keys(m1)).toEqual(['a@1']);
@@ -47,7 +55,9 @@ describe('live cards during a turn', () => {
 
 describe('badges after a revision turn is regenerated', () => {
   it('a text-only reply in place of the revision clears "newer below"', () => {
-    const [m1, m2] = setup('m1', 'm2');
+    setup('m1', 'm2');
+    const m1 = msg('m1');
+    const m2 = msg('m2');
     decorateArtifacts(m1, { id: 'm1', artifacts: [{ id: 'a', version: 1, title: 'T' }] });
     decorateArtifacts(m2, { id: 'm2', artifacts: [{ id: 'a', version: 2, title: 'T' }] });
     expect(m1.querySelector('.artifact-card__newer')).not.toBeNull();
@@ -79,7 +89,8 @@ describe('View source', () => {
 
   it('closes the opened tab when the source cannot be loaded', async () => {
     vi.mocked(fetchArtifactVersion).mockRejectedValueOnce(new Error('offline'));
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1', artifacts: [{ id: 'a', version: 1, title: 'T' }] });
     clickSource(m1);
     await vi.waitFor(() => expect(tab.close).toHaveBeenCalled());
@@ -94,7 +105,8 @@ describe('View source', () => {
       html: '<p>x</p>',
       state: null,
     });
-    const [m1] = setup('m1');
+    setup('m1');
+    const m1 = msg('m1');
     decorateArtifacts(m1, { id: 'm1', artifacts: [{ id: 'a', version: 1, title: 'T' }] });
     clickSource(m1);
     await vi.waitFor(() => expect(tab.location.href).toBe('blob:x'));

@@ -3,6 +3,12 @@ import { applyAnnotations } from '@/components/messages/annotations';
 import { renderMarkdown } from '@/utils/markdown';
 import type { ClaimAnnotation } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 function render(md: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'message-content';
@@ -95,7 +101,7 @@ describe('applyAnnotations', () => {
     const el = render('- A: 1 590 Kč\n- B: 1 590 Kč');
     applyAnnotations(el, [claim({ quote: '1 590 Kč', prefix: 'Kč\n- B: ' })]);
     const items = el.querySelectorAll('li');
-    expect(items[0].querySelector('.claim')).toBeNull();
-    expect(items[1].querySelector('.claim')).not.toBeNull();
+    expect(items[0]?.querySelector('.claim')).toBeNull();
+    expect(at(items, 1).querySelector('.claim')).not.toBeNull();
   });
 });

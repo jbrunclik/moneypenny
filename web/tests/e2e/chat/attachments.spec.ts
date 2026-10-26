@@ -552,7 +552,9 @@ test.describe('Chat - Client-side Image Compression', () => {
         ctx.fillStyle = `hsl(${(i * 37) % 360}, 80%, ${30 + ((i * 13) % 40)}%)`;
         ctx.fillRect(((i * 761) % 4000), ((i * 977) % 3000), 80, 80);
       }
-      return canvas.toDataURL('image/jpeg', 1.0).split(',')[1];
+      const payload = canvas.toDataURL('image/jpeg', 1.0).split(',')[1];
+      if (payload === undefined) throw new Error('canvas produced no data URL payload');
+      return payload;
     });
     const originalChars = bigJpegBase64.length;
     expect(originalChars).toBeGreaterThan(400_000); // sanity: fixture is big

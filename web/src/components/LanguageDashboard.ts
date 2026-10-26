@@ -241,7 +241,7 @@ function showNewProgramModal(
     if (!selectedOption || !select.value) return;
 
     const name = select.value;
-    const emoji = selectedOption.dataset.emoji || LANGUAGES[0].emoji;
+    const emoji = selectedOption.dataset.emoji || (LANGUAGES[0]?.emoji ?? '');
     onAdd({ name, emoji });
     close();
   });

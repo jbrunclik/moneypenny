@@ -327,7 +327,7 @@ function ensureListTabStop(container: HTMLElement): void {
   if (items.length === 0) return;
   const hasStop = Array.from(items).some((el) => el.getAttribute('tabindex') === '0');
   if (!hasStop) {
-    items[0].setAttribute('tabindex', '0');
+    items[0]?.setAttribute('tabindex', '0');
   }
 }
 

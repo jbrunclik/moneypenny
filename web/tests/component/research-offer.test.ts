@@ -13,6 +13,12 @@ import {
 } from '@/components/messages/research-offer';
 import type { ResearchOffer } from '@/types/api';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const RATES = { base_minutes: 2, per_wave_minutes: 2.5, parallelism: 4, base_czk: 3, per_item_czk: 2 };
 
 function offer(overrides: Partial<ResearchOffer> = {}): ResearchOffer {
@@ -75,7 +81,7 @@ describe('research offer card', () => {
     addBtn().click();
     expect(items()).toHaveLength(4);
     expect(meta()).toBe('~5 min · ~9 Kč');
-    type(items()[3], 'Online objednání?');
+    type(at(items(), 3), 'Online objednání?');
     expect(meta()).toBe('~5 min · ~11 Kč');
   });
 
@@ -88,9 +94,9 @@ describe('research offer card', () => {
 
   it('Start sends the edited items and context', () => {
     render(offer());
-    type(items()[0], 'Ceny pražských agentur?');
+    type(at(items(), 0), 'Ceny pražských agentur?');
     addBtn().click();
-    type(items()[3], 'Online');
+    type(at(items(), 3), 'Online');
     addBtn().click(); // left empty: dropped
     card().querySelector<HTMLButtonElement>('.research-offer__context-edit')!.click();
     type(card().querySelector<HTMLTextAreaElement>('.research-offer__context textarea')!, 'rodina se dvěma dětmi');
@@ -106,7 +112,7 @@ describe('research offer card', () => {
 
   it('Start is disabled with no questions; Add is disabled at the limit', () => {
     render(offer({ sub_questions: ['A'] }));
-    type(items()[0], '  ');
+    type(at(items(), 0), '  ');
     expect(startBtn().disabled).toBe(true);
     render(offer({ sub_questions: ['1', '2', '3', '4', '5', '6', '7', '8'] }));
     expect(addBtn().disabled).toBe(true);
@@ -138,7 +144,7 @@ describe('research offer card', () => {
   it('editing the plan pauses the countdown', () => {
     vi.useFakeTimers();
     render(offer({ autostart: true }), { live: true });
-    type(items()[0], 'Ceny pražských agentur?');
+    type(at(items(), 0), 'Ceny pražských agentur?');
     vi.advanceTimersByTime(20_000);
     expect(startDeepResearch).not.toHaveBeenCalled();
     expect(card().querySelector('.research-offer__countdown')).toBeNull();

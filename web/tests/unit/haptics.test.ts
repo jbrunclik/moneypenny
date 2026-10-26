@@ -5,6 +5,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { hapticTick, hapticSuccess, hapticError } from '@/utils/haptics';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 describe('haptics', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -15,7 +21,7 @@ describe('haptics', () => {
     vi.stubGlobal('navigator', { vibrate });
     hapticTick();
     expect(vibrate).toHaveBeenCalledTimes(1);
-    const ms = vibrate.mock.calls[0][0];
+    const ms = vibrate.mock.calls[0]?.[0];
     expect(ms).toBeGreaterThan(0);
     expect(ms).toBeLessThanOrEqual(50);
   });
@@ -26,8 +32,8 @@ describe('haptics', () => {
     hapticSuccess();
     hapticError();
     expect(vibrate).toHaveBeenCalledTimes(2);
-    const [success] = vibrate.mock.calls[0];
-    const [error] = vibrate.mock.calls[1];
+    const [success] = at(vibrate.mock.calls, 0);
+    const [error] = at(vibrate.mock.calls, 1);
     expect(Array.isArray(success)).toBe(true);
     expect(Array.isArray(error)).toBe(true);
     expect(success).not.toEqual(error);

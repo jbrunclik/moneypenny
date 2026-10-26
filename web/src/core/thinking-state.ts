@@ -81,8 +81,9 @@ function applyToolStart(
 ): void {
   // Mark thinking as completed
   const thinkingIndex = state.trace.findIndex(item => item.type === 'thinking');
-  if (thinkingIndex !== -1) {
-    state.trace[thinkingIndex].completed = true;
+  const thinkingItem = state.trace[thinkingIndex];
+  if (thinkingItem) {
+    thinkingItem.completed = true;
   }
   // Create tool item and insert before thinking (to keep thinking at end)
   const toolItem: ThinkingTraceItem = {

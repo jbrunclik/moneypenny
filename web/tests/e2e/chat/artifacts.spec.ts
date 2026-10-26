@@ -169,9 +169,12 @@ test.describe('Artifacts on mobile', () => {
     const widths = await page.evaluate(() => {
       const cards = document.querySelectorAll('.artifact-card');
       const contents = document.querySelectorAll('.message.assistant .message-content');
+      const card = cards[cards.length - 1];
+      const content = contents[contents.length - 1];
+      if (!card || !content) throw new Error('no artifact card or message content');
       return {
-        card: cards[cards.length - 1].getBoundingClientRect().width,
-        content: contents[contents.length - 1].getBoundingClientRect().width,
+        card: card.getBoundingClientRect().width,
+        content: content.getBoundingClientRect().width,
       };
     });
     expect(Math.abs(widths.card - widths.content)).toBeLessThan(2);

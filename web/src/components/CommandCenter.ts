@@ -411,9 +411,17 @@ function renderApprovalCard(
 function formatSchedule(schedule: string): string {
   // Simple cron parsing - could be enhanced with a library
   const parts = schedule.split(' ');
-  if (parts.length !== 5) return schedule;
-
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+  if (
+    parts.length !== 5 ||
+    minute === undefined ||
+    hour === undefined ||
+    dayOfMonth === undefined ||
+    month === undefined ||
+    dayOfWeek === undefined
+  ) {
+    return schedule;
+  }
 
   // Helper to check if a value is a plain number (not a step or range)
   const isPlainNumber = (val: string): boolean => /^\d+$/.test(val);

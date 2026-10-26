@@ -187,10 +187,10 @@ async function getBlobUrl(item: GalleryItem): Promise<string> {
 async function showIndex(index: number): Promise<void> {
   const lightbox = getElementById<HTMLDivElement>('lightbox');
   const img = getElementById<HTMLImageElement>('lightbox-img');
-  if (!lightbox || !img || index < 0 || index >= gallery.length) return;
+  const item = gallery[index];
+  if (!lightbox || !img || item === undefined) return;
 
   currentIndex = index;
-  const item = gallery[index];
   const token = ++loadToken;
 
   resetZoom(img);
@@ -329,6 +329,7 @@ function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): voi
       downPosition = { x: e.clientX, y: e.clientY };
     } else if (activePointers.size === 2) {
       const [a, b] = [...activePointers.values()];
+      if (!a || !b) return;
       pinchStartDistance = pointerDistance(a, b);
       pinchStartScale = scale;
       gestureHadPinch = true;
@@ -341,8 +342,8 @@ function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): voi
     const current = { x: e.clientX, y: e.clientY };
     activePointers.set(e.pointerId, current);
 
-    if (activePointers.size === 2 && pinchStartDistance > 0) {
-      const [a, b] = [...activePointers.values()];
+    const [a, b] = [...activePointers.values()];
+    if (activePointers.size === 2 && pinchStartDistance > 0 && a && b) {
       const midpoint = pointerMidpoint(a, b);
       const next = computePinchScale(pinchStartScale, pinchStartDistance, pointerDistance(a, b));
       if (next <= 1.02) {
@@ -393,14 +394,19 @@ function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): voi
   img.addEventListener('pointerup', releasePointer);
   img.addEventListener('pointercancel', releasePointer);
 
-  // Swipe navigation (only when not zoomed - zoomed touches pan instead)
+  initSwipeNavigation(lightbox);
+}
+
+/** Swipe navigation (only when not zoomed - zoomed touches pan instead). */
+function initSwipeNavigation(lightbox: HTMLDivElement): void {
   let touchStart: Point | null = null;
   let touchGestureHadPinch = false;
   lightbox.addEventListener(
     'touchstart',
     (e) => {
-      if (e.touches.length === 1) {
-        touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      const touch = e.touches[0];
+      if (e.touches.length === 1 && touch) {
+        touchStart = { x: touch.clientX, y: touch.clientY };
         touchGestureHadPinch = false;
       } else {
         touchGestureHadPinch = true;
@@ -411,9 +417,10 @@ function initTouchGestures(lightbox: HTMLDivElement, img: HTMLImageElement): voi
   lightbox.addEventListener(
     'touchend',
     (e) => {
-      if (scale > 1 || touchGestureHadPinch || !touchStart || e.touches.length > 0) return;
-      const dx = e.changedTouches[0].clientX - touchStart.x;
-      const dy = e.changedTouches[0].clientY - touchStart.y;
+      const end = e.changedTouches[0];
+      if (scale > 1 || touchGestureHadPinch || !touchStart || e.touches.length > 0 || !end) return;
+      const dx = end.clientX - touchStart.x;
+      const dy = end.clientY - touchStart.y;
       if (Math.abs(dx) > LIGHTBOX_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
         showRelative(dx < 0 ? 1 : -1);
       }

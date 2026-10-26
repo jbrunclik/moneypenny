@@ -59,10 +59,11 @@ export function createSwipeHandler(config: SwipeConfig): SwipeHandlers {
   let swipeStartTime = 0;
 
   const handleTouchStart = (e: TouchEvent): void => {
-    if (!shouldStart(e)) return;
+    const touch = e.touches[0];
+    if (!touch || !shouldStart(e)) return;
 
-    swipeStartX = e.touches[0].clientX;
-    swipeStartY = e.touches[0].clientY;
+    swipeStartX = touch.clientX;
+    swipeStartY = touch.clientY;
     swipeCurrentX = swipeStartX;
     swipeTarget = getTarget(e);
     isSwiping = false;
@@ -70,10 +71,11 @@ export function createSwipeHandler(config: SwipeConfig): SwipeHandlers {
   };
 
   const handleTouchMove = (e: TouchEvent): void => {
-    if (!swipeTarget) return;
+    const touch = e.touches[0];
+    if (!swipeTarget || !touch) return;
 
-    swipeCurrentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
+    swipeCurrentX = touch.clientX;
+    const currentY = touch.clientY;
     const deltaX = swipeStartX - swipeCurrentX;
     const deltaY = Math.abs(swipeStartY - currentY);
 

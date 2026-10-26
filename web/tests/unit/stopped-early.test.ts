@@ -46,7 +46,7 @@ describe('appendStoppedEarlyNote', () => {
     el.querySelector<HTMLButtonElement>('.message-stopped-early-continue')!.click();
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect((handler.mock.calls[0][0] as CustomEvent).detail).toEqual({ messageId: 'm1' });
+    expect((handler.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({ messageId: 'm1' });
     document.removeEventListener('message:continue', handler);
   });
 

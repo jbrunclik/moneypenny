@@ -24,6 +24,12 @@ vi.mock('@/components/FileUpload', () => ({
 
 import { addFilesToPending } from '@/components/FileUpload';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 describe('isIOSPWA', () => {
   const originalNavigator = window.navigator;
   const originalMatchMedia = window.matchMedia;
@@ -480,10 +486,10 @@ describe('handlePaste', () => {
       expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
 
       // Check that a File was passed with generated name
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
       expect(passedFiles).toHaveLength(1);
-      expect(passedFiles[0].type).toBe('image/png');
-      expect(passedFiles[0].name).toMatch(/^screenshot-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.png$/);
+      expect(passedFiles[0]?.type).toBe('image/png');
+      expect(passedFiles[0]?.name).toMatch(/^screenshot-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.png$/);
     });
 
     it('adds pasted JPEG image to pending files', () => {
@@ -496,9 +502,9 @@ describe('handlePaste', () => {
       expect(preventDefault).toHaveBeenCalled();
       expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
 
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
-      expect(passedFiles[0].type).toBe('image/jpeg');
-      expect(passedFiles[0].name).toMatch(/\.jpeg$/);
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
+      expect(passedFiles[0]?.type).toBe('image/jpeg');
+      expect(passedFiles[0]?.name).toMatch(/\.jpeg$/);
     });
 
     it('adds pasted WebP image to pending files', () => {
@@ -509,9 +515,9 @@ describe('handlePaste', () => {
       handlePaste(event);
 
       expect(preventDefault).toHaveBeenCalled();
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
-      expect(passedFiles[0].type).toBe('image/webp');
-      expect(passedFiles[0].name).toMatch(/\.webp$/);
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
+      expect(passedFiles[0]?.type).toBe('image/webp');
+      expect(passedFiles[0]?.name).toMatch(/\.webp$/);
     });
 
     it('adds pasted GIF image to pending files', () => {
@@ -522,9 +528,9 @@ describe('handlePaste', () => {
       handlePaste(event);
 
       expect(preventDefault).toHaveBeenCalled();
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
-      expect(passedFiles[0].type).toBe('image/gif');
-      expect(passedFiles[0].name).toMatch(/\.gif$/);
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
+      expect(passedFiles[0]?.type).toBe('image/gif');
+      expect(passedFiles[0]?.name).toMatch(/\.gif$/);
     });
 
     it('handles multiple pasted images', () => {
@@ -540,10 +546,10 @@ describe('handlePaste', () => {
       expect(preventDefault).toHaveBeenCalled();
       expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
 
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
       expect(passedFiles).toHaveLength(2);
-      expect(passedFiles[0].type).toBe('image/png');
-      expect(passedFiles[1].type).toBe('image/jpeg');
+      expect(passedFiles[0]?.type).toBe('image/png');
+      expect(passedFiles[1]?.type).toBe('image/jpeg');
     });
   });
 
@@ -585,9 +591,9 @@ describe('handlePaste', () => {
       expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
 
       // Only the image should be passed
-      const passedFiles = mockedAddFilesToPending.mock.calls[0][0];
+      const passedFiles = at(mockedAddFilesToPending.mock.calls, 0)[0];
       expect(passedFiles).toHaveLength(1);
-      expect(passedFiles[0].type).toBe('image/png');
+      expect(passedFiles[0]?.type).toBe('image/png');
     });
   });
 
@@ -648,8 +654,8 @@ describe('handlePaste', () => {
       expect(mockedAddFilesToPending).toHaveBeenCalledTimes(2);
 
       // Both should have timestamp-based names
-      const name1 = mockedAddFilesToPending.mock.calls[0][0][0].name;
-      const name2 = mockedAddFilesToPending.mock.calls[1][0][0].name;
+      const name1 = at(at(mockedAddFilesToPending.mock.calls, 0)[0], 0).name;
+      const name2 = at(at(mockedAddFilesToPending.mock.calls, 1)[0], 0).name;
 
       expect(name1).toMatch(/^screenshot-/);
       expect(name2).toMatch(/^screenshot-/);
@@ -662,7 +668,7 @@ describe('handlePaste', () => {
 
       handlePaste(event);
 
-      const passedFile = mockedAddFilesToPending.mock.calls[0][0][0];
+      const passedFile = at(at(mockedAddFilesToPending.mock.calls, 0)[0], 0);
       expect(passedFile.size).toBe(imageFile.size);
     });
   });

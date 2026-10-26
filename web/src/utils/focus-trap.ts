@@ -33,13 +33,13 @@ export function trapTabKey(container: HTMLElement, e: KeyboardEvent): void {
   if (e.key !== 'Tab') return;
 
   const focusable = getFocusableElements(container);
-  if (focusable.length === 0) {
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (!first || !last) {
     e.preventDefault();
     return;
   }
 
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
   const active = document.activeElement as HTMLElement | null;
   const inside = active !== null && container.contains(active);
 

@@ -103,7 +103,7 @@ test.describe('Chat - Send Failure Handling', () => {
     await page.click('[data-action="retry-send"]');
     const body = (await retried).postDataJSON() as { files?: Array<{ name: string; data: string }> };
     expect(body.files?.map((f) => f.name)).toEqual(['big.csv']);
-    expect(body.files?.[0].data.length).toBeGreaterThan(2_000_000);
+    expect(body.files?.[0]?.data.length).toBeGreaterThan(2_000_000);
     await expect(page.locator('.message.assistant')).toContainText('mock response', { timeout: 20000 });
   });
 

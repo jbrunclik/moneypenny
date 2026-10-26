@@ -150,6 +150,12 @@ import { toast } from '@/components/Toast';
 import { hideLoadingIndicator, renderMessages, showLoadingIndicator } from '@/components/messages';
 import { ApiError } from '@/api/http';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const CONV_ID = 'conv-1';
 
 function conversation(): Conversation {
@@ -209,13 +215,13 @@ describe('messaging keeps the store authoritative', () => {
     vi.mocked(chat.sendBatch).mockRejectedValueOnce(new ApiError('Server error', 500));
 
     await sendMessage();
-    const [sent] = useStore.getState().getMessages(CONV_ID);
+    const sent = at(useStore.getState().getMessages(CONV_ID), 0);
     expect(sent.status).toBe('failed');
 
     vi.mocked(chat.sendBatch).mockResolvedValueOnce({ ...DONE_FIELDS, role: 'assistant' } as never);
     await dispatchSend(CONV_ID, getOutboxEntry(CONV_ID, sent.id)!);
 
-    const retryFiles = vi.mocked(chat.sendBatch).mock.calls[1][2];
+    const retryFiles = vi.mocked(chat.sendBatch).mock.calls[1]?.[2];
     expect(retryFiles).toEqual([expect.objectContaining({ name: 'photo.jpg', data: 'BASE64DATA' })]);
   });
 
@@ -231,13 +237,13 @@ describe('messaging keeps the store authoritative', () => {
     });
 
     await sendMessage();
-    const [sent] = useStore.getState().getMessages(CONV_ID);
+    const sent = at(useStore.getState().getMessages(CONV_ID), 0);
     expect(sent.status).toBe('failed');
 
     vi.mocked(chat.stream).mockImplementationOnce(streamOf([{ type: 'done', ...DONE_FIELDS }]) as never);
     await dispatchSend(CONV_ID, getOutboxEntry(CONV_ID, sent.id)!);
 
-    const retryFiles = vi.mocked(chat.stream).mock.calls[1][2];
+    const retryFiles = vi.mocked(chat.stream).mock.calls[1]?.[2];
     expect(retryFiles).toEqual([expect.objectContaining({ name: 'photo.jpg', data: 'BASE64DATA' })]);
   });
 

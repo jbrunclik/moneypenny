@@ -326,9 +326,9 @@ describe('Sidebar', () => {
 
       const archiveBtns = document.querySelectorAll('.conversation-archive');
       expect(archiveBtns.length).toBe(3);
-      expect(archiveBtns[0].getAttribute('data-archive-id')).toBe('a');
-      expect(archiveBtns[1].getAttribute('data-archive-id')).toBe('b');
-      expect(archiveBtns[2].getAttribute('data-archive-id')).toBe('c');
+      expect(archiveBtns[0]?.getAttribute('data-archive-id')).toBe('a');
+      expect(archiveBtns[1]?.getAttribute('data-archive-id')).toBe('b');
+      expect(archiveBtns[2]?.getAttribute('data-archive-id')).toBe('c');
     });
 
     it('shows archive menu item when archivedPagination.totalCount > 0', () => {
@@ -495,8 +495,8 @@ describe('Sidebar', () => {
 
       const unarchiveBtns = document.querySelectorAll('.conversation-unarchive');
       expect(unarchiveBtns.length).toBe(2);
-      expect(unarchiveBtns[0].getAttribute('data-unarchive-id')).toBe('a1');
-      expect(unarchiveBtns[1].getAttribute('data-unarchive-id')).toBe('a2');
+      expect(unarchiveBtns[0]?.getAttribute('data-unarchive-id')).toBe('a1');
+      expect(unarchiveBtns[1]?.getAttribute('data-unarchive-id')).toBe('a2');
     });
 
     it('does not render archived items in normal view (only archive menu item)', () => {

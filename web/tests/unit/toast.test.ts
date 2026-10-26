@@ -12,6 +12,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 // Helper to reset store state
 function resetStore() {
   useStore.setState({
@@ -97,7 +103,7 @@ describe('Toast - Store Integration', () => {
         duration: 0,
       });
 
-      const notification = useStore.getState().notifications[0];
+      const notification = at(useStore.getState().notifications, 0);
       expect(notification.action).toBeDefined();
       expect(notification.action?.label).toBe('Retry');
 
@@ -125,7 +131,7 @@ describe('Toast - Store Integration', () => {
 
       const notifications = useStore.getState().notifications;
       expect(notifications).toHaveLength(1);
-      expect(notifications[0].id).toBe('toast-2');
+      expect(notifications[0]?.id).toBe('toast-2');
     });
 
     it('handles non-existent id gracefully', () => {
@@ -172,8 +178,8 @@ describe('Toast - Component', () => {
     showToast({ type: 'success', message: 'Success!' });
 
     expect(store.getState().notifications).toHaveLength(1);
-    expect(store.getState().notifications[0].type).toBe('success');
-    expect(store.getState().notifications[0].message).toBe('Success!');
+    expect(store.getState().notifications[0]?.type).toBe('success');
+    expect(store.getState().notifications[0]?.message).toBe('Success!');
   });
 
   it('error toast icon differs from the dismiss button', async () => {
@@ -210,7 +216,7 @@ describe('Toast - Component', () => {
     showToast({ type: 'success', message: 'Success!' });
 
     // Default duration is 5000ms
-    expect(store.getState().notifications[0].duration).toBe(5000);
+    expect(store.getState().notifications[0]?.duration).toBe(5000);
   });
 
   it('keeps warning toasts with actions persistent', async () => {
@@ -224,7 +230,7 @@ describe('Toast - Component', () => {
       action: { label: 'Fix', onClick: () => {} },
     });
 
-    expect(store.getState().notifications[0].duration).toBe(0);
+    expect(store.getState().notifications[0]?.duration).toBe(0);
   });
 
   it('auto-hides success and info toasts with actions after the action duration', async () => {
@@ -265,7 +271,7 @@ describe('Toast - Component', () => {
     });
 
     // Should be persistent (0) when action is present
-    expect(store.getState().notifications[0].duration).toBe(0);
+    expect(store.getState().notifications[0]?.duration).toBe(0);
   });
 
   it('allows custom duration override', async () => {
@@ -275,7 +281,7 @@ describe('Toast - Component', () => {
 
     showToast({ type: 'info', message: 'Custom', duration: 10000 });
 
-    expect(store.getState().notifications[0].duration).toBe(10000);
+    expect(store.getState().notifications[0]?.duration).toBe(10000);
   });
 
   it('auto-dismisses after duration', async () => {
@@ -349,7 +355,7 @@ describe('Toast - Convenience Functions', () => {
 
     toast.success('Great!');
 
-    expect(store.getState().notifications[0].type).toBe('success');
+    expect(store.getState().notifications[0]?.type).toBe('success');
   });
 
   it('toast.error creates error notification', async () => {
@@ -359,7 +365,7 @@ describe('Toast - Convenience Functions', () => {
 
     toast.error('Bad!');
 
-    expect(store.getState().notifications[0].type).toBe('error');
+    expect(store.getState().notifications[0]?.type).toBe('error');
   });
 
   it('toast.warning creates warning notification', async () => {
@@ -369,7 +375,7 @@ describe('Toast - Convenience Functions', () => {
 
     toast.warning('Careful!');
 
-    expect(store.getState().notifications[0].type).toBe('warning');
+    expect(store.getState().notifications[0]?.type).toBe('warning');
   });
 
   it('toast.info creates info notification', async () => {
@@ -379,7 +385,7 @@ describe('Toast - Convenience Functions', () => {
 
     toast.info('FYI');
 
-    expect(store.getState().notifications[0].type).toBe('info');
+    expect(store.getState().notifications[0]?.type).toBe('info');
   });
 
   it('toast.error supports action option', async () => {
@@ -390,7 +396,7 @@ describe('Toast - Convenience Functions', () => {
     const mockRetry = vi.fn();
     toast.error('Failed', { action: { label: 'Retry', onClick: mockRetry } });
 
-    const notification = store.getState().notifications[0];
+    const notification = at(store.getState().notifications, 0);
     expect(notification.action?.label).toBe('Retry');
   });
 

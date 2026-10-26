@@ -697,8 +697,7 @@ export function handlePaste(e: ClipboardEvent): void {
 
   // First, check clipboardData.items (this is where screenshots usually appear)
   if (clipboardData.items) {
-    for (let i = 0; i < clipboardData.items.length; i++) {
-      const item = clipboardData.items[i];
+    for (const item of clipboardData.items) {
       if (item.kind === 'file' && item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
@@ -710,8 +709,7 @@ export function handlePaste(e: ClipboardEvent): void {
 
   // Also check clipboardData.files as fallback (for drag-drop or some browsers)
   if (imageFiles.length === 0 && clipboardData.files.length > 0) {
-    for (let i = 0; i < clipboardData.files.length; i++) {
-      const file = clipboardData.files[i];
+    for (const file of clipboardData.files) {
       if (file.type.startsWith('image/')) {
         imageFiles.push(file);
       }

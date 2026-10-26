@@ -21,6 +21,12 @@ import { SEND_CONFLICT_REPLY_POLL_DELAYS_MS } from '@/config';
 import { waitForReplyTo } from '@/core/reply-wait';
 import { useStore } from '@/state/store';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 function msg(id: string, role: Message['role']): Message {
   return { id, role, content: id, created_at: '2026-10-26T10:00:00Z' };
 }
@@ -66,7 +72,7 @@ describe('waitForReplyTo', () => {
       .mockResolvedValueOnce(serverResponse([msg('m1', 'user')]))
       .mockResolvedValueOnce(serverResponse([msg('m1', 'user'), msg('r1', 'assistant')]));
     const result = waitForReplyTo('c1', 'm1');
-    await vi.advanceTimersByTimeAsync(SEND_CONFLICT_REPLY_POLL_DELAYS_MS[0]);
+    await vi.advanceTimersByTimeAsync(at(SEND_CONFLICT_REPLY_POLL_DELAYS_MS, 0));
     await expect(result).resolves.toBe(true);
     expect(get).toHaveBeenCalledTimes(2);
     expect(showLoadingIndicator).toHaveBeenCalledTimes(1);
@@ -92,7 +98,7 @@ describe('waitForReplyTo', () => {
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(serverResponse([msg('m1', 'user'), msg('r1', 'assistant')]));
     const result = waitForReplyTo('c1', 'm1');
-    await vi.advanceTimersByTimeAsync(SEND_CONFLICT_REPLY_POLL_DELAYS_MS[0]);
+    await vi.advanceTimersByTimeAsync(at(SEND_CONFLICT_REPLY_POLL_DELAYS_MS, 0));
     await expect(result).resolves.toBe(true);
   });
 

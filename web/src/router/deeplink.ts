@@ -82,9 +82,8 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
   }
 
   // Match /conversations/{id}
-  const conversationMatch = cleanHash.match(/^\/conversations\/([^/]+)$/);
-  if (conversationMatch) {
-    const conversationId = conversationMatch[1];
+  const conversationId = cleanHash.match(/^\/conversations\/([^/]+)$/)?.[1];
+  if (conversationId !== undefined) {
     // Validate it's not a temp conversation in URL (should never happen, but defensive)
     if (!conversationId.startsWith('temp-')) {
       return { type: 'conversation', conversationId };
@@ -327,7 +326,7 @@ export function getSportsProgramFromHash(): string | null {
     ? window.location.hash.slice(1)
     : window.location.hash;
   const match = cleanHash.match(/^\/sports\/([^/]+)$/);
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 /**
@@ -367,7 +366,7 @@ export function getLanguageProgramFromHash(): string | null {
     ? window.location.hash.slice(1)
     : window.location.hash;
   const match = cleanHash.match(/^\/language\/([^/]+)$/);
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 /**

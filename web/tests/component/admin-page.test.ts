@@ -3,6 +3,12 @@ import type { AdminOverview } from '@/types/api';
 import { renderAdminOverview, openAdminPage, closeAdminPage } from '@/components/AdminPage';
 import { admin } from '@/api/admin';
 
+function at<T>(items: ArrayLike<T>, i: number): T {
+  const item = items[i];
+  if (item === undefined) throw new Error(`no item at index ${i}`);
+  return item;
+}
+
 const money = (usd: number) => ({ usd, formatted: `${(usd * 23).toFixed(2)} Kč` });
 
 function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
@@ -78,14 +84,14 @@ describe('renderAdminOverview', () => {
   });
 
   it('shows how many chats and turns each person had this month', () => {
-    const cells = [...render(overview()).querySelectorAll('.admin-user-row')[0].querySelectorAll('td')];
+    const cells = [...at(render(overview()).querySelectorAll('.admin-user-row'), 0).querySelectorAll('td')];
     expect(cells.map((c) => c.textContent)).toEqual(['Jana', expect.any(String), expect.any(String), '31', '412']);
   });
 
   it('highlights a person past the daily threshold', () => {
     const rows = render(overview()).querySelectorAll('.admin-user-row');
-    expect(rows[0].classList.contains('admin-over-threshold')).toBe(true);
-    expect(rows[1].classList.contains('admin-over-threshold')).toBe(false);
+    expect(rows[0]?.classList.contains('admin-over-threshold')).toBe(true);
+    expect(rows[1]?.classList.contains('admin-over-threshold')).toBe(false);
   });
 
   it('escapes names and error messages', () => {

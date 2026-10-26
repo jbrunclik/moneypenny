@@ -18,7 +18,8 @@ function targets(message: Message, sourceId: string, claimIndex?: number): boole
 export function findActionReply(convId: string, sourceId: string, claimIndex?: number): string | null {
   const messages = useStore.getState().getMessages(convId);
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (!targets(messages[i], sourceId, claimIndex)) continue;
+    const message = messages[i];
+    if (!message || !targets(message, sourceId, claimIndex)) continue;
     const reply = messages.slice(i + 1).find((m) => m.role === 'assistant');
     if (reply) return reply.id;
   }
