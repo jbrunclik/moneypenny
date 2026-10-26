@@ -11,7 +11,8 @@
 
 import { version } from '../api/app';
 import { useStore } from '../state/store';
-import { CLOSE_ICON, REFRESH_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CLOSE_ICON, REFRESH_ICON, setIcon, type IconHtml } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import { STORAGE_KEY_VERSION_DISMISSED, VERSION_CHECK_INTERVAL_MS } from '../config';
 
@@ -54,19 +55,19 @@ export function initVersionBanner(): void {
 function createBannerElement(): void {
   bannerElement = document.createElement('div');
   bannerElement.className = 'version-banner';
-  bannerElement.innerHTML = `
-    <span class="version-banner-message">
-      A new version is available
-    </span>
-    <div class="version-banner-actions">
-      <button class="version-banner-reload">
-        ${REFRESH_ICON} Reload
-      </button>
-      <button class="version-banner-dismiss">
-        ${CLOSE_ICON} Dismiss
-      </button>
-    </div>
-  `;
+  const button = (className: string, icon: IconHtml, label: string): HTMLButtonElement => {
+    const btn = createElement('button', { class: className });
+    setIcon(btn, icon);
+    btn.append(` ${label}`);
+    return btn;
+  };
+  bannerElement.append(
+    createElement('span', { class: 'version-banner-message' }, ['A new version is available']),
+    createElement('div', { class: 'version-banner-actions' }, [
+      button('version-banner-reload', REFRESH_ICON, 'Reload'),
+      button('version-banner-dismiss', CLOSE_ICON, 'Dismiss'),
+    ])
+  );
 
   // Event listeners using delegation
   bannerElement.addEventListener('click', handleBannerClick);

@@ -83,7 +83,7 @@
   },
   "src/components/PlannerDashboard.ts": {
     "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/QuickActionComposer.ts": {
@@ -134,11 +134,6 @@
       "count": 3
     }
   },
-  "src/components/SpendBanner.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
   "src/components/SportsDashboard.ts": {
     "no-unsanitized/property": {
       "count": 1
@@ -146,7 +141,7 @@
   },
   "src/components/ThinkingIndicator.ts": {
     "no-unsanitized/property": {
-      "count": 3
+      "count": 2
     }
   },
   "src/components/Toast.ts": {
@@ -157,11 +152,6 @@
   "src/components/TrashView.ts": {
     "no-unsanitized/property": {
       "count": 3
-    }
-  },
-  "src/components/VersionBanner.ts": {
-    "no-unsanitized/property": {
-      "count": 1
     }
   },
   "src/components/messages/actions.ts": {
@@ -182,11 +172,6 @@
   "src/components/messages/live-highlight.ts": {
     "no-unsanitized/property": {
       "count": 2
-    }
-  },
-  "src/components/messages/loading.ts": {
-    "no-unsanitized/property": {
-      "count": 1
     }
   },
   "src/components/messages/render.ts": {
@@ -213,9 +198,6 @@
   "src/components/messages/streaming.ts": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-unsanitized/property": {
-      "count": 2
     }
   },
   "src/components/messages/turn-anchor.ts": {

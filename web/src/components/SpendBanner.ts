@@ -4,8 +4,8 @@
  * Never blocks anything; dismissed, it stays away for the rest of the day.
  */
 import { admin } from '../api/admin';
-import { escapeHtml } from '../utils/dom';
-import { CLOSE_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CLOSE_ICON, setIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('components/SpendBanner');
@@ -41,10 +41,15 @@ function show(formattedToday: string): void {
   const banner = document.createElement('div');
   banner.className = 'spend-banner';
   banner.setAttribute('role', 'status');
-  banner.innerHTML = `
-    <span>Unusually high usage today (${escapeHtml(formattedToday)}). If this is unexpected, let the admin know.</span>
-    <button type="button" class="spend-banner-dismiss" aria-label="Dismiss for today">${CLOSE_ICON}</button>`;
-  banner.querySelector('.spend-banner-dismiss')?.addEventListener('click', () => dismiss(banner));
+  const dismissBtn = createElement('button', { type: 'button', class: 'spend-banner-dismiss', 'aria-label': 'Dismiss for today' });
+  setIcon(dismissBtn, CLOSE_ICON);
+  dismissBtn.addEventListener('click', () => dismiss(banner));
+  banner.append(
+    createElement('span', {}, [
+      `Unusually high usage today (${formattedToday}). If this is unexpected, let the admin know.`,
+    ]),
+    dismissBtn
+  );
   messages.parentElement.insertBefore(banner, messages);
 }
 

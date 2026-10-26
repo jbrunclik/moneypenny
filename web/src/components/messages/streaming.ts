@@ -2,7 +2,7 @@
  * Streaming message state management and updates.
  */
 
-import { getElementById, scrollToBottom, isScrolledToBottom, userScrolledRecently } from '../../utils/dom';
+import { createElement, getElementById, scrollToBottom, isScrolledToBottom, userScrolledRecently } from '../../utils/dom';
 import { onMessagesScroll, offMessagesScroll } from '../../utils/scroll-manager';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
@@ -19,7 +19,7 @@ import {
   setOnJumpToBottom,
   setStreamingPausedIndicator,
 } from '../ScrollToBottom';
-import { AI_AVATAR } from '../../utils/icons';
+import { AI_AVATAR, createIconElement } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
 import {
   SCROLL_BUTTON_SHOW_THRESHOLD_PX,
@@ -55,6 +55,16 @@ let currentStreamingContext: StreamingMessageContext | null = null;
  * @param conversationId - The ID of the conversation this streaming message belongs to
  * @returns Object with element and methods to update thinking state
  */
+/** The streaming bubble's avatar and content (an empty reply with the cursor). */
+function appendStreamingBubble(messageEl: HTMLElement): void {
+  messageEl.append(
+    createIconElement('message-avatar', AI_AVATAR, 'div'),
+    createElement('div', { class: 'message-content-wrapper' }, [
+      createElement('div', { class: 'message-content' }, [createElement('span', { class: 'streaming-cursor' })]),
+    ])
+  );
+}
+
 export function addStreamingMessage(
   conversationId: string,
   { anchor = true }: { anchor?: boolean } = {}
@@ -80,14 +90,7 @@ export function addStreamingMessage(
   const thinkingIndicator = createThinkingIndicator();
   const thinkingState = createThinkingState();
 
-  messageEl.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR}</div>
-    <div class="message-content-wrapper">
-      <div class="message-content">
-        <span class="streaming-cursor"></span>
-      </div>
-    </div>
-  `;
+  appendStreamingBubble(messageEl);
 
   // Insert thinking indicator at the start of message-content
   const contentEl = messageEl.querySelector('.message-content');
@@ -369,14 +372,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   const thinkingIndicator = createThinkingIndicator();
   const restoredThinkingState = thinkingState ?? createThinkingState();
 
-  messageEl.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR}</div>
-    <div class="message-content-wrapper">
-      <div class="message-content">
-        <span class="streaming-cursor"></span>
-      </div>
-    </div>
-  `;
+  appendStreamingBubble(messageEl);
 
   // Insert thinking indicator at the start of message-content
   const contentEl = messageEl.querySelector('.message-content');

@@ -1,5 +1,5 @@
-import { escapeHtml } from '../utils/dom';
-import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, getWeatherIcon, setIcon } from '../utils/icons';
+import { createElement, escapeHtml } from '../utils/dom';
+import { COPY_ICON, CHECK_ICON, REFRESH_ICON, CLEAR_ICON, CALENDAR_ICON, MAP_PIN_ICON, HEART_ICON, MOON_ICON, BATTERY_ICON, STRESS_ICON, READINESS_ICON, STEPS_ICON, createIconElement, getWeatherIcon, setIcon } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import { renderEmptyStateHtml } from './EmptyState';
 import type { PlannerDashboard, PlannerDay, PlannerEvent, PlannerTask, PlannerHealthSummary } from '../types/api';
@@ -568,16 +568,16 @@ export function createDashboardLoadingElement(): HTMLElement {
   const element = document.createElement('div');
   element.className = 'planner-dashboard-message loading';
   element.id = 'planner-dashboard';
-  element.innerHTML = `
-    <div class="dashboard-loading">
-      <div class="dashboard-loading-icon">${CALENDAR_ICON}</div>
-      <div class="dashboard-loading-dots">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-      <p class="dashboard-loading-text">Loading your schedule...</p>
-    </div>
-  `;
+  element.appendChild(
+    createElement('div', { class: 'dashboard-loading' }, [
+      createIconElement('dashboard-loading-icon', CALENDAR_ICON, 'div'),
+      createElement('div', { class: 'dashboard-loading-dots' }, [
+        createElement('span'),
+        createElement('span'),
+        createElement('span'),
+      ]),
+      createElement('p', { class: 'dashboard-loading-text' }, ['Loading your schedule...']),
+    ])
+  );
   return element;
 }

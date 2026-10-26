@@ -30,8 +30,10 @@ import {
   REFRESH_ICON,
   IMAGE_ICON,
   PHONE_ICON,
+  createIconElement,
+  setIcon,
 } from '../utils/icons';
-import { escapeHtml, isScrolledToBottom } from '../utils/dom';
+import { createElement, escapeHtml, isScrolledToBottom } from '../utils/dom';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
@@ -237,20 +239,30 @@ function renderLiveSkeleton(container: HTMLElement): void {
   container.classList.remove('finalized');
   renderedTraceHtml.delete(container);
   const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
-  container.innerHTML = `
-    <button class="thinking-live-expand" type="button" aria-expanded="${expanded}" aria-label="Show the full trace">
-      ${CHEVRON_RIGHT_ICON}
-    </button>
-    <div class="thinking-indicator-content">
-      <div class="thinking-trace">
-        <div class="thinking-trace-item active current">
-          <span class="thinking-icon">${BRAIN_ICON}</span>
-          <span class="thinking-label">Thinking</span>
-          <span class="thinking-dots"><span></span><span></span><span></span></span>
-        </div>
-      </div>
-    </div>
-  `;
+  const expand = createElement('button', {
+    class: 'thinking-live-expand',
+    type: 'button',
+    'aria-expanded': String(expanded),
+    'aria-label': 'Show the full trace',
+  });
+  setIcon(expand, CHEVRON_RIGHT_ICON);
+  const dots = createElement('span', { class: 'thinking-dots' }, [
+    createElement('span'),
+    createElement('span'),
+    createElement('span'),
+  ]);
+  container.replaceChildren(
+    expand,
+    createElement('div', { class: 'thinking-indicator-content' }, [
+      createElement('div', { class: 'thinking-trace' }, [
+        createElement('div', { class: 'thinking-trace-item active current' }, [
+          createIconElement('thinking-icon', BRAIN_ICON),
+          createElement('span', { class: 'thinking-label' }, ['Thinking']),
+          dots,
+        ]),
+      ]),
+    ])
+  );
 }
 
 function setLiveExpanded(container: HTMLElement, expanded: boolean): void {

@@ -2,9 +2,9 @@
  * Loading indicators for messages and conversations.
  */
 
-import { getElementById } from '../../utils/dom';
+import { createElement, getElementById } from '../../utils/dom';
 import { programmaticScrollToBottom } from '../../utils/thumbnails';
-import { AI_AVATAR } from '../../utils/icons';
+import { AI_AVATAR, createIconElement } from '../../utils/icons';
 import { anchorTurn } from './turn-anchor';
 
 /**
@@ -23,14 +23,14 @@ export function showLoadingIndicator(awaitingUpload = false): void {
   const loading = document.createElement('div');
   loading.className = 'message-loading';
   loading.classList.toggle('awaiting-upload', awaitingUpload);
-  loading.innerHTML = `
-    <div class="message-avatar">${AI_AVATAR}</div>
-    <div class="loading-dots">
-      <span></span>
-      <span></span>
-      <span></span>
-    </div>
-  `;
+  loading.append(
+    createIconElement('message-avatar', AI_AVATAR, 'div'),
+    createElement('div', { class: 'loading-dots' }, [
+      createElement('span'),
+      createElement('span'),
+      createElement('span'),
+    ])
+  );
   // A turn awaiting its reply anchors to the top like a streamed one
   // (send-to-top); the reply takes over the reserved space (batch-send.ts)
   const previous = container.lastElementChild;
