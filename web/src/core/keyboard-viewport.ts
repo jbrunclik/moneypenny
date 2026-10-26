@@ -195,7 +195,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb17]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb18]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -365,6 +365,29 @@ function resetStrayWindowScroll(currentInset: number, inset: number): void {
   }
 }
 
+/** An inset change on a turn sitting on its anchor (see update below). */
+function holdAnchorThroughInsetChange(
+  container: HTMLDivElement,
+  keyboardJustOpened: boolean,
+  signal: AbortSignal
+): void {
+  // Opening or closing: re-fit the reservation, back onto the anchor
+  const heldAt = performance.now();
+  requestAnimationFrame(() => holdTurnAnchor(container));
+  if (keyboardJustOpened) {
+    for (const delay of [150, 350, 600]) {
+      setTimeout(() => {
+        // The user scrolling right after focusing owns the position
+        // ...and a send glide in flight lands on its own (a hold jumped
+        // it to the end, its next frame pulled it back)
+        if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt) && !isSmoothScrolling()) {
+          holdTurnAnchor(container);
+        }
+      }, delay);
+    }
+  }
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -429,21 +452,7 @@ export function initKeyboardViewportPinning(): void {
     log.debug('Keyboard inset changed', { inset, wasAtBottom });
 
     if (atAnchor && container) {
-      // Opening or closing: re-fit the reservation, back onto the anchor
-      const heldAt = performance.now();
-      requestAnimationFrame(() => holdTurnAnchor(container));
-      if (keyboardJustOpened) {
-        for (const delay of [150, 350, 600]) {
-          setTimeout(() => {
-            // The user scrolling right after focusing owns the position
-            // ...and a send glide in flight lands on its own (a hold jumped
-            // it to the end, its next frame pulled it back)
-            if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt) && !isSmoothScrolling()) {
-              holdTurnAnchor(container);
-            }
-          }, delay);
-        }
-      }
+      holdAnchorThroughInsetChange(container, keyboardJustOpened, signal);
     }
 
     if (inset > 0) {
