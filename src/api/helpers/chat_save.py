@@ -309,6 +309,53 @@ def _resolve_title_update(
         return None
 
 
+def _visible_content(
+    content: str, all_generated_files: list[dict[str, Any]], stop_reason: str | None
+) -> str:
+    """The reply text to save: never empty for a files-only or stopped turn."""
+    # A turn that only produced files still needs visible text
+    if not content and all_generated_files:
+        content = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
+    # Stopped before any text: keep the turn visible so Continue works
+    if stop_reason and not content.strip():
+        content = STOPPED_EMPTY_TEXT
+    return content
+
+
+def _price_reply(
+    message_id: str,
+    conv_id: str,
+    user_id: str,
+    model: str,
+    usage: dict[str, Any],
+    full_tool_results: list[dict[str, Any]],
+    content: str,
+    mode: str,
+    research: dict[str, Any] | None,
+) -> None:
+    """Record the reply's cost, and a deep-research run's cost on its spec."""
+    # Calculate and save cost for streaming (use full_tool_results for image cost)
+    cost_usd = calculate_and_save_message_cost(
+        message_id,
+        conv_id,
+        user_id,
+        # The model that wrote the answer: the other tier when the
+        # turn's model was down, the deep-research writer for a report
+        usage.get("model_fallback") or usage.get("answer_model") or model,
+        usage,
+        full_tool_results,
+        len(content),
+        mode=mode,
+    )
+    if usage.get("research_run"):
+        _log_research_run(usage["research_run"], cost_usd, message_id)
+        # The spec's run.cost_usd, known only once the message is priced
+        db.set_message_research(
+            message_id,
+            {**(research or {}), "run": {**usage["research_run"], "cost_usd": cost_usd}},
+        )
+
+
 def save_message_to_db(
     content: str,
     result_messages: list[Any],
@@ -354,12 +401,7 @@ def save_message_to_db(
         all_generated_files, full_tool_results = _collect_generated_files(
             stream_request_id, user_id, conv_id
         )
-        # A turn that only produced files still needs visible text
-        if not content and all_generated_files:
-            content = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
-        # Stopped before any text: keep the turn visible so Continue works
-        if stop_reason and not content.strip():
-            content = STOPPED_EMPTY_TEXT
+        content = _visible_content(content, all_generated_files, stop_reason)
         research = _research_for_turn(conv_id, user_id, result_messages, usage, message_text)
         artifacts = extract_artifact_refs(result_messages)
         if usage.get("research_sources") is not None:
@@ -383,26 +425,17 @@ def save_message_to_db(
         # The versions follow this reply (cleanup on delete/regenerate)
         db.link_artifact_versions(assistant_msg.id, [(a["id"], a["version"]) for a in artifacts])
 
-        # Calculate and save cost for streaming (use full_tool_results for image cost)
-        cost_usd = calculate_and_save_message_cost(
+        _price_reply(
             assistant_msg.id,
             conv_id,
             user_id,
-            # The model that wrote the answer: the other tier when the
-            # turn's model was down, the deep-research writer for a report
-            usage.get("model_fallback") or usage.get("answer_model") or model,
+            model,
             usage,
             full_tool_results,
-            len(content),
-            mode=mode,
+            content,
+            mode,
+            research,
         )
-        if usage.get("research_run"):
-            _log_research_run(usage["research_run"], cost_usd, assistant_msg.id)
-            # The spec's run.cost_usd, known only once the message is priced
-            db.set_message_research(
-                assistant_msg.id,
-                {**(research or {}), "run": {**usage["research_run"], "cost_usd": cost_usd}},
-            )
 
         generated_title = _resolve_title_update(
             conv_id, user_id, message_text, content, result_messages
