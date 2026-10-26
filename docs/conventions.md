@@ -40,7 +40,7 @@ session and points here for the rest.
 | S5 | Every outbound call has an explicit timeout, LLM clients included (Gemini: `GEMINI_REQUEST_TIMEOUT_SECONDS`, per read) | test (`test_outbound_timeouts.py`) |
 | S6 | Model output never loads external resources by itself (external markdown images render as links; CSP `img-src` allows only the app and Google profile photos) | test (`markdown.test.ts`, `test_security_headers.py`) |
 | S7 | Production requires a valid `TOKEN_ENCRYPTION_KEY` | test (`test_config.py`) |
-| S8 | Logging follows the [privacy policy below](#logging-and-privacy) | test (`test_log_fields.py`: no email, credential or whole-text fields); judgment for truncation |
+| S8 | Logging follows the [privacy policy below](#logging-and-privacy) | test (`test_log_fields.py`, and `web/tests/unit/log-fields.test.ts` for client logs: no email, credential or whole-text fields); judgment for truncation |
 | S9 | No secrets or infrastructure details in tracked files or commit messages (the repo is public) | CI (gitleaks + a `FORBIDDEN_PATTERNS` secret scan); gitleaks on commit locally |
 | S10 | Public API docs (`/api/docs`, `/api/openapi.json`) are off in production | test (`test_security_headers.py`) |
 | S11 | Deploys can't overlap and can be rolled back (lock, previous SHA, backup before migrations, assets swapped without a gap) | `make update` / `make rollback` ([deployment.md](deployment.md#deploying-and-rolling-back)) |

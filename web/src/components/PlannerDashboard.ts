@@ -530,7 +530,7 @@ function setupCopyHandlers(container: HTMLElement): void {
         copyBtn.classList.remove('copied');
       }, 2000);
 
-      log.debug('Copied to clipboard', { text: copyText });
+      log.debug('Copied to clipboard', { length: copyText.length });
     } catch (err) {
       log.error('Failed to copy to clipboard', { error: err });
     }

@@ -127,7 +127,7 @@ export async function checkAuth(): Promise<boolean> {
 
   try {
     const user = await auth.me();
-    log.info('User authenticated', { userId: user.id, email: user.email });
+    log.info('User authenticated', { userId: user.id });
     store.setUser(user);
 
     // Schedule automatic token refresh for existing valid token (read after
