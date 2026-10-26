@@ -23,7 +23,7 @@ vi.mock('@/api/conversations', () => ({
 }));
 vi.mock('@/core/stream-send', () => ({ sendStreamingMessage: vi.fn(() => Promise.resolve()) }));
 vi.mock('@/core/batch-send', () => ({ sendBatchMessage: vi.fn(() => Promise.resolve()) }));
-vi.mock('@/core/location', () => ({ getClientLocation: vi.fn(() => Promise.resolve(null)) }));
+vi.mock('@/utils/location', () => ({ getClientLocation: vi.fn(() => Promise.resolve(null)) }));
 vi.mock('@/components/Sidebar', () => ({ renderConversationsList: vi.fn(), setActiveConversation: vi.fn() }));
 vi.mock('@/components/messages', () => ({
   addMessageToUI: vi.fn(),

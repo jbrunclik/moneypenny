@@ -15,7 +15,7 @@ import {
   DEEP_RESEARCH_MAX_ITEM_CHARS,
   DEEP_RESEARCH_MAX_SUB_QUESTIONS,
 } from '../../config';
-import { findActionReply } from '../../core/message-links';
+import { findActionReply } from './message-links';
 import { useStore } from '../../state/store';
 import { flashElement } from './action-row';
 import type { Message, MessageResearch, ResearchOffer, ResearchRates } from '../../types/api';

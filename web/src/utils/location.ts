@@ -13,7 +13,7 @@ import {
   LOCATION_MAX_AGE_MS,
 } from '../config';
 import type { ClientLocation } from '../types/api';
-import { createLogger } from '../utils/logger';
+import { createLogger } from './logger';
 
 const log = createLogger('location');
 const STORAGE_KEY = 'location_sharing_enabled';

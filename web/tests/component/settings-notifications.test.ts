@@ -5,10 +5,10 @@
  * WhatsApp number (shown only when available, saved on blur when changed).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { PushState } from '@/core/push';
-import type { UserSettings } from '@/types/api';
+import type { PushState, UserSettings } from '@/types/api';
 
 const push = vi.hoisted(() => ({
+  getPushState: vi.fn<() => Promise<PushState>>(),
   enablePush: vi.fn<() => Promise<PushState>>(),
   disablePush: vi.fn<() => Promise<PushState>>(),
   sendTestNotification: vi.fn<() => Promise<string>>(),
@@ -16,17 +16,26 @@ const push = vi.hoisted(() => ({
 const settingsApi = vi.hoisted(() => ({ update: vi.fn<(data: Partial<UserSettings>) => Promise<void>>() }));
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 
-vi.mock('@/core/push', () => push);
 vi.mock('@/api/settings', () => ({ settings: settingsApi }));
 vi.mock('@/components/Toast', () => ({ toast: toastMock }));
 
 import {
   bindWhatsappField,
+  fetchPushState,
   handleNotificationsChange,
   handleNotificationsClick,
   loadNotificationSettings,
   renderNotificationsSection,
+  setPushControls,
 } from '@/components/settings/notifications';
+
+// What core/startup passes in (core/push)
+setPushControls({
+  getState: push.getPushState,
+  enable: push.enablePush,
+  disable: push.disablePush,
+  sendTest: push.sendTestNotification,
+});
 
 function load(data: Partial<UserSettings>, state: PushState = 'not-subscribed'): void {
   loadNotificationSettings(data as UserSettings, state);
@@ -64,6 +73,11 @@ describe('push section', () => {
     load({}, state);
     mount();
     expect(pushBodyText()).toContain(text);
+  });
+
+  it("reads this device's push state through the controls startup passes in", async () => {
+    push.getPushState.mockResolvedValue('subscribed');
+    await expect(fetchPushState()).resolves.toBe('subscribed');
   });
 
   it('enables push and re-renders the section', async () => {

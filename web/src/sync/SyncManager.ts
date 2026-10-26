@@ -13,7 +13,6 @@
 
 import { conversations as conversationsApi } from '../api/conversations';
 import { useStore } from '../state/store';
-import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
 import {
   SYNC_POLL_INTERVAL_MS,
@@ -21,7 +20,7 @@ import {
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
 import type { ConversationSummary } from '../types/api';
-import { type StreamRecoveryHooks, SyncState, type SyncManagerCallbacks } from './sync-state';
+import { type StreamRecoveryHooks, SyncState, type SyncManagerCallbacks, type SyncNotifier } from './sync-state';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
@@ -70,10 +69,10 @@ export class SyncManager {
   /** Stopped (logout) - a start still awaiting its first sync must not go on. */
   private stopped = false;
 
-  constructor(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks) {
+  constructor(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks, notifier: SyncNotifier) {
     this.callbacks = callbacks;
     this.recovery = recovery;
-    this.state = new SyncState(callbacks, toast, recovery.cancel);
+    this.state = new SyncState(callbacks, notifier, recovery.cancel);
     this.planner = new PlannerSync(callbacks);
     this.agentConversation = new AgentConversationSync(this.state);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
@@ -578,13 +577,18 @@ export class SyncManager {
 let syncManagerInstance: SyncManager | null = null;
 
 /**
- * Initialize the global SyncManager instance.
+ * Initialize the global SyncManager instance. The notifier shows its toasts
+ * (passed in: sync never imports UI, F1).
  */
-export function initSyncManager(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks): SyncManager {
+export function initSyncManager(
+  callbacks: SyncManagerCallbacks,
+  recovery: StreamRecoveryHooks,
+  notifier: SyncNotifier
+): SyncManager {
   if (syncManagerInstance) {
     syncManagerInstance.stop();
   }
-  syncManagerInstance = new SyncManager(callbacks, recovery);
+  syncManagerInstance = new SyncManager(callbacks, recovery, notifier);
   return syncManagerInstance;
 }
 

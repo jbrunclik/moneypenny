@@ -132,7 +132,7 @@ vi.mock('@/core/toolbar', () => ({
   resetForceTools: vi.fn(),
 }));
 
-vi.mock('@/core/location', () => ({
+vi.mock('@/utils/location', () => ({
   getClientLocation: vi.fn(async () => null),
 }));
 

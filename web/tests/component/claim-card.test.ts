@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/core/messaging', () => ({ sendUiMessage: vi.fn(() => Promise.resolve(true)) }));
-import { sendUiMessage } from '@/core/messaging';
 import { initClaimCard } from '@/components/ClaimCard';
 import { decorateGrounding } from '@/components/messages/grounding';
+
+// The sender core/startup passes in (core/messaging's sendUiMessage)
+const sendUiMessage = vi.fn((_text: string, _extras: object) => Promise.resolve(true));
 
 function setup(): HTMLElement {
   document.body.innerHTML = '<div id="messages"></div>';
@@ -18,7 +19,7 @@ function setup(): HTMLElement {
       { type: 'claim', verdict: 'supported', quote: 'Kurýr', source: 1, source_quote: 'Kurýr vyzvedne' },
     ],
   });
-  initClaimCard();
+  initClaimCard({ send: sendUiMessage });
   return msg;
 }
 
@@ -109,10 +110,10 @@ describe('ClaimCard', () => {
       grounding: { checked: true, source_count: 1 },
       annotations: [{ type: 'claim', verdict: 'not_found', quote: '**PřepiServis**' }],
     });
-    initClaimCard();
+    initClaimCard({ send: sendUiMessage });
     (document.querySelector('.claim') as HTMLElement).click();
     (document.querySelector('#claim-card .claim-card__lookup') as HTMLButtonElement).click();
-    expect(vi.mocked(sendUiMessage).mock.lastCall?.[0]).toBe('Look up and verify: PřepiServis');
+    expect(sendUiMessage.mock.lastCall?.[0]).toBe('Look up and verify: PřepiServis');
   });
 
   it('a claim without a reason still explains itself', () => {
@@ -125,7 +126,7 @@ describe('ClaimCard', () => {
       grounding: { checked: true, source_count: 1 },
       annotations: [{ type: 'claim', verdict: 'not_found', quote: '1 200 Kč' }],
     });
-    initClaimCard();
+    initClaimCard({ send: sendUiMessage });
     (document.querySelector('.claim') as HTMLElement).click();
     expect(document.querySelector('#claim-card .claim-card__reason')!.textContent).toContain('Not found in the pages I read');
   });

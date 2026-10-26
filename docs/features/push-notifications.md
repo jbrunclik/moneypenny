@@ -62,7 +62,10 @@ are already in place.
   States: `subscribed`, `not-subscribed`, `denied`, `ios-needs-install`,
   `server-disabled`, `unsupported`.
 - `web/src/components/settings/notifications.ts` — Notifications section
-  rendering per state, with enable/disable toggle and test send.
+  rendering per state, with enable/disable toggle and test send. It reaches
+  `core/push` only through the `PushControls` that
+  `core/startup/app-status.ts` passes to `setPushControls()` (F1); the
+  `PushState` type lives in `types/api.ts`.
 
 ### Payload
 

@@ -102,7 +102,7 @@ The AI generates interactive quizzes using ` ```quiz ` fenced code blocks with J
 ### Evaluation Flow
 
 1. The `marked` renderer intercepts `lang === 'quiz'` code blocks
-2. `renderQuizBlock()` in `QuizBlock.ts` parses the JSON and returns HTML
+2. `renderQuizBlock()` in `QuizBlock.ts` parses the JSON and returns HTML (`core/startup/message-ui.ts` hands it to `utils/markdown.ts` via `setQuizRenderer`, since utils never imports UI)
 3. Event delegation on `#messages` handles `.quiz-option`, `.quiz-submit`, and `.quiz-continue` clicks
 4. User clicks/submits answers — UI locks them in with neutral "submitted" styling (no correct/incorrect)
 5. After all questions are answered, a "Continue" button appears

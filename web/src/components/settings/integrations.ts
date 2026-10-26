@@ -3,7 +3,7 @@ import {
   isLocationSharingEnabled,
   requestLocationFix,
   setLocationSharingEnabled,
-} from '../../core/location';
+} from '../../utils/location';
 import { toast } from '../Toast';
 import { renderCalendarField } from './calendar';
 import { renderGarminField } from './garmin';

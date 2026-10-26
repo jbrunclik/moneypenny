@@ -6,8 +6,8 @@
  */
 import { fetchArtifactVersion } from '../../api/artifacts';
 import { ARTIFACT_PLACEHOLDER_HEIGHT_PX, ARTIFACT_SOURCE_URL_TTL_MS } from '../../config';
-import { applyFrameTheme, currentTheme, observeTheme, registerFrame } from '../../core/artifact-host';
-import { getCachedHeight, heightCacheKey, setCachedHeight } from '../../core/artifact-height';
+import { applyFrameTheme, currentTheme, observeTheme, registerFrame } from './artifact-host';
+import { getCachedHeight, heightCacheKey, setCachedHeight } from './artifact-height';
 import type { ArtifactRef } from '../../types/api';
 import { flashElement } from './action-row';
 

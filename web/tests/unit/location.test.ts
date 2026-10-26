@@ -9,7 +9,7 @@ import {
   isLocationSharingEnabled,
   requestLocationFix,
   setLocationSharingEnabled,
-} from '../../src/core/location';
+} from '../../src/utils/location';
 
 function mockGeolocation(
   impl: (success: PositionCallback, error?: PositionErrorCallback) => void

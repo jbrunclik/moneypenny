@@ -101,11 +101,11 @@ const SYNC_CALLBACKS: SyncManagerCallbacks = {
  * Create the sync manager and start polling.
  */
 export function startSync(): void {
-  initSyncManager(SYNC_CALLBACKS, {
-    hasPending: hasPendingRecovery,
-    attempt: attemptRecovery,
-    cancel: cancelRecovery,
-  });
+  initSyncManager(
+    SYNC_CALLBACKS,
+    { hasPending: hasPendingRecovery, attempt: attemptRecovery, cancel: cancelRecovery },
+    toast
+  );
   // Unhandled rejection here would silently disable sync for the session
   getSyncManager()
     ?.start()

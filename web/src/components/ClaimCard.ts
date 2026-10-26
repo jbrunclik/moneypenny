@@ -4,14 +4,16 @@
  * on #messages; hover opens on devices that hover, tap/click everywhere.
  */
 import { CLAIM_CARD_HOVER_DELAY_MS } from '../config';
-import { findActionReply } from '../core/message-links';
-import { sendUiMessage } from '../core/messaging';
+import { findActionReply } from './messages/message-links';
 import { useStore } from '../state/store';
-import type { ClaimAnnotation, Source } from '../types/api';
+import type { ClaimAnnotation, SendExtras, Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
+import { createLogger } from '../utils/logger';
 import { flashElement } from './messages/action-row';
 import { displayHost, getMessageAnnotations } from './messages/annotations';
 import { groundingStrings } from './messages/grounding-strings';
+
+const log = createLogger('claim-card');
 
 const CARD_ID = 'claim-card';
 const TARGET_SELECTOR = '.claim, .claim-cite';
@@ -118,7 +120,7 @@ function openClaimCard(target: HTMLElement, focus = false): void {
   card.querySelector('.claim-card__lookup')?.addEventListener('click', () => {
     closeClaimCard();
     const quote = plainQuote(ctx.ann.quote);
-    void sendUiMessage(groundingStrings().lookUpMessage(quote), {
+    void lookUp(groundingStrings().lookUpMessage(quote), {
       action: { type: 'verify_claim', source_message_id: ctx.messageId ?? null, claim_index: ctx.index, quote },
     });
   });
@@ -183,7 +185,23 @@ function initHover(messages: HTMLElement): void {
   });
 }
 
-export function initClaimCard(): void {
+/** What the card does that the layers above own (passed in at startup, F1). */
+export interface ClaimCardActions {
+  /** Send "Look it up" as the user's message (core/messaging) */
+  send: (text: string, extras: SendExtras) => Promise<boolean>;
+}
+let actions: ClaimCardActions | null = null;
+
+function lookUp(text: string, extras: SendExtras): Promise<boolean> {
+  if (!actions) {
+    log.debug('Claim card actions not set');
+    return Promise.resolve(false);
+  }
+  return actions.send(text, extras);
+}
+
+export function initClaimCard(cardActions: ClaimCardActions): void {
+  actions = cardActions;
   const messages = document.getElementById('messages');
   if (!messages) return;
   messages.addEventListener('click', onClaimClick);

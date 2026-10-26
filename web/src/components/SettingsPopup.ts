@@ -7,7 +7,6 @@ import { createElement, getElementById } from '../utils/dom';
 import { SETTINGS_ICON, CLOSE_ICON, createIconElement, setIcon } from '../utils/icons';
 import { todoist, calendar, garmin, rouvy } from '../api/integrations';
 import { settings } from '../api/settings';
-import { type PushState, getPushState } from '../core/push';
 import {
   getStoredColorScheme,
   applyColorScheme,
@@ -35,11 +34,13 @@ import { handleGarminClick, resetGarminState } from './settings/garmin';
 import { handleRouvyClick, setRouvyStatus } from './settings/rouvy';
 import {
   bindWhatsappField,
+  fetchPushState,
   handleNotificationsChange,
   handleNotificationsClick,
   loadNotificationSettings,
   renderNotificationsSection,
 } from './settings/notifications';
+import type { PushState } from '../types/api';
 import {
   bindInstructionsField,
   getInstructionsLength,
@@ -117,7 +118,7 @@ async function loadAllSettings(): Promise<{ calendarConnected: boolean }> {
     statusOrNull(calendar.getStatus(), 'Google Calendar'),
     statusOrNull(garmin.getStatus(), 'Garmin'),
     statusOrNull(rouvy.getStatus(), 'Rouvy'),
-    getPushState().catch((err): PushState => {
+    fetchPushState().catch((err): PushState => {
       log.warn('Failed to determine push state', { error: err });
       return 'unsupported';
     }),

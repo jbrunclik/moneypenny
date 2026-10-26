@@ -12,20 +12,13 @@
  */
 
 import { push as pushApi } from '../api/push';
+import type { PushState } from '../types/api';
 import { createLogger } from '../utils/logger';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';
 import { reloadCurrentConversation } from './conversation';
 
 const log = createLogger('push');
-
-export type PushState =
-  | 'unsupported'
-  | 'ios-needs-install'
-  | 'server-disabled'
-  | 'denied'
-  | 'subscribed'
-  | 'not-subscribed';
 
 function isSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;

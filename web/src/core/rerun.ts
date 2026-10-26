@@ -12,7 +12,7 @@ import { toast } from '../components/Toast';
 import { hideLoadingIndicator, removeRenderedMessagesFrom } from '../components/messages';
 import { beginInlineEdit } from '../components/messages/edit';
 import { getElementById } from '../utils/dom';
-import { getClientLocation } from './location';
+import { getClientLocation } from '../utils/location';
 import { removeOutboxEntry, restoreOutboxEntry } from './outbox';
 import { resetAutoRetry } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';

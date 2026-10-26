@@ -285,8 +285,10 @@ function openDocumentPreview(el: HTMLElement, e: MouseEvent): void {
   if (fileType === 'application/pdf') {
     // A stale chunk resolves the import with undefined (the vite:preloadError
     // handler prevented the error to reload the page): nothing to open
+    const index = parseInt(fileIndex, 10);
+    const name = fileName || 'file.pdf';
     void import('../components/PdfViewer').then((mod: typeof import('../components/PdfViewer') | undefined) =>
-      mod?.openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
+      mod?.openPdfViewer(messageId, index, name, () => void downloadFile(messageId, index, name))
     );
   } else {
     void openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');

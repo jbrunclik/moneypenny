@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCachedHeight, heightCacheKey, setCachedHeight } from '@/core/artifact-height';
+import { getCachedHeight, heightCacheKey, setCachedHeight } from '@/components/messages/artifact-height';
 
 const REF = { id: 'a', version: 2, title: 'Tips' };
 

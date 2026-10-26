@@ -45,7 +45,7 @@ Where the code and the spec differ, the code wins; the differences are noted bel
    `<iframe sandbox="allow-scripts" src="/artifact-frame?theme=...">`. The shell
    page is the same for every artifact and never fetches user data.
 7. **`postMessage` init.** The frame posts `mp:ready`;
-   [artifact-host.ts](../../web/src/core/artifact-host.ts) fetches
+   [artifact-host.ts](../../web/src/components/messages/artifact-host.ts) fetches
    `GET /api/artifacts/<id>/versions/<v>` (`{id, version, title, html, state}`)
    with the user's token and posts `mp:init {html, theme, state}`. The frame's
    loader ([loader.ts](../../web/src/artifact/loader.ts)) moves the HTML into the
@@ -221,7 +221,7 @@ guards the wording.
   (80% of the viewport); taller artifacts scroll inside the frame. Rotation and
   resizes re-measure through the same `ResizeObserver`.
 - A per-device cache in `localStorage` (`artifact-heights`,
-  [artifact-height.ts](../../web/src/core/artifact-height.ts)) keyed by
+  [artifact-height.ts](../../web/src/components/messages/artifact-height.ts)) keyed by
   `id@version:<width bucket>` (`ARTIFACT_HEIGHT_WIDTH_BUCKET_PX`) reserves the
   height before the first report, so a reload does not jolt; a miss reserves
   `ARTIFACT_PLACEHOLDER_HEIGHT_PX`. The oldest entries beyond

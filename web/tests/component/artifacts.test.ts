@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/core/artifact-host', () => ({
+vi.mock('@/components/messages/artifact-host', () => ({
   registerFrame: vi.fn(() => () => {}),
   observeTheme: vi.fn(),
   currentTheme: vi.fn(() => 'dark'),
@@ -7,7 +7,7 @@ vi.mock('@/core/artifact-host', () => ({
     frame.style.colorScheme = theme;
   }),
 }));
-import { registerFrame } from '@/core/artifact-host';
+import { registerFrame } from '@/components/messages/artifact-host';
 import {
   addLiveArtifact,
   artifactCopyText,

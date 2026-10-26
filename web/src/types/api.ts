@@ -192,6 +192,15 @@ interface DeepResearchAction {
 /** What a user message sent on the user's behalf was (rendered as an action row) */
 export type MessageAction = VerifyClaimAction | DeepResearchAction;
 
+/** This device's Web Push state, as the settings show it (core/push) */
+export type PushState =
+  | 'unsupported'
+  | 'ios-needs-install'
+  | 'server-disabled'
+  | 'denied'
+  | 'subscribed'
+  | 'not-subscribed';
+
 /** What a send carries besides the text */
 export interface SendExtras {
   deepResearch?: DeepResearchStart;

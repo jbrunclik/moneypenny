@@ -4,8 +4,8 @@
  * is "null" and says nothing). A frame gets its HTML, theme and saved state
  * when it says ready; what it asks for (send, state, links) is checked here.
  */
-import { fetchArtifactVersion, saveArtifactState } from '../api/artifacts';
-import { type ArtifactTheme, type FromFrame, isFromFrame, type ToFrame } from '../artifact/protocol';
+import { fetchArtifactVersion, saveArtifactState } from '../../api/artifacts';
+import { type ArtifactTheme, type FromFrame, isFromFrame, type ToFrame } from '../../artifact/protocol';
 import {
   ARTIFACT_MAX_HEIGHT_VH,
   ARTIFACT_MIN_HEIGHT_PX,
@@ -13,9 +13,9 @@ import {
   ARTIFACT_SEND_MAX_CHARS,
   ARTIFACT_SEND_MIN_INTERVAL_MS,
   ARTIFACT_STATE_SAVE_DEBOUNCE_MS,
-} from '../config';
-import type { ArtifactRef } from '../types/api';
-import { createLogger } from '../utils/logger';
+} from '../../config';
+import type { ArtifactRef } from '../../types/api';
+import { createLogger } from '../../utils/logger';
 
 const log = createLogger('artifacts');
 

@@ -4,7 +4,7 @@
  * the toggle back off (with the reason) when the browser can't give one.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { LocationFixResult } from '@/core/location';
+import type { LocationFixResult } from '@/utils/location';
 
 const location = vi.hoisted(() => ({
   isLocationSharingEnabled: vi.fn(() => false),
@@ -13,7 +13,7 @@ const location = vi.hoisted(() => ({
 }));
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
-vi.mock('@/core/location', () => location);
+vi.mock('@/utils/location', () => location);
 vi.mock('@/components/Toast', () => ({ toast: toastMock }));
 vi.mock('@/components/settings/todoist', () => ({ renderTodoistField: () => '<div data-section="todoist"></div>' }));
 vi.mock('@/components/settings/calendar', () => ({

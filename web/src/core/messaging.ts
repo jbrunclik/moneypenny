@@ -46,7 +46,7 @@ import {
   getOutboxEntry,
   markOutboxPending,
 } from './outbox';
-import { getClientLocation } from './location';
+import { getClientLocation } from '../utils/location';
 import { resetForceTools } from './toolbar';
 import { claimAutoRetry, confirmDelivery, markSendFailed } from './send-delivery';
 import { sendStreamingMessage } from './stream-send';

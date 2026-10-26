@@ -76,7 +76,7 @@ stays the plain instruction the model sees.
   claim (`claim--flash`) or the message (`message--flash`). Rows keep the
   `message user` classes plus `message--action`, so send state, Retry and
   Discard work unchanged.
-- **Forward links** ([message-links.ts](../../web/src/core/message-links.ts)
+- **Forward links** ([message-links.ts](../../web/src/components/messages/message-links.ts)
   `findActionReply()`): the reply is the next assistant message after the
   latest action pointing at the source. The claim card shows "Looked up below
   ↓"; a started offer shows "Report below ↓" (on render, and via

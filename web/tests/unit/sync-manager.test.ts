@@ -43,24 +43,16 @@ vi.mock('@/api/agents', () => ({
   },
 }));
 
-// Mock the toast component
-vi.mock('@/components/Toast', () => ({
-  toast: {
-    warning: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-    info: vi.fn(),
-  },
-}));
-
 // Import after mocks are set up
 import { SyncManager } from '@/sync/SyncManager';
-import type { StreamRecoveryHooks, SyncManagerCallbacks } from '@/sync/sync-state';
+import type { StreamRecoveryHooks, SyncManagerCallbacks, SyncNotifier } from '@/sync/sync-state';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { planner as plannerApi } from '@/api/planner';
 import { agents as agentsApi } from '@/api/agents';
-import { toast } from '@/components/Toast';
 import { attemptRecovery, cancelRecovery, hasPendingRecovery, markStreamForRecovery } from '@/core/stream-recovery';
+
+// The notifier core/startup passes in (the UI's toast)
+const toast = { info: vi.fn(), warning: vi.fn() } satisfies SyncNotifier;
 
 const RECOVERY: StreamRecoveryHooks = {
   hasPending: hasPendingRecovery,
@@ -189,7 +181,7 @@ describe('SyncManager', () => {
       const serverConvs = [createConversationSummary('conv-1', 'Test', 5)];
       mockSync.mockResolvedValue(createSyncResponse(serverConvs));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       expect(mockSync).toHaveBeenCalledWith(null, true);
@@ -204,7 +196,7 @@ describe('SyncManager', () => {
       const serverConvs = [createConversationSummary('conv-1', 'Updated', 5)];
       mockSync.mockResolvedValue(createSyncResponse(serverConvs));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Conversation should be updated, not added
@@ -216,7 +208,7 @@ describe('SyncManager', () => {
     });
 
     it('schedules polling after start', async () => {
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Advance timer past poll interval
@@ -231,7 +223,7 @@ describe('SyncManager', () => {
 
   describe('stop', () => {
     it('clears poll timer', async () => {
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.stop();
 
@@ -253,7 +245,7 @@ describe('SyncManager', () => {
       // Server returns empty list
       mockSync.mockResolvedValue(createSyncResponse([]));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.fullSync();
 
       // Local conversation should be removed
@@ -268,7 +260,7 @@ describe('SyncManager', () => {
       // Server returns empty list (conversation was deleted)
       mockSync.mockResolvedValue(createSyncResponse([]));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.fullSync();
 
       expect(toast.warning).toHaveBeenCalledWith('This conversation was deleted.');
@@ -282,7 +274,7 @@ describe('SyncManager', () => {
       // Server returns empty list
       mockSync.mockResolvedValue(createSyncResponse([]));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.fullSync();
 
       // Temp conversation should not be removed
@@ -293,7 +285,7 @@ describe('SyncManager', () => {
 
   describe('incrementalSync', () => {
     it('performs full sync if no previous sync time', async () => {
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       // Don't call start, so no lastSyncTime
       await syncManager.incrementalSync();
 
@@ -309,7 +301,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       mockSync.mockClear();
@@ -326,7 +318,7 @@ describe('SyncManager', () => {
       useStore.getState().addConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([], true));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Incremental sync returns updated conversation
@@ -351,7 +343,7 @@ describe('SyncManager', () => {
 
       // Mark the conversation as read with 5 messages
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -374,7 +366,7 @@ describe('SyncManager', () => {
       useStore.getState().setCurrentConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -400,7 +392,7 @@ describe('SyncManager', () => {
 
       // Mark the conversation as read with 5 messages
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -436,7 +428,7 @@ describe('SyncManager', () => {
 
       // Mark the conversation as read with 5 messages
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -476,7 +468,7 @@ describe('SyncManager', () => {
 
       // Start sync manager (initializes with existing conversations)
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Mark as read with current message count
@@ -495,7 +487,7 @@ describe('SyncManager', () => {
       useStore.getState().addConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       syncManager.incrementLocalMessageCount('conv-1', 2);
@@ -508,7 +500,7 @@ describe('SyncManager', () => {
   describe('visibility change handling', () => {
     it('performs full sync after long inactivity', async () => {
       mockSync.mockResolvedValue(createSyncResponse([]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       mockSync.mockClear();
@@ -543,7 +535,7 @@ describe('SyncManager', () => {
         server_time: serverTime,
         is_full_sync: true,
       });
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       mockSync.mockClear();
@@ -577,7 +569,7 @@ describe('SyncManager', () => {
     it('continues on sync failure', async () => {
       mockSync.mockRejectedValue(new Error('Network error'));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       // Should not throw
       await expect(syncManager.fullSync()).resolves.not.toThrow();
     });
@@ -588,7 +580,7 @@ describe('SyncManager', () => {
 
       mockSync.mockRejectedValue(new Error('Network error'));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.fullSync();
 
       // Conversation should still exist
@@ -606,7 +598,7 @@ describe('SyncManager', () => {
       });
       mockSync.mockReturnValueOnce(slowSyncPromise);
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
 
       // Start first sync (will be slow)
       const firstSync = syncManager.fullSync();
@@ -626,7 +618,7 @@ describe('SyncManager', () => {
     it('allows sync after previous sync completes', async () => {
       mockSync.mockResolvedValue(createSyncResponse([]));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.fullSync();
       mockSync.mockClear();
 
@@ -644,7 +636,7 @@ describe('SyncManager', () => {
       mockSync.mockResolvedValue(
         createSyncResponse([createConversationSummary('conv-1', 'Updated Title', 10)])
       );
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       mockSync.mockClear();
@@ -671,7 +663,7 @@ describe('SyncManager', () => {
       mockSync.mockResolvedValue(
         createSyncResponse([createConversationSummary('conv-1', 'Test', 5)])
       );
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Mark as streaming then clear it
@@ -701,7 +693,7 @@ describe('SyncManager', () => {
           createConversationSummary('conv-2', 'Test 2', 3),
         ])
       );
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Mark only conv-1 as streaming
@@ -735,7 +727,7 @@ describe('SyncManager', () => {
       useStore.getState().setCurrentConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -773,7 +765,7 @@ describe('SyncManager', () => {
         server_time: serverTime,
         is_full_sync: true,
       });
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -824,7 +816,7 @@ describe('SyncManager', () => {
       useStore.getState().setCurrentConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -866,7 +858,7 @@ describe('SyncManager', () => {
       useStore.getState().setCurrentConversation(conv);
 
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
 
@@ -919,7 +911,7 @@ describe('SyncManager', () => {
 
       mockSync.mockResolvedValue(syncResponse);
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // The existing conversation should be updated, not added
@@ -953,7 +945,7 @@ describe('SyncManager', () => {
 
       mockSync.mockResolvedValue(createSyncResponse([recentSummary, oldSummary]));
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Verify both conversations are updated, not duplicated
@@ -994,7 +986,7 @@ describe('SyncManager', () => {
 
       mockSync.mockResolvedValue(syncResponse);
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Verify only existing conversation exists (others not added by full sync)
@@ -1033,7 +1025,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Verify only existing conversation exists after full sync
@@ -1090,7 +1082,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Test case 1: updated_at exactly at buffer boundary (initialLoadTime - 5 seconds)
@@ -1141,7 +1133,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Verify initialLoadTime is set
@@ -1179,7 +1171,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Mark as read
@@ -1222,7 +1214,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Incremental sync: Conversation with invalid timestamp
@@ -1259,7 +1251,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Incremental sync: Discover actually new conversation with 10 messages
@@ -1317,7 +1309,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
       });
 
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Simulate user scrolling and loading old conversation via pagination
@@ -1374,7 +1366,7 @@ describe('SyncManager', () => {
       mockSync.mockResolvedValue(
         createSyncResponse([createConversationSummary('conv-1', 'Test', 100)])
       );
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // CORRECT: Mark as read with TOTAL count (100), not paginated count (50)
@@ -1416,7 +1408,7 @@ describe('SyncManager', () => {
       mockSync.mockResolvedValue(
         createSyncResponse([createConversationSummary('conv-1', 'Test', 100)])
       );
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // BUG: Mark as read with PAGINATED count (50) instead of total (100)
@@ -1452,7 +1444,7 @@ describe('SyncManager', () => {
       const old = createConversationSummary('old-conv', 'Yesterday', 10);
       old.updated_at = '2024-01-09T08:00:00Z';
       mockSync.mockResolvedValue({ conversations: [old], server_time: '2024-01-10T12:00:00Z', is_full_sync: true });
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // ...then continued elsewhere: +2 messages, now updated
@@ -1468,7 +1460,7 @@ describe('SyncManager', () => {
     it('applies a change that arrived during this device\'s own turn once the turn ends', async () => {
       useStore.getState().addConversation(createConversation('conv-1', 'Test', 4));
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 4)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       syncManager.setConversationStreaming('conv-1', true);
@@ -1488,7 +1480,7 @@ describe('SyncManager', () => {
     it('takes the server\'s exact count after its own turn (no +2 drift on regenerate)', async () => {
       useStore.getState().addConversation(createConversation('conv-1', 'Test', 6));
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 6)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // A regenerate replaced the last reply: the server count stays 6
@@ -1503,7 +1495,7 @@ describe('SyncManager', () => {
     it('runs a full sync requested while another sync holds the lock', async () => {
       let release: (value: SyncResponse) => void;
       mockSync.mockReturnValueOnce(new Promise<SyncResponse>((resolve) => (release = resolve)));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       const first = syncManager.fullSync();
 
       mockSync.mockResolvedValue(createSyncResponse([]));
@@ -1518,7 +1510,7 @@ describe('SyncManager', () => {
     });
 
     it('syncs when the device comes back online', async () => {
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       mockSync.mockClear();
 
@@ -1536,7 +1528,7 @@ describe('SyncManager', () => {
         server_time: new Date().toISOString(),
       });
       callbacks.onPlannerExternalUpdate = vi.fn();
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       await syncManager.incrementalSync(); // baseline 2
 
@@ -1571,7 +1563,7 @@ describe('SyncManager', () => {
         is_full_sync: true,
         cursor: 10,
       });
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
     }
 
@@ -1902,7 +1894,7 @@ describe('SyncManager', () => {
       callbacks.onPlannerDeleted = vi.fn();
       callbacks.onPlannerReset = vi.fn();
       callbacks.onPlannerExternalUpdate = vi.fn();
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
     });
 
@@ -1975,7 +1967,7 @@ describe('SyncManager', () => {
 
     beforeEach(async () => {
       callbacks.onAgentConversationExternalUpdate = vi.fn();
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
     });
 
@@ -2046,7 +2038,7 @@ describe('SyncManager', () => {
     beforeEach(async () => {
       useStore.getState().addConversation(createConversation('a', 'A', 2));
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'A', 2)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       mockMarkRead().mockClear();
     });
@@ -2113,7 +2105,7 @@ describe('SyncManager', () => {
     it('a paginated conversation keeps a baseline it already has', async () => {
       useStore.getState().addConversation(createConversation('a', 'A', 2));
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'A', 2)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       syncManager.initializeLocalMessageCount('a', 9);
@@ -2131,7 +2123,7 @@ describe('SyncManager', () => {
       useStore.setState({ currentConversation: createConversation('a', 'Old title', 2) });
       callbacks.onCurrentConversationRenamed = vi.fn();
       mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'Old title', 2)]));
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
     });
 
@@ -2173,7 +2165,7 @@ describe('SyncManager', () => {
         agents_waiting: 1,
         agents_with_errors: 0,
       });
-      syncManager = new SyncManager(callbacks, RECOVERY);
+      syncManager = new SyncManager(callbacks, RECOVERY, toast);
 
       await syncManager.start();
 

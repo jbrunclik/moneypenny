@@ -4,8 +4,8 @@
  * same artifact is taller on a phone than on a laptop, so the key includes a
  * frame-width bucket.
  */
-import { ARTIFACT_HEIGHT_CACHE_MAX_ENTRIES, ARTIFACT_HEIGHT_WIDTH_BUCKET_PX } from '../config';
-import type { ArtifactRef } from '../types/api';
+import { ARTIFACT_HEIGHT_CACHE_MAX_ENTRIES, ARTIFACT_HEIGHT_WIDTH_BUCKET_PX } from '../../config';
+import type { ArtifactRef } from '../../types/api';
 
 const STORAGE_KEY = 'artifact-heights';
 

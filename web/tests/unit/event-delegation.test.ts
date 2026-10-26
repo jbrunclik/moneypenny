@@ -223,7 +223,11 @@ describe('setupEventListeners', () => {
       m.openFileInNewTab.mockClear();
       click(messages.appendChild(el('<a class="document-preview" data-message-id="m1" data-file-index="0" data-file-type="application/pdf"></a>')));
       expect(m.openFileInNewTab).not.toHaveBeenCalled();
-      await vi.waitFor(() => expect(m.openPdfViewer).toHaveBeenCalledWith('m1', 0, 'file.pdf'));
+      await vi.waitFor(() => expect(m.openPdfViewer).toHaveBeenCalledWith('m1', 0, 'file.pdf', expect.any(Function)));
+      // The viewer's Download button downloads this file
+      const onDownload = m.openPdfViewer.mock.lastCall?.[3] as () => void;
+      onDownload();
+      expect(m.downloadFile).toHaveBeenCalledWith('m1', 0, 'file.pdf');
     });
 
     it('downloads with a fallback file name', () => {

@@ -14,7 +14,7 @@ import {
   observeTheme,
   registerFrame,
   setArtifactSender,
-} from '@/core/artifact-host';
+} from '@/components/messages/artifact-host';
 import {
   ARTIFACT_MAX_HEIGHT_VH,
   ARTIFACT_MIN_HEIGHT_PX,

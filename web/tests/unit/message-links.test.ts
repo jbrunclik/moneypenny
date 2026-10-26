@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from '@/state/store';
-import { findActionReply } from '@/core/message-links';
+import { findActionReply } from '@/components/messages/message-links';
 import type { Message } from '@/types/api';
 
 const PAGE = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 0 };

@@ -1,8 +1,9 @@
 /**
  * Unit tests for markdown rendering — XSS prevention and feature regression
  */
-import { describe, it, expect, vi } from 'vitest';
-import { highlightCode, hljs, renderMarkdown } from '@/utils/markdown';
+import { beforeAll, describe, it, expect, vi } from 'vitest';
+import { highlightCode, hljs, renderMarkdown, setQuizRenderer } from '@/utils/markdown';
+import { renderQuizBlock } from '@/components/QuizBlock';
 
 describe('renderMarkdown XSS prevention', () => {
   it('escapes <script> tags', () => {
@@ -288,5 +289,24 @@ describe('highlightCode', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe('```quiz blocks', () => {
+  const QUIZ = '{"type":"multiple-choice","question":"Kolik?","options":["1","2"],"correct":1}';
+  // What core/startup passes in
+  beforeAll(() => setQuizRenderer(renderQuizBlock));
+
+  it('render as the interactive quiz component', () => {
+    const html = renderMarkdown('```quiz\n' + QUIZ + '\n```');
+    expect(html).toContain('quiz-block quiz-multiple-choice');
+    expect(html).toContain('<button class="quiz-option" data-index="1">2</button>');
+    expect(html).not.toContain('code-block-wrapper');
+  });
+
+  it('fall back to a code block when the JSON does not parse', () => {
+    const html = renderMarkdown('```quiz\n{not json\n```');
+    expect(html).toContain('code-block-wrapper');
+    expect(html).not.toContain('quiz-block');
   });
 });

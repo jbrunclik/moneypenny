@@ -115,6 +115,18 @@ vi.mock('@/components/VersionBanner', () => ({ initVersionBanner: h.rec('initVer
 vi.mock('@/core/push', () => ({
   registerServiceWorker: h.recAsync('registerServiceWorker'),
   resyncPushSubscription: h.recAsync('resyncPushSubscription'),
+  getPushState: h.recAsync('getPushState', 'subscribed'),
+  enablePush: h.recAsync('enablePush', 'subscribed'),
+  disablePush: h.recAsync('disablePush', 'not-subscribed'),
+  sendTestNotification: h.recAsync('sendTestNotification', 'sent'),
+}));
+vi.mock('@/components/settings/notifications', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/settings/notifications')>()),
+  setPushControls: h.rec('setPushControls'),
+}));
+vi.mock('@/utils/markdown', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/markdown')>()),
+  setQuizRenderer: h.rec('setQuizRenderer'),
 }));
 vi.mock('@/components/SearchInput', () => ({ initSearchInput: h.rec('initSearchInput') }));
 vi.mock('@/components/SearchResults', () => ({
@@ -237,10 +249,15 @@ import { mergeExternalChanges } from '@/core/remote-merge';
 import { deleteMessage } from '@/core/conversation-actions';
 import { speakMessageInternal } from '@/core/tts';
 import { handleSearchResultClick } from '@/core/search';
-import { sendMessage } from '@/core/messaging';
+import { sendMessage, sendUiMessage } from '@/core/messaging';
 import { loadAllRemainingNewerMessages } from '@/components/messages';
 import { navigateToSportsProgram } from '@/core/sports';
 import { loadDeepLinkedConversation } from '@/core/conversation-deeplink';
+import { disablePush, enablePush, getPushState, sendTestNotification } from '@/core/push';
+import { toast } from '@/components/Toast';
+import { renderQuizBlock } from '@/components/QuizBlock';
+import type { ClaimCardActions } from '@/components/ClaimCard';
+import type { PushControls } from '@/components/settings/notifications';
 import type { SyncManagerCallbacks } from '@/sync/sync-state';
 import type { Conversation } from '@/types/api';
 
@@ -260,6 +277,7 @@ const COMPONENT_STEPS = [
   'initModelSelector',
   'initFileUpload',
   'initVoiceInput',
+  'setQuizRenderer',
   'initLightbox',
   'initSourcesPopup',
   'initClaimCard',
@@ -284,6 +302,7 @@ const COMPONENT_STEPS = [
   'initAttention',
   'initConnectivity',
   'initVersionBanner',
+  'setPushControls',
   'registerServiceWorker',
   'initSearchInput',
   'subscribeToSearchChanges',
@@ -387,6 +406,29 @@ describe('app startup (signed in)', () => {
 
     expect(argsOf('navigateToAgents')).toEqual([]);
     expect(argsOf('handleAgentEditById')).toEqual(['a1']);
+  });
+
+  it('hands markdown the quiz component, the claim card the UI sender and sync the toast', async () => {
+    expect(argsOf('setQuizRenderer')).toEqual([renderQuizBlock]);
+
+    const [claimActions] = argsOf('initClaimCard') as [ClaimCardActions];
+    await claimActions.send('Look up and verify: x', {});
+    expect(sendUiMessage).toHaveBeenCalledWith('Look up and verify: x', {});
+
+    expect(argsOf('initSyncManager')[2]).toBe(toast);
+  });
+
+  it("hands the settings this device's push controls", async () => {
+    const [controls] = argsOf('setPushControls') as [PushControls];
+
+    await expect(controls.getState()).resolves.toBe('subscribed');
+    await expect(controls.enable()).resolves.toBe('subscribed');
+    await expect(controls.disable()).resolves.toBe('not-subscribed');
+    await expect(controls.sendTest()).resolves.toBe('sent');
+
+    for (const fn of [getPushState, enablePush, disablePush, sendTestNotification]) {
+      expect(fn).toHaveBeenCalledTimes(1);
+    }
   });
 
   it('renders the app shell with the login overlay hidden', () => {

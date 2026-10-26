@@ -4,8 +4,8 @@
  * ("Report below ↓"). Computed from the store's loaded messages: the action
  * message points back at its source, the reply is the next assistant message.
  */
-import { useStore } from '../state/store';
-import type { Message } from '../types/api';
+import { useStore } from '../../state/store';
+import type { Message } from '../../types/api';
 
 function targets(message: Message, sourceId: string, claimIndex?: number): boolean {
   const action = message.action;

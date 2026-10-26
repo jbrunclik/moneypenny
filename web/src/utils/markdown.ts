@@ -4,7 +4,7 @@ import katex from 'katex';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
 import { escapeHtml } from './dom';
-import { renderQuizBlock } from '../components/QuizBlock';
+import { createLogger } from './logger';
 
 // Import only the languages we need
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -26,6 +26,24 @@ import php from 'highlight.js/lib/languages/php';
 import ruby from 'highlight.js/lib/languages/ruby';
 import swift from 'highlight.js/lib/languages/swift';
 import kotlin from 'highlight.js/lib/languages/kotlin';
+
+const log = createLogger('markdown');
+
+// Renders a quiz block's JSON as the quiz component (components/QuizBlock),
+// set at startup: utils never imports UI (F1). Null when the JSON is invalid
+let quizRenderer: ((json: string) => string | null) | null = null;
+
+export function setQuizRenderer(render: (json: string) => string | null): void {
+  quizRenderer = render;
+}
+
+function renderQuiz(json: string): string | null {
+  if (!quizRenderer) {
+    log.debug('Quiz renderer not set');
+    return null;
+  }
+  return quizRenderer(json);
+}
 
 // Register languages
 hljs.registerLanguage('javascript', javascript);
@@ -212,7 +230,7 @@ marked.use({
 
       // Intercept quiz blocks — render as interactive quiz components
       if (lang === 'quiz') {
-        const quizHtml = renderQuizBlock(token.text);
+        const quizHtml = renderQuiz(token.text);
         if (quizHtml) return quizHtml;
         // Fallback to regular code block on parse error
       }

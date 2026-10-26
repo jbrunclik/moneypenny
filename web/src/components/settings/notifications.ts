@@ -1,15 +1,32 @@
 import { escapeHtml } from '../../utils/dom';
 import { BELL_ICON, SUNRISE_ICON, PHONE_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
-import {
-  type PushState,
-  enablePush,
-  disablePush,
-  sendTestNotification,
-} from '../../core/push';
 import { toast } from '../Toast';
-import type { DailyBriefingSettings, UserSettings } from '../../types/api';
+import type { DailyBriefingSettings, PushState, UserSettings } from '../../types/api';
 import { log, showSavedIndicator } from './shared';
+
+/** This device's push subscription (core/push), passed in at startup (F1). */
+export interface PushControls {
+  getState: () => Promise<PushState>;
+  enable: () => Promise<PushState>;
+  disable: () => Promise<PushState>;
+  sendTest: () => Promise<string>;
+}
+
+let pushControls: PushControls | null = null;
+
+export function setPushControls(controls: PushControls): void {
+  pushControls = controls;
+}
+
+/** This device's push state; 'unsupported' until startup passes the controls in. */
+export function fetchPushState(): Promise<PushState> {
+  if (!pushControls) {
+    log.debug('Push controls not set');
+    return Promise.resolve('unsupported');
+  }
+  return pushControls.getState();
+}
 
 /** Current push notification state on this device */
 let pushState: PushState = 'unsupported';
@@ -148,9 +165,13 @@ function updatePushSection(): void {
  */
 async function handlePushToggle(btn: HTMLButtonElement): Promise<void> {
   const enable = btn.dataset.action === 'enable';
+  if (!pushControls) {
+    log.debug('Push controls not set');
+    return;
+  }
   btn.disabled = true;
   try {
-    pushState = enable ? await enablePush() : await disablePush();
+    pushState = enable ? await pushControls.enable() : await pushControls.disable();
     if (enable && pushState === 'subscribed') {
       toast.success('Notifications enabled');
     } else if (!enable && pushState === 'not-subscribed') {
@@ -170,9 +191,13 @@ async function handlePushToggle(btn: HTMLButtonElement): Promise<void> {
  * Send a test notification and surface the outcome.
  */
 async function handlePushTest(btn: HTMLButtonElement): Promise<void> {
+  if (!pushControls) {
+    log.debug('Push controls not set');
+    return;
+  }
   btn.disabled = true;
   try {
-    const status = await sendTestNotification();
+    const status = await pushControls.sendTest();
     if (status === 'no_subscriptions') {
       toast.warning('No subscribed devices found.');
     } else {

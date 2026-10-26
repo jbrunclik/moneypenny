@@ -3,7 +3,7 @@
  * a revision turn is regenerated away, View source cleanup.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/core/artifact-host', () => ({
+vi.mock('@/components/messages/artifact-host', () => ({
   registerFrame: vi.fn(() => () => {}),
   observeTheme: vi.fn(),
   currentTheme: vi.fn(() => 'dark'),

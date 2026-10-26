@@ -10,9 +10,6 @@
     }
   },
   "src/components/ClaimCard.ts": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -60,11 +57,6 @@
       "count": 1
     }
   },
-  "src/components/PdfViewer.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/components/PlannerDashboard.ts": {
     "no-unsanitized/property": {
       "count": 1
@@ -91,9 +83,6 @@
     }
   },
   "src/components/SettingsPopup.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -128,11 +117,6 @@
       "count": 1
     }
   },
-  "src/components/messages/artifacts.ts": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "src/components/messages/attachments.ts": {
     "no-unsanitized/property": {
       "count": 1
@@ -149,9 +133,6 @@
     }
   },
   "src/components/messages/research-offer.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-unsanitized/method": {
       "count": 1
     },
@@ -164,15 +145,7 @@
       "count": 2
     }
   },
-  "src/components/settings/integrations.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/components/settings/notifications.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -200,18 +173,8 @@
       "count": 1
     }
   },
-  "src/sync/SyncManager.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/utils/dom.ts": {
     "complexity": {
-      "count": 1
-    }
-  },
-  "src/utils/markdown.ts": {
-    "no-restricted-imports": {
       "count": 1
     }
   }

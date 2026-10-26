@@ -15,7 +15,6 @@ const pdf = vi.hoisted(() => ({
 vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {}, getDocument: pdf.getDocument }));
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: 'worker.js' }));
 vi.mock('@/api/files', () => ({ files: { fetchFile: pdf.fetchFile } }));
-vi.mock('@/core/file-actions', () => ({ downloadFile: pdf.downloadFile }));
 vi.mock('@/components/Toast', () => ({ toast: { error: pdf.toastError } }));
 vi.mock('@/components/pdf-viewer-utils', () => ({
   computeFitWidthScale: () => 1,
@@ -42,7 +41,7 @@ describe('openPdfViewer', () => {
     const { doc, render } = fakeDoc(1);
     pdf.getDocument.mockReturnValue({ promise: Promise.resolve(doc) });
 
-    await openPdfViewer('m1', 0, 'report<b>.pdf');
+    await openPdfViewer('m1', 0, 'report<b>.pdf', pdf.downloadFile);
 
     const overlay = document.getElementById('pdf-viewer') as HTMLElement;
     expect(overlay.querySelector('.pdf-viewer-title')?.textContent).toBe('report<b>.pdf');
@@ -52,7 +51,7 @@ describe('openPdfViewer', () => {
     expect(render).toHaveBeenCalledTimes(1);
 
     overlay.querySelector<HTMLButtonElement>('.pdf-viewer-download')?.click();
-    expect(pdf.downloadFile).toHaveBeenCalledWith('m1', 0, 'report<b>.pdf');
+    expect(pdf.downloadFile).toHaveBeenCalledTimes(1);
     overlay.querySelector<HTMLButtonElement>('.pdf-viewer-close')?.click();
     expect(document.getElementById('pdf-viewer')).toBeNull();
   });
@@ -61,7 +60,7 @@ describe('openPdfViewer', () => {
     const { doc } = fakeDoc(5);
     pdf.getDocument.mockReturnValue({ promise: Promise.resolve(doc) });
 
-    await openPdfViewer('m1', 0, 'long.pdf');
+    await openPdfViewer('m1', 0, 'long.pdf', pdf.downloadFile);
 
     const overlay = document.getElementById('pdf-viewer') as HTMLElement;
     expect(overlay.querySelector('.pdf-viewer-pages')?.textContent).toBe('5 pages');
@@ -72,7 +71,7 @@ describe('openPdfViewer', () => {
   it('closes on a backdrop click', async () => {
     const { doc } = fakeDoc(1);
     pdf.getDocument.mockReturnValue({ promise: Promise.resolve(doc) });
-    await openPdfViewer('m1', 0, 'a.pdf');
+    await openPdfViewer('m1', 0, 'a.pdf', pdf.downloadFile);
 
     (document.getElementById('pdf-viewer') as HTMLElement).click();
     expect(document.getElementById('pdf-viewer')).toBeNull();
@@ -81,7 +80,7 @@ describe('openPdfViewer', () => {
   it('closes and reports when the PDF cannot be loaded', async () => {
     pdf.fetchFile.mockRejectedValue(new Error('down'));
 
-    await openPdfViewer('m1', 0, 'a.pdf');
+    await openPdfViewer('m1', 0, 'a.pdf', pdf.downloadFile);
 
     expect(document.getElementById('pdf-viewer')).toBeNull();
     expect(pdf.toastError).toHaveBeenCalledWith('Failed to open the PDF.');

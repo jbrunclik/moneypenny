@@ -13,7 +13,6 @@ import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { createElement } from '../utils/dom';
 import { CLOSE_ICON, DOWNLOAD_ICON, setIcon, type IconHtml } from '../utils/icons';
-import { downloadFile } from '../core/file-actions';
 import { computeFitWidthScale, clampPageCount } from './pdf-viewer-utils';
 import type { PDFPageProxy } from 'pdfjs-dist';
 
@@ -40,7 +39,7 @@ function iconButton(attributes: Record<string, string>, icon: IconHtml): HTMLBut
 }
 
 /** The viewer overlay: toolbar (title, page count, download, close) and the page column. */
-function buildViewerOverlay(messageId: string, fileIndex: number, fileName: string): HTMLDivElement {
+function buildViewerOverlay(fileName: string, onDownload: () => void): HTMLDivElement {
   const overlay = document.createElement('div');
   overlay.id = VIEWER_ID;
   overlay.className = 'pdf-viewer-overlay';
@@ -58,7 +57,7 @@ function buildViewerOverlay(messageId: string, fileIndex: number, fileName: stri
   overlay.querySelector('.pdf-viewer-close')?.addEventListener('click', closePdfViewer);
   overlay
     .querySelector('.pdf-viewer-download')
-    ?.addEventListener('click', () => void downloadFile(messageId, fileIndex, fileName));
+    ?.addEventListener('click', onDownload);
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closePdfViewer();
   });
@@ -97,12 +96,13 @@ async function renderPage(
 export async function openPdfViewer(
   messageId: string,
   fileIndex: number,
-  fileName: string
+  fileName: string,
+  onDownload: () => void
 ): Promise<void> {
   closePdfViewer();
   const thisSession = ++session;
 
-  const overlay = buildViewerOverlay(messageId, fileIndex, fileName);
+  const overlay = buildViewerOverlay(fileName, onDownload);
   document.body.appendChild(overlay);
 
   try {

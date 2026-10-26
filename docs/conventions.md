@@ -146,7 +146,11 @@ both `db` and `api` belong in the lowest layer that needs them
 **Frontend:** `main.ts` → `core` → `components` → `state` → `api` → `utils` →
 `types`. `sync` sits beside `core`. Components report user actions upward
 through callbacks or `core/events`, not by importing `core`; `utils` and
-`sync` never import UI (`Toast` included). Inside `core`, the feature views
+`sync` never import UI (`Toast` included). A component, `utils` or `sync`
+module that needs something from above gets it from a `core/startup/*`
+module before the session starts (`initClaimCard({ send })`,
+`setPushControls`, `setQuizRenderer`, the `initSyncManager` notifier) or as
+an argument (`openPdfViewer`'s `onDownload`). Inside `core`, the feature views
 (agents, sports) sit above conversation selection and switching: they open
 conversations and send, so `conversation.ts` and `conversation-switch.ts`
 reach them only through hooks `core/startup/navigation.ts` sets before anything

@@ -11,7 +11,7 @@ Frontend                          Backend
 --------                          -------
 Settings toggle (per device)      ChatRequest.client_location (Pydantic, bounds-checked)
   └─ localStorage                    └─ set_location_context() contextvar
-core/location.ts                        ├─ re-set in the stream producer thread
+utils/location.ts                       ├─ re-set in the stream producer thread
   └─ navigator.geolocation              │  (contextvars don't cross threads)
      cached fix, refreshed when         ├─ prompts.get_user_context(): "near {locality}"
      older than LOCATION_MAX_AGE_MS     │  via cached reverse geocode
