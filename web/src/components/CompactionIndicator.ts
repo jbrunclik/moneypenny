@@ -19,8 +19,8 @@ import { costs } from '../api/costs';
 import { COMPACTION_DEEP_GENERATION } from '../config';
 import { useStore } from '../state/store';
 import type { ConversationCompactionResponse } from '../types/api';
-import { escapeHtml, getElementById, isScrolledToBottom } from '../utils/dom';
-import { COMPACTION_ICON } from '../utils/icons';
+import { createElement, escapeHtml, getElementById, isScrolledToBottom } from '../utils/dom';
+import { COMPACTION_ICON, setIcon } from '../utils/icons';
 import { renderMarkdown } from '../utils/markdown';
 import { createPopup, createPopupHtml, type PopupInstance } from './InfoPopup';
 
@@ -139,10 +139,11 @@ function renderChips(): void {
     chip.classList.remove('hidden');
     chip.classList.toggle(DEEP_CLASS, isDeep(status));
     // Counts collapse on mobile, where the header only fits the depth
-    chip.innerHTML =
-      `${COMPACTION_ICON}<span class="compaction-chip-counts">` +
-      `${status.summarized_count}/${status.total_count} · </span>` +
-      `<span>×${escapeHtml(generationLabel(status))}</span>`;
+    setIcon(chip, COMPACTION_ICON);
+    chip.append(
+      createElement('span', { class: 'compaction-chip-counts' }, [`${status.summarized_count}/${status.total_count} · `]),
+      createElement('span', {}, [`×${generationLabel(status)}`])
+    );
     const label =
       `${status.summarized_count} of ${status.total_count} messages are summarized for the model ` +
       `(${generationLabel(status)} summary passes)`;
@@ -157,11 +158,20 @@ function buildDivider(status: ConversationCompactionResponse): HTMLElement {
   divider.classList.toggle(DEEP_CLASS, isDeep(status));
   divider.setAttribute('role', 'button');
   divider.setAttribute('tabindex', '0');
-  divider.innerHTML = `
-    <span class="compaction-divider-line"></span>
-    <span class="compaction-divider-label">${COMPACTION_ICON}<span>${status.summarized_count} messages above summarized<span class="compaction-divider-detail"> for the model</span> · ×${escapeHtml(generationLabel(status))} · View</span></span>
-    <span class="compaction-divider-line"></span>
-  `;
+  const label = createElement('span', { class: 'compaction-divider-label' });
+  setIcon(label, COMPACTION_ICON);
+  label.appendChild(
+    createElement('span', {}, [
+      `${status.summarized_count} messages above summarized`,
+      createElement('span', { class: 'compaction-divider-detail' }, [' for the model']),
+      ` · ×${generationLabel(status)} · View`,
+    ])
+  );
+  divider.append(
+    createElement('span', { class: 'compaction-divider-line' }),
+    label,
+    createElement('span', { class: 'compaction-divider-line' })
+  );
   return divider;
 }
 

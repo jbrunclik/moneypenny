@@ -6,7 +6,7 @@
   },
   "src/components/AdminPage.ts": {
     "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/AgentEditor.ts": {
@@ -30,11 +30,6 @@
   "src/components/CommandCenter.ts": {
     "no-unsanitized/property": {
       "count": 3
-    }
-  },
-  "src/components/CompactionIndicator.ts": {
-    "no-unsanitized/property": {
-      "count": 2
     }
   },
   "src/components/InfoPopup.ts": {
@@ -76,9 +71,6 @@
   "src/components/PdfViewer.ts": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-unsanitized/property": {
-      "count": 1
     }
   },
   "src/components/PlannerDashboard.ts": {
@@ -98,7 +90,7 @@
   },
   "src/components/QuickActionsEditor.ts": {
     "no-unsanitized/property": {
-      "count": 5
+      "count": 3
     }
   },
   "src/components/QuickActionsSlashMenu.ts": {
@@ -121,7 +113,7 @@
       "count": 1
     },
     "no-unsanitized/property": {
-      "count": 2
+      "count": 1
     }
   },
   "src/components/Sidebar.ts": {

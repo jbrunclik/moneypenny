@@ -3,8 +3,8 @@
  * delegated event wiring. Each tab's markup, state and handlers live in
  * ./settings/<section>.ts.
  */
-import { getElementById } from '../utils/dom';
-import { SETTINGS_ICON, CLOSE_ICON } from '../utils/icons';
+import { createElement, getElementById } from '../utils/dom';
+import { SETTINGS_ICON, CLOSE_ICON, createIconElement, setIcon } from '../utils/icons';
 import { todoist, calendar, garmin, rouvy } from '../api/integrations';
 import { settings } from '../api/settings';
 import { type PushState, getPushState } from '../core/push';
@@ -79,16 +79,18 @@ function switchSettingsTab(tabKey: string): void {
 function renderLoadingShell(popup: HTMLElement): void {
   const content = popup.querySelector('.info-popup-content');
   if (!content) return;
-  content.innerHTML = `
-      <div class="info-popup-header">
-        <span class="info-popup-icon">${SETTINGS_ICON}</span>
-        <h3 class="dialog-title">Settings</h3>
-        <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
-      </div>
-      <div class="info-popup-body settings-body">
-        <div class="settings-loading">Loading settings...</div>
-      </div>
-    `;
+  const closeBtn = createElement('button', { class: 'info-popup-close dialog-close', 'aria-label': 'Close' });
+  setIcon(closeBtn, CLOSE_ICON);
+  content.replaceChildren(
+    createElement('div', { class: 'info-popup-header' }, [
+      createIconElement('info-popup-icon', SETTINGS_ICON),
+      createElement('h3', { class: 'dialog-title' }, ['Settings']),
+      closeBtn,
+    ]),
+    createElement('div', { class: 'info-popup-body settings-body' }, [
+      createElement('div', { class: 'settings-loading' }, ['Loading settings...']),
+    ])
+  );
 
   // Attach close handler
   content.querySelector('.info-popup-close')?.addEventListener('click', closeSettingsPopup);

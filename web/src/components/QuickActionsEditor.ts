@@ -16,6 +16,7 @@ import {
   PLUS_ICON,
   CHEVRON_DOWN_ICON,
   SLIDERS_ICON,
+  createIconElement,
   setIcon,
 } from '../utils/icons';
 import { toast } from './Toast';
@@ -235,9 +236,9 @@ function applyEmojiInput(parts: DetailParts, draft: DetailDraft): void {
 
 function wireEmojiPicker(detail: HTMLElement, parts: DetailParts, draft: DetailDraft): void {
   const { grid, emojiInput, popover } = parts;
-  grid.innerHTML = EMOJIS.map(
-    (e) => `<button type="button" class="qa-detail-emoji-option" data-emoji="${e}">${e}</button>`
-  ).join('');
+  grid.replaceChildren(
+    ...EMOJIS.map((e) => createElement('button', { type: 'button', class: 'qa-detail-emoji-option', 'data-emoji': e }, [e]))
+  );
   emojiInput.addEventListener('focus', () => popover.classList.add('open'));
   emojiInput.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -395,12 +396,23 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   modal.className = 'qa-editor';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
-  modal.innerHTML = `
-    <div class="qa-editor-header">
-      <div class="qa-editor-title-row"><span class="qa-editor-icon">${SLIDERS_ICON}</span><h2 class="dialog-title">Quick actions</h2></div>
-      <button type="button" class="qa-editor-close dialog-close" title="Close" aria-label="Close">${CLOSE_ICON}</button>
-    </div>
-    <div class="qa-editor-body"></div>`;
+  const closeBtn = createElement('button', {
+    type: 'button',
+    class: 'qa-editor-close dialog-close',
+    title: 'Close',
+    'aria-label': 'Close',
+  });
+  setIcon(closeBtn, CLOSE_ICON);
+  modal.append(
+    createElement('div', { class: 'qa-editor-header' }, [
+      createElement('div', { class: 'qa-editor-title-row' }, [
+        createIconElement('qa-editor-icon', SLIDERS_ICON),
+        createElement('h2', { class: 'dialog-title' }, ['Quick actions']),
+      ]),
+      closeBtn,
+    ]),
+    createElement('div', { class: 'qa-editor-body' })
+  );
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 

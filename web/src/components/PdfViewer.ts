@@ -11,8 +11,8 @@ import { files } from '../api/files';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
-import { escapeHtml } from '../utils/dom';
-import { CLOSE_ICON, DOWNLOAD_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CLOSE_ICON, DOWNLOAD_ICON, setIcon, type IconHtml } from '../utils/icons';
 import { downloadFile } from '../core/file-actions';
 import { computeFitWidthScale, clampPageCount } from './pdf-viewer-utils';
 import type { PDFPageProxy } from 'pdfjs-dist';
@@ -32,22 +32,29 @@ export function closePdfViewer(): void {
 
 registerPopupEscapeHandler(VIEWER_ID, closePdfViewer);
 
+/** A button holding only a static icon. */
+function iconButton(attributes: Record<string, string>, icon: IconHtml): HTMLButtonElement {
+  const button = createElement('button', attributes);
+  setIcon(button, icon);
+  return button;
+}
+
 /** The viewer overlay: toolbar (title, page count, download, close) and the page column. */
 function buildViewerOverlay(messageId: string, fileIndex: number, fileName: string): HTMLDivElement {
   const overlay = document.createElement('div');
   overlay.id = VIEWER_ID;
   overlay.className = 'pdf-viewer-overlay';
-  overlay.innerHTML = `
-    <div class="pdf-viewer-toolbar">
-      <span class="pdf-viewer-title">${escapeHtml(fileName)}</span>
-      <span class="pdf-viewer-pages"></span>
-      <button class="pdf-viewer-download" aria-label="Download" title="Download">${DOWNLOAD_ICON}</button>
-      <button class="pdf-viewer-close" aria-label="Close" title="Close">${CLOSE_ICON}</button>
-    </div>
-    <div class="pdf-viewer-scroll">
-      <div class="pdf-viewer-loading">Loading PDF...</div>
-    </div>
-  `;
+  overlay.append(
+    createElement('div', { class: 'pdf-viewer-toolbar' }, [
+      createElement('span', { class: 'pdf-viewer-title' }, [fileName]),
+      createElement('span', { class: 'pdf-viewer-pages' }),
+      iconButton({ class: 'pdf-viewer-download', 'aria-label': 'Download', title: 'Download' }, DOWNLOAD_ICON),
+      iconButton({ class: 'pdf-viewer-close', 'aria-label': 'Close', title: 'Close' }, CLOSE_ICON),
+    ]),
+    createElement('div', { class: 'pdf-viewer-scroll' }, [
+      createElement('div', { class: 'pdf-viewer-loading' }, ['Loading PDF...']),
+    ])
+  );
   overlay.querySelector('.pdf-viewer-close')?.addEventListener('click', closePdfViewer);
   overlay
     .querySelector('.pdf-viewer-download')

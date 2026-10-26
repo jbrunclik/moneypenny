@@ -6,9 +6,9 @@
  */
 import { admin } from '../api/admin';
 import type { AdminOverview } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement, escapeHtml } from '../utils/dom';
 import { getFocusableElements, trapTabKey } from '../utils/focus-trap';
-import { CHEVRON_LEFT_ICON, REFRESH_ICON } from '../utils/icons';
+import { CHEVRON_LEFT_ICON, REFRESH_ICON, setIcon, type IconHtml } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('components/AdminPage');
@@ -204,6 +204,13 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
+/** A button holding only a static icon. */
+function iconButton(attributes: Record<string, string>, icon: IconHtml): HTMLButtonElement {
+  const button = createElement('button', attributes);
+  setIcon(button, icon);
+  return button;
+}
+
 async function load(body: HTMLElement): Promise<void> {
   body.innerHTML = '<p class="admin-loading">Loading…</p>';
   try {
@@ -224,13 +231,14 @@ export async function openAdminPage(): Promise<void> {
   page.setAttribute('role', 'dialog');
   page.setAttribute('aria-modal', 'true');
   page.setAttribute('aria-labelledby', 'admin-page-title');
-  page.innerHTML = `
-    <header class="admin-header">
-      <button type="button" class="admin-back" aria-label="Back">${CHEVRON_LEFT_ICON}</button>
-      <h1 id="admin-page-title">Admin</h1>
-      <button type="button" class="admin-refresh" aria-label="Refresh">${REFRESH_ICON}</button>
-    </header>
-    <div class="admin-body"></div>`;
+  page.append(
+    createElement('header', { class: 'admin-header' }, [
+      iconButton({ type: 'button', class: 'admin-back', 'aria-label': 'Back' }, CHEVRON_LEFT_ICON),
+      createElement('h1', { id: 'admin-page-title' }, ['Admin']),
+      iconButton({ type: 'button', class: 'admin-refresh', 'aria-label': 'Refresh' }, REFRESH_ICON),
+    ]),
+    createElement('div', { class: 'admin-body' })
+  );
   document.body.appendChild(page);
   document.addEventListener('keydown', onKeydown, { capture: true });
   const body = page.querySelector<HTMLElement>('.admin-body');
