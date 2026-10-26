@@ -158,9 +158,16 @@ export async function emptyTrash(): Promise<void> {
 /**
  * Load trashed conversations from the API (also feeds the user-menu badge).
  */
+// UI-local (F2): a request-race token - overlapping loads (startup, a
+// change-log refetch, opening the view) answer out of order under load, and
+// a stale answer put the badge back to an old count
+let trashLoadGeneration = 0;
+
 export async function loadTrashedConversations(): Promise<void> {
+  const generation = ++trashLoadGeneration;
   try {
     const result = await conversations.listTrash();
+    if (generation !== trashLoadGeneration) return; // a newer load owns the list
     useStore.getState().setTrashedConversations(result.conversations, result.pagination);
     renderConversationsList();
   } catch (error) {

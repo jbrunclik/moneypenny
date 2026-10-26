@@ -678,9 +678,15 @@ function updateSidebarVisibility(): void {
 /**
  * Load archived conversations from API and update store.
  */
+// UI-local (F2): a request-race token - overlapping loads answer out of
+// order under load, and a stale answer put the badge back to an old count
+let archiveLoadGeneration = 0;
+
 export async function loadArchivedConversations(): Promise<void> {
+  const generation = ++archiveLoadGeneration;
   try {
     const result = await conversationsApi.listArchived();
+    if (generation !== archiveLoadGeneration) return; // a newer load owns the list
     useStore.getState().setArchivedConversations(result.conversations, result.pagination);
     renderConversationsList();
   } catch (error) {

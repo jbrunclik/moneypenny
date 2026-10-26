@@ -37,7 +37,7 @@ vi.mock('@/router/deeplink', () => ({
 
 import { deleteConversation } from '@/core/conversation-actions';
 import { renderConversationsList } from '@/components/Sidebar';
-import { restoreConversation, deleteConversationForever, emptyTrash } from '@/core/trash';
+import { restoreConversation, deleteConversationForever, emptyTrash, loadTrashedConversations } from '@/core/trash';
 
 function at<T>(items: ArrayLike<T>, i: number): T {
   const item = items[i];
@@ -262,5 +262,28 @@ describe('emptyTrash', () => {
 
     expect(api.emptyTrash).not.toHaveBeenCalled();
     expect(useStore.getState().trashedConversations).toHaveLength(1);
+  });
+});
+
+describe('loadTrashedConversations', () => {
+  it('keeps the newest load when an older one answers last', async () => {
+    // The startup load is slow; another device trashes a chat and the
+    // change-log refetch answers first. The stale startup answer must not
+    // put the badge back to 0.
+    let answerStartup!: (value: unknown) => void;
+    api.listTrash
+      .mockReturnValueOnce(new Promise((resolve) => (answerStartup = resolve)))
+      .mockResolvedValueOnce({
+        conversations: [conv('a')],
+        pagination: { next_cursor: null, has_more: false, total_count: 1 },
+      });
+
+    const startup = loadTrashedConversations();
+    await loadTrashedConversations();
+    answerStartup({ conversations: [], pagination: { next_cursor: null, has_more: false, total_count: 0 } });
+    await startup;
+
+    expect(useStore.getState().trashedConversations.map((c) => c.id)).toEqual(['a']);
+    expect(useStore.getState().trashPagination.totalCount).toBe(1);
   });
 });

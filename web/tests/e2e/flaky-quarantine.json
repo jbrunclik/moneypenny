@@ -52,12 +52,6 @@
     "todo": "Open E2E flakes (WebKit flake under load: streaming message never appears)"
   },
   {
-    "file": "e2e/sync-other-device.spec.ts",
-    "title": "the trash view and its badge follow trash, restore and delete-forever elsewhere",
-    "project": "webkit",
-    "todo": "Open E2E flakes (WebKit flake under load: trash badge after another device's trash)"
-  },
-  {
     "file": "e2e/planner.spec.ts",
     "title": "model selector shows planner model when navigating to planner",
     "project": "webkit",
