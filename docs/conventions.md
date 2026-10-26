@@ -112,7 +112,7 @@ Details: [testing.md](testing.md).
 | T3 | No placeholder tests (a body of only `pass`, a docstring or comments) | test (`test_test_hygiene.py`) |
 | T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 72 and 285) |
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
-| T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | planned: post-step over the Playwright report |
+| T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | `web/tests/flaky-gate.ts` after each CI E2E shard (reads the JSON report; `web/tests/e2e/flaky-quarantine.json` lists the allowed flakes, `tests/unit/flaky-gate.test.ts` checks each entry names a real test) |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 66 imports, Oct 26 2026) |
 | T8 | A new route module or `core/*.ts` module ships with a test | `tests/unit/test_route_tests.py` (`tests/integration/test_routes_<name>.py` or an integration test importing it; 7 baselined), `web/tests/unit/core-tests.test.ts` (imported at runtime by a unit or component test - `vi.mock` alone doesn't count; the 12 baselined got tests the same day, so the baseline is empty), Oct 26 2026; both baselines only shrink |
 | T9 | Unit tests touch neither a database nor the Flask client; anything that does is an integration test | judgment |

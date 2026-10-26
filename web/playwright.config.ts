@@ -27,7 +27,12 @@ export default defineConfig({
   // '50%' on beefy machines meant ~14 contexts and ~1/600 tests timing
   // out waiting for mock responses during setup.
   workers: 4,
-  reporter: [['html', { outputFolder: 'playwright-report', open: 'never' }], ['list']],
+  // CI also writes a JSON report for the flaky-test gate (tests/flaky-gate.ts, T6)
+  reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['list'],
+    ...(process.env.CI ? ([['json', { outputFile: 'e2e-results.json' }]] as const) : []),
+  ],
   use: {
     baseURL,
     trace: 'on-first-retry',

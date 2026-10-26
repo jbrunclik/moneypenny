@@ -1,0 +1,66 @@
+[
+  {
+    "file": "e2e/conversation.spec.ts",
+    "title": "pin moves a conversation to the Pinned group and survives reload",
+    "project": "webkit",
+    "todo": "Open E2E flakes (docs/testing/e2e-reliability.md: WebKit flake: pin moves a conversation)"
+  },
+  {
+    "file": "e2e/stream-resume.spec.ts",
+    "title": "connection drop mid-stream resumes from offset to full message",
+    "project": "chromium",
+    "todo": "Open E2E flakes (Chromium flake: stream resume after a connection drop)"
+  },
+  {
+    "file": "e2e/stream-recovery.spec.ts",
+    "title": "handles conversation switch during recovery",
+    "project": "webkit",
+    "todo": "Open E2E flakes (Two one-off CI flakes, Oct 24 2026)"
+  },
+  {
+    "file": "e2e/chat/thinking-indicator.spec.ts",
+    "title": "the live line's chevron is centred on its row (desktop)",
+    "project": "webkit",
+    "todo": "Open E2E flakes (Two one-off CI flakes, Oct 24 2026)"
+  },
+  {
+    "file": "e2e/grounding-annotations.spec.ts",
+    "title": "underline opens a card; Look it up sends a follow-up",
+    "project": "chromium",
+    "todo": "Open E2E flakes (Two one-off CI flakes, Oct 24 2026)"
+  },
+  {
+    "file": "e2e/chat/pdf-viewer.spec.ts",
+    "title": "a chunk deleted by a deploy reloads the page",
+    "project": "webkit",
+    "todo": "Open E2E flakes (WebKit flake: PDF chunk reload specs)"
+  },
+  {
+    "file": "e2e/chat/pdf-viewer.spec.ts",
+    "title": "a chunk that still fails right after the reload does not reload again",
+    "project": "webkit",
+    "todo": "Open E2E flakes (WebKit flake: PDF chunk reload specs)"
+  },
+  {
+    "file": "e2e/chat/conversation-switch.spec.ts",
+    "title": "preserves accumulated content when switching back to streaming conversation",
+    "todo": "Open E2E flakes (WebKit flake under load: streaming message never appears)"
+  },
+  {
+    "file": "e2e/chat/conversation-switch.spec.ts",
+    "title": "multiple rapid conversation switches preserve streaming state",
+    "todo": "Open E2E flakes (WebKit flake under load: streaming message never appears)"
+  },
+  {
+    "file": "e2e/sync-other-device.spec.ts",
+    "title": "the trash view and its badge follow trash, restore and delete-forever elsewhere",
+    "project": "webkit",
+    "todo": "Open E2E flakes (WebKit flake under load: trash badge after another device's trash)"
+  },
+  {
+    "file": "e2e/planner.spec.ts",
+    "title": "model selector shows planner model when navigating to planner",
+    "project": "webkit",
+    "todo": "Open E2E flakes (WebKit one-off: planner model selector)"
+  }
+]

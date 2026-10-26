@@ -51,6 +51,7 @@ static/assets.keep
 htmlcov/
 test-results/
 web/playwright-report/
+web/e2e-results.json
 web/test-results/
 web/visual-gallery.html
 .e2e-server*.pid

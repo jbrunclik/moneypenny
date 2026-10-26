@@ -334,6 +334,10 @@ by guessing):
 
 ## Open flakes
 
+CI fails when a test passes only on a retry (T6, `web/tests/flaky-gate.ts`), unless
+`web/tests/e2e/flaky-quarantine.json` lists it with the entry below that tracks it.
+Fix a flake: delete its entry here and in the quarantine list together.
+
 One-off failures not yet reproduced (each passed on retry). Capture the
 trace and `test-results/` on the next occurrence - copy them before rerunning,
 since a rerun clears the folder. Fixed or quiet for a month: delete the entry.

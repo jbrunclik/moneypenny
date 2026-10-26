@@ -352,6 +352,11 @@ jobs:
             "mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-jammy" \
             nice -n 10 npx playwright test tests/e2e --project=${{ matrix.project }} --shard=${{ matrix.shard }} --workers=${{ matrix.workers }}
 
+      # T6: a test that only passed on a retry fails the run unless
+      # web/tests/e2e/flaky-quarantine.json names it with its TODO entry
+      - name: No unquarantined flaky tests
+        run: node web/tests/flaky-gate.ts web/e2e-results.json
+
       # Any request the mock server took >1s to answer - a starvation
       # suspect. Empty is the goal.
       - name: Mock server slow-request log
