@@ -195,7 +195,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb18]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb19]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -388,6 +388,59 @@ function holdAnchorThroughInsetChange(
   }
 }
 
+/** After an inset change with the keyboard up (see update below). */
+function settleWithKeyboardUp(
+  container: HTMLDivElement | null,
+  wasAtBottom: boolean,
+  keyboardJustOpened: boolean,
+  signal: AbortSignal
+): void {
+  requestAnimationFrame(() => {
+    // Standalone-PWA caret bug: iOS pans the layout viewport to reveal
+    // a focused bottom input BEFORE our height shrink reflows content
+    // up - WebKit then draws the caret at the stale pan position,
+    // visibly outside the input. Reset the pan (the shrunk layout no
+    // longer needs it) and re-assert the selection to force a redraw.
+    // Only on the OPEN transition - re-running on later geometry
+    // fluctuations would fight in-progress user gestures.
+    if (keyboardJustOpened) {
+      window.scrollTo(0, 0);
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLInputElement && typeof active.selectionStart === 'number')
+      ) {
+        const { selectionStart, selectionEnd } = active;
+        if (selectionStart !== null && selectionEnd !== null) {
+          active.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+    }
+
+    if (container && wasAtBottom) {
+      // Layout has settled - keep the newest content above the keyboard
+      programmaticScrollToBottom(container);
+      checkScrollButtonVisibility();
+    }
+  });
+
+  // The kb-open padding change (setSettlePoller/toggle above) and the
+  // composer-height ResizeObserver both reflow the list AFTER the rAF
+  // above, growing padding-bottom and un-pinning a bottom-scrolled list -
+  // the newest message drifts up, leaving a gap above the composer with
+  // the keyboard open. Re-assert the bottom across the settle window (the
+  // user won't have scrolled away in the first moments after focusing).
+  if (keyboardJustOpened && container && wasAtBottom) {
+    for (const delay of [150, 350, 600]) {
+      setTimeout(() => {
+        if (signal.aborted) return;
+        programmaticScrollToBottom(container);
+        checkScrollButtonVisibility();
+      }, delay);
+    }
+  }
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -456,50 +509,7 @@ export function initKeyboardViewportPinning(): void {
     }
 
     if (inset > 0) {
-      requestAnimationFrame(() => {
-        // Standalone-PWA caret bug: iOS pans the layout viewport to reveal
-        // a focused bottom input BEFORE our height shrink reflows content
-        // up - WebKit then draws the caret at the stale pan position,
-        // visibly outside the input. Reset the pan (the shrunk layout no
-        // longer needs it) and re-assert the selection to force a redraw.
-        // Only on the OPEN transition - re-running on later geometry
-        // fluctuations would fight in-progress user gestures.
-        if (keyboardJustOpened) {
-          window.scrollTo(0, 0);
-          const active = document.activeElement;
-          if (
-            active instanceof HTMLTextAreaElement ||
-            (active instanceof HTMLInputElement && typeof active.selectionStart === 'number')
-          ) {
-            const { selectionStart, selectionEnd } = active;
-            if (selectionStart !== null && selectionEnd !== null) {
-              active.setSelectionRange(selectionStart, selectionEnd);
-            }
-          }
-        }
-
-        if (container && wasAtBottom) {
-          // Layout has settled - keep the newest content above the keyboard
-          programmaticScrollToBottom(container);
-          checkScrollButtonVisibility();
-        }
-      });
-
-      // The kb-open padding change (setSettlePoller/toggle above) and the
-      // composer-height ResizeObserver both reflow the list AFTER the rAF
-      // above, growing padding-bottom and un-pinning a bottom-scrolled list -
-      // the newest message drifts up, leaving a gap above the composer with
-      // the keyboard open. Re-assert the bottom across the settle window (the
-      // user won't have scrolled away in the first moments after focusing).
-      if (keyboardJustOpened && container && wasAtBottom) {
-        for (const delay of [150, 350, 600]) {
-          setTimeout(() => {
-            if (signal.aborted) return;
-            programmaticScrollToBottom(container);
-            checkScrollButtonVisibility();
-          }, delay);
-        }
-      }
+      settleWithKeyboardUp(container, wasAtBottom, keyboardJustOpened, signal);
     }
   };
 

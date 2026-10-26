@@ -160,11 +160,6 @@
       "count": 1
     }
   },
-  "src/core/keyboard-viewport.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "src/core/startup/app-shell.ts": {
     "no-unsanitized/property": {
       "count": 1
