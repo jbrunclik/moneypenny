@@ -1,0 +1,10 @@
+id: artifact_not_for_quick_explain
+description: A one-line question on an explainer topic still gets a short text answer, not an artifact
+user: Mám brát hořčík ráno, nebo večer?
+expect:
+  rubric: >
+    Answers in Czech as an ordinary text reply (markdown such as bold or a
+    short list is fine; length is not graded): either time works, evening is
+    often preferred (relaxation, sleep), taking it with food helps if it
+    upsets the stomach. No artifact.
+  forbidden_tools: [create_artifact, update_artifact]

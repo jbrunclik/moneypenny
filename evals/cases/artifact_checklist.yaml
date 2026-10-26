@@ -1,0 +1,16 @@
+id: artifact_checklist
+description: A packing list becomes a checklist artifact whose ticks are saved
+user: Jedeme na týden k moři se dvěma malými dětmi. Dej mi seznam na balení.
+expect:
+  rubric: >
+    Replies in Czech with a packing list for a week at the seaside with two
+    small children, delivered as an artifact (create_artifact was called) so
+    the user can tick items off while packing. The text reply is brief and
+    does not repeat the whole list that the artifact shows.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      - '(?<![-\w])width\s*[:=]\s*["'']?\d{3,}(px)?(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

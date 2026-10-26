@@ -1,0 +1,11 @@
+id: artifact_not_for_text_edit
+description: Text the user will copy (an email to polish) stays in the reply, not an artifact
+user: >-
+  Oprav mi a trochu uhlaď tenhle mail, chci ho poslat šéfovi: "Ahoj, zítra
+  nemuzu prijit na poradu protože mam u doktora, posli mi prosim pak zapis.
+  Diky"
+expect:
+  rubric: >
+    Replies in Czech with the corrected, polished email as text the user can
+    copy (diacritics fixed, polite tone, same meaning). No artifact.
+  forbidden_tools: [create_artifact, update_artifact]

@@ -1,0 +1,19 @@
+id: artifact_explainer
+description: A multi-part "what, how much, when, interactions" question becomes a visual explainer artifact
+user: >-
+  Chci začít brát vitamín D, hořčík, omega-3 a kreatin. Vysvětli mi, co
+  který dělá, kolik ho brát, kdy během dne a jestli se navzájem neovlivňují.
+expect:
+  rubric: >
+    Replies in Czech and delivers the explanation as an artifact
+    (create_artifact was called): a structured guide to the four supplements
+    covering what each does, typical dose, timing during the day and
+    interactions. The text reply is brief (a few sentences; a caution to
+    consult a doctor is fine) and does not duplicate the whole guide.
+  required_tools: [create_artifact]
+  forbidden_arg_patterns:
+    create_artifact.html:
+      - '(color|background|fill|stroke|border)[^;{}"]*#[0-9a-fA-F]{3,8}\b'
+      - '(?<![-\w])width\s*[:=]\s*["'']?\d{3,}(px)?(?![\d%])'
+      - "https?://"
+      - '\b\d+(\.\d+)?[dsl]?v[hw]\b'

@@ -1,0 +1,18 @@
+id: artifact_not_for_todoist
+description: A list the user wants in Todoist goes to Todoist, not into a checklist artifact (fake Todoist backend)
+integrations:
+  todoist:
+    projects:
+      - { id: p1, name: Osobní }
+    sections:
+      - { id: s1, project_id: p1, name: Nákupy }
+    tasks: []
+user: Přidej mi do Todoistu na nákup mléko, chleba, vajíčka a máslo.
+expect:
+  rubric: >
+    Adds the four groceries to Todoist (see integration changes; one task per
+    item or one task listing them are both fine, the Nákupy section is ideal)
+    and confirms briefly in Czech. No artifact.
+  required_tools: [todoist]
+  forbidden_tools: [create_artifact, update_artifact]
+  max_tool_rounds: 4
