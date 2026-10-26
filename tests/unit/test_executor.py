@@ -348,3 +348,40 @@ class TestAgentContextHelpers:
         finally:
             clear_agent_context()
         assert get_agent_context() is None
+
+
+class TestTriggerMessage:
+    """The synthetic user message that starts a run, as saved in the agent's conversation."""
+
+    def _trigger_message(
+        self, db: Database, user: User, trigger: str, extra_message: str | None = None
+    ) -> str:
+        agent = _agent(db, user)
+        execution = db.create_execution(agent_id=agent.id, trigger_type=trigger)
+        execute_agent(agent, user, trigger, execution.id, extra_message=extra_message)
+        return db.get_messages(agent.conversation_id or "")[0].content
+
+    @pytest.mark.usefixtures("fake_llm", "push")
+    def test_scheduled_has_timestamp_prefix(self, db: Database, user: User) -> None:
+        msg = self._trigger_message(db, user, "scheduled")
+        assert msg.startswith("[Scheduled run at ")
+        assert msg.endswith("UTC]")
+
+    @pytest.mark.usefixtures("fake_llm", "push")
+    def test_unknown_trigger_type_falls_back(self, db: Database, user: User) -> None:
+        assert self._trigger_message(db, user, "webhook") == "[Triggered: webhook]"
+
+    @pytest.mark.usefixtures("fake_llm", "push")
+    def test_includes_the_triggering_agents_message(self, db: Database, user: User) -> None:
+        msg = self._trigger_message(db, user, "agent_trigger", "Focus on AAPL earnings")
+        assert msg.startswith("[Triggered by another agent at ")
+        assert "Message from triggering agent: Focus on AAPL earnings" in msg
+
+    @pytest.mark.usefixtures("fake_llm", "push")
+    @pytest.mark.parametrize("extra", ["Continue", None, "   "])
+    def test_ignores_an_empty_or_default_message(
+        self, db: Database, user: User, extra: str | None
+    ) -> None:
+        # "Continue" is the legacy default of trigger_agent's message arg and
+        # means "no message" - it must not be echoed into the trigger message.
+        assert "Message from" not in self._trigger_message(db, user, "agent_trigger", extra)

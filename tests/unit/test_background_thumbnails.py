@@ -8,11 +8,11 @@ import pytest
 
 from src.config import Config
 from src.services.background_thumbnails import (
-    _generate_thumbnail_task,
     generate_and_save_thumbnail,
     get_executor,
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
+    queue_thumbnail_generation,
     should_skip_thumbnail,
 )
 
@@ -263,8 +263,22 @@ class TestGenerateAndSaveThumbnail:
             assert result == "thumbnail_data"
 
 
-class TestGenerateThumbnailTask:
-    """Tests for _generate_thumbnail_task function."""
+class _InlineExecutor:
+    """Runs a submitted task right away, in the calling thread."""
+
+    def submit(self, fn, *args):  # type: ignore[no-untyped-def]
+        fn(*args)
+
+
+class TestQueuedThumbnailTask:
+    """What a queued thumbnail generation does once the executor runs it."""
+
+    @pytest.fixture(autouse=True)
+    def _inline(self):  # type: ignore[no-untyped-def]
+        with patch(
+            "src.services.background_thumbnails.get_executor", return_value=_InlineExecutor()
+        ):
+            yield
 
     def test_generates_and_saves_thumbnail(self, sample_png_base64: str) -> None:
         """Should generate thumbnail and save to database via shared helper."""
@@ -279,7 +293,7 @@ class TestGenerateThumbnailTask:
                 return_value="thumbnail_data",
             ) as mock_gen,
         ):
-            _generate_thumbnail_task("msg-123", 0, sample_png_base64, "image/png")
+            queue_thumbnail_generation("msg-123", 0, sample_png_base64, "image/png")
 
             mock_gen.assert_called_once_with(sample_png_base64, "image/png")
             mock_db.update_message_file_thumbnail.assert_called_once_with(
@@ -297,7 +311,7 @@ class TestGenerateThumbnailTask:
                 return_value=None,
             ),
         ):
-            _generate_thumbnail_task("msg-123", 0, "invalid", "image/png")
+            queue_thumbnail_generation("msg-123", 0, "invalid", "image/png")
 
             mock_db.update_message_file_thumbnail.assert_called_once_with(
                 "msg-123", 0, None, status="failed"
@@ -315,7 +329,7 @@ class TestGenerateThumbnailTask:
             ),
         ):
             # Should not raise
-            _generate_thumbnail_task("msg-123", 0, "data", "image/png")
+            queue_thumbnail_generation("msg-123", 0, "data", "image/png")
 
             # Should attempt to mark as failed
             mock_db.update_message_file_thumbnail.assert_called_once_with(
@@ -335,4 +349,4 @@ class TestGenerateThumbnailTask:
             ),
         ):
             # Should not raise even if DB update fails
-            _generate_thumbnail_task("msg-deleted", 0, "data", "image/png")
+            queue_thumbnail_generation("msg-deleted", 0, "data", "image/png")

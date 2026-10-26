@@ -1209,16 +1209,19 @@ class TestCompiledGraphCache:
     ) -> None:
         """The context-cache name rotates on renewal; dead names for the same
         signature must not fill the LRU (~2.5 MB per compiled graph in prod)."""
-        from src.agent.graph_cache import (
-            _MAX_CACHE_NAMES_PER_SIGNATURE,
-            _compiled_graph_cache,
-            get_compiled_graph,
-        )
+        from src.agent.graph_cache import get_compiled_graph
 
         tools = [self._tool("web_search")]
         for i in range(10):
             get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
-        assert len(_compiled_graph_cache) == _MAX_CACHE_NAMES_PER_SIGNATURE
+        builds = mock_compile.call_count
+        # The newest three names are still cached...
+        for i in (7, 8, 9):
+            get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
+        assert mock_compile.call_count == builds
+        # ...the older, dead ones were dropped, not kept filling the LRU
+        get_compiled_graph("m", tools=tools, cached_content="c6")
+        assert mock_compile.call_count == builds + 1
 
     @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
     @patch("src.agent.graph_cache.create_chat_graph")

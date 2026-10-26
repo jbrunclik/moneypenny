@@ -13,7 +13,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.api.helpers.stream_finalize import _finalize_approval_stream
+from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save
 
 
@@ -147,7 +147,7 @@ class TestApprovalFinalizeNotifies:
             patch("src.api.helpers.stream_finalize.db", mock_db),
             patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
         ):
-            list(_finalize_approval_stream(self._context(client_connected=False)))
+            list(finalize_stream(self._context(client_connected=False)))
 
         mock_push.assert_called_once()
         args = mock_push.call_args
@@ -167,7 +167,7 @@ class TestApprovalFinalizeNotifies:
             patch("src.api.helpers.stream_finalize.db", mock_db),
             patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
         ):
-            list(_finalize_approval_stream(self._context(client_connected=True)))
+            list(finalize_stream(self._context(client_connected=True)))
 
         mock_push.assert_not_called()
 

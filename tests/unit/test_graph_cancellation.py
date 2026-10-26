@@ -8,11 +8,14 @@ import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.tools import tool
+from langgraph.graph import END, StateGraph
 
 from src.agent import cancellation
 from src.agent.cancellation import TurnCancelled
 from src.agent.chat_node import chat_node
-from src.agent.tool_node import _handle_tool_errors
+from src.agent.graph_state import AgentState
+from src.agent.tool_node import create_tool_node
 from src.agent.tool_results import set_current_request_id
 from src.agent.tool_round_check import check_tool_results
 
@@ -40,13 +43,33 @@ def test_check_tool_results_raises_when_cancelled(token: cancellation.CancelToke
         check_tool_results({"messages": [HumanMessage(content="hi")]})  # type: ignore[typeddict-item]
 
 
-def test_tool_error_handler_reraises_turn_cancelled() -> None:
+def _run_failing_tool(error: Exception) -> Any:
+    """Run one call of a tool that raises `error` through the real tool node."""
+
+    @tool
+    def flaky(query: str) -> str:
+        """A tool that fails."""
+        raise error
+
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
+    graph.add_node("tools", create_tool_node([flaky]))
+    graph.set_entry_point("tools")
+    graph.add_edge("tools", END)
+    call = {"name": "flaky", "args": {"query": "x"}, "id": "call-1"}
+    state = {"messages": [AIMessage(content="", tool_calls=[call])], "tool_retries": 0}
+    return graph.compile().invoke(state)
+
+
+def test_a_cancelled_tool_ends_the_turn() -> None:
+    """Stop raises TurnCancelled inside a tool: it must not become an error
+    message the model reads and retries."""
     with pytest.raises(TurnCancelled):
-        _handle_tool_errors(TurnCancelled())
+        _run_failing_tool(TurnCancelled())
 
 
 def test_ordinary_tool_errors_still_become_messages() -> None:
-    assert "Please fix your mistakes" in _handle_tool_errors(ValueError("bad"))
+    result = _run_failing_tool(ValueError("bad"))
+    assert "Please fix your mistakes" in result["messages"][-1].content
 
 
 def _fake_graph_stream(chunks: list[str], on_chunk: Any = None) -> Any:

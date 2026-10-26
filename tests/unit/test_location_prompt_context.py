@@ -44,14 +44,14 @@ def test_env_fallback_when_nothing_shared(mock_loc: MagicMock, mock_places: Magi
     assert "Prague, Czech Republic" in ctx
 
 
-def test_saved_places_lines_formats_address() -> None:
-    from src.agent.prompts import _get_saved_places_lines
-
+@patch("src.agent.prompts.get_location_context", return_value=None)
+def test_saved_places_list_their_addresses(mock_loc: MagicMock) -> None:
     with patch("src.db.models.db.kv_list") as mock_kv:
         mock_kv.return_value = [
             ("home", '{"address": "Nádražní 12, Praha", "lon": 14.4, "lat": 50.07}'),
             ("gym", "not-json"),
         ]
-        lines = _get_saved_places_lines("u1")
-    assert lines == ["- home: Nádražní 12, Praha", "- gym"]
+        ctx = get_user_context(user_name="Jiri", user_id="u1")
+    assert "- home: Nádražní 12, Praha" in ctx
+    assert "- gym\n" in ctx + "\n"
     mock_kv.assert_called_once_with("u1", "places")
