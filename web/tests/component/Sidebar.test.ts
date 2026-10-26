@@ -702,6 +702,46 @@ describe('Sidebar', () => {
     });
   });
 
+  describe('no-op re-renders', () => {
+    // Sync polls and the time refresh re-render constantly: an unchanged
+    // list must keep its nodes (scroll position, hover, a pressed row)
+    const row = (id: string) => document.querySelector(`[data-conv-id="${id}"]`);
+
+    beforeEach(() => {
+      useStore.setState({ conversations: [createConversation('1', 'First'), createConversation('2', 'Second')] });
+      renderConversationsList();
+    });
+
+    it('keeps the rows when nothing changed', () => {
+      const first = row('1');
+      useStore.setState({ conversations: [createConversation('1', 'First'), createConversation('2', 'Second')] });
+      renderConversationsList();
+      expect(row('1')).toBe(first);
+    });
+
+    it('re-renders when a row changed', () => {
+      const first = row('1');
+      useStore.setState({ conversations: [createConversation('1', 'Renamed'), createConversation('2', 'Second')] });
+      renderConversationsList();
+      expect(row('1')).not.toBe(first);
+      expect(row('1')?.querySelector('.conversation-title')?.textContent).toBe('Renamed');
+    });
+
+    it('compares against what it wrote, not the live rows', () => {
+      // A class toggled on the live row (setActiveConversation) is not a change of the list
+      const first = row('1');
+      setActiveConversation('1');
+      renderConversationsList();
+      expect(row('1')).toBe(first);
+    });
+
+    it('re-renders after another view wrote to the container', () => {
+      document.getElementById('conversations-list')!.replaceChildren(document.createElement('p'));
+      renderConversationsList();
+      expect(row('1')).not.toBeNull();
+    });
+  });
+
   describe('initSidebarTimeRefresh', () => {
     afterEach(() => {
       cleanupSidebarTimeRefresh();

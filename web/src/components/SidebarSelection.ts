@@ -59,11 +59,17 @@ export function renderSelectionChrome(): void {
 }
 
 /** The row's checkbox in selection mode; '' otherwise. */
-export function renderSelectionCheckbox(conv: Conversation): string {
+export function selectionCheckbox(conv: Conversation): HTMLElement | null {
   const state = useStore.getState();
-  if (!state.isSelecting) return '';
+  if (!state.isSelecting) return null;
   const checked = isConversationSelected(state, conv);
-  return `<span class="conversation-select" role="checkbox" aria-checked="${checked}" aria-label="Select">${checked ? CHECK_ICON : ''}</span>`;
+  const box = document.createElement('span');
+  box.className = 'conversation-select';
+  box.setAttribute('role', 'checkbox');
+  box.setAttribute('aria-checked', String(checked));
+  box.setAttribute('aria-label', 'Select');
+  if (checked) setIcon(box, CHECK_ICON);
+  return box;
 }
 
 function refresh(): void {

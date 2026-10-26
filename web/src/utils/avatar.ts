@@ -1,5 +1,3 @@
-import { escapeHtml } from './dom';
-
 /**
  * Get initials from a name or email (up to 2 characters)
  */
@@ -9,21 +7,6 @@ function getInitials(nameOrEmail: string): string {
     .map((part) => part.charAt(0).toUpperCase())
     .slice(0, 2)
     .join('');
-}
-
-/**
- * Render user avatar - returns HTML string for picture or initials
- */
-export function renderUserAvatarHtml(
-  picture: string | undefined,
-  name: string,
-  className = 'user-avatar'
-): string {
-  if (picture) {
-    return `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" class="${className}" data-avatar="${escapeHtml(className)}" referrerpolicy="no-referrer">`;
-  }
-  const initials = getInitials(name);
-  return `<div class="${className} ${className}-initials">${escapeHtml(initials)}</div>`;
 }
 
 /**
@@ -41,7 +24,7 @@ export function createUserAvatarElement(
     img.className = className;
     img.dataset.avatar = className;
     // Google's avatar host rate-limits hotlinked images sent with a referrer
-    img.referrerPolicy = 'no-referrer';
+    img.setAttribute('referrerpolicy', 'no-referrer');
     return img;
   }
 

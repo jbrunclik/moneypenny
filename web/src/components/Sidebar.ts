@@ -1,8 +1,8 @@
-import { escapeHtml, getElementById, clearElement } from '../utils/dom';
+import { createElement, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
-import { renderUserAvatarHtml } from '../utils/avatar';
+import { createUserAvatarElement } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
+import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { CommandCenterResponse, Conversation, User } from '../types/api';
@@ -12,7 +12,7 @@ import { createLogger } from '../utils/logger';
 import { getSyncManager } from '../sync/SyncManager';
 import { isSearchResultsVisible, renderSearchResults } from './SearchResults';
 import { renderTrashEntry, renderTrashView } from './TrashView';
-import { renderSelectionCheckbox } from './SidebarSelection';
+import { selectionCheckbox } from './SidebarSelection';
 import { isConversationSelected } from '../state/slices/selection';
 import {
   LOAD_MORE_THRESHOLD_PX,
@@ -66,78 +66,41 @@ function shouldShowLanguage(user: User | null): boolean {
   return !!user;
 }
 
-/**
- * Render the planner entry at the top of the conversations list.
- * Note: No divider after planner because agents entry follows it.
- */
-function renderPlannerEntry(isActive: boolean): string {
-  return `
-    <div class="planner-entry ${isActive ? 'active' : ''}" data-route="planner" title="Planner" role="button" tabindex="0">
-      <span class="planner-icon">${PLANNER_ICON}</span>
-      <span class="planner-label">Planner</span>
-    </div>
-  `;
+const el = createElement;
+
+/** A nav row entry (planner, agents, sports, language): icon, label, extras. */
+function navEntry(name: string, label: string, icon: IconHtml, isActive: boolean, title: string, extras: HTMLElement[] = []): HTMLElement {
+  return el('div', { class: `${name}-entry ${isActive ? 'active' : ''}`, 'data-route': name, title, role: 'button', tabindex: '0' }, [
+    createIconElement(`${name}-icon`, icon),
+    el('span', { class: `${name}-label` }, [label]),
+    ...extras,
+  ]);
 }
 
 /**
- * Render the agents entry in the sidebar (without divider, for use in nav row).
- * Shows three types of indicators:
+ * The agents entry in the sidebar nav row. Shows three types of indicators:
  * - Purple unread badge: number of unread assistant messages
  * - Amber waiting badge: number of agents waiting for approval
  * - Red error dot: agents with failed last execution
  */
-function renderAgentsEntryWithoutDivider(
-  isActive: boolean,
-  unreadCount: number,
-  waitingCount: number,
-  errorsCount: number
-): string {
+function agentsEntry(isActive: boolean, unreadCount: number, waitingCount: number, errorsCount: number): HTMLElement {
   const unreadTooltip = unreadCount === 1 ? '1 unread message' : `${unreadCount} unread messages`;
   const waitingTooltip = waitingCount === 1 ? '1 agent waiting for approval' : `${waitingCount} agents waiting for approval`;
+  const count = (n: number): string => (n > 99 ? '99+' : String(n));
   // One badge only: two side by side truncated the label in the nav grid.
   // Waiting approvals need action, so they win; the tooltip carries both.
   const badge =
     waitingCount > 0
-      ? `<span class="waiting-badge" title="${waitingTooltip}">${waitingCount > 99 ? '99+' : waitingCount}</span>`
+      ? el('span', { class: 'waiting-badge', title: waitingTooltip }, [count(waitingCount)])
       : unreadCount > 0
-        ? `<span class="unread-badge" title="${unreadTooltip}">${unreadCount > 99 ? '99+' : unreadCount}</span>`
-        : '';
+        ? el('span', { class: 'unread-badge', title: unreadTooltip }, [count(unreadCount)])
+        : null;
   const errorTooltip = errorsCount === 1 ? '1 agent failed' : `${errorsCount} agents failed`;
-  const errorIndicator = errorsCount > 0 ? `<span class="error-indicator" title="${errorTooltip}"></span>` : '';
+  const errorIndicator = errorsCount > 0 ? el('span', { class: 'error-indicator', title: errorTooltip }) : null;
   const title = ['Agents', waitingCount > 0 ? waitingTooltip : '', unreadCount > 0 ? unreadTooltip : '']
     .filter(Boolean)
     .join(' · ');
-  return `
-    <div class="agents-entry ${isActive ? 'active' : ''}" data-route="agents" title="${title}" role="button" tabindex="0">
-      <span class="agents-icon">${ROBOT_ICON}</span>
-      <span class="agents-label">Agents</span>
-      ${errorIndicator}${badge}
-    </div>
-  `;
-}
-
-/**
- * Render the sports entry in the sidebar nav row.
- */
-function renderSportsEntry(isActive: boolean): string {
-  return `
-    <div class="sports-entry ${isActive ? 'active' : ''}" data-route="sports" title="Sports" role="button" tabindex="0">
-      <span class="sports-icon">${SPORTS_ICON}</span>
-      <span class="sports-label">Sports</span>
-    </div>
-  `;
-}
-
-/**
- * Render the language entry in the sidebar nav row.
- */
-function renderLanguageEntry(isActive: boolean): string {
-  return `
-    <div class="language-entry ${isActive ? 'active' : ''}" data-route="language" title="Language" role="button" tabindex="0">
-      <span class="language-icon">${LANGUAGE_ICON}</span>
-      <span class="language-label">Language</span>
-    </div>
-  `;
+  return navEntry('agents', 'Agents', ROBOT_ICON, isActive, title, [errorIndicator, badge].filter((e): e is HTMLElement => !!e));
 }
 
 /**
@@ -156,12 +119,13 @@ function isArchiveViewVisible(): boolean {
   return useStore.getState().isArchiveView;
 }
 
-// Last HTML written to the conversations list (F3): callers re-render on
-// every sync poll even when nothing changed - the string compare lets the
-// no-op case skip the DOM entirely. The first-child anchor detects when
-// ANY other renderer (search results, archive, tests rebuilding the DOM)
-// has since written to the shared container, forcing a real render.
-let lastRenderedListHtml = '';
+// A detached copy of the list last written to the conversations container:
+// callers re-render on every sync poll even when nothing changed - an equal
+// newly built list lets the no-op case skip the DOM write entirely. The
+// first-child anchor detects when ANY other renderer (search results,
+// archive, tests rebuilding the DOM) has since written to the shared
+// container, forcing a real render.
+let lastRenderedList: DocumentFragment | null = null;
 let lastRenderedFirstChild: Element | null = null;
 
 /**
@@ -185,11 +149,8 @@ function renderAlternateList(container: HTMLDivElement): boolean {
 }
 
 /** The agents entry with the command center's unread, waiting and error counts. */
-function renderAgentsEntryWithCounts(
-  isAgentsView: boolean,
-  commandCenterData: CommandCenterResponse | null
-): string {
-  return renderAgentsEntryWithoutDivider(
+function agentsEntryWithCounts(isAgentsView: boolean, commandCenterData: CommandCenterResponse | null): HTMLElement {
+  return agentsEntry(
     isAgentsView,
     commandCenterData?.total_unread ?? 0,
     commandCenterData?.agents_waiting ?? 0,
@@ -197,32 +158,35 @@ function renderAgentsEntryWithCounts(
   );
 }
 
-/** Navigation entries row (planner + agents + sports + language side by side), '' when none show. */
-function renderNavEntriesHtml(): string {
+/** Navigation entries row (planner + agents + sports + language side by side) and its divider; none when none show. */
+function navEntries(): HTMLElement[] {
   const { user, isPlannerView, isAgentsView, isSportsView, isLanguageView, commandCenterData } = useStore.getState();
   const showPlanner = shouldShowPlanner(user);
   const showAgents = shouldShowAgents(user);
   const showSports = shouldShowSports(user);
   const showLanguage = shouldShowLanguage(user);
-  if (!showPlanner && !showAgents && !showSports && !showLanguage) return '';
+  if (!showPlanner && !showAgents && !showSports && !showLanguage) return [];
 
-  const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
-  const agentsHtml = showAgents ? renderAgentsEntryWithCounts(isAgentsView, commandCenterData) : '';
-  const sportsHtml = showSports ? renderSportsEntry(isSportsView) : '';
-  const languageHtml = showLanguage ? renderLanguageEntry(isLanguageView) : '';
   // Count visible entries for layout
   const visibleCount = [showPlanner, showAgents, showSports, showLanguage].filter(Boolean).length;
   const rowClass = visibleCount === 1 ? ' single' : '';
-  return `
-      <div class="sidebar-nav-row${rowClass}">
-        ${plannerHtml}${agentsHtml}${sportsHtml}${languageHtml}
-      </div>
-      <div class="sidebar-divider"></div>
-    `;
+  return [
+    el('div', { class: `sidebar-nav-row${rowClass}` }, [
+      showPlanner && navEntry('planner', 'Planner', PLANNER_ICON, isPlannerView, 'Planner'),
+      showAgents && agentsEntryWithCounts(isAgentsView, commandCenterData),
+      showSports && navEntry('sports', 'Sports', SPORTS_ICON, isSportsView, 'Sports'),
+      showLanguage && navEntry('language', 'Language', LANGUAGE_ICON, isLanguageView, 'Language'),
+    ]),
+    el('div', { class: 'sidebar-divider' }),
+  ];
+}
+
+function groupLabel(text: string): HTMLElement {
+  return el('div', { class: 'conversation-group-label' }, [text]);
 }
 
 /** The conversation rows: a Pinned group, then recency groups with labels. */
-function renderConversationGroupsHtml(conversations: Conversation[]): string {
+function conversationGroups(conversations: Conversation[]): HTMLElement[] {
   const { currentConversation, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView } = useStore.getState();
   // A conversation row is highlighted only in the plain chat view - special
   // views (planner, agents, sports, language, storage) set currentConversation
@@ -237,30 +201,26 @@ function renderConversationGroupsHtml(conversations: Conversation[]): string {
   const pinnedConversations = conversations.filter((c) => c.pinned);
   const regularConversations = conversations.filter((c) => !c.pinned);
 
-  const pinnedHtml = pinnedConversations.length
-    ? `<div class="conversation-group-label">Pinned</div>` +
-      pinnedConversations
-        .map((conv) =>
-          renderConversationItem(conv, conv.id === activeId)
-        )
-        .join('')
-    : '';
+  const rows: HTMLElement[] = [];
+  if (pinnedConversations.length) {
+    rows.push(groupLabel('Pinned'), ...pinnedConversations.map((conv) => conversationItem(conv, conv.id === activeId)));
+  }
 
   let lastGroup: string | null = null;
-  return pinnedHtml + regularConversations
-    .map((conv) => {
-      const group = groupForDate(conv.updated_at);
-      const label =
-        group !== lastGroup
-          ? `<div class="conversation-group-label">${escapeHtml(group)}</div>`
-          : '';
-      lastGroup = group;
-      return (
-        label +
-        renderConversationItem(conv, conv.id === activeId)
-      );
-    })
-    .join('');
+  for (const conv of regularConversations) {
+    const group = groupForDate(conv.updated_at);
+    if (group !== lastGroup) rows.push(groupLabel(group));
+    lastGroup = group;
+    rows.push(conversationItem(conv, conv.id === activeId));
+  }
+  return rows;
+}
+
+/** Three bouncing dots under a list while more rows can load. */
+function loadMoreDots(className: string, loading: boolean): HTMLElement {
+  return el('div', { class: `${className} ${loading ? 'loading' : ''}` }, [
+    el('div', { class: 'loading-dots' }, [el('span'), el('span'), el('span')]),
+  ]);
 }
 
 /**
@@ -273,7 +233,7 @@ export function renderConversationsList(): void {
   if (!container) return;
 
   if (renderAlternateList(container)) {
-    lastRenderedListHtml = '';
+    lastRenderedList = null;
     return;
   }
 
@@ -283,56 +243,52 @@ export function renderConversationsList(): void {
   renderTrashEntry();
 
   const { conversations, isLoading, conversationsPagination } = useStore.getState();
-  const navEntriesHtml = renderNavEntriesHtml();
+  const nav = navEntries();
 
   if (isLoading && conversations.length === 0) {
-    lastRenderedListHtml = '';
-    container.innerHTML = navEntriesHtml + `
-      <div class="conversations-loading">
-        <div class="conversation-skeleton"></div>
-        <div class="conversation-skeleton"></div>
-        <div class="conversation-skeleton"></div>
-      </div>
-    `;
+    lastRenderedList = null;
+    container.replaceChildren(
+      ...nav,
+      el('div', { class: 'conversations-loading' }, [
+        el('div', { class: 'conversation-skeleton' }),
+        el('div', { class: 'conversation-skeleton' }),
+        el('div', { class: 'conversation-skeleton' }),
+      ])
+    );
     return;
   }
 
   if (conversations.length === 0) {
-    lastRenderedListHtml = '';
-    container.innerHTML = navEntriesHtml + `
-      <div class="conversations-empty">
-        <p>No conversations yet</p>
-        <p class="text-muted">Start a new chat to begin</p>
-      </div>
-    `;
+    lastRenderedList = null;
+    container.replaceChildren(
+      ...nav,
+      el('div', { class: 'conversations-empty' }, [
+        el('p', {}, ['No conversations yet']),
+        el('p', { class: 'text-muted' }, ['Start a new chat to begin']),
+      ])
+    );
     return;
   }
 
-  const conversationsHtml = renderConversationGroupsHtml(conversations);
-
-  // Render loading indicator for "load more" if there are more pages
-  const loadMoreHtml = conversationsPagination.hasMore
-    ? `<div class="conversations-load-more ${conversationsPagination.isLoadingMore ? 'loading' : ''}">
-        <div class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>`
-    : '';
-
-  const listHtml = navEntriesHtml + conversationsHtml + loadMoreHtml;
+  const list = document.createDocumentFragment();
+  list.append(
+    ...nav,
+    ...conversationGroups(conversations),
+    // Loading indicator for "load more" if there are more pages
+    ...(conversationsPagination.hasMore ? [loadMoreDots('conversations-load-more', conversationsPagination.isLoadingMore)] : [])
+  );
   // F3: skip no-op renders entirely (preserves scroll position and hover
   // state across sync polls); when content DID change, keep the offset
   const unchanged =
-    listHtml === lastRenderedListHtml &&
+    lastRenderedList !== null &&
     lastRenderedFirstChild !== null &&
-    container.firstElementChild === lastRenderedFirstChild;
+    container.firstElementChild === lastRenderedFirstChild &&
+    list.isEqualNode(lastRenderedList);
   if (!unchanged) {
     const scrollTop = container.scrollTop;
-    container.innerHTML = listHtml;
+    lastRenderedList = list.cloneNode(true) as DocumentFragment;
+    container.replaceChildren(list);
     container.scrollTop = scrollTop;
-    lastRenderedListHtml = listHtml;
     lastRenderedFirstChild = container.firstElementChild;
     ensureListTabStop(container);
   }
@@ -354,66 +310,49 @@ function ensureListTabStop(container: HTMLElement): void {
   }
 }
 
-/** A row's unread badge, relative time and message preview ('' when absent). */
-function conversationMetaHtml(conv: Conversation): { unreadBadge: string; relativeTime: string; preview: string } {
-  // Render unread badge if there are unread messages
-  const unreadBadge = conv.unreadCount && conv.unreadCount > 0
-    ? `<span class="unread-badge">${conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>`
-    : '';
+/** A row's relative time (null without an update time). */
+function conversationTime(conv: Conversation): HTMLElement | null {
+  return conv.updated_at ? el('span', { class: 'conversation-time' }, [formatRelativeTime(conv.updated_at)]) : null;
+}
 
-  const relativeTime = conv.updated_at
-    ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
-    : '';
-
-  // One-line snippet of the newest message (iMessage-style scanability);
-  // per-device settings toggle
-  const preview =
-    conv.last_message_preview && isSidebarPreviewsEnabled()
-      ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
-      : '';
-  return { unreadBadge, relativeTime, preview };
+/** "⋯ More" on a swiped row. */
+function moreButton(dataAttribute: string, id: string): HTMLButtonElement {
+  return el('button', { class: 'conversation-more-swipe', [dataAttribute]: id, 'aria-label': 'More actions' }, ['⋯']);
 }
 
 /**
- * Render a single conversation item
+ * A single conversation item
  */
-function renderConversationItem(conv: Conversation, isActive: boolean): string {
-  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
-  const id = escapeHtml(conv.id);
-  const { unreadBadge, relativeTime, preview } = conversationMetaHtml(conv);
-
-  // Bulk delete selection mode: a checkbox per row (empty outside it)
+function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
+  const id = conv.id;
+  // Bulk delete selection mode: a checkbox per row (none outside it)
   const state = useStore.getState();
   const selected = state.isSelecting && isConversationSelected(state, conv);
+  const unread = conv.unreadCount ?? 0;
+  const pinLabel = conv.pinned ? 'Unpin' : 'Pin';
 
-  return `
-    <div class="conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}" data-conv-id="${id}">
-      <div class="conversation-item" role="button" tabindex="${isActive ? '0' : '-1'}"${isActive ? ' aria-current="true"' : ''}>
-        ${renderSelectionCheckbox(conv)}
-        <div class="conversation-text">
-          <div class="conversation-title">${title}</div>
-          ${preview}
-        </div>
-        ${unreadBadge}
-        ${relativeTime}
-        <div class="conversation-actions">
-          <button class="conversation-pin" data-pin-id="${id}" aria-label="${conv.pinned ? 'Unpin' : 'Pin'}" title="${conv.pinned ? 'Unpin' : 'Pin'}">
-            ${conv.pinned ? UNPIN_ICON : PIN_ICON}
-          </button>
-          <button class="conversation-rename" data-rename-id="${id}" aria-label="Rename">
-            ${EDIT_ICON}
-          </button>
-          <button class="conversation-archive" data-archive-id="${id}" aria-label="Archive">
-            ${ARCHIVE_ICON}
-          </button>
-          <button class="conversation-delete" data-delete-id="${id}" aria-label="Delete">
-            ${DELETE_ICON}
-          </button>
-        </div>
-      </div>
-      ${renderSwipeActions(conv.id)}
-    </div>
-  `;
+  return el('div', { class: `conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}`, 'data-conv-id': id }, [
+    el('div', { class: 'conversation-item', role: 'button', tabindex: isActive ? '0' : '-1', ...(isActive ? { 'aria-current': 'true' } : {}) }, [
+      selectionCheckbox(conv),
+      el('div', { class: 'conversation-text' }, [
+        el('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+        // One-line snippet of the newest message (iMessage-style
+        // scanability); per-device settings toggle
+        !!conv.last_message_preview &&
+          isSidebarPreviewsEnabled() &&
+          el('div', { class: 'conversation-preview' }, [conv.last_message_preview]),
+      ]),
+      unread > 0 && el('span', { class: 'unread-badge' }, [unread > 99 ? '99+' : String(unread)]),
+      conversationTime(conv),
+      el('div', { class: 'conversation-actions' }, [
+        createIconButton({ class: 'conversation-pin', 'data-pin-id': id, 'aria-label': pinLabel, title: pinLabel }, conv.pinned ? UNPIN_ICON : PIN_ICON),
+        createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),
+        createIconButton({ class: 'conversation-archive', 'data-archive-id': id, 'aria-label': 'Archive' }, ARCHIVE_ICON),
+        createIconButton({ class: 'conversation-delete', 'data-delete-id': id, 'aria-label': 'Delete' }, DELETE_ICON),
+      ]),
+    ]),
+    swipeActions(id),
+  ]);
 }
 
 /**
@@ -422,63 +361,39 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
  * delete far more often than they archive. Delete reuses the existing
  * data-delete-id delegation, so the confirm dialog still applies.
  */
-export function renderSwipeActions(convId: string): string {
-  const id = escapeHtml(convId);
+export function swipeActions(convId: string): HTMLElement {
   const quickAction =
     getSwipeQuickAction() === 'delete'
-      ? `<button class="conversation-delete-swipe" data-delete-id="${id}" aria-label="Delete">
-          ${DELETE_ICON}
-        </button>`
-      : `<button class="conversation-archive-swipe" data-archive-id="${id}" aria-label="Archive">
-          ${ARCHIVE_ICON}
-        </button>`;
-  return `
-      <div class="conversation-actions-swipe">
-        <button class="conversation-more-swipe" data-more-id="${id}" aria-label="More actions">
-          ⋯
-        </button>
-        ${quickAction}
-      </div>`;
+      ? createIconButton({ class: 'conversation-delete-swipe', 'data-delete-id': convId, 'aria-label': 'Delete' }, DELETE_ICON)
+      : createIconButton({ class: 'conversation-archive-swipe', 'data-archive-id': convId, 'aria-label': 'Archive' }, ARCHIVE_ICON);
+  return el('div', { class: 'conversation-actions-swipe' }, [moreButton('data-more-id', convId), quickAction]);
 }
 
 /**
- * Render a single archived conversation item (with rename + unarchive + delete actions)
+ * A single archived conversation item (with rename + unarchive + delete actions)
  */
-function renderArchivedConversationItem(conv: Conversation): string {
-  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
-  const id = escapeHtml(conv.id);
+function archivedConversationItem(conv: Conversation): HTMLElement {
+  const id = conv.id;
+  return el('div', { class: 'conversation-item-wrapper', 'data-conv-id': id }, [
+    el('div', { class: 'conversation-item', role: 'button', tabindex: '-1' }, [
+      el('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+      conversationTime(conv),
+      el('div', { class: 'conversation-actions' }, [
+        createIconButton({ class: 'conversation-rename', 'data-rename-id': id, 'aria-label': 'Rename' }, EDIT_ICON),
+        createIconButton({ class: 'conversation-unarchive', 'data-unarchive-id': id, 'aria-label': 'Unarchive' }, UNARCHIVE_ICON),
+        createIconButton({ class: 'conversation-delete', 'data-delete-id': id, 'aria-label': 'Delete' }, DELETE_ICON),
+      ]),
+    ]),
+    el('div', { class: 'conversation-actions-swipe' }, [
+      moreButton('data-more-archived-id', id),
+      createIconButton({ class: 'conversation-unarchive-swipe', 'data-unarchive-id': id, 'aria-label': 'Unarchive' }, UNARCHIVE_ICON),
+    ]),
+  ]);
+}
 
-  const relativeTime = conv.updated_at
-    ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
-    : '';
-
-  return `
-    <div class="conversation-item-wrapper" data-conv-id="${id}">
-      <div class="conversation-item" role="button" tabindex="-1">
-        <div class="conversation-title">${title}</div>
-        ${relativeTime}
-        <div class="conversation-actions">
-          <button class="conversation-rename" data-rename-id="${id}" aria-label="Rename">
-            ${EDIT_ICON}
-          </button>
-          <button class="conversation-unarchive" data-unarchive-id="${id}" aria-label="Unarchive">
-            ${UNARCHIVE_ICON}
-          </button>
-          <button class="conversation-delete" data-delete-id="${id}" aria-label="Delete">
-            ${DELETE_ICON}
-          </button>
-        </div>
-      </div>
-      <div class="conversation-actions-swipe">
-        <button class="conversation-more-swipe" data-more-archived-id="${id}" aria-label="More actions">
-          ⋯
-        </button>
-        <button class="conversation-unarchive-swipe" data-unarchive-id="${id}" aria-label="Unarchive">
-          ${UNARCHIVE_ICON}
-        </button>
-      </div>
-    </div>
-  `;
+/** A user-menu item: its icon, label and extras. */
+function menuItem(attributes: Record<string, string>, icon: IconHtml, label: string, extras: HTMLElement[] = []): HTMLButtonElement {
+  return el('button', { ...attributes, role: 'menuitem' }, [iconNodes(icon), el('span', {}, [label]), ...extras]);
 }
 
 /**
@@ -496,39 +411,28 @@ export function renderUserInfo(): void {
   }
 
   const name = user.name || user.email;
-  const avatarHtml = renderUserAvatarHtml(user.picture || undefined, name);
 
-  container.innerHTML = `
-    <button id="user-menu-btn" class="user-menu-btn" aria-haspopup="menu" aria-expanded="false">
-      ${avatarHtml}
-      <span class="user-name">${escapeHtml(name)}</span>
-      <span id="monthly-cost" class="user-cost" title="This month's cost">—</span>
-    </button>
-    <div class="user-menu hidden" role="menu">
-      <button id="settings-btn" class="user-menu-item" role="menuitem">
-        ${SETTINGS_ICON}<span>Settings</span>
-      </button>
-      <button id="memories-btn" class="user-menu-item" role="menuitem">
-        ${DATABASE_ICON}<span>Data</span>
-      </button>
-      <button class="user-menu-item user-menu-archive hidden" role="menuitem" data-route="archive">
-        ${ARCHIVE_ICON}<span>Archive</span><span class="archive-count">0</span>
-      </button>
-      <button class="user-menu-item user-menu-trash hidden" role="menuitem" data-route="trash">
-        ${DELETE_ICON}<span>Trash</span><span class="archive-count trash-count">0</span>
-      </button>
-      <button id="select-chats-btn" class="user-menu-item" role="menuitem">
-        ${CHECK_ICON}<span>Select chats</span>
-      </button>
-      <button id="cost-history-btn" class="user-menu-item" role="menuitem">
-        ${COST_ICON}<span>Cost history</span>
-      </button>
-      ${user.is_admin ? `<button id="admin-btn" class="user-menu-item" role="menuitem">${ACTIVITY_ICON}<span>Admin</span></button>` : ''}
-      <button id="logout-btn" class="user-menu-item user-menu-item-danger" role="menuitem">
-        ${LOGOUT_ICON}<span>Log out</span>
-      </button>
-    </div>
-  `;
+  container.replaceChildren(
+    el('button', { id: 'user-menu-btn', class: 'user-menu-btn', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, [
+      createUserAvatarElement(user.picture || undefined, name),
+      el('span', { class: 'user-name' }, [name]),
+      el('span', { id: 'monthly-cost', class: 'user-cost', title: "This month's cost" }, ['—']),
+    ]),
+    el('div', { class: 'user-menu hidden', role: 'menu' }, [
+      menuItem({ id: 'settings-btn', class: 'user-menu-item' }, SETTINGS_ICON, 'Settings'),
+      menuItem({ id: 'memories-btn', class: 'user-menu-item' }, DATABASE_ICON, 'Data'),
+      menuItem({ class: 'user-menu-item user-menu-archive hidden', 'data-route': 'archive' }, ARCHIVE_ICON, 'Archive', [
+        el('span', { class: 'archive-count' }, ['0']),
+      ]),
+      menuItem({ class: 'user-menu-item user-menu-trash hidden', 'data-route': 'trash' }, DELETE_ICON, 'Trash', [
+        el('span', { class: 'archive-count trash-count' }, ['0']),
+      ]),
+      menuItem({ id: 'select-chats-btn', class: 'user-menu-item' }, CHECK_ICON, 'Select chats'),
+      menuItem({ id: 'cost-history-btn', class: 'user-menu-item' }, COST_ICON, 'Cost history'),
+      ...(user.is_admin ? [menuItem({ id: 'admin-btn', class: 'user-menu-item' }, ACTIVITY_ICON, 'Admin')] : []),
+      menuItem({ id: 'logout-btn', class: 'user-menu-item user-menu-item-danger' }, LOGOUT_ICON, 'Log out'),
+    ])
+  );
 
   // Fetch monthly cost after rendering
   const now = new Date();
@@ -572,8 +476,8 @@ let timeRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Periodically re-render the conversations list so relative times and date
- * groups stay accurate. Gated on tab visibility; the string-compare render
- * cache makes ticks free when no label actually changed.
+ * groups stay accurate. Gated on tab visibility; the unchanged-list check
+ * makes ticks cheap when no label actually changed (no DOM write).
  */
 export function initSidebarTimeRefresh(): void {
   if (timeRefreshInterval) return;
@@ -807,53 +711,32 @@ function renderArchiveView(container: HTMLDivElement): void {
   const { archivedConversations, archivedPagination } = useStore.getState();
 
   // Header with back button
-  const headerHtml = `
-    <div class="archive-view-header">
-      <button class="archive-back-btn" data-archive-back aria-label="Back to conversations">
-        <span class="archive-back-icon">${CHEVRON_RIGHT_ICON}</span>
-      </button>
-      <span class="archive-view-title">Archive</span>
-      <span class="archive-count">${archivedPagination.totalCount}</span>
-    </div>
-  `;
+  const header = el('div', { class: 'archive-view-header' }, [
+    el('button', { class: 'archive-back-btn', 'data-archive-back': '', 'aria-label': 'Back to conversations' }, [
+      createIconElement('archive-back-icon', CHEVRON_RIGHT_ICON),
+    ]),
+    el('span', { class: 'archive-view-title' }, ['Archive']),
+    el('span', { class: 'archive-count' }, [String(archivedPagination.totalCount)]),
+  ]);
 
   // Loading state
   if (archivedConversations.length === 0 && archivedPagination.isLoadingMore) {
-    container.innerHTML = headerHtml + `
-      <div class="conversations-loading">
-        <div class="loading-spinner"></div>
-      </div>
-    `;
+    container.replaceChildren(header, el('div', { class: 'conversations-loading' }, [el('div', { class: 'loading-spinner' })]));
     return;
   }
 
   // Empty state
   if (archivedConversations.length === 0) {
-    container.innerHTML = headerHtml + `
-      <div class="conversations-empty">
-        <p>No archived conversations</p>
-      </div>
-    `;
+    container.replaceChildren(header, el('div', { class: 'conversations-empty' }, [el('p', {}, ['No archived conversations'])]));
     return;
   }
 
-  // Archived items
-  const archivedItemsHtml = archivedConversations
-    .map((conv) => renderArchivedConversationItem(conv))
-    .join('');
-
-  // Load more indicator
-  const loadMoreHtml = archivedPagination.hasMore
-    ? `<div class="archive-load-more ${archivedPagination.isLoadingMore ? 'loading' : ''}">
-        <div class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>`
-    : '';
-
-  container.innerHTML = headerHtml + archivedItemsHtml + loadMoreHtml;
+  container.replaceChildren(
+    header,
+    ...archivedConversations.map(archivedConversationItem),
+    // Load more indicator
+    ...(archivedPagination.hasMore ? [loadMoreDots('archive-load-more', archivedPagination.isLoadingMore)] : [])
+  );
   ensureListTabStop(container);
 
   // Set up infinite scroll for archive

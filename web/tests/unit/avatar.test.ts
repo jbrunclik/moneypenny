@@ -3,13 +3,19 @@
  * avatar must fall back to initials instead of a broken-image icon.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createUserAvatarElement, installAvatarFallback, renderUserAvatarHtml } from '@/utils/avatar';
+import { createUserAvatarElement, installAvatarFallback } from '@/utils/avatar';
+
+/** The avatar mounted in #host. */
+function mount(picture: string | undefined, name: string): void {
+  document.body.innerHTML = '<div id="host"></div><p id="after">after</p>';
+  document.querySelector('#host')!.appendChild(createUserAvatarElement(picture, name));
+}
 
 describe('avatar fallback', () => {
   beforeAll(() => installAvatarFallback());
 
-  it('replaces a failed avatar image (HTML string) with initials', () => {
-    document.body.innerHTML = `<div id="host">${renderUserAvatarHtml('https://lh3.example/dead.jpg', 'Jana Nováková')}</div>`;
+  it('replaces a failed avatar image with initials', () => {
+    mount('https://lh3.example/dead.jpg', 'Jana Nováková');
 
     document.querySelector('img')!.dispatchEvent(new Event('error'));
 
@@ -37,12 +43,11 @@ describe('avatar fallback', () => {
   });
 
   it('asks the avatar host without a referrer', () => {
-    expect(renderUserAvatarHtml('https://x/p.jpg', 'A')).toContain('referrerpolicy="no-referrer"');
-    expect((createUserAvatarElement('https://x/p.jpg', 'A') as HTMLImageElement).referrerPolicy).toBe('no-referrer');
+    expect(createUserAvatarElement('https://x/p.jpg', 'A').getAttribute('referrerpolicy')).toBe('no-referrer');
   });
 
   it('renders initials of a name starting with markup characters as text', () => {
-    document.body.innerHTML = `<div id="host">${renderUserAvatarHtml(undefined, '< bob')}</div><p id="after">after</p>`;
+    mount(undefined, '< bob');
 
     expect(document.querySelector('#host > div')!.textContent).toBe('<B');
     expect(document.querySelector('#host b')).toBeNull();
