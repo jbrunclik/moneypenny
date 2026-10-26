@@ -1,5 +1,4 @@
 [
-  "gestures.ts",
   "header-autohide.ts",
   "response-scroll.ts",
   "startup/app-shell.ts",
