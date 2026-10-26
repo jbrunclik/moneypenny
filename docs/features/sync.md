@@ -32,7 +32,7 @@ The app uses timestamp-based polling with `updated_at` instead of SSE or WebSock
 
 SQLite **triggers** on `conversations` and `messages` (insert / update / delete) bump a global `sync_counter` and upsert the conversation's row in `conversation_changes(conversation_id, user_id, seq)` - in the same transaction as the write, for every write path including future ones. SQLite serializes writers, so seq order is commit order: a cursor can't skip a change the way the `updated_at`-vs-`server_time` comparison could (a commit landing after the snapshot), and there's no clock/DST dependence. A permanently deleted conversation keeps its change row as a tombstone (`conversation` NULL on read → `removed_ids`). Non-chat conversations (planner, agents, programs) advance the cursor but aren't returned - they keep their own syncs.
 
-On the client (`applyChangeLog` in SyncManager): a removal closes the open conversation with a notice (an **archived** one stays open, it's still readable); a conversation that (re)appears is added when it falls inside the loaded part of the list (older ones come with pagination), counted unread only beyond its known count - a restore or unarchive isn't "new".
+On the client (`applyChangeLog` in [change-log-merge.ts](../../web/src/sync/change-log-merge.ts)): a removal closes the open conversation with a notice (an **archived** one stays open, it's still readable); a conversation that (re)appears is added when it falls inside the loaded part of the list (older ones come with pagination), counted unread only beyond its known count - a restore or unarchive isn't "new".
 
 3. **Visibility-aware polling**:
    - Polling pauses when tab is hidden
@@ -63,7 +63,7 @@ GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
 
 ### Unread Count Calculation
 
-**Shared read state (Oct 2026, [migration 0062](../../migrations/0062_add_conversation_read_count.py)).** `conversations.read_message_count` is the message count as of the last time ANY of the user's devices showed the conversation; badges are `message_count - read_count`, from the conversation list on first paint and from every sync summary (`read_count`). A device reports it via `POST /conversations/<id>/read` (`reportRead` in SyncManager, deduplicated) when it shows a conversation (`markConversationRead`) and when its own turn ends (`setLocalMessageCount`: the full count if the chat is open, count - 1 if the user switched away - their own message is read, the reply isn't). The write is a conversation UPDATE, so the change log carries "read" to the other devices; `updated_at` is untouched (no reordering) and an unchanged count doesn't write. Existing conversations started fully read; `/test/seed` marks seeded history read unless `"unread": true`.
+**Shared read state (Oct 2026, [migration 0062](../../migrations/0062_add_conversation_read_count.py)).** `conversations.read_message_count` is the message count as of the last time ANY of the user's devices showed the conversation; badges are `message_count - read_count`, from the conversation list on first paint and from every sync summary (`read_count`). A device reports it via `POST /conversations/<id>/read` (`reportRead` in [read-reporting.ts](../../web/src/sync/read-reporting.ts), deduplicated) when it shows a conversation (`markConversationRead`) and when its own turn ends (`setLocalMessageCount`: the full count if the chat is open, count - 1 if the user switched away - their own message is read, the reply isn't). The write is a conversation UPDATE, so the change log carries "read" to the other devices; `updated_at` is untouched (no reordering) and an unchanged count doesn't write. Existing conversations started fully read; `/test/seed` marks seeded history read unless `"unread": true`.
 
 The local counts below remain only for the OPEN conversation's change detection (merge trigger) and for servers without `read_count`:
 
@@ -236,7 +236,12 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 ### Frontend
 
-- [SyncManager.ts](../../web/src/sync/SyncManager.ts) - Polling, state sync, race condition handling
+- [SyncManager.ts](../../web/src/sync/SyncManager.ts) - Polling, the sync lock and queue, foregrounding, this device's own message counts and streaming deferral
+- [sync-state.ts](../../web/src/sync/sync-state.ts) - State shared by the sync modules (baselines, deferred summaries, local-change ordering) and the callbacks type
+- [change-log-merge.ts](../../web/src/sync/change-log-merge.ts) / [full-sync-merge.ts](../../web/src/sync/full-sync-merge.ts) / [summary-merge.ts](../../web/src/sync/summary-merge.ts) - Applying cursor, full and per-conversation sync responses
+- [pagination-window.ts](../../web/src/sync/pagination-window.ts) - Loaded-window and pagination-discovered checks
+- [planner-sync.ts](../../web/src/sync/planner-sync.ts) / [agent-conversation-sync.ts](../../web/src/sync/agent-conversation-sync.ts) / [command-center-sync.ts](../../web/src/sync/command-center-sync.ts) - The views outside the regular sync
+- [read-reporting.ts](../../web/src/sync/read-reporting.ts) - Server read-state reports
 - [api/conversations.ts](../../web/src/api/conversations.ts) - `conversations.sync()` method
 - [init.ts](../../web/src/core/init.ts) - SyncManager initialization
 - [sync-banner.ts](../../web/src/core/sync-banner.ts) - New messages banner

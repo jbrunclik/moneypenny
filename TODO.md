@@ -122,7 +122,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Split the files where bugs cluster** (Oct 25 2026 ranking by churn and fix commits over 90 days; the 500-line file limit was dropped for function limits, see docs/conventions.md):
   - `web/src/core/init.ts` (711 lines, 52 commits, 14 fixes; `init()` is 202 lines) - one startup module per feature with a one-line hook-up; the main conflict point between parallel sessions.
   - `web/src/utils/thumbnails.ts` (1094, 10 of 12 commits were fixes, 12 functions over 50 lines) with `components/messages/streaming.ts` (705, 7 fixes) - mostly scroll-after-image-load logic under the wrong name; the two overlap.
-  - `web/src/sync/SyncManager.ts` (1387, grew 50% in October; `applyChanges` 153 lines) - the strongest unit coverage, so the safest large split.
   - `web/src/core/keyboard-viewport.ts` (553, 25 fixes in 90 days; `initKeyboardViewportPinning` 251 lines) - the most bug-dense file, but only verifiable on a real iPhone: do it with a device session.
   - `src/agent/graph.py` (1082; `check_tool_results` 171 lines, 8 functions over 50) - pair with an eval run that is happening anyway.
   - `src/services/planner_data.py` (`build_planner_dashboard` is 376 lines, the longest function in the repo) - untouched for 90 days: split it as part of Planner dashboard v2, not before.
