@@ -52,14 +52,14 @@ import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { initSidebarSelection } from '../components/SidebarSelection';
 import { setupTouchGestures } from './gestures';
-import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
+import { initTTSVoices } from './tts';
 import { initToolbarButtons } from './toolbar';
 import { handleDeepLinkNavigation } from './conversation-deeplink';
-import { deleteMessage } from './conversation-actions';
 import { initAgents } from './agents';
 import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
 import { initAuthEvents, startSession } from './startup/auth';
+import { initMessageEvents } from './startup/message-events';
 
 const log = createLogger('init');
 
@@ -163,20 +163,5 @@ export async function init(): Promise<void> {
   // Only once the boot session has settled (signed in and loaded, or the
   // sign-in button shown): the handlers below assume startup is done
   initAuthEvents();
-
-  // Listen for message delete events
-  window.addEventListener('message:delete', (event: Event) => {
-    const customEvent = event as CustomEvent<{ messageId: string }>;
-    const { messageId } = customEvent.detail;
-    log.debug('Message delete event received', { messageId });
-    void deleteMessage(messageId);
-  });
-
-  // Listen for message speak events (TTS)
-  window.addEventListener('message:speak', (event: Event) => {
-    const customEvent = event as CustomEvent<{ messageId: string; language?: string }>;
-    const { messageId, language } = customEvent.detail;
-    log.debug('Message speak event received', { messageId, language });
-    speakMessage(messageId, language);
-  });
+  initMessageEvents();
 }
