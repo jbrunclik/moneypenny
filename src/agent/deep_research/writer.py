@@ -20,7 +20,7 @@ from src.agent.deep_research.subagent import ItemResult
 from src.agent.gemini_clients import chat_model
 from src.agent.prompt_texts.deep_research import FOLLOWUP_PROMPT, REPORT_PROMPT
 from src.agent.source_pages import SourcePage
-from src.agent.tools.web import wrap_untrusted_content
+from src.agent.tools.web_content import wrap_untrusted_content
 from src.agent.turn_usage import TokenTotals
 from src.config import Config
 from src.utils.logging import get_logger

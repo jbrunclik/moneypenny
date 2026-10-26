@@ -57,7 +57,8 @@ from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
 from src.agent.tools.skills import load_skill
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
-from src.agent.tools.web import FETCHABLE_BINARY_TYPES, fetch_url, web_search
+from src.agent.tools.web import fetch_url, web_search
+from src.agent.tools.web_content import FETCHABLE_BINARY_TYPES
 from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
 from src.config import Config
 from src.db.models import db

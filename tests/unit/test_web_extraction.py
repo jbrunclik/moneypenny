@@ -10,10 +10,10 @@ import pytest
 from bs4.element import NavigableString, Tag
 
 from src.agent.tools.product_data import product_data_line
-from src.agent.tools.web import (
-    _extract_main_content,
-    _html_to_markdown,
+from src.agent.tools.web_content import (
+    extract_main_content,
     extract_text_from_html,
+    html_to_markdown,
 )
 
 
@@ -45,7 +45,9 @@ class TestHtmlExtraction:
 
     def test_falls_back_when_main_content_too_short(self) -> None:
         """A link hub with no article body falls back to html2text."""
-        with patch("src.agent.tools.web._extract_main_content", return_value="") as mock_main:
+        with patch(
+            "src.agent.tools.web_content.extract_main_content", return_value=""
+        ) as mock_main:
             text = extract_text_from_html(
                 "<html><body><ul><li>Headline A</li><li>Headline B</li></ul></body></html>"
             )
@@ -55,36 +57,38 @@ class TestHtmlExtraction:
     def test_main_content_used_when_sufficient(self) -> None:
         """A sufficiently long main-content extract is used verbatim (no fallback)."""
         long_text = "Real article body. " * 30  # > _MIN_MAIN_CONTENT_CHARS
-        with patch("src.agent.tools.web._extract_main_content", return_value=long_text):
+        with patch("src.agent.tools.web_content.extract_main_content", return_value=long_text):
             text = extract_text_from_html("<html><body><nav>NAVNOISE</nav></body></html>")
         assert "Real article body." in text
         assert "NAVNOISE" not in text  # fallback (which would keep nav) not used
 
     def test_trafilatura_failure_falls_back(self) -> None:
         """An exception inside trafilatura degrades to html2text, not a crash."""
-        with patch("src.agent.tools.web.trafilatura.extract", side_effect=RuntimeError("boom")):
+        with patch(
+            "src.agent.tools.web_content.trafilatura.extract", side_effect=RuntimeError("boom")
+        ):
             text = extract_text_from_html("<html><body><p>Fallback content here</p></body></html>")
         assert "Fallback content here" in text
 
     def test_truncates_at_limit(self) -> None:
         """Extracted text is capped at max_length with a truncation marker."""
         big = "word " * 500
-        with patch("src.agent.tools.web._extract_main_content", return_value=big):
+        with patch("src.agent.tools.web_content.extract_main_content", return_value=big):
             text = extract_text_from_html("<html></html>", max_length=100)
         assert len(text) <= 100 + len("\n\n[Content truncated...]")
         assert "[Content truncated...]" in text
 
     def test_extract_main_content_returns_empty_on_error(self) -> None:
-        """_extract_main_content swallows errors and returns ''."""
-        with patch("src.agent.tools.web.trafilatura.extract", side_effect=ValueError("x")):
-            assert _extract_main_content("<html></html>") == ""
+        """extract_main_content swallows errors and returns ''."""
+        with patch("src.agent.tools.web_content.trafilatura.extract", side_effect=ValueError("x")):
+            assert extract_main_content("<html></html>") == ""
 
 
 class TestUntrustedContentFraming:
     """Tests for prompt-injection framing of external content."""
 
     def test_wrap_untrusted_content_brackets_text(self) -> None:
-        from src.agent.tools.web import wrap_untrusted_content
+        from src.agent.tools.web_content import wrap_untrusted_content
 
         wrapped = wrap_untrusted_content("hello", "https://evil.example.com")
         assert "UNTRUSTED WEB CONTENT" in wrapped
@@ -235,7 +239,7 @@ class TestParsedTreesAreFreed:
         [
             (product_data_line, _PRODUCT),
             (product_data_line, _PLAIN),
-            (_html_to_markdown, _PRODUCT),
+            (html_to_markdown, _PRODUCT),
         ],
         ids=["product-data-found", "product-data-absent", "markdown-fallback"],
     )

@@ -106,9 +106,9 @@ class TestSSRFSafeTransport:
     """The connect-time transport re-checks the host before the request goes out."""
 
     def test_blocks_request_to_private_host(self) -> None:
-        from src.agent.tools.web import _SSRFSafeTransport
+        from src.agent.tools.url_safety import SSRFSafeTransport
 
-        transport = _SSRFSafeTransport()
+        transport = SSRFSafeTransport()
         request = httpx.Request("GET", "http://127.0.0.1/")
         with pytest.raises(httpx.ConnectError, match="SSRF blocked"):
             transport.handle_request(request)

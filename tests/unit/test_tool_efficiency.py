@@ -21,7 +21,6 @@ from src.agent.tools.turn_usage import (
     record_tool_call,
     reset_turn_usage,
 )
-from src.agent.tools.web import _chained_fetch_nudge
 from src.auth.garmin_auth import GarminAuthError
 
 
@@ -80,10 +79,18 @@ class TestBatchingNudge:
         assert "_efficiency" not in result
 
     def test_chained_fetch_nudge_only_after_a_search(self, turn) -> None:
-        assert _chained_fetch_nudge() is None
-        record_tool_call("web_search")
-        nudge = _chained_fetch_nudge()
-        assert nudge is not None and "research" in nudge
+        """fetch_url opening a search result is nudged toward research; fetching
+        a URL the user gave (no search this turn) is not."""
+        from src.agent.tools.web import fetch_url
+
+        page = MagicMock(status_code=200, is_redirect=False, headers={"content-type": "text/html"})
+        page.text = "<html><body><p>" + "Plenty of page text. " * 20 + "</p></body></html>"
+        with patch("src.agent.tools.web._fetch_response", return_value=(page, None)):
+            before = fetch_url.invoke({"url": "https://example.com/a"})
+            record_tool_call("web_search")
+            after = fetch_url.invoke({"url": "https://example.com/b"})
+        assert "EFFICIENCY" not in before
+        assert "EFFICIENCY" in after and "research" in after
 
 
 class TestDeepMerge:

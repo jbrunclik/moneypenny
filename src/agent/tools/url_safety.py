@@ -12,6 +12,8 @@ import ipaddress
 import socket
 from urllib.parse import urlparse
 
+import httpx
+
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -114,3 +116,19 @@ def validate_public_url(url: str) -> str | None:
         return f"Only http:// and https:// URLs are allowed, got {parsed.scheme}://"
 
     return check_host(parsed.hostname, parsed.port)
+
+
+class SSRFSafeTransport(httpx.HTTPTransport):
+    """httpx transport that re-validates the destination host at connect time.
+
+    The up-front validate_public_url() check and httpx's own DNS resolution
+    happen at slightly different times (a DNS-rebinding TOCTOU window). Checking
+    again here, right before the request goes out, narrows that window. Complete
+    protection still requires network-level egress filtering.
+    """
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        error = check_host(request.url.host, request.url.port)
+        if error:
+            raise httpx.ConnectError(f"SSRF blocked: {error}")
+        return super().handle_request(request)

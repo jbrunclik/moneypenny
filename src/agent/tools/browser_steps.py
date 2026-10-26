@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from src.agent.cancellation import is_cancelled
 from src.agent.tools.url_safety import validate_public_url
-from src.agent.tools.web import wrap_untrusted_content
+from src.agent.tools.web_content import wrap_untrusted_content
 from src.config import Config
 from src.utils.logging import get_logger
 

@@ -42,7 +42,7 @@ def test_page_fetches_load_the_ca_bundle_at_most_once() -> None:
     with (
         _ca_bundle_loads() as loads,
         patch.object(web, "validate_public_url", return_value=None),
-        patch.object(web, "check_host", return_value=None),
+        patch("src.agent.tools.url_safety.check_host", return_value=None),
     ):
         for _ in range(3):
             response, error = web._fetch_response("https://example.com/")

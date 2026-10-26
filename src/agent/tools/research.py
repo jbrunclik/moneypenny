@@ -17,12 +17,8 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.tools.errors import tool_error
-from src.agent.tools.web import (
-    GROUNDING_DIRECTIVE,
-    NO_RESULTS_NOTE,
-    fetch_page_text,
-    wrap_untrusted_content,
-)
+from src.agent.tools.web import GROUNDING_DIRECTIVE, NO_RESULTS_NOTE, fetch_page_text
+from src.agent.tools.web_content import wrap_untrusted_content
 from src.config import Config
 from src.services.search_adapters import SearchProviderError
 from src.services.search_provider import is_degraded, search_web

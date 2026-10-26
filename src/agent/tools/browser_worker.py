@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 from src.agent.tools.browser_steps import PAGE_STATE_JS
 from src.agent.tools.url_safety import check_host
-from src.agent.tools.web import extract_text_from_html
+from src.agent.tools.web_content import extract_text_from_html
 from src.config import Config
 from src.utils.logging import get_logger
 

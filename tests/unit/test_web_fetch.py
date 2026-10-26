@@ -11,7 +11,7 @@ from src.agent.tools import (
     FETCHABLE_BINARY_TYPES,
     fetch_url,
 )
-from src.agent.tools.web import _get_content_type_category
+from src.agent.tools.web_content import content_type_category
 
 
 class TestFetchUrl:
@@ -314,40 +314,40 @@ class TestGetContentTypeCategory:
 
     def test_categorizes_html(self) -> None:
         """Should categorize HTML content types as 'html'."""
-        assert _get_content_type_category("text/html") == "html"
-        assert _get_content_type_category("text/html; charset=utf-8") == "html"
+        assert content_type_category("text/html") == "html"
+        assert content_type_category("text/html; charset=utf-8") == "html"
 
     def test_categorizes_text(self) -> None:
         """Should categorize plain text types as 'text'."""
-        assert _get_content_type_category("text/plain") == "text"
-        assert _get_content_type_category("text/markdown") == "text"
-        assert _get_content_type_category("text/csv") == "text"
-        assert _get_content_type_category("text/plain; charset=utf-8") == "text"
+        assert content_type_category("text/plain") == "text"
+        assert content_type_category("text/markdown") == "text"
+        assert content_type_category("text/csv") == "text"
+        assert content_type_category("text/plain; charset=utf-8") == "text"
 
     def test_categorizes_pdf_as_binary(self) -> None:
         """Should categorize PDF as 'binary'."""
-        assert _get_content_type_category("application/pdf") == "binary"
+        assert content_type_category("application/pdf") == "binary"
 
     def test_categorizes_images_as_binary(self) -> None:
         """Should categorize image types as 'binary'."""
-        assert _get_content_type_category("image/png") == "binary"
-        assert _get_content_type_category("image/jpeg") == "binary"
-        assert _get_content_type_category("image/jpg") == "binary"
-        assert _get_content_type_category("image/gif") == "binary"
-        assert _get_content_type_category("image/webp") == "binary"
+        assert content_type_category("image/png") == "binary"
+        assert content_type_category("image/jpeg") == "binary"
+        assert content_type_category("image/jpg") == "binary"
+        assert content_type_category("image/gif") == "binary"
+        assert content_type_category("image/webp") == "binary"
 
     def test_categorizes_unsupported_types(self) -> None:
         """Should categorize unknown types as 'unsupported'."""
-        assert _get_content_type_category("application/octet-stream") == "unsupported"
-        assert _get_content_type_category("application/zip") == "unsupported"
-        assert _get_content_type_category("video/mp4") == "unsupported"
-        assert _get_content_type_category("audio/mpeg") == "unsupported"
+        assert content_type_category("application/octet-stream") == "unsupported"
+        assert content_type_category("application/zip") == "unsupported"
+        assert content_type_category("video/mp4") == "unsupported"
+        assert content_type_category("audio/mpeg") == "unsupported"
 
     def test_handles_case_insensitivity(self) -> None:
         """Should handle uppercase content types."""
-        assert _get_content_type_category("TEXT/HTML") == "html"
-        assert _get_content_type_category("Application/PDF") == "binary"
-        assert _get_content_type_category("IMAGE/PNG") == "binary"
+        assert content_type_category("TEXT/HTML") == "html"
+        assert content_type_category("Application/PDF") == "binary"
+        assert content_type_category("IMAGE/PNG") == "binary"
 
 
 class TestFetchableBinaryTypes:
@@ -467,7 +467,7 @@ class TestPageEncoding:
                 200, headers={"content-type": content_type}, content=body
             )
         )
-        with patch("src.agent.tools.web._SSRFSafeTransport", return_value=transport):
+        with patch("src.agent.tools.web.SSRFSafeTransport", return_value=transport):
             text, error = fetch_page_text("https://hostivice.cz/brve.htm")
         assert error is None and text is not None
         return text
