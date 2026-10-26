@@ -34,13 +34,16 @@ class TestHealthCheck:
     def test_does_not_check_database(self, client: FlaskClient) -> None:
         """Liveness probe should not check database (quick response)."""
         # Even with broken database, health should return ok
-        with patch("src.db.models.check_database_connectivity", return_value=(False, "DB error")):
+        with patch(
+            "src.api.routes.system.check_database_connectivity", return_value=(False, "DB error")
+        ) as check:
             response = client.get("/api/health")
 
         # Should still return 200 - liveness only checks if app is responding
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["status"] == "ok"
+        check.assert_not_called()
 
 
 class TestReadinessCheck:
