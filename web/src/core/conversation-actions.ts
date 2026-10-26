@@ -16,7 +16,7 @@ import { APP_NAME, TRASH_RETENTION_DAYS } from '../config';
 import { MS_PER_DAY } from '../constants';
 import { renderChatHeader } from '../components/ChatHeader';
 import { updateConversationCost } from './toolbar';
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 import { loadTrashedConversations, restoreConversation, restoreConversations } from './trash';
 import { buildBulkTrashRequest, selectedLoadedIds } from '../state/slices/selection';
 import { renderSelectionChrome } from '../components/SidebarSelection';

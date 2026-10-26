@@ -7,7 +7,7 @@ import { useStore } from '../state/store';
 import type { Conversation } from '../types/api';
 import { renderChatHeader } from '../components/ChatHeader';
 import { ARCHIVE_ICON, DELETE_ICON, PIN_ICON, UNPIN_ICON, setIcon } from '../utils/icons';
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 import { deleteConversation, renameConversationTo, togglePinConversation } from './conversation-actions';
 import { archiveConversation } from './archive';
 

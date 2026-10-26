@@ -19,7 +19,7 @@ import type { InitialRoute } from '../../router/deeplink';
 import { useStore } from '../../state/store';
 import type { AppState } from '../../state/store';
 import { createLogger } from '../../utils/logger';
-import { isTempConversation } from '../conversation';
+import { isTempConversation } from '../../utils/conversation-id';
 import { resyncPushSubscription } from '../push';
 import { loadTrashedConversations } from '../trash';
 import { openInitialRoute } from './initial-route';

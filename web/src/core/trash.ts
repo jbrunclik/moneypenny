@@ -16,7 +16,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { cleanupTrashInfiniteScroll } from '../components/TrashView';
 import { setTrashHash, setConversationHash, clearConversationHash } from '../router/deeplink';
 import type { Conversation } from '../types/api';
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 import { CONVERSATIONS_BULK_MAX_IDS } from '../config';
 
 const log = createLogger('conversation');

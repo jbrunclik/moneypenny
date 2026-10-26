@@ -49,6 +49,7 @@ import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leaveStorageView } from './kv-store';
 import { leaveSportsView } from './sports';
 import { leaveAgentsView } from './agents';
+import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('conversation');
 
@@ -70,13 +71,6 @@ export function getPendingConversationId(): string | null {
  */
 export function setPendingConversationId(id: string | null): void {
   pendingConversationId = id;
-}
-
-/**
- * Check if a conversation ID is temporary (not yet saved to DB).
- */
-export function isTempConversation(convId: string | undefined): boolean {
-  return convId?.startsWith('temp-') ?? false;
 }
 
 /**

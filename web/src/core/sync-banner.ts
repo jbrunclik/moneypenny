@@ -9,7 +9,8 @@ import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
 
-import { isTempConversation, markAgentViewedAndRefresh, showLoadedConversation } from './conversation';
+import { markAgentViewedAndRefresh, showLoadedConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('sync-banner');
 

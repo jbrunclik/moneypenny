@@ -15,7 +15,7 @@ import { getElementById, createElement } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON, setIcon } from '../utils/icons';
 import { logger } from '../utils/logger';
 
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 
 /**
  * Update conversation cost display and monthly cost in sidebar.

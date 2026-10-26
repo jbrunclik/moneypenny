@@ -1,5 +1,6 @@
 import type { BulkTrashRequest, Conversation } from '../../types/api';
 import type { AppSlice, AppState } from '../store';
+import { isTempConversation } from '../../utils/conversation-id';
 
 export type SelectionMode = 'ids' | 'all';
 
@@ -89,8 +90,7 @@ export function selectedLoadedIds(state: AppState): string[] {
   return state.conversations.filter((c) => isConversationSelected(state, c)).map((c) => c.id);
 }
 
-// Same test as isTempConversation (core/conversation.ts); slices don't import from core
-const isServerId = (id: string): boolean => !id.startsWith('temp-');
+const isServerId = (id: string): boolean => !isTempConversation(id);
 
 /** The bulk-trash body, or null when nothing on the server is selected. */
 export function buildBulkTrashRequest(state: AppState): BulkTrashRequest | null {

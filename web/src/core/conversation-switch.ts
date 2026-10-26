@@ -38,7 +38,7 @@ import type { Conversation } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 import { renderAgentConversationHeader } from '../components/AgentConversationHeader';
 import { renderChatHeader } from '../components/ChatHeader';
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 import { renderChatHeaderForConversation } from './conversation-header';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { hideNewMessagesAvailableBanner } from './sync-banner';

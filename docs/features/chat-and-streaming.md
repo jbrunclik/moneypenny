@@ -386,7 +386,7 @@ manually renamed conversation on a later scope change.
 Conversations are created locally with `temp-` prefixed ID and only persisted to DB on first message. This prevents empty conversations from polluting the database.
 
 **Key files:**
-- [conversation.ts](../../web/src/core/conversation.ts) - `createConversation()`, `isTempConversation()`
+- [conversation.ts](../../web/src/core/conversation.ts) - `createConversation()`; `isTempConversation()` lives in [utils/conversation-id.ts](../../web/src/utils/conversation-id.ts)
 - [messaging.ts](../../web/src/core/messaging.ts) - `persistTempConversation()` creates the real conversation on first send
 
 ### User Message ID Handling

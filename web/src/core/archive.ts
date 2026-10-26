@@ -16,7 +16,7 @@ import { renderMessages, updateChatTitle } from '../components/messages';
 import { setArchiveHash, setConversationHash, clearConversationHash } from '../router/deeplink';
 import { APP_NAME } from '../config';
 import { renderChatHeader } from '../components/ChatHeader';
-import { isTempConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('conversation');
 

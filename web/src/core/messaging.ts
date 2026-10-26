@@ -39,7 +39,8 @@ import { setConversationHash } from '../router/deeplink';
 import type { Conversation, DeepResearchStart, FileUpload, Message, MessageAction, SendExtras } from '../types/api';
 import { setMessageSendState } from '../components/messages/send-state';
 
-import { isTempConversation, createConversation } from './conversation';
+import { createConversation } from './conversation';
+import { isTempConversation } from '../utils/conversation-id';
 import {
   addOutboxEntry,
   getOutboxEntry,

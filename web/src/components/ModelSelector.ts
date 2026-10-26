@@ -4,6 +4,7 @@ import { conversations as conversationsApi } from '../api/conversations';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { CHECK_ICON } from '../utils/icons';
+import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('model-selector');
 
@@ -115,13 +116,6 @@ function closeModelDropdown(): void {
   const dropdown = getElementById<HTMLDivElement>('model-dropdown');
   dropdown?.classList.add('hidden');
   getElementById<HTMLButtonElement>('model-selector-btn')?.setAttribute('aria-expanded', 'false');
-}
-
-/**
- * Check if a conversation ID is temporary (not yet saved to DB)
- */
-function isTempConversation(convId: string | undefined): boolean {
-  return convId?.startsWith('temp-') ?? false;
 }
 
 /**
