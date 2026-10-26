@@ -15,7 +15,7 @@ import httpx
 
 from src.agent.tools import web
 from src.config import Config
-from src.services import search_provider
+from src.services import search_adapters
 
 
 @contextmanager
@@ -53,5 +53,5 @@ def test_page_fetches_load_the_ca_bundle_at_most_once() -> None:
 def test_search_calls_load_the_ca_bundle_at_most_once() -> None:
     with _ca_bundle_loads() as loads, patch.object(Config, "BRAVE_SEARCH_API_KEY", "key"):
         for _ in range(3):
-            search_provider._search_brave("query", 3)
+            search_adapters.search_brave("query", 3)
     assert len(loads) <= 1

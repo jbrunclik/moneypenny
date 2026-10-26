@@ -14,15 +14,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config import Config
-from src.services.search_provider import (
+from src.services.search_adapters import (
     SearchProviderError,
-    _breaker_state,
-    _now,
-    _record_breaker_failure,
-    _search_brave,
-    _search_exa,
-    _search_linkup,
-    _search_tavily,
+    search_brave,
+    search_exa,
+    search_linkup,
+    search_tavily,
+)
+from src.services.search_provider import (
     active_provider,
     breaker_exhausted_key,
     breaker_key,
@@ -162,8 +161,8 @@ class TestProviderOrder:
 
 
 class TestRouting:
-    @patch("src.services.search_provider._search_tavily")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_tavily")
+    @patch("src.services.search_adapters.search_brave")
     def test_provider_error_falls_through_to_next(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -183,8 +182,8 @@ class TestRouting:
         assert results[0]["url"] == "https://a.example"
         mock_tavily.assert_called_once()
 
-    @patch("src.services.search_provider._search_tavily")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_tavily")
+    @patch("src.services.search_adapters.search_brave")
     def test_exhausted_quota_skips_without_calling(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -204,7 +203,7 @@ class TestRouting:
         assert len(results) == 1
         mock_brave.assert_not_called()
 
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_brave")
     def test_success_increments_monthly_usage(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         db = _fake_db()
@@ -222,7 +221,7 @@ class TestRouting:
         db.kv_increment.assert_called_once()
         assert db.kv_increment.call_args[0][2] == usage_key("brave")
 
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_brave")
     def test_failed_call_does_not_bill(self, mock_brave: MagicMock) -> None:
         mock_brave.side_effect = SearchProviderError("boom")
         db = _fake_db()
@@ -235,7 +234,7 @@ class TestRouting:
                 LINKUP_API_KEY="",
             ),
             patch("src.services.search_provider.db", db),
-            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_adapters.search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
             search_web("q", 3)
@@ -245,8 +244,8 @@ class TestRouting:
         incremented = [call.args[2] for call in db.kv_increment.call_args_list]
         assert usage_key("brave") not in incremented
 
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_brave")
     def test_all_providers_failing_raises_last_error(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -286,7 +285,7 @@ class TestMonthlyUsage:
 
 class TestBraveSearch:
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.services.search_provider.httpx.get")
+    @patch("src.services.search_adapters.httpx.get")
     def test_maps_brave_results_to_contract(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -310,7 +309,7 @@ class TestBraveSearch:
         assert mock_get.call_args.kwargs["headers"]["X-Subscription-Token"] == "test-key"
 
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.services.search_provider.httpx.get")
+    @patch("src.services.search_adapters.httpx.get")
     def test_brave_caps_results(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -326,7 +325,7 @@ class TestBraveSearch:
 
 
 class TestTavilySearch:
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_maps_tavily_results_to_contract(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -352,7 +351,7 @@ class TestTavilySearch:
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "C1"}]
         assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer tvly-key"
 
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_tavily_rate_limit_is_retriable(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 429
@@ -367,7 +366,7 @@ class TestTavilySearch:
                 LINKUP_API_KEY="",
             ),
             patch("src.services.search_provider.db", _fake_db()),
-            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_adapters.search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = []
             search_web("q", 3)
@@ -376,7 +375,7 @@ class TestTavilySearch:
 
 
 class TestExaSearch:
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_maps_exa_results_to_contract(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -402,15 +401,15 @@ class TestExaSearch:
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "body text"}]
         assert mock_post.call_args.kwargs["headers"]["x-api-key"] == "exa-key"
 
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_requests_configured_search_type(self, mock_post: MagicMock) -> None:
         mock_post.return_value = MagicMock(status_code=200)
         mock_post.return_value.json.return_value = {"results": []}
         with patch.multiple(Config, EXA_API_KEY="exa-key", EXA_SEARCH_TYPE="lite"):
-            _search_exa("q", 3)
+            search_exa("q", 3)
         assert mock_post.call_args.kwargs["json"]["type"] == "lite"
 
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_exa_out_of_credits_falls_through(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 402
@@ -425,7 +424,7 @@ class TestExaSearch:
                 LINKUP_API_KEY="",
             ),
             patch("src.services.search_provider.db", _fake_db()),
-            patch("src.services.search_provider._search_ddgs") as mock_ddgs,
+            patch("src.services.search_adapters.search_ddgs") as mock_ddgs,
         ):
             mock_ddgs.return_value = []
             search_web("q", 3)
@@ -433,7 +432,7 @@ class TestExaSearch:
 
 
 class TestDdgsSearch:
-    @patch("src.services.search_provider.DDGS")
+    @patch("src.services.search_adapters.DDGS")
     def test_maps_ddgs_results_to_contract(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -448,7 +447,7 @@ class TestDdgsSearch:
 
         assert results == [{"title": "T1", "url": "https://a.example", "snippet": "B1"}]
 
-    @patch("src.services.search_provider.DDGS")
+    @patch("src.services.search_adapters.DDGS")
     def test_ddgs_rate_limit_raises_retriable(self, mock_ddgs_class: MagicMock) -> None:
         from ddgs.exceptions import RatelimitException
 
@@ -471,7 +470,7 @@ class TestQuoteStrippingRetry:
     """Quoted operator queries often return nothing; retry unquoted inside
     the winning provider - one extra call instead of a full LLM round."""
 
-    @patch("src.services.search_provider.DDGS")
+    @patch("src.services.search_adapters.DDGS")
     def test_zero_results_with_quotes_retries_unquoted(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -491,7 +490,7 @@ class TestQuoteStrippingRetry:
         assert '"' not in retry_query
         assert "MacBook Air" in retry_query
 
-    @patch("src.services.search_provider.DDGS")
+    @patch("src.services.search_adapters.DDGS")
     def test_no_retry_without_quotes(self, mock_ddgs_class: MagicMock) -> None:
         mock_ddgs = MagicMock()
         mock_ddgs.__enter__ = MagicMock(return_value=mock_ddgs)
@@ -556,7 +555,7 @@ class TestDegradationAlert:
         return db
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_adapters.search_ddgs")
     def test_ddgs_fallback_with_paid_providers_alerts_operator(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -578,7 +577,7 @@ class TestDegradationAlert:
         assert mock_push.call_args[0][0] == "op-user-id"
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_adapters.search_ddgs")
     def test_alert_deduped_within_a_day(self, mock_ddgs: MagicMock, mock_push: MagicMock) -> None:
         mock_ddgs.return_value = []
         store = {usage_key("brave"): str(Config.SEARCH_QUOTA_BRAVE_MONTHLY)}
@@ -598,7 +597,7 @@ class TestDegradationAlert:
         mock_push.assert_called_once()
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_adapters.search_ddgs")
     def test_no_alert_when_no_paid_provider_configured(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -617,7 +616,7 @@ class TestDegradationAlert:
         mock_push.assert_not_called()
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_brave")
     def test_no_alert_when_paid_provider_serves(
         self, mock_brave: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -636,8 +635,8 @@ class TestDegradationAlert:
         mock_push.assert_not_called()
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_exa")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_exa")
     def test_no_alert_when_a_metered_provider_is_merely_failing(
         self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -665,8 +664,8 @@ class TestDegradationAlert:
         mock_push.assert_not_called()
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_exa")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_exa")
     def test_transient_failure_does_not_consume_the_daily_alert_slot(
         self, mock_exa: MagicMock, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -694,7 +693,7 @@ class TestDegradationAlert:
         assert "quotas exhausted" in mock_push.call_args[0][2]
 
     @patch("src.services.search_provider.send_push_to_user")
-    @patch("src.services.search_provider._search_ddgs")
+    @patch("src.services.search_adapters.search_ddgs")
     def test_a_provider_out_of_credits_reads_as_exhausted(
         self, mock_ddgs: MagicMock, mock_push: MagicMock
     ) -> None:
@@ -736,8 +735,8 @@ class TestCircuitBreaker:
         # Shares the usage counter's period suffix so it resets with the quota
         assert key.rsplit(":", 1)[1] == usage_key("brave").split(":", 1)[1]
 
-    @patch("src.services.search_provider._search_tavily")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_tavily")
+    @patch("src.services.search_adapters.search_brave")
     def test_trips_after_threshold_consecutive_failures(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -763,8 +762,8 @@ class TestCircuitBreaker:
         mock_brave.assert_not_called()
         mock_tavily.assert_called_once()
 
-    @patch("src.services.search_provider._search_tavily")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_tavily")
+    @patch("src.services.search_adapters.search_brave")
     def test_skips_provider_while_tripped(
         self, mock_brave: MagicMock, mock_tavily: MagicMock
     ) -> None:
@@ -791,7 +790,7 @@ class TestCircuitBreaker:
         mock_brave.assert_not_called()
         mock_tavily.assert_called_once()
 
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_brave")
     def test_half_open_probe_after_a_day(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         store = {
@@ -816,7 +815,7 @@ class TestCircuitBreaker:
         mock_brave.assert_called_once()
         assert results[0]["url"] == "https://a.example"
 
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_brave")
     def test_success_resets_the_breaker(self, mock_brave: MagicMock) -> None:
         mock_brave.return_value = [{"title": "T", "url": "https://a.example", "snippet": "S"}]
         # Below threshold (a couple of blips), then a success clears the counter
@@ -838,8 +837,8 @@ class TestCircuitBreaker:
             search_web("q", 3)
         assert breaker_key("brave") not in store
 
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_brave")
     def test_unmetered_ddgs_failure_records_no_breaker(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -876,7 +875,7 @@ class TestLinkupSearch:
             ]
         }
         with patch.object(Config, "LINKUP_API_KEY", "lk"):
-            results = _search_linkup("q", 5)
+            results = search_linkup("q", 5)
         assert results == [
             {"title": "T1", "url": "https://a", "snippet": "C1"},
             {"title": "T2", "url": "https://b", "snippet": "C2"},
@@ -887,7 +886,7 @@ class TestLinkupSearch:
         mock_post.return_value = MagicMock(status_code=200)
         mock_post.return_value.json.return_value = {"results": []}
         with patch.multiple(Config, LINKUP_API_KEY="lk", LINKUP_SEARCH_DEPTH="standard"):
-            _search_linkup("q", 3)
+            search_linkup("q", 3)
         body = mock_post.call_args.kwargs["json"]
         assert body["outputType"] == "searchResults"
         assert body["depth"] == "standard"
@@ -903,7 +902,7 @@ class TestLinkupSearch:
             ]
         }
         with patch.object(Config, "LINKUP_API_KEY", "lk"):
-            assert len(_search_linkup("q", 2)) == 2
+            assert len(search_linkup("q", 2)) == 2
 
     @patch("httpx.post")
     def test_429_is_retriable(self, mock_post: MagicMock) -> None:
@@ -913,7 +912,7 @@ class TestLinkupSearch:
             patch.object(Config, "LINKUP_API_KEY", "lk"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_linkup("q", 3)
+            search_linkup("q", 3)
         assert excinfo.value.retriable
 
     def test_linkup_is_the_last_metered_provider(self) -> None:
@@ -973,26 +972,48 @@ class TestBreakerCounterIsAtomic:
             with self._lock:
                 return self.store.pop(key, None) is not None
 
-    def test_simultaneous_failures_are_all_counted(self) -> None:
+    @patch("src.services.search_adapters.search_ddgs", return_value=[])
+    @patch("src.services.search_adapters.search_brave")
+    def test_simultaneous_failures_are_all_counted(
+        self, mock_brave: MagicMock, _mock_ddgs: MagicMock
+    ) -> None:
+        mock_brave.side_effect = SearchProviderError("brave down", retriable=True)
         store: dict[str, str] = {}
-        with patch("src.services.search_provider.db", self._LaggyKV(store)):
-            threads = [
-                threading.Thread(target=_record_breaker_failure, args=("brave",)) for _ in range(3)
-            ]
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=10,
+            ),
+            patch("src.services.search_provider.db", self._LaggyKV(store)),
+        ):
+            threads = [threading.Thread(target=search_web, args=("q", 3)) for _ in range(3)]
             for thread in threads:
                 thread.start()
             for thread in threads:
                 thread.join()
-            fails, _ = _breaker_state("brave")
-        assert fails == 3
+        assert mock_brave.call_count == 3
+        assert store[breaker_key("brave")] == "3"
 
     def test_legacy_json_breaker_value_reads_as_clear(self) -> None:
         """Pre-existing {"fails": N} blobs are period-scoped and expire on
         their own; they must not crash or wedge a provider off."""
         store = {breaker_key("brave"): '{"fails": 5, "last": 1.0}'}
-        with patch("src.services.search_provider.db", _stateful_db(store)):
-            fails, _ = _breaker_state("brave")
-        assert fails == 0
+        with (
+            patch.multiple(
+                Config,
+                BRAVE_SEARCH_API_KEY="bk",
+                TAVILY_API_KEY="",
+                EXA_API_KEY="",
+                LINKUP_API_KEY="",
+                SEARCH_BREAKER_THRESHOLD=3,
+            ),
+            patch("src.services.search_provider.db", _stateful_db(store)),
+        ):
+            assert active_provider() == "brave"
 
 
 class TestIsDegraded:
@@ -1050,16 +1071,16 @@ class TestMalformedProviderResponses:
     @pytest.mark.parametrize(
         ("adapter", "key_attr"),
         [
-            (_search_brave, "BRAVE_SEARCH_API_KEY"),
-            (_search_tavily, "TAVILY_API_KEY"),
-            (_search_exa, "EXA_API_KEY"),
-            (_search_linkup, "LINKUP_API_KEY"),
+            (search_brave, "BRAVE_SEARCH_API_KEY"),
+            (search_tavily, "TAVILY_API_KEY"),
+            (search_exa, "EXA_API_KEY"),
+            (search_linkup, "LINKUP_API_KEY"),
         ],
     )
     def test_undecodable_body_becomes_a_provider_error(self, adapter: Any, key_attr: str) -> None:
         response = MagicMock(status_code=200)
         response.json.side_effect = ValueError("Expecting value: line 1 column 1")
-        target = "httpx.get" if adapter is _search_brave else "httpx.post"
+        target = "httpx.get" if adapter is search_brave else "httpx.post"
         with (
             patch(target, return_value=response),
             patch.object(Config, key_attr, "key"),
@@ -1088,7 +1109,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "BRAVE_SEARCH_API_KEY", "bk"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_brave("q", 3)
+            search_brave("q", 3)
         assert excinfo.value.exhausted
 
     @patch("httpx.get")
@@ -1098,7 +1119,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "BRAVE_SEARCH_API_KEY", "bk"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_brave("q", 3)
+            search_brave("q", 3)
         assert not excinfo.value.exhausted
 
     @patch("httpx.post")
@@ -1108,7 +1129,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "TAVILY_API_KEY", "tk"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_tavily("q", 3)
+            search_tavily("q", 3)
         assert excinfo.value.exhausted
 
     @patch("httpx.post")
@@ -1118,7 +1139,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "TAVILY_API_KEY", "tk"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_tavily("q", 3)
+            search_tavily("q", 3)
         assert not excinfo.value.exhausted
 
     @patch("httpx.post")
@@ -1128,7 +1149,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "EXA_API_KEY", "ek"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_exa("q", 3)
+            search_exa("q", 3)
         assert excinfo.value.exhausted
 
     @patch("httpx.post")
@@ -1138,7 +1159,7 @@ class TestTerminalVsTransientErrors:
             patch.object(Config, "EXA_API_KEY", "ek"),
             pytest.raises(SearchProviderError) as excinfo,
         ):
-            _search_exa("q", 3)
+            search_exa("q", 3)
         assert not excinfo.value.exhausted
 
 
@@ -1146,8 +1167,8 @@ class TestExhaustionBenchesImmediately:
     """A terminal signal benches a provider for the rest of the period, with
     no threshold to reach and no daily probe re-asking a settled question."""
 
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_brave")
     def test_one_exhaustion_trips_the_breaker(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -1168,8 +1189,8 @@ class TestExhaustionBenchesImmediately:
             search_web("q2", 3)
         mock_brave.assert_called_once()  # skipped on the second search
 
-    @patch("src.services.search_provider._search_ddgs")
-    @patch("src.services.search_provider._search_brave")
+    @patch("src.services.search_adapters.search_ddgs")
+    @patch("src.services.search_adapters.search_brave")
     def test_exhausted_provider_is_not_probed_again_this_period(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
@@ -1190,7 +1211,7 @@ class TestExhaustionBenchesImmediately:
         ):
             search_web("q", 3)
             # Well past the probe window - a transient trip would retry here
-            with patch("src.services.search_provider._now", return_value=_now() + 10 * 86400):
+            with patch("src.services.search_provider._now", return_value=time.time() + 10 * 86400):
                 search_web("q2", 3)
         mock_brave.assert_called_once()
 
@@ -1209,7 +1230,7 @@ class TestPublishedDates:
     the model can tell a 2024 article from this month's news."""
 
     @patch.object(Config, "BRAVE_SEARCH_API_KEY", "test-key")
-    @patch("src.services.search_provider.httpx.get")
+    @patch("src.services.search_adapters.httpx.get")
     def test_brave_page_age(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1230,7 +1251,7 @@ class TestPublishedDates:
             [result] = search_web("q", 1)
         assert result["published"] == "2026-09-09"
 
-    @patch("src.services.search_provider.httpx.post")
+    @patch("src.services.search_adapters.httpx.post")
     def test_tavily_and_exa_dates(self, mock_post: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1267,7 +1288,7 @@ class TestPublishedDates:
         assert "published" not in results[2]
 
     def test_unparseable_dates_are_dropped(self) -> None:
-        from src.services.search_provider import normalize_published
+        from src.services.search_adapters import normalize_published
 
         assert normalize_published("2026-09-09T17:00:00") == "2026-09-09"
         assert normalize_published("Wed, 15 Jul 2026 08:00:00 GMT") == "2026-07-15"

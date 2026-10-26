@@ -22,8 +22,8 @@ from src.agent.tools.product_data import product_data_line
 from src.agent.tools.turn_usage import get_tool_call_count, record_tool_call
 from src.agent.tools.url_safety import check_host, validate_public_url
 from src.config import Config
+from src.services.search_adapters import SearchProviderError
 from src.services.search_provider import (
-    SearchProviderError,
     active_provider,
     has_metered_providers,
     search_web_detailed,
