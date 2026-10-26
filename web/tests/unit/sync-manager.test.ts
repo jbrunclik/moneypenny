@@ -27,6 +27,7 @@ vi.mock('@/api/agents', () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    syncConversation: vi.fn(),
     getCommandCenter: vi.fn().mockResolvedValue({
       agents: [],
       pending_approvals: [],
@@ -56,6 +57,7 @@ vi.mock('@/components/Toast', () => ({
 import { SyncManager, type SyncManagerCallbacks } from '@/sync/SyncManager';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { planner as plannerApi } from '@/api/planner';
+import { agents as agentsApi } from '@/api/agents';
 import { toast } from '@/components/Toast';
 import { hasPendingRecovery, markStreamForRecovery } from '@/core/stream-recovery';
 
@@ -1877,6 +1879,298 @@ describe('SyncManager', () => {
       await syncManager.incrementalSync();
 
       expect(mockSyncChanges().mock.calls.map(([c]) => c)).toEqual([10, 15]);
+    });
+  });
+
+  describe('planner sync', () => {
+    function plannerAt(count: number, lastReset: string | null): void {
+      mockPlannerSync.mockResolvedValue({
+        conversation: { id: 'planner-1', message_count: count, last_reset: lastReset },
+        server_time: new Date().toISOString(),
+      });
+    }
+
+    beforeEach(async () => {
+      useStore.setState({ isPlannerView: true });
+      callbacks.onPlannerDeleted = vi.fn();
+      callbacks.onPlannerReset = vi.fn();
+      callbacks.onPlannerExternalUpdate = vi.fn();
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+    });
+
+    afterEach(() => {
+      useStore.setState({ isPlannerView: false });
+    });
+
+    it('reports new messages beyond the baseline while the planner is shown', async () => {
+      syncManager.setPlannerBaseline(2);
+      plannerAt(5, null);
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerExternalUpdate).toHaveBeenCalledWith(5);
+    });
+
+    it('stays quiet about new messages when the planner view is closed', async () => {
+      useStore.setState({ isPlannerView: false });
+      syncManager.setPlannerBaseline(2);
+      plannerAt(5, null);
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerExternalUpdate).not.toHaveBeenCalled();
+    });
+
+    it('reports a reset made in another tab', async () => {
+      plannerAt(2, 'reset-1');
+      await syncManager.incrementalSync();
+      plannerAt(2, 'reset-2');
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerReset).toHaveBeenCalledTimes(1);
+    });
+
+    it('a re-baseline makes the next reset marker this device\'s own', async () => {
+      plannerAt(2, 'reset-1');
+      await syncManager.incrementalSync();
+      syncManager.setPlannerBaseline(0);
+      plannerAt(0, 'reset-2');
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerReset).not.toHaveBeenCalled();
+    });
+
+    it('reports a planner deleted elsewhere once', async () => {
+      plannerAt(2, null);
+      await syncManager.incrementalSync();
+      mockPlannerSync.mockResolvedValue({ conversation: null, server_time: new Date().toISOString() });
+
+      await syncManager.incrementalSync();
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onPlannerDeleted).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('agent conversation sync', () => {
+    const mockAgentSync = (): ReturnType<typeof vi.fn> =>
+      agentsApi.syncConversation as unknown as ReturnType<typeof vi.fn>;
+
+    function agentAt(count: number): void {
+      mockAgentSync().mockResolvedValue({
+        conversation: { id: 'agent-conv', message_count: count },
+        server_time: new Date().toISOString(),
+      });
+    }
+
+    beforeEach(async () => {
+      callbacks.onAgentConversationExternalUpdate = vi.fn();
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+    });
+
+    it('does not poll without a viewed agent', async () => {
+      await syncManager.incrementalSync();
+
+      expect(mockAgentSync()).not.toHaveBeenCalled();
+    });
+
+    it('reports new messages beyond the baseline, then moves the baseline', async () => {
+      syncManager.setViewedAgent('agent-1', 3);
+      agentAt(5);
+
+      await syncManager.incrementalSync();
+      await syncManager.incrementalSync();
+
+      expect(mockAgentSync()).toHaveBeenCalledWith('agent-1');
+      expect(callbacks.onAgentConversationExternalUpdate).toHaveBeenCalledTimes(1);
+      expect(callbacks.onAgentConversationExternalUpdate).toHaveBeenCalledWith(5);
+    });
+
+    it('takes the first poll as the baseline when none was given', async () => {
+      syncManager.setViewedAgent('agent-1');
+      agentAt(5);
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onAgentConversationExternalUpdate).not.toHaveBeenCalled();
+    });
+
+    it('skips the poll while the open conversation streams', async () => {
+      useStore.setState({ currentConversation: createConversation('agent-conv', 'Agent', 3) });
+      syncManager.setViewedAgent('agent-1', 3);
+      syncManager.setConversationStreaming('agent-conv', true);
+      agentAt(5);
+
+      await syncManager.incrementalSync();
+
+      expect(mockAgentSync()).not.toHaveBeenCalled();
+    });
+
+    it("this device's own turn moves the agent baseline", async () => {
+      useStore.setState({ currentConversation: createConversation('agent-conv', 'Agent', 3) });
+      syncManager.setViewedAgent('agent-1', 3);
+      syncManager.setLocalMessageCount('agent-conv', 5);
+      agentAt(5);
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onAgentConversationExternalUpdate).not.toHaveBeenCalled();
+    });
+
+    it('stops polling once the agent view is left', async () => {
+      syncManager.setViewedAgent('agent-1', 3);
+      syncManager.setViewedAgent(null);
+      agentAt(5);
+
+      await syncManager.incrementalSync();
+
+      expect(mockAgentSync()).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('read reporting', () => {
+    const mockMarkRead = (): ReturnType<typeof vi.fn> =>
+      conversationsApi.markRead as unknown as ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+      useStore.getState().addConversation(createConversation('a', 'A', 2));
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'A', 2)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+      mockMarkRead().mockClear();
+    });
+
+    it('reports each read count once', () => {
+      syncManager.markConversationRead('a', 4);
+      syncManager.markConversationRead('a', 4);
+
+      expect(mockMarkRead().mock.calls).toEqual([['a', 4]]);
+    });
+
+    it('never reports a temp conversation', () => {
+      syncManager.markConversationRead('temp-1', 2);
+
+      expect(mockMarkRead()).not.toHaveBeenCalled();
+    });
+
+    it('retries a report that failed', async () => {
+      mockMarkRead().mockRejectedValueOnce(new Error('offline'));
+      syncManager.markConversationRead('a', 4);
+      await vi.advanceTimersByTimeAsync(0);
+
+      syncManager.markConversationRead('a', 4);
+
+      expect(mockMarkRead()).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports our own saved message as read', () => {
+      syncManager.noteOwnMessageSaved('a');
+
+      expect(mockMarkRead()).toHaveBeenCalledWith('a', 3);
+    });
+
+    it('our own turn in a chat we left leaves the reply unread', () => {
+      syncManager.setLocalMessageCount('a', 4);
+
+      expect(mockMarkRead()).toHaveBeenCalledWith('a', 3);
+    });
+
+    it('our own turn in the open chat is all read', () => {
+      useStore.setState({ currentConversation: createConversation('a', 'A', 2) });
+
+      syncManager.setLocalMessageCount('a', 4);
+
+      expect(mockMarkRead()).toHaveBeenCalledWith('a', 4);
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.messageCount).toBe(4);
+    });
+
+    it('does not report a count the server already has', async () => {
+      mockSync.mockResolvedValue({
+        conversations: [{ ...createConversationSummary('a', 'A', 4), read_count: 4 }],
+        server_time: '2024-01-01T00:01:00Z',
+        is_full_sync: true,
+      });
+      await syncManager.fullSync();
+
+      syncManager.markConversationRead('a', 4);
+
+      expect(mockMarkRead()).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('local message count baselines', () => {
+    it('a paginated conversation keeps a baseline it already has', async () => {
+      useStore.getState().addConversation(createConversation('a', 'A', 2));
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'A', 2)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+
+      syncManager.initializeLocalMessageCount('a', 9);
+      syncManager.initializeLocalMessageCount('b', 9);
+      const counts = (syncManager as unknown as { localMessageCounts: Map<string, number> }).localMessageCounts;
+
+      expect(counts.get('a')).toBe(2);
+      expect(counts.get('b')).toBe(9);
+    });
+  });
+
+  describe('summary merge', () => {
+    beforeEach(async () => {
+      useStore.getState().addConversation(createConversation('a', 'Old title', 2));
+      useStore.setState({ currentConversation: createConversation('a', 'Old title', 2) });
+      callbacks.onCurrentConversationRenamed = vi.fn();
+      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('a', 'Old title', 2)]));
+      syncManager = new SyncManager(callbacks);
+      await syncManager.start();
+    });
+
+    function nextSummary(extra: Partial<ConversationSummary>): void {
+      mockSync.mockResolvedValue({
+        conversations: [{ ...createConversationSummary('a', 'Old title', 2), ...extra }],
+        server_time: '2024-01-01T00:01:00Z',
+        is_full_sync: false,
+      });
+    }
+
+    it('tells the open chat about a rename', async () => {
+      nextSummary({ title: 'New title' });
+
+      await syncManager.incrementalSync();
+
+      expect(callbacks.onCurrentConversationRenamed).toHaveBeenCalledWith('New title');
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.title).toBe('New title');
+    });
+
+    it("adopts another device's anonymous mode and pin", async () => {
+      nextSummary({ anonymous_mode: true, pinned: true });
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().anonymousModeByConversation.get('a')).toBe(true);
+      expect(useStore.getState().conversations.find((c) => c.id === 'a')?.pinned).toBe(true);
+    });
+  });
+
+  describe('command center sync', () => {
+    it('stores the latest command center summary', async () => {
+      const mockCommandCenter = agentsApi.getCommandCenter as unknown as ReturnType<typeof vi.fn>;
+      mockCommandCenter.mockResolvedValueOnce({
+        agents: [],
+        pending_approvals: [],
+        recent_executions: [],
+        total_unread: 3,
+        agents_waiting: 1,
+        agents_with_errors: 0,
+      });
+      syncManager = new SyncManager(callbacks);
+
+      await syncManager.start();
+
+      expect(useStore.getState().commandCenterData?.total_unread).toBe(3);
     });
   });
 });
