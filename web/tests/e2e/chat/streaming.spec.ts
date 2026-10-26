@@ -15,6 +15,7 @@ import {
   installScrollLog,
   attachScrollLog,
 } from './fixtures';
+import { nextFrames, scrollSettled } from '../waits';
 
 test.describe('Chat - Streaming Mode', () => {
   test.beforeEach(async ({ page }) => {
@@ -147,7 +148,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
       el.dispatchEvent(new WheelEvent('wheel', { deltaY: -400, bubbles: true }));
       el.scrollTop = 0;
     });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Verify we're at the top
     const scrollTopBefore = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -180,7 +181,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     const messagesContainer = page.locator('#messages');
     // Let the send-to-top glide finish: it only aborts on a move of more than
     // a few px, and its target here sits ~5px from the top
-    await page.waitForTimeout(700);
+    await scrollSettled(page);
 
     // Scroll up during streaming to interrupt auto-scroll
     await messagesContainer.evaluate((el) => {
@@ -188,7 +189,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     });
 
     // Wait for scroll event to be processed
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Verify we're at the top
     const scrollTopAfterScrollUp = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -223,7 +224,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await messagesContainer.evaluate((el) => {
       el.scrollTop = 0;
     });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Send a new message
     await page.fill('#message-input', 'Another long story please');
@@ -235,13 +236,13 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     // Auto-scroll should bring us to bottom since we were scrolled up before sending
     // Wait for first content to appear
-    await page.waitForTimeout(200);
+    await expect(assistantMessage).toContainText('This', { timeout: 5000 });
 
     // Scroll up to interrupt
     await messagesContainer.evaluate((el) => {
       el.scrollTop = 0;
     });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Now scroll back to bottom to resume auto-scroll (with input: a move
     // without any is layout, which must not re-arm following)
@@ -249,7 +250,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
       el.dispatchEvent(new WheelEvent('wheel', { deltaY: 4000, bubbles: true }));
       el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
     });
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Wait for streaming to complete
     await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
@@ -301,7 +302,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
     // Wait for some content to arrive (so there's something to scroll away from)
-    await page.waitForTimeout(100);
+    await expect(assistantMessage).toContainText('This', { timeout: 5000 });
 
     // Scroll to the top to read the beginning of the message
     // Use scrollTo() which more reliably triggers scroll events across browsers
@@ -319,7 +320,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     // may process them differently than chromium
     // Also wait a bit longer to ensure autoScrollForStreaming() has a chance to run
     // and detect the scroll-up (it checks synchronously before scrolling)
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Record the scroll position
     // Note: Due to timing, the scroll position might not be exactly 0
@@ -330,7 +331,10 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     // Wait for more tokens to arrive while we're scrolled up
     // Without the fix, these tokens would trigger auto-scroll and bring us back to bottom
-    await page.waitForTimeout(200);
+    const lengthAtScroll = (await assistantMessage.textContent())?.length ?? 0;
+    await expect
+      .poll(async () => (await assistantMessage.textContent())?.length ?? 0, { timeout: 5000 })
+      .toBeGreaterThan(lengthAtScroll);
 
     // Verify we're still at the position we scrolled to (not brought back to bottom)
     const scrollTopAfterTokens = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -379,7 +383,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
     // Let the send-to-top glide finish: it aborts only on a real move, and a
     // "scroll to 0" from a start already near 0 isn't one (WebKit under load)
-    await page.waitForTimeout(700);
+    await scrollSettled(page);
 
     // Perform rapid scroll up/down movements during streaming
     // This simulates a user browsing during an active stream
@@ -389,7 +393,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
       await messagesContainer.evaluate((el) => {
         el.scrollTo({ top: 0, behavior: 'instant' });
       });
-      await page.waitForTimeout(100); // Wait for scroll event to be processed
+      await nextFrames(page); // the scroll event is processed
 
       // Verify we stayed at the top (not brought back by auto-scroll)
       const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);
@@ -399,14 +403,14 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
       await messagesContainer.evaluate((el) => {
         el.scrollTo({ top: el.scrollHeight / 2, behavior: 'instant' });
       });
-      await page.waitForTimeout(100); // Wait for scroll event to be processed
+      await nextFrames(page); // the scroll event is processed
     }
 
     // Finally scroll back to bottom to resume auto-scroll
     await messagesContainer.evaluate((el) => {
       el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
     });
-    await page.waitForTimeout(200); // Wait for debounce to re-enable auto-scroll
+    await page.waitForTimeout(200); // past STREAMING_SCROLL_RESUME_DEBOUNCE_MS (150): the re-arm debounce must lapse
 
     // Wait for streaming to complete
     await expect(assistantMessage).toContainText('mock response', { timeout: 20000 });
@@ -779,14 +783,16 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const assistantMessage = page.locator('.message.assistant.streaming');
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
-    // Wait for some content to arrive and auto-scroll to happen
-    await page.waitForTimeout(500);
-
-    // Verify we're at the bottom (auto-scroll should have us there)
-    const atBottomBefore = await messagesContainer.evaluate((el) => {
-      return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50;
-    });
-    expect(atBottomBefore).toBe(true);
+    // Content arrives and auto-scroll takes us to the bottom
+    await expect
+      .poll(
+        () =>
+          messagesContainer.evaluate(
+            (el) => el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50
+          ),
+        { timeout: 5000 }
+      )
+      .toBe(true);
 
     // Verify streaming is still active
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
@@ -854,14 +860,16 @@ test.describe('Chat - Streaming Scroll Pause Indicator', () => {
     const assistantMessage = page.locator('.message.assistant.streaming');
     await expect(assistantMessage).toBeVisible({ timeout: 5000 });
 
-    // Wait for some content to arrive and auto-scroll to happen
-    await page.waitForTimeout(500);
-
-    // Verify we're at the bottom (auto-scroll should have us there)
-    const atBottomBefore = await messagesContainer.evaluate((el) => {
-      return el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50;
-    });
-    expect(atBottomBefore).toBe(true);
+    // Content arrives and auto-scroll takes us to the bottom
+    await expect
+      .poll(
+        () =>
+          messagesContainer.evaluate(
+            (el) => el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 50
+          ),
+        { timeout: 5000 }
+      )
+      .toBe(true);
 
     // Verify streaming is still active
     const isStillStreaming = await page.locator('.message.assistant.streaming').isVisible();
@@ -975,7 +983,7 @@ test.describe('Chat - Send-to-top', () => {
             return gap >= 0 && gap < 40;
           }, { timeout: 5000 })
           .toBe(true);
-        await page.waitForTimeout(700); // the glide's last frames
+        await scrollSettled(page); // the glide's last frames
         const anchored = await messagesScrollTop(page);
 
         // The reply outgrows the screen: the view stays, the button offers the
@@ -995,7 +1003,7 @@ test.describe('Chat - Send-to-top', () => {
 
         // ...and nothing moves when it finishes
         await expect(reply).not.toHaveClass(/streaming/, { timeout: 20000 });
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(300); // a span to prove nothing moves after the end
         expect(Math.abs((await messagesScrollTop(page)) - anchored)).toBeLessThan(2);
         expect(await turnTopBelowHeader(page, layout.header)).toBeGreaterThanOrEqual(0);
         await expect(page.locator('.scroll-to-bottom')).toBeVisible();
@@ -1049,7 +1057,7 @@ test.describe('Chat - Send-to-top', () => {
           .toBe(true);
         release();
         await expect(page.locator('.message.assistant').last()).toContainText('Line 3', { timeout: 10000 });
-        await page.waitForTimeout(300);
+        await scrollSettled(page);
         const gap = await turnTopBelowHeader(page, layout.header);
         expect(gap >= 0 && gap < 40).toBe(true);
       });
@@ -1168,7 +1176,7 @@ test.describe('Chat - Send-to-top', () => {
           await page.fill('#message-input', 'Tell me everything');
           await page.click('#send-btn');
           await expect(page.locator('.message.assistant').last()).toContainText(reply.last, { timeout: 20000 });
-          await page.waitForTimeout(800);
+          await scrollSettled(page);
 
           if (reply.name === 'long') {
             const gap = await turnTopBelowHeader(page, layout.header);
@@ -1212,7 +1220,8 @@ test.describe('Send-to-top - reserved space after an abnormal end', () => {
     await page.fill('#message-input', 'Second question');
     await page.click('#send-btn');
     await expect(page.locator('.message.assistant.streaming')).toBeVisible();
-    await page.waitForTimeout(800);
+    // Into the thinking hold
+    await expect(page.locator('.message.assistant.streaming .thinking-indicator')).toBeVisible();
     await clickStop(page);
     await expect(page.locator('.message.assistant.streaming')).toHaveCount(0, { timeout: 15000 });
 
@@ -1246,7 +1255,14 @@ test.describe('Send-to-top - following resumes only for the user', () => {
     await setStreamDelay(page, 10);
     await page.fill('#message-input', 'Tell me everything');
     await page.click('#send-btn');
-    await page.waitForTimeout(1000); // the glide lands on the anchor
+    // The glide lands on the anchor
+    await expect
+      .poll(async () => {
+        const gap = await turnTopBelowHeader(page, '.mobile-header');
+        return gap >= 0 && gap < 40;
+      }, { timeout: 5000 })
+      .toBe(true);
+    await scrollSettled(page);
 
     // Layout nudges the view (no touch, wheel or key) - up and back down
     await page.evaluate(async () => {
@@ -1276,7 +1292,8 @@ test.describe('Send-to-top - the user takes over the glide', () => {
     await page.goto('/');
     await page.click('#menu-btn');
     await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
-    await page.waitForTimeout(800);
+    await expect(page.locator('.message', { hasText: 'Message 30' })).toBeVisible();
+    await scrollSettled(page);
     await enableStreaming(page);
     // Reading further up: the send pins to the bottom first, then glides
     await page.evaluate(() => {
@@ -1290,13 +1307,13 @@ test.describe('Send-to-top - the user takes over the glide', () => {
     await page.click('#send-btn');
     // The glide starts with the reply bubble; catch it mid-flight
     await page.waitForSelector('.message.assistant.streaming');
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(80); // 80ms into the ~600ms glide: the finger lands mid-flight
     await page.evaluate(() => {
       const c = document.getElementById('messages')!;
       c.dispatchEvent(new Event('touchmove', { bubbles: true }));
     });
     const held = await page.evaluate(() => document.getElementById('messages')!.scrollTop);
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(700); // the rest of the glide's span: proves it stopped
 
     const after = await page.evaluate(() => document.getElementById('messages')!.scrollTop);
     expect(Math.abs(after - held)).toBeLessThan(2);
@@ -1336,12 +1353,13 @@ test.describe('Send-to-top - band changes keep the turn anchored', () => {
         return gap >= 0 && gap < 40;
       }, { timeout: 5000 })
       .toBe(true);
-    await page.waitForTimeout(700);
+    await scrollSettled(page);
     const anchored = await turnTopBelowHeader(page, '.mobile-header');
 
-    // The composer grows by several lines
+    // The composer grows by several lines (its ResizeObserver re-fits the list)
     await page.fill('#message-input', 'One\nTwo\nThree\nFour\nFive');
-    await page.waitForTimeout(600);
+    await nextFrames(page, 3);
+    await scrollSettled(page);
 
     expect(Math.abs((await turnTopBelowHeader(page, '.mobile-header')) - anchored)).toBeLessThan(3);
   });
@@ -1387,7 +1405,7 @@ test.describe('Send-to-top - the iOS keyboard opening mid-stream', () => {
         return gap >= 0 && gap < 40;
       }, { timeout: 5000 })
       .toBe(true);
-    await page.waitForTimeout(700); // the glide's last frames, before measuring where it rests
+    await scrollSettled(page); // the glide's last frames, before measuring where it rests
     const anchored = await turnTopBelowHeader(page, '.mobile-header');
 
     // The keyboard opens while the reply streams: 874 - 540 = 334 + 50 pill
@@ -1438,7 +1456,8 @@ test.describe('Send-to-top - animated glide on a phone', () => {
     await page.goto('/');
     await page.click('#menu-btn');
     await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
-    await page.waitForTimeout(800);
+    await expect(page.locator('.message', { hasText: 'Message 30' })).toBeVisible();
+    await scrollSettled(page);
     await enableStreaming(page);
 
     await setMockResponse(page, LONG_RESPONSE);
@@ -1467,7 +1486,8 @@ test.describe('Send-to-top - animated glide on a phone', () => {
     await page.goto('/');
     await page.click('#menu-btn');
     await page.locator('.conversation-item-wrapper', { hasText: 'History' }).click();
-    await page.waitForTimeout(800);
+    await expect(page.locator('.message', { hasText: 'Message 30' })).toBeVisible();
+    await scrollSettled(page);
     await enableStreaming(page);
 
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false);
@@ -1506,8 +1526,15 @@ test.describe('Send-to-top - no pill while thinking', () => {
     await setMockResponse(page, Array.from({ length: 40 }, (_, i) => `Answer line ${i + 1}.`).join('\n\n'));
     await page.fill('#message-input', 'Was my joke funny?');
     await page.click('#send-btn');
-    // Mid-thinking: the trace is far taller than the screen
-    await page.waitForTimeout(2000);
+    // Mid-thinking, the trace expanded: far taller than the screen (the live
+    // trace is collapsed by default - without expanding it the list never
+    // overflowed and this test checked nothing)
+    await page.locator('.message.assistant.streaming .thinking-live-expand').click();
+    await expect
+      .poll(() => page.locator('.message.assistant.streaming').evaluate((el) => el.getBoundingClientRect().height), {
+        timeout: 5000,
+      })
+      .toBeGreaterThan(664);
     await expect(page.locator('.message.assistant')).toHaveClass(/streaming/);
     // One-shot, not toHaveCount (it retries until the stream ends and clears it)
     expect(await page.locator('.scroll-to-bottom.streaming-paused').count()).toBe(0);
