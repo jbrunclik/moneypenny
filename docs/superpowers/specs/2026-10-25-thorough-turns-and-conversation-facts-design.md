@@ -157,10 +157,10 @@ Same model as the conversation. Changes, all scoped to that one turn:
    for ordinary turns; the thorough turn sets its own level regardless of the
    default. `thinking_level` is today per model in `Config.MODELS`; it needs a
    per-turn override.
-2. **A much larger step budget.** Use the existing `round_cap_override`
-   (built for deep research subagents). The soft nudge and the "answer now"
-   guidance scale with the new cap. Starting value is the builder's call
-   (order of 20–30 rounds); it must keep the turn under the ~$1 ceiling.
+2. **Bigger budgets, not a bigger round count.** Thorough turns use the
+   per-turn budgets from [Turn budgets](#turn-budgets-replace-the-round-cap)
+   with larger values (~$1 cost ceiling, a longer wall clock); no separate
+   machinery.
 3. **Attachments stay readable through the turn.** Multimodal tool results
    the turn retrieved are not aged to stubs while that turn is running
    (ordinary turns keep today's aging).
@@ -170,12 +170,45 @@ Same model as the conversation. Changes, all scoped to that one turn:
    injected at the end, or a separate pass is the builder's call; past audits
    found that directives attached to tool results work better than prompt
    text.
-5. **A cost guard.** The turn stops taking new steps and answers once its
-   running cost approaches the ceiling. The ceiling is a config value
-   (default ~$1).
-
 The card's estimate needs a formula like deep research's `estimate.py`,
 based on rounds × typical round cost at high thinking.
+
+### Turn budgets replace the round cap
+
+Decided Oct 26 2026, after comparing with Hermes Agent, which dropped its turn
+cap ("caps caused silent mid-task truncation") and its intermediate budget
+warnings ("made models give up early"). Applies to **every** turn; a thorough
+turn only raises the values.
+
+The round count stands in for three different risks and measures each badly
+(a round's cost grows with history length; one research round takes ~10 s
+while six quick lookups are fast; six productive rounds and six identical
+failing searches look the same). Give each risk its own guard:
+
+1. **Drop the round-4 "aim to answer within a round or two" nudge**
+   (`AGENT_TOOL_ROUNDS_SOFT_NUDGE`); at most keep a batching hint with no
+   pressure to finish.
+2. **Cost guard** - running turn cost from the usage already recorded per
+   turn; stop taking steps near the ceiling (ordinary ~$0.15, thorough ~$1;
+   typical turns cost $0.02-0.05).
+3. **Wall-clock budget** - one "wrap up now" notice at ~80%, appended to the
+   latest tool result (results are read; prompt text is not).
+4. **Loop detector** - hash tool name + canonical args; warn, then block, on
+   repeated identical failures and A-B-A-B cycles; a successful write resets
+   the count; a second byte-identical large result becomes a back-reference
+   (Hermes `agent/tool_guardrails.py`).
+5. **Round backstop ~20** against runaways only.
+6. **At any limit: one final call with tools disabled** that answers from what
+   was found and names what is left, instead of repeating "stop calling tools"
+   every round. Keep `stopped_early` + Continue. Check first whether Gemini
+   `function_calling_config` mode `NONE` works with the explicit context cache
+   (the cache holds the tool declarations); if so the final call stays cached.
+
+Risk: the cap exists because the model drip-feeds single calls; the 1.4% of
+long-hunt turns (Oct 1-10) may get slower and costlier without better
+answers. Measure: eval A/B of both versions (rounds, cost, judge score; include
+hard-to-find and the floor-plan case), then after shipping cap hits, cost per
+turn and p90 latency from `message_costs`.
 
 ## Part 3: Context fixes for every turn
 
