@@ -501,7 +501,7 @@ class TestChatStream:
         with the timeout marker and a 'timeout' event is sent."""
         import time
 
-        from src.api.helpers.chat_streaming import STREAM_TIMEOUT_MARKER
+        from src.api.helpers.stream_consumer import STREAM_TIMEOUT_MARKER
         from src.config import Config
 
         monkeypatch.setattr(Config, "CHAT_TIMEOUT_SECONDS", 0)  # trip after first event
@@ -611,9 +611,9 @@ class TestChatWithFiles:
 class TestChatWithGeneratedImages:
     """Tests for chat endpoints with generated images from tools.
 
-    Note: These tests mock ChatAgent but also populate _full_tool_results to simulate
+    Note: These tests mock ChatAgent but also store full tool results to simulate
     what the tool node would capture in production. The tool node wrapper (create_tool_node)
-    captures full results into _full_tool_results before stripping _full_result,
+    stores full results (store_tool_result) before stripping _full_result,
     and routes.py retrieves them via get_full_tool_results().
     """
 
@@ -628,7 +628,7 @@ class TestChatWithGeneratedImages:
         """Should extract generated images from tool results and include in response."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.tool_results import _current_request_id, _full_tool_results
+        from src.agent.tool_results import get_current_request_id, store_tool_result
 
         # Build tool result with _full_result containing image data
         tool_result_content = json.dumps(
@@ -656,15 +656,11 @@ class TestChatWithGeneratedImages:
 
             # Mock chat_batch to return the response AND simulate tool node capture
             def mock_chat_batch(*args: Any, **kwargs: Any) -> Any:
-                import time
 
                 # Simulate what the tool node does: capture full results
-                request_id = _current_request_id.get()
+                request_id = get_current_request_id()
                 if request_id:
-                    _full_tool_results[request_id] = {
-                        "results": [{"type": "tool", "content": tool_result_content}],
-                        "created_at": time.time(),
-                    }
+                    store_tool_result(request_id, tool_result_content)
                 # Result messages include an AIMessage with generate_image tool call
                 result_msgs = [
                     AIMessage(
@@ -732,7 +728,7 @@ class TestChatWithGeneratedImages:
 
         from langchain_core.messages import AIMessage
 
-        from src.agent.tool_results import _current_request_id, _full_tool_results
+        from src.agent.tool_results import get_current_request_id, store_tool_result
 
         # Build tool result with _full_result containing image data
         tool_result_content = json.dumps(
@@ -761,16 +757,13 @@ class TestChatWithGeneratedImages:
             def mock_stream_events(*args: Any, **kwargs: Any) -> Any:
                 """Mock stream_chat_events that yields structured events with tool results.
 
-                Also simulates the tool node capturing full results into _full_tool_results.
+                Also simulates the tool node storing full results (store_tool_result).
                 """
                 # Simulate what the tool node does: capture full results
                 # This happens during graph execution (before yielding final tuple)
-                request_id = _current_request_id.get()
+                request_id = get_current_request_id()
                 if request_id:
-                    _full_tool_results[request_id] = {
-                        "results": [{"type": "tool", "content": tool_result_content}],
-                        "created_at": time.time(),
-                    }
+                    store_tool_result(request_id, tool_result_content)
 
                 # Build result_messages with generate_image tool call for extraction
                 result_msgs = [

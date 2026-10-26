@@ -3,15 +3,16 @@
 import queue
 import time
 import types
+from unittest.mock import MagicMock
 
 from src.agent.tools.request_approval import ApprovalRequestedException
-from src.api.helpers.chat_streaming import (
-    STREAM_TIMEOUT_MARKER,
-    _handle_generator_error,
-    _handle_queue_event,
-    _process_event_queue,
-)
 from src.api.helpers.chat_turn import TurnContext
+from src.api.helpers.stream_consumer import (
+    STREAM_TIMEOUT_MARKER,
+    handle_generator_error,
+    relay_event,
+    relay_events,
+)
 from src.api.helpers.stream_producer import stream_events
 from src.config import Config
 
@@ -149,19 +150,19 @@ def _make_ctx(items=()) -> types.SimpleNamespace:
     return ctx
 
 
-def test_handle_queue_event_accumulates_token_text() -> None:
+def test_relay_event_accumulates_token_text() -> None:
     ctx = _make_ctx()
-    list(_handle_queue_event(ctx, {"type": "token", "text": "hel"}))
-    list(_handle_queue_event(ctx, {"type": "token", "text": "lo"}))
+    list(relay_event(ctx, {"type": "token", "text": "hel"}))
+    list(relay_event(ctx, {"type": "token", "text": "lo"}))
     assert ctx.partial_content == "hello"
 
 
-def test_handle_queue_event_forwards_retry_status() -> None:
+def test_relay_event_forwards_retry_status() -> None:
     """Transient-error retries reach the client as an SSE event (not journaled)."""
     from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES
 
     ctx = _make_ctx()
-    out = list(_handle_queue_event(ctx, {"type": "retry", "attempt": 2, "max_retries": 3}))
+    out = list(relay_event(ctx, {"type": "retry", "attempt": 2, "max_retries": 3}))
     assert out == ['data: {"type": "retry", "attempt": 2, "max_retries": 3}\n\n']
     assert "retry" not in JOURNALED_EVENT_TYPES
 
@@ -175,7 +176,7 @@ def test_consumer_handles_producer_timeout_marker() -> None:
             {"type": "timeout"},
         ]
     )
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "timeout"' in out
     assert ctx.clean_content == "partial answer" + STREAM_TIMEOUT_MARKER
     assert ctx.final_results["ready"] is True
@@ -188,7 +189,7 @@ def test_consumer_keeps_partial_content_on_producer_crash() -> None:
     Previously only the timeout path kept partials; a crash after most of
     the answer streamed deleted the placeholder and lost everything.
     """
-    from src.api.helpers.chat_streaming import STREAM_ERROR_MARKER
+    from src.api.helpers.stream_consumer import STREAM_ERROR_MARKER
 
     ctx = _make_ctx(
         [
@@ -197,7 +198,7 @@ def test_consumer_keeps_partial_content_on_producer_crash() -> None:
             RuntimeError("model exploded"),
         ]
     )
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "error"' in out
     assert ctx.clean_content == "partial answer" + STREAM_ERROR_MARKER
     assert ctx.final_results["ready"] is True
@@ -208,7 +209,7 @@ def test_consumer_crash_without_content_saves_nothing() -> None:
     """A crash before any token must not mark results ready (placeholder
     cleanup proceeds normally)."""
     ctx = _make_ctx([RuntimeError("early crash")])
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "error"' in out
     assert ctx.final_results["ready"] is False
 
@@ -219,7 +220,7 @@ def test_consumer_backstop_fires_with_no_events(monkeypatch) -> None:
     monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL_SECONDS", 0.05)
     ctx = _make_ctx()  # empty queue
     started = time.monotonic()
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "timeout"' in out
     assert time.monotonic() - started < 2.0  # terminated promptly
     assert ctx.clean_content == ""  # no partial content to save
@@ -268,7 +269,7 @@ def test_consumer_approval_completion_no_timeout() -> None:
             None,
         ]
     )
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "approval_required"' in out
     assert '"type": "timeout"' not in out
     assert ctx.approval_info["approval_id"] == "ap-1"
@@ -277,7 +278,7 @@ def test_consumer_approval_completion_no_timeout() -> None:
 def test_generator_error_does_not_delete_saved_message(monkeypatch) -> None:
     """A post-save exception must not delete the just-saved message.
 
-    Regression test: _handle_generator_error checked only placeholder_saved and
+    Regression test: handle_generator_error checked only placeholder_saved and
     empty clean_content; when finalize_stream saved successfully but raised
     afterwards, the saved message was deleted.
     """
@@ -286,14 +287,11 @@ def test_generator_error_does_not_delete_saved_message(monkeypatch) -> None:
     ctx.expected_assistant_msg_id = "msg-1"
     ctx.final_results["saved"] = True
 
-    deleted: list[str] = []
-    monkeypatch.setattr(
-        "src.api.helpers.chat_streaming.db.delete_message_by_id",
-        lambda mid: deleted.append(mid),
-    )
+    fake_db = MagicMock()
+    monkeypatch.setattr("src.api.helpers.stream_consumer.db", fake_db)
 
-    list(_handle_generator_error(ctx, RuntimeError("boom")))
-    assert deleted == []
+    list(handle_generator_error(ctx, RuntimeError("boom")))
+    fake_db.delete_message_by_id.assert_not_called()
 
 
 def test_consumer_normal_completion_no_timeout() -> None:
@@ -311,7 +309,7 @@ def test_consumer_normal_completion_no_timeout() -> None:
             None,
         ]
     )
-    out = "".join(_process_event_queue(ctx))
+    out = "".join(relay_events(ctx))
     assert '"type": "timeout"' not in out
     assert ctx.clean_content == "full answer"
     assert ctx.final_results["ready"] is False  # consumer doesn't set ready on normal path
