@@ -1,9 +1,9 @@
-import { escapeHtml, getElementById } from '../utils/dom';
+import { createElement, getElementById } from '../utils/dom';
 import { useStore } from '../state/store';
 import { conversations as conversationsApi } from '../api/conversations';
 import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
-import { CHECK_ICON } from '../utils/icons';
+import { CHECK_ICON, createIconElement } from '../utils/icons';
 import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('model-selector');
@@ -187,25 +187,30 @@ export function renderModelDropdown(): void {
   // Priority: conversation model > pending model > default model
   const currentModelId = currentConversation?.model || pendingModel || defaultModel;
 
-  dropdown.innerHTML = models
-    .map(
-      (model) => `
-      <div class="model-option ${model.id === currentModelId ? 'selected' : ''}"
-           role="option"
-           aria-selected="${model.id === currentModelId}"
-           data-model-id="${escapeHtml(model.id)}"
-           data-short-name="${escapeHtml(model.short_name)}">
-        <span class="model-option-text">
-          <span class="model-name">${escapeHtml(model.short_name)}</span>
-          <span class="model-option-desc">${escapeHtml(
-            model.description ? `${model.name} · ${model.description}` : model.name
-          )}</span>
-        </span>
-        ${model.id === currentModelId ? `<span class="model-check">${CHECK_ICON}</span>` : ''}
-      </div>
-    `
-    )
-    .join('');
+  dropdown.replaceChildren(
+    ...models.map((model) => {
+      const selected = model.id === currentModelId;
+      return createElement(
+        'div',
+        {
+          class: `model-option ${selected ? 'selected' : ''}`,
+          role: 'option',
+          'aria-selected': String(selected),
+          'data-model-id': model.id,
+          'data-short-name': model.short_name,
+        },
+        [
+          createElement('span', { class: 'model-option-text' }, [
+            createElement('span', { class: 'model-name' }, [model.short_name]),
+            createElement('span', { class: 'model-option-desc' }, [
+              model.description ? `${model.name} · ${model.description}` : model.name,
+            ]),
+          ]),
+          selected && createIconElement('model-check', CHECK_ICON),
+        ]
+      );
+    })
+  );
 
   // Update current model display (show short name in button)
   const currentModel = models.find((m) => m.id === currentModelId);

@@ -5,8 +5,8 @@
  * owns the state and the send.
  */
 import type { QuickAction } from '../types/api';
-import { clearElement, escapeHtml } from '../utils/dom';
-import { CLOSE_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CLOSE_ICON, setIcon } from '../utils/icons';
 
 export interface QuickActionComposerOptions {
   action: QuickAction;
@@ -20,29 +20,39 @@ export function renderQuickActionComposer(
   container: HTMLElement,
   opts: QuickActionComposerOptions
 ): void {
-  clearElement(container);
   const { action } = opts;
-  container.innerHTML = `
-    <div class="qa-mode-header">
-      <span class="qa-mode-emoji" aria-hidden="true">${escapeHtml(action.emoji)}</span>
-      <span class="qa-mode-label">${escapeHtml(action.label)}</span>
-      <button type="button" class="qa-mode-cancel" aria-label="Cancel ${escapeHtml(action.label)}" title="Cancel">${CLOSE_ICON}</button>
-    </div>
-    ${
-      action.fields.length
-        ? `<div class="qa-mode-fields">
-      ${action.fields
-        .map(
-          (f, i) => `
-        <label class="qa-mode-field">
-          <span class="qa-mode-field-label">${escapeHtml(f)}</span>
-          <input type="text" class="qa-mode-field-input" data-field="${escapeHtml(f)}" data-index="${i}" autocomplete="off" enterkeyhint="${i === action.fields.length - 1 ? 'send' : 'next'}" />
-        </label>`
-        )
-        .join('')}
-    </div>`
-        : ''
-    }`;
+  const cancel = createElement('button', {
+    type: 'button',
+    class: 'qa-mode-cancel',
+    'aria-label': `Cancel ${action.label}`,
+    title: 'Cancel',
+  });
+  setIcon(cancel, CLOSE_ICON);
+  const header = createElement('div', { class: 'qa-mode-header' }, [
+    createElement('span', { class: 'qa-mode-emoji', 'aria-hidden': 'true' }, [action.emoji]),
+    createElement('span', { class: 'qa-mode-label' }, [action.label]),
+    cancel,
+  ]);
+  const fields =
+    action.fields.length > 0 &&
+    createElement(
+      'div',
+      { class: 'qa-mode-fields' },
+      action.fields.map((f, i) =>
+        createElement('label', { class: 'qa-mode-field' }, [
+          createElement('span', { class: 'qa-mode-field-label' }, [f]),
+          createElement('input', {
+            type: 'text',
+            class: 'qa-mode-field-input',
+            'data-field': f,
+            'data-index': String(i),
+            autocomplete: 'off',
+            enterkeyhint: i === action.fields.length - 1 ? 'send' : 'next',
+          }),
+        ])
+      )
+    );
+  container.replaceChildren(header, ...(fields ? [fields] : []));
 
   container.querySelector('.qa-mode-cancel')?.addEventListener('click', opts.onCancel);
   container.addEventListener('keydown', (e) => {

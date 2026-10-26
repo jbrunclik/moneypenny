@@ -12,7 +12,7 @@ import { toast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { createElement } from '../utils/dom';
-import { CLOSE_ICON, DOWNLOAD_ICON, setIcon, type IconHtml } from '../utils/icons';
+import { CLOSE_ICON, DOWNLOAD_ICON, createIconButton } from '../utils/icons';
 import { computeFitWidthScale, clampPageCount } from './pdf-viewer-utils';
 import type { PDFPageProxy } from 'pdfjs-dist';
 
@@ -31,13 +31,6 @@ export function closePdfViewer(): void {
 
 registerPopupEscapeHandler(VIEWER_ID, closePdfViewer);
 
-/** A button holding only a static icon. */
-function iconButton(attributes: Record<string, string>, icon: IconHtml): HTMLButtonElement {
-  const button = createElement('button', attributes);
-  setIcon(button, icon);
-  return button;
-}
-
 /** The viewer overlay: toolbar (title, page count, download, close) and the page column. */
 function buildViewerOverlay(fileName: string, onDownload: () => void): HTMLDivElement {
   const overlay = document.createElement('div');
@@ -47,8 +40,8 @@ function buildViewerOverlay(fileName: string, onDownload: () => void): HTMLDivEl
     createElement('div', { class: 'pdf-viewer-toolbar' }, [
       createElement('span', { class: 'pdf-viewer-title' }, [fileName]),
       createElement('span', { class: 'pdf-viewer-pages' }),
-      iconButton({ class: 'pdf-viewer-download', 'aria-label': 'Download', title: 'Download' }, DOWNLOAD_ICON),
-      iconButton({ class: 'pdf-viewer-close', 'aria-label': 'Close', title: 'Close' }, CLOSE_ICON),
+      createIconButton({ class: 'pdf-viewer-download', 'aria-label': 'Download', title: 'Download' }, DOWNLOAD_ICON),
+      createIconButton({ class: 'pdf-viewer-close', 'aria-label': 'Close', title: 'Close' }, CLOSE_ICON),
     ]),
     createElement('div', { class: 'pdf-viewer-scroll' }, [
       createElement('div', { class: 'pdf-viewer-loading' }, ['Loading PDF...']),

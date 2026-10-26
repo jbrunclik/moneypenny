@@ -16,7 +16,9 @@ import {
   REFRESH_ICON,
   SPEAKER_ICON,
   COPY_ICON,
+  createIconButton,
 } from '../../utils/icons';
+import { createElement } from '../../utils/dom';
 import { formatMessageTime } from './utils';
 import type { Source, GeneratedImage } from '../../types/api';
 
@@ -214,19 +216,22 @@ function actionButtonsFor(
 }
 
 /** The secondary buttons (collapsed behind the overflow toggle on touch devices). */
-function secondaryButtonsHtml(timeStr: string, show: ActionButtons): string {
-  return `
-      ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-      ${show.rerun ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
-      ${show.rerun ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
-      ${show.edit ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
-      ${show.saveQuickAction ? `<button class="message-save-quick-action-btn" title="Save as quick action">${PIN_ICON}</button>` : ''}
-      ${show.sources ? `<button class="message-sources-btn" title="View sources (${show.sources.length})">${SOURCES_ICON}</button>` : ''}
-      ${show.generatedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
-      ${show.cost ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
-      ${show.speak ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
-      <button class="message-delete-btn" title="Delete message">${DELETE_ICON}</button>
-    `;
+function secondaryButtons(timeStr: string, show: ActionButtons): (Node | false)[] {
+  return [
+    !!timeStr && createElement('span', { class: 'message-time' }, [timeStr]),
+    show.rerun && createIconButton({ class: 'message-regenerate-btn', title: 'Regenerate response' }, REFRESH_ICON),
+    show.rerun && createIconButton({ class: 'message-continue-btn', title: 'Continue response' }, CONTINUE_ICON),
+    show.edit && createIconButton({ class: 'message-edit-btn', title: 'Edit and resend' }, EDIT_ICON),
+    show.saveQuickAction &&
+      createIconButton({ class: 'message-save-quick-action-btn', title: 'Save as quick action' }, PIN_ICON),
+    !!show.sources &&
+      createIconButton({ class: 'message-sources-btn', title: `View sources (${show.sources.length})` }, SOURCES_ICON),
+    !!show.generatedImages &&
+      createIconButton({ class: 'message-imagegen-btn', title: 'View image generation info' }, SPARKLES_ICON),
+    show.cost && createIconButton({ class: 'message-cost-btn', title: 'View message cost' }, COST_ICON),
+    show.speak && createIconButton({ class: 'message-speak-btn', title: 'Read aloud' }, SPEAKER_ICON),
+    createIconButton({ class: 'message-delete-btn', title: 'Delete message' }, DELETE_ICON),
+  ];
 }
 
 function attachActionHandlers(
@@ -266,11 +271,15 @@ export function createMessageActions(
   // the overflow toggle (CSS-controlled); copy is the most-used action
   // so it stays always visible next to the toggle. On desktop the
   // overflow toggle is hidden and everything reveals on hover as before.
-  actions.innerHTML = `
-    <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
-    <button class="message-actions-overflow" aria-label="Message actions" aria-expanded="false">⋯</button>
-    <span class="message-actions-buttons">${secondaryButtonsHtml(timeStr, show)}</span>
-  `;
+  actions.append(
+    createIconButton({ class: 'message-copy-btn', title: 'Copy message' }, COPY_ICON),
+    createElement(
+      'button',
+      { class: 'message-actions-overflow', 'aria-label': 'Message actions', 'aria-expanded': 'false' },
+      ['⋯']
+    ),
+    createElement('span', { class: 'message-actions-buttons' }, secondaryButtons(timeStr, show))
+  );
 
   attachActionHandlers(actions, messageId, show, language);
   return actions;

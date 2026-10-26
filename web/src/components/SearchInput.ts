@@ -10,8 +10,8 @@
 
 import { useStore } from '../state/store';
 import { search as searchApi } from '../api/search';
-import { SEARCH_ICON, CLOSE_ICON } from '../utils/icons';
-import { escapeHtml, getElementById } from '../utils/dom';
+import { SEARCH_ICON, CLOSE_ICON, createIconElement, setIcon } from '../utils/icons';
+import { createElement, getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { SEARCH_DEBOUNCE_MS } from '../config';
 
@@ -51,27 +51,27 @@ function renderSearchInput(): void {
   // Show clear button when search is active (even with empty query) so mobile users can exit
   const showClearBtn = isSearchActive || searchQuery;
 
-  container.innerHTML = `
-    <div class="search-input-wrapper">
-      <span class="search-icon">${SEARCH_ICON}</span>
-      <input
-        type="text"
-        id="search-input"
-        class="search-input"
-        placeholder="Search conversations..."
-        value="${escapeHtml(searchQuery)}"
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button
-        type="button"
-        class="search-clear-btn ${showClearBtn ? '' : 'hidden'}"
-        aria-label="Clear search"
-      >
-        ${CLOSE_ICON}
-      </button>
-    </div>
-  `;
+  const clearBtn = createElement('button', {
+    type: 'button',
+    class: `search-clear-btn ${showClearBtn ? '' : 'hidden'}`,
+    'aria-label': 'Clear search',
+  });
+  setIcon(clearBtn, CLOSE_ICON);
+  container.replaceChildren(
+    createElement('div', { class: 'search-input-wrapper' }, [
+      createIconElement('search-icon', SEARCH_ICON),
+      createElement('input', {
+        type: 'text',
+        id: 'search-input',
+        class: 'search-input',
+        placeholder: 'Search conversations...',
+        value: searchQuery,
+        autocomplete: 'off',
+        spellcheck: 'false',
+      }),
+      clearBtn,
+    ])
+  );
 }
 
 /**

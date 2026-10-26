@@ -34,6 +34,19 @@ export function setIcon(el: Element, markup: IconHtml): void {
   el.replaceChildren(parseIcon(markup).cloneNode(true));
 }
 
+/** A fresh copy of a static icon's nodes, to append among other children. */
+export function iconNodes(markup: IconHtml): DocumentFragment {
+  return parseIcon(markup).cloneNode(true) as DocumentFragment;
+}
+
+/** A button holding only a static icon: `<button …attributes>ICON</button>`. */
+export function createIconButton(attributes: Record<string, string>, markup: IconHtml): HTMLButtonElement {
+  const button = document.createElement('button');
+  for (const [key, value] of Object.entries(attributes)) button.setAttribute(key, value);
+  setIcon(button, markup);
+  return button;
+}
+
 /** A new element of the given class holding a static icon: `<span class="…">ICON</span>`. */
 export function createIconElement(className: string, markup: IconHtml, tag: 'span' | 'div' = 'span'): HTMLElement {
   const el = document.createElement(tag);

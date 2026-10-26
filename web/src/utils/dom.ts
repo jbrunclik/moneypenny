@@ -58,12 +58,14 @@ export function querySelectorAll<T extends Element>(
 }
 
 /**
- * Create element with optional attributes and children
+ * Create element with optional attributes and children. Strings become text
+ * nodes (never parsed as HTML); `null`/`false`/`undefined` children are
+ * skipped, so a conditional part reads `cond && createElement(...)`.
  */
 export function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attributes?: Record<string, string>,
-  children?: (Node | string)[]
+  children?: (Node | string | null | false | undefined)[]
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
 
@@ -75,6 +77,7 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
 
   if (children) {
     for (const child of children) {
+      if (child === null || child === false || child === undefined) continue;
       if (typeof child === 'string') {
         element.appendChild(document.createTextNode(child));
       } else {

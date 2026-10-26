@@ -20,8 +20,8 @@
 import { useStore } from '../state/store';
 import type { Notification } from '../state/slices/ui';
 import { hapticError } from '../utils/haptics';
-import { escapeHtml } from '../utils/dom';
-import { ALERT_CIRCLE_ICON, CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { ALERT_CIRCLE_ICON, CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON, createIconElement, setIcon, type IconHtml } from '../utils/icons';
 import { TOAST_ACTION_DURATION_MS, TOAST_DEFAULT_DURATION_MS } from '../config';
 
 // Default duration in milliseconds (0 = persistent)
@@ -32,7 +32,7 @@ const DEFAULT_DURATION = TOAST_DEFAULT_DURATION_MS;
 const MAX_VISIBLE_TOASTS = 3;
 
 // Icons for each notification type
-const TYPE_ICONS: Record<string, string> = {
+const TYPE_ICONS: Record<string, IconHtml> = {
   success: CHECK_ICON,
   error: ALERT_CIRCLE_ICON,
   warning: WARNING_ICON,
@@ -207,31 +207,25 @@ function renderToasts(notifications: Notification[]): void {
 
   const visible = notifications.slice(-MAX_VISIBLE_TOASTS);
   const hiddenCount = notifications.length - visible.length;
-  const overflowHtml =
-    hiddenCount > 0
-      ? `<div class="toast toast-overflow">+${hiddenCount} more notification${hiddenCount === 1 ? '' : 's'}</div>`
-      : '';
+  const overflow =
+    hiddenCount > 0 &&
+    createElement('div', { class: 'toast toast-overflow' }, [
+      `+${hiddenCount} more notification${hiddenCount === 1 ? '' : 's'}`,
+    ]);
 
-  // Build HTML for the visible toasts
-  const html = visible
-    .map((n) => {
-      const icon = TYPE_ICONS[n.type] || INFO_ICON;
-      const actionHtml = n.action
-        ? `<button class="toast-action">${escapeHtml(n.action.label)}</button>`
-        : '';
+  // Build the visible toasts
+  const toasts = visible.map((n) => {
+    const dismiss = createElement('button', { class: 'toast-dismiss', 'aria-label': 'Dismiss' });
+    setIcon(dismiss, CLOSE_ICON);
+    return createElement('div', { class: `toast toast-${n.type}`, 'data-toast-id': n.id, role: 'alert' }, [
+      createIconElement('toast-icon', TYPE_ICONS[n.type] || INFO_ICON),
+      createElement('span', { class: 'toast-message' }, [n.message]),
+      n.action && createElement('button', { class: 'toast-action' }, [n.action.label]),
+      dismiss,
+    ]);
+  });
 
-      return `
-        <div class="toast toast-${n.type}" data-toast-id="${n.id}" role="alert">
-          <span class="toast-icon">${icon}</span>
-          <span class="toast-message">${escapeHtml(n.message)}</span>
-          ${actionHtml}
-          <button class="toast-dismiss" aria-label="Dismiss">${CLOSE_ICON}</button>
-        </div>
-      `;
-    })
-    .join('');
-
-  toastContainer.innerHTML = overflowHtml + html;
+  toastContainer.replaceChildren(...(overflow ? [overflow] : []), ...toasts);
 }
 
 // Convenience functions for common toast types

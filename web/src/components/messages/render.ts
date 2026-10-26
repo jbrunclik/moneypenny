@@ -3,7 +3,7 @@
  */
 
 import { resetTurnAnchor } from './turn-anchor';
-import { escapeHtml, getElementById, scrollToBottom, clearElement } from '../../utils/dom';
+import { createElement, escapeHtml, getElementById, scrollToBottom, clearElement } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
@@ -12,7 +12,7 @@ import { countVisibleImagesForScroll } from './image-load-scroll';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { createWelcomeMessage } from '../WelcomeMessage';
-import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, setIcon } from '../../utils/icons';
+import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, createIconElement, iconNodes, setIcon, type IconHtml } from '../../utils/icons';
 import { agents } from '../../api/agents';
 import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
@@ -493,7 +493,7 @@ function addTriggerMessageToUI(message: Message, container: HTMLElement): void {
   messageEl.dataset.messageId = message.id;
 
   // Map trigger types to display text, icons, and CSS classes
-  const triggerDisplayMap: Record<string, { icon: string; label: string; cssClass: string }> = {
+  const triggerDisplayMap: Record<string, { icon: IconHtml; label: string; cssClass: string }> = {
     'Scheduled run': { icon: CLOCK_ICON, label: 'Scheduled', cssClass: 'trigger--scheduled' },
     'Manual trigger': { icon: PLAY_ICON, label: 'Manual', cssClass: 'trigger--manual' },
     'Triggered by another agent': { icon: CHAIN_ICON, label: 'Agent chain', cssClass: 'trigger--chain' },
@@ -533,13 +533,13 @@ function addTriggerMessageToUI(message: Message, container: HTMLElement): void {
     }
   }
 
-  messageEl.innerHTML = `
-    <div class="trigger-message-content">
-      <span class="trigger-icon">${display.icon}</span>
-      <span class="trigger-label">${escapeHtml(display.label)}</span>
-      ${formattedTime ? `<span class="trigger-time">${escapeHtml(formattedTime)}</span>` : ''}
-    </div>
-  `;
+  messageEl.append(
+    createElement('div', { class: 'trigger-message-content' }, [
+      createIconElement('trigger-icon', display.icon),
+      createElement('span', { class: 'trigger-label' }, [display.label]),
+      !!formattedTime && createElement('span', { class: 'trigger-time' }, [formattedTime]),
+    ])
+  );
 
   container.appendChild(messageEl);
 }
@@ -555,31 +555,29 @@ function isActionRejectedMessage(content: string): boolean {
 }
 
 /** The outcome shown on a handled approval request. */
-function approvalResultHtml(approved: boolean): string {
-  return `
-      <div class="approval-result ${approved ? 'approved' : 'rejected'}">
-        ${approved ? CHECK_ICON : CLOSE_ICON}
-        <span>${approved ? 'Approved' : 'Rejected'}</span>
-      </div>
-    `;
+function approvalResult(approved: boolean): HTMLElement {
+  return createElement('div', { class: `approval-result ${approved ? 'approved' : 'rejected'}` }, [
+    iconNodes(approved ? CHECK_ICON : CLOSE_ICON),
+    createElement('span', {}, [approved ? 'Approved' : 'Rejected']),
+  ]);
 }
 
 /** Approve/reject buttons of a pending approval request. */
-function approvalButtonsHtml(approvalId: string): string {
-  return `
-      <button class="btn btn-approve" data-approval-id="${approvalId}">
-        ${CHECK_ICON}
-        <span>Approve</span>
-      </button>
-      <button class="btn btn-reject" data-approval-id="${approvalId}">
-        ${CLOSE_ICON}
-        <span>Reject</span>
-      </button>
-    `;
+function approvalButtons(approvalId: string): HTMLElement[] {
+  return [
+    createElement('button', { class: 'btn btn-approve', 'data-approval-id': approvalId }, [
+      iconNodes(CHECK_ICON),
+      createElement('span', {}, ['Approve']),
+    ]),
+    createElement('button', { class: 'btn btn-reject', 'data-approval-id': approvalId }, [
+      iconNodes(CLOSE_ICON),
+      createElement('span', {}, ['Reject']),
+    ]),
+  ];
 }
 
 /** Header icon and title of an approval request: pending, approved or rejected. */
-function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: string; title: string } {
+function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: IconHtml; title: string } {
   if (!isResolved) return { icon: WARNING_ICON, title: 'Action requires approval' };
   return wasApproved
     ? { icon: CHECK_ICON, title: 'Action approved' }
@@ -587,9 +585,9 @@ function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: stri
 }
 
 /** The tool line of an approval request; '' for generic placeholder names. */
-function approvalToolHtml(toolName: string): string {
+function approvalTool(toolName: string): HTMLElement | null {
   const generic = !toolName || toolName === 'custom_action' || toolName === 'unknown' || toolName === 'Unknown tool';
-  return generic ? '' : `<p class="approval-tool">Tool: <code>${escapeHtml(toolName)}</code></p>`;
+  return generic ? null : createElement('p', { class: 'approval-tool' }, ['Tool: ', createElement('code', {}, [toolName])]);
 }
 
 function wireApprovalButtons(messageEl: HTMLElement, approvalId: string): void {
@@ -627,27 +625,23 @@ function addApprovalRequestMessageToUI(
   }
 
   const description = parsed?.description || 'Unknown action';
-  const toolHtml = approvalToolHtml(parsed?.toolName || '');
-
   // Show buttons if pending, show result if resolved
-  const actionsHtml = isResolved ? approvalResultHtml(wasApproved) : approvalButtonsHtml(parsed?.approvalId || '');
+  const actions = isResolved ? [approvalResult(wasApproved)] : approvalButtons(parsed?.approvalId || '');
   const header = approvalHeader(isResolved, wasApproved);
 
-  messageEl.innerHTML = `
-    <div class="approval-request-content">
-      <div class="approval-request-header">
-        <span class="approval-icon">${header.icon}</span>
-        <span class="approval-title">${header.title}</span>
-      </div>
-      <div class="approval-request-body">
-        <p class="approval-description">${escapeHtml(description)}</p>
-        ${toolHtml}
-      </div>
-      <div class="approval-request-actions">
-        ${actionsHtml}
-      </div>
-    </div>
-  `;
+  messageEl.append(
+    createElement('div', { class: 'approval-request-content' }, [
+      createElement('div', { class: 'approval-request-header' }, [
+        createIconElement('approval-icon', header.icon),
+        createElement('span', { class: 'approval-title' }, [header.title]),
+      ]),
+      createElement('div', { class: 'approval-request-body' }, [
+        createElement('p', { class: 'approval-description' }, [description]),
+        approvalTool(parsed?.toolName || ''),
+      ]),
+      createElement('div', { class: 'approval-request-actions' }, actions),
+    ])
+  );
 
   // Only add event listeners if not resolved
   if (!isResolved && parsed?.approvalId) {
@@ -682,7 +676,7 @@ async function handleApprovalAction(approvalId: string, approved: boolean, messa
     // Update the UI to show the result
     const actionsDiv = messageEl.querySelector('.approval-request-actions');
     if (actionsDiv) {
-      actionsDiv.innerHTML = approvalResultHtml(approved);
+      actionsDiv.replaceChildren(approvalResult(approved));
     }
 
     // Refresh the sidebar to update badges
