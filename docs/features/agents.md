@@ -115,6 +115,7 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | Module | Purpose |
 |--------|---------|
 | `web/src/core/agents.ts` | Navigation and state management |
+| `web/src/core/startup/navigation.ts` | Hands conversation selection the agents view's leaver and the agent header's back/edit actions (F1) |
 | `web/src/components/CommandCenter.ts` | Dashboard UI |
 | `web/src/components/AgentEditor.ts` | Create/edit modal |
 | `web/src/styles/components/agents.css` | Styling |

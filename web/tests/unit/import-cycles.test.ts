@@ -5,8 +5,9 @@
  * other module finished evaluating is `undefined`) and ties the layers
  * together. Type-only imports are erased at build time and are not counted.
  * The baseline lists every import edge that sat inside a cycle when this
- * guard was added (Oct 2026); it only shrinks. A new edge that closes a cycle
- * fails - point it down the layers instead (docs/conventions.md "Layers").
+ * guard was added (Oct 2026); it only shrinks, and is empty since Oct 26 2026.
+ * A new edge that closes a cycle fails - point it down the layers instead, or
+ * pass the call in at startup (docs/conventions.md "Layers").
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';

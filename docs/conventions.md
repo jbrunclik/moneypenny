@@ -78,7 +78,7 @@ session and points here for the rest.
 
 | ID | Rule | Enforced by |
 |----|------|-------------|
-| F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); `web/tests/unit/import-cycles.test.ts` (runtime import edges inside a cycle; `import-cycles.baseline.json` only shrinks) |
+| F1 | Imports only point down the [layer order](#layers); no new import cycles | ESLint `no-restricted-imports` zones (baselined); `web/tests/unit/import-cycles.test.ts` (runtime import edges inside a cycle; `import-cycles.baseline.json` only shrinks - empty since Oct 26 2026) |
 | F2 | Store state changes only through slice actions; re-read `getState()` after any `await`; module-level `let` only for UI-ephemeral handles (timers, observers) | planned: ESLint + counter |
 | F3 | Every value interpolated into HTML is escaped (`escapeHtml`) or already-safe HTML; a server- or agent-provided URL goes into an `href` only through `safeHttpUrl` (`web/src/utils/linkify.ts`; escaping alone leaves `javascript:` clickable); no inline `on*=` handlers; listeners on `document`/`window` take an `AbortSignal` | ESLint `no-unsanitized` (escapers and sanitizers listed in `SAFE_HTML`, `web/eslint.config.js`; static icons go through `setIcon` in `web/src/utils/icons.ts`; 52 baselined); planned: `on*=` and listener checks |
 | F4 | No floating promises (`void` marks a deliberate one) or async callbacks where a sync one is expected; no non-null `!` | typescript-eslint (type-aware; baselined in `eslint-suppressions.json`) |
@@ -146,7 +146,12 @@ both `db` and `api` belong in the lowest layer that needs them
 **Frontend:** `main.ts` → `core` → `components` → `state` → `api` → `utils` →
 `types`. `sync` sits beside `core`. Components report user actions upward
 through callbacks or `core/events`, not by importing `core`; `utils` and
-`sync` never import UI (`Toast` included).
+`sync` never import UI (`Toast` included). Inside `core`, the feature views
+(agents, sports) sit above conversation selection and switching: they open
+conversations and send, so `conversation.ts` and `conversation-switch.ts`
+reach them only through hooks `core/startup/navigation.ts` sets before anything
+can navigate (`setViewLeavers`, `setAgentHeaderActions`); an unset hook logs at
+debug and does nothing. Add a new view's leaver there.
 
 ## Errors
 
