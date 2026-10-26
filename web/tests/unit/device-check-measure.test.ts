@@ -8,7 +8,9 @@ import {
   DeviceCheckAbortedError,
   distanceFromBottom,
   keyboardInset,
+  listSnapshot,
   round,
+  snapshotMeasurements,
   topInView,
   waitForStable,
   waitUntil,
@@ -22,6 +24,8 @@ function box(el: HTMLElement, values: Record<string, number | Element>): void {
 
 afterEach(() => {
   document.documentElement.style.removeProperty('--keyboard-inset');
+  document.documentElement.style.removeProperty('--composer-height');
+  document.documentElement.classList.remove('header-hidden');
   document.body.replaceChildren();
 });
 
@@ -75,5 +79,42 @@ describe('reads', () => {
     box(item, { offsetParent: list, offsetTop: 5222 });
     expect(topInView(list, item)).toBe(72);
     expect(round(12.345)).toBe(12.3);
+  });
+});
+
+describe('list snapshot (the keyboard-open diagnostics)', () => {
+  it('reads the list, the reservation, the header and the composer', () => {
+    const list = document.body.appendChild(document.createElement('div'));
+    box(list, { clientHeight: 490 });
+    Object.defineProperty(list, 'scrollTop', { configurable: true, writable: true, value: 7668.04 });
+    list.style.scrollPaddingTop = '130px';
+    const reply = list.appendChild(document.createElement('div'));
+    reply.setAttribute('data-turn-space', '');
+    box(reply, { offsetHeight: 160 });
+    document.documentElement.style.setProperty('--composer-height', '103px');
+    document.documentElement.classList.add('header-hidden');
+
+    const snapshot = listSnapshot(list);
+    expect(snapshot).toEqual({
+      scrollTop: 7668,
+      clientHeight: 490,
+      turnSpacePx: 160,
+      scrollPaddingTopPx: 130,
+      headerHidden: true,
+      composerHeightPx: 103,
+    });
+    expect(snapshotMeasurements(snapshot, 'after')).toEqual({
+      scroll_top_after: 7668,
+      client_height_after: 490,
+      turn_space_px_after: 160,
+      scroll_padding_top_after: 130,
+      header_hidden_after: true,
+      composer_height_after: 103,
+    });
+  });
+
+  it('reads no reservation and no composer as 0', () => {
+    const list = document.body.appendChild(document.createElement('div'));
+    expect(listSnapshot(list)).toMatchObject({ turnSpacePx: 0, composerHeightPx: 0, headerHidden: false });
   });
 });

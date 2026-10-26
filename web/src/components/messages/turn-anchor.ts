@@ -153,6 +153,34 @@ export function turnAnchorDrift(container: HTMLElement): number | null {
   return anchorTop === null ? null : container.scrollTop - (anchorTop - topInset(container));
 }
 
+/** Who held the anchor (the device check reports which holds ran). */
+export type TurnAnchorHoldSource = 'keyboard' | 'keyboard-delayed' | 'composer' | 'resize' | 'input';
+
+// Counts since load, read as deltas by the device checks: the holds by
+// source, and the list-resize observer's other two outcomes
+const anchorEvents: Record<TurnAnchorHoldSource | 'resize-refit' | 'resize-retarget', number> = {
+  keyboard: 0,
+  'keyboard-delayed': 0,
+  composer: 0,
+  resize: 0,
+  input: 0,
+  'resize-refit': 0,
+  'resize-retarget': 0,
+};
+
+/** A copy of the anchor hold counters (read-only, for the device checks). */
+export function turnAnchorEventCounts(): Readonly<typeof anchorEvents> {
+  return { ...anchorEvents };
+}
+
+/**
+ * How far below the turn's top the anchored view starts (0 unless the
+ * message is taller than the band); null when no turn is anchored. Read-only.
+ */
+export function turnAnchorExtra(): number | null {
+  return isTurnAnchored() && anchor ? anchor.extra : null;
+}
+
 /**
  * Keep an anchored view anchored through a change of the band between header
  * and composer (iOS keyboard opening/closing, composer resize): re-fit the
@@ -161,8 +189,9 @@ export function turnAnchorDrift(container: HTMLElement): number | null {
  * keyboard closing let the browser clamp it down. Only call it when the view
  * was at the anchor (isAtTurnAnchor) before the change.
  */
-export function holdTurnAnchor(container: HTMLElement): void {
+export function holdTurnAnchor(container: HTMLElement, source: TurnAnchorHoldSource): void {
   if (anchor === null) return;
+  anchorEvents[source] += 1;
   refreshTurnSpace(container);
   const anchorTop = anchorTopOf(container);
   if (anchorTop === null) return;
@@ -288,11 +317,13 @@ export function initTurnAnchorResizeHold(container: HTMLElement): void {
       scrollDebug('anchor-resize', { ch: height, wasAtAnchor, gliding, extra: Math.round(anchor.extra) });
       if (gliding && isAnchorGlide) {
         // Retarget the send glide in flight onto the re-measured anchor
+        anchorEvents['resize-retarget'] += 1;
         refreshTurnSpace(container);
         glideToAnchor(container);
       } else if (wasAtAnchor && !gliding) {
-        holdTurnAnchor(container);
+        holdTurnAnchor(container, 'resize');
       } else {
+        anchorEvents['resize-refit'] += 1;
         refreshTurnSpace(container);
       }
     }

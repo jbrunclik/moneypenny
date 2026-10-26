@@ -67,7 +67,7 @@ export function initComposerHeight(): void {
       if (messages && isTurnAnchored()) {
         // Send-to-top owns the position: re-fit the reserved space instead,
         // and keep a view that sat on the anchor there (a shrink clamped it)
-        if (atAnchor) holdTurnAnchor(messages);
+        if (atAnchor) holdTurnAnchor(messages, 'composer');
         else refreshTurnSpace(messages);
       } else if (grew && wasAtBottom && messages) {
         // The re-pin waits a frame: if the user scrolled in it, wasAtBottom

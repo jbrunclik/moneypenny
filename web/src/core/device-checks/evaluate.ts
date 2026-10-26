@@ -116,6 +116,16 @@ export interface KeyboardOpenMeasure extends PanMeasure {
   expectedGapPx: number;
   /** How far the anchored turn moved; null when no turn was anchored */
   turnMovedPx: number | null;
+  /** Where it ended: its top in the view minus scroll-padding-top (+ = below the anchor line) */
+  turnFromAnchorPx: number | null;
+}
+
+function turnMovedFailure(m: KeyboardOpenMeasure): string {
+  const moved = `anchored turn moved ${px(m.turnMovedPx ?? 0)}`;
+  if (m.turnFromAnchorPx === null) return moved;
+  if (Math.abs(m.turnFromAnchorPx) <= DEVICE_CHECK_ANCHOR_TOLERANCE_PX) return `${moved}, ending on the anchor line`;
+  const where = m.turnFromAnchorPx < 0 ? 'above the anchor line (under the header)' : 'below the anchor line';
+  return `${moved}, ending ${px(Math.abs(m.turnFromAnchorPx))} ${where}`;
 }
 
 function gapCheck(m: { composerGapPx: number; expectedGapPx: number }): Check {
@@ -139,7 +149,7 @@ export function evaluateKeyboardOpen(m: KeyboardOpenMeasure): Verdict {
     ...panChecks(m),
     [
       m.turnMovedPx === null || Math.abs(m.turnMovedPx) <= DEVICE_CHECK_TURN_MOVE_TOLERANCE_PX,
-      `anchored turn moved ${px(m.turnMovedPx ?? 0)}`,
+      turnMovedFailure(m),
     ],
   ]);
 }

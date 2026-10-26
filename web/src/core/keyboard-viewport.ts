@@ -382,7 +382,7 @@ function holdAnchorThroughInsetChange(
 ): void {
   // Opening or closing: re-fit the reservation, back onto the anchor
   const heldAt = performance.now();
-  requestAnimationFrame(() => holdTurnAnchor(container));
+  requestAnimationFrame(() => holdTurnAnchor(container, 'keyboard'));
   if (keyboardJustOpened) {
     for (const delay of [150, 350, 600]) {
       setTimeout(() => {
@@ -390,7 +390,7 @@ function holdAnchorThroughInsetChange(
         // ...and a send glide in flight lands on its own (a hold jumped
         // it to the end, its next frame pulled it back)
         if (!signal.aborted && isTurnAnchored() && !userScrolledSince(heldAt) && !isSmoothScrolling()) {
-          holdTurnAnchor(container);
+          holdTurnAnchor(container, 'keyboard-delayed');
         }
       }, delay);
     }

@@ -207,7 +207,7 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
         // Use requestAnimationFrame to wait for layout to settle
         requestAnimationFrame(() => {
           if (messagesContainer && atAnchor) {
-            holdTurnAnchor(messagesContainer); // a send-to-top turn stays anchored
+            holdTurnAnchor(messagesContainer, 'input'); // a send-to-top turn stays anchored
           } else if (messagesContainer && wasAtBottom) {
             programmaticScrollToBottom(messagesContainer);
           }

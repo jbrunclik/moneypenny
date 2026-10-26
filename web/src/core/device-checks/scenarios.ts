@@ -6,7 +6,13 @@
  * an entry; see `requires` for the keyboard steps.
  */
 import { addMessageToUI, showLoadingIndicator } from '../../components/messages';
-import { isTurnAnchored } from '../../components/messages/turn-anchor';
+import {
+  isAtTurnAnchor,
+  isTurnAnchored,
+  turnAnchorDrift,
+  turnAnchorEventCounts,
+  turnAnchorExtra,
+} from '../../components/messages/turn-anchor';
 import { isSmoothScrolling } from '../../utils/dom';
 import type { DeviceCheckMeasurements, DeviceCheckStatus } from '../../types/api';
 import {
@@ -33,10 +39,12 @@ import {
   distanceFromBottom,
   keyboardGeometry,
   keyboardInset,
+  listSnapshot,
   panMeasure,
   round,
   safeAreaBottom,
   scrollPaddingTop,
+  snapshotMeasurements,
   topInView,
   waitForStable,
   waitUntil,
@@ -186,6 +194,33 @@ function keyboardMeasurements(): {
   };
 }
 
+/** Which anchor holds ran during the step (deltas of turn-anchor.ts's counters). */
+function anchorEventDeltas(before: ReturnType<typeof turnAnchorEventCounts>): Record<string, number> {
+  const after = turnAnchorEventCounts();
+  return {
+    holds_keyboard: after.keyboard - before.keyboard,
+    holds_keyboard_delayed: after['keyboard-delayed'] - before['keyboard-delayed'],
+    holds_composer: after.composer - before.composer,
+    holds_resize: after.resize - before.resize,
+    resize_refits: after['resize-refit'] - before['resize-refit'],
+    resize_retargets: after['resize-retarget'] - before['resize-retarget'],
+  };
+}
+
+/** The anchor's state after the keyboard opened: where the turn sits and why. */
+function anchorAfter(container: HTMLElement, turnEl: HTMLElement | null): DeviceCheckMeasurements {
+  const drift = turnAnchorDrift(container);
+  const extra = turnAnchorExtra();
+  return {
+    anchored_after: isTurnAnchored(),
+    at_anchor_after: isAtTurnAnchor(container),
+    anchor_drift_px: drift === null ? null : round(drift),
+    // The turn's expected top relative to the anchor line (0, or above it for a message taller than the band)
+    anchor_expected_top_px: extra === null ? null : round(-extra),
+    turn_from_anchor_px: turnEl ? round(topInView(container, turnEl) - scrollPaddingTop(container)) : null,
+  };
+}
+
 const keyboardOpen: DeviceCheckScenario = {
   id: 'keyboard-open',
   title: 'Keyboard opens',
@@ -193,6 +228,8 @@ const keyboardOpen: DeviceCheckScenario = {
   async run(ctx) {
     const turnEl = ctx.shared.turnEl?.isConnected ? ctx.shared.turnEl : null;
     const turnBefore = turnEl ? topInView(ctx.container, turnEl) : null;
+    const listBefore = listSnapshot(ctx.container);
+    const eventsBefore = turnAnchorEventCounts();
     const input = composer();
     await ctx.askTap('Tap to open the keyboard', () => input?.focus());
     const shown = await waitUntil(
@@ -207,12 +244,14 @@ const keyboardOpen: DeviceCheckScenario = {
     await waitForStable(keyboardInset, ctx.signal);
     await settleList(ctx);
     const { geometry, gap, expectedGap } = keyboardMeasurements();
+    const anchor = anchorAfter(ctx.container, turnEl);
     const m = {
       insetPx: keyboardInset(),
       expectedInsetPx: expectedKeyboardInset(geometry),
       composerGapPx: gap,
       expectedGapPx: expectedGap,
       turnMovedPx: turnEl && turnBefore !== null ? round(topInView(ctx.container, turnEl) - turnBefore) : null,
+      turnFromAnchorPx: typeof anchor.turn_from_anchor_px === 'number' ? anchor.turn_from_anchor_px : null,
       ...panMeasure(),
     };
     return fromVerdict(evaluateKeyboardOpen(m), {
@@ -226,6 +265,11 @@ const keyboardOpen: DeviceCheckScenario = {
       safe_area_top: geometry.safeAreaTopPx,
       window_scroll_y: m.windowScrollY,
       viewport_offset_top: round(m.viewportOffsetTop),
+      // Diagnostics: why a turn moved (list geometry, anchor state, holds)
+      ...snapshotMeasurements(listBefore, 'before'),
+      ...snapshotMeasurements(listSnapshot(ctx.container), 'after'),
+      ...anchor,
+      ...anchorEventDeltas(eventsBefore),
     });
   },
 };

@@ -137,6 +137,53 @@ export function scrollPaddingTop(container: HTMLElement): number {
   return parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
 }
 
+/** The send-to-top reservation's height (the [data-turn-space] reply), 0 without one. */
+function turnSpaceHeight(container: HTMLElement): number {
+  let total = 0;
+  container.querySelectorAll<HTMLElement>('[data-turn-space]').forEach((el) => {
+    total += el.offsetHeight;
+  });
+  return total;
+}
+
+/** The applied --composer-height (composer-height.ts writes it on <html>). */
+function composerHeight(): number {
+  return parseFloat(document.documentElement.style.getPropertyValue('--composer-height')) || 0;
+}
+
+/** The list's layout around an anchored turn, taken before and after a change. */
+export interface ListSnapshot {
+  scrollTop: number;
+  clientHeight: number;
+  turnSpacePx: number;
+  scrollPaddingTopPx: number;
+  headerHidden: boolean;
+  composerHeightPx: number;
+}
+
+export function listSnapshot(container: HTMLElement): ListSnapshot {
+  return {
+    scrollTop: round(container.scrollTop),
+    clientHeight: container.clientHeight,
+    turnSpacePx: turnSpaceHeight(container),
+    scrollPaddingTopPx: scrollPaddingTop(container),
+    headerHidden: document.documentElement.classList.contains('header-hidden'),
+    composerHeightPx: composerHeight(),
+  };
+}
+
+/** A snapshot as measurements, every key suffixed (`_before` / `_after`). */
+export function snapshotMeasurements(s: ListSnapshot, suffix: string): Record<string, number | boolean> {
+  return {
+    [`scroll_top_${suffix}`]: s.scrollTop,
+    [`client_height_${suffix}`]: s.clientHeight,
+    [`turn_space_px_${suffix}`]: s.turnSpacePx,
+    [`scroll_padding_top_${suffix}`]: s.scrollPaddingTopPx,
+    [`header_hidden_${suffix}`]: s.headerHidden,
+    [`composer_height_${suffix}`]: s.composerHeightPx,
+  };
+}
+
 /** Round for storage: 0.1px is plenty and keeps the history readable. */
 export function round(n: number): number {
   return Math.round(n * 10) / 10;

@@ -84,6 +84,7 @@ describe('evaluateKeyboardOpen', () => {
     composerGapPx: 50,
     expectedGapPx: 50,
     turnMovedPx: 0,
+    turnFromAnchorPx: 0,
     ...noPan,
   };
 
@@ -99,13 +100,25 @@ describe('evaluateKeyboardOpen', () => {
       composerGapPx: 38,
       viewportOffsetTop: 341,
       turnMovedPx: -120,
+      turnFromAnchorPx: -120,
     });
     expect(v.failures).toEqual([
       'inset 341px, the formula gives 391px',
       'composer 12px behind the keyboard',
       'visual viewport panned by 341px',
-      'anchored turn moved -120px',
+      'anchored turn moved -120px, ending 120px above the anchor line (under the header)',
     ]);
+  });
+
+  it('says where a moved turn ended relative to the anchor line', () => {
+    const failure = (turnMovedPx: number, turnFromAnchorPx: number | null): string | undefined =>
+      evaluateKeyboardOpen({ ...good, turnMovedPx, turnFromAnchorPx }).failures[0];
+    // The Oct 26 2026 device run: anchored at 0, moved 55px up
+    expect(failure(-55, -55)).toBe('anchored turn moved -55px, ending 55px above the anchor line (under the header)');
+    expect(failure(30, 30)).toBe('anchored turn moved 30px, ending 30px below the anchor line');
+    // Started off the line and the keyboard put it back
+    expect(failure(-20, 1)).toBe('anchored turn moved -20px, ending on the anchor line');
+    expect(failure(-20, null)).toBe('anchored turn moved -20px');
   });
 
   it('fails an inset that never appeared, and a gap above the composer', () => {

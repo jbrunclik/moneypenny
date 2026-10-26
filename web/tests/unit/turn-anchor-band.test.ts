@@ -27,6 +27,8 @@ import {
   initTurnAnchorResizeHold,
   resetTurnAnchor,
   turnAnchorDrift,
+  turnAnchorEventCounts,
+  turnAnchorExtra,
 } from '@/components/messages/turn-anchor';
 import { TURN_REPLY_MIN_VISIBLE_PX } from '@/config';
 
@@ -109,7 +111,11 @@ describe('send-to-top with a short band (keyboard open)', () => {
     send(container, turn, reply);
     expect(turnOffsetFromAnchorLine(container)).toBe(0);
 
+    const before = turnAnchorEventCounts();
     openKeyboard(container);
+    // The list's resize observer held it (the device check reports this)
+    expect(turnAnchorEventCounts().resize).toBe(before.resize + 1);
+    expect(turnAnchorExtra()).toBe(0);
 
     // Band 490 - 130 - 115 = 245: the message (102) fits, so it stays at
     // the top - not 17px under the header to show more of the reply
@@ -122,7 +128,7 @@ describe('send-to-top with a short band (keyboard open)', () => {
     send(container, turn, reply);
     openKeyboard(container);
     // The reply grows mid-stream; the delayed keyboard holds re-fit it
-    holdTurnAnchor(container);
+    holdTurnAnchor(container, 'keyboard-delayed');
     expect(turnOffsetFromAnchorLine(container)).toBe(0);
   });
 
@@ -133,5 +139,7 @@ describe('send-to-top with a short band (keyboard open)', () => {
     openKeyboard(container);
 
     const band = 490 - SCROLL_PADDING_TOP_PX - COMPOSER_PX - LIST_GAP_PX;
-    expect(turnOffsetFromAnchorLine(container)).toBe(-(span + TURN_REPLY_MIN_VISIBLE_PX - band));  });
+    expect(turnOffsetFromAnchorLine(container)).toBe(-(span + TURN_REPLY_MIN_VISIBLE_PX - band));
+    expect(turnAnchorExtra()).toBe(span + TURN_REPLY_MIN_VISIBLE_PX - band);
+  });
 });
