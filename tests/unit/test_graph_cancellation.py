@@ -108,6 +108,38 @@ def test_turn_cancelled_raised_inside_the_graph_ends_the_stream(
     assert final["content"] == "Partial"
 
 
+def _agent_whose_graph_raises(error: Exception) -> Any:
+    from src.agent.agent import ChatAgent
+
+    def stream(*_args: Any, **_kwargs: Any) -> Any:
+        yield ("messages", (AIMessageChunk(content="Partial"), {"langgraph_node": "chat"}))
+        raise error
+
+    agent = ChatAgent.__new__(ChatAgent)
+    agent._build_messages = MagicMock(return_value=[HumanMessage(content="hi")])  # type: ignore[method-assign]
+    agent.graph = MagicMock()
+    agent.graph.stream = stream
+    return agent
+
+
+def test_executor_shutdown_mid_stream_still_ends_with_the_partial_reply() -> None:
+    agent = _agent_whose_graph_raises(
+        RuntimeError("cannot schedule new futures after interpreter shutdown")
+    )
+
+    final = list(agent.stream_chat_events("hi"))[-1]
+    assert final["type"] == "final"
+    assert final["content"] == "Partial"
+    assert "stop_reason" not in final
+
+
+def test_other_runtime_errors_mid_stream_propagate() -> None:
+    agent = _agent_whose_graph_raises(RuntimeError("boom"))
+
+    with pytest.raises(RuntimeError, match="boom"):
+        list(agent.stream_chat_events("hi"))
+
+
 def test_delegate_subagent_stop_propagates(token: cancellation.CancelToken) -> None:
     from unittest.mock import patch
 

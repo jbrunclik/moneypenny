@@ -35,6 +35,53 @@ _planner_dashboard_context: contextvars.ContextVar[dict[str, Any] | None] = cont
 )
 
 
+def _consume_stream(
+    stream: Any, processor: StreamEventProcessor
+) -> Generator[dict[str, Any], None, str | None]:
+    """Yield the graph stream's events until it ends; return the stop reason.
+
+    A user Stop ends the turn early (STOP_REASON_USER); an executor
+    shutdown during a server restart ends it with what streamed so far.
+    """
+    try:
+        for mode, event in stream:
+            # Server-side Stop: stop consuming model output at once; the
+            # text so far is the reply (a token read, no DB access)
+            if is_cancelled():
+                raise TurnCancelled
+            yield from processor.process(mode, event)
+    except TurnCancelled:
+        logger.info(
+            "Turn stopped by user",
+            extra={"accumulated_response_length": len(processor.full_response)},
+        )
+        return STOP_REASON_USER
+    except RuntimeError as e:
+        # Handle executor shutdown gracefully (e.g., during server restart)
+        # Python's ThreadPoolExecutor raises generic RuntimeError with specific messages
+        # when submit() is called after shutdown - there's no specific exception class
+        error_msg = str(e).lower()
+        if "cannot schedule new futures" in error_msg and "shutdown" in error_msg:
+            logger.warning(
+                "Streaming interrupted by executor shutdown (likely server restart)",
+                extra={
+                    "accumulated_response_length": len(processor.full_response),
+                    "has_tool_results": bool(processor.tool_results),
+                },
+            )
+            # Continue to yield accumulated content and final event
+        else:
+            # Re-raise other RuntimeErrors
+            raise
+    finally:
+        # Stop the graph run (a generator) when we leave early; plain
+        # iterables have nothing to close
+        close = getattr(stream, "close", None)
+        if close is not None:
+            close()
+    return None
+
+
 class ChatAgent:
     """Agent for handling chat conversations with tool support."""
 
@@ -436,7 +483,7 @@ class ChatAgent:
             turn_started,
         )
 
-    def stream_chat_events(  # noqa: C901, PLR0912
+    def stream_chat_events(
         self,
         text: str,
         files: list[dict[str, Any]] | None = None,
@@ -504,7 +551,6 @@ class ChatAgent:
         # Wrapped in try-except to handle executor shutdown gracefully
         config = get_graph_config()
         turn_started = time.monotonic()
-        stop_reason: str | None = None
         stream = self._turn_graph(decision).stream(
             cast(Any, {"messages": messages}),
             config=config,
@@ -512,42 +558,7 @@ class ChatAgent:
             # retries) that must reach the client while the node sleeps
             stream_mode=["messages", "custom"],
         )
-        try:
-            for mode, event in stream:
-                # Server-side Stop: stop consuming model output at once; the
-                # text so far is the reply (a token read, no DB access)
-                if is_cancelled():
-                    raise TurnCancelled
-                yield from processor.process(mode, event)
-        except TurnCancelled:
-            stop_reason = STOP_REASON_USER
-            logger.info(
-                "Turn stopped by user",
-                extra={"accumulated_response_length": len(processor.full_response)},
-            )
-        except RuntimeError as e:
-            # Handle executor shutdown gracefully (e.g., during server restart)
-            # Python's ThreadPoolExecutor raises generic RuntimeError with specific messages
-            # when submit() is called after shutdown - there's no specific exception class
-            error_msg = str(e).lower()
-            if "cannot schedule new futures" in error_msg and "shutdown" in error_msg:
-                logger.warning(
-                    "Streaming interrupted by executor shutdown (likely server restart)",
-                    extra={
-                        "accumulated_response_length": len(processor.full_response),
-                        "has_tool_results": bool(processor.tool_results),
-                    },
-                )
-                # Continue to yield accumulated content and final event
-            else:
-                # Re-raise other RuntimeErrors
-                raise
-        finally:
-            # Stop the graph run (a generator) when we leave early; plain
-            # iterables have nothing to close
-            close = getattr(stream, "close", None)
-            if close is not None:
-                close()
+        stop_reason = yield from _consume_stream(stream, processor)
 
         for event in processor.finish(turn_started, stop_reason=stop_reason):
             if event.get("type") == "final":

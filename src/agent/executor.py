@@ -43,7 +43,7 @@ from src.utils.images import (
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, User
+    from src.db.models import Agent, Conversation, Message, User
 
 logger = get_logger(__name__)
 
@@ -185,7 +185,176 @@ def _build_trigger_message(trigger_type: str, extra_message: str | None = None) 
     return message
 
 
-def execute_agent(  # noqa: PLR0915
+def _over_budget_error(agent: Agent) -> str | None:
+    """The error when the agent has spent its daily budget, else None."""
+    if db.is_agent_over_budget(agent.id, agent.budget_limit):
+        daily_spent = db.get_agent_daily_spending(agent.id)
+        error_msg = f"Agent exceeded daily budget limit (${agent.budget_limit:.2f}, spent: ${daily_spent:.2f})"
+        logger.warning(
+            "Agent over budget",
+            extra={
+                "agent_id": agent.id,
+                "budget_limit": agent.budget_limit,
+                "daily_spent": daily_spent,
+            },
+        )
+        return error_msg
+    return None
+
+
+def _run_history(agent: Agent, conversation_id: str) -> list[dict[str, str]]:
+    """The conversation history sent with the run (excluding the trigger message).
+
+    Fresh-context agents run every turn from a clean slate: prior runs
+    stay readable in the conversation but aren't sent to the LLM
+    (saves tokens; right default for report-style agents like the
+    Daily Briefing whose runs are independent).
+    """
+    if agent.fresh_context:
+        return []
+    messages = db.get_messages(conversation_id)
+    return [
+        {"role": m.role.value, "content": m.content}
+        for m in messages[:-1]  # Exclude the trigger message
+    ]
+
+
+def _prompt_context(agent: Agent, trigger_type: str, tool_names: list[str]) -> dict[str, Any]:
+    """Agent context for the system prompt.
+
+    Goals are resolved: system-managed agents on a NULL prompt get the
+    current stock prompt from code (src/agent/daily_briefing.py).
+    """
+    return {
+        "name": agent.name,
+        "description": agent.description,
+        "schedule": agent.schedule,
+        "timezone": agent.timezone,
+        "goals": resolve_agent_system_prompt(agent),
+        "tools": tool_names,  # Actual tools available, not just permissions
+        "trigger_type": trigger_type,
+        # Keeps the prompt's Conversation Context section truthful about
+        # whether past runs are in the model's context
+        "fresh_context": agent.fresh_context,
+    }
+
+
+def _set_run_context(
+    agent: Agent,
+    user: User,
+    conversation_id: str,
+    request_id: str,
+    parent_trigger_chain: list[str] | None,
+) -> None:
+    """Set the contextvars the run's tools read (cleared in execute_agent's finally)."""
+    set_current_request_id(request_id)
+    set_current_message_files(None)
+    set_conversation_context(conversation_id, user.id)
+    set_agent_name(agent.name)  # For WhatsApp template messages
+
+    # Set the agent context so permission checks know we're in autonomous mode
+    # Include parent trigger chain to detect circular dependencies
+    full_trigger_chain = (parent_trigger_chain or []) + [agent.id]
+    agent_execution_context = AgentContext(
+        agent=agent,
+        user=user,
+        trigger_chain=full_trigger_chain,
+    )
+    set_agent_context(agent_execution_context)
+
+
+def _save_response(
+    conv: Conversation,
+    user: User,
+    raw_response: str,
+    usage_info: dict[str, Any],
+    result_messages: list[Any],
+    full_tool_results: list[dict[str, Any]],
+) -> tuple[Message, str]:
+    """Save the run's reply with its sources, files and cost; return it and its text."""
+    # Extract metadata from tool calls and deterministic analysis
+    clean_response = raw_response
+    # Source chips = pages the turn read (no cite_sources tool any more)
+    sources: list[dict[str, str]] = extract_read_sources(result_messages)
+    generated_images_meta = extract_image_prompts_from_messages(result_messages)
+    language = detect_response_language(clean_response)
+
+    # Memory writes happen inside manage_memory during the run, and are only
+    # available to agents that were granted the tool.
+
+    # Extract generated files from tool results
+    gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
+    code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
+    all_generated_files = gen_image_files + code_output_files
+
+    # Ensure we have at least some content
+    if not clean_response and all_generated_files:
+        clean_response = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
+
+    assistant_msg = db.add_message(
+        conv.id,
+        MessageRole.ASSISTANT,
+        clean_response,
+        files=all_generated_files if all_generated_files else None,
+        sources=sources if sources else None,
+        generated_images=generated_images_meta if generated_images_meta else None,
+        language=language,
+    )
+
+    # Calculate and save cost (mode="agent" for analytics distinction)
+    calculate_and_save_message_cost(
+        assistant_msg.id,
+        conv.id,
+        user.id,
+        conv.model,
+        usage_info,
+        full_tool_results,
+        len(clean_response),
+        mode="agent",
+    )
+    return assistant_msg, clean_response
+
+
+def _record_approval_request(
+    e: ApprovalRequestedException,
+    agent: Agent,
+    user: User,
+    conversation_id: str,
+    execution_id: str,
+) -> None:
+    """Park the run on the approval the agent asked for and tell the user."""
+    logger.info(
+        "Agent requesting approval",
+        extra={
+            "agent_id": agent.id,
+            "execution_id": execution_id,
+            "approval_id": e.approval_id,
+            "description": e.description,
+        },
+    )
+
+    # Update execution status to waiting_approval
+    db.update_execution(execution_id, status="waiting_approval")
+
+    # Add a message to the conversation indicating approval is needed
+    # Include approval ID in a parseable format for interactive UI
+    approval_message = build_approval_message(
+        e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
+    )
+    db.add_message(conversation_id, MessageRole.ASSISTANT, approval_message)
+
+    # The agent is blocked until the user reacts - the most
+    # time-sensitive notification in the system
+    send_push_to_user(
+        user.id,
+        f"{agent.name} needs your approval",
+        e.description[:160],
+        url="/#/agents",
+        tag=f"approval-{e.approval_id}",
+    )
+
+
+def execute_agent(
     agent: Agent,
     user: User,
     trigger_type: str,
@@ -234,18 +403,9 @@ def execute_agent(  # noqa: PLR0915
         return False, error_msg
 
     # Check budget limit before execution
-    if db.is_agent_over_budget(agent.id, agent.budget_limit):
-        daily_spent = db.get_agent_daily_spending(agent.id)
-        error_msg = f"Agent exceeded daily budget limit (${agent.budget_limit:.2f}, spent: ${daily_spent:.2f})"
-        logger.warning(
-            "Agent over budget",
-            extra={
-                "agent_id": agent.id,
-                "budget_limit": agent.budget_limit,
-                "daily_spent": daily_spent,
-            },
-        )
-        return False, error_msg
+    budget_error = _over_budget_error(agent)
+    if budget_error:
+        return False, budget_error
 
     # Check if conversation needs compaction
     try:
@@ -275,57 +435,17 @@ def execute_agent(  # noqa: PLR0915
     )
     db.add_message(conv.id, MessageRole.USER, trigger_message)
 
-    # Get conversation history (excluding the just-added message).
-    # Fresh-context agents run every turn from a clean slate: prior runs
-    # stay readable in the conversation but aren't sent to the LLM
-    # (saves tokens; right default for report-style agents like the
-    # Daily Briefing whose runs are independent).
-    if agent.fresh_context:
-        history: list[dict[str, str]] = []
-    else:
-        messages = db.get_messages(conv.id)
-        history = [
-            {"role": m.role.value, "content": m.content}
-            for m in messages[:-1]  # Exclude the trigger message
-        ]
+    # Get conversation history (excluding the just-added message)
+    history = _run_history(agent, conv.id)
 
     # Get tools for the agent (includes request_approval, trigger_agent, etc.)
     agent_tools = get_tools_for_agent(agent)
-    agent_tool_names = [t.name for t in agent_tools]
-
-    # Build agent context for the system prompt. Goals are resolved:
-    # system-managed agents on a NULL prompt get the current stock
-    # prompt from code (src/agent/daily_briefing.py)
-    agent_context = {
-        "name": agent.name,
-        "description": agent.description,
-        "schedule": agent.schedule,
-        "timezone": agent.timezone,
-        "goals": resolve_agent_system_prompt(agent),
-        "tools": agent_tool_names,  # Actual tools available, not just permissions
-        "trigger_type": trigger_type,
-        # Keeps the prompt's Conversation Context section truthful about
-        # whether past runs are in the model's context
-        "fresh_context": agent.fresh_context,
-    }
+    agent_context = _prompt_context(agent, trigger_type, [t.name for t in agent_tools])
 
     try:
         # Generate a unique request ID for capturing full tool results
         request_id = str(uuid.uuid4())
-        set_current_request_id(request_id)
-        set_current_message_files(None)
-        set_conversation_context(conv.id, user.id)
-        set_agent_name(agent.name)  # For WhatsApp template messages
-
-        # Set the agent context so permission checks know we're in autonomous mode
-        # Include parent trigger chain to detect circular dependencies
-        full_trigger_chain = (parent_trigger_chain or []) + [agent.id]
-        agent_execution_context = AgentContext(
-            agent=agent,
-            user=user,
-            trigger_chain=full_trigger_chain,
-        )
-        set_agent_context(agent_execution_context)
+        _set_run_context(agent, user, conv.id, request_id, parent_trigger_chain)
 
         # Create agent with autonomous mode and tools
         chat_agent = ChatAgent(
@@ -366,50 +486,12 @@ def execute_agent(  # noqa: PLR0915
             },
         )
 
-        # Extract metadata from tool calls and deterministic analysis
-        clean_response = raw_response
-        # Source chips = pages the turn read (no cite_sources tool any more)
-        sources: list[dict[str, str]] = extract_read_sources(result_messages)
-        generated_images_meta = extract_image_prompts_from_messages(result_messages)
-        language = detect_response_language(clean_response)
-
-        # Memory writes happen inside manage_memory during the run, and are only
-        # available to agents that were granted the tool.
-
-        # Extract generated files from tool results
-        gen_image_files = extract_generated_images_from_tool_results(full_tool_results)
-        code_output_files = extract_code_output_files_from_tool_results(full_tool_results)
-        all_generated_files = gen_image_files + code_output_files
-
-        # Ensure we have at least some content
-        if not clean_response and all_generated_files:
-            clean_response = Config.DEFAULT_IMAGE_GENERATION_MESSAGE
-
-        # Save assistant message
         logger.debug(
             "Saving agent response",
             extra={"agent_id": agent.id, "conversation_id": conv.id},
         )
-        assistant_msg = db.add_message(
-            conv.id,
-            MessageRole.ASSISTANT,
-            clean_response,
-            files=all_generated_files if all_generated_files else None,
-            sources=sources if sources else None,
-            generated_images=generated_images_meta if generated_images_meta else None,
-            language=language,
-        )
-
-        # Calculate and save cost (mode="agent" for analytics distinction)
-        calculate_and_save_message_cost(
-            assistant_msg.id,
-            conv.id,
-            user.id,
-            conv.model,
-            usage_info,
-            full_tool_results,
-            len(clean_response),
-            mode="agent",
+        assistant_msg, clean_response = _save_response(
+            conv, user, raw_response, usage_info, result_messages, full_tool_results
         )
 
         # Update agent's last_run_at
@@ -442,35 +524,7 @@ def execute_agent(  # noqa: PLR0915
 
     except ApprovalRequestedException as e:
         # Agent used request_approval tool - waiting for user approval
-        logger.info(
-            "Agent requesting approval",
-            extra={
-                "agent_id": agent.id,
-                "execution_id": execution_id,
-                "approval_id": e.approval_id,
-                "description": e.description,
-            },
-        )
-
-        # Update execution status to waiting_approval
-        db.update_execution(execution_id, status="waiting_approval")
-
-        # Add a message to the conversation indicating approval is needed
-        # Include approval ID in a parseable format for interactive UI
-        approval_message = build_approval_message(
-            e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
-        )
-        db.add_message(conv.id, MessageRole.ASSISTANT, approval_message)
-
-        # The agent is blocked until the user reacts - the most
-        # time-sensitive notification in the system
-        send_push_to_user(
-            user.id,
-            f"{agent.name} needs your approval",
-            e.description[:160],
-            url="/#/agents",
-            tag=f"approval-{e.approval_id}",
-        )
+        _record_approval_request(e, agent, user, conv.id, execution_id)
 
         # Return special status to indicate approval is required
         # The calling code should NOT override the execution status
