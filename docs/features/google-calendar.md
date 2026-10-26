@@ -165,14 +165,14 @@ Both clients can be in the same Google Cloud project and share the same OAuth co
 - [api/integrations.ts](../../web/src/api/integrations.ts) - API methods
 - [api.ts](../../web/src/types/api.ts) - Type definitions
 - [settings.css](../../web/src/styles/components/settings.css) - Styles; `.login-privacy-link` is in [login.css](../../web/src/styles/components/login.css)
-- [init.ts](../../web/src/core/init.ts) - Login overlay (includes Privacy Policy link)
+- [app-shell.ts](../../web/src/core/startup/app-shell.ts) - Login overlay markup (includes Privacy Policy link)
 
 **Templates:**
 - [templates/privacy.html](../../src/templates/privacy.html) - Privacy policy page (required for Google OAuth consent screen verification)
 
 ## Privacy Policy Page
 
-A `/privacy` route is registered in `src/app.py` and serves `src/templates/privacy.html`. This page is required when moving a Google Cloud OAuth app from **Testing** to **Production** status (Google verifies that a privacy policy URL is publicly accessible). The login overlay also links to this page via the `.login-privacy-link` element in `init.ts`.
+A `/privacy` route is registered in `src/app.py` and serves `src/templates/privacy.html`. This page is required when moving a Google Cloud OAuth app from **Testing** to **Production** status (Google verifies that a privacy policy URL is publicly accessible). The login overlay also links to this page via the `.login-privacy-link` element in `core/startup/app-shell.ts`.
 
 ## UX Notes
 

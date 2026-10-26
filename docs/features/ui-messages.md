@@ -57,7 +57,7 @@ All links include security attributes:
 
 ## Image Lightbox / Gallery
 
-[Lightbox.ts](../../web/src/components/Lightbox.ts) (markup in [init.ts](../../web/src/core/init.ts), styles in lightbox.css). Opens via `lightbox:open` CustomEvents dispatched from message images; images marked `data-pending` (unconfirmed sends) don't open it.
+[Lightbox.ts](../../web/src/components/Lightbox.ts) (markup in [app-shell.ts](../../web/src/core/startup/app-shell.ts), styles in lightbox.css). Opens via `lightbox:open` CustomEvents dispatched from message images; images marked `data-pending` (unconfirmed sends) don't open it.
 
 - **Gallery** = all images of the same message: prev/next arrows + `1 / N` counter, ←/→ keys, swipe on touch (disabled while zoomed). Adjacent images prefetch; blob URLs are cached per session and revoked on close.
 - **Download** reuses the displayed blob with the original filename.

@@ -27,7 +27,6 @@ import {
   renderMessages,
   updateChatTitle,
   initOrientationChangeHandler,
-  showConversationLoader,
 } from '../components/messages';
 import { initMessageInput, updateSendButtonState } from '../components/MessageInput';
 import { APP_NAME } from '../config';
@@ -36,7 +35,6 @@ import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
-import { renderWelcomeMessageHtml } from '../components/WelcomeMessage';
 import { registerServiceWorker, resyncPushSubscription } from './push';
 import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
@@ -49,8 +47,8 @@ import { initActionRows } from '../components/messages/action-row';
 import { initClaimsSheet } from '../components/ClaimsSheet';
 import { initImageGenPopup } from '../components/ImageGenPopup';
 import { initMessageCostPopup } from '../components/MessageCostPopup';
-import { costHistoryPopup, getCostHistoryPopupHtml } from '../components/CostHistoryPopup';
-import { getCompactionPopupHtml, initCompactionIndicator } from '../components/CompactionIndicator';
+import { costHistoryPopup } from '../components/CostHistoryPopup';
+import { initCompactionIndicator } from '../components/CompactionIndicator';
 import { initVoiceInput } from '../components/VoiceInput';
 import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
 import { initTurnAnchorResizeHold } from '../components/messages/turn-anchor';
@@ -71,7 +69,6 @@ import {
   getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { ATTACH_ICON, CHEVRON_DOWN_ICON, CHEVRON_LEFT_ICON, CHEVRON_RIGHT_ICON, SLIDERS_ICON, CLOSE_ICON, DOWNLOAD_ICON, MAXIMIZE_ICON, SEND_ICON, MICROPHONE_ICON, STREAM_ICON, SEARCH_ICON, SPARKLES_ICON, PLUS_ICON, INCOGNITO_ICON, MENU_ICON, DELETE_ICON } from '../utils/icons';
 import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -100,191 +97,9 @@ import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
 import { mergeExternalChanges } from './remote-merge';
 import { installAvatarFallback } from '../utils/avatar';
+import { mountAppShell } from './startup/app-shell';
 
 const log = createLogger('init');
-
-/**
- * Render the app shell HTML template.
- */
-export function renderAppShell(): string {
-  return `
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-brand">
-          <img class="sidebar-logo" src="/static/icon-192.png" alt="" width="28" height="28">
-          <h1>${APP_NAME}</h1>
-        </div>
-        <button id="new-chat-btn" class="btn btn-primary btn-new-chat">${PLUS_ICON} New Chat</button>
-      </div>
-      <div id="selection-bar" class="selection-bar hidden" role="toolbar" aria-label="Select chats">
-        <button id="selection-cancel" type="button" class="selection-bar-btn">Cancel</button>
-        <span class="selection-count" aria-live="polite">0 selected</span>
-        <button id="selection-all" type="button" class="selection-bar-btn">Select all</button>
-      </div>
-      <div id="search-container" class="search-container"></div>
-      <div id="conversations-list" class="conversations-list"></div>
-      <div class="sidebar-footer">
-        <div id="user-info" class="user-info"></div>
-      </div>
-      <div id="selection-footer" class="selection-footer hidden">
-        <button id="selection-trash" type="button" class="btn btn-primary" disabled>${DELETE_ICON} Move 0 to trash</button>
-      </div>
-    </aside>
-
-    <!-- Main chat area -->
-    <main class="main">
-      <header class="mobile-header">
-        <button id="menu-btn" class="btn-icon">${MENU_ICON}</button>
-        <span id="current-chat-title">${APP_NAME}</span>
-        <button id="conversation-compaction-mobile" type="button" class="chat-header-compaction hidden"></button>
-        <span id="conversation-cost-mobile" class="chat-header-cost"></span>
-      </header>
-
-      <header id="chat-header" class="chat-header hidden"></header>
-
-      <div id="messages" class="messages">
-        ${renderWelcomeMessageHtml()}
-      </div>
-
-      <div class="input-area">
-        <div class="input-wrapper">
-          <div id="file-preview" class="file-preview hidden"></div>
-          <input type="file" id="file-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,text/plain,text/markdown,text/csv,application/json">
-          <div id="input-container" class="input-container">
-            <div id="quick-actions-bar" class="quick-actions-bar hidden" role="toolbar" aria-label="Quick actions"></div>
-            <div id="quick-action-mode" class="qa-mode hidden"></div>
-            <div id="quick-action-slash" class="qa-slash-menu hidden" role="listbox" aria-label="Quick actions"></div>
-            <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
-            <div class="input-toolbar">
-            <div class="toolbar-left">
-              <div class="model-selector">
-                <button id="model-selector-btn" class="model-selector-btn">
-                  <span id="current-model-name">Loading...</span>
-                  <span class="dropdown-arrow">${CHEVRON_DOWN_ICON}</span>
-                </button>
-                <div id="model-dropdown" class="model-dropdown hidden"></div>
-              </div>
-              <button id="toolbar-options-btn" class="btn-toolbar" aria-label="Message options" aria-expanded="false">
-                ${SLIDERS_ICON}
-              </button>
-              <div class="toolbar-toggles">
-                <button id="stream-btn" class="btn-toolbar active" title="Toggle streaming" aria-label="Toggle streaming" aria-pressed="true">
-                  ${STREAM_ICON}<span class="toolbar-toggle-label">Streaming</span>
-                </button>
-                <button id="search-btn" class="btn-toolbar" aria-pressed="false" title="Force web search for next message" aria-label="Force web search for next message">
-                  ${SEARCH_ICON}<span class="toolbar-toggle-label">Web search</span>
-                </button>
-                <button id="imagegen-btn" class="btn-toolbar" aria-pressed="false" title="Force image generation for next message" aria-label="Force image generation for next message">
-                  ${SPARKLES_ICON}<span class="toolbar-toggle-label">Generate image</span>
-                </button>
-                <button id="anonymous-btn" class="btn-toolbar" aria-pressed="false" title="Anonymous mode - disable memory and integrations" aria-label="Anonymous mode">
-                  ${INCOGNITO_ICON}<span class="toolbar-toggle-label">Incognito</span>
-                </button>
-              </div>
-            </div>
-            <div class="toolbar-right">
-              <button id="voice-btn" class="btn-toolbar btn-voice" title="Voice input" aria-label="Voice input" aria-pressed="false">
-                ${MICROPHONE_ICON}
-              </button>
-              <button id="attach-btn" class="btn-toolbar" title="Attach files" aria-label="Attach files">
-                ${ATTACH_ICON}
-              </button>
-              <button id="send-btn" class="btn btn-send" aria-label="Send message" disabled>
-                ${SEND_ICON}
-              </button>
-            </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- Lightbox -->
-    <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true" aria-label="Image viewer">
-      <div class="lightbox-loader">
-        <div class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <p>Loading image...</p>
-      </div>
-      <div class="lightbox-toolbar">
-        <div class="lightbox-meta">
-          <span id="lightbox-counter" class="lightbox-counter"></span>
-          <span id="lightbox-filename" class="lightbox-filename"></span>
-        </div>
-        <div class="lightbox-toolbar-actions">
-          <button class="lightbox-btn lightbox-download" aria-label="Download image">
-            ${DOWNLOAD_ICON}
-          </button>
-          <button class="lightbox-btn lightbox-fullscreen" aria-label="Toggle fullscreen">
-            ${MAXIMIZE_ICON}
-          </button>
-          <button class="lightbox-btn lightbox-close" aria-label="Close">
-            ${CLOSE_ICON}
-          </button>
-        </div>
-      </div>
-      <button class="lightbox-nav lightbox-prev" aria-label="Previous image">
-        ${CHEVRON_LEFT_ICON}
-      </button>
-      <button class="lightbox-nav lightbox-next" aria-label="Next image">
-        ${CHEVRON_RIGHT_ICON}
-      </button>
-      <div class="lightbox-container">
-        <img id="lightbox-img" src="" alt="Full size image" draggable="false">
-      </div>
-    </div>
-
-    <!-- Sources Popup -->
-    <div id="sources-popup" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-
-    <!-- Image Generation Popup -->
-    <div id="imagegen-popup" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-
-    <!-- Message Cost Popup -->
-    <div id="message-cost-popup" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-
-    <!-- Cost History Popup -->
-    ${getCostHistoryPopupHtml()}
-
-    <!-- Conversation Compaction Popup -->
-    ${getCompactionPopupHtml()}
-
-    <!-- Settings Popup shell (contents + handlers lazy-load from
-         SettingsPopup.ts on first open - keep the id in sync) -->
-    <div id="settings-popup" class="info-popup hidden">
-      <div class="info-popup-content">
-        <!-- Content populated dynamically -->
-      </div>
-    </div>
-
-    <!-- Login overlay -->
-    <div id="login-overlay" class="login-overlay hidden">
-      <div class="login-box">
-        <img class="login-logo" src="/static/icon-192.png" alt="" width="64" height="64">
-        <h2>${APP_NAME}</h2>
-        <p>Sign in to continue</p>
-        <div id="google-login-btn" class="google-btn-container"></div>
-        <a href="/privacy" class="login-privacy-link" target="_blank">Privacy Policy</a>
-      </div>
-    </div>
-  `;
-}
 
 /**
  * Show the login overlay.
@@ -507,20 +322,8 @@ export async function init(): Promise<void> {
   // Before any avatar renders: a dead Google photo URL falls back to initials
   installAvatarFallback();
 
-  // Render app shell
-  app.innerHTML = renderAppShell();
-
-  // Booting straight into a route (deep link / PWA relaunch) must show a
-  // loading state, not the new-chat welcome screen - the welcome flashing
-  // before messages arrive reads as landing in the wrong place
-  const bootRoute = parseHash(window.location.hash);
-  if (bootRoute.type !== 'home' && bootRoute.type !== 'unknown') {
-    const messagesEl = getElementById<HTMLDivElement>('messages');
-    if (messagesEl) {
-      clearElement(messagesEl);
-      showConversationLoader();
-    }
-  }
+  // Every init* below looks its elements up in the shell, so it goes first
+  mountAppShell(app);
 
   // Initialize components
   initToast();

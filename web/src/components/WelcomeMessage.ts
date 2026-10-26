@@ -1,6 +1,6 @@
 /**
  * Welcome message shown in an empty conversation. Shared by the initial
- * app shell (core/init.ts) and renderMessages' empty branch so the two
+ * app shell (core/startup/app-shell.ts) and renderMessages' empty branch so the two
  * can't drift apart.
  */
 import { useStore } from '../state/store';

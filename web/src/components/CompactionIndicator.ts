@@ -95,7 +95,7 @@ const compactionPopup: PopupInstance<ConversationCompactionResponse> = createPop
   renderCompaction
 );
 
-/** HTML shell for the popup (embedded in the app shell by init.ts) */
+/** HTML shell for the popup (embedded in the app shell by core/startup/app-shell.ts) */
 export function getCompactionPopupHtml(): string {
   return createPopupHtml(POPUP_ID);
 }

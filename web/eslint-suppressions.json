@@ -361,10 +361,7 @@
       "count": 1
     },
     "max-lines-per-function": {
-      "count": 3
-    },
-    "no-unsanitized/property": {
-      "count": 1
+      "count": 2
     }
   },
   "src/core/keyboard-viewport.ts": {
@@ -413,6 +410,11 @@
     }
   },
   "src/core/sports.ts": {
+    "no-unsanitized/property": {
+      "count": 1
+    }
+  },
+  "src/core/startup/app-shell.ts": {
     "no-unsanitized/property": {
       "count": 1
     }

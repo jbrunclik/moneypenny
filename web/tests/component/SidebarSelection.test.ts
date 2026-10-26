@@ -33,7 +33,7 @@ const click = (el: Element) => {
 };
 
 beforeEach(() => {
-  // The sidebar parts of renderAppShell (core/init.ts)
+  // The sidebar parts of the app shell (core/startup/app-shell.ts)
   document.body.innerHTML = `
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header"></div>
