@@ -116,7 +116,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Lint: knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
-- [ ] **Shrink the ruff baseline** (Oct 26 2026: 53 bare `# noqa: CODE` lines, 41 in `src/` - only complexity is left: 52 `C901` (40 in `src/`), 30 `PLR0912` (23), 19 `PLR0915` (13); every other code, `PLC0415` included, is fixed or carries a reason): fix them file by file when touching a file anyway; `grep -rn "# noqa: [A-Z0-9, ]*$" src` lists them.
+- [ ] **Shrink the ruff baseline** (Oct 26 2026: 49 bare `# noqa: CODE` lines, 37 in `src/` - only complexity is left: 48 `C901` (36 in `src/`), 26 `PLR0912` (19), 15 `PLR0915` (9); every other code, `PLC0415` included, is fixed or carries a reason): fix them file by file when touching a file anyway; `grep -rn "# noqa: [A-Z0-9, ]*$" src` lists them.
 - [ ] **Shrink the ESLint baseline** (`web/eslint-suppressions.json`, Oct 25 2026: 75 - 42 complexity, 18 long functions, 15 deep nesting; the 48 `!` are cleared).
 - [ ] **Timezone-aware datetimes** (decided Oct 25 2026, a migration, not a lint rollout): ~280 naive `datetime.now()`/`datetime()` uses store host-local time, so behavior depends on the production host's timezone and the 4am planner reset and "today" shift at DST changes. Store UTC everywhere, convert only for display and day boundaries, migrate the stored timestamps, then turn on ruff `DTZ` with no baseline. Partial adoption is unsafe: comparing aware and naive datetimes raises `TypeError`.
 - [ ] **Split the files where bugs cluster** (Oct 25 2026 ranking by churn and fix commits over 90 days; the 500-line file limit was dropped for function limits, see docs/conventions.md):
@@ -124,7 +124,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - `web/src/utils/thumbnails.ts` (1094, 10 of 12 commits were fixes, 12 functions over 50 lines) with `components/messages/streaming.ts` (705, 7 fixes) - mostly scroll-after-image-load logic under the wrong name; the two overlap.
   - `web/src/core/keyboard-viewport.ts` (553, 25 fixes in 90 days; `initKeyboardViewportPinning` 251 lines) - the most bug-dense file, but only verifiable on a real iPhone: do it with a device session.
   - `src/agent/graph.py` (1082; `check_tool_results` 171 lines, 8 functions over 50) - pair with an eval run that is happening anyway.
-  - `src/services/planner_data.py` (`build_planner_dashboard` is 376 lines, the longest function in the repo) - untouched for 90 days: split it as part of Planner dashboard v2, not before.
 
 ## Parked (reopen on the trigger)
 

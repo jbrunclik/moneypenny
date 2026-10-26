@@ -117,7 +117,7 @@ Dashboard data is cached in SQLite (`dashboard_cache` table, one row per user) w
 ## Key Files
 
 **Backend:**
-- [planner_data.py](../../src/services/planner_data.py) - Dashboard building logic
+- [services/planner/](../../src/services/planner/) - Dashboard building: [dashboard.py](../../src/services/planner/dashboard.py) (parallel fetch, 7-day layout, cache) with one module per source ([todoist.py](../../src/services/planner/todoist.py), [google_calendar.py](../../src/services/planner/google_calendar.py), [garmin.py](../../src/services/planner/garmin.py), [weather.py](../../src/services/planner/weather.py)) and the dataclasses in [models.py](../../src/services/planner/models.py)
 - [tools/planner.py](../../src/agent/tools/planner.py) - refresh_planner_dashboard tool
 - [routes/planner.py](../../src/api/routes/planner.py) - Planner API endpoints
 - [prompt_texts/planner.py](../../src/agent/prompt_texts/planner.py) - `PLANNER_SYSTEM_PROMPT`; [prompt_dashboard.py](../../src/agent/prompt_dashboard.py) - dashboard context injection
@@ -204,7 +204,7 @@ Yr.no provides free weather data with these requirements:
 
 **Backend:**
 - [weather.py](../../src/utils/weather.py) - Weather fetching from Yr.no API
-- [planner_data.py](../../src/services/planner_data.py) - Weather integration into dashboard
+- [services/planner/weather.py](../../src/services/planner/weather.py) - Weather integration into dashboard (daily summaries)
 - [models/](../../src/db/models/) - Weather cache operations
 - [config.py](../../src/config.py) - Weather configuration
 

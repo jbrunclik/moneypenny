@@ -3,7 +3,7 @@
 Tests for:
 - should_reset_planner() function in models.py
 - get_dashboard_context_prompt() function in chat_agent.py
-- PlannerDashboard building in planner_data.py
+- PlannerDashboard building in services/planner/dashboard.py
 - refresh_planner_dashboard tool
 """
 
@@ -580,7 +580,7 @@ class TestMultiDayEventHandling:
 
     def test_multi_day_event_appears_on_all_days(self) -> None:
         """Test that a multi-day all-day event appears on every day it spans."""
-        from src.services.planner_data import build_planner_dashboard
+        from src.services.planner.dashboard import build_planner_dashboard
 
         # Mock fetch functions to return a 3-day all-day event (Mon-Wed)
         def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
@@ -600,19 +600,19 @@ class TestMultiDayEventHandling:
             """Return no tasks."""
             return [], [], None
 
-        import src.services.planner_data
+        import src.services.planner.dashboard
 
-        original_fetch_calendar = src.services.planner_data.fetch_calendar_dashboard_data
-        original_fetch_todoist = src.services.planner_data.fetch_todoist_dashboard_data
+        original_fetch_calendar = src.services.planner.dashboard.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.services.planner.dashboard.fetch_todoist_dashboard_data
 
         try:
-            src.services.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
-            src.services.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
 
             # Mock datetime.now() to return a fixed date (2024-12-23)
             from unittest.mock import patch
 
-            with patch("src.services.planner_data.datetime") as mock_datetime:
+            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
                 mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
                 mock_datetime.strptime = datetime.strptime
                 mock_datetime.fromisoformat = datetime.fromisoformat
@@ -650,12 +650,12 @@ class TestMultiDayEventHandling:
 
         finally:
             # Restore original functions
-            src.services.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
-            src.services.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = original_fetch_todoist
 
     def test_single_day_all_day_event_only_on_one_day(self) -> None:
         """Test that a single-day all-day event only appears on one day."""
-        from src.services.planner_data import build_planner_dashboard
+        from src.services.planner.dashboard import build_planner_dashboard
 
         def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
             """Return a single-day all-day event."""
@@ -674,18 +674,18 @@ class TestMultiDayEventHandling:
             """Return no tasks."""
             return [], [], None
 
-        import src.services.planner_data
+        import src.services.planner.dashboard
 
-        original_fetch_calendar = src.services.planner_data.fetch_calendar_dashboard_data
-        original_fetch_todoist = src.services.planner_data.fetch_todoist_dashboard_data
+        original_fetch_calendar = src.services.planner.dashboard.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.services.planner.dashboard.fetch_todoist_dashboard_data
 
         try:
-            src.services.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
-            src.services.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
 
             from unittest.mock import patch
 
-            with patch("src.services.planner_data.datetime") as mock_datetime:
+            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
                 mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
                 mock_datetime.strptime = datetime.strptime
                 mock_datetime.fromisoformat = datetime.fromisoformat
@@ -706,12 +706,12 @@ class TestMultiDayEventHandling:
             assert len(dashboard.days[3].events) == 0  # Thursday
 
         finally:
-            src.services.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
-            src.services.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = original_fetch_todoist
 
     def test_timed_event_not_duplicated(self) -> None:
         """Test that timed events (non-all-day) are not duplicated across days."""
-        from src.services.planner_data import build_planner_dashboard
+        from src.services.planner.dashboard import build_planner_dashboard
 
         def mock_fetch_calendar(*args: Any, **kwargs: Any) -> tuple[list[PlannerEvent], None]:
             """Return a timed event."""
@@ -730,18 +730,18 @@ class TestMultiDayEventHandling:
             """Return no tasks."""
             return [], [], None
 
-        import src.services.planner_data
+        import src.services.planner.dashboard
 
-        original_fetch_calendar = src.services.planner_data.fetch_calendar_dashboard_data
-        original_fetch_todoist = src.services.planner_data.fetch_todoist_dashboard_data
+        original_fetch_calendar = src.services.planner.dashboard.fetch_calendar_dashboard_data
+        original_fetch_todoist = src.services.planner.dashboard.fetch_todoist_dashboard_data
 
         try:
-            src.services.planner_data.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
-            src.services.planner_data.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
 
             from unittest.mock import patch
 
-            with patch("src.services.planner_data.datetime") as mock_datetime:
+            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
                 mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
                 mock_datetime.strptime = datetime.strptime
                 mock_datetime.fromisoformat = datetime.fromisoformat
@@ -761,8 +761,8 @@ class TestMultiDayEventHandling:
             assert len(dashboard.days[2].events) == 0  # Wednesday - no events
 
         finally:
-            src.services.planner_data.fetch_calendar_dashboard_data = original_fetch_calendar
-            src.services.planner_data.fetch_todoist_dashboard_data = original_fetch_todoist
+            src.services.planner.dashboard.fetch_calendar_dashboard_data = original_fetch_calendar
+            src.services.planner.dashboard.fetch_todoist_dashboard_data = original_fetch_todoist
 
 
 class TestRefreshPlannerDashboardTool:

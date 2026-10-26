@@ -25,7 +25,7 @@ from src.auth.google_calendar import get_valid_calendar_access_token
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
-from src.services.planner_data import build_planner_dashboard
+from src.services.planner.dashboard import build_planner_dashboard
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)

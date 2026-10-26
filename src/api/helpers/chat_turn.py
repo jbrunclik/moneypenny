@@ -52,7 +52,7 @@ from src.services.background_thumbnails import (
     mark_files_for_thumbnail_generation,
     queue_pending_thumbnails,
 )
-from src.services.planner_data import build_planner_dashboard
+from src.services.planner.dashboard import build_planner_dashboard
 from src.utils.files import validate_files
 from src.utils.logging import get_logger, log_payload_snippet
 

@@ -105,6 +105,19 @@ def _fetch_name_map(endpoint: str, headers: dict[str, str], failure: str) -> dic
     return {}
 
 
+def _enrichment_maps(
+    tasks: list[dict[str, Any]], headers: dict[str, str]
+) -> tuple[dict[str, str], dict[str, str]]:
+    """(section_map, project_map), each fetched only when some task uses it."""
+    section_map: dict[str, str] = {}
+    project_map: dict[str, str] = {}
+    if any(t.get("section_id") for t in tasks):
+        section_map = _fetch_name_map("sections", headers, "Failed to fetch sections for dashboard")
+    if any(t.get("project_id") for t in tasks):
+        project_map = _fetch_name_map("projects", headers, "Failed to fetch projects for dashboard")
+    return section_map, project_map
+
+
 def _split_overdue(
     tasks: list[dict[str, Any]],
     section_map: dict[str, str],
@@ -148,19 +161,7 @@ def fetch_todoist_dashboard_data(
             return [], [], error
 
         tasks = _tasks_from_payload(response.json())
-        section_ids = {t.get("section_id") for t in tasks if t.get("section_id")}
-        project_ids = {t.get("project_id") for t in tasks if t.get("project_id")}
-        section_map: dict[str, str] = {}
-        project_map: dict[str, str] = {}
-        if section_ids:
-            section_map = _fetch_name_map(
-                "sections", headers, "Failed to fetch sections for dashboard"
-            )
-        if project_ids:
-            project_map = _fetch_name_map(
-                "projects", headers, "Failed to fetch projects for dashboard"
-            )
-
+        section_map, project_map = _enrichment_maps(tasks, headers)
         upcoming, overdue = _split_overdue(tasks, section_map, project_map)
         logger.debug(
             "Todoist dashboard data fetched",

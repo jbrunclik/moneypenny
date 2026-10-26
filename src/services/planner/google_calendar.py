@@ -1,7 +1,7 @@
 """Google Calendar events for the planner dashboard, fetched in parallel."""
 
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote
@@ -185,6 +185,26 @@ def _add_calendar_events(
         all_events.append(planner_event)
 
 
+def _merge_results(
+    futures: list[Future[_CalendarResult]],
+) -> tuple[list[PlannerEvent], list[tuple[str, str]]]:
+    """Merge calendars as they finish: (events, [(calendar_id, error_message)])."""
+    all_events: list[PlannerEvent] = []
+    errors: list[tuple[str, str]] = []
+    seen_event_ids: set[str] = set()
+    for future in as_completed(futures):
+        result = future.result()
+        calendar_id, _, _, error, _ = result
+        if error:
+            errors.append((calendar_id, error))
+            logger.debug(
+                "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": error}
+            )
+            continue
+        _add_calendar_events(result, all_events, seen_event_ids)
+    return all_events, errors
+
+
 def _overall_error(
     errors: list[tuple[str, str]],
     calendar_ids: list[str],
@@ -226,24 +246,12 @@ def fetch_calendar_dashboard_data(
     calendar_names = _fetch_calendar_names(headers)
     params = _event_window_params()
 
-    all_events: list[PlannerEvent] = []
-    errors: list[tuple[str, str]] = []  # (calendar_id, error_message)
-    seen_event_ids: set[str] = set()
     with ThreadPoolExecutor(max_workers=min(len(calendar_ids), 5)) as executor:
         futures = [
             executor.submit(_fetch_single_calendar, cid, headers, params, calendar_names)
             for cid in calendar_ids
         ]
-        for future in as_completed(futures):
-            result = future.result()
-            calendar_id, _, _, error, _ = result
-            if error:
-                errors.append((calendar_id, error))
-                logger.debug(
-                    "Calendar fetch failed", extra={"calendar_id": calendar_id, "error": error}
-                )
-                continue
-            _add_calendar_events(result, all_events, seen_event_ids)
+        all_events, errors = _merge_results(futures)
 
     all_events.sort(key=lambda e: e.start or e.start_date or "")
     logger.debug(

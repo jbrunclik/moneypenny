@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config import Config
-from src.services.planner_data import build_planner_dashboard
+from src.services.planner.dashboard import build_planner_dashboard
 from src.utils.weather import WeatherForecast, WeatherPeriod
 
 GARMIN_SEAM = "src.services.planner.garmin.create_client_from_tokens"
