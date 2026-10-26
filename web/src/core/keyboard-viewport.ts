@@ -195,7 +195,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb16]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb17]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -344,6 +344,27 @@ function measureKeyboardInset(viewport: VisualViewport): {
   return { shrink, keyboardLikely, inset };
 }
 
+/** Undo iOS's stray window scroll (see update below for when it runs). */
+function resetStrayWindowScroll(currentInset: number, inset: number): void {
+  // Stale focus-scroll recovery: the window is NEVER legitimately
+  // scrolled in this app (html/body are overflow:hidden; all scrolling
+  // happens inside #messages) - but iOS scrolls it anyway for its focus
+  // caret-reveal, computed against the PRE-resize geometry, and never
+  // re-clamps afterwards (device-verified: winY=291 stranded with the
+  // keyboard open even under interactive-widget=resizes-content, where
+  // the inset correctly stays 0 - so this must NOT be gated on inset).
+  // Reset whenever no finger is down; the winscroll listener triggers
+  // this update the moment the stray scroll happens.
+  if (!touchActive && !(currentInset === 0 && inset > 0)) {
+    const scrolled =
+      window.scrollY > 0 || (document.scrollingElement?.scrollTop ?? 0) > 0;
+    if (scrolled) {
+      kbDebug('panreset', { winY: Math.round(window.scrollY) });
+      window.scrollTo(0, 0);
+    }
+  }
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -381,23 +402,7 @@ export function initKeyboardViewportPinning(): void {
       document.documentElement.style.setProperty('--app-vh', appVh);
     }
 
-    // Stale focus-scroll recovery: the window is NEVER legitimately
-    // scrolled in this app (html/body are overflow:hidden; all scrolling
-    // happens inside #messages) - but iOS scrolls it anyway for its focus
-    // caret-reveal, computed against the PRE-resize geometry, and never
-    // re-clamps afterwards (device-verified: winY=291 stranded with the
-    // keyboard open even under interactive-widget=resizes-content, where
-    // the inset correctly stays 0 - so this must NOT be gated on inset).
-    // Reset whenever no finger is down; the winscroll listener triggers
-    // this update the moment the stray scroll happens.
-    if (!touchActive && !(currentInset === 0 && inset > 0)) {
-      const scrolled =
-        window.scrollY > 0 || (document.scrollingElement?.scrollTop ?? 0) > 0;
-      if (scrolled) {
-        kbDebug('panreset', { winY: Math.round(window.scrollY) });
-        window.scrollTo(0, 0);
-      }
-    }
+    resetStrayWindowScroll(currentInset, inset);
 
     if (inset === currentInset) return;
     const keyboardJustOpened = currentInset === 0 && inset > 0;
