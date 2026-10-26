@@ -13,7 +13,8 @@ import type { ArtifactRef, CommandCenterResponse, Conversation, Message } from '
 const m = vi.hoisted(() => ({
   offerLostReplyRetry: vi.fn(),
   resumeInflightStreamIfAny: vi.fn(() => Promise.resolve()),
-  followRemoteStreamOnOpen: vi.fn(),
+  followRemoteStream: vi.fn(() => Promise.resolve()),
+  readInflightStream: vi.fn<(id: string) => unknown>(() => null),
   resumeInflightBatchIfAny: vi.fn(() => Promise.resolve()),
   renderConversationsList: vi.fn(),
   setActiveConversation: vi.fn(),
@@ -50,8 +51,9 @@ const m = vi.hoisted(() => ({
 vi.mock('@/core/stream-resume', () => ({
   offerLostReplyRetry: m.offerLostReplyRetry,
   resumeInflightStreamIfAny: m.resumeInflightStreamIfAny,
+  followRemoteStream: m.followRemoteStream,
 }));
-vi.mock('@/core/remote-merge', () => ({ followRemoteStreamOnOpen: m.followRemoteStreamOnOpen }));
+vi.mock('@/core/inflight-streams', () => ({ readInflightStream: m.readInflightStream }));
 vi.mock('@/core/batch-resume', () => ({ resumeInflightBatchIfAny: m.resumeInflightBatchIfAny }));
 vi.mock('@/components/Sidebar', () => ({
   renderConversationsList: m.renderConversationsList,
@@ -266,11 +268,22 @@ describe('switchToConversation', () => {
       expect(restoreOrder).toBeLessThan(resumeOrder);
     });
 
-    it('checks for a remote stream, a lost reply and a pending batch reply', () => {
+    it('follows a reply another device is streaming, anchored like a send', () => {
+      switchToConversation(conv({ streaming_message_id: 's1' }));
+      expect(m.followRemoteStream).toHaveBeenCalledWith('c1', 's1', { anchor: true });
+    });
+
+    it('leaves a reply this device owns to the journal resume', () => {
+      m.readInflightStream.mockReturnValueOnce({ conversationId: 'c1' });
+      switchToConversation(conv({ streaming_message_id: 's1' }));
+      expect(m.followRemoteStream).not.toHaveBeenCalled();
+    });
+
+    it('checks for a lost reply and a pending batch reply, following nothing idle', () => {
       const c = conv();
       switchToConversation(c);
 
-      expect(m.followRemoteStreamOnOpen).toHaveBeenCalledWith(c);
+      expect(m.followRemoteStream).not.toHaveBeenCalled();
       expect(m.offerLostReplyRetry).toHaveBeenCalledWith(c);
       expect(m.resumeInflightBatchIfAny).toHaveBeenCalledWith('c1', c.messages);
       expect(m.restoreStreamingMessage).not.toHaveBeenCalled();
