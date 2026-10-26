@@ -70,6 +70,29 @@ describe('renameConversationTo', () => {
     expect(toastMock.success).toHaveBeenCalled();
   });
 
+  it('leaves the chat title alone when the user opens another conversation during the request', async () => {
+    useStore.setState({ currentConversation: conv('a', { title: 'Old' }) });
+    api.update.mockImplementation(async () => {
+      useStore.setState({ currentConversation: conv('b', { title: 'Other' }) });
+      return {};
+    });
+
+    await renameConversationTo('a', 'New');
+
+    expect(uiMock.updateChatTitle).not.toHaveBeenCalled();
+  });
+
+  it('updates the chat title when the user opens the renamed conversation during the request', async () => {
+    api.update.mockImplementation(async () => {
+      useStore.setState({ currentConversation: conv('a', { title: 'Old' }) });
+      return {};
+    });
+
+    await renameConversationTo('a', 'New');
+
+    expect(uiMock.updateChatTitle).toHaveBeenCalledWith('New');
+  });
+
   it('updates an archived conversation in the archive list', async () => {
     await renameConversationTo('z', 'Renamed');
 

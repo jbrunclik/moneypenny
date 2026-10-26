@@ -298,7 +298,8 @@ export async function renameConversationTo(convId: string, newTitle: string): Pr
       store.updateConversation(convId, { title: trimmedTitle });
     }
 
-    showRenamedTitle(store.currentConversation?.id === convId, trimmedTitle);
+    // Read after the request: the user may have opened another one meanwhile
+    showRenamedTitle(useStore.getState().currentConversation?.id === convId, trimmedTitle);
   } catch (error) {
     log.error('Failed to rename conversation', { error, conversationId: convId });
     toast.error('Failed to rename conversation. Please try again.');
