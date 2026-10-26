@@ -77,11 +77,6 @@ vi.mock('@/sync/SyncManager', () => ({
   getSyncManager: vi.fn(() => mockSyncManager),
 }));
 
-// Mock sync-banner
-vi.mock('@/core/sync-banner', () => ({
-  hideNewMessagesAvailableBanner: vi.fn(),
-}));
-
 // Import after mocks are set up
 import {
   markStreamForRecovery,
@@ -103,7 +98,6 @@ import {
 } from '@/components/messages';
 import { getElementById, isScrolledToBottom } from '@/utils/dom';
 import { programmaticScrollToBottom } from '@/utils/programmatic-scroll';
-import { hideNewMessagesAvailableBanner } from '@/core/sync-banner';
 
 // Helper to reset store state
 function resetStore() {
@@ -170,7 +164,6 @@ describe('stream-recovery', () => {
   const mockGetElementById = getElementById as ReturnType<typeof vi.fn>;
   const mockScrollToBottom = programmaticScrollToBottom as ReturnType<typeof vi.fn>;
   const mockIsScrolledToBottom = isScrolledToBottom as ReturnType<typeof vi.fn>;
-  const mockHideNewMessagesBanner = hideNewMessagesAvailableBanner as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     resetStore();
@@ -864,7 +857,7 @@ describe('stream-recovery', () => {
       expect(mockScrollToBottom).not.toHaveBeenCalled();
     });
 
-    it('hides banner and triggers sync to check for genuinely new messages', async () => {
+    it('triggers sync to check for genuinely new messages', async () => {
       markStreamForRecovery('conv-1', 'msg-123', 'partial', 'network');
       const conv = createConversation('conv-1');
       useStore.getState().addConversation(conv);
@@ -875,10 +868,7 @@ describe('stream-recovery', () => {
 
       await attemptRecovery('conv-1');
 
-      // Should hide the "new messages available" banner
-      expect(mockHideNewMessagesBanner).toHaveBeenCalled();
       // Should trigger incremental sync to re-check for genuinely new messages
-      // If there are new messages from another device, the sync will re-show the banner
       expect(mockSyncManager.incrementalSync).toHaveBeenCalled();
     });
 

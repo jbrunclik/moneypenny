@@ -78,7 +78,6 @@ vi.mock('@/core/toolbar', () => ({
   updateAnonymousButtonState: vi.fn(),
 }));
 
-vi.mock('@/core/sync-banner', () => ({ hideNewMessagesAvailableBanner: vi.fn() }));
 
 import { useStore } from '@/state/store';
 import { kvStore } from '@/api/kv-store';

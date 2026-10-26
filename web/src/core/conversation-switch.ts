@@ -41,7 +41,6 @@ import { renderChatHeader } from '../components/ChatHeader';
 import { isTempConversation } from '../utils/conversation-id';
 import { renderChatHeaderForConversation } from './conversation-header';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { navigateToAgents, handleAgentEditById } from './agents';
 
 const log = createLogger('conversation');
@@ -178,9 +177,6 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
 
   // Update URL hash for deep linking (skips temp conversations automatically)
   setConversationHash(conv.id);
-
-  // Hide any existing new messages banner when switching conversations
-  hideNewMessagesAvailableBanner();
 
   // Enable scroll-to-bottom for images that load after initial render
   enableScrollOnImageLoad();

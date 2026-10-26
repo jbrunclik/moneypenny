@@ -44,18 +44,16 @@ import { sendMessage } from './messaging';
 import { renderChatHeader } from '../components/ChatHeader';
 import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('planner');
 
-/** Drop the previous conversation's blob scope, scroll listener, stream context and banner. */
+/** Drop the previous conversation's blob scope, scroll listener and stream context. */
 function cleanUpPreviousConversation(): void {
   setCurrentConversationForBlobs('planner-loading');
   cleanupNewerMessagesScrollListener();
   if (hasActiveStreamingContext()) {
     cleanupStreamingContext();
   }
-  hideNewMessagesAvailableBanner();
 }
 
 /** Header title, model selector, cost and anonymous toggle for the planner. */

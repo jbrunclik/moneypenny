@@ -35,7 +35,6 @@ import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { getSyncManager } from '../sync/SyncManager';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('stream-recovery');
 
@@ -306,12 +305,9 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
       // The caller (cleanupStreamingRequest) handles this when messageSuccessful=true.
       // Incrementing here would cause double-counting (+4 instead of +2).
 
-      // Hide the "new messages available" banner and trigger a sync to re-evaluate.
-      // If there are genuinely new messages from another device, the sync will re-show the banner.
-      // This handles the race condition where sync showed the banner during recovery.
+      // Trigger an incremental sync to check for genuinely new messages from
+      // another device that arrived during recovery.
       if (isCurrentConversation) {
-        hideNewMessagesAvailableBanner();
-        // Trigger incremental sync to check for genuinely new messages
         void getSyncManager()?.incrementalSync();
       }
 

@@ -32,8 +32,7 @@
     .language-modal,
     .claims-sheet__panel,
     .toast,
-    .scroll-to-bottom,
-    .new-messages-banner {
+    .scroll-to-bottom {
         -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
         backdrop-filter: blur(var(--glass-blur)) saturate(180%);
         background-color: var(--glass-bg);
@@ -72,8 +71,7 @@
     .language-modal,
     .claims-sheet__panel,
     .toast,
-    .scroll-to-bottom,
-    .new-messages-banner {
+    .scroll-to-bottom {
         background-color: var(--glass-bg-strong);
         box-shadow:
             var(--glass-shadow),
@@ -138,7 +136,6 @@
     .claims-sheet__panel,
     .toast,
     .scroll-to-bottom,
-    .new-messages-banner,
     .sidebar {
         background-color: var(--bg-secondary);
         -webkit-backdrop-filter: none;

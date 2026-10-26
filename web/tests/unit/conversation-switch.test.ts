@@ -43,7 +43,6 @@ const m = vi.hoisted(() => ({
   renderChatHeaderForConversation: vi.fn(),
   updateConversationCost: vi.fn(() => Promise.resolve()),
   updateAnonymousButtonState: vi.fn(),
-  hideNewMessagesAvailableBanner: vi.fn(),
   navigateToAgents: vi.fn(() => Promise.resolve()),
   handleAgentEditById: vi.fn(() => Promise.resolve()),
 }));
@@ -103,7 +102,6 @@ vi.mock('@/core/toolbar', () => ({
   updateConversationCost: m.updateConversationCost,
   updateAnonymousButtonState: m.updateAnonymousButtonState,
 }));
-vi.mock('@/core/sync-banner', () => ({ hideNewMessagesAvailableBanner: m.hideNewMessagesAvailableBanner }));
 vi.mock('@/core/agents', () => ({
   navigateToAgents: m.navigateToAgents,
   handleAgentEditById: m.handleAgentEditById,
@@ -146,7 +144,6 @@ describe('switchToConversation', () => {
     expect(m.setConversationHash).toHaveBeenCalledWith('c1');
     expect(m.renderMessages).toHaveBeenCalledWith(c.messages, {});
     expect(m.restoreDraftForConversation).toHaveBeenCalledWith('c1');
-    expect(m.hideNewMessagesAvailableBanner).toHaveBeenCalled();
     expect(m.renderAgentConversationHeader).not.toHaveBeenCalled();
   });
 

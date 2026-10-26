@@ -52,7 +52,6 @@ import { sendMessage } from './messaging';
 import { renderChatHeader } from '../components/ChatHeader';
 import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('language');
 
@@ -75,8 +74,6 @@ export async function navigateToLanguage(forceRefresh: boolean = false): Promise
   if (hasActiveStreamingContext()) {
     cleanupStreamingContext();
   }
-  hideNewMessagesAvailableBanner();
-
   // Update state — atomically clear all other views
   store.setActiveView('language');
   store.setLanguageCurrentProgram(null);

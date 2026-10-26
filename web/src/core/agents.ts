@@ -37,7 +37,6 @@ import type { Agent } from '../types/api';
 import { renderChatHeader } from '../components/ChatHeader';
 import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { selectConversation } from './conversation';
 import { APP_NAME, COMMAND_CENTER_CACHE_MS } from '../config';
 
@@ -108,8 +107,6 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   if (hasActiveStreamingContext()) {
     cleanupStreamingContext();
   }
-  hideNewMessagesAvailableBanner();
-
   // Update state — atomically clear all other views
   store.setActiveView('agents');
   setActiveConversation(null);

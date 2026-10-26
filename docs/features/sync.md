@@ -160,7 +160,7 @@ if (serverMessageCount !== undefined) {
 getSyncManager()?.setConversationStreaming(convId, false);             // 2. THEN clear the flag
 ```
 
-The same pattern applies to `completeBatchTurn()` - which sets the baseline first thing, even when the user switched away (returning before it left our own turn as "unread 2"). `setLocalMessageCount` also moves the planner / agent view baselines when that view is open, so our own messages there don't raise their "new messages" banner.
+The same pattern applies to `completeBatchTurn()` - which sets the baseline first thing, even when the user switched away (returning before it left our own turn as "unread 2"). `setLocalMessageCount` also moves the planner / agent view baselines when that view is open, so our own messages there don't look like changes from another device.
 
 An older conversation continued on another device (known from the full sync but not loaded in the sidebar) shows only the messages beyond its known count as unread, not its whole history.
 
@@ -178,7 +178,7 @@ const messageCount = totalMessageCount ?? conv.messages?.length ?? 0;
 getSyncManager()?.markConversationRead(conv.id, messageCount);
 ```
 
-Without this, an existing conversation with 100 messages but only 50 loaded (pagination) would set `localMessageCount=50`. After streaming adds 2 messages, `localCount=52` but `serverCount=102` → false "new messages available" banner.
+Without this, an existing conversation with 100 messages but only 50 loaded (pagination) would set `localMessageCount=50`. After streaming adds 2 messages, `localCount=52` but `serverCount=102` → our own messages would look like changes from another device.
 
 ### 8. Paginated FullSync Discovery
 
@@ -244,14 +244,12 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 - [read-reporting.ts](../../web/src/sync/read-reporting.ts) - Server read-state reports
 - [api/conversations.ts](../../web/src/api/conversations.ts) - `conversations.sync()` method
 - [startup/sync.ts](../../web/src/core/startup/sync.ts) - SyncManager initialization and callbacks
-- [sync-banner.ts](../../web/src/core/sync-banner.ts) - New messages banner
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Unread badge rendering
 - [config.ts](../../web/src/config.ts) - Configuration constants
 
 ### Styles
 
 - [sidebar.css](../../web/src/styles/components/sidebar.css) - `.unread-badge` styles
-- [messages.css](../../web/src/styles/components/messages.css) - `.new-messages-banner` styles
 
 ### Types
 
@@ -266,7 +264,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 - **E2E**: [sync-other-device.spec.ts](../../web/tests/e2e/sync-other-device.spec.ts) - Another device (the API) archives / trashes / deletes / restores / pins / renames; only the regular poll tick (`window.__testIncrementalSync`), never a full sync
 - **Backend**: [test_db_sync_changes.py](../../tests/integration/test_db_sync_changes.py) - every write path bumps the change seq (triggers)
 - **E2E**: [pagination.spec.ts](../../web/tests/e2e/pagination.spec.ts) - "Pagination with Sync - Edge Cases"
-- **Visual**: [chat.visual.ts](../../web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge, banner)
+- **Visual**: [chat.visual.ts](../../web/tests/visual/chat.visual.ts) - Sync UI visual tests (unread badge)
 
 ## Future Optimizations
 

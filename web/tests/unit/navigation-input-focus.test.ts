@@ -153,10 +153,6 @@ vi.mock('@/core/toolbar', () => ({
   updateAnonymousButtonState: vi.fn(),
 }));
 
-vi.mock('@/core/sync-banner', () => ({
-  hideNewMessagesAvailableBanner: vi.fn(),
-}));
-
 import { useStore } from '@/state/store';
 import { agents } from '@/api/agents';
 import { planner } from '@/api/planner';

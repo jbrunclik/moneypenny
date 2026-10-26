@@ -34,7 +34,6 @@ import {
 import { renderChatHeader } from '../components/ChatHeader';
 import { createWelcomeMessage } from '../components/WelcomeMessage';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { hideNewMessagesAvailableBanner } from './sync-banner';
 import { APP_NAME, STORAGE_CACHE_MS } from '../config';
 
 const log = createLogger('kv-store');
@@ -169,8 +168,6 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   if (hasActiveStreamingContext()) {
     cleanupStreamingContext();
   }
-  hideNewMessagesAvailableBanner();
-
   // Update state — atomically clear all other views
   store.setActiveView('storage');
   setActiveConversation(null);

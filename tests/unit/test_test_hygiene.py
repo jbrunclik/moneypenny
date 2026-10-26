@@ -14,7 +14,7 @@ _PY_TESTS = sorted((_ROOT / "tests").rglob("*.py"))
 _TS_TESTS = sorted((_ROOT / "web" / "tests").rglob("*.ts"))
 
 SLEEP_BASELINE = 73
-WAIT_FOR_TIMEOUT_BASELINE = 290
+WAIT_FOR_TIMEOUT_BASELINE = 285
 PRIVATE_IMPORT_BASELINE = 77
 
 

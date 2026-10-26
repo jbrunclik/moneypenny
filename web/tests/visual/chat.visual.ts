@@ -432,32 +432,4 @@ test.describe('Visual: Sync UI', () => {
     const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();
     await expect(convItem).toHaveScreenshot('conversation-unread-99plus.png');
   });
-
-  test('new messages available banner', async ({ page }) => {
-    // Create a conversation with messages
-    await page.click('#new-chat-btn');
-    await page.fill('#message-input', 'Test message');
-    await page.click('#send-btn');
-    await page.waitForSelector('.message.assistant', { timeout: 10000 });
-
-    // Inject the "New messages available" banner via JS
-    await page.evaluate(() => {
-      const messagesContainer = document.getElementById('messages');
-      if (messagesContainer) {
-        const banner = document.createElement('div');
-        banner.className = 'new-messages-banner';
-        banner.innerHTML = `
-          <span>New messages available</span>
-          <button class="btn btn-small">Reload</button>
-        `;
-        messagesContainer.insertBefore(banner, messagesContainer.firstChild);
-      }
-    });
-
-    // Wait for any animations
-    await page.waitForTimeout(300);
-
-    // Screenshot the messages area with banner
-    await expect(page.locator('#messages')).toHaveScreenshot('new-messages-banner.png');
-  });
 });

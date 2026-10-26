@@ -105,13 +105,12 @@ test.describe('the open chat', () => {
     await page.evaluate(() => document.querySelector('.message.user')!.setAttribute('data-kept', '1'));
   });
 
-  test('messages sent on another device appear in place, without a banner or reload', async ({ page, request }) => {
+  test('messages sent on another device appear in place, without a reload', async ({ page, request }) => {
     await request.post(`/api/conversations/${ids.alpha}/chat/batch`, { data: { message: 'From the phone' } });
     await poll(page);
 
     await expect(page.locator('.message.user').last()).toContainText('From the phone');
     await expect(page.locator('.message.assistant').last()).toContainText('mock response');
-    await expect(page.locator('.new-messages-banner')).toHaveCount(0);
     await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
   });
 
@@ -178,7 +177,6 @@ test('the planner merges messages from another device in place', async ({ page, 
   await poll(page);
 
   await expect(page.locator('.message.user').last()).toContainText('Plan from the phone');
-  await expect(page.locator('.new-messages-banner')).toHaveCount(0);
   await expect(page.locator('#planner-dashboard[data-kept="1"]')).toHaveCount(1);
 });
 

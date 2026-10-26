@@ -76,7 +76,6 @@ vi.mock('@/components/WelcomeMessage', () => ({
   },
 }));
 vi.mock('@/core/toolbar', () => h.toolbar);
-vi.mock('@/core/sync-banner', () => ({ hideNewMessagesAvailableBanner: vi.fn() }));
 
 import { leaveLanguageView, navigateToLanguage, navigateToLanguageProgram } from '@/core/language';
 import { APP_NAME, LANGUAGE_PROGRAMS_CACHE_MS } from '@/config';

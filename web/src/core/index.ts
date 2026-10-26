@@ -20,7 +20,6 @@
  * - gestures.ts: Touch gestures and swipe handling
  * - file-actions.ts: File download, preview, clipboard operations
  * - events.ts: Event listeners and message handlers
- * - sync-banner.ts: New messages available banner
  *
  * Import directly from the specific module you need, e.g.:
  *   import { sendMessage } from './core/messaging';

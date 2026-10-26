@@ -50,7 +50,6 @@ const ALLOWED_MULTI_FILE_CLASSES = new Set([
   'modal-actions', // mobile-sheets.css
   'modal-container', // mobile-sheets.css
   'model-dropdown',
-  'new-messages-banner',
   'qa-editor',
   'scroll-to-bottom',
   'sidebar',
