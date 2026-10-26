@@ -148,15 +148,6 @@ export function initKbDebugToggle(): void {
   document.addEventListener('click', onTap);
 }
 
-/**
- * Log an event from another module to the kbdebug overlay (no-op unless the
- * overlay is enabled). Used to catch the thinking bar landing behind the
- * composer after a send on the iOS home-screen app (TODO.md).
- */
-export function kbDebugEvent(event: string, data: Record<string, unknown>): void {
-  kbDebug(event, data);
-}
-
 function kbDebug(event: string, data: Record<string, unknown>): void {
   if (!kbDebugEnabled()) return;
   if (!debugEl) {
