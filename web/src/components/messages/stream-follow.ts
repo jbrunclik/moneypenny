@@ -77,14 +77,19 @@ export function setupStreamingScrollListener(container: HTMLElement): void {
 
   // Store cleanup function
   context.scrollListenerCleanup = () => {
-    if (state.resumeDebounceTimeout) {
-      clearTimeout(state.resumeDebounceTimeout);
-    }
-    container.removeEventListener('wheel', handleUserScroll);
-    container.removeEventListener('touchmove', handleUserScroll);
-    offMessagesScroll('streaming-autoscroll-resume');
-    setOnJumpToBottom(null);
+    removeFollowListeners(state, handleUserScroll);
   };
+}
+
+/** Undo setupStreamingScrollListener: its timer and every listener it added. */
+function removeFollowListeners(state: FollowListenerState, handleUserScroll: () => void): void {
+  if (state.resumeDebounceTimeout) {
+    clearTimeout(state.resumeDebounceTimeout);
+  }
+  state.container.removeEventListener('wheel', handleUserScroll);
+  state.container.removeEventListener('touchmove', handleUserScroll);
+  offMessagesScroll('streaming-autoscroll-resume');
+  setOnJumpToBottom(null);
 }
 
 /** What one streaming scroll listener remembers between events. */

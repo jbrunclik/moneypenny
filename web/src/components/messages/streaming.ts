@@ -47,13 +47,7 @@ export function addStreamingMessage(
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) throw new Error('Messages container not found');
 
-  // Clean up any existing streaming context before creating a new one.
-  // This prevents "zombie" scroll listeners if addStreamingMessage is called
-  // while there's already an active streaming context (e.g., rapid message sends).
-  if (getStreamingContext()) {
-    log.warn('addStreamingMessage called with existing context - cleaning up previous context');
-    cleanupStreamingContext();
-  }
+  discardPreviousStreamingContext();
 
   // Create thinking indicator
   const thinkingIndicator = createThinkingIndicator();
@@ -89,6 +83,18 @@ export function addStreamingMessage(
   });
 
   return messageEl;
+}
+
+/**
+ * Clean up any existing streaming context before creating a new one.
+ * This prevents "zombie" scroll listeners if addStreamingMessage is called
+ * while there's already an active streaming context (e.g., rapid message sends).
+ */
+function discardPreviousStreamingContext(): void {
+  if (getStreamingContext()) {
+    log.warn('addStreamingMessage called with existing context - cleaning up previous context');
+    cleanupStreamingContext();
+  }
 }
 
 /** A streaming reply bubble, `thinkingIndicator` at the top of its content. */
@@ -170,14 +176,7 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   const thinkingIndicator = createThinkingIndicator();
   const restoredThinkingState = thinkingState ?? createThinkingState();
   const messageEl = createStreamingBubble(thinkingIndicator);
-
-  // Render existing content if any
-  const contentEl = messageEl.querySelector('.message-content');
-  if (contentEl && content) {
-    contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
-    // Re-insert thinking indicator at the top
-    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
-  }
+  renderRestoredContent(messageEl, thinkingIndicator, content);
 
   // Check if user is at bottom BEFORE adding the message
   const wasAtBottom = isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX);
@@ -211,6 +210,17 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   log.debug('Restored streaming message', { contentLength: content.length, hasThinkingState: !!thinkingState });
 
   return messageEl;
+}
+
+/** Render the text a restored stream has accumulated so far, if any. */
+function renderRestoredContent(messageEl: HTMLElement, thinkingIndicator: HTMLElement, content: string): void {
+  // Render existing content if any
+  const contentEl = messageEl.querySelector('.message-content');
+  if (contentEl && content) {
+    contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+    // Re-insert thinking indicator at the top
+    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
+  }
 }
 
 /**
@@ -271,15 +281,7 @@ export function finalizeStreamingMessage(
   role: 'user' | 'assistant' = 'assistant',
   language?: string
 ): boolean {
-  messageEl.classList.remove('streaming');
-  // Stop live-region announcements once the message is final
-  messageEl.removeAttribute('role');
-  messageEl.removeAttribute('aria-live');
-  messageEl.dataset.messageId = messageId;
-
-  // Remove cursor
-  const cursor = messageEl.querySelector('.streaming-cursor');
-  cursor?.remove();
+  markMessageFinal(messageEl, messageId);
 
   clearStreamingRetryStatus();
 
@@ -315,6 +317,19 @@ export function finalizeStreamingMessage(
   });
 
   return wasFollowing;
+}
+
+/** The bubble is a final message now: no streaming class, live region or cursor. */
+function markMessageFinal(messageEl: HTMLElement, messageId: string): void {
+  messageEl.classList.remove('streaming');
+  // Stop live-region announcements once the message is final
+  messageEl.removeAttribute('role');
+  messageEl.removeAttribute('aria-live');
+  messageEl.dataset.messageId = messageId;
+
+  // Remove cursor
+  const cursor = messageEl.querySelector('.streaming-cursor');
+  cursor?.remove();
 }
 
 /**
