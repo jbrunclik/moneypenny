@@ -11,7 +11,7 @@
 import { useStore } from '../state/store';
 import { search as searchApi } from '../api/search';
 import { SEARCH_ICON, CLOSE_ICON } from '../utils/icons';
-import { getElementById } from '../utils/dom';
+import { escapeHtml, getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { SEARCH_DEBOUNCE_MS } from '../config';
 
@@ -59,7 +59,7 @@ export function renderSearchInput(): void {
         id="search-input"
         class="search-input"
         placeholder="Search conversations..."
-        value="${escapeAttr(searchQuery)}"
+        value="${escapeHtml(searchQuery)}"
         autocomplete="off"
         spellcheck="false"
       />
@@ -265,16 +265,4 @@ export function clearSearch(): void {
 export function focusSearchInput(): void {
   const input = getElementById<HTMLInputElement>('search-input');
   input?.focus();
-}
-
-/**
- * Escape HTML attribute value
- */
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
