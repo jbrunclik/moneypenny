@@ -172,13 +172,46 @@ own.
 The agent learns all this from `CREATE_ARTIFACT_DESCRIPTION`
 ([prompt_texts/artifacts.py](../../src/agent/prompt_texts/artifacts.py)), the
 tool's description (so it costs nothing where the tool is not bound): when to
-build one (never for plain answers, lists or tables; a recipe is always a card),
+build one (see [When the agent builds one](#when-the-agent-builds-one)),
 the class list, colours only via tokens or `currentColor`, fluid sizing only,
 SVG with `viewBox` and `width="100%"`, the `mp` API and an example. **The class
 and token list in the guide must match the CSS**:
 [artifact-design-system.test.ts](../../web/tests/unit/artifact-design-system.test.ts)
 fails on a class or token the guide names that the CSS lacks, on an `--mp-*`
 token that is not an app token, and on a hex colour.
+
+## When the agent builds one
+
+Decided Oct 26 2026 after a usage audit of the first two weeks: about 15
+artifacts in some 1,770 user turns, mostly recipes, a few music-learning
+widgets and design mockups; one revision and no saved `state` at all. The
+missed fits were answered in prose: a packing list (a checklist whose ticks
+pay off when saved), a "fully formatted table" bill of materials, a two-model
+price/range comparison, and a long supplements discussion (what, dose,
+timing, interactions).
+
+The description (`CREATE_ARTIFACT_DESCRIPTION`) now names the prime uses
+first:
+
+- **Checklists** the user works through (packing, shopping, preparation,
+  move or trip steps): `.mp-checklist` with ticks saved via `mp.state`.
+- **Explainers**: a structured guide when the answer has several parts to
+  follow or compare - what each option does, doses, timing or schedule,
+  interactions, pros and cons, how it works (cards, a comparison table,
+  tabs, stats).
+- Recipes (always a card), calculators, converters, trackers, charts,
+  timelines, small games.
+
+And prose for: a short answer or quick fact, text the user will copy or edit
+(an email, message, translation, code), and items going into Todoist or
+Calendar. The old line "NEVER for plain answers, lists, tables" was dropped:
+it forbade exactly the checklists and comparison tables the audit missed.
+
+The lever is the tool description only: the system prompt is measured to be
+ignored, and a hint on research results would not reach these turns (the
+checklist and explainer evals answered with zero tool rounds before the
+change). `test_description_names_checklists_and_explainers_and_the_prose_cases`
+guards the wording.
 
 ## Sizing across devices
 
@@ -303,6 +336,14 @@ Client constants in [config.ts](../../web/src/config.ts):
   (no artifact for a population question), `artifact_revision` (a seeded
   artifact; `update_artifact`, not `create_artifact`). Oct 11 2026: passing
   after the "a recipe is always a card" guide line; four artifact runs cost $0.58.
+  Oct 26 2026: `artifact_checklist` (packing list) and `artifact_explainer`
+  (four supplements: what, dose, timing, interactions) require an artifact;
+  `artifact_not_for_quick_explain` (one-line question on the same topic),
+  `artifact_not_for_text_edit` (an email to polish) and
+  `artifact_not_for_todoist` (groceries for Todoist, fake backend) forbid it.
+  Before the checklist/explainer wording both required cases failed (prose,
+  no tools); after it all 9 `artifact_*` cases passed, and the five
+  checklist/explainer/precision cases passed again on a second run.
 
 ## Pitfalls
 

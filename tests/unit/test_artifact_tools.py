@@ -157,3 +157,15 @@ def test_parallel_edits_both_land(ctx: Any) -> None:
 
     html = _call(read_artifact, artifact_id=art["id"])["html"]
     assert "<p>A2</p>" in html and "<p>B2</p>" in html
+
+
+def test_description_names_checklists_and_explainers_and_the_prose_cases() -> None:
+    """The Oct 2026 usage audit: checklists and explainers are the prime uses
+    the agent missed, and the when-not cases keep short answers, text to copy
+    and Todoist/Calendar items in prose (artifact_* evals measure the effect)."""
+    text = create_artifact.description.lower()
+    for use in ("checklist", "packing", "explainer", "dose", "comparison", "mp.state"):
+        assert use in text, use
+    for prose in ("short answer", "copy", "todoist", "calendar"):
+        assert prose in text, prose
+    assert "never for plain answers, lists, tables" not in text
