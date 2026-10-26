@@ -442,10 +442,7 @@
   },
   "src/sync/SyncManager.ts": {
     "complexity": {
-      "count": 3
-    },
-    "max-lines-per-function": {
-      "count": 1
+      "count": 2
     },
     "no-restricted-imports": {
       "count": 1

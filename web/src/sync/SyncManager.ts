@@ -20,12 +20,13 @@ import {
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
 import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
-import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse } from '../types/api';
+import type { ConversationSummary, SyncResponse } from '../types/api';
 import { SyncState, type SyncManagerCallbacks } from './sync-state';
 import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
+import { applyChanges, applyDeferredState } from './summary-merge';
 
 const log = createLogger('sync');
 
@@ -362,7 +363,7 @@ export class SyncManager {
 
     this.state.notifiedCurrentUpdate = false;
     if (existing.length > 0) {
-      this.applyChanges(existing, false);
+      applyChanges(this.state, existing, false);
       changed = true;
     }
     if (changed) this.callbacks.onConversationsUpdated();
@@ -563,7 +564,7 @@ export class SyncManager {
     }
 
     // Apply updates to existing conversations
-    this.applyChanges(existingServerConvs, true);
+    applyChanges(this.state, existingServerConvs, true);
 
     // Add genuinely new conversations (created on other devices after initialLoadTime)
     for (const serverConv of newServerConvs) {
@@ -608,167 +609,10 @@ export class SyncManager {
    * Apply incremental sync results - only updates changed conversations.
    */
   private applyIncrementalSync(serverConversations: ConversationSummary[]): void {
-    this.applyChanges(serverConversations, false);
+    applyChanges(this.state, serverConversations, false);
 
     if (serverConversations.length > 0) {
       this.callbacks.onConversationsUpdated();
-    }
-  }
-
-  /**
-   * Apply conversation changes from server.
-   */
-  private applyChanges(
-    serverConversations: ConversationSummary[],
-    isFullSync: boolean
-  ): void {
-    const store = useStore.getState();
-
-    for (const serverConv of serverConversations) {
-      if (this.state.changedLocallySinceRequest(serverConv.id)) continue;
-      // Skip conversations that are currently streaming to avoid false unread counts
-      // The local message count will be updated when streaming completes
-      if (this.state.streamingConversations.has(serverConv.id)) {
-        log.debug('Deferring sync for streaming conversation', { conversationId: serverConv.id });
-        this.state.deferredUpdates.set(serverConv.id, serverConv);
-        continue;
-      }
-
-      const existing = store.conversations.find((c) => c.id === serverConv.id);
-      const localCount = this.state.localMessageCounts.get(serverConv.id) || 0;
-      const isCurrentConv = store.currentConversation?.id === serverConv.id;
-
-      // Calculate unread count (only for conversations not currently viewed)
-      let unreadCount = 0;
-      let hasExternalUpdate = false;
-
-      if (serverConv.message_count > localCount) {
-        if (isCurrentConv) {
-          // User is viewing this conversation - mark as external update
-          hasExternalUpdate = true;
-          log.info('External update detected for current conversation', {
-            conversationId: serverConv.id,
-            serverMessageCount: serverConv.message_count,
-            localMessageCount: localCount,
-            isStreaming: this.state.streamingConversations.has(serverConv.id),
-          });
-          this.state.notifiedCurrentUpdate = true;
-          this.callbacks.onCurrentConversationExternalUpdate(serverConv.message_count);
-        } else {
-          // User is not viewing - count as unread
-          unreadCount = serverConv.message_count - localCount;
-        }
-      }
-      // The server's read state is what our reports dedupe against (a device
-      // that reported the same count, or a higher one, makes ours moot)
-      if (serverConv.read_count !== undefined) {
-        this.state.reportedReadCounts.set(serverConv.id, serverConv.read_count);
-      }
-      // Another device toggled anonymous mode: adopt it (the next send here
-      // must not turn it back on)
-      if (serverConv.anonymous_mode !== undefined) {
-        store.setAnonymousMode(serverConv.id, serverConv.anonymous_mode);
-      }
-      // Server-side read state wins: shared by the user's devices, so a chat
-      // read on the phone isn't unread here (the local count only drives the
-      // open conversation's change detection)
-      if (serverConv.read_count !== undefined && !isCurrentConv) {
-        unreadCount = Math.max(0, serverConv.message_count - serverConv.read_count);
-      }
-
-      if (existing && serverConv.pinned !== undefined && Boolean(existing.pinned) !== serverConv.pinned) {
-        store.updateConversation(serverConv.id, { pinned: serverConv.pinned });
-      }
-      if (existing) {
-        // The open chat's header shows the title too (the sidebar re-renders)
-        if (isCurrentConv && existing.title !== serverConv.title) {
-          this.callbacks.onCurrentConversationRenamed?.(serverConv.title);
-        }
-        // Update existing conversation
-        store.updateConversation(serverConv.id, {
-          title: serverConv.title,
-          updated_at: serverConv.updated_at,
-          messageCount: serverConv.message_count,
-          last_message_preview: serverConv.last_message_preview,
-          unreadCount,
-          hasExternalUpdate,
-        });
-      } else {
-        // New conversation discovered via sync
-        // Only incremental sync should add new conversations (full sync doesn't add)
-        if (isFullSync) {
-          // Full sync should never add new conversations - they should come via pagination
-          // This is a safety check in case applyFullSync() filtering fails
-          log.warn('Full sync attempted to add new conversation (should not happen)', {
-            conversationId: serverConv.id,
-          });
-          return;
-        }
-
-        // Incremental sync: Distinguish between:
-        // 1. Pagination-discovered: Older conversations that weren't in initial page load
-        // 2. Actually new: Created/updated after initial page load (e.g., on another device)
-        const discoveredByPagination = isPaginationDiscovered(this.state.initialLoadTime, serverConv.updated_at);
-
-        // For actually new conversations, show unread badge with message count
-        // For pagination-discovered, no badge (user just hasn't scrolled to see it yet).
-        // An older conversation continued on another device has a count we
-        // already know (full sync tracks unloaded ones): only the rest is new.
-        const knownCount = this.state.localMessageCounts.get(serverConv.id);
-        const unreadCount = discoveredByPagination
-          ? 0
-          : Math.max(0, serverConv.message_count - (knownCount ?? 0));
-
-        if (discoveredByPagination) {
-          log.info('Pagination-discovered conversation (not unread, skipping add)', {
-            conversationId: serverConv.id,
-            updated_at: serverConv.updated_at,
-          });
-          // Don't add pagination-discovered conversations - they'll come via pagination when user scrolls
-          // Just track the message count for when they do get loaded
-          this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
-          continue; // Skip to next conversation in loop
-        }
-
-        // Actually new conversation - add it to the store
-        log.info('Actually new conversation discovered via sync (showing unread badge)', {
-          conversationId: serverConv.id,
-          updated_at: serverConv.updated_at,
-          messageCount: serverConv.message_count,
-          unreadCount,
-        });
-        // For actually new conversations, initialize to 0 so unread count is correct
-        // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount)
-        // Don't update this in the shouldUpdateLocalCount block below - we want to preserve
-        // the baseline until the user views the conversation
-        if (knownCount === undefined) this.state.localMessageCounts.set(serverConv.id, 0);
-
-        store.addConversation({
-          id: serverConv.id,
-          title: serverConv.title,
-          model: serverConv.model,
-          created_at: serverConv.updated_at, // We don't have created_at in sync response
-          updated_at: serverConv.updated_at,
-          messageCount: serverConv.message_count,
-          last_message_preview: serverConv.last_message_preview,
-          unreadCount,
-          hasExternalUpdate: false,
-        });
-      }
-
-      // Update local message count tracking
-      // - On full sync: always update (establishing baseline), EXCEPT for actually new conversations
-      //   that were just initialized to 0 (we want to preserve 0 until user views it)
-      // - On incremental sync for current conv: don't update (user might have sent messages)
-      // - On incremental sync for non-current conv with unread: don't update (preserve unread state)
-      // - On incremental sync for non-current conv without unread: update (no state to preserve)
-      const currentLocalCount = this.state.localMessageCounts.get(serverConv.id) ?? 0;
-      const isActuallyNewConversation = !existing && currentLocalCount === 0 && serverConv.message_count > 0;
-      const shouldUpdateLocalCount =
-        (isFullSync && !isActuallyNewConversation) || (!isCurrentConv && unreadCount === 0);
-      if (shouldUpdateLocalCount) {
-        this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
-      }
     }
   }
 
@@ -892,41 +736,15 @@ export class SyncManager {
           // the other device's changes in it (a rename, a pin) must not be
           // lost either: a poll that landed after our final save already
           // moved the cursor past it, so nothing re-sends them.
-          this.applyDeferredState(deferred);
+          applyDeferredState(this.state, deferred);
           void this.incrementalSync();
         } else {
           // Legacy timestamp sync never re-sends it. Callers set the turn's
           // count first, so only the other device's changes remain.
-          this.applyChanges([deferred], false);
+          applyChanges(this.state, [deferred], false);
           this.callbacks.onConversationsUpdated();
         }
       }
-    }
-  }
-
-  /** A deferred snapshot's non-count state (see setConversationStreaming). */
-  private applyDeferredState(summary: ConversationSummary): void {
-    const store = useStore.getState();
-    const local = store.conversations.find((c) => c.id === summary.id);
-    if (!local) return;
-    const updates: Partial<typeof local> = {};
-    if (summary.title !== DEFAULT_CONVERSATION_TITLE && summary.title !== local.title) {
-      updates.title = summary.title;
-      if (store.currentConversation?.id === summary.id) {
-        this.callbacks.onCurrentConversationRenamed?.(summary.title);
-      }
-    }
-    if (summary.pinned !== undefined && Boolean(local.pinned) !== summary.pinned) {
-      updates.pinned = summary.pinned;
-    }
-    if (Object.keys(updates).length > 0) {
-      store.updateConversation(summary.id, updates);
-      this.callbacks.onConversationsUpdated();
-    }
-    if (summary.anonymous_mode !== undefined) store.setAnonymousMode(summary.id, summary.anonymous_mode);
-    // The open chat may have the other device's messages in it too
-    if (store.currentConversation?.id === summary.id) {
-      this.callbacks.onCurrentConversationExternalUpdate(summary.message_count);
     }
   }
 
