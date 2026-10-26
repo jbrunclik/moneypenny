@@ -8,9 +8,10 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agent import chat_model, graph
+from src.agent import chat_model
+from src.agent import chat_node as chat_node_module
 from src.agent.chat_model import other_model_tier
-from src.agent.graph import chat_node
+from src.agent.chat_node import chat_node
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
@@ -70,7 +71,7 @@ def _state() -> Any:
 
 class TestChatNodeFallback:
     def test_falls_back_and_marks_the_reply(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(graph, "get_stream_writer", lambda: MagicMock())
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: MagicMock())
         primary = MagicMock(model_name="gemini-fast")
         primary.invoke.side_effect = RuntimeError(_PROD_503)
         backup = MagicMock(model_name="gemini-pro")
