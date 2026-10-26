@@ -199,7 +199,7 @@ export function renderModelDropdown(): void {
       <div class="model-option ${model.id === currentModelId ? 'selected' : ''}"
            role="option"
            aria-selected="${model.id === currentModelId}"
-           data-model-id="${model.id}"
+           data-model-id="${escapeHtml(model.id)}"
            data-short-name="${escapeHtml(model.short_name)}">
         <span class="model-option-text">
           <span class="model-name">${escapeHtml(model.short_name)}</span>
