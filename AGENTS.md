@@ -86,7 +86,7 @@ non-conventional git commands (`guard-git.py`).
 - `web/src/` — `core/` (messaging, conversation, sync), `components/`,
   `state/store.ts` (Zustand, slices in `state/slices/`), `api/` (one module per
   domain), `types/`, `styles/`.
-- `tests/` (backend unit + integration, `e2e-server.py`), `web/tests/` (unit,
+- `tests/` (backend unit + integration, `e2e-server.py` + `e2e_server/`), `web/tests/` (unit,
   component, E2E, visual), `evals/` (cases + integration fakes), `migrations/` (yoyo).
 
 ## Code conventions

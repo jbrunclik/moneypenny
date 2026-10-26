@@ -135,7 +135,19 @@ Chat tests are split into focused modules in `web/tests/e2e/chat/`:
 
 ## E2E Test Server
 
-The E2E test server ([tests/e2e-server.py](../../tests/e2e-server.py)) is a Flask app that mocks external services for frontend E2E tests.
+The E2E test server ([tests/e2e-server.py](../../tests/e2e-server.py)) is a Flask app that mocks external services for frontend E2E tests. The entry point only enables `faulthandler` and starts [tests/e2e_server/](../../tests/e2e_server/), split by responsibility:
+
+| Module | Holds |
+|--------|-------|
+| `settings.py` | Test environment (set before any `src` import), `E2E_PORT`, database directory, PID file |
+| `context.py` | Per-test isolation: `MOCK_CONFIG`, thread context propagation, database and blob store proxies |
+| `llm_fakes.py`, `deep_research_fake.py` | The fake chat model, token streams, grounding check and deep-research run |
+| `integration_fakes.py`, `patches.py` | External service fakes and every `patch("src....")` target |
+| `db.py` | Template databases, per-test copies (`resolve_db`), cleanup |
+| `request_log.py` | The `SLOW`/`INFLIGHT` phase log |
+| `control_routes.py`, `fixture_routes.py` | `/test/*` endpoints: reset, seed, mock turn behavior; feature fixtures |
+| `intercepts.py` | Fake planner, status, agents, search and KV responses from the mock config |
+| `app.py` | Assembly: patches, hooks in order, blueprints, `app.run` |
 
 ### Features
 
@@ -174,7 +186,7 @@ Tests run in parallel with full isolation:
 | `/test/set-search-results` | POST | Set mock search results |
 | `/test/clear-search-results` | POST | Clear mock search results |
 | `/test/set-grounding-result` | POST | Canned grounding outcome (`annotations`, `summary`) for the next turns; call it AFTER the page fixture, whose `/test/reset` clears per-test mock config |
-| `/test/set-planner-*`, `/test/set-agent*`, `/test/set-kv-store-data`, `/test/set-sports-programs`, ... | POST | Feature fixtures - see the `@test_bp.route` list in `tests/e2e-server.py` |
+| `/test/set-planner-*`, `/test/set-agent*`, `/test/set-kv-store-data`, `/test/set-sports-programs`, ... | POST | Feature fixtures - see the routes in `tests/e2e_server/fixture_routes.py` |
 
 ### Using Database Seeding
 
@@ -381,7 +393,7 @@ Backend planner tests: see [Backend Testing](backend.md#planner-tests-backend).
 - [web/playwright.config.ts](../../web/playwright.config.ts) - projects, per-project retries, pinned workers, managed web server
 - [web/tests/global-setup.ts](../../web/tests/global-setup.ts) - `testExecutionId` fixture and shared page setup
 - [web/tests/e2e/chat/fixtures.ts](../../web/tests/e2e/chat/fixtures.ts) - chat helpers
-- [tests/e2e-server.py](../../tests/e2e-server.py) - mock Flask server and `/test/*` endpoints
+- [tests/e2e-server.py](../../tests/e2e-server.py) - mock Flask server entry point; the server is in [tests/e2e_server/](../../tests/e2e_server/) (`/test/*` endpoints in `control_routes.py` and `fixture_routes.py`)
 
 ## See Also
 

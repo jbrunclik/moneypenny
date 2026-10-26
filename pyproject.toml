@@ -61,7 +61,8 @@ max-complexity = 10
 "tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "PLC0415"]
 "scripts/**" = ["S101", "S603", "S607", "T20", "PLC0415"]
 "evals/**" = ["T20", "PLC0415"]
-"tests/e2e-server.py" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "N999", "PLC0415"]
+# The E2E server's entry point keeps the hyphenated name every caller launches
+"tests/e2e-server.py" = ["N999"]
 # SQL built from the module-constant conversation-type CASE expression, not user input
 "scripts/analyze_costs.py" = ["S101", "S603", "S607", "S608", "T20", "PLC0415"]
 # Column names in these queries come only from the PROGRAM_FEATURES registry

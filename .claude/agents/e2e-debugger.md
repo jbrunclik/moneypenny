@@ -13,7 +13,7 @@ You diagnose Playwright E2E failures in Moneypenny. Find the root cause; a retry
 
 ## Architecture
 
-- Mock server: `tests/e2e-server.py` — the real Flask app with Gemini/integrations mocked. Each test gets its own database copy via the `X-Test-Execution-Id` header (`ProxyDatabase` behind `use_database`); `/test/*` endpoints seed data and set mock responses.
+- Mock server: `tests/e2e-server.py` (entry point; the code is in `tests/e2e_server/`) — the real Flask app with Gemini/integrations mocked. Each test gets its own database copy via the `X-Test-Execution-Id` header (`ProxyDatabase` behind `use_database`); `/test/*` endpoints seed data and set mock responses.
 - Specs: `web/tests/e2e/**/*.spec.ts`, visual: `web/tests/visual/*.visual.ts`; both import `test`/`expect` from `web/tests/global-setup.ts`.
 - Config: `web/playwright.config.ts` (chromium + webkit projects; CI runs both, sharded).
 

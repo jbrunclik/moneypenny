@@ -27,7 +27,8 @@ tests/
 │   ├── test_routes_chat.py        # Chat endpoints
 │   ├── test_routes_chat_turn.py   # Shared chat turn setup (batch + streaming)
 │   └── test_routes_costs.py       # Cost tracking endpoints
-└── e2e-server.py                  # Mock Flask server for E2E tests
+├── e2e-server.py                  # Mock Flask server for E2E tests (entry point)
+└── e2e_server/                    # The mock server, split by responsibility
 ```
 
 ## Key Testing Patterns (Backend)

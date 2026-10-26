@@ -22,7 +22,7 @@ rules (B1, B3-B5) in `docs/conventions.md`.
 5. **Contract.** `make openapi && make types`, then a method in the matching
    module of `web/src/api/`. Use the generated types (F6); don't hand-copy them.
 6. **Frontend** (if the endpoint has UI): an E2E test in `web/tests/e2e/`
-   (rebuild first) and a mock route in `tests/e2e-server.py` if the E2E server
-   needs one.
+   (rebuild first) and a mock route in `tests/e2e_server/` (`intercepts.py` or
+   `fixture_routes.py`) if the E2E server needs one.
 7. **Docs.** The feature's `docs/features/` page lists its endpoints.
 8. **Verify.** `make lint` and `make test-all`, exit codes checked.

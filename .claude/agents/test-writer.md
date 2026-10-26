@@ -110,7 +110,7 @@ test.describe('Feature Name', () => {
 ```
 
 **E2E key details:**
-- E2E server: `tests/e2e-server.py` (the real app with Gemini and integrations mocked)
+- E2E server: `tests/e2e-server.py`, the entry point of `tests/e2e_server/` (the real app with Gemini and integrations mocked)
 - Each test gets isolated data via the `X-Test-Execution-Id` header, which `global-setup.ts` sets
 - E2E serves the last `make build` - rebuild after frontend changes
 - Playwright config: `web/playwright.config.ts`

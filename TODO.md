@@ -88,7 +88,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
   - Untested code: 67 frontend modules without unit tests (`core/init.ts`, `messages/pagination.ts`, `core/events.ts` - E2E only) (T8).
   - Frontend: runtime import cycles: 189 edges across 50 modules in `web/tests/unit/import-cycles.baseline.json` (F1; the guard fails on new ones); 11 hand-written API types duplicating generated ones (F6; the rest are aliases since Oct 25 2026) - the Message parts, chat action and sync types, where the client relies on a shape the spec loosens (request models reused in responses) or branches on fields the spec always sends; 99 baselined `innerHTML` writes (F3, `no-unsanitized` in `web/eslint-suppressions.json`) - static icons now go through `setIcon`; the rest are template-literal markup interpolating escaped data and icons, and HTML-string render helpers (`render*Html`, list `.map().join()`), each needing an `escapeHtml` review.
   - Ops: backups share the server's disk (see the off-site item).
-  - `tests/e2e-server.py` is 1,800 lines.
 - [ ] **Enforce the standards** (Oct 25 2026) - the rules marked "planned" in [docs/conventions.md](docs/conventions.md); existing violations get a baseline that only shrinks, cleanups follow as their own items:
   - Lint: tsconfig stage 2 (F5: `exactOptionalPropertyTypes` 58 errors); knip/vulture/deptry (C2, F10).
   - Tests: E2E mock schema validation (T5), flaky-test gate (T6).
