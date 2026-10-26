@@ -744,14 +744,18 @@ async function handleSave(): Promise<void> {
   const budgetLimitValue = budgetLimitInput?.value?.trim();
   const budgetLimit = budgetLimitValue ? parseFloat(budgetLimitValue) : undefined;
 
+  // Empty optional fields are left out of the request (same JSON as undefined)
+  const description = descriptionInput?.value?.trim();
+  const systemPrompt = systemPromptInput?.value?.trim();
+  const model = modelSelect?.value;
   const data: CreateAgentRequest | UpdateAgentRequest = {
     name,
-    description: descriptionInput?.value?.trim() || undefined,
-    system_prompt: systemPromptInput?.value?.trim() || undefined,
-    schedule: schedule || undefined,
+    ...(description && { description }),
+    ...(systemPrompt && { system_prompt: systemPrompt }),
+    ...(schedule && { schedule }),
     timezone: timezoneSelect?.value || 'UTC',
-    model: modelSelect?.value || undefined,
-    budget_limit: budgetLimit,
+    ...(model && { model }),
+    ...(budgetLimit !== undefined && { budget_limit: budgetLimit }),
     enabled: enabledInput?.checked ?? true,
     fresh_context: modalContainer.querySelector<HTMLInputElement>('#agent-fresh-context')?.checked ?? true,
     tool_permissions: toolPermissions,

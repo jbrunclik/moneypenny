@@ -58,7 +58,9 @@ export interface Conversation {
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)
-  pinned?: boolean; // Pinned to the top of the sidebar
+  // Sync merges pass the server's summary value through: a missing one
+  // overwrites (clears) the stored value, so undefined is explicit here
+  pinned?: boolean | undefined; // Pinned to the top of the sidebar
   streaming_message_id?: string | null; // Reply still being generated (another device) - from the detail response
   lost_reply?: boolean; // The last turn died with nothing saved - from the detail response
   // Trash state (only set on conversations from the trash listing)
@@ -68,7 +70,7 @@ export interface Conversation {
   unreadCount?: number; // Number of unread messages from other devices
   hasExternalUpdate?: boolean; // True if conversation was updated externally while viewing
   messageCount?: number; // Total message count from server (for sync calculations)
-  last_message_preview?: string | null; // One-line snippet of the newest message (sidebar)
+  last_message_preview?: string | null | undefined; // One-line snippet of the newest message (sidebar); see pinned
 }
 
 // =============================================================================
@@ -107,7 +109,7 @@ export interface Message {
   artifacts?: ArtifactRef[];
   created_at: string;
   /** Client-only send state; never sent by the server (absent = delivered) */
-  status?: 'pending' | 'failed';
+  status?: 'pending' | 'failed' | undefined; // patched to undefined (updateMessage) to clear it
 }
 
 /** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
@@ -325,7 +327,7 @@ export type StreamEvent = (
 export interface ThinkingTraceItem {
   type: 'thinking' | 'tool';
   label: string;
-  detail?: string;
+  detail?: string | undefined; // reassigned in place as tool args stream in; undefined clears it
   completed: boolean;
   metadata?: ToolMetadata; // Backend-provided display metadata (label, icon)
 }
@@ -334,7 +336,7 @@ export interface ThinkingState {
   isThinking: boolean;
   thinkingText: string;
   activeTool: string | null;
-  activeToolDetail?: string;
+  activeToolDetail?: string | undefined; // set to undefined when the active tool ends
   completedTools: string[];
   trace: ThinkingTraceItem[];
 }

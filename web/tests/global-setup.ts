@@ -68,7 +68,7 @@ export const test = base.extend<{
 
   request: async ({ playwright, testExecutionId, baseURL }, use) => {
     const apiContext = await playwright.request.newContext({
-      baseURL,
+      ...(baseURL !== undefined && { baseURL }),
       extraHTTPHeaders: {
         'X-Test-Execution-Id': testExecutionId,
       },

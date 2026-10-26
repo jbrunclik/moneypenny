@@ -25,9 +25,9 @@ describe('findReusableEmptyConversation', () => {
   });
 
   it('treats undefined messageCount with empty messages array as empty', () => {
-    expect(
-      findReusableEmptyConversation([conv({ id: 'b', messageCount: undefined, messages: [] })])?.id,
-    ).toBe('b');
+    const noCount = conv({ id: 'b', messages: [] });
+    delete noCount.messageCount;
+    expect(findReusableEmptyConversation([noCount])?.id).toBe('b');
   });
 
   it('skips titled, non-empty, archived and agent conversations', () => {

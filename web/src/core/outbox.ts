@@ -269,16 +269,16 @@ export function outboxEntryToMessage(entry: OutboxEntry): Message {
     name: f.name,
     type: f.type,
     fileIndex: i,
-    previewUrl: f.previewUrl,
+    ...(f.previewUrl !== undefined && { previewUrl: f.previewUrl }),
   }));
   return {
     id: entry.id,
     role: 'user',
     content: entry.content,
-    files: files.length ? files : undefined,
+    ...(files.length && { files }),
     created_at: entry.createdAt,
     status: entry.status,
-    action: entry.action,
+    ...(entry.action !== undefined && { action: entry.action }),
   };
 }
 

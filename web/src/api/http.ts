@@ -71,8 +71,8 @@ function parseErrorResponse(data: unknown, status: number): ApiError {
         err.message || 'Request failed',
         status,
         {
-          code: err.code,
-          retryable: err.retryable,
+          ...(err.code !== undefined && { code: err.code }),
+          ...(err.retryable !== undefined && { retryable: err.retryable }),
           isTimeout: err.code === 'TIMEOUT',
         }
       );

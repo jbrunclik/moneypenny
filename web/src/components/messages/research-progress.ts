@@ -62,7 +62,7 @@ export function applyResearchEvent(progress: ResearchProgress | undefined, event
       pages: items.map(() => 0),
       findings: [],
       startedAt: typeof event.started_at === 'number' ? event.started_at : Date.now(),
-      minutes: typeof event.minutes === 'number' ? event.minutes : undefined,
+      ...(typeof event.minutes === 'number' && { minutes: event.minutes }),
       writing: false,
     };
   }

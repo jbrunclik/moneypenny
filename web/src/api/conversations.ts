@@ -15,6 +15,12 @@ import {
 } from '../types/api';
 import { request, requestWithRetry } from './http';
 
+/** Map an archive/trash summary's snake_case message_count to camelCase messageCount */
+function withMessageCount(conv: Conversation): Conversation {
+  const { message_count } = conv as { message_count?: number };
+  return message_count === undefined ? conv : { ...conv, messageCount: message_count };
+}
+
 // Conversation endpoints
 export const conversations = {
   /**
@@ -40,13 +46,14 @@ export const conversations = {
     // the unread badge shows from the first paint, not after a sync
     const normalize = (conv: Conversation): Conversation => {
       const { message_count, read_count } = conv as { message_count?: number; read_count?: number };
+      const unreadCount =
+        message_count !== undefined && read_count !== undefined
+          ? Math.max(0, message_count - read_count)
+          : conv.unreadCount;
       return {
         ...conv,
-        messageCount: message_count,
-        unreadCount:
-          message_count !== undefined && read_count !== undefined
-            ? Math.max(0, message_count - read_count)
-            : conv.unreadCount,
+        ...(message_count !== undefined && { messageCount: message_count }),
+        ...(unreadCount !== undefined && { unreadCount }),
       };
     };
     return {
@@ -292,10 +299,7 @@ export const conversations = {
       `/api/conversations/archived${query ? `?${query}` : ''}`
     );
     return {
-      conversations: data.conversations.map((conv) => ({
-        ...conv,
-        messageCount: (conv as { message_count?: number }).message_count,
-      })),
+      conversations: data.conversations.map(withMessageCount),
       pagination: data.pagination,
     };
   },
@@ -312,10 +316,7 @@ export const conversations = {
       `/api/conversations/trash${query ? `?${query}` : ''}`
     );
     return {
-      conversations: data.conversations.map((conv) => ({
-        ...conv,
-        messageCount: (conv as { message_count?: number }).message_count,
-      })),
+      conversations: data.conversations.map(withMessageCount),
       pagination: data.pagination,
     };
   },

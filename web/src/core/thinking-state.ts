@@ -91,7 +91,7 @@ function applyToolStart(
     label: tool || '',
     detail,
     completed: false,
-    metadata, // Include metadata from backend for display
+    ...(metadata && { metadata }), // Include metadata from backend for display
   };
   if (thinkingIndex !== -1) {
     state.trace.splice(thinkingIndex, 0, toolItem);

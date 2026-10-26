@@ -480,10 +480,10 @@ async function updateUIWithRecoveredMessage(
       role: 'assistant',
       content: message.content,
       created_at: message.created_at,
-      sources: message.sources as Source[] | undefined,
-      generated_images: message.generated_images as GeneratedImage[] | undefined,
-      files: message.files as FileMetadata[] | undefined,
-      language: message.language,
+      ...(message.sources && { sources: message.sources as Source[] }),
+      ...(message.generated_images && { generated_images: message.generated_images as GeneratedImage[] }),
+      ...(message.files && { files: message.files as FileMetadata[] }),
+      ...(message.language !== undefined && { language: message.language }),
     }
     : null;
   if (recovered) {

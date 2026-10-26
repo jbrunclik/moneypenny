@@ -72,7 +72,7 @@ describe('decorateGrounding', () => {
     const el = bubble('q0');
     showGroundingChecking(el);
     expect(el.querySelector('.grounding-footer--checking')!.textContent).toBe('Checking against sources…');
-    decorateGrounding(el, { annotations: [], grounding: undefined });
+    decorateGrounding(el, { annotations: [] });
     expect(el.querySelector('.grounding-footer')).toBeNull();
   });
 });

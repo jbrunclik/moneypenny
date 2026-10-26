@@ -193,14 +193,12 @@ export async function addFilesToPending(files: File[]): Promise<void> {
       }
 
       const data = await readFileAsBase64(processed);
+      const hasPreview = processed.type.startsWith('image/') || processed.type.startsWith('video/');
       const fileUpload: FileUpload = {
         name: processed.name,
         type: processed.type,
         data,
-        previewUrl:
-          processed.type.startsWith('image/') || processed.type.startsWith('video/')
-            ? URL.createObjectURL(processed)
-            : undefined,
+        ...(hasPreview && { previewUrl: URL.createObjectURL(processed) }),
       };
 
       store.addPendingFile(fileUpload);

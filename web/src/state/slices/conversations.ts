@@ -59,11 +59,12 @@ function withAddedConversation(
   const existing = state.conversations[existingIndex];
   if (existing) {
     // Merge with existing, preserving unreadCount if not provided in new data
+    const unreadCount = conversation.unreadCount ?? existing.unreadCount;
     const merged = {
       ...existing,
       ...conversation,
       // Preserve unreadCount if the new conversation doesn't specify it
-      unreadCount: conversation.unreadCount ?? existing.unreadCount,
+      ...(unreadCount !== undefined && { unreadCount }),
     };
     // Re-insert at the correct sorted position when the timestamp
     // changed (e.g. a message bumped updated_at); otherwise keep the

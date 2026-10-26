@@ -196,7 +196,7 @@ function conversationFlagActions(set: UiSet, get: UiGet) {
         const existing = s.activeRequests.get(convId);
         if (!existing) return s;
         const newMap = new Map(s.activeRequests);
-        newMap.set(convId, { ...existing, content, thinkingState: thinkingState ?? existing.thinkingState });
+        newMap.set(convId, { ...existing, content, ...(thinkingState && { thinkingState }) });
         return { activeRequests: newMap };
       }),
     addActiveRequestArtifact: (convId: string, ref: ArtifactRef) =>

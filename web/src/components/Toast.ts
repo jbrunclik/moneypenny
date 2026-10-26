@@ -116,7 +116,7 @@ export function showToast(options: {
     id,
     type: options.type,
     message: options.message,
-    action: options.action,
+    ...(options.action && { action: options.action }),
     duration,
   });
 

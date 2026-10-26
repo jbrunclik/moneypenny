@@ -154,14 +154,15 @@ export async function loadDeepLinkedConversation(conversationId: string): Promis
   }
 }
 
+/** handleDeepLinkNavigation's optional flags, passed through as they arrive */
 interface DeepLinkViews {
-  isPlanner?: boolean;
-  isAgents?: boolean;
-  isStorage?: boolean;
-  isSports?: boolean;
-  isLanguage?: boolean;
-  isArchive?: boolean;
-  isTrash?: boolean;
+  isPlanner: boolean | undefined;
+  isAgents: boolean | undefined;
+  isStorage: boolean | undefined;
+  isSports: boolean | undefined;
+  isLanguage: boolean | undefined;
+  isArchive: boolean | undefined;
+  isTrash: boolean | undefined;
 }
 
 /**

@@ -112,7 +112,7 @@ function createConversation(id: string, title: string, messageCount?: number): C
     model: 'gemini-3-flash-preview',
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-    messageCount,
+    ...(messageCount !== undefined && { messageCount }),
   };
 }
 

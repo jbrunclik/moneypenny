@@ -236,7 +236,7 @@ function buildOptimisticUserMessage(messageText: string, files: FileUpload[]): M
       name: f.name,
       type: f.type,
       fileIndex: i,
-      previewUrl: f.previewUrl, // Include blob URL for immediate display
+      ...(f.previewUrl !== undefined && { previewUrl: f.previewUrl }), // Blob URL for immediate display
     })),
     created_at: new Date().toISOString(),
     status: 'pending',
@@ -275,8 +275,8 @@ function trackNewMessage(
   forceTools: string[],
   extras: SendExtras = {}
 ): SendEntry {
-  const { deepResearch, action } = extras;
-  const userMessage = { ...buildOptimisticUserMessage(messageText, files), action };
+  const { action } = extras;
+  const userMessage = { ...buildOptimisticUserMessage(messageText, files), ...(action && { action }) };
 
   // Use fresh store reference to get anonymous mode (not a stale snapshot from before)
   // This is critical because the conversation ID may have changed from temp-xxx to a real ID
@@ -293,8 +293,7 @@ function trackNewMessage(
     forceTools,
     anonymousMode,
     createdAt: userMessage.created_at,
-    deepResearch,
-    action,
+    ...extras,
   });
 
   // Optimistically bump the sidebar entry so the conversation moves to the
@@ -304,7 +303,7 @@ function trackNewMessage(
   renderConversationsList();
 
   renderOptimisticUserMessage(userMessage);
-  return { id: userMessage.id, content: messageText, files, forceTools, anonymousMode, deepResearch, action };
+  return { id: userMessage.id, content: messageText, files, forceTools, anonymousMode, ...extras };
 }
 
 async function sendNewMessage(
@@ -446,12 +445,15 @@ export async function dispatchSend(convId: string, entry: SendEntry): Promise<vo
     if (useStore.getState().streamingEnabled || entry.deepResearch) {
       await sendStreamingMessage(
         convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation,
-        undefined, { deepResearch: entry.deepResearch, action: entry.action }
+        undefined, {
+          ...(entry.deepResearch && { deepResearch: entry.deepResearch }),
+          ...(entry.action && { action: entry.action }),
+        }
       );
     } else {
       await sendBatchMessage(
         convId, entry.content, entry.files, entry.forceTools, entry.id, entry.anonymousMode, clientLocation,
-        undefined, { action: entry.action }
+        undefined, { ...(entry.action && { action: entry.action }) }
       );
     }
     // Note: incrementLocalMessageCount is handled inside sendStreamingMessage (in finally block)

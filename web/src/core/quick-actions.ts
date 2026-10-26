@@ -305,7 +305,7 @@ export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
   if (!ctx) return;
   showQuickActionsEditor({
     actions: ctx.actions,
-    initialDraft: draft,
+    ...(draft && { initialDraft: draft }),
     onChange: async (actions) => {
       const saved = await ctx.save(actions);
       if (current && current.programId === ctx.programId) {

@@ -39,13 +39,15 @@ function contextFor(target: HTMLElement): CardContext | null {
   const ann = messageEl ? getMessageAnnotations(messageEl)?.[index] : undefined;
   if (!messageEl || !ann) return null;
   const convId = useStore.getState().currentConversation?.id;
-  const stored = convId ? useStore.getState().getMessages(convId).find((m) => m.id === messageEl.dataset.messageId) : undefined;
+  const messageId = messageEl.dataset.messageId;
+  const stored = convId ? useStore.getState().getMessages(convId).find((m) => m.id === messageId) : undefined;
+  const source = ann.source ? stored?.sources?.[ann.source - 1] : undefined;
   return {
     ann,
     index,
-    messageId: messageEl.dataset.messageId,
-    replyId: convId && messageEl.dataset.messageId ? findActionReply(convId, messageEl.dataset.messageId, index) : null,
-    source: ann.source ? stored?.sources?.[ann.source - 1] : undefined,
+    ...(messageId !== undefined && { messageId }),
+    replyId: convId && messageId ? findActionReply(convId, messageId, index) : null,
+    ...(source && { source }),
   };
 }
 

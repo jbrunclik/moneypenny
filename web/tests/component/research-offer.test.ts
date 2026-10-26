@@ -40,7 +40,7 @@ function render(o: ResearchOffer | null, options?: { live?: boolean }): HTMLElem
   document.body.innerHTML = '<div id="messages"><div class="message assistant" data-message-id="m1"><div class="message-content-wrapper"><div class="message-content"><p>Odpověď</p></div></div></div></div>';
   initResearchOffers();
   const el = document.querySelector<HTMLElement>('.message')!;
-  renderResearchOffer(el, { id: 'm1', research: o ? { offer: o } : undefined }, options);
+  renderResearchOffer(el, { id: 'm1', ...(o && { research: { offer: o } }) }, options);
   return el;
 }
 

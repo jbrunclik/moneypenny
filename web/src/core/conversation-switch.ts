@@ -186,7 +186,7 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
 
   // Pass server's pending approval status if this is an agent conversation
   renderMessages(conv.messages || [], {
-    hasPendingApproval: conv.has_pending_approval,
+    ...(conv.has_pending_approval !== undefined && { hasPendingApproval: conv.has_pending_approval }),
   });
 
   // Restore this conversation's composer draft (typed text survives switches)

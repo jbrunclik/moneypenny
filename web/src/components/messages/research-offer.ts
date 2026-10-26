@@ -148,8 +148,10 @@ function start(card: HTMLElement, plan: string[], ctx: string, whenIdle = false)
   stopCountdown(card);
   collapseStarted(card);
   if (!messageId) return;
-  const minutes = offer ? estimateFrom(offer.rates, plan.length).minutes : undefined;
-  const options = whenIdle ? { whenIdle, minutes } : { minutes };
+  const options = {
+    ...(whenIdle && { whenIdle }),
+    ...(offer && { minutes: estimateFrom(offer.rates, plan.length).minutes }),
+  };
   void startDeepResearch(messageId, plan, ctx, options).then((sent) => {
     // The card may have been re-rendered meanwhile: update the current one
     const current = document.querySelector<HTMLElement>(`.${CARD_CLASS}[data-message-id="${messageId}"]`) ?? card;

@@ -258,7 +258,7 @@ function handleStreamError(
     event.message || 'Failed to generate response.',
     event.code === 'TIMEOUT' ? 408 : 500,
     {
-      code: event.code,
+      ...(event.code !== undefined && { code: event.code }),
       retryable: event.retryable ?? false,
       isTimeout: event.code === 'TIMEOUT',
     }

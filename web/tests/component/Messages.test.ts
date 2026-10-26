@@ -65,12 +65,14 @@ function createMessage(
     role,
     content,
     created_at: '2024-01-01T00:00:00Z',
-    files: files?.map((f, i) => ({
-      name: f.name,
-      type: f.type,
-      fileIndex: i,
-      previewUrl: f.previewUrl,
-    })),
+    ...(files && {
+      files: files.map((f, i) => ({
+        name: f.name,
+        type: f.type,
+        fileIndex: i,
+        ...(f.previewUrl !== undefined && { previewUrl: f.previewUrl }),
+      })),
+    }),
   };
 }
 

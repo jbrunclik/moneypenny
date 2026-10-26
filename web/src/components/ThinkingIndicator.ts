@@ -533,7 +533,7 @@ export function addToolStartToTrace(
     label: tool,
     detail,
     completed: false,
-    metadata,
+    ...(metadata && { metadata }),
   };
 
   // Insert tool BEFORE thinking to keep thinking at the end for auto-scroll

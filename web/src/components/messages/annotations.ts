@@ -27,7 +27,7 @@ export function rememberAnnotations(
   annotations: ClaimAnnotation[],
   grounding?: GroundingSummary
 ): void {
-  byMessage.set(messageEl, { annotations, grounding });
+  byMessage.set(messageEl, { annotations, ...(grounding && { grounding }) });
 }
 export function getMessageAnnotations(messageEl: Element): ClaimAnnotation[] | undefined {
   return byMessage.get(messageEl)?.annotations;

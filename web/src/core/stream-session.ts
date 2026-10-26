@@ -45,11 +45,11 @@ export interface StreamingState {
   /** Stop was sent to the server; a done event with stop_reason 'user' is expected */
   stopRequested?: boolean;
   /** Grace timer that aborts the reader if that done event never arrives */
-  stopTimer?: ReturnType<typeof setTimeout>;
+  stopTimer?: ReturnType<typeof setTimeout> | undefined; // cleared to undefined once the Stop is acknowledged
   /** Count of token events received (for debugging) */
   tokenCount?: number;
   /** A deep-research turn's progress (research_* events) */
-  research?: ResearchProgress;
+  research?: ResearchProgress | undefined; // reassigned from applyResearchEvent (undefined before research_plan)
   /** The server's message count once the turn finished (done event) */
   serverMessageCount?: number;
   /** Following another device's turn (followRemoteStream), not our own */
@@ -59,7 +59,7 @@ export interface StreamingState {
   /** The server reported the failure (an `error` event), not the network. */
   serverError?: boolean;
   /** Steering this turn never read: a follow-up turn answers it */
-  unansweredSteeringId?: string;
+  unansweredSteeringId?: string | undefined; // overwritten by each done event, possibly with undefined
 }
 
 export function createStreamingState(
@@ -98,7 +98,6 @@ export function registerStreamRequest(
     conversationId: convId,
     type: 'stream',
     content: '',
-    thinkingState: undefined,
   });
 
   // Mark streaming state

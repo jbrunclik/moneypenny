@@ -344,7 +344,7 @@ export async function followRemoteStream(
   const container = getElementById<HTMLDivElement>('messages');
   const placeholder = container?.querySelector(`[data-message-id="${messageId}"]`) ?? null;
   log.info('Following a stream from another device', { conversationId: convId, messageId });
-  await streamTurnFromJournal(convId, messageId, placeholder, { ownTurn: false, anchor });
+  await streamTurnFromJournal(convId, messageId, placeholder, { ownTurn: false, ...(anchor !== undefined && { anchor }) });
 }
 
 /**

@@ -73,8 +73,7 @@ export function showAlert(options: {
     modalType = 'alert';
     currentResolve = () => resolve();
     renderModal({
-      title: options.title,
-      message: options.message,
+      ...options,
       showCancel: false,
       confirmLabel: 'OK',
     });
@@ -97,12 +96,10 @@ export function showConfirm(options: {
     modalType = 'confirm';
     currentResolve = resolve as (value: boolean | string | null) => void;
     renderModal({
-      title: options.title,
-      message: options.message,
+      ...options,
       showCancel: true,
       confirmLabel: options.confirmLabel || 'OK',
       cancelLabel: options.cancelLabel || 'Cancel',
-      danger: options.danger,
     });
     showModalContainer();
   });
@@ -124,14 +121,11 @@ export function showPrompt(options: {
     modalType = 'prompt';
     currentResolve = resolve as (value: boolean | string | null) => void;
     renderModal({
-      title: options.title,
-      message: options.message,
+      ...options,
       showCancel: true,
       confirmLabel: options.confirmLabel || 'OK',
       cancelLabel: options.cancelLabel || 'Cancel',
       showInput: true,
-      defaultValue: options.defaultValue,
-      placeholder: options.placeholder,
     });
     showModalContainer();
 
