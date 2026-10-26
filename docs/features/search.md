@@ -166,7 +166,7 @@ LOAD_NEWER_MESSAGES_THRESHOLD_PX = 200 // Scroll threshold for loading newer mes
   - [test_messages_around.py](../../tests/unit/test_messages_around.py) - `get_messages_around()` method
 - **Backend integration tests**:
   - [test_routes_conversation_search.py](../../tests/integration/test_routes_conversation_search.py) - API endpoint tests
-  - [test_routes_messages_around.py](../../tests/integration/test_routes_messages_around.py) - `around_message_id` endpoint tests
+  - [test_routes_conversation_messages.py](../../tests/integration/test_routes_conversation_messages.py) - `around_message_id` endpoint tests
 - **E2E tests**: [search.spec.ts](../../web/tests/e2e/search.spec.ts) - Full search flow including pagination navigation
 - **Visual tests**: [search.visual.ts](../../web/tests/visual/search.visual.ts) - Search UI screenshots
 - **Mock server**: [control_routes.py](../../tests/e2e_server/control_routes.py) - `/test/set-search-results` and `/test/clear-search-results` endpoints

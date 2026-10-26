@@ -187,7 +187,7 @@ outside production. Backfill for pre-existing rows:
 - **Conversation search**: [test_conversation_search_tool.py](../../tests/unit/test_conversation_search_tool.py)
 - **DB layer**: [test_db_memories.py](../../tests/integration/test_db_memories.py) - soft delete,
   protection, provenance, timestamp conventions
-- **Routes**: [test_routes_kv_memory_system.py](../../tests/integration/test_routes_kv_memory_system.py)
+- **Routes**: [test_routes_memory.py](../../tests/integration/test_routes_memory.py), [test_routes_kv_store.py](../../tests/integration/test_routes_kv_store.py)
 - **Visual tests**: [popups.visual.ts](../../web/tests/visual/popups.visual.ts)
 
 ### Memory Defragmentation
