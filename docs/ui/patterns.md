@@ -201,7 +201,7 @@ All features use hash-based routing (`#/feature` and `#/feature/{id}`):
 
 - Parse in `deeplink.ts` with `parseHash()`
 - Set programmatically via a per-feature setter (`setPlannerHash()`, `setSportsHash()`, `setConversationHash()`, ...) with the `isIgnoringHashChange` guard
-- Handle in `handleDeepLinkNavigation()` and initial route loading in `init.ts`
+- Handle in `handleDeepLinkNavigation()` and initial route loading in `openInitialRoute()` (`core/startup/initial-route.ts`)
 - Always support both list view (`#/sports`) and detail view (`#/sports/pushups`)
 
 ### View Transitions

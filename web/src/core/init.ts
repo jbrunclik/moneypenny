@@ -58,10 +58,6 @@ import {
   initDeepLinking,
   cleanupDeepLinking,
   clearConversationHash,
-  isValidConversationId,
-  parseHash,
-  getSportsProgramFromHash,
-  getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
 import { stopSyncManager } from '../sync/SyncManager';
@@ -81,18 +77,14 @@ import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
 import { isTempConversation } from './conversation';
-import { loadDeepLinkedConversation, handleDeepLinkNavigation } from './conversation-deeplink';
+import { handleDeepLinkNavigation } from './conversation-deeplink';
 import { deleteMessage } from './conversation-actions';
-import { navigateToArchive } from './archive';
-import { navigateToTrash, loadTrashedConversations } from './trash';
-import { navigateToPlanner } from './planner';
-import { navigateToSports, navigateToSportsProgram } from './sports';
-import { navigateToLanguage, navigateToLanguageProgram } from './language';
-import { navigateToAgents, initAgents } from './agents';
-import { navigateToStorage } from './kv-store';
+import { loadTrashedConversations } from './trash';
+import { initAgents } from './agents';
 import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
 import { startSync } from './startup/sync';
+import { initialRouteFromHash, openInitialRoute } from './startup/initial-route';
 
 const log = createLogger('init');
 
@@ -179,35 +171,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       void loadTrashedConversations();
     }
 
-    // Handle initial route from URL hash BEFORE starting sync manager
-    // This prevents false "new messages available" banners for the deep-linked conversation
-    if (initialRoute?.isPlanner) {
-      await navigateToPlanner();
-    } else if (initialRoute?.isAgents) {
-      await navigateToAgents();
-    } else if (initialRoute?.isStorage) {
-      await navigateToStorage();
-    } else if (initialRoute?.isSports) {
-      const sportsProgramId = getSportsProgramFromHash();
-      if (sportsProgramId) {
-        await navigateToSportsProgram(sportsProgramId);
-      } else {
-        await navigateToSports();
-      }
-    } else if (initialRoute?.isLanguage) {
-      const languageProgramId = getLanguageProgramFromHash();
-      if (languageProgramId) {
-        await navigateToLanguageProgram(languageProgramId);
-      } else {
-        await navigateToLanguage();
-      }
-    } else if (initialRoute?.isArchive) {
-      navigateToArchive();
-    } else if (initialRoute?.isTrash) {
-      navigateToTrash();
-    } else if (initialRoute?.conversationId && isValidConversationId(initialRoute.conversationId)) {
-      await loadDeepLinkedConversation(initialRoute.conversationId);
-    }
+    await openInitialRoute(initialRoute);
 
     // Only after data is loaded AND the initial route is handled: sync
     // starting earlier showed false "new messages available" banners for
@@ -360,19 +324,7 @@ export async function init(): Promise<void> {
   const handleLogin = async (): Promise<void> => {
     hideLoginOverlay();
     try {
-      // Check URL hash again in case user logged out then back in on a deep link
-      const route = parseHash();
-      const initialRoute: InitialRoute = {
-        conversationId: route.type === 'conversation' ? route.conversationId ?? null : null,
-        isPlanner: route.type === 'planner',
-        isAgents: route.type === 'agents',
-        isStorage: route.type === 'storage',
-        isSports: route.type === 'sports',
-        isLanguage: route.type === 'language',
-        isArchive: route.type === 'archive',
-        isTrash: route.type === 'trash',
-      };
-      await loadInitialData(initialRoute);
+      await loadInitialData(initialRouteFromHash());
     } catch (error) {
       log.error('Failed to load data after login', { error });
       toast.error('Failed to load data. Please refresh the page.', {
