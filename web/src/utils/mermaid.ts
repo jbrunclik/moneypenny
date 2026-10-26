@@ -9,6 +9,7 @@
  * the DOM (hidden) so the block's copy button still copies it.
  */
 import DOMPurify from 'dompurify';
+import { setSanitizedHtml, type SanitizedHtml } from './dom';
 import { createLogger } from './logger';
 
 const log = createLogger('mermaid');
@@ -85,7 +86,7 @@ export async function renderMermaidIn(element: HTMLElement): Promise<void> {
       const diagram = document.createElement('div');
       diagram.className = 'mermaid-diagram';
       // Diagram source is model output: sanitize again on top of mermaid's strict mode
-      diagram.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+      setSanitizedHtml(diagram, DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } }) as SanitizedHtml);
       wrapper.prepend(diagram);
       wrapper.classList.add('code-block-wrapper--diagram');
       wrapper.dataset.mermaid = 'drawn';

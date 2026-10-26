@@ -19,7 +19,7 @@ import { costs } from '../api/costs';
 import { COMPACTION_DEEP_GENERATION } from '../config';
 import { useStore } from '../state/store';
 import type { ConversationCompactionResponse } from '../types/api';
-import { createElement, escapeHtml, getElementById, isScrolledToBottom } from '../utils/dom';
+import { createElement, getElementById, isScrolledToBottom, setSanitizedHtml } from '../utils/dom';
 import { COMPACTION_ICON, setIcon } from '../utils/icons';
 import { renderMarkdown } from '../utils/markdown';
 import { createPopup, createPopupHtml, type PopupInstance } from './InfoPopup';
@@ -50,7 +50,7 @@ function generationLabel(status: ConversationCompactionResponse): string {
   return `${status.generation_estimated ? '~' : ''}${status.generation}`;
 }
 
-function renderCompaction(status: ConversationCompactionResponse): string {
+function compactionDetails(status: ConversationCompactionResponse): HTMLElement[] {
   const verbatim = status.total_count - status.summarized_count;
   const passes = generationLabel(status);
   const lossNote = isDeep(status)
@@ -58,30 +58,27 @@ function renderCompaction(status: ConversationCompactionResponse): string {
       'The assistant can still search them for exact details.'
     : 'A summary keeps the gist, not every detail. The assistant can still search the ' +
       'summarized messages for exact details.';
-  const summaryHtml = status.summary ? renderMarkdown(status.summary) : '';
-  return `
-    <div class="compaction-content">
-      <table class="compaction-table">
-        <tbody>
-          <tr>
-            <td class="compaction-label">Summarized</td>
-            <td class="compaction-value">${status.summarized_count} of ${status.total_count} messages</td>
-          </tr>
-          <tr>
-            <td class="compaction-label">Summary passes</td>
-            <td class="compaction-value">${escapeHtml(passes)}${status.generation_estimated ? ' (estimated)' : ''}</td>
-          </tr>
-          <tr>
-            <td class="compaction-label">Sent verbatim</td>
-            <td class="compaction-value">last ${verbatim} messages</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="compaction-note${isDeep(status) ? ` ${DEEP_CLASS}` : ''}">${escapeHtml(lossNote)}</p>
-      <h4 class="compaction-summary-heading">What the model remembers</h4>
-      <div class="compaction-summary markdown-body">${summaryHtml}</div>
-    </div>
-  `;
+  const summary = createElement('div', { class: 'compaction-summary markdown-body' });
+  if (status.summary) setSanitizedHtml(summary, renderMarkdown(status.summary));
+  const row = (label: string, value: string): HTMLTableRowElement =>
+    createElement('tr', {}, [
+      createElement('td', { class: 'compaction-label' }, [label]),
+      createElement('td', { class: 'compaction-value' }, [value]),
+    ]);
+  return [
+    createElement('div', { class: 'compaction-content' }, [
+      createElement('table', { class: 'compaction-table' }, [
+        createElement('tbody', {}, [
+          row('Summarized', `${status.summarized_count} of ${status.total_count} messages`),
+          row('Summary passes', `${passes}${status.generation_estimated ? ' (estimated)' : ''}`),
+          row('Sent verbatim', `last ${verbatim} messages`),
+        ]),
+      ]),
+      createElement('p', { class: `compaction-note${isDeep(status) ? ` ${DEEP_CLASS}` : ''}` }, [lossNote]),
+      createElement('h4', { class: 'compaction-summary-heading' }, ['What the model remembers']),
+      summary,
+    ]),
+  ];
 }
 
 const compactionPopup: PopupInstance<ConversationCompactionResponse> = createPopup(
@@ -92,7 +89,7 @@ const compactionPopup: PopupInstance<ConversationCompactionResponse> = createPop
     title: 'Conversation Compaction',
     styleClass: 'compaction',
   },
-  renderCompaction
+  compactionDetails
 );
 
 /** HTML shell for the popup (embedded in the app shell by core/startup/app-shell.ts) */

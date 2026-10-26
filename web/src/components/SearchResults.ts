@@ -10,7 +10,7 @@
  */
 
 import { useStore } from '../state/store';
-import { escapeHtml, getElementById } from '../utils/dom';
+import { createElement, getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { formatRelativeTime } from '../utils/relative-time';
 import type { SearchResult } from '../types/api';
@@ -41,12 +41,12 @@ export function renderSearchResults(): void {
 
   // Loading state
   if (isSearching) {
-    container.innerHTML = `
-      <div class="search-loading">
-        <div class="loading-spinner"></div>
-        <p>Searching...</p>
-      </div>
-    `;
+    container.replaceChildren(
+      createElement('div', { class: 'search-loading' }, [
+        createElement('div', { class: 'loading-spinner' }),
+        createElement('p', {}, ['Searching...']),
+      ])
+    );
     return;
   }
 
@@ -63,87 +63,91 @@ export function renderSearchResults(): void {
         inputValue: inputEl.value,
       });
     }
-    container.innerHTML = `
-      <div class="search-empty">
-        <p>Type to search conversations</p>
-      </div>
-    `;
+    container.replaceChildren(searchEmpty('Type to search conversations'));
     return;
   }
 
   // No results
   if (searchResults.length === 0) {
-    container.innerHTML = `
-      <div class="search-empty">
-        <p>No results found for "${escapeHtml(searchQuery)}"</p>
-      </div>
-    `;
+    container.replaceChildren(searchEmpty(`No results found for "${searchQuery}"`));
     return;
   }
 
   // Render results with active state (use index for unique identification)
-  const resultsHtml = searchResults.map((result, index) => renderSearchResultItem(result, index, viewedSearchResultId)).join('');
   const countText = searchTotal === 1 ? '1 result' : `${searchTotal} results`;
 
-  container.innerHTML = `
-    <div class="search-results-header">
-      <span class="search-results-count">${countText}</span>
-    </div>
-    <div class="search-results-list">
-      ${resultsHtml}
-    </div>
-  `;
+  container.replaceChildren(
+    createElement('div', { class: 'search-results-header' }, [
+      createElement('span', { class: 'search-results-count' }, [countText]),
+    ]),
+    createElement(
+      'div',
+      { class: 'search-results-list' },
+      searchResults.map((result, index) => searchResultItem(result, index, viewedSearchResultId))
+    )
+  );
 
   log.debug('Search results rendered', { count: searchResults.length, total: searchTotal });
 }
 
-/**
- * Render a single search result item
- */
-function renderSearchResultItem(result: SearchResult, index: number, viewedResultIndex: number | null): string {
-  const title = escapeHtml(result.conversation_title);
-  const isMessageMatch = result.match_type === 'message';
+function searchEmpty(text: string): HTMLElement {
+  return createElement('div', { class: 'search-empty' }, [createElement('p', {}, [text])]);
+}
 
-  // Format the snippet with highlights
-  let snippetHtml = '';
-  if (isMessageMatch && result.message_snippet) {
-    snippetHtml = formatSnippet(result.message_snippet);
-  }
+/**
+ * A single search result item
+ */
+function searchResultItem(result: SearchResult, index: number, viewedResultIndex: number | null): HTMLElement {
+  const isMessageMatch = result.match_type === 'message';
+  const snippet = isMessageMatch && result.message_snippet ? formatSnippet(result.message_snippet) : null;
 
   // Check if this result is currently being viewed (by index, not by message_id)
   const isActive = viewedResultIndex === index;
 
-  // Build data attributes for navigation (include index for click handler)
-  const dataAttrs = `data-conv-id="${escapeHtml(result.conversation_id)}" data-result-index="${index}"${
-    result.message_id ? ` data-message-id="${escapeHtml(result.message_id)}"` : ''
-  }`;
-
-  return `
-    <div class="search-result-item${isActive ? ' active' : ''}" ${dataAttrs}>
-      <div class="search-result-title">${title}</div>
-      ${snippetHtml ? `<div class="search-result-snippet">${snippetHtml}</div>` : ''}
-      <div class="search-result-meta">
-        <span class="search-result-type">${isMessageMatch ? 'Message' : 'Title'}</span>
-        ${result.created_at ? `<span class="search-result-date">${escapeHtml(formatRelativeTime(result.created_at))}</span>` : ''}
-      </div>
-    </div>
-  `;
+  return createElement(
+    'div',
+    {
+      class: `search-result-item${isActive ? ' active' : ''}`,
+      // Data attributes for navigation (index for the click handler)
+      'data-conv-id': result.conversation_id,
+      'data-result-index': String(index),
+      ...(result.message_id ? { 'data-message-id': result.message_id } : {}),
+    },
+    [
+      createElement('div', { class: 'search-result-title' }, [result.conversation_title]),
+      snippet,
+      createElement('div', { class: 'search-result-meta' }, [
+        createElement('span', { class: 'search-result-type' }, [isMessageMatch ? 'Message' : 'Title']),
+        !!result.created_at &&
+          createElement('span', { class: 'search-result-date' }, [formatRelativeTime(result.created_at)]),
+      ]),
+    ]
+  );
 }
 
+const HIGHLIGHT_MARKER = /(\[\[HIGHLIGHT\]\]|\[\[\/HIGHLIGHT\]\])/;
+
 /**
- * Format snippet text, converting [[HIGHLIGHT]] markers to <mark> tags
+ * The snippet with its [[HIGHLIGHT]]text[[/HIGHLIGHT]] spans as <mark>s (an
+ * unclosed one runs to the end, a stray close is dropped); null when empty.
  */
-function formatSnippet(snippet: string): string {
-  // First escape HTML, then convert markers
-  // The markers use [[ and ]] which are safe after escaping
-  let escaped = escapeHtml(snippet);
-
-  // Replace [[HIGHLIGHT]] markers with <mark> tags
-  // Pattern: [[HIGHLIGHT]]text[[/HIGHLIGHT]]
-  escaped = escaped.replace(/\[\[HIGHLIGHT\]\]/g, '<mark>');
-  escaped = escaped.replace(/\[\[\/HIGHLIGHT\]\]/g, '</mark>');
-
-  return escaped;
+function formatSnippet(snippet: string): HTMLElement | null {
+  const root = createElement('div', { class: 'search-result-snippet' });
+  const open: HTMLElement[] = [];
+  for (const part of snippet.split(HIGHLIGHT_MARKER)) {
+    const parent = open.at(-1) ?? root;
+    if (part === '[[HIGHLIGHT]]') {
+      const mark = createElement('mark');
+      parent.appendChild(mark);
+      open.push(mark);
+    } else if (part === '[[/HIGHLIGHT]]') {
+      open.pop();
+    } else if (part) {
+      parent.append(part);
+    }
+  }
+  root.normalize(); // text around a dropped marker is one node, as parsed
+  return root.hasChildNodes() ? root : null;
 }
 
 /**

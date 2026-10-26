@@ -1,39 +1,35 @@
 import type { Source } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { SOURCES_ICON } from '../utils/icons';
 import { safeHttpUrl } from '../utils/linkify';
 import { createPopup, type PopupInstance } from './InfoPopup';
 
 /**
- * One source row: a link only for an http(s) URL - escaping keeps a
- * javascript: or data: URL inside the attribute, but a click would still run
- * it - else the same row as plain text.
+ * One source row: a link only for an http(s) URL - a javascript: or data:
+ * URL in the href would run when clicked - else the same row as plain text.
  */
-function renderSourceItem(source: Source, index: number): string {
+function sourceItem(source: Source, index: number): HTMLElement {
   const href = safeHttpUrl(source.url);
-  const inner = `
-        <span class="source-number">${index + 1}</span>
-        <span class="source-title">${escapeHtml(source.title)}</span>
-        <span class="source-url">${href ? escapeHtml(new URL(href).hostname) : ''}</span>`;
+  const inner = [
+    createElement('span', { class: 'source-number' }, [String(index + 1)]),
+    createElement('span', { class: 'source-title' }, [source.title]),
+    createElement('span', { class: 'source-url' }, [href ? new URL(href).hostname : '']),
+  ];
   return href
-    ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="source-item">${inner}</a>`
-    : `<div class="source-item">${inner}</div>`;
+    ? createElement('a', { href, target: '_blank', rel: 'noopener noreferrer', class: 'source-item' }, inner)
+    : createElement('div', { class: 'source-item' }, inner);
 }
 
 /**
- * Render sources list HTML
+ * The sources list
  */
-function renderSourcesList(sources: Source[]): string {
-  const sourcesHtml = sources.map((source, index) => renderSourceItem(source, index)).join('');
-
-  return `
-    <div class="sources-header-badge">
-      <span class="sources-count">${sources.length}</span>
-    </div>
-    <div class="sources-list">
-      ${sourcesHtml}
-    </div>
-  `;
+function sourcesList(sources: Source[]): HTMLElement[] {
+  return [
+    createElement('div', { class: 'sources-header-badge' }, [
+      createElement('span', { class: 'sources-count' }, [String(sources.length)]),
+    ]),
+    createElement('div', { class: 'sources-list' }, sources.map(sourceItem)),
+  ];
 }
 
 // Create the sources popup instance
@@ -45,7 +41,7 @@ const sourcesPopup: PopupInstance<Source[]> = createPopup<Source[]>(
     title: 'Sources',
     styleClass: 'sources',
   },
-  renderSourcesList
+  sourcesList
 );
 
 /**

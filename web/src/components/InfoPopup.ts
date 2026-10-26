@@ -1,5 +1,5 @@
-import { getElementById } from '../utils/dom';
-import { CLOSE_ICON } from '../utils/icons';
+import { createElement, getElementById } from '../utils/dom';
+import { CLOSE_ICON, createIconButton, createIconElement, type IconHtml } from '../utils/icons';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 
@@ -12,7 +12,7 @@ export interface PopupConfig {
   /** Custom event name that triggers this popup (e.g., 'sources:open') */
   eventName: string;
   /** SVG icon to display in the header */
-  icon: string;
+  icon: IconHtml;
   /** Title displayed in the popup header */
   title: string;
   /** CSS class for popup-specific styling (e.g., 'sources' or 'imagegen') */
@@ -35,12 +35,12 @@ export interface PopupInstance<T> {
  * Create a reusable info popup component
  *
  * @param config - Popup configuration
- * @param renderContent - Function that renders the popup body content
+ * @param renderContent - Function that builds the popup body content
  * @returns Popup instance with init, open, and close methods
  */
 export function createPopup<T>(
   config: PopupConfig,
-  renderContent: (data: T) => string
+  renderContent: (data: T) => Node[]
 ): PopupInstance<T> {
   const { id, eventName, icon, title, styleClass } = config;
 
@@ -64,16 +64,14 @@ export function createPopup<T>(
     if (!popup || !content) return;
 
     // Render popup content
-    content.innerHTML = `
-      <div class="info-popup-header">
-        <span class="info-popup-icon">${icon}</span>
-        <h3 class="dialog-title">${title}</h3>
-        <button class="info-popup-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
-      </div>
-      <div class="info-popup-body ${styleClass}-body">
-        ${renderContent(data)}
-      </div>
-    `;
+    content.replaceChildren(
+      createElement('div', { class: 'info-popup-header' }, [
+        createIconElement('info-popup-icon', icon),
+        createElement('h3', { class: 'dialog-title' }, [title]),
+        createIconButton({ class: 'info-popup-close dialog-close', 'aria-label': 'Close' }, CLOSE_ICON),
+      ]),
+      createElement('div', { class: `info-popup-body ${styleClass}-body` }, renderContent(data))
+    );
 
     // Attach close handler to new button
     content.querySelector('.info-popup-close')?.addEventListener('click', close);

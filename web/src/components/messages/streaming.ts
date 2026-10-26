@@ -2,7 +2,7 @@
  * Streaming message state management and updates.
  */
 
-import { createElement, getElementById, isScrolledToBottom, scrollDebug } from '../../utils/dom';
+import { createElement, getElementById, isScrolledToBottom, scrollDebug, setSanitizedHtml } from '../../utils/dom';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
@@ -216,7 +216,8 @@ function renderRestoredContent(messageEl: HTMLElement, thinkingIndicator: HTMLEl
   // Render existing content if any
   const contentEl = messageEl.querySelector('.message-content');
   if (contentEl && content) {
-    contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+    setSanitizedHtml(contentEl, renderMarkdown(content));
+    contentEl.append(createElement('span', { class: 'streaming-cursor' }));
     // Re-insert thinking indicator at the top
     contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
   }
@@ -237,7 +238,8 @@ export function updateStreamingMessage(
   const thinkingIndicator = contentEl.querySelector('.thinking-indicator');
 
   // Render markdown for the accumulated content
-  contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+  setSanitizedHtml(contentEl, renderMarkdown(content));
+  contentEl.append(createElement('span', { class: 'streaming-cursor' }));
 
   // Live syntax highlighting: completed blocks come from the per-block
   // cache; only the still-growing block is re-highlighted

@@ -30,6 +30,28 @@ export function escapeHtml(text: string): string {
   return String(text).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);
 }
 
+declare const SANITIZED_BRAND: unique symbol;
+
+/**
+ * HTML that a sanitizer produced: DOMPurify (`renderMarkdown`, mermaid's
+ * SVG) or highlight.js, which escapes the code it wraps. Only those
+ * producers cast to it (F3), so a value of this type is never raw data.
+ */
+export type SanitizedHtml = string & { readonly [SANITIZED_BRAND]: true };
+
+/** The one way HTML reaches the DOM: ESLint's no-unsanitized trusts this call alone (F3). */
+function sanitizedHtml(html: SanitizedHtml): string {
+  return html;
+}
+
+/**
+ * Replace an element's content with sanitized HTML - the only way computed
+ * HTML is written (F3). Everything else builds elements (createElement).
+ */
+export function setSanitizedHtml(el: Element, html: SanitizedHtml): void {
+  el.innerHTML = sanitizedHtml(html);
+}
+
 /**
  * Get element by ID with type assertion
  */

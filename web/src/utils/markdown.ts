@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 import katex from 'katex';
 import hljs from 'highlight.js/lib/core';
 import { COPY_ICON } from './icons';
-import { escapeHtml } from './dom';
+import { escapeHtml, setSanitizedHtml, type SanitizedHtml } from './dom';
 import { createLogger } from './logger';
 
 // Import only the languages we need
@@ -254,9 +254,10 @@ marked.use({
  * markup (buttons + data attributes) and hljs classes all pass the default
  * allowlist.
  */
-export function renderMarkdown(text: string): string {
+export function renderMarkdown(text: string): SanitizedHtml {
   const html = DOMPurify.sanitize(marked.parse(text) as string, { ADD_ATTR: ['target'] });
-  return html.includes('<img') ? linkExternalImages(html) : html;
+  // Re-serializing the inert document keeps it sanitized
+  return (html.includes('<img') ? linkExternalImages(html) : html) as SanitizedHtml;
 }
 
 function isExternalImage(src: string): boolean {
@@ -291,21 +292,29 @@ function linkExternalImages(html: string): string {
 }
 
 /**
+ * Highlight code in a language highlight.js knows (throws on malformed
+ * input). highlight.js escapes the code it wraps in its spans.
+ */
+export function highlightLanguage(code: string, language: string): SanitizedHtml {
+  return hljs.highlight(code, { language }).value as SanitizedHtml;
+}
+
+/**
  * Highlight code block with syntax highlighting
  */
-export function highlightCode(code: string, language?: string): string {
+export function highlightCode(code: string, language?: string): SanitizedHtml {
   if (language && hljs.getLanguage(language)) {
     try {
-      return hljs.highlight(code, { language }).value;
+      return highlightLanguage(code, language);
     } catch {
       // Fall through to auto-highlight
     }
   }
 
   try {
-    return hljs.highlightAuto(code).value;
+    return hljs.highlightAuto(code).value as SanitizedHtml;
   } catch {
-    return escapeHtml(code);
+    return escapeHtml(code) as SanitizedHtml;
   }
 }
 
@@ -321,7 +330,7 @@ export function highlightAllCodeBlocks(element: HTMLElement): void {
     const language = langClass?.replace('language-', '');
 
     const code = block.textContent || '';
-    block.innerHTML = highlightCode(code, language);
+    setSanitizedHtml(block, highlightCode(code, language));
   });
 }
 

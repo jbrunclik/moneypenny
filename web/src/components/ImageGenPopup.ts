@@ -1,5 +1,5 @@
 import type { GeneratedImage } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { SPARKLES_ICON } from '../utils/icons';
 import { createPopup, type PopupInstance } from './InfoPopup';
 import { costs } from '../api/costs';
@@ -8,26 +8,22 @@ import { createLogger } from '../utils/logger';
 const log = createLogger('imagegen');
 
 /**
- * Render generated images info HTML
+ * The generated images' prompts, then their cost (filled in once fetched)
  */
-function renderImageGenInfo(images: GeneratedImage[]): string {
-  const imagesHtml = images
-    .map(
-      (img, index) => `
-      <div class="imagegen-item">
-        <span class="imagegen-number">${index + 1}</span>
-        <span class="imagegen-prompt">${escapeHtml(img.prompt)}</span>
-      </div>
-    `
-    )
-    .join('');
-
-  return `
-    <div class="imagegen-list">
-      ${imagesHtml}
-    </div>
-    <div id="imagegen-cost-placeholder" class="imagegen-cost-loading">Loading cost...</div>
-  `;
+function imageGenInfo(images: GeneratedImage[]): HTMLElement[] {
+  return [
+    createElement(
+      'div',
+      { class: 'imagegen-list' },
+      images.map((img, index) =>
+        createElement('div', { class: 'imagegen-item' }, [
+          createElement('span', { class: 'imagegen-number' }, [String(index + 1)]),
+          createElement('span', { class: 'imagegen-prompt' }, [img.prompt]),
+        ])
+      )
+    ),
+    createElement('div', { id: 'imagegen-cost-placeholder', class: 'imagegen-cost-loading' }, ['Loading cost...']),
+  ];
 }
 
 // Create the image generation popup instance
@@ -39,7 +35,7 @@ const imageGenPopup: PopupInstance<GeneratedImage[]> = createPopup<GeneratedImag
     title: 'Image Generation',
     styleClass: 'imagegen',
   },
-  renderImageGenInfo
+  imageGenInfo
 );
 
 /** Replace the cost placeholder with the message's image generation cost, or drop it. */
@@ -48,12 +44,12 @@ async function fillImageGenCost(costPlaceholder: HTMLElement, messageId: string)
     const costData = await costs.getMessageCost(messageId);
     // Show image generation cost if available, otherwise show nothing
     if (costData.image_generation_cost_formatted) {
-      costPlaceholder.outerHTML = `
-        <div class="imagegen-cost">
-          <div class="imagegen-label">Image generation cost:</div>
-          <div class="imagegen-cost-value">${escapeHtml(costData.image_generation_cost_formatted)}</div>
-        </div>
-      `;
+      costPlaceholder.replaceWith(
+        createElement('div', { class: 'imagegen-cost' }, [
+          createElement('div', { class: 'imagegen-label' }, ['Image generation cost:']),
+          createElement('div', { class: 'imagegen-cost-value' }, [costData.image_generation_cost_formatted]),
+        ])
+      );
     } else {
       costPlaceholder.remove();
     }

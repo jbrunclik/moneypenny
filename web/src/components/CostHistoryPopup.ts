@@ -1,21 +1,22 @@
 import { createPopup, createPopupHtml, type PopupInstance } from './InfoPopup';
 import type { CostHistoryResponse } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
+import { COST_HISTORY_ICON } from '../utils/icons';
 
 const POPUP_ID = 'cost-history-popup';
 const EVENT_NAME = 'cost-history:open';
 
 /**
- * Render cost history content
+ * The cost history table
  */
-function renderCostHistory(data: CostHistoryResponse): string {
+function costHistory(data: CostHistoryResponse): HTMLElement[] {
   if (!data.history || data.history.length === 0) {
-    return `
-      <div class="cost-history-empty">
-        <p>No cost history available yet.</p>
-        <p class="text-muted">Costs will appear here as you use the chatbot.</p>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'cost-history-empty' }, [
+        createElement('p', {}, ['No cost history available yet.']),
+        createElement('p', { class: 'text-muted' }, ['Costs will appear here as you use the chatbot.']),
+      ]),
+    ];
   }
 
   const monthNames = [
@@ -29,16 +30,14 @@ function renderCostHistory(data: CostHistoryResponse): string {
     return b.month - a.month;
   });
 
-  const rows = sortedHistory.map(month => {
+  const rows = sortedHistory.map((month) => {
     const monthName = monthNames[month.month - 1];
-    return `
-      <tr>
-        <td>${escapeHtml(monthName ?? '')} ${month.year}</td>
-        <td class="cost-amount">${escapeHtml(month.formatted)}</td>
-        <td class="cost-messages">${month.message_count}</td>
-      </tr>
-    `;
-  }).join('');
+    return createElement('tr', {}, [
+      createElement('td', {}, [`${monthName ?? ''} ${month.year}`]),
+      createElement('td', { class: 'cost-amount' }, [month.formatted]),
+      createElement('td', { class: 'cost-messages' }, [String(month.message_count)]),
+    ]);
+  });
 
   const total = data.history.reduce((sum, month) => sum + (month.total || 0), 0);
   const currency = data.history[0]?.currency || 'USD';
@@ -57,31 +56,25 @@ function renderCostHistory(data: CostHistoryResponse): string {
     totalFormatted = `${total.toFixed(4)} ${currency}`;
   }
 
-  return `
-    <div class="cost-history-content">
-      <table class="cost-history-table">
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Cost</th>
-            <th>Messages</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-        <tfoot>
-          <tr class="cost-history-total">
-            <td><strong>Total</strong></td>
-            <td class="cost-amount"><strong>${escapeHtml(totalFormatted)}</strong></td>
-            <td class="cost-messages">
-              <strong>${data.history.reduce((sum, m) => sum + m.message_count, 0)}</strong>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  `;
+  const strong = (text: string): HTMLElement => createElement('strong', {}, [text]);
+  const th = (text: string): HTMLElement => createElement('th', {}, [text]);
+  return [
+    createElement('div', { class: 'cost-history-content' }, [
+      createElement('table', { class: 'cost-history-table' }, [
+        createElement('thead', {}, [createElement('tr', {}, [th('Month'), th('Cost'), th('Messages')])]),
+        createElement('tbody', {}, rows),
+        createElement('tfoot', {}, [
+          createElement('tr', { class: 'cost-history-total' }, [
+            createElement('td', {}, [strong('Total')]),
+            createElement('td', { class: 'cost-amount' }, [strong(totalFormatted)]),
+            createElement('td', { class: 'cost-messages' }, [
+              strong(String(data.history.reduce((sum, m) => sum + m.message_count, 0))),
+            ]),
+          ]),
+        ]),
+      ]),
+    ]),
+  ];
 }
 
 /**
@@ -91,11 +84,11 @@ export const costHistoryPopup: PopupInstance<CostHistoryResponse> = createPopup(
   {
     id: POPUP_ID,
     eventName: EVENT_NAME,
-    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    icon: COST_HISTORY_ICON,
     title: 'Cost History',
     styleClass: 'cost-history',
   },
-  renderCostHistory
+  costHistory
 );
 
 /**

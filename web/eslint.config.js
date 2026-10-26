@@ -6,8 +6,10 @@ import noStaleStoreSnapshot from './eslint-rules/no-stale-store-snapshot.js';
 // Rules written for this repo (eslint-rules/, each tested in tests/unit)
 const local = { rules: { 'no-stale-store-snapshot': noStaleStoreSnapshot } };
 
-// F3: functions whose result is safe to assign as HTML (escaped or sanitized)
-const SAFE_HTML = ['escapeHtml', 'renderMarkdown', 'highlightCode', 'DOMPurify.sanitize'];
+// F3: computed HTML is written only by setSanitizedHtml (utils/dom), whose
+// value is typed SanitizedHtml (sanitizer output); its private unwrap is the
+// one call no-unsanitized trusts. Everything else builds elements.
+const SAFE_HTML = ['sanitizedHtml'];
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -40,7 +42,7 @@ export default tseslint.config(
     },
     plugins: { 'no-unsanitized': noUnsanitized, local },
     rules: {
-      // F3: HTML assigned from strings goes through a SAFE_HTML function. A static
+      // F3: HTML assigned from strings goes through setSanitizedHtml. A static
       // icon goes through setIcon (utils/icons), which never writes innerHTML
       'no-unsanitized/property': ['error', { escape: { methods: SAFE_HTML } }],
       'no-unsanitized/method': ['error', { escape: { methods: SAFE_HTML } }],

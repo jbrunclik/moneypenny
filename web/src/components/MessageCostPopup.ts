@@ -1,44 +1,34 @@
 import type { MessageCostResponse } from '../types/api';
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { COST_ICON } from '../utils/icons';
 import { createPopup, type PopupInstance } from './InfoPopup';
 
+/** A label/value row of a two-column info table. */
+function row(label: string, value: string, valueClass = ''): HTMLTableRowElement {
+  return createElement('tr', {}, [
+    createElement('td', { class: 'message-cost-label' }, [label]),
+    createElement('td', { class: `message-cost-value${valueClass}` }, [value]),
+  ]);
+}
+
 /**
- * Render message cost info HTML
+ * The message cost table
  */
-function renderMessageCost(data: MessageCostResponse): string {
-  return `
-    <div class="message-cost-content">
-      <table class="message-cost-table">
-        <tbody>
-          <tr>
-            <td class="message-cost-label">Cost:</td>
-            <td class="message-cost-value message-cost-amount">${escapeHtml(data.formatted)}</td>
-          </tr>
-          <tr>
-            <td class="message-cost-label">Model:</td>
-            <td class="message-cost-value">${escapeHtml(data.model)}</td>
-          </tr>
-          <tr>
-            <td class="message-cost-label">Input tokens:</td>
-            <td class="message-cost-value">${data.input_tokens.toLocaleString()}</td>
-          </tr>
-          <tr>
-            <td class="message-cost-label">Output tokens:</td>
-            <td class="message-cost-value">${data.output_tokens.toLocaleString()}</td>
-          </tr>
-          <tr>
-            <td class="message-cost-label">Total tokens:</td>
-            <td class="message-cost-value">${(data.input_tokens + data.output_tokens).toLocaleString()}</td>
-          </tr>
-          <tr>
-            <td class="message-cost-label">Cost (USD):</td>
-            <td class="message-cost-value">$${data.cost_usd.toFixed(6)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `;
+function messageCost(data: MessageCostResponse): HTMLElement[] {
+  return [
+    createElement('div', { class: 'message-cost-content' }, [
+      createElement('table', { class: 'message-cost-table' }, [
+        createElement('tbody', {}, [
+          row('Cost:', data.formatted, ' message-cost-amount'),
+          row('Model:', data.model),
+          row('Input tokens:', data.input_tokens.toLocaleString()),
+          row('Output tokens:', data.output_tokens.toLocaleString()),
+          row('Total tokens:', (data.input_tokens + data.output_tokens).toLocaleString()),
+          row('Cost (USD):', `$${data.cost_usd.toFixed(6)}`),
+        ]),
+      ]),
+    ]),
+  ];
 }
 
 // Create the message cost popup instance
@@ -50,7 +40,7 @@ const messageCostPopup: PopupInstance<MessageCostResponse> = createPopup<Message
     title: 'Message Cost',
     styleClass: 'message-cost',
   },
-  renderMessageCost
+  messageCost
 );
 
 /**

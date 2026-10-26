@@ -3,7 +3,7 @@
  */
 
 import { resetTurnAnchor } from './turn-anchor';
-import { createElement, escapeHtml, getElementById, scrollToBottom, clearElement } from '../../utils/dom';
+import { createElement, escapeHtml, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
@@ -460,7 +460,7 @@ function renderMessageContent(message: Message): HTMLDivElement {
   const hasFiles = !!message.files && message.files.length > 0;
 
   if (message.role === 'assistant') {
-    content.innerHTML = renderMarkdown(message.content);
+    setSanitizedHtml(content, renderMarkdown(message.content));
     highlightAllCodeBlocks(content);
     void renderMermaidIn(content);
     if (hasFiles && message.files) {
