@@ -1,15 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/core/deep-research', () => ({
-  startDeepResearch: vi.fn(() => Promise.resolve()),
-  declineDeepResearch: vi.fn(() => Promise.resolve()),
-}));
-import { declineDeepResearch, startDeepResearch } from '@/core/deep-research';
 import {
   _resetResearchOffers,
   estimateFrom,
   initResearchOffers,
   refreshReportLinks,
   renderResearchOffer,
+  type ResearchOfferActions,
 } from '@/components/messages/research-offer';
 import type { ResearchOffer } from '@/types/api';
 
@@ -18,6 +14,9 @@ function at<T>(items: ArrayLike<T>, i: number): T {
   if (item === undefined) throw new Error(`no item at index ${i}`);
   return item;
 }
+
+const startDeepResearch = vi.fn<ResearchOfferActions['start']>(() => Promise.resolve(true));
+const declineDeepResearch = vi.fn<ResearchOfferActions['decline']>(() => Promise.resolve(true));
 
 const RATES = { base_minutes: 2, per_wave_minutes: 2.5, parallelism: 4, base_czk: 3, per_item_czk: 2 };
 
@@ -38,7 +37,7 @@ function offer(overrides: Partial<ResearchOffer> = {}): ResearchOffer {
 
 function render(o: ResearchOffer | null, options?: { live?: boolean }): HTMLElement {
   document.body.innerHTML = '<div id="messages"><div class="message assistant" data-message-id="m1"><div class="message-content-wrapper"><div class="message-content"><p>Odpověď</p></div></div></div></div>';
-  initResearchOffers();
+  initResearchOffers({ start: startDeepResearch, decline: declineDeepResearch });
   const el = document.querySelector<HTMLElement>('.message')!;
   renderResearchOffer(el, { id: 'm1', ...(o && { research: { offer: o } }) }, options);
   return el;

@@ -16,7 +16,6 @@ import {
 } from '../config';
 import type { ArtifactRef } from '../types/api';
 import { createLogger } from '../utils/logger';
-import { sendUiMessage } from './messaging';
 
 const log = createLogger('artifacts');
 
@@ -50,6 +49,13 @@ interface Entry {
 const entries = new Map<HTMLIFrameElement, Entry>();
 let listening = false;
 let themeObserver: MutationObserver | null = null;
+// Sends an artifact's message as the user's (core/messaging, set at startup:
+// messaging reaches the message components, which register frames here)
+let sendAsUser: ((text: string) => Promise<boolean>) | null = null;
+
+export function setArtifactSender(send: (text: string) => Promise<boolean>): void {
+  sendAsUser = send;
+}
 
 export function currentTheme(): ArtifactTheme {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -126,7 +132,7 @@ function send(entry: Entry, text: string): void {
     return;
   }
   entry.lastSendAt = now;
-  void sendUiMessage(text.slice(0, ARTIFACT_SEND_MAX_CHARS));
+  void sendAsUser?.(text.slice(0, ARTIFACT_SEND_MAX_CHARS));
 }
 
 function openLink(href: string): void {

@@ -8,13 +8,21 @@ vi.mock('@/api/artifacts', () => ({
 vi.mock('@/core/messaging', () => ({ sendUiMessage: vi.fn(() => Promise.resolve(true)) }));
 import { fetchArtifactVersion, saveArtifactState } from '@/api/artifacts';
 import { sendUiMessage } from '@/core/messaging';
-import { _registeredFrameCount, _resetArtifactHost, observeTheme, registerFrame } from '@/core/artifact-host';
+import {
+  _registeredFrameCount,
+  _resetArtifactHost,
+  observeTheme,
+  registerFrame,
+  setArtifactSender,
+} from '@/core/artifact-host';
 import {
   ARTIFACT_MAX_HEIGHT_VH,
   ARTIFACT_MIN_HEIGHT_PX,
   ARTIFACT_READY_TIMEOUT_MS,
   ARTIFACT_STATE_SAVE_DEBOUNCE_MS,
 } from '@/config';
+
+setArtifactSender(sendUiMessage);
 
 const REF = { id: 'a', version: 1, title: 'Tips' };
 

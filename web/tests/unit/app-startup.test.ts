@@ -179,7 +179,10 @@ vi.mock('@/sync/SyncManager', () => {
   };
 });
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: h.rec('renderChatHeader') }));
-vi.mock('@/core/messaging', () => ({ sendMessage: h.recAsync('sendMessage') }));
+vi.mock('@/core/messaging', () => ({
+  sendMessage: h.recAsync('sendMessage'),
+  sendUiMessage: h.recAsync('sendUiMessage', true),
+}));
 vi.mock('@/core/active-requests', () => ({
   handleStopStreaming: h.rec('handleStopStreaming'),
   abortAllStreamingRequests: h.rec('abortAllStreamingRequests'),

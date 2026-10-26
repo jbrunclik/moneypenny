@@ -2,13 +2,12 @@
  * Streaming message state management and updates.
  */
 
-import { createElement, getElementById, isScrolledToBottom } from '../../utils/dom';
+import { createElement, getElementById, isScrolledToBottom, scrollDebug } from '../../utils/dom';
 import { updateLatestAssistantMarker } from './render';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
 import { highlightLiveCodeBlocks } from './live-highlight';
 import { programmaticScrollToBottom } from '../../utils/programmatic-scroll';
-import { kbDebugEvent } from '../../core/keyboard-viewport';
 import { checkScrollButtonVisibility, setStreamingPausedIndicator } from '../ScrollToBottom';
 import { AI_AVATAR, createIconElement } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
@@ -144,7 +143,7 @@ function logThinkingBarPosition(bar: HTMLElement): void {
   const snap = (label: string): void => {
     const pill = document.getElementById('input-container')?.getBoundingClientRect();
     const r = bar.getBoundingClientRect();
-    kbDebugEvent(label, {
+    scrollDebug(label, {
       barTop: Math.round(r.top),
       barBot: Math.round(r.bottom),
       pillTop: pill ? Math.round(pill.top) : null,

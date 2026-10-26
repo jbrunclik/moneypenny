@@ -15,7 +15,6 @@ import {
   DEEP_RESEARCH_MAX_ITEM_CHARS,
   DEEP_RESEARCH_MAX_SUB_QUESTIONS,
 } from '../../config';
-import { declineDeepResearch, startDeepResearch } from '../../core/deep-research';
 import { findActionReply } from '../../core/message-links';
 import { useStore } from '../../state/store';
 import { flashElement } from './action-row';
@@ -33,6 +32,18 @@ const offersByCard = new WeakMap<HTMLElement, ResearchOffer>();
 /** Running autostart countdowns, by card */
 const countdowns = new WeakMap<HTMLElement, ReturnType<typeof setInterval>>();
 const wired = new WeakSet<HTMLElement>();
+
+/** What Start and No thanks do: core/deep-research, passed in at startup (F1). */
+export interface ResearchOfferActions {
+  start: (
+    offerMessageId: string,
+    subQuestions: string[],
+    context: string,
+    options: { whenIdle?: boolean; minutes?: number }
+  ) => Promise<boolean>;
+  decline: (offerMessageId: string) => Promise<boolean>;
+}
+let actions: ResearchOfferActions | null = null;
 
 /** Test hook: forget auto-started offers. */
 export function _resetResearchOffers(): void {
@@ -152,7 +163,7 @@ function start(card: HTMLElement, plan: string[], ctx: string, whenIdle = false)
     ...(whenIdle && { whenIdle }),
     ...(offer && { minutes: estimateFrom(offer.rates, plan.length).minutes }),
   };
-  void startDeepResearch(messageId, plan, ctx, options).then((sent) => {
+  void actions?.start(messageId, plan, ctx, options).then((sent) => {
     // The card may have been re-rendered meanwhile: update the current one
     const current = document.querySelector<HTMLElement>(`.${CARD_CLASS}[data-message-id="${messageId}"]`) ?? card;
     // Not sent (a reply is still running): the editor comes back
@@ -223,7 +234,7 @@ function declineOffer(card: HTMLElement, button: HTMLButtonElement): void {
   const messageId = card.dataset.messageId;
   if (!messageId) return;
   button.disabled = true;
-  void declineDeepResearch(messageId).then((ok) => {
+  void actions?.decline(messageId).then((ok) => {
     if (ok === false) button.disabled = false;
     else card.remove(); // nothing left to act on
   });
@@ -286,7 +297,11 @@ function onInput(e: Event): void {
 }
 
 /** Delegated listeners on the message list (call once it exists). */
-export function initResearchOffers(container = document.getElementById('messages')): void {
+export function initResearchOffers(
+  offerActions: ResearchOfferActions,
+  container = document.getElementById('messages')
+): void {
+  actions = offerActions;
   if (!container || wired.has(container)) return;
   wired.add(container);
   container.addEventListener('click', onClick);

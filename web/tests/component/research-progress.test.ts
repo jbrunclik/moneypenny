@@ -3,7 +3,6 @@ vi.mock('@/api/conversations', () => ({
   conversations: { finishNow: vi.fn(() => Promise.resolve()) },
   messages: {},
 }));
-vi.mock('@/core/deep-research', () => ({ startDeepResearch: vi.fn(), declineDeepResearch: vi.fn() }));
 import { conversations } from '@/api/conversations';
 import {
   _resetResearchProgress,
