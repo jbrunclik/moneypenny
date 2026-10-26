@@ -25,6 +25,7 @@ import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse
 import { SyncState, type SyncManagerCallbacks } from './sync-state';
 import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
 import { PlannerSync } from './planner-sync';
+import { AgentConversationSync } from './agent-conversation-sync';
 
 const log = createLogger('sync');
 
@@ -51,6 +52,7 @@ export class SyncManager {
   private callbacks: SyncManagerCallbacks;
   private readonly state: SyncState;
   private readonly planner: PlannerSync;
+  private readonly agentConversation: AgentConversationSync;
 
   /**
    * Lock to prevent concurrent sync operations.
@@ -67,20 +69,11 @@ export class SyncManager {
   /** Stopped (logout) - a start still awaiting its first sync must not go on. */
   private stopped = false;
 
-  /**
-   * Tracks the agent ID being viewed (for agent conversation sync).
-   */
-  private viewedAgentId: string | null = null;
-
-  /**
-   * Tracks agent conversation message count for sync.
-   */
-  private agentConversationMessageCount: number | null = null;
-
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
     this.state = new SyncState(callbacks, toast);
     this.planner = new PlannerSync(callbacks);
+    this.agentConversation = new AgentConversationSync(this.state);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handlePageShow = this.handlePageShow.bind(this);
     this.handleOnline = this.handleOnline.bind(this);
@@ -165,8 +158,7 @@ export class SyncManager {
     this.stopped = true;
     this.isSyncing = false;
     this.planner.clear();
-    this.viewedAgentId = null;
-    this.agentConversationMessageCount = null;
+    this.agentConversation.clear();
   }
 
   /**
@@ -306,7 +298,7 @@ export class SyncManager {
       await this.planner.sync();
 
       // Sync agent conversation if viewing one
-      await this.syncAgentConversation();
+      await this.agentConversation.sync();
 
       // Sync command center to keep badges updated
       await this.syncCommandCenter();
@@ -509,7 +501,7 @@ export class SyncManager {
    *
    * Note: The sync endpoint only returns regular conversations - planner and autonomous
    * agent conversations are filtered out at the backend (is_planning=0, is_agent=0).
-   * They have separate sync mechanisms (syncPlanner, syncAgentConversation).
+   * They have separate sync mechanisms (PlannerSync, AgentConversationSync).
    */
   private applyFullSync(serverConversations: ConversationSummary[], knownBefore: Set<string>): void {
     const store = useStore.getState();
@@ -869,9 +861,7 @@ export class SyncManager {
 
     if (store.currentConversation?.id !== convId) return;
     if (store.isPlannerView) this.planner.noteOwnCount(count);
-    if (this.viewedAgentId && this.agentConversationMessageCount !== null) {
-      this.agentConversationMessageCount = count;
-    }
+    this.agentConversation.noteOwnCount(count);
   }
 
   /**
@@ -1037,55 +1027,6 @@ export class SyncManager {
     }, SYNC_POLL_INTERVAL_MS);
   }
 
-  /**
-   * Sync agent conversation state to detect external updates.
-   * This runs separately from normal conversation sync since agent conversations
-   * are excluded from regular sync (have is_agent=1 flag).
-   */
-  private async syncAgentConversation(): Promise<void> {
-    // Skip if not viewing an agent conversation
-    if (!this.viewedAgentId) {
-      return;
-    }
-
-    // Skip if the agent conversation is currently streaming
-    const store = useStore.getState();
-    const currentConv = store.currentConversation;
-    if (currentConv && this.state.streamingConversations.has(currentConv.id)) {
-      log.debug('Skipping agent sync - conversation is streaming');
-      return;
-    }
-
-    try {
-      const response = await agentsApi.syncConversation(this.viewedAgentId);
-
-      if (!response.conversation) {
-        // Agent conversation doesn't exist
-        log.debug('Agent conversation not found', { agentId: this.viewedAgentId });
-        return;
-      }
-
-      const { message_count } = response.conversation;
-
-      // Check for new messages (message count increased)
-      if (this.agentConversationMessageCount !== null && message_count > this.agentConversationMessageCount) {
-        // New messages added in another tab/device
-        log.info('Agent conversation has new messages', {
-          agentId: this.viewedAgentId,
-          previousCount: this.agentConversationMessageCount,
-          newCount: message_count,
-        });
-        this.callbacks.onAgentConversationExternalUpdate?.(message_count);
-      }
-
-      // Update tracking state
-      this.agentConversationMessageCount = message_count;
-    } catch (error) {
-      log.warn('Agent conversation sync failed', { error, agentId: this.viewedAgentId });
-      // Don't throw - syncing is best-effort
-    }
-  }
-
   /** Baseline for the planner view's new-message check (see PlannerSync.setBaseline). */
   setPlannerBaseline(messageCount: number): void {
     this.planner.setBaseline(messageCount);
@@ -1094,20 +1035,9 @@ export class SyncManager {
   /**
    * Set the agent being viewed for sync tracking.
    * Call this when entering/leaving an agent conversation.
-   *
-   * @param agentId The agent ID being viewed, or null when leaving
-   * @param messageCount The current message count (to establish baseline)
    */
   setViewedAgent(agentId: string | null, messageCount?: number): void {
-    if (agentId) {
-      this.viewedAgentId = agentId;
-      this.agentConversationMessageCount = messageCount ?? null;
-      log.debug('Set viewed agent', { agentId, messageCount });
-    } else {
-      this.viewedAgentId = null;
-      this.agentConversationMessageCount = null;
-      log.debug('Cleared viewed agent');
-    }
+    this.agentConversation.setViewedAgent(agentId, messageCount);
   }
 
   /**
