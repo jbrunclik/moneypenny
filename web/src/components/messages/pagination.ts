@@ -142,11 +142,13 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
       PaginationDirection.OLDER
     );
 
-    // Guard again after async operation - user might have switched conversations
-    if (store.currentConversation?.id !== conversationId) {
+    // Guard again after async operation - user might have switched conversations.
+    // Fresh state: the store snapshot above predates the request
+    const currentId = useStore.getState().currentConversation?.id;
+    if (currentId !== conversationId) {
       log.debug('Discarding older messages - conversation changed during load', {
         requestedId: conversationId,
-        currentId: store.currentConversation?.id,
+        currentId,
       });
       store.setLoadingOlderMessages(conversationId, false);
       hideOlderMessagesLoader();
@@ -437,11 +439,13 @@ async function loadNewerMessages(conversationId: string, container: HTMLElement)
       PaginationDirection.NEWER
     );
 
-    // Guard again after async operation - user might have switched conversations
-    if (store.currentConversation?.id !== conversationId) {
+    // Guard again after async operation - user might have switched conversations.
+    // Fresh state: the store snapshot above predates the request
+    const currentId = useStore.getState().currentConversation?.id;
+    if (currentId !== conversationId) {
       log.debug('Discarding newer messages - conversation changed during load', {
         requestedId: conversationId,
-        currentId: store.currentConversation?.id,
+        currentId,
       });
       store.setLoadingNewerMessages(conversationId, false);
       hideNewerMessagesLoader();
@@ -576,8 +580,8 @@ async function loadAllRemainingNewerMessagesOnce(conversationId: string): Promis
     while (pagination && pagination.hasNewer && pagination.newerCursor && batchCount < maxBatches) {
       batchCount++;
 
-      // Guard: Check if conversation changed
-      if (store.currentConversation?.id !== conversationId) {
+      // Guard: Check if conversation changed (fresh state: earlier batches awaited)
+      if (useStore.getState().currentConversation?.id !== conversationId) {
         log.debug('Conversation changed during newer messages load', { conversationId });
         throw new Error('Conversation changed');
       }
@@ -590,7 +594,7 @@ async function loadAllRemainingNewerMessagesOnce(conversationId: string): Promis
       );
 
       // Guard again after async operation
-      if (store.currentConversation?.id !== conversationId) {
+      if (useStore.getState().currentConversation?.id !== conversationId) {
         log.debug('Conversation changed during newer messages load (post-fetch)', { conversationId });
         throw new Error('Conversation changed');
       }

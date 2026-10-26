@@ -281,13 +281,9 @@ describe('message pagination', () => {
       expect(api.getMessages).not.toHaveBeenCalled();
     });
 
-    // BUG: loadOlderMessages captures `useStore.getState()` before the
-    // request and re-checks `store.currentConversation` after it - but that
-    // is the pre-await snapshot, so the "conversation changed during load"
-    // guard never fires. Trigger: scroll to the top of conversation A on a
-    // slow network, switch to B before the page arrives. Result: A's older
-    // messages are inserted at the top of B's message list.
-    it.fails('drops a page that arrives after the user switched to another conversation', async () => {
+    // The guard reads fresh state after the request: a pre-await snapshot
+    // once let A's older messages land in B's list
+    it('drops a page that arrives after the user switched to another conversation', async () => {
       openConversation('c1', ['a3'], { has_older: true, older_cursor: 'o' });
       const load = deferred<Page>();
       api.getMessages.mockReturnValue(load.promise);
@@ -359,10 +355,8 @@ describe('message pagination', () => {
       expect(container.querySelector('.newer-messages-loader')).toBeNull();
     });
 
-    // BUG: same stale-snapshot guard as loadOlderMessages (see above).
-    // Trigger: scroll to the bottom of a partial view of A, switch to B
-    // before the page arrives. Result: A's newer messages are appended to B.
-    it.fails('drops a page that arrives after the user switched to another conversation', async () => {
+    // Fresh state after the request (see loadOlderMessages above)
+    it('drops a page that arrives after the user switched to another conversation', async () => {
       openConversation('c1', ['a1'], { has_newer: true, newer_cursor: 'n' });
       const load = deferred<Page>();
       api.getMessages.mockReturnValue(load.promise);
@@ -442,11 +436,8 @@ describe('message pagination', () => {
       expect(container.querySelector('.newer-messages-loader')).toBeNull();
     });
 
-    // BUG: same stale-snapshot guard (see loadOlderMessages above). Trigger:
-    // send from a partial view of A (after a search jump), switch to B while
-    // the pages load. Result: every remaining page of A is appended to B's
-    // list instead of the run stopping with "Conversation changed".
-    it.fails('stops with "Conversation changed" when the user switches away mid-run', async () => {
+    // Fresh state after each page (see loadOlderMessages above)
+    it('stops with "Conversation changed" when the user switches away mid-run', async () => {
       openConversation('c1', ['a1'], { has_newer: true, newer_cursor: 'n1' });
       const load = deferred<Page>();
       api.getMessages.mockReturnValueOnce(load.promise);
