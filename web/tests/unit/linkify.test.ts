@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { linkifyText, containsUrls, safeHttpUrl } from '../../src/utils/linkify';
+import { linkify, safeHttpUrl } from '../../src/utils/linkify';
 
-describe('linkifyText', () => {
+/** The links and text linkify builds, serialized. */
+function linkifyText(text: string): string {
+  const div = document.createElement('div');
+  div.append(linkify(text));
+  return div.innerHTML;
+}
+
+describe('linkify', () => {
   it('should convert http:// URLs to clickable links', () => {
     const input = 'Check out http://example.com for more info';
     const output = linkifyText(input);
@@ -54,7 +61,7 @@ describe('linkifyText', () => {
   it('should handle URLs with paths, query params, and fragments', () => {
     const input = 'Check https://example.com/path/to/page?query=value&foo=bar#section';
     const output = linkifyText(input);
-    expect(output).toContain('href="https://example.com/path/to/page?query=value&foo=bar#section"');
+    expect(output).toContain('href="https://example.com/path/to/page?query=value&amp;foo=bar#section"');
   });
 
   it('should not linkify text that looks like URLs but is not', () => {
@@ -101,6 +108,13 @@ describe('linkifyText', () => {
     expect(output).toContain('<a href="https://www.test.org"');
   });
 
+  it('ends a URL at a quote or angle bracket, and never parses markup', () => {
+    expect(linkifyText('"https://q.com" <https://lt.com> <b>x</b>')).toBe(
+      '"<a href="https://q.com" target="_blank" rel="noopener noreferrer">https://q.com</a>" ' +
+        '&lt;<a href="https://lt.com" target="_blank" rel="noopener noreferrer">https://lt.com</a>&gt; &lt;b&gt;x&lt;/b&gt;'
+    );
+  });
+
   it('should handle empty string', () => {
     expect(linkifyText('')).toBe('');
   });
@@ -120,32 +134,6 @@ describe('linkifyText', () => {
     const input = 'Visit https://my-example_site.com/some_path';
     const output = linkifyText(input);
     expect(output).toContain('href="https://my-example_site.com/some_path"');
-  });
-});
-
-describe('containsUrls', () => {
-  it('should return true for text with http:// URLs', () => {
-    expect(containsUrls('Check http://example.com')).toBe(true);
-  });
-
-  it('should return true for text with https:// URLs', () => {
-    expect(containsUrls('Visit https://example.com')).toBe(true);
-  });
-
-  it('should return true for text with www. URLs', () => {
-    expect(containsUrls('Go to www.example.com')).toBe(true);
-  });
-
-  it('should return false for text without URLs', () => {
-    expect(containsUrls('Just plain text')).toBe(false);
-  });
-
-  it('should return false for empty string', () => {
-    expect(containsUrls('')).toBe(false);
-  });
-
-  it('should return true for multiple URLs', () => {
-    expect(containsUrls('Check https://example.com and www.test.org')).toBe(true);
   });
 });
 

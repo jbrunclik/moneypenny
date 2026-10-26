@@ -3,10 +3,10 @@
  */
 
 import { resetTurnAnchor } from './turn-anchor';
-import { createElement, escapeHtml, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
+import { createElement, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
 import { renderMermaidIn } from '../../utils/mermaid';
-import { linkifyText } from '../../utils/linkify';
+import { linkify } from '../../utils/linkify';
 import { observeThumbnail, setDeferImageObservation } from './thumbnail-loader';
 import { countVisibleImagesForScroll } from './image-load-scroll';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
@@ -470,10 +470,13 @@ function renderMessageContent(message: Message): HTMLDivElement {
   }
 
   if (message.content) {
-    // Escape HTML, replace newlines, then linkify URLs
-    const escapedContent = escapeHtml(message.content).replace(/\n/g, '<br>');
-    const linkedContent = linkifyText(escapedContent);
-    content.innerHTML = `<p>${linkedContent}</p>`;
+    // Plain text: a line break per newline, URLs as links
+    const paragraph = document.createElement('p');
+    message.content.split('\n').forEach((line, i) => {
+      if (i > 0) paragraph.append(document.createElement('br'));
+      paragraph.append(linkify(line));
+    });
+    content.append(paragraph);
   }
   if (hasFiles && message.files) {
     // Unconfirmed sends (pending/failed) have no server-side blobs yet

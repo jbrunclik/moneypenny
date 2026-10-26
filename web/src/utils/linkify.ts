@@ -24,37 +24,29 @@ function normalizeUrl(url: string): string {
 }
 
 /**
- * Convert plain text URLs to clickable anchor tags.
- * Opens links in new tab with security attributes.
- *
- * @param text - Plain text that may contain URLs
- * @returns HTML string with URLs converted to <a> tags
+ * Plain text with its URLs as links (new tab, noopener). The text is never
+ * parsed as HTML; a URL ends at whitespace, a quote or an angle bracket.
  *
  * @example
- * linkifyText('Check out https://example.com')
- * // Returns: 'Check out <a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>'
- *
- * @example
- * linkifyText('Visit www.example.com for more')
- * // Returns: 'Visit <a href="https://www.example.com" target="_blank" rel="noopener noreferrer">www.example.com</a> for more'
+ * linkify('Visit www.example.com for more')
+ * // 'Visit ', <a href="https://www.example.com" target="_blank" rel="noopener noreferrer">www.example.com</a>, ' for more'
  */
-export function linkifyText(text: string): string {
-  return text.replace(URL_PATTERN, (url) => {
-    const href = normalizeUrl(url);
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-  });
-}
-
-/**
- * Check if text contains any URLs
- *
- * @param text - Text to check for URLs
- * @returns true if text contains at least one URL
- */
-export function containsUrls(text: string): boolean {
-  // Create a new regex without 'g' flag to avoid state issues with .test()
-  const pattern = /(\b(?:https?:\/\/|www\.)[^\s<>"{}|\\^`[\]]+)/i;
-  return pattern.test(text);
+export function linkify(text: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  let last = 0;
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const url = match[0];
+    if (match.index > last) fragment.append(text.slice(last, match.index));
+    const link = document.createElement('a');
+    link.href = normalizeUrl(url);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = url;
+    fragment.append(link);
+    last = match.index + url.length;
+  }
+  if (last < text.length) fragment.append(text.slice(last));
+  return fragment;
 }
 
 /**
