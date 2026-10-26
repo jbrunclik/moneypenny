@@ -594,58 +594,41 @@ def google_calendar(
 
     # Checked above for every action that uses them
     eid = event_id or ""
+    # create_event's and update_event's shared trailing arguments, in order
+    fields = (
+        summary,
+        description,
+        location,
+        start_time,
+        end_time,
+        timezone,
+        all_day,
+        attendees,
+        reminders,
+        recurrence,
+        conference,
+        send_updates,
+    )
     handlers: dict[str, Callable[[], Any]] = {
         "list_calendars": lambda: _google_calendar_list_calendars(token),
         "list_events": lambda: _google_calendar_list_events(
             token, calendar_id, time_min, time_max, max_results, query
         ),
         "get_event": lambda: _google_calendar_get_event(token, calendar_id, eid),
-        "create_event": lambda: _google_calendar_create_event(
-            token,
-            calendar_id,
-            summary,
-            description,
-            location,
-            start_time,
-            end_time,
-            timezone,
-            all_day,
-            attendees,
-            reminders,
-            recurrence,
-            conference,
-            send_updates,
-        ),
-        "update_event": lambda: _google_calendar_update_event(
-            token,
-            calendar_id,
-            eid,
-            summary,
-            description,
-            location,
-            start_time,
-            end_time,
-            timezone,
-            all_day,
-            attendees,
-            reminders,
-            recurrence,
-            conference,
-            send_updates,
-        ),
+        "create_event": lambda: _google_calendar_create_event(token, calendar_id, *fields),
+        "update_event": lambda: _google_calendar_update_event(token, calendar_id, eid, *fields),
         "delete_event": lambda: _google_calendar_delete_event(
             token, calendar_id, eid, send_updates
         ),
         "respond_event": lambda: _google_calendar_respond_event(
-            token,
-            calendar_id,
-            eid,
-            response_status or "",
-            calendar_email,
-            send_updates,
+            token, calendar_id, eid, response_status or "", calendar_email, send_updates
         ),
     }
-    handler = handlers.get(action)
+    return _run_calendar_action(action, handlers.get(action))
+
+
+def _run_calendar_action(action: str, handler: Callable[[], Any] | None) -> str:
+    """Run the action's handler and shape its result or error for the model."""
     if handler is None:
         return tool_error(f"Unknown action: {action}", available_actions=list(_CALENDAR_ACTIONS))
 

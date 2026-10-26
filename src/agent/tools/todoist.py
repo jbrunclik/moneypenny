@@ -303,6 +303,11 @@ def todoist(
         "color": color,
         "section_name": section_name,
     }
+    return _run_todoist_action(action, token, args)
+
+
+def _run_todoist_action(action: str, token: str, args: dict[str, Any]) -> str:
+    """Validate the action's required arguments, run it and shape the result."""
     entry = _DISPATCH.get(action)
     if entry is None:
         return tool_error(f"Unknown action: {action}", available_actions=list(_TODOIST_ACTIONS))

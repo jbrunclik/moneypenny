@@ -253,6 +253,42 @@ class TestFetchUrl:
         assert isinstance(result, str)
         assert "This is plain text content" in result
 
+    @staticmethod
+    def _serve(mock_client_class: MagicMock, text: str, content_type: str) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_redirect = False
+        mock_response.text = text
+        mock_response.content = text.encode()
+        mock_response.headers = {"content-type": content_type}
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.get.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_truncates_long_plain_text(self, mock_client_class: MagicMock) -> None:
+        self._serve(mock_client_class, "x" * 50, "text/plain")
+
+        with patch("src.agent.tools.web.Config.HTML_TEXT_MAX_LENGTH", 10):
+            result = fetch_url.invoke({"url": "https://example.com/file.txt"})
+
+        assert "x" * 10 + "\n\n[Content truncated...]" in result
+        assert "x" * 11 not in result
+
+    @patch("src.agent.tools.web.httpx.Client")
+    def test_near_empty_page_suggests_the_browser(self, mock_client_class: MagicMock) -> None:
+        self._serve(mock_client_class, "<html><body><p>Hi</p></body></html>", "text/html")
+
+        with patch("src.agent.tools.web.Config.BROWSER_ENABLED", True):
+            result = fetch_url.invoke({"url": "https://example.com"})
+        with patch("src.agent.tools.web.Config.BROWSER_ENABLED", False):
+            without_browser = fetch_url.invoke({"url": "https://example.com"})
+
+        assert "Use the browser tool for JS-heavy pages." in result
+        assert "Use the browser tool" not in without_browser
+
     @patch("src.agent.tools.web.httpx.Client")
     def test_blocks_redirect_to_private_address(self, mock_client_class: MagicMock) -> None:
         """A redirect into a blocked IP range must be rejected, not followed."""

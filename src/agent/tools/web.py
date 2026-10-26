@@ -321,82 +321,15 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     # Handle HTML content - extract text
     if content_category == "html":
-        extracted_text = _extract_text_from_html(response.text)
-        logger.info(
-            "HTML content extracted", extra={"url": url, "text_length": len(extracted_text)}
-        )
-        wrapped = wrap_untrusted_content(extracted_text, url)
-        # Hint at browser tool when page likely needs JS rendering (our own
-        # trusted note, kept outside the untrusted-content markers)
-        if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
-            wrapped += (
-                "\n\n[Note: This page returned very little text. "
-                "It may require JavaScript rendering. "
-                "Use the browser tool for JS-heavy pages.]"
-            )
-        chain_nudge = _chained_fetch_nudge()
-        if chain_nudge:
-            wrapped += f"\n\n[{chain_nudge}]"
-        return wrapped + f"\n\n[{GROUNDING_DIRECTIVE}]"
+        return _html_result(url, _extract_text_from_html(response.text))
 
     # Handle plain text content
     if content_category == "text":
-        text_content = response.text
-        limit = Config.HTML_TEXT_MAX_LENGTH
-        if len(text_content) > limit:
-            text_content = text_content[:limit] + "\n\n[Content truncated...]"
-        logger.info("Text content fetched", extra={"url": url, "text_length": len(text_content)})
-        return wrap_untrusted_content(text_content, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
+        return _text_result(url, response.text)
 
     # Handle binary content (PDFs, images)
     if content_category == "binary":
-        # Check file size limit (10MB default)
-        max_size = Config.FETCH_URL_MAX_FILE_SIZE
-        if content_length > max_size:
-            logger.warning(
-                "File too large",
-                extra={"url": url, "size": content_length, "max_size": max_size},
-            )
-            return tool_error(
-                f"File is too large ({content_length // 1024 // 1024}MB). "
-                f"Maximum allowed size is {max_size // 1024 // 1024}MB."
-            )
-
-        # Get normalized MIME type
-        mime_type = content_type.split(";")[0].strip().lower()
-        # Normalize image/jpg to image/jpeg
-        if mime_type == "image/jpg":
-            mime_type = "image/jpeg"
-
-        # Encode as base64
-        file_base64 = base64.b64encode(response.content).decode("utf-8")
-
-        # Extract filename from URL for context
-        filename = url.split("/")[-1].split("?")[0] or "file"
-
-        logger.info(
-            "Binary content fetched",
-            extra={
-                "url": url,
-                "mime_type": mime_type,
-                "size": content_length,
-                "file_name": filename,
-            },
-        )
-
-        # Return multimodal content that the LLM can analyze
-        # This format matches how user-uploaded files are passed to the LLM
-        return [
-            {
-                "type": "text",
-                "text": f"Here is the content from {url} ({filename}, {mime_type}, {content_length} bytes):",
-            },
-            {
-                "type": "image",  # LangChain uses "image" type for both images and PDFs
-                "base64": file_base64,
-                "mime_type": mime_type,
-            },
-        ]
+        return _binary_result(url, response.content, content_type)
 
     # Unsupported content type
     logger.warning("Unsupported content type", extra={"url": url, "content_type": content_type})
@@ -404,6 +337,85 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
         f"Unsupported content type: {content_type}. "
         f"Supported types: HTML, plain text, PDF, and common image formats (PNG, JPEG, GIF, WebP)."
     )
+
+
+def _html_result(url: str, extracted_text: str) -> str:
+    """The page's extracted text, wrapped as untrusted, with the tool's notes."""
+    logger.info("HTML content extracted", extra={"url": url, "text_length": len(extracted_text)})
+    wrapped = wrap_untrusted_content(extracted_text, url)
+    # Hint at browser tool when page likely needs JS rendering (our own
+    # trusted note, kept outside the untrusted-content markers)
+    if len(extracted_text) < 100 and Config.BROWSER_ENABLED:
+        wrapped += (
+            "\n\n[Note: This page returned very little text. "
+            "It may require JavaScript rendering. "
+            "Use the browser tool for JS-heavy pages.]"
+        )
+    chain_nudge = _chained_fetch_nudge()
+    if chain_nudge:
+        wrapped += f"\n\n[{chain_nudge}]"
+    return wrapped + f"\n\n[{GROUNDING_DIRECTIVE}]"
+
+
+def _text_result(url: str, text_content: str) -> str:
+    """Plain text, truncated and wrapped as untrusted."""
+    limit = Config.HTML_TEXT_MAX_LENGTH
+    if len(text_content) > limit:
+        text_content = text_content[:limit] + "\n\n[Content truncated...]"
+    logger.info("Text content fetched", extra={"url": url, "text_length": len(text_content)})
+    return wrap_untrusted_content(text_content, url) + f"\n\n[{GROUNDING_DIRECTIVE}]"
+
+
+def _binary_result(url: str, content: bytes, content_type: str) -> str | list[dict[str, Any]]:
+    """A PDF or image as multimodal content, or the error when it is too large."""
+    content_length = len(content)
+    # Check file size limit (10MB default)
+    max_size = Config.FETCH_URL_MAX_FILE_SIZE
+    if content_length > max_size:
+        logger.warning(
+            "File too large",
+            extra={"url": url, "size": content_length, "max_size": max_size},
+        )
+        return tool_error(
+            f"File is too large ({content_length // 1024 // 1024}MB). "
+            f"Maximum allowed size is {max_size // 1024 // 1024}MB."
+        )
+
+    # Get normalized MIME type
+    mime_type = content_type.split(";")[0].strip().lower()
+    # Normalize image/jpg to image/jpeg
+    if mime_type == "image/jpg":
+        mime_type = "image/jpeg"
+
+    # Encode as base64
+    file_base64 = base64.b64encode(content).decode("utf-8")
+
+    # Extract filename from URL for context
+    filename = url.split("/")[-1].split("?")[0] or "file"
+
+    logger.info(
+        "Binary content fetched",
+        extra={
+            "url": url,
+            "mime_type": mime_type,
+            "size": content_length,
+            "file_name": filename,
+        },
+    )
+
+    # Return multimodal content that the LLM can analyze
+    # This format matches how user-uploaded files are passed to the LLM
+    return [
+        {
+            "type": "text",
+            "text": f"Here is the content from {url} ({filename}, {mime_type}, {content_length} bytes):",
+        },
+        {
+            "type": "image",  # LangChain uses "image" type for both images and PDFs
+            "base64": file_base64,
+            "mime_type": mime_type,
+        },
+    ]
 
 
 _SEARCH_WARNING = (

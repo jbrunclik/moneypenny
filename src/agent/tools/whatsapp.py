@@ -384,22 +384,9 @@ def whatsapp(
     """
     logger.info("whatsapp tool called", extra={"message_length": len(message)})
 
-    # Check if WhatsApp is configured at app level
-    if not Config.WHATSAPP_PHONE_NUMBER_ID or not Config.WHATSAPP_ACCESS_TOKEN:
-        return tool_error(
-            "WhatsApp not configured",
-            retriable=False,
-            message="WhatsApp integration is not configured. "
-            "Please set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.",
-        )
-
-    if not Config.WHATSAPP_TEMPLATE_NAME:
-        return tool_error(
-            "WhatsApp template not configured",
-            retriable=False,
-            message="WHATSAPP_TEMPLATE_NAME is required. "
-            "Create a message template in Meta Business Suite and configure it.",
-        )
+    config_error = _whatsapp_config_error()
+    if config_error:
+        return config_error
 
     # Check permission for autonomous agents
     check_autonomous_permission("whatsapp", {"action": "send_message"})
@@ -421,14 +408,43 @@ def whatsapp(
             message="User has not configured their WhatsApp phone number in settings.",
         )
 
-    # Build conversation URL (only if APP_URL is configured)
-    conversation_url = None
-    if include_conversation_link and conversation_id and Config.APP_URL:
-        # Build full clickable URL using APP_URL (e.g., https://chat.example.com)
-        # The fragment (#/conversations/...) is used for SPA routing
-        base_url = Config.APP_URL.rstrip("/")
-        conversation_url = f"{base_url}/#/conversations/{conversation_id}"
+    conversation_url = _conversation_url(conversation_id) if include_conversation_link else None
+    return _send_agent_message(recipient_phone, message, conversation_url)
 
+
+def _whatsapp_config_error() -> str | None:
+    """The tool error when WhatsApp isn't configured at app level, else None."""
+    # Check if WhatsApp is configured at app level
+    if not Config.WHATSAPP_PHONE_NUMBER_ID or not Config.WHATSAPP_ACCESS_TOKEN:
+        return tool_error(
+            "WhatsApp not configured",
+            retriable=False,
+            message="WhatsApp integration is not configured. "
+            "Please set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN.",
+        )
+
+    if not Config.WHATSAPP_TEMPLATE_NAME:
+        return tool_error(
+            "WhatsApp template not configured",
+            retriable=False,
+            message="WHATSAPP_TEMPLATE_NAME is required. "
+            "Create a message template in Meta Business Suite and configure it.",
+        )
+    return None
+
+
+def _conversation_url(conversation_id: str | None) -> str | None:
+    """The conversation's clickable URL (only if APP_URL is configured)."""
+    if not conversation_id or not Config.APP_URL:
+        return None
+    # Build full clickable URL using APP_URL (e.g., https://chat.example.com)
+    # The fragment (#/conversations/...) is used for SPA routing
+    base_url = Config.APP_URL.rstrip("/")
+    return f"{base_url}/#/conversations/{conversation_id}"
+
+
+def _send_agent_message(recipient_phone: str, message: str, conversation_url: str | None) -> str:
+    """Format and send the message as the configured template; return the tool result."""
     try:
         # Format the message
         formatted_message, was_truncated = _format_agent_message(message, conversation_url)

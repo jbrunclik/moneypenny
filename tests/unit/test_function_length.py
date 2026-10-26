@@ -30,9 +30,7 @@ _SCOPE = [
 MAX_LINES = 100
 
 # "path:Qualified.name" -> current length; only shrinks
-BASELINE: dict[str, int] = {
-    "src/agent/tools/google_calendar.py:google_calendar": 107,
-}
+BASELINE: dict[str, int] = {}
 
 _NON_CODE_TOKENS = {
     tokenize.COMMENT,
