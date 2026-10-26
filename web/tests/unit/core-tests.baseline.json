@@ -1,0 +1,15 @@
+[
+  "gestures.ts",
+  "header-autohide.ts",
+  "response-scroll.ts",
+  "startup/app-shell.ts",
+  "startup/app-status.ts",
+  "startup/auth.ts",
+  "startup/composer.ts",
+  "startup/initial-data.ts",
+  "startup/message-events.ts",
+  "startup/message-scrolling.ts",
+  "startup/message-ui.ts",
+  "startup/search.ts",
+  "startup/sync.ts"
+]

@@ -114,7 +114,7 @@ Details: [testing.md](testing.md).
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | planned: post-step over the Playwright report |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 66 imports, Oct 26 2026) |
-| T8 | A new route module or `core/*.ts` module ships with a test | planned: CI script |
+| T8 | A new route module or `core/*.ts` module ships with a test | `tests/unit/test_route_tests.py` (`tests/integration/test_routes_<name>.py` or an integration test importing it; 7 baselined), `web/tests/unit/core-tests.test.ts` (imported at runtime by a unit or component test - `vi.mock` alone doesn't count; 13 baselined), Oct 26 2026; both baselines only shrink |
 | T9 | Unit tests touch neither a database nor the Flask client; anything that does is an integration test | judgment |
 | T10 | E2E runs the last `make build`; rebuild after any frontend change ([rule](../.claude/rules/testing.md)) | judgment |
 | T11 | UI changes are checked on desktop and mobile (768px breakpoint) | judgment; visual tests |
