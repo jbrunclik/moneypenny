@@ -132,14 +132,11 @@ function addFromFullSync(state: SyncState, store: AppState, serverConv: Conversa
   const knownCount = state.localMessageCounts.get(serverConv.id);
   const createdBeforeLoad = isPaginationDiscovered(
     state.initialLoadTime,
-    serverConv.created_at ?? serverConv.updated_at
+    serverConv.created_at
   );
   const baseline = knownCount ?? (createdBeforeLoad ? serverConv.message_count : 0);
   state.localMessageCounts.set(serverConv.id, baseline);
-  const unreadCount =
-    serverConv.read_count !== undefined
-      ? Math.max(0, serverConv.message_count - serverConv.read_count)
-      : Math.max(0, serverConv.message_count - baseline);
+  const unreadCount = Math.max(0, serverConv.message_count - serverConv.read_count);
 
   store.addConversation(listEntryFromSummary(serverConv, unreadCount));
 }

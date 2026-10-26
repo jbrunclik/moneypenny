@@ -6,7 +6,6 @@ real-time synchronization between multiple clients/devices.
 
 import json
 import time
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -38,7 +37,6 @@ class TestSyncConversationsEndpoint:
         data = json.loads(response.data)
         assert "conversations" in data
         assert "server_time" in data
-        assert data["is_full_sync"] is True
         assert len(data["conversations"]) == 2
 
         # Check message counts
@@ -65,94 +63,28 @@ class TestSyncConversationsEndpoint:
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["is_full_sync"] is True
         assert len(data["conversations"]) == 1
         assert data["conversations"][0]["id"] == conv.id
 
-    def test_incremental_sync_returns_only_updated(
+    def test_an_old_clients_since_gets_a_full_sync(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_database: Database,
         test_user: User,
     ) -> None:
-        """Should return only conversations updated after the given timestamp."""
-        # Create first conversation (not used directly, just needs to exist before checkpoint)
-        test_database.create_conversation(test_user.id, "Old Conv")
-
-        # Wait and capture checkpoint
-        time.sleep(0.01)
-        checkpoint = datetime.now().isoformat()
-
-        # Wait and create second conversation
-        time.sleep(0.01)
-        conv2 = test_database.create_conversation(test_user.id, "New Conv")
-        test_database.add_message(conv2.id, "user", "Hello")
-
-        response = client.get(
-            f"/api/conversations/sync?since={checkpoint}",
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["is_full_sync"] is False
-        assert len(data["conversations"]) == 1
-        assert data["conversations"][0]["id"] == conv2.id
-        assert data["conversations"][0]["message_count"] == 1
-
-    def test_incremental_sync_empty_when_no_changes(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        test_user: User,
-    ) -> None:
-        """Should return empty list when no conversations updated since timestamp."""
-        test_database.create_conversation(test_user.id, "Conv")
-
-        # Wait and use future timestamp
-        response = client.get(
-            "/api/conversations/sync?since=2099-01-01T00:00:00",
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["is_full_sync"] is False
-        assert len(data["conversations"]) == 0
-
-    def test_server_time_can_be_used_for_next_sync(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        test_user: User,
-    ) -> None:
-        """Server time from response should work as since param for next sync."""
+        """The timestamp sync is gone: a tab on an old build asking ?since= gets everything."""
         conv = test_database.create_conversation(test_user.id, "Conv")
 
-        # First sync - get server time
-        response1 = client.get("/api/conversations/sync", headers=auth_headers)
-        data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
-        assert len(data1["conversations"]) == 1
-
-        # Wait and add message to update conversation
-        time.sleep(0.01)
-        test_database.add_message(conv.id, "user", "New message")
-
-        # Second sync using server time from first response
-        response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
-            headers=auth_headers,
+        response = client.get(
+            "/api/conversations/sync?since=2099-01-01T00:00:00", headers=auth_headers
         )
-        data2 = json.loads(response2.data)
 
-        # Should return the updated conversation
-        assert len(data2["conversations"]) == 1
-        assert data2["conversations"][0]["id"] == conv.id
-        assert data2["conversations"][0]["message_count"] == 1
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert [c["id"] for c in data["conversations"]] == [conv.id]
+        assert data["removed_ids"] == []
+        assert data["has_more"] is False
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
@@ -170,7 +102,6 @@ class TestSyncConversationsEndpoint:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data["conversations"] == []
-        assert data["is_full_sync"] is True
 
 
 class TestSyncRaceConditions:
@@ -189,7 +120,7 @@ class TestSyncRaceConditions:
         # First sync
         response1 = client.get("/api/conversations/sync", headers=auth_headers)
         data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
+        cursor = data1["cursor"]
         assert data1["conversations"][0]["message_count"] == 0
 
         # Simulate message added exactly at/after the sync
@@ -197,7 +128,7 @@ class TestSyncRaceConditions:
 
         # Second sync should capture the new message
         response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
+            f"/api/conversations/sync?cursor={cursor}",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)
@@ -272,7 +203,7 @@ class TestSyncRaceConditions:
         # First sync
         response1 = client.get("/api/conversations/sync", headers=auth_headers)
         data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
+        cursor = data1["cursor"]
         assert data1["conversations"][0]["title"] == "Original Title"
 
         # Wait and update title
@@ -281,7 +212,7 @@ class TestSyncRaceConditions:
 
         # Second sync should capture the update
         response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
+            f"/api/conversations/sync?cursor={cursor}",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)
@@ -304,7 +235,7 @@ class TestSyncRaceConditions:
         # First sync
         response1 = client.get("/api/conversations/sync", headers=auth_headers)
         data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
+        cursor = data1["cursor"]
 
         # Wait then update all three conversations rapidly
         time.sleep(0.01)
@@ -314,7 +245,7 @@ class TestSyncRaceConditions:
 
         # Second sync should capture all updates
         response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
+            f"/api/conversations/sync?cursor={cursor}",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)
@@ -372,99 +303,6 @@ class TestSyncRaceConditions:
 
 class TestSyncTimestampEdgeCases:
     """Tests for edge cases with timestamp handling in sync."""
-
-    def test_sync_with_invalid_timestamp_format(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-    ) -> None:
-        """Should return 400 for invalid timestamp format."""
-        response = client.get(
-            "/api/conversations/sync?since=invalid-date",
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 400
-        data = json.loads(response.data)
-        assert data["error"]["code"] == "VALIDATION_ERROR"
-        assert "timestamp" in data["error"]["message"].lower()
-        assert data["error"]["details"]["field"] == "since"
-
-    def test_sync_with_malformed_iso_timestamp(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-    ) -> None:
-        """Should return 400 for malformed ISO timestamp."""
-        # Missing time component
-        response = client.get(
-            "/api/conversations/sync?since=2024-01-01",
-            headers=auth_headers,
-        )
-        # Python 3.11+ accepts date-only ISO format, so this may succeed
-        # Test with clearly invalid format instead
-        response = client.get(
-            "/api/conversations/sync?since=not-a-date",
-            headers=auth_headers,
-        )
-
-        assert response.status_code == 400
-        data = json.loads(response.data)
-        assert data["error"]["code"] == "VALIDATION_ERROR"
-
-    def test_sync_with_microsecond_precision_timestamp(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        test_user: User,
-    ) -> None:
-        """Should handle timestamps with microsecond precision."""
-        conv = test_database.create_conversation(test_user.id, "Conv")
-
-        # Get timestamp with microseconds
-        response1 = client.get("/api/conversations/sync", headers=auth_headers)
-        data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
-        # Verify server_time has proper format
-        assert "T" in server_time
-        # Should be parseable
-        datetime.fromisoformat(server_time)
-
-        time.sleep(0.01)
-        test_database.add_message(conv.id, "user", "New")
-
-        # Use the precise timestamp
-        response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
-            headers=auth_headers,
-        )
-        data2 = json.loads(response2.data)
-        assert len(data2["conversations"]) == 1
-
-    def test_sync_with_various_iso_formats(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        test_user: User,
-    ) -> None:
-        """Should handle various valid ISO timestamp formats."""
-        test_database.create_conversation(test_user.id, "Conv")
-
-        # Test with basic ISO format (no microseconds)
-        response1 = client.get(
-            "/api/conversations/sync?since=2000-01-01T00:00:00",
-            headers=auth_headers,
-        )
-        assert response1.status_code == 200
-
-        # Test with microseconds
-        response2 = client.get(
-            "/api/conversations/sync?since=2000-01-01T00:00:00.123456",
-            headers=auth_headers,
-        )
-        assert response2.status_code == 200
 
     def test_sync_returns_conversations_ordered_by_updated_at(
         self,
@@ -540,7 +378,7 @@ class TestSyncAgentConversationExclusion:
 
         response1 = client.get("/api/conversations/sync", headers=auth_headers)
         data1 = json.loads(response1.data)
-        server_time = data1["server_time"]
+        cursor = data1["cursor"]
 
         # Wait and create agent
         time.sleep(0.01)
@@ -553,7 +391,7 @@ class TestSyncAgentConversationExclusion:
 
         # Incremental sync should only return regular conversation
         response2 = client.get(
-            f"/api/conversations/sync?since={server_time}",
+            f"/api/conversations/sync?cursor={cursor}",
             headers=auth_headers,
         )
 
@@ -640,7 +478,6 @@ class TestCursorSync:
         assert by_id[pinned.id]["archived"] is False
         assert data["cursor"] > cursor
         assert data["has_more"] is False
-        assert data["is_full_sync"] is False
 
     def test_cursor_sync_reports_permanent_deletes(
         self,

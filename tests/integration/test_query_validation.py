@@ -20,7 +20,7 @@ import src.api.routes.chat as chat_routes
 import src.api.routes.planner as planner_routes
 from src.api.schemas.base import QueryModel
 from src.api.validation import validate_query
-from src.db.models import Database, User
+from src.db.models import Conversation, Database, User
 from src.enums import PaginationDirection
 
 
@@ -252,29 +252,42 @@ def test_malformed_page_cursor_is_a_400(
 
 
 class TestSyncQuery:
+    # A full sync returns every conversation; a cursor sync only what changed
+    # after the cursor - so a current cursor tells the two apart
+
     def test_full_is_case_insensitive(
-        self, client: FlaskClient, auth_headers: dict[str, str]
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
     ) -> None:
+        cursor = test_database.get_sync_cursor()
         response = client.get(
-            "/api/conversations/sync?since=2099-01-01T00:00:00&full=TRUE", headers=auth_headers
+            f"/api/conversations/sync?cursor={cursor}&full=TRUE", headers=auth_headers
         )
-        assert response.get_json()["is_full_sync"] is True
+        assert [c["id"] for c in response.get_json()["conversations"]] == [test_conversation.id]
 
     def test_anything_but_true_is_not_full(
-        self, client: FlaskClient, auth_headers: dict[str, str]
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_conversation: Conversation,
     ) -> None:
+        cursor = test_database.get_sync_cursor()
         response = client.get(
-            "/api/conversations/sync?since=2099-01-01T00:00:00&full=1", headers=auth_headers
+            f"/api/conversations/sync?cursor={cursor}&full=1", headers=auth_headers
         )
         assert response.status_code == 200
-        assert response.get_json()["is_full_sync"] is False
+        assert response.get_json()["conversations"] == []
 
     def test_full_ignores_a_bad_cursor(
-        self, client: FlaskClient, auth_headers: dict[str, str]
+        self, client: FlaskClient, auth_headers: dict[str, str], test_conversation: Conversation
     ) -> None:
         response = client.get("/api/conversations/sync?cursor=abc&full=true", headers=auth_headers)
         assert response.status_code == 200
-        assert response.get_json()["is_full_sync"] is True
+        assert [c["id"] for c in response.get_json()["conversations"]] == [test_conversation.id]
 
     def test_blank_cursor_is_rejected(
         self, client: FlaskClient, auth_headers: dict[str, str]

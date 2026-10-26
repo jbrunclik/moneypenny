@@ -13,8 +13,8 @@ _ROOT = Path(__file__).parents[2]
 _PY_TESTS = sorted((_ROOT / "tests").rglob("*.py"))
 _TS_TESTS = sorted((_ROOT / "web" / "tests").rglob("*.ts"))
 
-SLEEP_BASELINE = 72
-WAIT_FOR_TIMEOUT_BASELINE = 285
+SLEEP_BASELINE = 64
+WAIT_FOR_TIMEOUT_BASELINE = 284
 PRIVATE_IMPORT_BASELINE = 66
 
 

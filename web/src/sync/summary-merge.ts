@@ -8,7 +8,6 @@
 import { useStore, type AppState } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { DEFAULT_CONVERSATION_TITLE, type Conversation, type ConversationSummary } from '../types/api';
-import { isPaginationDiscovered } from './pagination-window';
 import type { SyncState } from './sync-state';
 
 const log = createLogger('sync');
@@ -65,25 +64,15 @@ function applySummary(
   // Server-side read state wins: shared by the user's devices, so a chat
   // read on the phone isn't unread here (the local count only drives the
   // open conversation's change detection)
-  if (serverConv.read_count !== undefined && !isCurrentConv) {
+  if (!isCurrentConv) {
     unread.unreadCount = Math.max(0, serverConv.message_count - serverConv.read_count);
   }
 
-  if (existing) {
-    updateExisting(state, store, serverConv, existing, isCurrentConv, unread);
-  } else {
-    if (isFullSync) {
-      // Full sync should never add new conversations - they should come via pagination
-      // This is a safety check in case applyFullSync() filtering fails
-      log.warn('Full sync attempted to add new conversation (should not happen)', {
-        conversationId: serverConv.id,
-      });
-      return false;
-    }
-    if (!addDiscovered(state, store, serverConv)) return true;
-  }
-
-  updateLocalBaseline(state, serverConv, existing !== undefined, isFullSync, isCurrentConv, unread.unreadCount);
+  // Callers pass only conversations the list holds (the full sync and the
+  // change log add the others themselves)
+  if (!existing) return true;
+  updateExisting(state, store, serverConv, existing, isCurrentConv, unread);
+  updateLocalBaseline(state, serverConv, isFullSync, isCurrentConv, unread.unreadCount);
   return true;
 }
 
@@ -117,14 +106,10 @@ function detectUnread(
 function adoptServerState(state: SyncState, store: AppState, serverConv: ConversationSummary): void {
   // The server's read state is what our reports dedupe against (a device
   // that reported the same count, or a higher one, makes ours moot)
-  if (serverConv.read_count !== undefined) {
-    state.reportedReadCounts.set(serverConv.id, serverConv.read_count);
-  }
+  state.reportedReadCounts.set(serverConv.id, serverConv.read_count);
   // Another device toggled anonymous mode: adopt it (the next send here
   // must not turn it back on)
-  if (serverConv.anonymous_mode !== undefined) {
-    store.setAnonymousMode(serverConv.id, serverConv.anonymous_mode);
-  }
+  store.setAnonymousMode(serverConv.id, serverConv.anonymous_mode);
 }
 
 function updateExisting(
@@ -135,7 +120,7 @@ function updateExisting(
   isCurrentConv: boolean,
   unread: UnreadState
 ): void {
-  if (serverConv.pinned !== undefined && Boolean(existing.pinned) !== serverConv.pinned) {
+  if (Boolean(existing.pinned) !== serverConv.pinned) {
     store.updateConversation(serverConv.id, { pinned: serverConv.pinned });
   }
   // The open chat's header shows the title too (the sidebar re-renders)
@@ -153,57 +138,8 @@ function updateExisting(
 }
 
 /**
- * A conversation the list doesn't hold, from an incremental sync. Returns
- * whether it was added.
- *
- * Pagination-discovered (older than the initial page load): not added -
- * it comes via pagination when the user scrolls - and no badge; only its
- * message count is tracked for then. Actually new (created/updated after
- * the page load, e.g. on another device): added with an unread badge. An
- * older conversation continued on another device has a count we already
- * know (full sync tracks unloaded ones): only the rest is new.
- */
-function addDiscovered(state: SyncState, store: AppState, serverConv: ConversationSummary): boolean {
-  if (isPaginationDiscovered(state.initialLoadTime, serverConv.updated_at)) {
-    log.info('Pagination-discovered conversation (not unread, skipping add)', {
-      conversationId: serverConv.id,
-      updated_at: serverConv.updated_at,
-    });
-    state.localMessageCounts.set(serverConv.id, serverConv.message_count);
-    return false;
-  }
-
-  const knownCount = state.localMessageCounts.get(serverConv.id);
-  const unreadCount = Math.max(0, serverConv.message_count - (knownCount ?? 0));
-  log.info('Actually new conversation discovered via sync (showing unread badge)', {
-    conversationId: serverConv.id,
-    updated_at: serverConv.updated_at,
-    messageCount: serverConv.message_count,
-    unreadCount,
-  });
-  // For actually new conversations, initialize to 0 so unread count is correct
-  // (unreadCount = serverCount - localCount = serverCount - 0 = serverCount);
-  // updateLocalBaseline preserves it until the user views the conversation
-  if (knownCount === undefined) state.localMessageCounts.set(serverConv.id, 0);
-
-  store.addConversation({
-    id: serverConv.id,
-    title: serverConv.title,
-    model: serverConv.model,
-    created_at: serverConv.updated_at, // We don't have created_at in sync response
-    updated_at: serverConv.updated_at,
-    messageCount: serverConv.message_count,
-    last_message_preview: serverConv.last_message_preview,
-    unreadCount,
-    hasExternalUpdate: false,
-  });
-  return true;
-}
-
-/**
  * Update local message count tracking:
- * - On full sync: always update (establishing baseline), EXCEPT for actually new conversations
- *   that were just initialized to 0 (we want to preserve 0 until user views it)
+ * - On full sync: always update (establishing baseline)
  * - On incremental sync for current conv: don't update (user might have sent messages)
  * - On incremental sync for non-current conv with unread: don't update (preserve unread state)
  * - On incremental sync for non-current conv without unread: update (no state to preserve)
@@ -211,15 +147,11 @@ function addDiscovered(state: SyncState, store: AppState, serverConv: Conversati
 function updateLocalBaseline(
   state: SyncState,
   serverConv: ConversationSummary,
-  existed: boolean,
   isFullSync: boolean,
   isCurrentConv: boolean,
   unreadCount: number
 ): void {
-  const currentLocalCount = state.localMessageCounts.get(serverConv.id) ?? 0;
-  const isActuallyNewConversation = !existed && currentLocalCount === 0 && serverConv.message_count > 0;
-  const shouldUpdateLocalCount =
-    (isFullSync && !isActuallyNewConversation) || (!isCurrentConv && unreadCount === 0);
+  const shouldUpdateLocalCount = isFullSync || (!isCurrentConv && unreadCount === 0);
   if (shouldUpdateLocalCount) {
     state.localMessageCounts.set(serverConv.id, serverConv.message_count);
   }
@@ -231,7 +163,7 @@ export function listEntryFromSummary(conv: ConversationSummary, unreadCount: num
     id: conv.id,
     title: conv.title,
     model: conv.model,
-    created_at: conv.created_at ?? conv.updated_at,
+    created_at: conv.created_at,
     updated_at: conv.updated_at,
     messageCount: conv.message_count,
     last_message_preview: conv.last_message_preview,
@@ -258,14 +190,14 @@ export function applyDeferredState(state: SyncState, summary: ConversationSummar
       state.callbacks.onCurrentConversationRenamed?.(summary.title);
     }
   }
-  if (summary.pinned !== undefined && Boolean(local.pinned) !== summary.pinned) {
+  if (Boolean(local.pinned) !== summary.pinned) {
     updates.pinned = summary.pinned;
   }
   if (Object.keys(updates).length > 0) {
     store.updateConversation(summary.id, updates);
     state.callbacks.onConversationsUpdated();
   }
-  if (summary.anonymous_mode !== undefined) store.setAnonymousMode(summary.id, summary.anonymous_mode);
+  store.setAnonymousMode(summary.id, summary.anonymous_mode);
   // The open chat may have the other device's messages in it too
   if (store.currentConversation?.id === summary.id) {
     state.callbacks.onCurrentConversationExternalUpdate(summary.message_count);

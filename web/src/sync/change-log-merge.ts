@@ -163,15 +163,10 @@ function addFromChangeLog(state: SyncState, conv: ConversationSummary): boolean 
     return false;
   }
   const known = state.localMessageCounts.get(conv.id);
-  const isNew = conv.created_at
-    ? !isPaginationDiscovered(state.initialLoadTime, conv.created_at)
-    : known === undefined;
+  const isNew = !isPaginationDiscovered(state.initialLoadTime, conv.created_at);
   const baseline = known ?? (isNew ? 0 : conv.message_count);
   state.localMessageCounts.set(conv.id, baseline);
-  const unread =
-    conv.read_count !== undefined
-      ? Math.max(0, conv.message_count - conv.read_count)
-      : Math.max(0, conv.message_count - baseline);
+  const unread = Math.max(0, conv.message_count - conv.read_count);
   log.info('Conversation appeared from another device', { conversationId: conv.id, isNew });
 
   useStore.getState().addConversation(listEntryFromSummary(conv, unread));

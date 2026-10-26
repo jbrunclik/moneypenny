@@ -155,18 +155,18 @@ class SyncConversationResponse(ResponseModel):
     id: str
     title: str
     model: str
-    created_at: str | None = None
+    created_at: str
     updated_at: str
     message_count: int
-    read_count: int = Field(default=0, description="Messages already shown on any device")
-    last_message_preview: str | None = None
+    read_count: int = Field(..., description="Messages already shown on any device")
+    last_message_preview: str | None
     last_message_id: str | None = Field(
-        default=None, description="Newest message (detects edits/deletes a count can't)"
+        ..., description="Newest message (detects edits/deletes a count can't)"
     )
-    archived: bool = False
-    trashed: bool = Field(default=False, description="In the trash (deleted_at set)")
-    pinned: bool = False
-    anonymous_mode: bool = Field(default=False, description="Memory and integrations off")
+    archived: bool
+    trashed: bool = Field(..., description="In the trash (deleted_at set)")
+    pinned: bool
+    anonymous_mode: bool = Field(..., description="Memory and integrations off")
 
 
 class SyncResponse(ResponseModel):
@@ -174,14 +174,11 @@ class SyncResponse(ResponseModel):
 
     conversations: list[SyncConversationResponse]
     server_time: str = Field(..., description="ISO timestamp to use for next sync")
-    is_full_sync: bool
-    cursor: int = Field(
-        default=0, description="Change-log position to pass as ?cursor= on the next sync"
-    )
+    cursor: int = Field(..., description="Change-log position to pass as ?cursor= on the next sync")
     removed_ids: list[str] = Field(
-        default_factory=list, description="Conversations permanently deleted since the cursor"
+        ..., description="Conversations permanently deleted since the cursor (empty on a full sync)"
     )
-    has_more: bool = Field(default=False, description="More changes after cursor - sync again")
+    has_more: bool = Field(..., description="More changes after cursor - sync again")
 
 
 class ConversationsPaginationResponse(ResponseModel):
@@ -371,11 +368,11 @@ class MessagesPageQuery(QueryModel):
 class SyncQuery(QueryModel):
     """Query for GET /api/conversations/sync.
 
-    since and cursor stay strings: the route parses them only when they
-    decide the sync mode (full=true ignores both).
+    cursor stays a string: the route parses it only when it decides the sync
+    mode (full=true ignores it). An old client's ?since= is ignored, so it gets
+    a full sync.
     """
 
-    since: str | None = Field(default=None, description="ISO timestamp (legacy timestamp sync)")
     cursor: str | None = Field(default=None, description="Change-log cursor from the last sync")
     full: bool = Field(default=False, description="Return every conversation")
 

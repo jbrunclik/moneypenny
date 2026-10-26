@@ -350,7 +350,6 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     const data = await response.json();
     expect(data.conversations).toHaveLength(1);
     expect(data.conversations[0].message_count).toBe(4); // 2 user + 2 assistant
-    expect(data.is_full_sync).toBe(true);
     expect(data.server_time).toBeDefined();
   });
 
@@ -361,13 +360,9 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
-    // Get initial sync time
+    // The full sync's change-log position
     const initialSync = await request.get('/api/conversations/sync');
     const initialData = await initialSync.json();
-    const serverTime = initialData.server_time;
-
-    // Wait a tiny bit
-    await page.waitForTimeout(50);
 
     // Add another message
     await page.fill('#message-input', 'Second message');
@@ -375,13 +370,12 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     await page.waitForSelector('.message.assistant:not(.streaming) >> nth=1', { timeout: 10000 });
 
     // Incremental sync should return the updated conversation
-    const incrementalSync = await request.get(`/api/conversations/sync?since=${serverTime}`);
+    const incrementalSync = await request.get(`/api/conversations/sync?cursor=${initialData.cursor}`);
     expect(incrementalSync.status()).toBe(200);
 
     const incrementalData = await incrementalSync.json();
     expect(incrementalData.conversations).toHaveLength(1);
     expect(incrementalData.conversations[0].message_count).toBe(4); // 2 user + 2 assistant
-    expect(incrementalData.is_full_sync).toBe(false);
   });
 
   test('sync endpoint returns server time for next sync', async ({ page, request }) => {

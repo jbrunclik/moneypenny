@@ -387,21 +387,11 @@ export type CostHistoryResponse = Schemas['CostHistoryResponse'];
 // Sync types
 // =============================================================================
 
-// The server sends every sync field, but SyncManager still has fallbacks for
-// a missing read_count, pinned, anonymous_mode or cursor (the pre-shared-read
-// unread tracking and the legacy timestamp sync) and its tests drive them, so
-// those keys stay optional until the fallbacks go (TODO.md, F6).
-type SyncFallbackKeys = 'created_at' | 'read_count' | 'last_message_preview' | 'last_message_id' | 'archived' | 'trashed' | 'pinned' | 'anonymous_mode';
-
 /** `read_count`: messages shown on any of the user's devices; `last_message_id` detects edits/deletes */
-export type ConversationSummary = Omit<Schemas['SyncResponse.SyncConversationResponse'], SyncFallbackKeys> &
-  Partial<Pick<Schemas['SyncResponse.SyncConversationResponse'], SyncFallbackKeys>>;
+export type ConversationSummary = Schemas['SyncResponse.SyncConversationResponse'];
 
 /** `cursor`: change-log position for the next ?cursor= sync; `has_more`: sync again */
-export type SyncResponse = Omit<Schemas['SyncResponse'], 'conversations' | 'cursor' | 'removed_ids' | 'has_more'> &
-  Partial<Pick<Schemas['SyncResponse'], 'cursor' | 'removed_ids' | 'has_more'>> & {
-    conversations: ConversationSummary[];
-  };
+export type SyncResponse = Schemas['SyncResponse'];
 
 // =============================================================================
 // Memory types

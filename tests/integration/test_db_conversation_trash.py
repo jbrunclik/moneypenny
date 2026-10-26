@@ -178,12 +178,6 @@ class TestTrashedHiddenEverywhere:
         with_counts = test_database.list_conversations_with_message_count(test_user.id)
         assert conv_id not in [c.id for c, _, _ in with_counts]
 
-    def test_sync_excludes_trashed(self, test_database: Database, test_user: User) -> None:
-        conv_id = self._trashed(test_database, test_user)
-        since = datetime.now() - timedelta(hours=1)
-        updated = test_database.get_conversations_updated_since(test_user.id, since)
-        assert conv_id not in [c.id for c, _, _ in updated]
-
     def test_pinned_and_archived_lists_exclude_trashed(
         self, test_database: Database, test_user: User
     ) -> None:

@@ -2101,24 +2101,6 @@
       "get": {
         "parameters": [
           {
-            "name": "since",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "description": "ISO timestamp (legacy timestamp sync)",
-              "title": "Since"
-            }
-          },
-          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -2183,8 +2165,8 @@
         "tags": [
           "Conversations"
         ],
-        "summary": "Sync conversations - returns conversations updated since a given timestamp.",
-        "description": "Query parameters:\n- since: ISO timestamp to get conversations updated after this time (optional)\n- full: If \"true\", returns all conversations for delete detection (optional)\n\nReturns:\n- conversations: List of conversation objects with message_count\n- server_time: Current server timestamp to use for next sync\n- is_full_sync: Whether this was a full sync (all conversations returned)"
+        "summary": "Sync conversations: every conversation, or the changes after a cursor.",
+        "description": "Query parameters:\n- cursor: change-log position from the last sync - only what changed since\n- full: If \"true\" (or no cursor), returns all conversations for delete detection\n\nReturns:\n- conversations: List of conversation objects with message_count\n- server_time: Current server timestamp\n- cursor / removed_ids / has_more: the change-log position and page"
       }
     },
     "/api/push/subscriptions": {
@@ -10794,16 +10776,8 @@
             "type": "string"
           },
           "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Created At"
+            "title": "Created At",
+            "type": "string"
           },
           "updated_at": {
             "title": "Updated At",
@@ -10814,7 +10788,6 @@
             "type": "integer"
           },
           "read_count": {
-            "default": 0,
             "description": "Messages already shown on any device",
             "title": "Read Count",
             "type": "integer"
@@ -10828,7 +10801,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Last Message Preview"
           },
           "last_message_id": {
@@ -10840,28 +10812,23 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "description": "Newest message (detects edits/deletes a count can't)",
             "title": "Last Message Id"
           },
           "archived": {
-            "default": false,
             "title": "Archived",
             "type": "boolean"
           },
           "trashed": {
-            "default": false,
             "description": "In the trash (deleted_at set)",
             "title": "Trashed",
             "type": "boolean"
           },
           "pinned": {
-            "default": false,
             "title": "Pinned",
             "type": "boolean"
           },
           "anonymous_mode": {
-            "default": false,
             "description": "Memory and integrations off",
             "title": "Anonymous Mode",
             "type": "boolean"
@@ -10900,18 +10867,13 @@
             "title": "Server Time",
             "type": "string"
           },
-          "is_full_sync": {
-            "title": "Is Full Sync",
-            "type": "boolean"
-          },
           "cursor": {
-            "default": 0,
             "description": "Change-log position to pass as ?cursor= on the next sync",
             "title": "Cursor",
             "type": "integer"
           },
           "removed_ids": {
-            "description": "Conversations permanently deleted since the cursor",
+            "description": "Conversations permanently deleted since the cursor (empty on a full sync)",
             "items": {
               "type": "string"
             },
@@ -10919,7 +10881,6 @@
             "type": "array"
           },
           "has_more": {
-            "default": false,
             "description": "More changes after cursor - sync again",
             "title": "Has More",
             "type": "boolean"
@@ -10928,7 +10889,6 @@
         "required": [
           "conversations",
           "server_time",
-          "is_full_sync",
           "cursor",
           "removed_ids",
           "has_more"

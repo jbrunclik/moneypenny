@@ -56,5 +56,4 @@ def cursor_sync(user_id: str, cursor: int) -> dict[str, Any]:
         "removed_ids": [c.conversation_id for c in changes if c.conversation is None],
         "cursor": changes[-1].seq if changes else cursor,
         "has_more": has_more,
-        "is_full_sync": False,
     }

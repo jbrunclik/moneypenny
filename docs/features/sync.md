@@ -26,7 +26,7 @@ The app uses timestamp-based polling with `updated_at` instead of SSE or WebSock
    - Asks for every conversation changed after the client's `cursor` (`?cursor=N`); the full sync returns the starting cursor
    - Each change carries the conversation's state: `archived`, `trashed`, `pinned`, `last_message_id`, plus `removed_ids` for permanent deletes - so archive / trash / delete / pin / restore from another device apply on the next tick (the timestamp sync only noticed removals on a full sync, which a visible tab never ran)
    - Pages while `has_more` (`SYNC_CHANGES_PAGE_SIZE` per response, `SYNC_MAX_CHANGE_PAGES` per tick)
-   - Falls back to the legacy `since` timestamp sync against a server without the change log
+   - Before the first full sync there is no cursor yet: an incremental sync runs a full sync instead (the legacy `since` timestamp sync was removed Oct 26 2026)
 
 ### Change log ([migration 0061](../../migrations/0061_add_sync_change_log.py))
 
@@ -41,12 +41,14 @@ On the client (`applyChangeLog` in [change-log-merge.ts](../../web/src/sync/chan
 ### Sync Endpoint
 
 ```
-GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
+GET /api/conversations/sync?full=true          # every conversation + the cursor
+GET /api/conversations/sync?cursor={N}         # the changes after the cursor
 ```
 
 **Query params:**
-- `since`: ISO timestamp - return conversations updated after this time
-- `full`: Boolean - if true, return all conversations (for delete detection)
+- `cursor`: change-log position from the last sync - return what changed after it
+- `full`: Boolean - if true (or no cursor), return all conversations (for delete detection)
+- An old build's `since` is ignored: it gets a full sync
 
 **Note:** Only returns regular conversations. Planner conversations (`is_planning=1`) and autonomous agent conversations (`is_agent=1`) are filtered out at the database level. They have separate sync mechanisms.
 
@@ -54,10 +56,15 @@ GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
 ```json
 {
   "conversations": [
-    {"id": "...", "title": "...", "message_count": 10, "updated_at": "..."}
+    {"id": "...", "title": "...", "created_at": "...", "updated_at": "...", "message_count": 10,
+     "read_count": 8, "last_message_preview": "...", "last_message_id": "...",
+     "archived": false, "trashed": false, "pinned": false, "anonymous_mode": false}
   ],
   "server_time": "2024-01-01T12:00:00.000000",
-  "is_full_sync": false
+  "is_full_sync": false,
+  "cursor": 42,
+  "removed_ids": [],
+  "has_more": false
 }
 ```
 
@@ -65,7 +72,7 @@ GET /api/conversations/sync?since={ISO_TIMESTAMP}&full={BOOLEAN}
 
 **Shared read state (Oct 2026, [migration 0062](../../migrations/0062_add_conversation_read_count.py)).** `conversations.read_message_count` is the message count as of the last time ANY of the user's devices showed the conversation; badges are `message_count - read_count`, from the conversation list on first paint and from every sync summary (`read_count`). A device reports it via `POST /conversations/<id>/read` (`reportRead` in [read-reporting.ts](../../web/src/sync/read-reporting.ts), deduplicated) when it shows a conversation (`markConversationRead`) and when its own turn ends (`setLocalMessageCount`: the full count if the chat is open, count - 1 if the user switched away - their own message is read, the reply isn't). The write is a conversation UPDATE, so the change log carries "read" to the other devices; `updated_at` is untouched (no reordering) and an unchanged count doesn't write. Existing conversations started fully read; `/test/seed` marks seeded history read unless `"unread": true`.
 
-The local counts below remain only for the OPEN conversation's change detection (merge trigger) and for servers without `read_count`:
+The local counts below remain only for the OPEN conversation's change detection (merge trigger); every field above is always sent, so the client has no fallbacks for missing ones:
 
 ```
 unreadCount = server_message_count - local_message_count

@@ -329,24 +329,23 @@ def delete_conversation(user: User, conv_id: str) -> tuple[dict[str, str], int]:
 @require_auth
 @validate_query(SyncQuery)
 def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
-    """Sync conversations - returns conversations updated since a given timestamp.
+    """Sync conversations: every conversation, or the changes after a cursor.
 
     Query parameters:
-    - since: ISO timestamp to get conversations updated after this time (optional)
-    - full: If "true", returns all conversations for delete detection (optional)
+    - cursor: change-log position from the last sync - only what changed since
+    - full: If "true" (or no cursor), returns all conversations for delete detection
 
     Returns:
     - conversations: List of conversation objects with message_count
-    - server_time: Current server timestamp to use for next sync
-    - is_full_sync: Whether this was a full sync (all conversations returned)
+    - server_time: Current server timestamp
+    - cursor / removed_ids / has_more: the change-log position and page
     """
-    since_param, cursor_param, full_param = query.since, query.cursor, query.full
+    cursor_param, full_param = query.cursor, query.full
 
     logger.debug(
         "Sync conversations request",
         extra={
             "user_id": user.id,
-            "since": since_param,
             "cursor": cursor_param,
             "full": full_param,
         },
@@ -369,29 +368,14 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
             )
         return {**cursor_sync(user.id, after), "server_time": server_time.isoformat()}
 
-    # Determine if this is a full sync or incremental (legacy timestamp sync,
-    # still served for tabs on an older build)
-    is_full_sync = full_param or since_param is None
-
-    if is_full_sync:
-        # Full sync: get all conversations with message counts
-        conv_with_counts = db.list_conversations_with_message_count(user.id)
-    else:
-        # Incremental sync: only get conversations updated since timestamp
-        try:
-            since_dt = datetime.fromisoformat(since_param)  # type: ignore[arg-type]
-        except ValueError:
-            raise_validation_error(
-                "Invalid timestamp format. Use ISO format (e.g., 2024-01-01T12:00:00)",
-                field="since",
-            )
-        conv_with_counts = db.get_conversations_updated_since(user.id, since_dt)
+    # Full sync: every conversation with its message count (a client without
+    # a cursor yet, or one checking for deletions)
+    conv_with_counts = db.list_conversations_with_message_count(user.id)
 
     logger.info(
         "Sync conversations completed",
         extra={
             "user_id": user.id,
-            "is_full_sync": is_full_sync,
             "conversation_count": len(conv_with_counts),
         },
     )
@@ -402,6 +386,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
             for conv, message_count, preview in conv_with_counts
         ],
         "server_time": server_time.isoformat(),
-        "is_full_sync": is_full_sync,
         "cursor": cursor,
+        "removed_ids": [],
+        "has_more": False,
     }

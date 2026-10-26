@@ -19,12 +19,11 @@ import {
   SYNC_FULL_SYNC_THRESHOLD_MS,
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
-import type { ConversationSummary } from '../types/api';
 import { type StreamRecoveryHooks, SyncState, type SyncManagerCallbacks, type SyncNotifier } from './sync-state';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
-import { applyChanges, applyDeferredState } from './summary-merge';
+import { applyDeferredState } from './summary-merge';
 import { applyFullSync } from './full-sync-merge';
 import { applyChangeLog } from './change-log-merge';
 import { reportRead } from './read-reporting';
@@ -36,19 +35,15 @@ const log = createLogger('sync');
  * Should be initialized after authentication and stopped on logout.
  */
 export class SyncManager {
-  private lastSyncTime: string | null = null;
-
   /**
    * Change-log cursor (server seq) - incremental syncs ask for everything
-   * changed after it, archive/trash/pin/delete included. Null until a full
-   * sync returns one (a server without the change log keeps the legacy
-   * timestamp sync).
+   * changed after it, archive/trash/pin/delete included. Null until the
+   * first full sync returns one.
    */
   private changeCursor: number | null = null;
   private lastHiddenTime: number | null = null;
   private pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isVisible: boolean = true;
-  private callbacks: SyncManagerCallbacks;
   private readonly recovery: StreamRecoveryHooks;
   private readonly state: SyncState;
   private readonly planner: PlannerSync;
@@ -70,7 +65,6 @@ export class SyncManager {
   private stopped = false;
 
   constructor(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks, notifier: SyncNotifier) {
-    this.callbacks = callbacks;
     this.recovery = recovery;
     this.state = new SyncState(callbacks, notifier, recovery.cancel);
     this.planner = new PlannerSync(callbacks);
@@ -130,7 +124,6 @@ export class SyncManager {
     window.addEventListener('online', this.handleOnline);
 
     log.debug('SyncManager started', {
-      lastSyncTime: this.lastSyncTime,
       initialLoadTime: this.state.initialLoadTime,
     });
   }
@@ -150,7 +143,6 @@ export class SyncManager {
     window.removeEventListener('pageshow', this.handlePageShow);
     window.removeEventListener('online', this.handleOnline);
 
-    this.lastSyncTime = null;
     this.changeCursor = null;
     this.lastHiddenTime = null;
     this.state.clear();
@@ -224,10 +216,9 @@ export class SyncManager {
     // log re-added it a minute later
     const knownBefore = new Set(useStore.getState().conversations.map((c) => c.id));
     this.state.markSyncRequest();
-    const result = await conversationsApi.sync(null, true);
-    this.lastSyncTime = result.server_time;
+    const result = await conversationsApi.sync();
     // Taken before the server's query: changes during it re-arrive next time
-    if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
+    this.changeCursor = result.cursor;
 
     // Set initialLoadTime on first full sync (before applying results)
     // This allows us to distinguish pagination-discovered vs actually new conversations
@@ -272,22 +263,17 @@ export class SyncManager {
       return;
     }
 
-    const since = this.lastSyncTime;
-    if (!since) {
-      // No previous sync time, do a full sync instead
+    if (this.changeCursor === null) {
+      // No change-log position yet (every full sync returns one): full sync
       await this.fullSync();
       return;
     }
 
     this.isSyncing = true;
-    log.debug('Performing incremental sync', { since, cursor: this.changeCursor });
+    log.debug('Performing incremental sync', { cursor: this.changeCursor });
 
     try {
-      if (this.changeCursor !== null) {
-        await this.syncChangeLog();
-      } else {
-        await this.syncSince(since);
-      }
+      await this.syncChangeLog();
 
       // Additionally sync planner if user has integrations
       await this.planner.sync();
@@ -306,42 +292,14 @@ export class SyncManager {
     }
   }
 
-  /** Legacy timestamp sync (a server without the change log): what changed since `since`. */
-  private async syncSince(since: string): Promise<void> {
-    const result = await conversationsApi.sync(since, false);
-    this.lastSyncTime = result.server_time;
-
-    if (result.conversations.length > 0) {
-      this.applyIncrementalSync(result.conversations);
-      log.info('Incremental sync completed', {
-        updatedCount: result.conversations.length,
-        serverTime: result.server_time,
-      });
-    } else {
-      log.debug('Incremental sync: no changes');
-    }
-  }
-
   /** Fetch and apply every change after the cursor (paging while has_more). */
   private async syncChangeLog(): Promise<void> {
     for (let page = 0; page < SYNC_MAX_CHANGE_PAGES && this.changeCursor !== null; page++) {
       this.state.markSyncRequest();
       const result = await conversationsApi.syncChanges(this.changeCursor);
-      this.lastSyncTime = result.server_time;
       applyChangeLog(this.state, result);
-      if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
+      this.changeCursor = result.cursor;
       if (!result.has_more) return;
-    }
-  }
-
-  /**
-   * Apply incremental sync results - only updates changed conversations.
-   */
-  private applyIncrementalSync(serverConversations: ConversationSummary[]): void {
-    applyChanges(this.state, serverConversations, false);
-
-    if (serverConversations.length > 0) {
-      this.callbacks.onConversationsUpdated();
     }
   }
 
@@ -443,21 +401,14 @@ export class SyncManager {
       const deferred = this.state.deferredUpdates.get(convId);
       if (deferred) {
         this.state.deferredUpdates.delete(convId);
-        if (this.changeCursor !== null) {
-          // The summary is a snapshot from DURING our turn. Its counts are
-          // moot (the turn set the exact one), and its untitled "New
-          // Conversation" must not revert the title the turn just set - but
-          // the other device's changes in it (a rename, a pin) must not be
-          // lost either: a poll that landed after our final save already
-          // moved the cursor past it, so nothing re-sends them.
-          applyDeferredState(this.state, deferred);
-          void this.incrementalSync();
-        } else {
-          // Legacy timestamp sync never re-sends it. Callers set the turn's
-          // count first, so only the other device's changes remain.
-          applyChanges(this.state, [deferred], false);
-          this.callbacks.onConversationsUpdated();
-        }
+        // The summary is a snapshot from DURING our turn. Its counts are
+        // moot (the turn set the exact one), and its untitled "New
+        // Conversation" must not revert the title the turn just set - but
+        // the other device's changes in it (a rename, a pin) must not be
+        // lost either: a poll that landed after our final save already
+        // moved the cursor past it, so nothing re-sends them.
+        applyDeferredState(this.state, deferred);
+        void this.incrementalSync();
       }
     }
   }

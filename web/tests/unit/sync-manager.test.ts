@@ -117,30 +117,51 @@ function createConversation(id: string, title: string, messageCount?: number): C
   };
 }
 
-// Helper to create a mock conversation summary (from sync API)
+// Helper to create a mock conversation summary (from sync API): every field
+// the server sends; read on some device up to `readCount` (default: all read)
 function createConversationSummary(
   id: string,
   title: string,
-  messageCount: number
+  messageCount: number,
+  readCount: number = messageCount
 ): ConversationSummary {
   return {
     id,
     title,
     model: 'gemini-3-flash-preview',
+    created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     message_count: messageCount,
+    read_count: readCount,
+    last_message_preview: null,
+    last_message_id: null,
+    archived: false,
+    trashed: false,
+    pinned: false,
+    anonymous_mode: false,
   };
 }
 
-// Helper to create mock sync response
-function createSyncResponse(
-  conversations: ConversationSummary[],
-  isFullSync: boolean = true
-): SyncResponse {
+// Helper to create a mock full sync response (with the change-log cursor)
+function createSyncResponse(conversations: ConversationSummary[]): SyncResponse {
   return {
     conversations,
     server_time: '2024-01-01T00:00:00Z',
-    is_full_sync: isFullSync,
+    cursor: 1,
+    removed_ids: [],
+    has_more: false,
+  };
+}
+
+// Helper to create a change-log page (an incremental sync after the cursor)
+function changePage(conversations: ConversationSummary[], extra: Partial<SyncResponse> = {}): SyncResponse {
+  return {
+    conversations,
+    server_time: '2024-01-01T12:00:00Z',
+    cursor: 2,
+    removed_ids: [],
+    has_more: false,
+    ...extra,
   };
 }
 
@@ -148,6 +169,7 @@ describe('SyncManager', () => {
   let syncManager: SyncManager;
   let callbacks: SyncManagerCallbacks;
   const mockSync = conversationsApi.sync as ReturnType<typeof vi.fn>;
+  const mockSyncChanges = conversationsApi.syncChanges as ReturnType<typeof vi.fn>;
   const mockPlannerSync = plannerApi.sync as ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -162,8 +184,9 @@ describe('SyncManager', () => {
       onCurrentConversationExternalUpdate: vi.fn(),
     };
 
-    // Default mock implementation
+    // Default mock implementation: an empty full sync, then no changes
     mockSync.mockResolvedValue(createSyncResponse([]));
+    mockSyncChanges.mockResolvedValue(changePage([]));
     // Planner sync returns null by default (no planner conversation exists)
     mockPlannerSync.mockResolvedValue({
       conversation: null,
@@ -184,7 +207,7 @@ describe('SyncManager', () => {
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
-      expect(mockSync).toHaveBeenCalledWith(null, true);
+      expect(mockSync).toHaveBeenCalledWith();
     });
 
     it('updates existing conversations from server (full sync does not add new ones)', async () => {
@@ -212,12 +235,12 @@ describe('SyncManager', () => {
       await syncManager.start();
 
       // Advance timer past poll interval
-      mockSync.mockClear();
+      mockSyncChanges.mockClear();
       vi.advanceTimersByTime(60000); // 1 minute
       await vi.runOnlyPendingTimersAsync();
 
-      // Should have called incremental sync
-      expect(mockSync).toHaveBeenCalled();
+      // Should have called incremental sync (the change log after the cursor)
+      expect(mockSyncChanges).toHaveBeenCalled();
     });
   });
 
@@ -284,32 +307,25 @@ describe('SyncManager', () => {
   });
 
   describe('incrementalSync', () => {
-    it('performs full sync if no previous sync time', async () => {
+    it('performs a full sync while there is no cursor yet', async () => {
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      // Don't call start, so no lastSyncTime
+      // Not started: no full sync has returned a cursor yet
       await syncManager.incrementalSync();
 
       // Should perform full sync
-      expect(mockSync).toHaveBeenCalledWith(null, true);
+      expect(mockSync).toHaveBeenCalledWith();
     });
 
-    it('uses last sync time for incremental sync', async () => {
-      const serverTime = '2024-01-01T12:00:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [],
-        server_time: serverTime,
-        is_full_sync: true,
-      });
-
+    it('asks for the changes after the cursor the full sync returned', async () => {
+      mockSync.mockResolvedValue({ ...createSyncResponse([]), cursor: 41 });
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       mockSync.mockClear();
-      mockSync.mockResolvedValue(createSyncResponse([], false));
-
       await syncManager.incrementalSync();
 
-      expect(mockSync).toHaveBeenCalledWith(serverTime, false);
+      expect(mockSyncChanges).toHaveBeenCalledWith(41);
+      expect(mockSync).not.toHaveBeenCalled();
     });
 
     it('updates existing conversations', async () => {
@@ -317,16 +333,12 @@ describe('SyncManager', () => {
       const conv = createConversation('conv-1', 'Original', 5);
       useStore.getState().addConversation(conv);
 
-      mockSync.mockResolvedValue(createSyncResponse([], true));
+      mockSync.mockResolvedValue(createSyncResponse([]));
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
       // Incremental sync returns updated conversation
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Updated Title', 10)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Updated Title', 10)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -348,11 +360,7 @@ describe('SyncManager', () => {
       syncManager.markConversationRead('conv-1', 5);
 
       // Incremental sync shows 8 messages now
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 8)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 5)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -371,11 +379,7 @@ describe('SyncManager', () => {
       syncManager.markConversationRead('conv-1', 5);
 
       // Incremental sync shows 8 messages now
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 8)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 5)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -397,11 +401,7 @@ describe('SyncManager', () => {
       syncManager.markConversationRead('conv-1', 5);
 
       // First incremental sync shows 8 messages (3 unread)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 8)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 5)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -409,11 +409,7 @@ describe('SyncManager', () => {
       expect(updated?.unreadCount).toBe(3);
 
       // Second incremental sync - count should still be 3 (not reset to 0)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 8)],
-        server_time: '2024-01-01T12:01:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 5)], { server_time: '2024-01-01T12:01:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -433,11 +429,7 @@ describe('SyncManager', () => {
       syncManager.markConversationRead('conv-1', 5);
 
       // First incremental sync shows 8 messages (3 unread)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 8)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 5)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -445,11 +437,7 @@ describe('SyncManager', () => {
       expect(updated?.unreadCount).toBe(3);
 
       // Third incremental sync - even MORE messages arrive (3 more)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 11)],
-        server_time: '2024-01-01T12:02:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 11, 5)], { server_time: '2024-01-01T12:02:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -525,21 +513,17 @@ describe('SyncManager', () => {
       await vi.runOnlyPendingTimersAsync();
 
       // Should have performed full sync (with full=true)
-      expect(mockSync).toHaveBeenCalledWith(null, true);
+      expect(mockSync).toHaveBeenCalledWith();
     });
 
     it('performs incremental sync after short inactivity', async () => {
       const serverTime = '2024-01-01T00:00:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [],
-        server_time: serverTime,
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([]), server_time: serverTime })
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
-      mockSync.mockClear();
-      mockSync.mockResolvedValue(createSyncResponse([], false));
+      mockSyncChanges.mockClear();
+      mockSyncChanges.mockResolvedValue(changePage([]));
 
       // Simulate tab becoming hidden
       Object.defineProperty(document, 'visibilityState', {
@@ -560,8 +544,8 @@ describe('SyncManager', () => {
 
       await vi.runOnlyPendingTimersAsync();
 
-      // Should have performed incremental sync (with since timestamp)
-      expect(mockSync).toHaveBeenCalledWith(serverTime, false);
+      // Should have performed incremental sync (the changes after the cursor)
+      expect(mockSyncChanges).toHaveBeenCalledWith(1);
     });
   });
 
@@ -645,9 +629,7 @@ describe('SyncManager', () => {
       syncManager.setConversationStreaming('conv-1', true);
 
       // Sync should skip updates for this conversation
-      mockSync.mockResolvedValue(
-        createSyncResponse([createConversationSummary('conv-1', 'Another Update', 15)])
-      );
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Another Update', 15)]));
       await syncManager.incrementalSync();
 
       // Conversation should NOT have been updated (still has old title/count)
@@ -671,9 +653,7 @@ describe('SyncManager', () => {
       syncManager.setConversationStreaming('conv-1', false);
 
       // Sync should now update the conversation
-      mockSync.mockResolvedValue(
-        createSyncResponse([createConversationSummary('conv-1', 'New Title', 10)])
-      );
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'New Title', 10)]));
       await syncManager.incrementalSync();
 
       const updated = useStore.getState().conversations.find((c) => c.id === 'conv-1');
@@ -700,12 +680,10 @@ describe('SyncManager', () => {
       syncManager.setConversationStreaming('conv-1', true);
 
       // Sync with updates for both
-      mockSync.mockResolvedValue(
-        createSyncResponse([
+      mockSyncChanges.mockResolvedValue(changePage([
           createConversationSummary('conv-1', 'Updated 1', 10),
           createConversationSummary('conv-2', 'Updated 2', 8),
-        ])
-      );
+        ]));
       await syncManager.incrementalSync();
 
       // conv-1 should NOT be updated (streaming)
@@ -736,11 +714,7 @@ describe('SyncManager', () => {
 
       // Server reports increased message count (user message was saved to DB)
       // This is the exact scenario that was causing false "new messages" banners
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 6)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 6)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -760,11 +734,7 @@ describe('SyncManager', () => {
       useStore.getState().setCurrentConversation(conv);
 
       const serverTime = '2024-01-01T00:00:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 5)],
-        server_time: serverTime,
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([createConversationSummary('conv-1', 'Test', 5)]), server_time: serverTime })
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
       syncManager.markConversationRead('conv-1', 5);
@@ -776,11 +746,7 @@ describe('SyncManager', () => {
       vi.mocked(callbacks.onCurrentConversationExternalUpdate).mockClear();
 
       // Simulate visibility change (short duration = incremental sync)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 6)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 6)], { server_time: '2024-01-01T12:00:00Z' }))
 
       // Simulate tab becoming hidden briefly
       Object.defineProperty(document, 'visibilityState', {
@@ -830,16 +796,13 @@ describe('SyncManager', () => {
 
       // Sync happens immediately after streaming completes
       // Server reports 7 messages (user msg + assistant msg added)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 7)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 7)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
-      // Should NOT trigger external update callback - counts match!
-      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+      // The change log hands the open chat the server's count, which matches
+      // what it shows (7): no "new messages" state
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalledWith(7);
 
       // Conversation should be up to date
       const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
@@ -870,11 +833,7 @@ describe('SyncManager', () => {
 
       // Sync happens BEFORE incrementLocalMessageCount gets called
       // Server reports 7 messages but local count is still 5
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 7)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 7)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -906,7 +865,9 @@ describe('SyncManager', () => {
       const syncResponse: SyncResponse = {
         conversations: summaries,
         server_time: '2024-01-01T00:02:00Z',
-        is_full_sync: true,
+        cursor: 1,
+        removed_ids: [],
+        has_more: false,
       };
 
       mockSync.mockResolvedValue(syncResponse);
@@ -981,7 +942,9 @@ describe('SyncManager', () => {
       const syncResponse: SyncResponse = {
         conversations: summaries,
         server_time: '2024-01-16T00:02:00Z',
-        is_full_sync: true,
+        cursor: 1,
+        removed_ids: [],
+        has_more: false,
       };
 
       mockSync.mockResolvedValue(syncResponse);
@@ -996,129 +959,6 @@ describe('SyncManager', () => {
       expect(convs[0]?.messageCount).toBe(5); // Updated count from server
     });
 
-    it('distinguishes pagination-discovered from actually new conversations', async () => {
-      // This tests the distinction between:
-      // 1. Pagination-discovered: Older conversations that existed before initial page load
-      // 2. Actually new: Conversations created/updated after initial page load (e.g., on another device)
-      //
-      // With the new architecture:
-      // - Full sync only updates existing conversations (doesn't add new ones)
-      // - Incremental sync adds actually new conversations (not pagination-discovered)
-      // - Pagination-discovered conversations come via pagination, not sync
-      //
-      // The distinction is made by comparing updated_at to initialLoadTime:
-      // - If updated_at < initialLoadTime: Pagination-discovered (not added via sync)
-      // - If updated_at >= initialLoadTime: Actually new (added via incremental sync)
-
-      // Initial store has one conversation (simulates initial page load)
-      const existingConv = createConversation('existing-conv', 'Existing', 5);
-      existingConv.updated_at = '2024-01-10T12:00:00Z';
-      useStore.getState().addConversation(existingConv);
-
-      // Server time from first full sync (this becomes initialLoadTime)
-      const serverTime = '2024-01-10T12:05:00Z'; // 5 minutes after existing conv
-
-      // Full sync only returns existing conversation (doesn't add new ones)
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime,
-        is_full_sync: true,
-      });
-
-      syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      await syncManager.start();
-
-      // Verify only existing conversation exists after full sync
-      expect(useStore.getState().conversations).toHaveLength(1);
-
-      // Incremental sync returns:
-      // 1. Pagination-discovered: Older conversation (updated before server time) - NOT added
-      // 2. Actually new: Recent conversation (updated after server time) - added
-      const paginationConvSummary = createConversationSummary('pagination-conv', 'Pagination Discovered', 10);
-      paginationConvSummary.updated_at = '2024-01-10T12:03:00Z'; // Older than server time (pagination-discovered)
-
-      const newConvSummary = createConversationSummary('new-conv', 'Actually New', 15);
-      newConvSummary.updated_at = '2024-01-10T12:07:00Z'; // Newer than server time (actually new)
-
-      mockSync.mockResolvedValue({
-        conversations: [paginationConvSummary, newConvSummary],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      // Verify conversations
-      const convs = useStore.getState().conversations;
-      expect(convs).toHaveLength(2); // existing + actually new (pagination-discovered not added)
-
-      const paginationConv = convs.find((c) => c.id === 'pagination-conv');
-      const newConv = convs.find((c) => c.id === 'new-conv');
-
-      // Pagination-discovered should NOT be added (comes via pagination)
-      expect(paginationConv).toBeUndefined();
-
-      // Actually new should be added and show unread badge with message count
-      expect(newConv).toBeDefined();
-      expect(newConv?.unreadCount).toBe(15); // Shows badge with message count
-      expect(newConv?.messageCount).toBe(15);
-    });
-
-    it('handles boundary case: conversation updated exactly at initialLoadTime - 5 second buffer', async () => {
-      // Test the boundary case where updated_at is exactly at the buffer threshold
-      // updated_at = initialLoadTime - 5 seconds should be treated as actually new (not <)
-      // updated_at = initialLoadTime - 5 seconds - 1 second should be pagination-discovered (<)
-      // Note: With new architecture, we test via incremental sync (full sync doesn't add conversations)
-
-      const existingConv = createConversation('existing-conv', 'Existing', 5);
-      existingConv.updated_at = '2024-01-10T12:00:00Z';
-      useStore.getState().addConversation(existingConv);
-
-      // Initial full sync
-      const serverTime = '2024-01-10T12:05:00Z'; // This becomes initialLoadTime
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime,
-        is_full_sync: true,
-      });
-
-      syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      await syncManager.start();
-
-      // Test case 1: updated_at exactly at buffer boundary (initialLoadTime - 5 seconds)
-      // Should be actually new (>= initialLoadTime - buffer) and added via incremental sync
-      const boundaryConv1 = createConversationSummary('boundary-conv-1', 'Boundary 1', 10);
-      boundaryConv1.updated_at = '2024-01-10T12:04:55Z'; // Exactly 5 seconds before server time
-
-      mockSync.mockResolvedValue({
-        conversations: [boundaryConv1],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      const conv1 = useStore.getState().conversations.find((c) => c.id === 'boundary-conv-1');
-      expect(conv1).toBeDefined();
-      expect(conv1?.unreadCount).toBe(10); // Actually new (shows badge)
-
-      // Test case 2: updated_at just before buffer boundary (initialLoadTime - 5 seconds - 1 second)
-      // Should be pagination-discovered (< initialLoadTime - buffer) and NOT added
-      const boundaryConv2 = createConversationSummary('boundary-conv-2', 'Boundary 2', 10);
-      boundaryConv2.updated_at = '2024-01-10T12:04:54Z'; // 6 seconds before server time
-
-      mockSync.mockResolvedValue({
-        conversations: [boundaryConv2],
-        server_time: '2024-01-10T12:15:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      const conv2 = useStore.getState().conversations.find((c) => c.id === 'boundary-conv-2');
-      expect(conv2).toBeUndefined(); // Pagination-discovered (not added, comes via pagination)
-    });
-
     it('preserves initialLoadTime across multiple full syncs', async () => {
       // initialLoadTime should only be set once (on first full sync)
       // Subsequent full syncs should not change it
@@ -1127,11 +967,7 @@ describe('SyncManager', () => {
       const serverTime2 = '2024-01-10T13:00:00Z'; // 1 hour later
 
       // First full sync
-      mockSync.mockResolvedValue({
-        conversations: [],
-        server_time: serverTime1,
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([]), server_time: serverTime1 })
 
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
@@ -1141,62 +977,13 @@ describe('SyncManager', () => {
       expect(firstSyncTime).toBe(serverTime1);
 
       // Second full sync (e.g., after tab hidden >5 minutes)
-      mockSync.mockResolvedValue({
-        conversations: [],
-        server_time: serverTime2,
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([]), server_time: serverTime2 })
 
       await syncManager.fullSync();
 
       // initialLoadTime should still be the original value
       const secondSyncTime = (syncManager as unknown as { state: { initialLoadTime: string } }).state.initialLoadTime;
       expect(secondSyncTime).toBe(serverTime1); // Still the first sync time, not the second
-    });
-
-    it('does NOT add pagination-discovered conversations via incremental sync', async () => {
-      // With the new architecture, pagination-discovered conversations (older than initialLoadTime)
-      // should NOT be added via sync - they come via pagination when user scrolls.
-      // Only actually new conversations (updated after initialLoadTime) are added via incremental sync.
-
-      const existingConv = createConversation('existing-conv', 'Existing', 5);
-      existingConv.updated_at = '2024-01-10T12:00:00Z';
-      useStore.getState().addConversation(existingConv);
-
-      // Initial full sync
-      const serverTime1 = '2024-01-10T12:05:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime1,
-        is_full_sync: true,
-      });
-
-      syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      await syncManager.start();
-
-      // Mark as read
-      syncManager.markConversationRead('existing-conv', 5);
-
-      // Incremental sync returns an old conversation (updated before initialLoadTime)
-      // This should be treated as pagination-discovered and NOT added
-      const oldConvSummary = createConversationSummary('old-conv', 'Old Conversation', 10);
-      oldConvSummary.updated_at = '2024-01-10T12:03:00Z'; // Before initialLoadTime (12:05)
-
-      mockSync.mockResolvedValue({
-        conversations: [oldConvSummary],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      // Should NOT be added (pagination-discovered, comes via pagination)
-      const oldConv = useStore.getState().conversations.find((c) => c.id === 'old-conv');
-      expect(oldConv).toBeUndefined();
-
-      // But message count should be tracked for when it does get loaded via pagination
-      const trackedCount = (syncManager as unknown as { state: { localMessageCounts: Map<string, number> } }).state.localMessageCounts.get('old-conv');
-      expect(trackedCount).toBe(10);
     });
 
     it('handles timestamp parsing errors gracefully', async () => {
@@ -1208,11 +995,7 @@ describe('SyncManager', () => {
 
       // Initial full sync
       const serverTime1 = '2024-01-10T12:05:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime1,
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([createConversationSummary('existing-conv', 'Existing', 5)]), server_time: serverTime1 })
 
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
@@ -1221,11 +1004,7 @@ describe('SyncManager', () => {
       const invalidConvSummary = createConversationSummary('invalid-conv', 'Invalid Timestamp', 10);
       invalidConvSummary.updated_at = 'invalid-timestamp'; // Invalid format
 
-      mockSync.mockResolvedValue({
-        conversations: [invalidConvSummary],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
+      mockSyncChanges.mockResolvedValue(changePage([invalidConvSummary], { server_time: '2024-01-10T12:10:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -1233,114 +1012,6 @@ describe('SyncManager', () => {
       // And should NOT be added (pagination-discovered conversations come via pagination)
       const invalidConv = useStore.getState().conversations.find((c) => c.id === 'invalid-conv');
       expect(invalidConv).toBeUndefined(); // Not added (pagination-discovered, comes via pagination)
-    });
-
-    it('correctly updates unread count for actually new conversation when more messages arrive', async () => {
-      // Race condition: Actually new conversation discovered, then more messages arrive before user views it
-      // The unread count should correctly reflect the total message count
-
-      const existingConv = createConversation('existing-conv', 'Existing', 5);
-      existingConv.updated_at = '2024-01-10T12:00:00Z';
-      useStore.getState().addConversation(existingConv);
-
-      // Initial full sync: Only updates existing conversations (doesn't add new ones)
-      const serverTime1 = '2024-01-10T12:05:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime1,
-        is_full_sync: true,
-      });
-
-      syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      await syncManager.start();
-
-      // Incremental sync: Discover actually new conversation with 10 messages
-      const newConvSummary1 = createConversationSummary('new-conv', 'New Conversation', 10);
-      newConvSummary1.updated_at = '2024-01-10T12:07:00Z'; // After initialLoadTime
-
-      mockSync.mockResolvedValue({
-        conversations: [newConvSummary1],
-        server_time: '2024-01-10T12:08:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      // Verify it's treated as actually new (shows badge with 10 messages)
-      const newConv1 = useStore.getState().conversations.find((c) => c.id === 'new-conv');
-      expect(newConv1?.unreadCount).toBe(10);
-      expect(newConv1?.messageCount).toBe(10);
-
-      // Second sync: More messages arrive (now 15 total)
-      const newConvSummary2 = createConversationSummary('new-conv', 'New Conversation', 15);
-      newConvSummary2.updated_at = '2024-01-10T12:08:00Z'; // Updated
-
-      mockSync.mockResolvedValue({
-        conversations: [newConvSummary2],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      // Unread count should update to reflect new total (15 - 0 = 15)
-      // localMessageCount was initialized to 0 for actually new conversations
-      // and should NOT be updated when unreadCount > 0 (preserves unread state)
-      const newConv2 = useStore.getState().conversations.find((c) => c.id === 'new-conv');
-      expect(newConv2?.unreadCount).toBe(15); // All messages are unread (user hasn't viewed it)
-      expect(newConv2?.messageCount).toBe(15);
-    });
-
-    it('correctly updates unread count for pagination-discovered conversation when more messages arrive', async () => {
-      // Race condition: Pagination-discovered conversation, then more messages arrive
-      // Note: With new architecture, pagination-discovered conversations are NOT added via sync
-      // They come via pagination when user scrolls. This test verifies that when they DO get
-      // loaded via pagination, subsequent syncs correctly update their unread counts.
-
-      const existingConv = createConversation('existing-conv', 'Existing', 5);
-      existingConv.updated_at = '2024-01-10T12:00:00Z';
-      useStore.getState().addConversation(existingConv);
-
-      // Initial full sync: Only updates existing conversations
-      const serverTime1 = '2024-01-10T12:05:00Z';
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('existing-conv', 'Existing', 5)],
-        server_time: serverTime1,
-        is_full_sync: true,
-      });
-
-      syncManager = new SyncManager(callbacks, RECOVERY, toast);
-      await syncManager.start();
-
-      // Simulate user scrolling and loading old conversation via pagination
-      // (In real app, this would be via appendConversations from pagination)
-      const oldConv = createConversation('old-conv', 'Old Conversation', 10);
-      oldConv.updated_at = '2024-01-10T12:03:00Z'; // Before initialLoadTime
-      useStore.getState().addConversation(oldConv);
-      syncManager.markConversationRead('old-conv', 10); // User views it, marks as read
-
-      // Verify it's in the store (loaded via pagination)
-      const oldConv1 = useStore.getState().conversations.find((c) => c.id === 'old-conv');
-      expect(oldConv1).toBeDefined();
-      expect(oldConv1?.messageCount).toBe(10);
-
-      // Incremental sync: More messages arrive (now 15 total)
-      const oldConvSummary2 = createConversationSummary('old-conv', 'Old Conversation', 15);
-      oldConvSummary2.updated_at = '2024-01-10T12:08:00Z'; // Updated
-
-      mockSync.mockResolvedValue({
-        conversations: [oldConvSummary2],
-        server_time: '2024-01-10T12:10:00Z',
-        is_full_sync: false, // Incremental sync
-      });
-
-      await syncManager.incrementalSync();
-
-      // Unread count should show new messages (15 - 10 = 5)
-      // localMessageCount was set to 10 when user marked it as read
-      const oldConv2 = useStore.getState().conversations.find((c) => c.id === 'old-conv');
-      expect(oldConv2?.unreadCount).toBe(5); // New messages since last read
-      expect(oldConv2?.messageCount).toBe(15);
     });
 
     it('uses correct total count when marking conversation as read (not paginated count)', async () => {
@@ -1381,16 +1052,12 @@ describe('SyncManager', () => {
       syncManager.setConversationStreaming('conv-1', false);
 
       // Sync happens - server reports 102 messages
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 102)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 102)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
-      // Should NOT trigger external update - counts match (102 == 102)
-      expect(callbacks.onCurrentConversationExternalUpdate).not.toHaveBeenCalled();
+      // The open chat is handed the total (102), which matches what it shows
+      expect(callbacks.onCurrentConversationExternalUpdate).toHaveBeenCalledWith(102);
 
       const updated = useStore.getState().conversations.find((c: Conversation) => c.id === 'conv-1');
       expect(updated?.messageCount).toBe(102);
@@ -1422,11 +1089,7 @@ describe('SyncManager', () => {
       syncManager.setConversationStreaming('conv-1', false);
 
       // Sync happens - server reports 102 messages
-      mockSync.mockResolvedValue({
-        conversations: [createConversationSummary('conv-1', 'Test', 102)],
-        server_time: '2024-01-01T12:00:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 102)], { server_time: '2024-01-01T12:00:00Z' }))
 
       await syncManager.incrementalSync();
 
@@ -1443,14 +1106,15 @@ describe('SyncManager', () => {
       // Known from the full sync (not loaded in the sidebar page), 10 messages
       const old = createConversationSummary('old-conv', 'Yesterday', 10);
       old.updated_at = '2024-01-09T08:00:00Z';
-      mockSync.mockResolvedValue({ conversations: [old], server_time: '2024-01-10T12:00:00Z', is_full_sync: true });
+      mockSync.mockResolvedValue({ ...createSyncResponse([old]), server_time: '2024-01-10T12:00:00Z' })
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
 
-      // ...then continued elsewhere: +2 messages, now updated
-      const continued = createConversationSummary('old-conv', 'Yesterday', 12);
+      // ...then continued elsewhere: +2 messages no device has shown yet (a
+      // scheduled agent's reply), now updated
+      const continued = createConversationSummary('old-conv', 'Yesterday', 12, 10);
       continued.updated_at = '2024-01-10T12:01:00Z';
-      mockSync.mockResolvedValue({ conversations: [continued], server_time: '2024-01-10T12:02:00Z', is_full_sync: false });
+      mockSyncChanges.mockResolvedValue(changePage([continued], { server_time: '2024-01-10T12:02:00Z' }))
       await syncManager.incrementalSync();
 
       const conv = useStore.getState().conversations.find((c) => c.id === 'old-conv');
@@ -1464,10 +1128,10 @@ describe('SyncManager', () => {
       await syncManager.start();
 
       syncManager.setConversationStreaming('conv-1', true);
-      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Renamed elsewhere', 6)], false));
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Renamed elsewhere', 6)]));
       await syncManager.incrementalSync();
       // The poll's cursor has moved past the change; nothing re-sends it
-      mockSync.mockResolvedValue(createSyncResponse([], false));
+      mockSyncChanges.mockResolvedValue(changePage([]));
 
       syncManager.setLocalMessageCount('conv-1', 6);
       syncManager.setConversationStreaming('conv-1', false);
@@ -1485,8 +1149,8 @@ describe('SyncManager', () => {
 
       // A regenerate replaced the last reply: the server count stays 6
       syncManager.setLocalMessageCount('conv-1', 6);
-      // The other device then adds a turn
-      mockSync.mockResolvedValue(createSyncResponse([createConversationSummary('conv-1', 'Test', 8)], false));
+      // The other device then adds a turn nobody has read yet
+      mockSyncChanges.mockResolvedValue(changePage([createConversationSummary('conv-1', 'Test', 8, 6)]));
       await syncManager.incrementalSync();
 
       expect(useStore.getState().conversations.find((c) => c.id === 'conv-1')?.unreadCount).toBe(2);
@@ -1505,8 +1169,7 @@ describe('SyncManager', () => {
       await queued;
       await vi.runOnlyPendingTimersAsync();
 
-      const fullCalls = mockSync.mock.calls.filter(([, full]) => full === true);
-      expect(fullCalls).toHaveLength(2);
+      expect(mockSync).toHaveBeenCalledTimes(2);
     });
 
     it('syncs when the device comes back online', async () => {
@@ -1552,17 +1215,12 @@ describe('SyncManager', () => {
       conversations: ConversationSummary[],
       extra: Partial<SyncResponse> = {}
     ): SyncResponse {
-      return { conversations, server_time: '2024-01-10T12:10:00Z', is_full_sync: false, cursor: 20, ...extra };
+      return { conversations, server_time: '2024-01-10T12:10:00Z', cursor: 20, removed_ids: [], has_more: false, ...extra };
     }
 
     async function startWithCursor(convs: Conversation[]): Promise<void> {
       for (const c of convs) useStore.getState().addConversation(c);
-      mockSync.mockResolvedValue({
-        conversations: convs.map((c) => createConversationSummary(c.id, c.title, c.messageCount ?? 0)),
-        server_time: '2024-01-10T12:00:00Z',
-        is_full_sync: true,
-        cursor: 10,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse(convs.map((c) => createConversationSummary(c.id, c.title, c.messageCount ?? 0))), server_time: '2024-01-10T12:00:00Z', cursor: 10 })
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
       await syncManager.start();
     }
@@ -1691,9 +1349,53 @@ describe('SyncManager', () => {
       expect(conv?.unreadCount).toBe(0);
     });
 
+    it('a change to a chat older than the loaded list is tracked, not added', async () => {
+      const loaded = { ...createConversation('a', 'A', 2), updated_at: '2024-01-10T11:00:00Z' };
+      await startWithCursor([loaded]);
+      useStore.setState({
+        conversationsPagination: { ...useStore.getState().conversationsPagination, hasMore: true },
+      });
+      // Changed elsewhere, but older than the oldest loaded row: pagination brings it
+      const older = { ...createConversationSummary('old', 'Old', 7, 5), updated_at: '2023-12-01T08:00:00Z' };
+      mockSyncChanges().mockResolvedValue(changes([older]));
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.map((c) => c.id)).toEqual(['a']);
+    });
+
+    it('a changed chat inside the loaded list joins it with the server unread count', async () => {
+      const loaded = { ...createConversation('a', 'A', 2), updated_at: '2024-01-10T11:00:00Z' };
+      await startWithCursor([loaded]);
+      useStore.setState({
+        conversationsPagination: { ...useStore.getState().conversationsPagination, hasMore: true },
+      });
+      const recent = { ...createConversationSummary('r', 'Recent', 7, 5), updated_at: '2024-01-10T12:05:00Z' };
+      mockSyncChanges().mockResolvedValue(changes([recent]));
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.find((c) => c.id === 'r')?.unreadCount).toBe(2);
+    });
+
+    it('a pinned chat joins the list even when it is older than the loaded part', async () => {
+      const loaded = { ...createConversation('a', 'A', 2), updated_at: '2024-01-10T11:00:00Z' };
+      await startWithCursor([loaded]);
+      useStore.setState({
+        conversationsPagination: { ...useStore.getState().conversationsPagination, hasMore: true },
+      });
+      const pinned = { ...createConversationSummary('p', 'Pinned', 3), pinned: true, updated_at: '2024-01-01T00:00:00Z' };
+      mockSyncChanges().mockResolvedValue(changes([pinned]));
+
+      await syncManager.incrementalSync();
+
+      expect(useStore.getState().conversations.some((c) => c.id === 'p')).toBe(true);
+    });
+
     it('a conversation created on another device is all unread', async () => {
       await startWithCursor([createConversation('a', 'A', 2)]);
-      const created = { ...createConversationSummary('n', 'New', 2), created_at: '2024-01-10T12:05:00Z', updated_at: '2024-01-10T12:05:00Z' };
+      // Nobody has read it yet (e.g. an agent's first run)
+      const created = { ...createConversationSummary('n', 'New', 2, 0), created_at: '2024-01-10T12:05:00Z', updated_at: '2024-01-10T12:05:00Z' };
       mockSyncChanges().mockResolvedValue(changes([created]));
 
       await syncManager.incrementalSync();
@@ -1781,7 +1483,7 @@ describe('SyncManager', () => {
       const created = createConversation('new', 'Just created', 2);
       useStore.getState().addConversation(created);
       useStore.getState().setCurrentConversation(created);
-      respond({ conversations: [createConversationSummary('a', 'A', 2)], server_time: '2024-01-10T12:00:00Z', is_full_sync: true, cursor: 10 });
+      respond({ ...createSyncResponse([createConversationSummary('a', 'A', 2)]), server_time: '2024-01-10T12:00:00Z', cursor: 10 });
       await full;
 
       expect(useStore.getState().conversations.some((c) => c.id === 'new')).toBe(true);
@@ -2088,11 +1790,7 @@ describe('SyncManager', () => {
     });
 
     it('does not report a count the server already has', async () => {
-      mockSync.mockResolvedValue({
-        conversations: [{ ...createConversationSummary('a', 'A', 4), read_count: 4 }],
-        server_time: '2024-01-01T00:01:00Z',
-        is_full_sync: true,
-      });
+      mockSync.mockResolvedValue({ ...createSyncResponse([{ ...createConversationSummary('a', 'A', 4), read_count: 4 }]), server_time: '2024-01-01T00:01:00Z' })
       await syncManager.fullSync();
 
       syncManager.markConversationRead('a', 4);
@@ -2128,11 +1826,7 @@ describe('SyncManager', () => {
     });
 
     function nextSummary(extra: Partial<ConversationSummary>): void {
-      mockSync.mockResolvedValue({
-        conversations: [{ ...createConversationSummary('a', 'Old title', 2), ...extra }],
-        server_time: '2024-01-01T00:01:00Z',
-        is_full_sync: false,
-      });
+      mockSyncChanges.mockResolvedValue(changePage([{ ...createConversationSummary('a', 'Old title', 2), ...extra }], { server_time: '2024-01-01T00:01:00Z' }))
     }
 
     it('tells the open chat about a rename', async () => {

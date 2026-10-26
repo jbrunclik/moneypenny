@@ -323,17 +323,9 @@ export const conversations = {
     };
   },
 
-  /**
-   * Sync conversations with the server.
-   * @param since - ISO timestamp to get conversations updated since (null for full sync)
-   * @param full - Force full sync even with since parameter (for delete detection)
-   */
-  async sync(since: string | null, full: boolean = false): Promise<SyncResponse> {
-    const params = new URLSearchParams();
-    if (since) params.set('since', since);
-    if (full) params.set('full', 'true');
-    const query = params.toString();
-    return requestWithRetry<SyncResponse>(`/api/conversations/sync${query ? `?${query}` : ''}`);
+  /** Full sync: every conversation with its state, plus the change-log cursor. */
+  async sync(): Promise<SyncResponse> {
+    return requestWithRetry<SyncResponse>('/api/conversations/sync?full=true');
   },
 
   /** Record that this device has shown the conversation up to messageCount. */

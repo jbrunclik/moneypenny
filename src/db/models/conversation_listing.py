@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.conversation_rows import (
@@ -180,64 +179,6 @@ class ConversationListingMixin:
                        GROUP BY c.id
                        ORDER BY c.updated_at DESC""",
                     (user_id,),
-                ).fetchall()
-
-            return [row_to_conversation_summary(row) for row in rows]
-
-    def get_conversations_updated_since(
-        self, user_id: str, since: datetime, include_planning: bool = False
-    ) -> list[tuple[Conversation, int, str | None]]:
-        """Get conversations updated since a given timestamp with message counts.
-
-        This method is used for incremental sync operations to fetch only
-        conversations that have changed since the last sync.
-        Excludes planning conversations by default (they are handled separately).
-
-        Args:
-            user_id: The user ID
-            since: The timestamp to check against (conversations updated after this)
-            include_planning: If True, includes planning conversations.
-                             Default False since planner is handled separately.
-
-        Returns:
-            List of tuples containing (Conversation, message_count)
-        """
-        with self._pool.get_connection() as conn:
-            if include_planning:
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
-                              (SELECT m2.content FROM messages m2
-                               WHERE m2.conversation_id = c.id
-                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
-                       FROM conversations c
-                       LEFT JOIN messages m ON m.conversation_id = c.id
-                       WHERE c.user_id = ? AND c.updated_at > ?
-                       GROUP BY c.id
-                       ORDER BY c.updated_at DESC""",
-                    (user_id, since.isoformat()),
-                ).fetchall()
-            else:
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                              c.is_planning, c.read_message_count, c.pinned, COUNT(m.id) as message_count,
-                              (SELECT m2.content FROM messages m2
-                               WHERE m2.conversation_id = c.id
-                               ORDER BY m2.created_at DESC, m2.id DESC LIMIT 1) as last_message
-                       FROM conversations c
-                       LEFT JOIN messages m ON m.conversation_id = c.id
-                       WHERE c.user_id = ? AND c.updated_at > ?
-                         AND (c.is_planning = 0 OR c.is_planning IS NULL)
-                         AND (c.is_agent = 0 OR c.is_agent IS NULL)
-                         AND (c.archived = 0 OR c.archived IS NULL)
-                         AND c.deleted_at IS NULL
-                         AND (c.is_sports = 0 OR c.is_sports IS NULL)
-                         AND (c.is_language = 0 OR c.is_language IS NULL)
-                       GROUP BY c.id
-                       ORDER BY c.updated_at DESC""",
-                    (user_id, since.isoformat()),
                 ).fetchall()
 
             return [row_to_conversation_summary(row) for row in rows]

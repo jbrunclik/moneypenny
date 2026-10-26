@@ -2638,20 +2638,19 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Sync conversations - returns conversations updated since a given timestamp.
+         * Sync conversations: every conversation, or the changes after a cursor.
          * @description Query parameters:
-         *     - since: ISO timestamp to get conversations updated after this time (optional)
-         *     - full: If "true", returns all conversations for delete detection (optional)
+         *     - cursor: change-log position from the last sync - only what changed since
+         *     - full: If "true" (or no cursor), returns all conversations for delete detection
          *
          *     Returns:
          *     - conversations: List of conversation objects with message_count
-         *     - server_time: Current server timestamp to use for next sync
-         *     - is_full_sync: Whether this was a full sync (all conversations returned)
+         *     - server_time: Current server timestamp
+         *     - cursor / removed_ids / has_more: the change-log position and page
          */
         get: {
             parameters: {
                 query?: {
-                    since?: string | null;
                     cursor?: string | null;
                     full?: boolean;
                 };
@@ -9430,11 +9429,8 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /**
-             * Created At
-             * @default null
-             */
-            created_at: string | null;
+            /** Created At */
+            created_at: string;
             /** Updated At */
             updated_at: string;
             /** Message Count */
@@ -9442,40 +9438,27 @@ export interface components {
             /**
              * Read Count
              * @description Messages already shown on any device
-             * @default 0
              */
             read_count: number;
-            /**
-             * Last Message Preview
-             * @default null
-             */
+            /** Last Message Preview */
             last_message_preview: string | null;
             /**
              * Last Message Id
              * @description Newest message (detects edits/deletes a count can't)
-             * @default null
              */
             last_message_id: string | null;
-            /**
-             * Archived
-             * @default false
-             */
+            /** Archived */
             archived: boolean;
             /**
              * Trashed
              * @description In the trash (deleted_at set)
-             * @default false
              */
             trashed: boolean;
-            /**
-             * Pinned
-             * @default false
-             */
+            /** Pinned */
             pinned: boolean;
             /**
              * Anonymous Mode
              * @description Memory and integrations off
-             * @default false
              */
             anonymous_mode: boolean;
         };
@@ -9491,23 +9474,19 @@ export interface components {
              * @description ISO timestamp to use for next sync
              */
             server_time: string;
-            /** Is Full Sync */
-            is_full_sync: boolean;
             /**
              * Cursor
              * @description Change-log position to pass as ?cursor= on the next sync
-             * @default 0
              */
             cursor: number;
             /**
              * Removed Ids
-             * @description Conversations permanently deleted since the cursor
+             * @description Conversations permanently deleted since the cursor (empty on a full sync)
              */
             removed_ids: string[];
             /**
              * Has More
              * @description More changes after cursor - sync again
-             * @default false
              */
             has_more: boolean;
         };
