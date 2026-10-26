@@ -129,7 +129,133 @@ def _poll_stop_flag(
         _close_thread_db_connections()
 
 
-def stream_events(  # noqa: C901, PLR0912, PLR0915
+def _watch_for_stop(
+    token: CancelToken,
+    journal: _StreamJournal | None,
+    event_queue: queue.Queue[dict[str, Any] | Exception | None],
+    turn: TurnContext,
+    stop_key: str,
+    turn_done: threading.Event,
+) -> None:
+    """Acknowledge a Stop at once and poll for the stop route's flag."""
+
+    # Tell the client at once that the Stop landed: no events flow while
+    # a tool runs, and its grace abort must not fire during long tools.
+    # Journaled too, so a reader resumed after a reload learns it as well
+    def _ack_stop() -> None:
+        event: dict[str, Any] = {"type": "stopping"}
+        if journal:
+            journal.record(event)
+        event_queue.put(event)
+
+    token.add_callback(_ack_stop)
+    threading.Thread(
+        target=_poll_stop_flag,
+        args=(token, turn.user_id, turn.conv_id, stop_key, turn_done),
+        daemon=True,
+        name="stop-poller",
+    ).start()
+
+
+def _store_final_results(final_results: dict[str, Any], event: dict[str, Any]) -> None:
+    """Keep the final event's results for the cleanup thread."""
+    final_results["clean_content"] = event.get("content", "")
+    final_results["result_messages"] = event.get("result_messages", [])
+    final_results["tool_results"] = event.get("tool_results", [])
+    final_results["usage_info"] = event.get("usage_info", {})
+    final_results["stop_reason"] = event.get("stop_reason")
+    final_results["ready"] = True
+
+
+def _pump_events(
+    agent: ChatAgent,
+    turn: TurnContext,
+    stop_key: str,
+    event_queue: queue.Queue[dict[str, Any] | Exception | None],
+    final_results: dict[str, Any],
+    journal: _StreamJournal | None,
+) -> tuple[int, bool]:
+    """Move the turn's events into the queue (and journal); return (count, timed out)."""
+    event_count = 0
+    deadline = time.monotonic() + turn.timeout_seconds
+    gen = _turn_events(agent, turn, stop_key)
+    try:
+        for event in gen:
+            event_count += 1
+            if event.get("type") == "final":
+                _store_final_results(final_results, event)
+            if journal and event.get("type") in _JOURNALED_EVENT_TYPES:
+                journal.record(event)
+            event_queue.put(event)
+            if not final_results["ready"] and time.monotonic() > deadline:
+                logger.warning(
+                    "Chat stream exceeded its timeout; stopping agent",
+                    extra={
+                        "user_id": turn.user_id,
+                        "conversation_id": turn.conv_id,
+                        "timeout_seconds": turn.timeout_seconds,
+                        "event_count": event_count,
+                    },
+                )
+                return event_count, True
+    finally:
+        # Cooperatively stop the agent generator (raises GeneratorExit at its
+        # current yield point). Idempotent / safe after normal exhaustion.
+        gen.close()
+    return event_count, False
+
+
+def _report_approval_request(
+    e: ApprovalRequestedException,
+    event_queue: queue.Queue[dict[str, Any] | Exception | None],
+    final_results: dict[str, Any],
+    turn: TurnContext,
+    journal_message_id: str | None,
+    journal: _StreamJournal | None,
+) -> None:
+    """Send the approval event (saving its message first) and end the stream."""
+    logger.info(
+        "Stream thread: approval requested",
+        extra={
+            "user_id": turn.user_id,
+            "conversation_id": turn.conv_id,
+            "approval_id": e.approval_id,
+            "description": e.description,
+        },
+    )
+    approval_event: dict[str, Any] = {
+        "type": "approval_required",
+        "approval_id": e.approval_id,
+        "description": e.description,
+        "tool_name": e.tool_name,
+        # (tool_name, result) pairs from batch siblings that executed
+        # before the pause - recorded in the approval message (R3)
+        "sibling_results": e.sibling_results,
+    }
+    # Persist the approval message HERE (producer thread): if the client
+    # disconnects before the consumer processes this event, the consumer's
+    # finally would otherwise delete the unused placeholder and the
+    # approval message would never reach the conversation. The consumer's
+    # _finalize_approval_stream re-writes the same content (idempotent).
+    if journal_message_id:
+        try:
+            approval_message = build_approval_message(
+                e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
+            )
+            if db.update_message_content(journal_message_id, approval_message):
+                final_results["saved"] = True
+        except Exception:
+            logger.warning("Producer-side approval save failed", exc_info=True)
+    if journal:
+        journal.record(approval_event)
+    event_queue.put(approval_event)
+    # Approval is terminal for this stream: signal completion so the
+    # consumer finalizes promptly instead of sending keepalives until the
+    # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
+    event_queue.put(None)
+
+
+def stream_events(
     agent: ChatAgent,
     event_queue: queue.Queue[dict[str, Any] | Exception | None],
     final_results: dict[str, Any],
@@ -159,60 +285,13 @@ def stream_events(  # noqa: C901, PLR0912, PLR0915
     turn_done = threading.Event()
     try:
         token = register_token(turn.request_id)
-
-        # Tell the client at once that the Stop landed: no events flow while
-        # a tool runs, and its grace abort must not fire during long tools.
-        # Journaled too, so a reader resumed after a reload learns it as well
-        def _ack_stop() -> None:
-            event: dict[str, Any] = {"type": "stopping"}
-            if journal:
-                journal.record(event)
-            event_queue.put(event)
-
-        token.add_callback(_ack_stop)
-        threading.Thread(
-            target=_poll_stop_flag,
-            args=(token, user_id, conv_id, stop_key, turn_done),
-            daemon=True,
-            name="stop-poller",
-        ).start()
+        _watch_for_stop(token, journal, event_queue, turn, stop_key, turn_done)
         logger.debug(
             "Stream thread started", extra={"user_id": user_id, "conversation_id": conv_id}
         )
-        event_count = 0
-        deadline = time.monotonic() + turn.timeout_seconds
-        timed_out = False
-        gen = _turn_events(agent, turn, stop_key)
-        try:
-            for event in gen:
-                event_count += 1
-                if event.get("type") == "final":
-                    # Store final results for cleanup thread
-                    final_results["clean_content"] = event.get("content", "")
-                    final_results["result_messages"] = event.get("result_messages", [])
-                    final_results["tool_results"] = event.get("tool_results", [])
-                    final_results["usage_info"] = event.get("usage_info", {})
-                    final_results["stop_reason"] = event.get("stop_reason")
-                    final_results["ready"] = True
-                if journal and event.get("type") in _JOURNALED_EVENT_TYPES:
-                    journal.record(event)
-                event_queue.put(event)
-                if not final_results["ready"] and time.monotonic() > deadline:
-                    timed_out = True
-                    logger.warning(
-                        "Chat stream exceeded its timeout; stopping agent",
-                        extra={
-                            "user_id": user_id,
-                            "conversation_id": conv_id,
-                            "timeout_seconds": turn.timeout_seconds,
-                            "event_count": event_count,
-                        },
-                    )
-                    break
-        finally:
-            # Cooperatively stop the agent generator (raises GeneratorExit at its
-            # current yield point). Idempotent / safe after normal exhaustion.
-            gen.close()
+        event_count, timed_out = _pump_events(
+            agent, turn, stop_key, event_queue, final_results, journal
+        )
 
         if timed_out:
             timeout_event: dict[str, Any] = {"type": "timeout"}
@@ -235,45 +314,7 @@ def stream_events(  # noqa: C901, PLR0912, PLR0915
         event_queue.put(None)  # Signal completion
     except ApprovalRequestedException as e:
         # Special handling for approval requests - send approval event instead of error
-        logger.info(
-            "Stream thread: approval requested",
-            extra={
-                "user_id": user_id,
-                "conversation_id": conv_id,
-                "approval_id": e.approval_id,
-                "description": e.description,
-            },
-        )
-        approval_event: dict[str, Any] = {
-            "type": "approval_required",
-            "approval_id": e.approval_id,
-            "description": e.description,
-            "tool_name": e.tool_name,
-            # (tool_name, result) pairs from batch siblings that executed
-            # before the pause - recorded in the approval message (R3)
-            "sibling_results": e.sibling_results,
-        }
-        # Persist the approval message HERE (producer thread): if the client
-        # disconnects before the consumer processes this event, the consumer's
-        # finally would otherwise delete the unused placeholder and the
-        # approval message would never reach the conversation. The consumer's
-        # _finalize_approval_stream re-writes the same content (idempotent).
-        if journal_message_id:
-            try:
-                approval_message = build_approval_message(
-                    e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
-                )
-                if db.update_message_content(journal_message_id, approval_message):
-                    final_results["saved"] = True
-            except Exception:
-                logger.warning("Producer-side approval save failed", exc_info=True)
-        if journal:
-            journal.record(approval_event)
-        event_queue.put(approval_event)
-        # Approval is terminal for this stream: signal completion so the
-        # consumer finalizes promptly instead of sending keepalives until the
-        # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
-        event_queue.put(None)
+        _report_approval_request(e, event_queue, final_results, turn, journal_message_id, journal)
     except Exception as e:
         logger.exception(
             "Stream thread error",

@@ -106,7 +106,67 @@ class _StreamJournal:
             self.flush()
 
 
-def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:  # noqa: C901, PLR0915
+def _done_event_from_message(msg: Any) -> dict[str, Any]:
+    """The done event for a saved message, as the live stream would have sent it."""
+    done: dict[str, Any] = {
+        "type": "done",
+        "id": msg.id,
+        "created_at": msg.created_at.isoformat(),
+        "content": msg.content or "",
+    }
+    if msg.files:
+        done["files"] = msg.files
+    if msg.sources:
+        done["sources"] = msg.sources
+    if msg.generated_images:
+        done["generated_images"] = msg.generated_images
+    if msg.language:
+        done["language"] = msg.language
+    if getattr(msg, "stop_reason", None):
+        done["stop_reason"] = msg.stop_reason
+    # Same decorations as the live done event (claims, report chip, offer)
+    add_grounding(done, msg)
+    add_research(done, msg)
+    add_artifacts(done, msg)
+    done["message_count"] = conversation_message_count(msg)
+    return done
+
+
+def _replay(
+    events: list[tuple[int, str]], after_seq: int
+) -> Generator[str, None, tuple[int, bool]]:
+    """Yield journaled events as SSE lines; return the last seq and whether stream_end was seen."""
+    stream_ended = False
+    for seq, event_json in events:
+        after_seq = seq
+        try:
+            parsed = json.loads(event_json)
+        except ValueError:
+            continue
+        if parsed.get("type") == "stream_end":
+            stream_ended = True
+            continue
+        yield f"data: {event_json}\n\n"
+    return after_seq, stream_ended
+
+
+def _resume_failure(
+    msg: Any, save_grace_deadline: float | None, stall_deadline: float
+) -> str | None:
+    """Why the resume must give up now, or None to keep tailing.
+
+    save_grace_deadline is set once the producer's stream_end was seen.
+    """
+    if save_grace_deadline is not None:
+        if msg is None or time.monotonic() > save_grace_deadline:
+            # Placeholder deleted (failed turn) or the save never landed
+            return "The response could not be recovered."
+    elif time.monotonic() > stall_deadline:
+        return "The stream made no progress and appears to be dead."
+    return None
+
+
+def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
     """Resume an interrupted chat stream from the event journal.
 
     Replays journaled events with seq > after_seq, then tails the journal
@@ -128,44 +188,12 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:  # 
     # keepalives until CHAT_TIMEOUT.
     stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
 
-    def _done_event_from_message(msg: Any) -> dict[str, Any]:
-        done: dict[str, Any] = {
-            "type": "done",
-            "id": msg.id,
-            "created_at": msg.created_at.isoformat(),
-            "content": msg.content or "",
-        }
-        if msg.files:
-            done["files"] = msg.files
-        if msg.sources:
-            done["sources"] = msg.sources
-        if msg.generated_images:
-            done["generated_images"] = msg.generated_images
-        if msg.language:
-            done["language"] = msg.language
-        if getattr(msg, "stop_reason", None):
-            done["stop_reason"] = msg.stop_reason
-        # Same decorations as the live done event (claims, report chip, offer)
-        add_grounding(done, msg)
-        add_research(done, msg)
-        add_artifacts(done, msg)
-        done["message_count"] = conversation_message_count(msg)
-        return done
-
     while time.monotonic() < deadline:
         events = db.journal_get_events(message_id, after_seq)
         if events:
             stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
-        for seq, event_json in events:
-            after_seq = seq
-            try:
-                parsed = json.loads(event_json)
-            except ValueError:
-                continue
-            if parsed.get("type") == "stream_end":
-                stream_ended = True
-                continue
-            yield f"data: {event_json}\n\n"
+        after_seq, ended_now = yield from _replay(events, after_seq)
+        stream_ended = stream_ended or ended_now
 
         # A saved message (non-empty placeholder) means the turn is complete -
         # this also covers resume-after-completion when the journal was swept
@@ -174,25 +202,14 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:  # 
             yield f"data: {json.dumps(_done_event_from_message(msg))}\n\n"
             return
 
-        if stream_ended:
-            if save_grace_deadline is None:
-                save_grace_deadline = time.monotonic() + Config.STREAM_RESUME_SAVE_GRACE_SECONDS
-            if msg is None or time.monotonic() > save_grace_deadline:
-                # Placeholder deleted (failed turn) or the save never landed
-                error_data = {
-                    "type": "error",
-                    "code": "RESUME_FAILED",
-                    "message": "The response could not be recovered.",
-                    "retryable": False,
-                }
-                yield f"data: {json.dumps(error_data)}\n\n"
-                return
-
-        if not stream_ended and time.monotonic() > stall_deadline:
+        if stream_ended and save_grace_deadline is None:
+            save_grace_deadline = time.monotonic() + Config.STREAM_RESUME_SAVE_GRACE_SECONDS
+        failure = _resume_failure(msg, save_grace_deadline, stall_deadline)
+        if failure:
             error_data = {
                 "type": "error",
                 "code": "RESUME_FAILED",
-                "message": "The stream made no progress and appears to be dead.",
+                "message": failure,
                 "retryable": False,
             }
             yield f"data: {json.dumps(error_data)}\n\n"

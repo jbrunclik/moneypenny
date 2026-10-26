@@ -277,6 +277,83 @@ class TestResumeStallBound:
         assert events[-1]["type"] == "error"
         assert events[-1]["code"] == "RESUME_FAILED"
 
+    def test_a_save_that_never_lands_ends_after_the_grace(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api.helpers.stream_resume import stream_resume_events
+
+        monkeypatch.setattr(Config, "STREAM_RESUME_SAVE_GRACE_SECONDS", -1)
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        msg = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
+        test_database.journal_append_events(
+            msg.id, [(1, json.dumps({"type": "stream_end", "seq": 1}))]
+        )
+
+        events = _drain_sse(stream_resume_events(msg.id, after_seq=0))
+        assert events == [
+            {
+                "type": "error",
+                "code": "RESUME_FAILED",
+                "message": "The response could not be recovered.",
+                "retryable": False,
+            }
+        ]
+
+    def test_an_idle_live_stream_keeps_alive_until_the_timeout(
+        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api.helpers.stream_resume import stream_resume_events
+
+        monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0.5)
+        monkeypatch.setattr(Config, "DEEP_RESEARCH_RUN_TIMEOUT_SECONDS", 0.5)
+        monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL", 0)
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        msg = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
+
+        chunks = list(stream_resume_events(msg.id, after_seq=0))
+        assert ": keepalive\n\n" in chunks
+        assert chunks[-1] == f"data: {json.dumps({'type': 'timeout'})}\n\n"
+
+
+class TestResumeDoneEvent:
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, test_database: Database, monkeypatch: pytest.MonkeyPatch):
+        from src.api.helpers import stream_resume
+
+        monkeypatch.setattr(stream_resume, "db", test_database)
+        yield
+
+    def test_done_carries_the_saved_attachments_and_language(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        from src.api.helpers.stream_resume import stream_resume_events
+
+        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
+        sources = [{"title": "T", "url": "https://example.com"}]
+        images = [{"prompt": "a cat"}]
+        msg = test_database.add_message(
+            conv.id,
+            MessageRole.ASSISTANT,
+            "answer",
+            sources=sources,
+            generated_images=images,
+            language="cs",
+        )
+        # A malformed journal row is skipped, not sent
+        test_database.journal_append_events(
+            msg.id,
+            [(1, "not json"), (2, json.dumps({"type": "token", "text": "answer", "seq": 2}))],
+        )
+
+        events = _drain_sse(stream_resume_events(msg.id, after_seq=0))
+
+        assert [e["type"] for e in events] == ["token", "done"]
+        done = events[1]
+        assert done["sources"] == sources
+        assert done["generated_images"] == images
+        assert done["language"] == "cs"
+        assert "files" not in done
+
 
 class _ApprovalAgent:
     """Fake agent that immediately requests approval."""
