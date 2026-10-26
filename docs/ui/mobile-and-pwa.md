@@ -126,7 +126,8 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   in browser (exported as `--app-vh`), and ONE keyboard formula everywhere:
   `shrink = trueViewportHeight() - visualViewport.height - safeAreaTop()`
   (standalone kb: 874-471-62=341; Safari kb: 654-363-0=291; all rest
-  states: 0). Never build an inset from `innerHeight` - the standalone
+  states: 0; `measureKeyboardInset()`, which also adds the pill below).
+  Never build an inset from `innerHeight` - the standalone
   oscillation makes it flap 341→0→341 mid-focus, which collapses the
   layout and DISMISSES the keyboard.
 - **Standalone only: add `KEYBOARD_STANDALONE_ACCESSORY_PX` (50) to the
@@ -154,7 +155,7 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   composer pinned at screen top over a dead band). The window is never
   legitimately scrolled in this app (html/body overflow hidden) - any
   persistent `winY > 0` is reset whenever no finger is down
-  (`touchstart/touchend` tracking). visualViewport events do NOT fire for
+  (`touchstart/touchend` tracking; `resetStrayWindowScroll()`). visualViewport events do NOT fire for
   window scrolls; without `window.addEventListener('scroll', ...)` the
   strand is invisible to the update loop.
 - **Debug on-device with `?kbdebug=1`** (browser) or **5 quick taps on the
@@ -182,8 +183,18 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   bottom input BEFORE the inset shrinks the page; WebKit then draws the caret
   at the stale pan position, visibly outside the input. Fix: on the
   keyboard-OPEN transition only, `window.scrollTo(0, 0)` + re-assert the
-  selection range to force a caret redraw. Never re-run this on later inset
-  fluctuations — it fights in-progress user gestures.
+  selection range to force a caret redraw (`settleWithKeyboardUp()`, which
+  also re-pins a bottom-following list across the settle). Never re-run this
+  on later inset fluctuations — it fights in-progress user gestures.
+- **Layout of the module (Oct 26 2026 refactor, verbatim moves):**
+  `initKeyboardViewportPinning()` registers the listeners and owns `update()`,
+  which calls `measureKeyboardInset()` → `resetStrayWindowScroll()` → (on an
+  inset change) `holdAnchorThroughInsetChange()` for an anchored turn and
+  `settleWithKeyboardUp()` while the inset is > 0. Every write it makes, with
+  its timing, is recorded in `web/tests/unit/keyboard-viewport-trace.test.ts`
+  (gestures, the hardware-keyboard focus and the smooth scroll-to-bottom have
+  `gestures-trace`, `message-input-hardware-keyboard` and `smooth-scroll-trace`):
+  a refactor must leave those recordings unchanged.
 
 See `isIOSPWA()` in [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts):
 
@@ -363,6 +374,10 @@ The conversation cost display below the input area has `min-height: 16px` and is
 
 **Gestures:**
 - [../../web/src/gestures/swipe.ts](../../web/src/gestures/swipe.ts) - Reusable swipe handler
+- [../../web/src/core/gestures.ts](../../web/src/core/gestures.ts) - `setupTouchGestures()`: the conversation-row swipe (`createConversationSwipe`) and the sidebar edge swipe (`createSidebarSwipeHandlers`), sharing one active-swipe state
+
+**Keyboard:**
+- [../../web/src/core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts) - `--keyboard-inset`, `--app-vh`, `kb-open`, the pan guard, the settle poller and the kbdebug overlay
 
 **Components:**
 - [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts) - iOS detection, keyboard handling
