@@ -32,14 +32,15 @@ import {
   PHONE_ICON,
   createIconElement,
   setIcon,
+  type IconHtml,
 } from '../utils/icons';
-import { createElement, escapeHtml, isScrolledToBottom } from '../utils/dom';
+import { createElement, isScrolledToBottom, setSanitizedHtml } from '../utils/dom';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/programmatic-scroll';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 
 /** Map icon keys to SVG strings - used by metadata from backend */
-const ICON_MAP: Record<string, string> = {
+const ICON_MAP: Record<string, IconHtml> = {
   search: SEARCH_ICON,
   link: LINK_ICON,
   globe: GLOBE_ICON,
@@ -65,7 +66,7 @@ const ICON_MAP: Record<string, string> = {
 /**
  * Get icon for a trace item (prefers metadata, falls back to brain icon)
  */
-function getToolIcon(item: ThinkingTraceItem): string {
+function getToolIcon(item: ThinkingTraceItem): IconHtml {
   if (item.type === 'thinking') return BRAIN_ICON;
   if (item.metadata?.icon) return ICON_MAP[item.metadata.icon] || BRAIN_ICON;
   return BRAIN_ICON;
@@ -117,58 +118,66 @@ function truncateText(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 1) + '…';
 }
 
+/** Three bouncing dots: the step is running. */
+function thinkingDots(): HTMLElement {
+  return createElement('span', { class: 'thinking-dots' }, [
+    createElement('span'),
+    createElement('span'),
+    createElement('span'),
+  ]);
+}
+
 /**
- * Render a single trace item (thinking or tool)
+ * A trace item's detail: thinking text as markdown (the live one-line view
+ * shows only its latest heading); a tool's argument, truncated unless in the
+ * finalized view - generate_image prompts always show in full (they're
+ * creative content).
+ */
+function traceDetail(item: ThinkingTraceItem, showFullDetail: boolean): HTMLElement[] {
+  if (!item.detail) return [];
+  if (item.type === 'thinking') {
+    const heading = latestThoughtHeading(item.detail);
+    const markdown = createElement('div', { class: 'thinking-detail thinking-markdown' });
+    setSanitizedHtml(markdown, renderMarkdown(item.detail));
+    return heading ? [createElement('span', { class: 'thinking-heading' }, [heading]), markdown] : [markdown];
+  }
+  const isImagePrompt = item.label === 'generate_image';
+  const shouldTruncate = !showFullDetail && !isImagePrompt;
+  const detailText = shouldTruncate ? truncateText(item.detail, 60) : item.detail;
+  // 'full-detail' overrides the CSS truncation for image prompts
+  const detailClass = isImagePrompt ? 'thinking-detail full-detail' : 'thinking-detail';
+  return [createElement('span', { class: detailClass }, [detailText])];
+}
+
+/**
+ * A single trace item (thinking or tool)
  * @param item The trace item to render
  * @param isActive Whether this item is currently active (shows dots animation)
  * @param showFullDetail If true, don't truncate detail text (used in finalized view)
  */
-function renderTraceItem(
+function traceItem(
   item: ThinkingTraceItem,
   isActive: boolean,
   showFullDetail = false,
   isCurrent = false
-): string {
-  const icon = getToolIcon(item);
-  const displayLabel = getToolLabel(item);
-
+): HTMLElement {
   const statusClass = (item.completed ? 'completed' : (isActive ? 'active' : '')) + (isCurrent ? ' current' : '');
-  const dots = isActive && !item.completed
-    ? '<span class="thinking-dots"><span></span><span></span><span></span></span>'
-    : '';
-  const checkmark = item.completed ? '<span class="thinking-checkmark">✓</span>' : '';
+  return createElement('div', { class: `thinking-trace-item ${statusClass}` }, [
+    createIconElement('thinking-icon', getToolIcon(item)),
+    createElement('span', { class: 'thinking-label' }, [getToolLabel(item)]),
+    ...traceDetail(item, showFullDetail),
+    isActive && !item.completed && thinkingDots(),
+    item.completed && createElement('span', { class: 'thinking-checkmark' }, ['✓']),
+  ]);
+}
 
-  // Show detail if available
-  // For thinking items, render as markdown; for tools, truncate unless in finalized view
-  // Exception: generate_image prompts are always shown in full (they're creative content)
-  let detailHtml = '';
-  if (item.detail) {
-    if (item.type === 'thinking') {
-      // Render thinking text as markdown for better readability; the live
-      // one-line view shows only its latest heading
-      const heading = latestThoughtHeading(item.detail);
-      const headingHtml = heading ? `<span class="thinking-heading">${escapeHtml(heading)}</span>` : '';
-      detailHtml = `${headingHtml}<div class="thinking-detail thinking-markdown">${renderMarkdown(item.detail)}</div>`;
-    } else {
-      // Show full detail for generate_image (prompts are creative content worth showing)
-      const isImagePrompt = item.label === 'generate_image';
-      const shouldTruncate = !showFullDetail && !isImagePrompt;
-      const detailText = shouldTruncate ? truncateText(item.detail, 60) : item.detail;
-      // Add 'full-detail' class for image prompts to override CSS truncation
-      const detailClass = isImagePrompt ? 'thinking-detail full-detail' : 'thinking-detail';
-      detailHtml = `<span class="${detailClass}">${escapeHtml(detailText)}</span>`;
-    }
-  }
-
-  return `
-    <div class="thinking-trace-item ${statusClass}">
-      <span class="thinking-icon">${icon}</span>
-      <span class="thinking-label">${escapeHtml(displayLabel)}</span>
-      ${detailHtml}
-      ${dots}
-      ${checkmark}
-    </div>
-  `;
+/**
+ * What a live trace item's markup depends on: an unchanged key renders the
+ * same item (so the update can be skipped).
+ */
+function traceItemKey(item: ThinkingTraceItem, isActive: boolean, isCurrent: boolean): unknown[] {
+  const { type, label, detail, completed, metadata } = item;
+  return [type, label, detail, completed, metadata?.icon, metadata?.label, metadata?.label_past, isActive, isCurrent];
 }
 
 /**
@@ -202,19 +211,25 @@ const LIVE_EXPANDED_CLASS = 'live-expanded';
 // A tap whose click never comes (a drag) still releases the held update
 const PRESS_RELEASE_FALLBACK_MS = 400;
 
-// Pressed live lines and the trace markup held back while pressed. WebKit
-// fires no click when the pressed node is replaced before the finger lifts,
-// and every thinking event re-rendered the line: taps were lost (Oct 2026)
+/** A live trace, built, and the key of what it shows. */
+interface LiveTrace {
+  key: string;
+  trace: HTMLElement;
+}
+
+// Pressed live lines and the trace held back while pressed. WebKit fires no
+// click when the pressed node is replaced before the finger lifts, and every
+// thinking event re-rendered the line: taps were lost (Oct 2026)
 const pressedLines = new WeakSet<HTMLElement>();
-const heldTraceHtml = new WeakMap<HTMLElement, string>();
-// Markup last written (the browser's innerHTML re-serializes differently)
-const renderedTraceHtml = new WeakMap<HTMLElement, string>();
+const heldTrace = new WeakMap<HTMLElement, LiveTrace>();
+// Key of the trace last written: an event that changes nothing is skipped
+const renderedTraceKey = new WeakMap<HTMLElement, string>();
 
 function holdUpdatesWhilePressed(container: HTMLElement): void {
   const release = (): void => {
     pressedLines.delete(container);
-    const held = heldTraceHtml.get(container);
-    heldTraceHtml.delete(container);
+    const held = heldTrace.get(container);
+    heldTrace.delete(container);
     // The answer may have started meanwhile: never write the live trace
     // into the finished summary
     const content = container.querySelector('.thinking-indicator-content');
@@ -237,7 +252,7 @@ function holdUpdatesWhilePressed(container: HTMLElement): void {
 /** The live (streaming) markup: the expand control and the trace. */
 function renderLiveSkeleton(container: HTMLElement): void {
   container.classList.remove('finalized');
-  renderedTraceHtml.delete(container);
+  renderedTraceKey.delete(container);
   const expanded = container.classList.contains(LIVE_EXPANDED_CLASS);
   const expand = createElement('button', {
     class: 'thinking-live-expand',
@@ -246,11 +261,7 @@ function renderLiveSkeleton(container: HTMLElement): void {
     'aria-label': 'Show the full trace',
   });
   setIcon(expand, CHEVRON_RIGHT_ICON);
-  const dots = createElement('span', { class: 'thinking-dots' }, [
-    createElement('span'),
-    createElement('span'),
-    createElement('span'),
-  ]);
+  const dots = thinkingDots();
   container.replaceChildren(
     expand,
     createElement('div', { class: 'thinking-indicator-content' }, [
@@ -315,43 +326,43 @@ export function updateThinkingIndicator(
   const content = container.querySelector('.thinking-indicator-content');
   if (!content) return;
 
-  // Build trace from state
-  const traceItems: string[] = [];
   const current = currentTraceIndex(state);
+  // Thinking item is active if isThinking is true and no tool is active
+  // Tool item is active if it matches the currently active tool and is not completed
+  const items = state.trace.map((item, i) => ({
+    item,
+    isActive:
+      item.type === 'thinking' ? state.isThinking && !state.activeTool : state.activeTool === item.label && !item.completed,
+    isCurrent: i === current,
+  }));
+  // Empty trace while thinking: the initial thinking line
+  const initial = items.length === 0 && state.isThinking;
+  const key = JSON.stringify([initial, items.map((t) => traceItemKey(t.item, t.isActive, t.isCurrent))]);
+  if (!pressedLines.has(container) && renderedTraceKey.get(container) === key) return;
 
-  // Render all trace items
-  for (const [i, item] of state.trace.entries()) {
-    // Thinking item is active if isThinking is true and no tool is active
-    // Tool item is active if it matches the currently active tool and is not completed
-    const isActive =
-      item.type === 'thinking'
-        ? state.isThinking && !state.activeTool
-        : state.activeTool === item.label && !item.completed;
-    traceItems.push(renderTraceItem(item, isActive, false, i === current));
-  }
-
-  // If trace is empty but we're thinking, show the initial thinking state
-  if (traceItems.length === 0 && state.isThinking) {
-    traceItems.push(`
-      <div class="thinking-trace-item active current">
-        <span class="thinking-icon">${BRAIN_ICON}</span>
-        <span class="thinking-label">Thinking</span>
-        <span class="thinking-dots"><span></span><span></span><span></span></span>
-      </div>
-    `);
-  }
-
-  const html = `<div class="thinking-trace">${traceItems.join('')}</div>`;
+  const trace = createElement(
+    'div',
+    { class: 'thinking-trace' },
+    initial
+      ? [
+          createElement('div', { class: 'thinking-trace-item active current' }, [
+            createIconElement('thinking-icon', BRAIN_ICON),
+            createElement('span', { class: 'thinking-label' }, ['Thinking']),
+            thinkingDots(),
+          ]),
+        ]
+      : items.map((t) => traceItem(t.item, t.isActive, false, t.isCurrent))
+  );
   if (pressedLines.has(container)) {
-    heldTraceHtml.set(container, html);
-  } else if (renderedTraceHtml.get(container) !== html) {
-    writeTrace(container, content, html);
+    heldTrace.set(container, { key, trace });
+  } else {
+    writeTrace(container, content, { key, trace });
   }
 }
 
-function writeTrace(container: HTMLElement, content: Element, html: string): void {
-  content.innerHTML = html;
-  renderedTraceHtml.set(container, html);
+function writeTrace(container: HTMLElement, content: Element, live: LiveTrace): void {
+  content.replaceChildren(live.trace);
+  renderedTraceKey.set(container, live.key);
 }
 
 /**
@@ -373,7 +384,7 @@ export function collapseThinkingIndicator(container: HTMLElement, state: Thinkin
  * The finalized view's trace: rendered detail rows and the steps the summary
  * names (the same ones). Thinking comes first, then tools.
  */
-function finalizedTrace(state: ThinkingState): { traceItems: string[]; summaryItems: ThinkingTraceItem[] } {
+function finalizedTrace(state: ThinkingState): { traceItems: HTMLElement[]; summaryItems: ThinkingTraceItem[] } {
   // Reorder trace for finalized view: thinking first, then tools (logical reading order)
   // During streaming, thinking is at the end for auto-scroll, but for reading it makes sense first
   const reorderedTrace = [
@@ -382,7 +393,7 @@ function finalizedTrace(state: ThinkingState): { traceItems: string[]; summaryIt
   ];
 
   // Pass showFullDetail=true to show full text in finalized view
-  const traceItems = reorderedTrace.map((item) => renderTraceItem({ ...item, completed: true }, false, true));
+  const traceItems = reorderedTrace.map((item) => traceItem({ ...item, completed: true }, false, true));
   // The summary names the same steps the details list
   const summaryItems: ThinkingTraceItem[] = [...reorderedTrace];
   if (traceItems.length > 0) return { traceItems, summaryItems };
@@ -390,12 +401,12 @@ function finalizedTrace(state: ThinkingState): { traceItems: string[]; summaryIt
   // If no trace but we have thinking text or completed tools, build from those
   if (state.thinkingText) {
     const thinking: ThinkingTraceItem = { type: 'thinking', label: 'thinking', detail: state.thinkingText, completed: true };
-    traceItems.push(renderTraceItem(thinking, false, true));
+    traceItems.push(traceItem(thinking, false, true));
     summaryItems.push(thinking);
   }
   for (const tool of state.completedTools) {
     const item: ThinkingTraceItem = { type: 'tool', label: tool, completed: true };
-    traceItems.push(renderTraceItem(item, false, true));
+    traceItems.push(traceItem(item, false, true));
     summaryItems.push(item);
   }
   return { traceItems, summaryItems };
@@ -436,17 +447,15 @@ export function finalizeThinkingIndicator(
   container.classList.toggle('expanded', expanded);
 
   // Create collapsible structure
-  container.innerHTML = `
-    <button class="thinking-toggle" aria-expanded="${expanded}" type="button">
-      <span class="thinking-toggle-icon">${CHEVRON_RIGHT_ICON}</span>
-      <span class="thinking-toggle-summary">${escapeHtml(summarizeTrace(summaryItems))}</span>
-    </button>
-    <div class="thinking-details"${expanded ? '' : ' hidden'}>
-      <div class="thinking-trace">
-        ${traceItems.join('')}
-      </div>
-    </div>
-  `;
+  const toggleButton = createElement('button', { class: 'thinking-toggle', 'aria-expanded': String(expanded), type: 'button' }, [
+    createIconElement('thinking-toggle-icon', CHEVRON_RIGHT_ICON),
+    createElement('span', { class: 'thinking-toggle-summary' }, [summarizeTrace(summaryItems)]),
+  ]);
+  const detailsEl = createElement('div', { class: 'thinking-details' }, [
+    createElement('div', { class: 'thinking-trace' }, traceItems),
+  ]);
+  detailsEl.hidden = !expanded;
+  container.replaceChildren(toggleButton, detailsEl);
 
   if (scrollContainer) {
     const collapseDelta = heightBefore - container.offsetHeight;

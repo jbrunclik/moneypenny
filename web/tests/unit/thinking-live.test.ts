@@ -120,6 +120,17 @@ describe('the live line', () => {
     updateThinkingIndicator(indicator, state);
     expect(line.isConnected).toBe(true);
   });
+
+  it('an update that changes a step re-renders the line', () => {
+    addToolStartToTrace(state, 'web_search', 'first query');
+    updateThinkingIndicator(indicator, state);
+    const line = indicator.querySelector('.thinking-trace-item')!;
+
+    markToolCompletedInTrace(state, 'web_search');
+    updateThinkingIndicator(indicator, state);
+    expect(line.isConnected).toBe(false);
+    expect(indicator.querySelector('.thinking-trace-item.completed .thinking-checkmark')).not.toBeNull();
+  });
 });
 
 describe('collapseThinkingIndicator (the answer started)', () => {
