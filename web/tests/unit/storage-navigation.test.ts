@@ -47,14 +47,14 @@ vi.mock('@/components/ModelSelector', () => ({ renderModelDropdown: vi.fn() }));
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: vi.fn() }));
 vi.mock('@/components/WelcomeMessage', () => ({ createWelcomeMessage: vi.fn(() => document.createElement('div')) }));
 
-vi.mock('@/utils/dom', () => ({
+vi.mock('@/utils/dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/dom')>()),
   getElementById: vi.fn(),
   clearElement: vi.fn((el: HTMLElement) => el.replaceChildren()),
 }));
 
 vi.mock('@/router/deeplink', () => ({ clearConversationHash: vi.fn(), setStorageHash: vi.fn() }));
 vi.mock('@/utils/thumbnails', () => ({ setCurrentConversationForBlobs: vi.fn() }));
-vi.mock('@/utils/icons', () => ({ WARNING_ICON: '<svg></svg>' }));
 
 vi.mock('@/config', () => ({ STORAGE_CACHE_MS: 60000, APP_NAME: 'Moneypenny' }));
 

@@ -3,7 +3,7 @@
  * Shows memories section first, K/V storage second.
  */
 
-import { escapeHtml, clearElement } from '../utils/dom';
+import { escapeHtml, clearElement, createElement } from '../utils/dom';
 import { createEmptyState } from './EmptyState';
 import {
   DELETE_ICON,
@@ -14,9 +14,21 @@ import {
   LOCK_ICON,
   UNLOCK_ICON,
   RESTORE_ICON,
+  createIconElement,
+  setIcon,
+  type IconHtml,
 } from '../utils/icons';
 import type { KVNamespacesResponse, KVKeysResponse, Memory } from '../types/api';
 import { showConfirm } from './Modal';
+
+/** A section heading: icon, title and its count. */
+function sectionTitle(icon: IconHtml, title: string, count: string): HTMLHeadingElement {
+  return createElement('h3', { class: 'kv-store-section-title' }, [
+    createIconElement('section-icon', icon),
+    ` ${title} `,
+    createElement('span', { class: 'kv-store-section-count' }, [count]),
+  ]);
+}
 
 /**
  * Render loading skeleton for the storage page.
@@ -92,16 +104,17 @@ export function renderKVStorePage(
   // Header
   const header = document.createElement('div');
   header.className = 'kv-store-header';
-  header.innerHTML = `
-    <div class="kv-store-title">
-      <span class="kv-store-icon">${DATABASE_ICON}</span>
-      <h2>Data</h2>
-    </div>
-    <div class="kv-store-header-actions">
-      <button class="btn-refresh" title="Refresh">${REFRESH_ICON} Refresh</button>
-    </div>
-  `;
-  header.querySelector('.btn-refresh')?.addEventListener('click', callbacks.onRefresh);
+  const refreshBtn = createElement('button', { class: 'btn-refresh', title: 'Refresh' });
+  setIcon(refreshBtn, REFRESH_ICON);
+  refreshBtn.append(' Refresh');
+  refreshBtn.addEventListener('click', callbacks.onRefresh);
+  header.append(
+    createElement('div', { class: 'kv-store-title' }, [
+      createIconElement('kv-store-icon', DATABASE_ICON),
+      createElement('h2', {}, ['Data']),
+    ]),
+    createElement('div', { class: 'kv-store-header-actions' }, [refreshBtn])
+  );
   container.appendChild(header);
 
   // Memories section
@@ -135,10 +148,7 @@ function renderMemoriesSection(
   // The cap comes from the API so the UI never keeps its own copy of it
   const countLabel = options?.limit ? `${memories.length}/${options.limit}` : String(memories.length);
 
-  const title = document.createElement('h3');
-  title.className = 'kv-store-section-title';
-  title.innerHTML = `<span class="section-icon">${BRAIN_ICON}</span> Memories <span class="kv-store-section-count">${escapeHtml(countLabel)}</span>`;
-  section.appendChild(title);
+  section.appendChild(sectionTitle(BRAIN_ICON, 'Memories', countLabel));
 
   if (memories.length === 0) {
     section.appendChild(createEmptyState({
@@ -268,10 +278,7 @@ function renderDeletedMemoriesSection(
   const section = document.createElement('div');
   section.className = 'kv-store-section';
 
-  const title = document.createElement('h3');
-  title.className = 'kv-store-section-title';
-  title.innerHTML = `<span class="section-icon">${RESTORE_ICON}</span> Recently deleted <span class="kv-store-section-count">${deletedMemories.length}</span>`;
-  section.appendChild(title);
+  section.appendChild(sectionTitle(RESTORE_ICON, 'Recently deleted', String(deletedMemories.length)));
 
   const list = document.createElement('div');
   list.className = 'kv-memories-list';
@@ -320,10 +327,7 @@ function renderKVSection(data: KVNamespacesResponse, callbacks: KVStoreCallbacks
   const section = document.createElement('div');
   section.className = 'kv-store-section';
 
-  const title = document.createElement('h3');
-  title.className = 'kv-store-section-title';
-  title.innerHTML = `<span class="section-icon">${DATABASE_ICON}</span> Key-Value Storage <span class="kv-store-section-count">${data.namespaces.length}</span>`;
-  section.appendChild(title);
+  section.appendChild(sectionTitle(DATABASE_ICON, 'Key-Value Storage', String(data.namespaces.length)));
 
   if (data.namespaces.length === 0) {
     section.appendChild(createEmptyState({
@@ -360,16 +364,16 @@ function createNamespaceCard(
 
   const header = document.createElement('div');
   header.className = 'kv-namespace-header';
-  header.innerHTML = `
-    <div class="kv-namespace-title-row">
-      <span class="kv-namespace-chevron">${CHEVRON_RIGHT_ICON}</span>
-      <span class="kv-namespace-name">${escapeHtml(namespace)}</span>
-      <span class="kv-namespace-count">${keyCount} ${keyCount === 1 ? 'key' : 'keys'}</span>
-    </div>
-    <div class="kv-namespace-actions">
-      <button class="btn-clear-namespace" title="Clear all keys in namespace">${DELETE_ICON}</button>
-    </div>
-  `;
+  const clearBtn = createElement('button', { class: 'btn-clear-namespace', title: 'Clear all keys in namespace' });
+  setIcon(clearBtn, DELETE_ICON);
+  header.append(
+    createElement('div', { class: 'kv-namespace-title-row' }, [
+      createIconElement('kv-namespace-chevron', CHEVRON_RIGHT_ICON),
+      createElement('span', { class: 'kv-namespace-name' }, [namespace]),
+      createElement('span', { class: 'kv-namespace-count' }, [`${keyCount} ${keyCount === 1 ? 'key' : 'keys'}`]),
+    ]),
+    createElement('div', { class: 'kv-namespace-actions' }, [clearBtn])
+  );
 
   const body = document.createElement('div');
   body.className = 'kv-namespace-body collapsed';

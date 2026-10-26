@@ -44,7 +44,7 @@
   },
   "src/components/KVStorePage.ts": {
     "no-unsanitized/property": {
-      "count": 8
+      "count": 3
     }
   },
   "src/components/LanguageDashboard.ts": {
@@ -251,11 +251,6 @@
       "count": 2
     },
     "max-lines-per-function": {
-      "count": 1
-    }
-  },
-  "src/core/kv-store.ts": {
-    "no-unsanitized/property": {
       "count": 1
     }
   },
