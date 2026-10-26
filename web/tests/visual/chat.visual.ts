@@ -166,7 +166,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Wait for animations
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     // Screenshot the user message to verify URL wrapping
     const userMessage = page.locator('.message.user').first();
@@ -204,7 +204,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.fill('#message-input', 'Show me a wide table');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant table', { timeout: 10000 });
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
     await page.request.post('/test/clear-mock-response');
 
     // The bubble widens to contain the table, but the page itself must
@@ -245,7 +245,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Wait for animations
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     // Screenshot the user message to verify it doesn't collapse
     const userMessage = page.locator('.message.user').first();
@@ -316,7 +316,8 @@ test.describe('Visual: Thinking Indicator', () => {
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
     // Wait for animations to complete
-    await page.waitForTimeout(500);
+    await expect(assistantMessage).not.toHaveClass(/streaming/);
+    await screenshotReady(page);
 
     // Screenshot the message (may or may not have thinking indicator based on timing)
     await expect(assistantMessage).toHaveScreenshot('message-with-streaming-response.png');
@@ -347,7 +348,8 @@ test.describe('Visual: Thinking Indicator', () => {
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
     // Wait for animations
-    await page.waitForTimeout(500);
+    await expect(assistantMessage).not.toHaveClass(/streaming/);
+    await screenshotReady(page);
 
     // Screenshot the message (may or may not have tool indicator based on timing)
     await expect(assistantMessage).toHaveScreenshot('message-with-tool-usage.png');
@@ -393,7 +395,7 @@ test.describe('Visual: Sync UI', () => {
     });
 
     // Wait for any animations
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Screenshot the sidebar showing unread badge
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-unread-badge.png');
@@ -424,7 +426,7 @@ test.describe('Visual: Sync UI', () => {
     });
 
     // Wait for any animations
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Screenshot just the conversation item with badge
     const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();

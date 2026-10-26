@@ -1118,7 +1118,8 @@ test.describe('Visual: Health Summary Strip', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await page.waitForTimeout(300);
+    // Loaded (the loading state has no header)
+    await expect(page.locator('.dashboard-header')).toBeVisible();
 
     // Health strip should not be present
     const healthStrip = page.locator('.health-summary-strip');
@@ -1247,7 +1248,8 @@ test.describe('Visual: Weather Badges', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await page.waitForTimeout(300);
+    // Loaded (the loading state has no header)
+    await expect(page.locator('.dashboard-header')).toBeVisible();
 
     // No weather badges should be present
     const badges = page.locator('.weather-badge');

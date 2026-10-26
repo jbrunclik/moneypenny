@@ -22,7 +22,7 @@ async function open(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/#/sports/pushups');
   await page.waitForSelector('.quick-action-chip');
   await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 15000 });
-  await page.waitForTimeout(300);
+  await screenshotReady(page);
 }
 
 test.describe('Visual: Quick actions', () => {

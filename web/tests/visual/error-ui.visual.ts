@@ -3,7 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { screenshotReady } from '../e2e/waits';
+import { nextFrames, screenshotReady } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -194,7 +194,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // The modal's bottom edge occasionally lands 1px lower on CI runners
     // (~360px of a 1280x1024 frame); a real regression moves thousands.
@@ -321,7 +321,7 @@ test.describe('Visual: Modal Dialogs', () => {
     const convItemWrapper = page.locator('.conversation-item-wrapper').first();
     const convItem = convItemWrapper.locator('.conversation-item');
     await convItem.hover();
-    await page.waitForTimeout(200);
+    await nextFrames(page);
 
     // Click delete button - it's .conversation-delete inside .conversation-item
     const deleteBtn = convItem.locator('.conversation-delete');
@@ -331,7 +331,7 @@ test.describe('Visual: Modal Dialogs', () => {
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });
 
     // Wait for animation to complete
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Deterministic focus state: whether #message-input keeps focus after
     // send varies with load timing, and its focus border is inside this
@@ -359,7 +359,7 @@ test.describe('Visual: Modal Dialogs', () => {
     const convItemWrapper = page.locator('.conversation-item-wrapper').first();
     const convItem = convItemWrapper.locator('.conversation-item');
     await convItem.hover();
-    await page.waitForTimeout(200);
+    await nextFrames(page);
 
     // Click delete button
     const deleteBtn = convItem.locator('.conversation-delete');
@@ -367,7 +367,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
     // Wait for our custom modal to appear
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Take full page screenshot to show modal with overlay
     // Deterministic focus state (see delete-confirmation test)

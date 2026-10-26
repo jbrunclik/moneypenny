@@ -141,7 +141,6 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
 
     // Expand the fitness namespace
     await page.locator('.kv-namespace-title-row').first().click();
@@ -156,7 +155,6 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
 
     // Click first memory delete button
     await page.locator('.memory-delete').first().click();
@@ -185,7 +183,6 @@ test.describe('Visual: Storage Page - Mobile', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
 
     // Expand the fitness namespace
     await page.locator('.kv-namespace-title-row').first().click();

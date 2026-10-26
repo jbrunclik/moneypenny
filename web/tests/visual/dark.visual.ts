@@ -28,7 +28,7 @@ async function sendAndWait(page: Page, text: string): Promise<void> {
     for (const el of document.querySelectorAll('.message-time')) el.textContent = '12:00 PM';
   });
   await page.mouse.move(0, 0);
-  await page.waitForTimeout(400);
+  await screenshotReady(page);
 }
 
 test.describe('Visual: Dark theme', () => {

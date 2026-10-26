@@ -178,7 +178,7 @@ test.describe('Visual: Mobile Interactions', () => {
     // Open sidebar (should show empty state)
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Screenshot the sidebar content area to show empty state message
     await expect(page.locator('.sidebar')).toHaveScreenshot(
@@ -210,7 +210,7 @@ test.describe('Visual: Mobile Interactions', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     // Screenshot the user message to verify it doesn't wrap weirdly
     await expect(page.locator('.message.user').first()).toHaveScreenshot(
@@ -259,7 +259,6 @@ test.describe('Visual: Mobile Interactions', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant table', { timeout: 10000 });
 
-    await page.waitForTimeout(500);
 
     // Clear mock response for other tests
     await page.request.post('/test/clear-mock-response');
@@ -272,7 +271,7 @@ test.describe('Visual: Mobile Interactions', () => {
       content:
         '.input-area { visibility: hidden !important; } .messages > .message:first-child { margin-top: 0 !important; }',
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     // Screenshot the assistant message with the table
     // The table should be contained within the message bubble with horizontal scroll
@@ -309,8 +308,8 @@ test.describe('Visual: Mobile Interactions', () => {
     const assistantMessage = page.locator('.message.assistant');
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
-    // Wait for animations
-    await page.waitForTimeout(500);
+    await expect(assistantMessage).not.toHaveClass(/streaming/);
+    await screenshotReady(page);
 
     // Screenshot the streaming message on mobile
     await expect(assistantMessage).toHaveScreenshot('mobile-streaming-message.png');
@@ -349,7 +348,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     // Open sidebar
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Reveal the actions the way core/gestures.ts does after a swipe; the
     // real (hover: none) styles apply because this block runs on a touch
@@ -357,10 +356,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     await page.evaluate(() => {
       document.querySelector('.conversation-item-wrapper')?.classList.add('swiped');
     });
-    await page.waitForTimeout(350);
-
-    // Wait for render
-    await page.waitForTimeout(100);
+    await screenshotReady(page);
 
     // Screenshot the conversation item with revealed swipe actions
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -403,7 +399,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     // Open sidebar again
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Unread badge on the other conversation, then reveal its swipe actions
     // the way core/gestures.ts does (real touch-device styles, see above)
@@ -417,10 +413,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
       item.insertBefore(badge, item.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
       wrapper.classList.add('swiped');
     });
-    await page.waitForTimeout(350);
-
-    // Wait for render
-    await page.waitForTimeout(100);
+    await screenshotReady(page);
 
     // Screenshot the conversation item with swipe actions and unread badge
     const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();

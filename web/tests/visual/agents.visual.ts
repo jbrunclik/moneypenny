@@ -2,7 +2,7 @@
  * Visual regression tests for Agents (Command Center) feature
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { nextFrames, screenshotReady, scrollSettled } from '../e2e/waits';
 
 test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry default state', async ({ page }) => {
@@ -563,7 +563,7 @@ test.describe('Visual: Agent Editor Modal', () => {
     await page.click('.schedule-preset-chip[data-cron="0 9 * * *"]');
     await page.fill('#agent-system-prompt', 'You are a helpful testing assistant.');
 
-    await page.waitForTimeout(200);
+    await scrollSettled(page, '.agent-editor-body');
     // Filling the system prompt scrolls the editor body to it, and WebKit
     // captured it at varying offsets (one field shifted, which looked like
     // the Name field holding the description) - capture from the top
@@ -590,7 +590,7 @@ test.describe('Visual: Agent Editor Modal', () => {
     const modalBody = page.locator('.agent-editor-body');
     await modalBody.evaluate((el) => el.scrollTo(0, el.scrollHeight));
 
-    await page.waitForTimeout(200);
+    await nextFrames(page);
 
     // Click on the tool permission cards (labels) to toggle them
     await page.click('.tool-permission-card:has(input[value="todoist"])');
@@ -659,7 +659,7 @@ test.describe('Visual: Agent Editor Modal', () => {
     // The modal overlay leaves the sidebar visible - wait for the
     // conversation list to settle (skeletons gone) to keep shots stable
     await page.waitForSelector('.conversations-empty');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     // Verify delete button is visible
     await expect(page.locator('.agent-editor-delete')).toBeVisible();

@@ -775,7 +775,7 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
       { SETTINGS_ICON, CLOSE_ICON, ACTIVITY_ICON, garminSectionHtml }
     );
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
   }
 
   test('garmin section disconnected state', async ({ page }) => {

@@ -2,7 +2,7 @@
  * Visual regression tests for search functionality
  */
 import { test, expect } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { nextFrames, screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Search Input', () => {
   test.beforeEach(async ({ page }) => {
@@ -68,10 +68,7 @@ test.describe('Visual: Search Empty States', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('xyznonexistent');
 
-    // Wait for debounce and results
-    await page.waitForTimeout(500);
-
-    // Wait for empty state
+    // Wait for empty state (past the debounce)
     const searchEmpty = page.locator('.search-empty');
     await expect(searchEmpty).toContainText('No results found');
 
@@ -171,7 +168,6 @@ test.describe('Visual: Search Results', () => {
     await searchInput.fill('highlighted');
 
     // Wait for results
-    await page.waitForTimeout(500);
     const resultItem = page.locator('.search-result-item').first();
     await expect(resultItem).toBeVisible();
 
@@ -197,7 +193,7 @@ test.describe('Visual: Search Loading', () => {
     await searchInput.type('te', { delay: 100 });
 
     // Small wait to ensure UI updates
-    await page.waitForTimeout(50);
+    await nextFrames(page);
 
     // Note: This test may be flaky due to timing of loading state
     // The search-loading class may appear very briefly
@@ -240,7 +236,8 @@ test.describe('Visual: Sidebar with Search', () => {
     await searchInput.fill('Test');
 
     // Wait for debounce and results
-    await page.waitForTimeout(500);
+    await expect(page.locator('.search-result-item').first()).toBeVisible();
+    await screenshotReady(page);
 
     // Screenshot search mode - allow small pixel tolerance for dynamic timestamps
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-search-mode.png', {
@@ -249,7 +246,8 @@ test.describe('Visual: Sidebar with Search', () => {
 
     // Press escape to deactivate search
     await searchInput.press('Escape');
-    await page.waitForTimeout(300);
+    await expect(page.locator('.search-result-item')).toHaveCount(0);
+    await screenshotReady(page);
 
     // Screenshot should be back to normal
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-after-search.png', {
