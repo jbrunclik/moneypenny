@@ -6,8 +6,6 @@
 import { createLogger } from '../utils/logger';
 import { initToast } from '../components/Toast';
 import { initModal } from '../components/Modal';
-import { initSearchInput } from '../components/SearchInput';
-import { subscribeToSearchChanges } from '../components/SearchResults';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
@@ -21,7 +19,6 @@ import { initializeTheme } from '../utils/theme';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
 import { initDeepLinking } from '../router/deeplink';
 
-import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
 import { initSidebarSelection } from '../components/SidebarSelection';
 import { setupTouchGestures } from './gestures';
@@ -36,6 +33,7 @@ import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
 import { initComposer } from './startup/composer';
 import { initMessageUi } from './startup/message-ui';
+import { initSearch } from './startup/search';
 
 const log = createLogger('init');
 
@@ -79,12 +77,7 @@ export async function init(): Promise<void> {
   // Keep an existing push subscription working after reloads; actual
   // permission requests only happen from the Settings toggle
   void registerServiceWorker();
-  initSearchInput();
-  subscribeToSearchChanges((convId, messageId, resultIndex) => {
-    void handleSearchResultClick(convId, messageId, resultIndex).catch((error: unknown) =>
-      log.error('Failed to open search result', { error }),
-    );
-  });
+  initSearch();
   initTTSVoices();
   setupEventListeners();
   initSidebarSelection();
