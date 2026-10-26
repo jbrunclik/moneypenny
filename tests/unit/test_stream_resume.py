@@ -263,7 +263,7 @@ class TestResumeStallBound:
         self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Journal with no stream_end and no progress -> RESUME_FAILED, not a
-        CHAT_TIMEOUT-long keepalive hold (process killed mid-turn)."""
+        CHAT_TIMEOUT_SECONDS-long keepalive hold (process killed mid-turn)."""
         from src.api.helpers.stream_resume import stream_resume_events
 
         monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
@@ -304,9 +304,9 @@ class TestResumeStallBound:
     ) -> None:
         from src.api.helpers.stream_resume import stream_resume_events
 
-        monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0.5)
+        monkeypatch.setattr(Config, "CHAT_TIMEOUT_SECONDS", 0.5)
         monkeypatch.setattr(Config, "DEEP_RESEARCH_RUN_TIMEOUT_SECONDS", 0.5)
-        monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL", 0)
+        monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL_SECONDS", 0)
         conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
         msg = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
 

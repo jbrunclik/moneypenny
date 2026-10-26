@@ -218,7 +218,7 @@ The Garmin Connect integration allows the AI to query your health and fitness da
 
 **Configuration:**
 ```bash
-GARMIN_API_TIMEOUT=15  # Optional, default is 15 seconds
+GARMIN_API_TIMEOUT_SECONDS=15  # Optional, default is 15 seconds
 ```
 
 **Usage:**

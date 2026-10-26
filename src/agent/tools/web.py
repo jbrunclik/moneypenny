@@ -204,7 +204,7 @@ def _fetch_response(url: str) -> tuple[httpx.Response | None, str | None]:
 
     try:
         with httpx.Client(
-            timeout=float(Config.TOOL_TIMEOUT),
+            timeout=float(Config.TOOL_TIMEOUT_SECONDS),
             follow_redirects=False,
             transport=_SSRFSafeTransport(verify=shared_ssl_context()),
             default_encoding=_sniffed_encoding,
@@ -370,7 +370,7 @@ def _binary_result(url: str, content: bytes, content_type: str) -> str | list[di
     """A PDF or image as multimodal content, or the error when it is too large."""
     content_length = len(content)
     # Check file size limit (10MB default)
-    max_size = Config.FETCH_URL_MAX_FILE_SIZE
+    max_size = Config.FETCH_URL_MAX_FILE_SIZE_BYTES
     if content_length > max_size:
         logger.warning(
             "File too large",

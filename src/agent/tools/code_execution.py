@@ -453,7 +453,7 @@ def execute_code(code: str) -> str:
     except TimeoutError:
         logger.warning("Code execution timed out")
         return tool_error(
-            f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT} seconds.",
+            f"Code execution timed out after {Config.CODE_SANDBOX_TIMEOUT_SECONDS} seconds.",
             hint="Try optimizing your code or breaking it into smaller pieces.",
         )
     except Exception as e:

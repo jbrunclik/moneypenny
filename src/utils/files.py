@@ -200,8 +200,8 @@ def _matches_video_signature(file_data: bytes, claimed_mime_type: str) -> bool:
 def max_size_for_mime(mime_type: str) -> int:
     """Per-type upload size limit (videos get a larger allowance)."""
     if mime_type.startswith("video/"):
-        return Config.MAX_VIDEO_FILE_SIZE
-    return Config.MAX_FILE_SIZE
+        return Config.MAX_VIDEO_FILE_SIZE_BYTES
+    return Config.MAX_FILE_SIZE_BYTES
 
 
 def validate_files(files: list[dict[str, Any]]) -> tuple[bool, str]:

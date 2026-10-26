@@ -10,7 +10,7 @@ The assistant can query the user's health, fitness, and training data from Garmi
 4. **Tool Availability**: Both `garmin_connect` and `garmin_workout` are bound whenever the `garminconnect` package is installed (`is_garmin_available()`); for a user without a working connection they return the shared not-connected / disconnected result (see [Integrations](integrations.md#not-connected-results))
 5. **Session Cache**: Building a client costs two extra Garmin round trips, so [garmin_session.py](../../src/agent/tools/garmin_session.py) caches it per user for `GARMIN_SESSION_TTL_SECONDS` (default 900), keyed by a fingerprint of the stored token so a reconnect invalidates every worker's copy
 6. **Token Refresh**: Tokens are automatically re-serialized after API calls in case garth refreshed them
-7. **Request Timeout (S5)**: `garminconnect` takes no timeout argument, so every client is built through `_new_garmin` in [garmin_auth.py](../../src/auth/garmin_auth.py), which wraps the adapters of the client's two requests sessions (`cs` for SSO / token refresh, `_api_session` for API calls) so each request is sent with `GARMIN_API_TIMEOUT`. The timeout *replaces* the library's own fixed 10-30 s per call (otherwise the setting would do nothing); pools and retries stay the library's. A curl_cffi session gets it as its default. If an upgrade renames a session, a warning is logged and that session keeps the library's timeouts
+7. **Request Timeout (S5)**: `garminconnect` takes no timeout argument, so every client is built through `_new_garmin` in [garmin_auth.py](../../src/auth/garmin_auth.py), which wraps the adapters of the client's two requests sessions (`cs` for SSO / token refresh, `_api_session` for API calls) so each request is sent with `GARMIN_API_TIMEOUT_SECONDS`. The timeout *replaces* the library's own fixed 10-30 s per call (otherwise the setting would do nothing); pools and retries stay the library's. A curl_cffi session gets it as its default. If an upgrade renames a session, a warning is logged and that session keeps the library's timeouts
 
 ## API Endpoints
 
@@ -104,7 +104,7 @@ The raw Garmin workout JSON is deeply nested (repeat groups of interval/rest ste
 
 ```bash
 # .env
-GARMIN_API_TIMEOUT=15            # Per-request timeout for every Garmin HTTP call, in seconds (default: 15)
+GARMIN_API_TIMEOUT_SECONDS=15            # Per-request timeout for every Garmin HTTP call, in seconds (default: 15)
 GARMIN_SESSION_TTL_SECONDS=900   # How long a cached client session lives (default: 900)
 ```
 
@@ -113,7 +113,7 @@ No client ID or secret is required — the user authenticates with their own Gar
 ## Key Files
 
 **Backend:**
-- [config.py](../../src/config.py) - `GARMIN_API_TIMEOUT`, `GARMIN_SESSION_TTL_SECONDS`
+- [config.py](../../src/config.py) - `GARMIN_API_TIMEOUT_SECONDS`, `GARMIN_SESSION_TTL_SECONDS`
 - [garmin_auth.py](../../src/auth/garmin_auth.py) - Authentication helpers (login, MFA, token serialization)
 - [tools/garmin.py](../../src/agent/tools/garmin.py) - `garmin_connect` read-only LangGraph tool
 - [tools/garmin_payloads.py](../../src/agent/tools/garmin_payloads.py) - payload slimming (bulky series, sets, HR zones, laps)

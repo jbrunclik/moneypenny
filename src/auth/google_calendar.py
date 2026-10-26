@@ -80,7 +80,7 @@ def exchange_code_for_tokens(code: str) -> dict[str, Any]:
         response = httpx.post(
             Config.GOOGLE_OAUTH_TOKEN_URL,
             data=data,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.exception("Google token exchange failed", extra={"error": str(exc)})
@@ -116,7 +116,7 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         response = httpx.post(
             Config.GOOGLE_OAUTH_TOKEN_URL,
             data=data,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.exception("Google token refresh failed", extra={"error": str(exc)})
@@ -171,7 +171,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
         response = httpx.get(
             Config.GOOGLE_USERINFO_URL,
             headers=headers,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
@@ -310,7 +310,7 @@ def fetch_calendar_list(access_token: str) -> list[dict[str, Any]]:
         response = httpx.get(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
             headers={"Authorization": f"Bearer {access_token}"},
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
         items: list[dict[str, Any]] = (

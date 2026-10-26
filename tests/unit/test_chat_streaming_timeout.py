@@ -1,4 +1,4 @@
-"""Unit tests for the chat-stream request deadline (CHAT_TIMEOUT)."""
+"""Unit tests for the chat-stream request deadline (CHAT_TIMEOUT_SECONDS)."""
 
 import queue
 import time
@@ -45,9 +45,9 @@ def _drain(q: queue.Queue) -> list:
 
 
 def test_stream_events_breaks_at_deadline(monkeypatch) -> None:
-    """Producer must stop iterating the agent once CHAT_TIMEOUT passes and
+    """Producer must stop iterating the agent once CHAT_TIMEOUT_SECONDS passes and
     signal a timeout marker followed by the completion sentinel."""
-    monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)  # deadline already passed
+    monkeypatch.setattr(Config, "CHAT_TIMEOUT_SECONDS", 0)  # deadline already passed
     q: queue.Queue = queue.Queue()
     final_results: dict = {"ready": False, "saved": False}
 
@@ -143,7 +143,7 @@ def _make_ctx(items=()) -> types.SimpleNamespace:
         conv_id="conv-1",
         client_connected=True,
         # A chat turn (deep research would allow DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
-        turn=types.SimpleNamespace(timeout_seconds=Config.CHAT_TIMEOUT),
+        turn=types.SimpleNamespace(timeout_seconds=Config.CHAT_TIMEOUT_SECONDS),
     )
     ctx.mark_disconnected = lambda error, where: None
     return ctx
@@ -215,8 +215,8 @@ def test_consumer_crash_without_content_saves_nothing() -> None:
 
 def test_consumer_backstop_fires_with_no_events(monkeypatch) -> None:
     """Empty queue + passed deadline -> emits timeout and returns (no hang)."""
-    monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)
-    monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL", 0.05)
+    monkeypatch.setattr(Config, "CHAT_TIMEOUT_SECONDS", 0)
+    monkeypatch.setattr(Config, "SSE_KEEPALIVE_INTERVAL_SECONDS", 0.05)
     ctx = _make_ctx()  # empty queue
     started = time.monotonic()
     out = "".join(_process_event_queue(ctx))
@@ -229,7 +229,7 @@ def test_stream_events_approval_puts_completion_sentinel() -> None:
     """ApprovalRequestedException must be followed by the None sentinel.
 
     Regression test: without the sentinel the consumer keeps blocking on the
-    queue, sending keepalives until the backstop deadline (CHAT_TIMEOUT +
+    queue, sending keepalives until the backstop deadline (CHAT_TIMEOUT_SECONDS +
     keepalive interval, ~615s) and then emits a bogus timeout event - the
     approval done event reaches the client ten minutes late.
     """

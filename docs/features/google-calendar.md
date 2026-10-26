@@ -130,7 +130,7 @@ Users can select which Google Calendars to include in the planner context. By de
 GOOGLE_CALENDAR_CLIENT_ID=your-google-oauth-client-id
 GOOGLE_CALENDAR_CLIENT_SECRET=your-google-client-secret
 GOOGLE_CALENDAR_REDIRECT_URI=http://localhost:5173   # Vite dev server in development
-GOOGLE_CALENDAR_API_TIMEOUT=10
+GOOGLE_CALENDAR_API_TIMEOUT_SECONDS=10
 ```
 
 ## Billing & OAuth Client Reuse

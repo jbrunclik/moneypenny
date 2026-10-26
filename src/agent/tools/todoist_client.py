@@ -71,16 +71,18 @@ def todoist_api_request(
                 url,
                 headers=headers,
                 params=params,
-                timeout=Config.TODOIST_API_TIMEOUT,
+                timeout=Config.TODOIST_API_TIMEOUT_SECONDS,
                 follow_redirects=True,
             )
         elif method == "POST":
             headers["Content-Type"] = "application/json"
             response = httpx.post(
-                url, headers=headers, json=data, timeout=Config.TODOIST_API_TIMEOUT
+                url, headers=headers, json=data, timeout=Config.TODOIST_API_TIMEOUT_SECONDS
             )
         elif method == "DELETE":
-            response = httpx.delete(url, headers=headers, timeout=Config.TODOIST_API_TIMEOUT)
+            response = httpx.delete(
+                url, headers=headers, timeout=Config.TODOIST_API_TIMEOUT_SECONDS
+            )
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
@@ -151,7 +153,9 @@ def todoist_sync_request(
     data = {"commands": json_module.dumps(commands)}
 
     try:
-        response = httpx.post(url, headers=headers, data=data, timeout=Config.TODOIST_API_TIMEOUT)
+        response = httpx.post(
+            url, headers=headers, data=data, timeout=Config.TODOIST_API_TIMEOUT_SECONDS
+        )
 
         if response.status_code >= 400:
             error_msg = response.text

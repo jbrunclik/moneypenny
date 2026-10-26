@@ -413,9 +413,9 @@ class TestValidateCharacterization:
             "TOKEN_ENCRYPTION_KEY": "",
             "LANGDETECT_LANGUAGES": ["cs"],
             "PORT": 0,
-            "MAX_FILE_SIZE": 0,
-            "MAX_VIDEO_FILE_SIZE": -1,
-            "MAX_REQUEST_SIZE": -2,
+            "MAX_FILE_SIZE_BYTES": 0,
+            "MAX_VIDEO_FILE_SIZE_BYTES": -1,
+            "MAX_REQUEST_SIZE_BYTES": -2,
             "MAX_FILES_PER_MESSAGE": 0,
             "COST_CURRENCY": "XYZ",
             "LOG_LEVEL": "LOUD",
@@ -437,10 +437,10 @@ class TestValidateCharacterization:
             "TOKEN_ENCRYPTION_KEY is required in production. Generate one with: make token-key",
             "LANGDETECT_LANGUAGES needs at least two language codes (e.g. cs,en)",
             "PORT must be between 1 and 65535, got 0",
-            "MAX_FILE_SIZE must be positive, got 0",
-            "MAX_VIDEO_FILE_SIZE must be positive, got -1",
-            "MAX_REQUEST_SIZE (-2) must be at least 1.4x "
-            "MAX_VIDEO_FILE_SIZE (-1) to fit a base64-encoded video",
+            "MAX_FILE_SIZE_BYTES must be positive, got 0",
+            "MAX_VIDEO_FILE_SIZE_BYTES must be positive, got -1",
+            "MAX_REQUEST_SIZE_BYTES (-2) must be at least 1.4x "
+            "MAX_VIDEO_FILE_SIZE_BYTES (-1) to fit a base64-encoded video",
             "MAX_FILES_PER_MESSAGE must be at least 1, got 0",
             f"COST_CURRENCY 'XYZ' is not supported. Valid currencies: {currencies}",
             "LOG_LEVEL 'LOUD' is not valid. Valid levels: CRITICAL, DEBUG, ERROR, INFO, WARNING",
@@ -455,8 +455,8 @@ class TestValidateCharacterization:
             "TOKEN_ENCRYPTION_KEY": "not-a-fernet-key",
             "LANGDETECT_LANGUAGES": ["cs", "xx", "yy"],
             "PORT": 65536,
-            "MAX_VIDEO_FILE_SIZE": 100,
-            "MAX_REQUEST_SIZE": 139,
+            "MAX_VIDEO_FILE_SIZE_BYTES": 100,
+            "MAX_REQUEST_SIZE_BYTES": 139,
         }.items():
             monkeypatch.setattr(Config, name, value)
 
@@ -466,8 +466,8 @@ class TestValidateCharacterization:
             "TOKEN_ENCRYPTION_KEY is not a valid Fernet key. Generate one with: make token-key",
             "LANGDETECT_LANGUAGES has codes with no langdetect profile: xx, yy",
             "PORT must be between 1 and 65535, got 65536",
-            "MAX_REQUEST_SIZE (139) must be at least 1.4x "
-            "MAX_VIDEO_FILE_SIZE (100) to fit a base64-encoded video",
+            "MAX_REQUEST_SIZE_BYTES (139) must be at least 1.4x "
+            "MAX_VIDEO_FILE_SIZE_BYTES (100) to fit a base64-encoded video",
         ]
 
     def test_development_skips_the_production_checks(self, monkeypatch: pytest.MonkeyPatch) -> None:

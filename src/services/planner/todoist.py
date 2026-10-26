@@ -57,7 +57,7 @@ def _get(endpoint: str, headers: dict[str, str], **kwargs: Any) -> httpx.Respons
     return httpx.get(
         f"{Config.TODOIST_API_BASE_URL}/{endpoint}",
         headers=headers,
-        timeout=Config.TODOIST_API_TIMEOUT,
+        timeout=Config.TODOIST_API_TIMEOUT_SECONDS,
         follow_redirects=True,
         **kwargs,
     )

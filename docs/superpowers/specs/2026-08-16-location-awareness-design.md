@@ -84,7 +84,7 @@ Both are read-only → added to `ALWAYS_SAFE_TOOLS` in
 `src/agent/permissions.py` so autonomous agents (briefing) can use them.
 
 Config additions (`src/config.py` + `.env.example` + docs):
-`MAPY_CZ_API_KEY`, `MAPY_API_TIMEOUT`.
+`MAPY_CZ_API_KEY`, `MAPY_API_TIMEOUT_SECONDS`.
 
 ## 5. Daily briefing
 

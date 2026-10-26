@@ -35,7 +35,7 @@ def _get(path: str, params: dict[str, Any]) -> dict[str, Any]:
             f"{MAPY_BASE_URL}/{path}",
             params=params,
             headers={"X-Mapy-Api-Key": Config.MAPY_CZ_API_KEY},
-            timeout=Config.MAPY_API_TIMEOUT,
+            timeout=Config.MAPY_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
     except httpx.HTTPError as e:

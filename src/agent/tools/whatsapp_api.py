@@ -45,7 +45,7 @@ def whatsapp_api_request(
             url,
             headers=headers,
             json=data,
-            timeout=Config.WHATSAPP_API_TIMEOUT,
+            timeout=Config.WHATSAPP_API_TIMEOUT_SECONDS,
         )
 
         if response.status_code >= 400:

@@ -251,7 +251,7 @@ def _report_approval_request(
     event_queue.put(approval_event)
     # Approval is terminal for this stream: signal completion so the
     # consumer finalizes promptly instead of sending keepalives until the
-    # backstop deadline (~CHAT_TIMEOUT later) and emitting a bogus timeout.
+    # backstop deadline (~CHAT_TIMEOUT_SECONDS later) and emitting a bogus timeout.
     event_queue.put(None)
 
 
@@ -373,7 +373,7 @@ def cleanup_and_save(
     """
     try:
         # Wait for stream thread to complete (with timeout to prevent hanging forever)
-        stream_thread.join(timeout=Config.STREAM_CLEANUP_THREAD_TIMEOUT)
+        stream_thread.join(timeout=Config.STREAM_CLEANUP_THREAD_TIMEOUT_SECONDS)
         if stream_thread.is_alive():
             logger.error(
                 "Stream thread did not complete within timeout",
@@ -384,7 +384,9 @@ def cleanup_and_save(
         # Wait for generator to signal it's done with its save attempt
         # This gives the generator priority - it can send the done event to the client
         # Timeout ensures we still save if generator gets stuck or client disconnects early
-        generator_finished = generator_done_event.wait(timeout=Config.STREAM_CLEANUP_WAIT_DELAY)
+        generator_finished = generator_done_event.wait(
+            timeout=Config.STREAM_CLEANUP_WAIT_DELAY_SECONDS
+        )
 
         # Use lock to prevent race condition with generator's save
         # NOTE: We must check saved status even if generator_finished is True, because

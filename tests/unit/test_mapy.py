@@ -37,7 +37,7 @@ GEOCODE_PAYLOAD = {
 @patch("src.utils.mapy.httpx.get")
 def test_geocode_poi_near(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
-    mock_config.MAPY_API_TIMEOUT = 10
+    mock_config.MAPY_API_TIMEOUT_SECONDS = 10
     mock_get.return_value = _mock_response(200, GEOCODE_PAYLOAD)
 
     items = mapy_geocode("kavárna", poi_only=True, prefer_near=(14.42, 50.08), limit=5)
@@ -55,7 +55,7 @@ def test_geocode_poi_near(mock_get: MagicMock, mock_config: MagicMock) -> None:
 @patch("src.utils.mapy.httpx.get")
 def test_rgeocode(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
-    mock_config.MAPY_API_TIMEOUT = 10
+    mock_config.MAPY_API_TIMEOUT_SECONDS = 10
     mock_get.return_value = _mock_response(200, GEOCODE_PAYLOAD)
 
     items = mapy_rgeocode(14.4378, 50.0755)
@@ -69,7 +69,7 @@ def test_rgeocode(mock_get: MagicMock, mock_config: MagicMock) -> None:
 @patch("src.utils.mapy.httpx.get")
 def test_route(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
-    mock_config.MAPY_API_TIMEOUT = 10
+    mock_config.MAPY_API_TIMEOUT_SECONDS = 10
     mock_get.return_value = _mock_response(200, {"length": 12500, "duration": 1500, "geometry": {}})
 
     result = mapy_route((14.4009, 50.0711), (14.4378, 50.0755), "car_fast_traffic")
@@ -86,7 +86,7 @@ def test_route(mock_get: MagicMock, mock_config: MagicMock) -> None:
 @patch("src.utils.mapy.httpx.get")
 def test_error_raises_mapy_error(mock_get: MagicMock, mock_config: MagicMock) -> None:
     mock_config.MAPY_CZ_API_KEY = "test-key"
-    mock_config.MAPY_API_TIMEOUT = 10
+    mock_config.MAPY_API_TIMEOUT_SECONDS = 10
     mock_get.return_value = _mock_response(403, {"detail": [{"msg": "Forbidden"}]})
 
     with pytest.raises(MapyError, match="403"):

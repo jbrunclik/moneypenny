@@ -101,7 +101,7 @@ home → first-event travel time via `get_route` and includes a
 | Env var | Default | Meaning |
 |---------|---------|---------|
 | `MAPY_CZ_API_KEY` | `""` | Mapy.com REST API key; empty disables the tools |
-| `MAPY_API_TIMEOUT` | `10` | Request timeout (seconds) |
+| `MAPY_API_TIMEOUT_SECONDS` | `10` | Request timeout (seconds) |
 
 Get a key at https://developer.mapy.com/account/ (Seznam login, free tier
 250k credits/month, no card). Restrict the key to geocoding + reverse

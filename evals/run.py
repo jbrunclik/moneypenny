@@ -440,7 +440,7 @@ def case_timeout(case: EvalCase) -> float:
 def run_with_timeout(fn: Callable[[], Any], timeout_s: float) -> Any:
     """Run `fn`, raising TimeoutError if it outlives `timeout_s`.
 
-    Evals drive ChatAgent directly, and CHAT_TIMEOUT is enforced at the route
+    Evals drive ChatAgent directly, and CHAT_TIMEOUT_SECONDS is enforced at the route
     layer, so nothing bounds a model call here: a stalled TLS read blocks the
     interpreter forever (observed Sep 15 2026 - 5h38m in _ssl__SSLSocket_read,
     forfeiting 27 finished cases).

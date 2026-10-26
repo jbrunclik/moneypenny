@@ -99,7 +99,7 @@ For shared projects, the AI can assign tasks to collaborators:
 TODOIST_CLIENT_ID=your-client-id
 TODOIST_CLIENT_SECRET=your-client-secret
 TODOIST_REDIRECT_URI=http://localhost:5173  # Your app URL (use Vite port in dev)
-TODOIST_API_TIMEOUT=10  # API request timeout in seconds
+TODOIST_API_TIMEOUT_SECONDS=10  # API request timeout in seconds
 ```
 
 ## Security Notes

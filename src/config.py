@@ -74,8 +74,12 @@ class Config:
     # alive during long streaming responses, so SSE chat requests aren't killed
     # by the worker timeout (sync workers suspend the heartbeat per-request).
     GUNICORN_THREADS: int = int(os.getenv("GUNICORN_THREADS", "8"))
-    GUNICORN_TIMEOUT: int = int(os.getenv("GUNICORN_TIMEOUT", "300"))  # 5 minutes default
-    SSE_KEEPALIVE_INTERVAL: int = int(os.getenv("SSE_KEEPALIVE_INTERVAL", "15"))  # seconds
+    GUNICORN_TIMEOUT_SECONDS: int = int(
+        os.getenv("GUNICORN_TIMEOUT_SECONDS", "300")
+    )  # 5 minutes default
+    SSE_KEEPALIVE_INTERVAL_SECONDS: int = int(
+        os.getenv("SSE_KEEPALIVE_INTERVAL_SECONDS", "15")
+    )  # seconds
 
     # Application URL (used for generating links in notifications, e.g., WhatsApp)
     # Defaults to empty string which disables external link generation
@@ -85,15 +89,17 @@ class Config:
     # Image generation alone can take 30-60s, complex queries with multiple tools need more time
     # Hard deadline for a single interactive chat turn (chat/stream), enforced in
     # src/api/helpers/chat_streaming.py. Under the gthread worker class this is the
-    # effective bound on a chat turn (GUNICORN_TIMEOUT no longer reaps active
+    # effective bound on a chat turn (GUNICORN_TIMEOUT_SECONDS no longer reaps active
     # streams); on timeout the partial response is saved and the agent is stopped.
-    CHAT_TIMEOUT: int = int(os.getenv("CHAT_TIMEOUT", "600"))  # 10 minutes
-    TOOL_TIMEOUT: int = int(os.getenv("TOOL_TIMEOUT", "90"))  # 90 seconds per tool execution
-    FETCH_URL_MAX_FILE_SIZE: int = int(
-        os.getenv("FETCH_URL_MAX_FILE_SIZE", str(2 * BYTES_PER_MB))
+    CHAT_TIMEOUT_SECONDS: int = int(os.getenv("CHAT_TIMEOUT_SECONDS", "600"))  # 10 minutes
+    TOOL_TIMEOUT_SECONDS: int = int(
+        os.getenv("TOOL_TIMEOUT_SECONDS", "90")
+    )  # 90 seconds per tool execution
+    FETCH_URL_MAX_FILE_SIZE_BYTES: int = int(
+        os.getenv("FETCH_URL_MAX_FILE_SIZE_BYTES", str(2 * BYTES_PER_MB))
     )  # fetched binaries (PDFs/images) land in LLM context - keep small
-    GOOGLE_AUTH_TIMEOUT: int = int(
-        os.getenv("GOOGLE_AUTH_TIMEOUT", "10")
+    GOOGLE_AUTH_TIMEOUT_SECONDS: int = int(
+        os.getenv("GOOGLE_AUTH_TIMEOUT_SECONDS", "10")
     )  # 10 seconds for Google token verification
 
     # Stream journal (resumable streams): producer journals SSE events per
@@ -111,15 +117,15 @@ class Config:
     # stream_end: distinguishes a dead producer (process killed mid-turn -
     # journal has no terminal marker) from a live but quiet one. Long LLM
     # thinking still emits thinking events, and tools are bounded by
-    # TOOL_TIMEOUT (90s), so minutes of total silence means the turn is dead.
+    # TOOL_TIMEOUT_SECONDS (90s), so minutes of total silence means the turn is dead.
     STREAM_RESUME_STALL_SECONDS: int = int(os.getenv("STREAM_RESUME_STALL_SECONDS", "180"))
 
     # Streaming cleanup thread timeouts
-    STREAM_CLEANUP_THREAD_TIMEOUT: int = int(
-        os.getenv("STREAM_CLEANUP_THREAD_TIMEOUT", "600")
+    STREAM_CLEANUP_THREAD_TIMEOUT_SECONDS: int = int(
+        os.getenv("STREAM_CLEANUP_THREAD_TIMEOUT_SECONDS", "600")
     )  # 10 minutes for stream thread to complete
-    STREAM_CLEANUP_WAIT_DELAY: float = float(
-        os.getenv("STREAM_CLEANUP_WAIT_DELAY", "1.0")
+    STREAM_CLEANUP_WAIT_DELAY_SECONDS: float = float(
+        os.getenv("STREAM_CLEANUP_WAIT_DELAY_SECONDS", "1.0")
     )  # 1 second delay before checking if message was saved
 
     # Tool results cleanup (prevents memory leaks from orphaned tool results)
@@ -287,13 +293,17 @@ class Config:
     MIGRATION_LOCK_TIMEOUT_SECONDS: int = int(os.getenv("MIGRATION_LOCK_TIMEOUT_SECONDS", "300"))
 
     # Request size limits (DoS protection)
-    # Must be larger than MAX_FILE_SIZE * MAX_FILES_PER_MESSAGE to allow multi-file uploads
-    MAX_REQUEST_SIZE: int = int(os.getenv("MAX_REQUEST_SIZE", str(250 * BYTES_PER_MB)))  # 250 MB
+    # Must be larger than MAX_FILE_SIZE_BYTES * MAX_FILES_PER_MESSAGE to allow multi-file uploads
+    MAX_REQUEST_SIZE_BYTES: int = int(
+        os.getenv("MAX_REQUEST_SIZE_BYTES", str(250 * BYTES_PER_MB))
+    )  # 250 MB
 
     # File upload settings
-    MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", str(20 * BYTES_PER_MB)))  # 20 MB default
-    MAX_VIDEO_FILE_SIZE: int = int(
-        os.getenv("MAX_VIDEO_FILE_SIZE", str(100 * BYTES_PER_MB))
+    MAX_FILE_SIZE_BYTES: int = int(
+        os.getenv("MAX_FILE_SIZE_BYTES", str(20 * BYTES_PER_MB))
+    )  # 20 MB default
+    MAX_VIDEO_FILE_SIZE_BYTES: int = int(
+        os.getenv("MAX_VIDEO_FILE_SIZE_BYTES", str(100 * BYTES_PER_MB))
     )  # 100 MB
     # File retention: attachments are not permanent storage
     VIDEO_RETENTION_DAYS: int = int(os.getenv("VIDEO_RETENTION_DAYS", "7"))
@@ -554,7 +564,7 @@ class Config:
     # default: judging quality matters more than judge cost (a few calls/run).
     EVAL_JUDGE_MODEL: str = os.getenv("EVAL_JUDGE_MODEL") or "gemini-3.1-pro-preview"
     # Wall-clock budget per eval case. Evals drive ChatAgent directly, so the
-    # route layer's CHAT_TIMEOUT does not apply and nothing else bounds a
+    # route layer's CHAT_TIMEOUT_SECONDS does not apply and nothing else bounds a
     # stalled model call. Generous: the slowest legitimate cases (delegate /
     # research) run ~80s.
     EVAL_CASE_TIMEOUT_SECONDS: float = float(os.getenv("EVAL_CASE_TIMEOUT_SECONDS", "300"))
@@ -646,7 +656,9 @@ class Config:
 
     # Code execution sandbox settings
     CODE_SANDBOX_ENABLED: bool = os.getenv("CODE_SANDBOX_ENABLED", "true").lower() == "true"
-    CODE_SANDBOX_TIMEOUT: int = int(os.getenv("CODE_SANDBOX_TIMEOUT", "30"))  # seconds
+    CODE_SANDBOX_TIMEOUT_SECONDS: int = int(
+        os.getenv("CODE_SANDBOX_TIMEOUT_SECONDS", "30")
+    )  # seconds
     CODE_SANDBOX_MEMORY_LIMIT: str = os.getenv("CODE_SANDBOX_MEMORY_LIMIT", "512m")
     CODE_SANDBOX_CPU_LIMIT: float = float(os.getenv("CODE_SANDBOX_CPU_LIMIT", "1.0"))
     # Docker image for sandbox (custom image with pre-installed fonts and
@@ -855,7 +867,9 @@ class Config:
     TODOIST_REDIRECT_URI: str = os.getenv(
         "TODOIST_REDIRECT_URI", "http://localhost:8000/auth/todoist/callback"
     )
-    TODOIST_API_TIMEOUT: int = int(os.getenv("TODOIST_API_TIMEOUT", "10"))  # seconds
+    TODOIST_API_TIMEOUT_SECONDS: int = int(
+        os.getenv("TODOIST_API_TIMEOUT_SECONDS", "10")
+    )  # seconds
     TODOIST_API_BASE_URL: str = "https://api.todoist.com/api/v1"
 
     # Google Calendar Integration
@@ -864,7 +878,9 @@ class Config:
     GOOGLE_CALENDAR_REDIRECT_URI: str = os.getenv(
         "GOOGLE_CALENDAR_REDIRECT_URI", "http://localhost:5173"
     )
-    GOOGLE_CALENDAR_API_TIMEOUT: int = int(os.getenv("GOOGLE_CALENDAR_API_TIMEOUT", "10"))
+    GOOGLE_CALENDAR_API_TIMEOUT_SECONDS: int = int(
+        os.getenv("GOOGLE_CALENDAR_API_TIMEOUT_SECONDS", "10")
+    )
     GOOGLE_CALENDAR_API_BASE_URL: str = "https://www.googleapis.com/calendar/v3"
     GOOGLE_OAUTH_TOKEN_URL: str = "https://oauth2.googleapis.com/token"  # noqa: S105 - URL, not a secret
     GOOGLE_USERINFO_URL: str = "https://www.googleapis.com/oauth2/v2/userinfo"
@@ -881,7 +897,9 @@ class Config:
     WEATHER_CACHE_TTL_SECONDS: int = int(
         os.getenv("WEATHER_CACHE_TTL_SECONDS", "21600")
     )  # 6 hours (weather doesn't change that often)
-    WEATHER_API_TIMEOUT: int = int(os.getenv("WEATHER_API_TIMEOUT", "10"))  # seconds
+    WEATHER_API_TIMEOUT_SECONDS: int = int(
+        os.getenv("WEATHER_API_TIMEOUT_SECONDS", "10")
+    )  # seconds
     APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")  # For User-Agent header
     CONTACT_EMAIL: str = os.getenv(
         "CONTACT_EMAIL", "admin@example.com"
@@ -889,7 +907,7 @@ class Config:
 
     # Places & Routing (Mapy.com REST API)
     MAPY_CZ_API_KEY: str = os.getenv("MAPY_CZ_API_KEY", "")
-    MAPY_API_TIMEOUT: int = int(os.getenv("MAPY_API_TIMEOUT", "10"))  # seconds
+    MAPY_API_TIMEOUT_SECONDS: int = int(os.getenv("MAPY_API_TIMEOUT_SECONDS", "10"))  # seconds
 
     # WhatsApp Cloud API Integration (for autonomous agents)
     # User phone numbers are stored per-user in the database, not here
@@ -898,7 +916,9 @@ class Config:
     WHATSAPP_TEMPLATE_NAME: str = os.getenv(
         "WHATSAPP_TEMPLATE_NAME", ""
     )  # Required for first contact
-    WHATSAPP_API_TIMEOUT: int = int(os.getenv("WHATSAPP_API_TIMEOUT", "10"))  # seconds
+    WHATSAPP_API_TIMEOUT_SECONDS: int = int(
+        os.getenv("WHATSAPP_API_TIMEOUT_SECONDS", "10")
+    )  # seconds
     WHATSAPP_MAX_MESSAGE_LENGTH: int = int(
         os.getenv("WHATSAPP_MAX_MESSAGE_LENGTH", "1024")
     )  # WhatsApp template body variable limit (1024 chars per variable)
@@ -906,14 +926,14 @@ class Config:
     WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
 
     # Garmin Connect Integration (no API keys needed — uses garth session tokens)
-    GARMIN_API_TIMEOUT: int = int(os.getenv("GARMIN_API_TIMEOUT", "15"))
+    GARMIN_API_TIMEOUT_SECONDS: int = int(os.getenv("GARMIN_API_TIMEOUT_SECONDS", "15"))
 
     # Rouvy Integration (no API keys — headless login captures a session cookie,
     # reused for httpx CRUD; password stored encrypted for auto-refresh).
     ROUVY_ACCOUNT_URL: str = os.getenv("ROUVY_ACCOUNT_URL", "https://account.rouvy.com")
     ROUVY_RIDERS_URL: str = os.getenv("ROUVY_RIDERS_URL", "https://riders.rouvy.com")
     ROUVY_LOGIN_TIMEOUT_MS: int = int(os.getenv("ROUVY_LOGIN_TIMEOUT_MS", "45000"))
-    ROUVY_HTTP_TIMEOUT: int = int(os.getenv("ROUVY_HTTP_TIMEOUT", "30"))
+    ROUVY_HTTP_TIMEOUT_SECONDS: int = int(os.getenv("ROUVY_HTTP_TIMEOUT_SECONDS", "30"))
 
     # Encryption at rest for OAuth/Garmin tokens (Fernet). Generate with:
     # make token-key. Unset = tokens stored in plaintext (see
@@ -926,7 +946,7 @@ class Config:
     VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
     # Contact for the push service (VAPID sub claim), mailto: added automatically
     VAPID_CLAIMS_EMAIL: str = os.getenv("VAPID_CLAIMS_EMAIL", "")
-    PUSH_SEND_TIMEOUT: int = int(os.getenv("PUSH_SEND_TIMEOUT", "10"))  # seconds
+    PUSH_SEND_TIMEOUT_SECONDS: int = int(os.getenv("PUSH_SEND_TIMEOUT_SECONDS", "10"))  # seconds
 
     @classmethod
     def push_enabled(cls) -> bool:
@@ -1032,18 +1052,20 @@ class Config:
     @classmethod
     def _upload_limit_errors(cls) -> list[str]:
         errors: list[str] = []
-        if cls.MAX_FILE_SIZE < 1:
-            errors.append(f"MAX_FILE_SIZE must be positive, got {cls.MAX_FILE_SIZE}")
+        if cls.MAX_FILE_SIZE_BYTES < 1:
+            errors.append(f"MAX_FILE_SIZE_BYTES must be positive, got {cls.MAX_FILE_SIZE_BYTES}")
 
-        if cls.MAX_VIDEO_FILE_SIZE < 1:
-            errors.append(f"MAX_VIDEO_FILE_SIZE must be positive, got {cls.MAX_VIDEO_FILE_SIZE}")
+        if cls.MAX_VIDEO_FILE_SIZE_BYTES < 1:
+            errors.append(
+                f"MAX_VIDEO_FILE_SIZE_BYTES must be positive, got {cls.MAX_VIDEO_FILE_SIZE_BYTES}"
+            )
 
         # Base64 inflates ~4/3; at least one max-size video must fit in a request,
         # or Werkzeug rejects with a bare 413 before friendly validation runs
-        if cls.MAX_REQUEST_SIZE < cls.MAX_VIDEO_FILE_SIZE * 1.4:
+        if cls.MAX_REQUEST_SIZE_BYTES < cls.MAX_VIDEO_FILE_SIZE_BYTES * 1.4:
             errors.append(
-                f"MAX_REQUEST_SIZE ({cls.MAX_REQUEST_SIZE}) must be at least 1.4x "
-                f"MAX_VIDEO_FILE_SIZE ({cls.MAX_VIDEO_FILE_SIZE}) to fit a base64-encoded video"
+                f"MAX_REQUEST_SIZE_BYTES ({cls.MAX_REQUEST_SIZE_BYTES}) must be at least 1.4x "
+                f"MAX_VIDEO_FILE_SIZE_BYTES ({cls.MAX_VIDEO_FILE_SIZE_BYTES}) to fit a base64-encoded video"
             )
 
         if cls.MAX_FILES_PER_MESSAGE < 1:

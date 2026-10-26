@@ -72,4 +72,4 @@ login) and per-user connect state. Available to the sports agent (not excluded).
 
 No secret required (reuses `TOKEN_ENCRYPTION_KEY`). Optional overrides:
 `ROUVY_ACCOUNT_URL`, `ROUVY_RIDERS_URL`, `ROUVY_LOGIN_TIMEOUT_MS`,
-`ROUVY_HTTP_TIMEOUT` (see `.env.example`).
+`ROUVY_HTTP_TIMEOUT_SECONDS` (see `.env.example`).

@@ -107,7 +107,7 @@ def fetch_weather_forecast(
         "https://api.met.no/weatherapi/locationforecast/2.0/compact",
         headers=headers,
         params={"lat": latitude, "lon": longitude},
-        timeout=Config.WEATHER_API_TIMEOUT,
+        timeout=Config.WEATHER_API_TIMEOUT_SECONDS,
         follow_redirects=True,
     )
 

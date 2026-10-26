@@ -328,7 +328,7 @@ class TestBrowserTool:
     ) -> None:
         """Timeout errors should include helpful hints."""
         mock_config.BROWSER_ENABLED = True
-        mock_config.TOOL_TIMEOUT = 90
+        mock_config.TOOL_TIMEOUT_SECONDS = 90
 
         mock_worker = MagicMock()
         mock_worker.execute.side_effect = TimeoutError("timed out")

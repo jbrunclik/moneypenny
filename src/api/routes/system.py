@@ -65,8 +65,8 @@ def get_upload_config(user: User) -> dict[str, Any]:
     # user parameter required by @require_auth but not used in this endpoint
     _ = user
     return {
-        "maxFileSize": Config.MAX_FILE_SIZE,
-        "maxVideoFileSize": Config.MAX_VIDEO_FILE_SIZE,
+        "maxFileSize": Config.MAX_FILE_SIZE_BYTES,
+        "maxVideoFileSize": Config.MAX_VIDEO_FILE_SIZE_BYTES,
         "maxFilesPerMessage": Config.MAX_FILES_PER_MESSAGE,
         "allowedFileTypes": list(Config.ALLOWED_FILE_TYPES),
     }

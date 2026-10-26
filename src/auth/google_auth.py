@@ -41,7 +41,7 @@ def verify_google_id_token(id_token: str) -> dict[str, Any]:
         response = httpx.get(
             GOOGLE_TOKENINFO_URL,
             params={"id_token": id_token},
-            timeout=Config.GOOGLE_AUTH_TIMEOUT,
+            timeout=Config.GOOGLE_AUTH_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
 

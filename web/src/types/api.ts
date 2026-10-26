@@ -274,7 +274,7 @@ export type StreamEvent = (
   | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
   // Another device's turn was running: the send steered it (follow that reply)
   | { type: 'interjected'; message_id: string; message_count: number }
-  | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT hit; partial content saved
+  | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT_SECONDS hit; partial content saved
   | ({ type: 'done' } & StreamDoneEvent)
   | { type: 'error'; message: string; code?: string; retryable?: boolean }
 ) & {

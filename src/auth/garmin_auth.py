@@ -13,7 +13,7 @@ workers). Instead, ``authenticate_with_mfa`` re-runs the full login in a
 single request with ``prompt_mfa`` providing the code synchronously.
 
 Every client is built by ``_new_garmin``, which bounds its HTTP calls with
-``Config.GARMIN_API_TIMEOUT`` (S5): garminconnect takes no timeout argument.
+``Config.GARMIN_API_TIMEOUT_SECONDS`` (S5): garminconnect takes no timeout argument.
 """
 
 from typing import Any, NoReturn
@@ -223,7 +223,7 @@ class _TimeoutAdapter:
     Wraps the adapter garminconnect mounted, so its connection pools and retry
     policy are untouched. It replaces rather than defaults the timeout: the
     library passes its own fixed 10-30 s on nearly every call, which would
-    otherwise leave ``GARMIN_API_TIMEOUT`` without effect.
+    otherwise leave ``GARMIN_API_TIMEOUT_SECONDS`` without effect.
     """
 
     def __init__(self, inner: Any, timeout_seconds: float) -> None:
@@ -246,14 +246,14 @@ def _new_garmin(garmin_cls: Any, **kwargs: Any) -> Any:
 
 
 def bound_request_timeouts(garmin: Any) -> None:
-    """Apply ``Config.GARMIN_API_TIMEOUT`` to every session a Garmin client owns.
+    """Apply ``Config.GARMIN_API_TIMEOUT_SECONDS`` to every session a Garmin client owns.
 
     requests sessions get a ``_TimeoutAdapter`` on each mount; a curl_cffi
     session (the login flow can swap one in as ``cs``) gets it as its default.
     A session missing after a library upgrade is logged and skipped - Garmin
     keeps working on the library's own timeouts. Idempotent.
     """
-    timeout_seconds = Config.GARMIN_API_TIMEOUT
+    timeout_seconds = Config.GARMIN_API_TIMEOUT_SECONDS
     client = getattr(garmin, "client", None)
     if client is None:
         logger.warning("Garmin client not found: request timeout not applied")

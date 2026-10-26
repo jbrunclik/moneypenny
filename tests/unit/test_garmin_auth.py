@@ -153,7 +153,7 @@ def _build_with_mfa() -> Any:
 
 
 class TestRequestTimeout:
-    """Every Garmin client we build bounds its HTTP calls with GARMIN_API_TIMEOUT (S5)."""
+    """Every Garmin client we build bounds its HTTP calls with GARMIN_API_TIMEOUT_SECONDS (S5)."""
 
     @pytest.fixture
     def sent(self) -> Any:
@@ -166,7 +166,7 @@ class TestRequestTimeout:
 
         with (
             patch.object(garmin_client.HTTPAdapter, "send", autospec=True, side_effect=fake_send),
-            patch.object(Config, "GARMIN_API_TIMEOUT", _TIMEOUT_SECONDS),
+            patch.object(Config, "GARMIN_API_TIMEOUT_SECONDS", _TIMEOUT_SECONDS),
         ):
             yield calls
 
@@ -214,7 +214,7 @@ class TestRequestTimeout:
         garmin = Garmin()
         garmin.client.cs = garmin_client.cffi_requests.Session()
 
-        with patch.object(Config, "GARMIN_API_TIMEOUT", _TIMEOUT_SECONDS):
+        with patch.object(Config, "GARMIN_API_TIMEOUT_SECONDS", _TIMEOUT_SECONDS):
             bound_request_timeouts(garmin)
 
         assert garmin.client.cs.timeout == _TIMEOUT_SECONDS

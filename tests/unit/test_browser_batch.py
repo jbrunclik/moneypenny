@@ -120,7 +120,7 @@ class TestBatchExecution:
         assert any(part.get("type") == "image" for part in result)
 
     def test_no_screenshot_from_a_worker_that_timed_out(self, worker: MagicMock) -> None:
-        """A step timeout leaves the worker stuck; a screenshot would hang another TOOL_TIMEOUT."""
+        """A step timeout leaves the worker stuck; a screenshot would hang another TOOL_TIMEOUT_SECONDS."""
 
         def execute(fn: str, **kw: Any) -> dict[str, Any]:
             if fn == "click":

@@ -7,10 +7,9 @@ reader guessing whether 600 means seconds or milliseconds.
 The unit check covers `Config` attributes whose name says they hold a
 duration (TIMEOUT, INTERVAL, DELAY, TTL...) or a size in bytes (SIZE). A
 character or word count (`..._LENGTH`, `..._MAX_WORDS`) is a count, not a
-unit-bearing setting, and is not checked. The baseline holds the names that
-predate the rule (Oct 26 2026): every one of them is an env var set in the
-real `.env` files, so renaming one means renaming it there in the same
-deploy. It only shrinks.
+unit-bearing setting, and is not checked. The 20 names that predated the
+rule (Oct 26 2026) were renamed the same day, with their keys in the real
+`.env` files, so the baseline is empty: a new setting names its unit.
 """
 
 import ast
@@ -35,29 +34,8 @@ _NOT_A_UNIT_SETTING = {
     "SYNC_CHANGES_PAGE_SIZE",
     "THUMBNAIL_MAX_SIZE",  # a (width, height) tuple in pixels
 }
-# Unit-less settings from before the rule; only shrinks
-_NO_UNIT_BASELINE = {
-    "CHAT_TIMEOUT",
-    "CODE_SANDBOX_TIMEOUT",
-    "FETCH_URL_MAX_FILE_SIZE",
-    "GARMIN_API_TIMEOUT",
-    "GOOGLE_AUTH_TIMEOUT",
-    "GOOGLE_CALENDAR_API_TIMEOUT",
-    "GUNICORN_TIMEOUT",
-    "MAPY_API_TIMEOUT",
-    "MAX_FILE_SIZE",
-    "MAX_REQUEST_SIZE",
-    "MAX_VIDEO_FILE_SIZE",
-    "PUSH_SEND_TIMEOUT",
-    "ROUVY_HTTP_TIMEOUT",
-    "SSE_KEEPALIVE_INTERVAL",
-    "STREAM_CLEANUP_THREAD_TIMEOUT",
-    "STREAM_CLEANUP_WAIT_DELAY",
-    "TODOIST_API_TIMEOUT",
-    "TOOL_TIMEOUT",
-    "WEATHER_API_TIMEOUT",
-    "WHATSAPP_API_TIMEOUT",
-}
+# Emptied Oct 26 2026 (the 20 renamed with their env keys); stays empty
+_NO_UNIT_BASELINE: set[str] = set()
 
 
 def _env_reads(path: Path) -> list[str]:

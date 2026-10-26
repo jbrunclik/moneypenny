@@ -230,7 +230,7 @@ def streaming_message_id(conversation_id: str) -> str | None:
     just empty.
     """
     # A deep-research run outlasts a chat turn
-    longest = max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
+    longest = max(Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
     cutoff = datetime.now() - timedelta(seconds=longest + 60)
     return db.get_streaming_placeholder_id(conversation_id, cutoff)
 

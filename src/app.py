@@ -410,7 +410,7 @@ def create_app(*, apply_migrations: bool = True) -> APIFlask:
     # See errors.py for details.
 
     # Set max request size to prevent DoS attacks
-    app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE
+    app.config["MAX_CONTENT_LENGTH"] = Config.MAX_REQUEST_SIZE_BYTES
 
     # Expose the product name to all Jinja templates (index, privacy).
     @app.context_processor

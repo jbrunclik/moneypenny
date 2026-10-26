@@ -56,8 +56,8 @@ inline request limit is ~20MB, and even short phone clips exceed it. The
 - `MIME_TYPE_ALIASES` (src/utils/files.py) gains the three video types with
   their libmagic detections (`.mov` → `video/quicktime`, `.mp4` → `video/mp4`,
   `.webm` → `video/webm`).
-- New `Config.MAX_VIDEO_FILE_SIZE` (default 100MB); per-type limit enforcement
-  in file validation. `MAX_REQUEST_SIZE` (250MB) already covers one 100MB video
+- New `Config.MAX_VIDEO_FILE_SIZE_BYTES` (default 100MB); per-type limit enforcement
+  in file validation. `MAX_REQUEST_SIZE_BYTES` (250MB) already covers one 100MB video
   base64-encoded (~133MB).
 - Video bytes stored in the existing blob store (`files.db`) like images.
 

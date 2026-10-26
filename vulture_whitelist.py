@@ -151,7 +151,7 @@ _._do_cleanup_stale
 # Config like every other setting
 GUNICORN_WORKERS
 GUNICORN_THREADS
-GUNICORN_TIMEOUT
+GUNICORN_TIMEOUT_SECONDS
 GUNICORN_MAX_REQUESTS
 GUNICORN_MAX_REQUESTS_JITTER
 # tests/e2e_server: signal handler signature, Mock configuration

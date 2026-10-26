@@ -100,7 +100,7 @@ The HTTP layer ([api/http.ts](../../web/src/api/http.ts), used by the per-domain
 
 1. **Retry logic with exponential backoff** - opt-in per call (`requestWithRetry`), used for idempotent reads
 2. **Request timeouts** - `API_DEFAULT_TIMEOUT_MS` (30s), `API_CHAT_TIMEOUT_MS` (5 min) for chat, and a 30s connect timeout on the streaming POST (`API_CHAT_CONNECT_TIMEOUT_MS`)
-3. **Streaming per-read timeout** - `API_STREAM_READ_TIMEOUT_MS` (60s) per read; the backend sends keepalives every `SSE_KEEPALIVE_INTERVAL` (15s)
+3. **Streaming per-read timeout** - `API_STREAM_READ_TIMEOUT_MS` (60s) per read; the backend sends keepalives every `SSE_KEEPALIVE_INTERVAL_SECONDS` (15s)
 4. **Extended ApiError class** with semantic properties
 
 ```typescript

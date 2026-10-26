@@ -196,7 +196,7 @@ class BrowserWorker:
         """Send a command to the worker and block until done."""
         cmd = _WorkerCommand(fn_name=fn_name, kwargs=kwargs)
         self._cmd_queue.put(cmd)
-        cmd.result_event.wait(timeout=Config.TOOL_TIMEOUT)
+        cmd.result_event.wait(timeout=Config.TOOL_TIMEOUT_SECONDS)
         if not cmd.result_event.is_set():
             # The worker thread is stuck inside a Playwright call and will
             # process queued commands only if/when it ever returns. Mark the

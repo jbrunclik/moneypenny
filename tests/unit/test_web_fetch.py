@@ -207,7 +207,7 @@ class TestFetchUrl:
         assert isinstance(result, list)
         assert result[1]["mime_type"] == "image/jpeg"  # Normalized
 
-    @patch("src.agent.tools.web.Config.FETCH_URL_MAX_FILE_SIZE", 1000)
+    @patch("src.agent.tools.web.Config.FETCH_URL_MAX_FILE_SIZE_BYTES", 1000)
     @patch("src.agent.tools.web.httpx.Client")
     def test_rejects_oversized_files(self, mock_client_class: MagicMock) -> None:
         """Should reject files larger than the configured limit."""

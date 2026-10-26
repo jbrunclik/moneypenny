@@ -149,7 +149,7 @@ Weather data is automatically fetched and included in the planner dashboard when
 # .env
 WEATHER_LOCATION=50.0755,14.4378  # Latitude,longitude for Prague
 WEATHER_CACHE_TTL_SECONDS=21600  # 6 hours (weather doesn't change often)
-WEATHER_API_TIMEOUT=10  # API request timeout in seconds
+WEATHER_API_TIMEOUT_SECONDS=10  # API request timeout in seconds
 APP_VERSION=1.0.0  # For User-Agent header
 CONTACT_EMAIL=admin@example.com  # For User-Agent header (Yr.no requirement)
 ```

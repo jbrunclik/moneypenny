@@ -294,7 +294,7 @@ def _run_steps(
         worker = get_worker()
         summary = run_batch(worker, conversation_id, steps)
         # A step timeout leaves the worker stuck in Playwright (unhealthy): a
-        # screenshot would wait another TOOL_TIMEOUT and then replace the
+        # screenshot would wait another TOOL_TIMEOUT_SECONDS and then replace the
         # batch summary (failed_step, hint) with a generic error.
         if (screenshot or share) and not worker.unhealthy:
             return _with_screenshot(worker, conversation_id, summary, share)

@@ -65,7 +65,7 @@ def _fetch_calendar_names(headers: dict[str, str]) -> dict[str, str]:
         response = httpx.get(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList",
             headers=headers,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
         if response.status_code != 200:
@@ -130,7 +130,7 @@ def _fetch_single_calendar(
             f"{Config.GOOGLE_CALENDAR_API_BASE_URL}/calendars/{encoded_calendar_id}/events",
             headers=headers,
             params=params,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
         error = _status_error(calendar_id, response.status_code)

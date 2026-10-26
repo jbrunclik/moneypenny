@@ -313,7 +313,9 @@ class TurnContext:
     def timeout_seconds(self) -> int:
         """How long this turn may run (a deep-research run outlasts a chat turn)."""
         return (
-            Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS if self.deep_research else Config.CHAT_TIMEOUT
+            Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS
+            if self.deep_research
+            else Config.CHAT_TIMEOUT_SECONDS
         )
 
     @property

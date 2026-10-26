@@ -497,14 +497,14 @@ class TestChatStream:
         test_database: Database,
         monkeypatch: Any,
     ) -> None:
-        """When CHAT_TIMEOUT trips mid-stream, the partial text is persisted
+        """When CHAT_TIMEOUT_SECONDS trips mid-stream, the partial text is persisted
         with the timeout marker and a 'timeout' event is sent."""
         import time
 
         from src.api.helpers.chat_streaming import STREAM_TIMEOUT_MARKER
         from src.config import Config
 
-        monkeypatch.setattr(Config, "CHAT_TIMEOUT", 0)  # trip after first event
+        monkeypatch.setattr(Config, "CHAT_TIMEOUT_SECONDS", 0)  # trip after first event
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -1780,7 +1780,7 @@ class TestDeadTurnPlaceholder:
         self, client, auth_headers, test_conversation, test_database, monkeypatch
     ) -> None:
         """A batch turn journals nothing: past the stall window it may still
-        be running (up to CHAT_TIMEOUT) - only its age proves it dead."""
+        be running (up to CHAT_TIMEOUT_SECONDS) - only its age proves it dead."""
         test_database.add_message(test_conversation.id, "user", "q1")
         batch_reply = test_database.add_message(test_conversation.id, "assistant", "")
         monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)

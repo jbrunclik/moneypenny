@@ -245,7 +245,7 @@ Users can upload short videos (iPhone/Android camera or library) and consult the
 
 ### How it works
 
-1. **Upload**: `video/mp4`, `video/quicktime`, `video/webm` up to 100MB (`MAX_VIDEO_FILE_SIZE`) ride the normal base64 chat request; the file input's `accept` offers camera capture on mobile. Magic-byte validation has a container-signature fallback (`ftyp`/EBML) because some libmagic builds detect video only via `from_file`, not `from_buffer`.
+1. **Upload**: `video/mp4`, `video/quicktime`, `video/webm` up to 100MB (`MAX_VIDEO_FILE_SIZE_BYTES`) ride the normal base64 chat request; the file input's `accept` offers camera capture on mobile. Magic-byte validation has a container-signature fallback (`ftyp`/EBML) because some libmagic builds detect video only via `from_file`, not `from_buffer`.
 2. **Gemini Files API bridge**: Gemini's inline request limit is ~20MB, so videos are uploaded to the Files API before the agent runs (`attach_gemini_file_uris()` in [gemini_files.py](../../src/agent/gemini_files.py), called when the user message is saved), polled to `ACTIVE`, and sent as `{"type": "media", "file_uri", "mime_type"}` blocks. The `file_uri` (48h lifetime) is cached in `kv_store` under user `_system`, namespace `gemini_files`, key `message_id:file_index`, TTL 47h.
 3. **Follow-up turns**: the video is attached only on its upload turn. History carries metadata only (`"type": "video"` + `retrieve_file` id); the system prompt tells the model to call `retrieve_file`, which reuses the cached URI or re-uploads from blob storage.
 4. **Upload failure**: `attach_gemini_file_uris` never raises — the message content gets a text notice instead so the model can tell the user.
@@ -268,7 +268,7 @@ JWT is header-only, so a bare `<video src>` cannot authenticate. Sent videos ren
 ### Configuration
 
 ```bash
-MAX_VIDEO_FILE_SIZE=104857600   # 100 MB
+MAX_VIDEO_FILE_SIZE_BYTES=104857600   # 100 MB
 VIDEO_RETENTION_DAYS=7
 IMAGE_RETENTION_DAYS=30
 FILE_RETENTION_DAYS=30

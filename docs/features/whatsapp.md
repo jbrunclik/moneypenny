@@ -34,7 +34,7 @@ WHATSAPP_TEMPLATE_NAME=agent_notification
 APP_URL=https://chat.example.com
 
 # Optional: API timeout (default: 10 seconds)
-WHATSAPP_API_TIMEOUT=10
+WHATSAPP_API_TIMEOUT_SECONDS=10
 
 # Optional: Max message length before truncation (default: 1024 - WhatsApp template limit)
 WHATSAPP_MAX_MESSAGE_LENGTH=1024

@@ -83,7 +83,7 @@ def _send_calendar_request(
             url,
             headers=headers,
             params=params,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
     elif method == "POST":
@@ -93,7 +93,7 @@ def _send_calendar_request(
             headers=headers,
             params=params,
             json=data,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
         )
     elif method == "PATCH":
         headers["Content-Type"] = "application/json"
@@ -102,11 +102,11 @@ def _send_calendar_request(
             headers=headers,
             params=params,
             json=data,
-            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS,
         )
     elif method == "DELETE":
         response = httpx.delete(
-            url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT
+            url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT_SECONDS
         )
     else:
         raise ValueError(f"Unsupported HTTP method: {method}")

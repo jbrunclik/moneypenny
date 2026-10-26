@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Appended to partial content when an interactive chat turn hits CHAT_TIMEOUT.
+# Appended to partial content when an interactive chat turn hits CHAT_TIMEOUT_SECONDS.
 STREAM_TIMEOUT_MARKER = "\n\n_…(response timed out)_"
 
 # Appended to partial content when the producer crashes mid-stream (X1):
@@ -325,18 +325,20 @@ def _handle_stream_timeout(context: StreamContext) -> Generator[str]:
 def _process_event_queue(context: StreamContext) -> Generator[str]:
     """Process events from the queue and yield SSE data.
 
-    Enforces a backstop deadline (CHAT_TIMEOUT + one keepalive interval of grace
+    Enforces a backstop deadline (CHAT_TIMEOUT_SECONDS + one keepalive interval of grace
     so the producer's own deadline normally fires first). The grace ensures the
     worker thread is freed and partial content saved even if the producer is
     wedged inside a single non-yielding call.
     """
-    deadline = time.monotonic() + context.turn.timeout_seconds + Config.SSE_KEEPALIVE_INTERVAL
+    deadline = (
+        time.monotonic() + context.turn.timeout_seconds + Config.SSE_KEEPALIVE_INTERVAL_SECONDS
+    )
     while True:
         if time.monotonic() > deadline:
             yield from _handle_stream_timeout(context)
             break
         try:
-            item = context.event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL)
+            item = context.event_queue.get(timeout=Config.SSE_KEEPALIVE_INTERVAL_SECONDS)
 
             if item is None:
                 break

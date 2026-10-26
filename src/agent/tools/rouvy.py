@@ -61,7 +61,7 @@ def _client_request(
     """Single httpx request with the given cookie jar. Isolated for test seams."""
     with httpx.Client(
         cookies=jar,
-        timeout=Config.ROUVY_HTTP_TIMEOUT,
+        timeout=Config.ROUVY_HTTP_TIMEOUT_SECONDS,
         follow_redirects=False,
         verify=shared_ssl_context(),
     ) as c:

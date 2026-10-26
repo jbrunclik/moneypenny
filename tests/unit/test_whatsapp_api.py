@@ -42,7 +42,7 @@ class TestWhatsAppApiRequest:
         mock_config.WHATSAPP_API_VERSION = "v18.0"
         mock_config.WHATSAPP_PHONE_NUMBER_ID = "123456"
         mock_config.WHATSAPP_ACCESS_TOKEN = "test_token"
-        mock_config.WHATSAPP_API_TIMEOUT = 10
+        mock_config.WHATSAPP_API_TIMEOUT_SECONDS = 10
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -64,7 +64,7 @@ class TestWhatsAppApiRequest:
         mock_config.WHATSAPP_API_VERSION = "v18.0"
         mock_config.WHATSAPP_PHONE_NUMBER_ID = "123456"
         mock_config.WHATSAPP_ACCESS_TOKEN = "invalid_token"
-        mock_config.WHATSAPP_API_TIMEOUT = 10
+        mock_config.WHATSAPP_API_TIMEOUT_SECONDS = 10
 
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -89,7 +89,7 @@ class TestWhatsAppApiRequest:
         mock_config.WHATSAPP_API_VERSION = "v18.0"
         mock_config.WHATSAPP_PHONE_NUMBER_ID = "123456"
         mock_config.WHATSAPP_ACCESS_TOKEN = "test_token"
-        mock_config.WHATSAPP_API_TIMEOUT = 10
+        mock_config.WHATSAPP_API_TIMEOUT_SECONDS = 10
 
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -114,7 +114,7 @@ class TestWhatsAppApiRequest:
         mock_config.WHATSAPP_API_VERSION = "v18.0"
         mock_config.WHATSAPP_PHONE_NUMBER_ID = "123456"
         mock_config.WHATSAPP_ACCESS_TOKEN = "test_token"
-        mock_config.WHATSAPP_API_TIMEOUT = 10
+        mock_config.WHATSAPP_API_TIMEOUT_SECONDS = 10
 
         mock_post.side_effect = httpx.ConnectError("Connection failed")
 

@@ -92,7 +92,7 @@ def _is_dead_placeholder(message: Message) -> bool:
     without an end marker (the resume endpoint's rule). A reply with no
     journal - a batch turn's - may still be running past the stall window.
     """
-    longest = max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS) + 60
+    longest = max(Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS) + 60
     if datetime.now() - message.created_at > timedelta(seconds=longest):
         return True
     last = db.journal_last_event(message.id)
@@ -201,7 +201,7 @@ def wait_for_reply(message_id: str) -> Message | None:
     None when the turn ends without one (removed, or still empty when its
     stream stalls) or runs past the chat timeout.
     """
-    deadline = time.monotonic() + Config.CHAT_TIMEOUT
+    deadline = time.monotonic() + Config.CHAT_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         reply = db.get_message_by_id(message_id)
         if reply is None:

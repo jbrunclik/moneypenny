@@ -65,7 +65,7 @@ def exchange_code_for_token(code: str) -> str:
                 "code": code,
                 "redirect_uri": Config.TODOIST_REDIRECT_URI,
             },
-            timeout=Config.TODOIST_API_TIMEOUT,
+            timeout=Config.TODOIST_API_TIMEOUT_SECONDS,
         )
 
         if response.status_code != 200:
@@ -116,7 +116,7 @@ def get_user_info(access_token: str) -> dict[str, Any]:
         response = httpx.get(
             TODOIST_USER_URL,
             headers={"Authorization": f"Bearer {access_token}"},
-            timeout=Config.TODOIST_API_TIMEOUT,
+            timeout=Config.TODOIST_API_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
 

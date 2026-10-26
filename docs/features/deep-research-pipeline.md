@@ -127,7 +127,7 @@ push says so (see [Cost](deep-research-ops.md#cost)).
   the writer (`answer_model`).
 - **Whole run**: `TurnContext.timeout_seconds` is
   `DEEP_RESEARCH_RUN_TIMEOUT_SECONDS` for a deep-research turn (else
-  `CHAT_TIMEOUT`); it drives the producer deadline and the consumer backstop.
+  `CHAT_TIMEOUT_SECONDS`); it drives the producer deadline and the consumer backstop.
   The resume endpoint waits `max()` of both. When the producer abandons the
   generator at its deadline, `run_deep_research()` catches `GeneratorExit` and
   calls `Orchestrator.stop()`, so subagents stop instead of running and

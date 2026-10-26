@@ -36,7 +36,7 @@ _KNOWN_USER_TEXT_MAX_CHARS = 4000
 # This turn's non-web tool results (calendar, Garmin, memory...) are facts the
 # answer may state; capped like the user's message
 _KNOWN_TOOL_TEXT_MAX_CHARS = 8000
-# Fetched files are up to FETCH_URL_MAX_FILE_SIZE each; the newest few go along
+# Fetched files are up to FETCH_URL_MAX_FILE_SIZE_BYTES each; the newest few go along
 _MAX_FETCHED_FILES = 4
 _USER_FILES_LABEL = "The user's attached files (KNOWN - always supported):"
 _FETCHED_FILES_LABEL = (

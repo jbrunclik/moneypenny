@@ -485,7 +485,7 @@ class TestVideoValidation:
         assert is_valid, error
 
     def test_video_uses_video_size_limit(self) -> None:
-        with patch.object(Config, "MAX_VIDEO_FILE_SIZE", 100):
+        with patch.object(Config, "MAX_VIDEO_FILE_SIZE_BYTES", 100):
             big = MP4_BYTES + b"\x00" * 200
             files = [
                 {
@@ -501,8 +501,8 @@ class TestVideoValidation:
     def test_image_still_uses_default_limit(self) -> None:
         """A video-sized image must NOT get the video allowance."""
         with (
-            patch.object(Config, "MAX_FILE_SIZE", 100),
-            patch.object(Config, "MAX_VIDEO_FILE_SIZE", 10_000),
+            patch.object(Config, "MAX_FILE_SIZE_BYTES", 100),
+            patch.object(Config, "MAX_VIDEO_FILE_SIZE_BYTES", 10_000),
         ):
             png = base64.b64encode(create_png_bytes(50, 50)).decode("utf-8")
             files = [{"name": "big.png", "type": "image/png", "data": png}]

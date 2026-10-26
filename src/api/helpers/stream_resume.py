@@ -178,14 +178,16 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
     land on a different gunicorn worker than the one still generating.
     """
     # A deep-research run outlasts a chat turn's timeout
-    deadline = time.monotonic() + max(Config.CHAT_TIMEOUT, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
+    deadline = time.monotonic() + max(
+        Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS
+    )
     last_keepalive = time.monotonic()
     stream_ended = False
     save_grace_deadline: float | None = None
     # No new journal rows for this long (before stream_end) = the producer is
     # dead (e.g. process killed mid-turn left no terminal marker). Without
     # this bound a resume of a dead turn would hold a worker thread and send
-    # keepalives until CHAT_TIMEOUT.
+    # keepalives until CHAT_TIMEOUT_SECONDS.
     stall_deadline = time.monotonic() + Config.STREAM_RESUME_STALL_SECONDS
 
     while time.monotonic() < deadline:
@@ -217,7 +219,7 @@ def stream_resume_events(message_id: str, after_seq: int) -> Generator[str]:
 
         if not events:
             time.sleep(0.4)
-            if time.monotonic() - last_keepalive >= Config.SSE_KEEPALIVE_INTERVAL:
+            if time.monotonic() - last_keepalive >= Config.SSE_KEEPALIVE_INTERVAL_SECONDS:
                 yield ": keepalive\n\n"
                 last_keepalive = time.monotonic()
 

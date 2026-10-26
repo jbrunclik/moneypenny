@@ -191,8 +191,8 @@ CURRENCY_RATES = {
 
 COST_HISTORY_MAX_MONTHS = 120      # Maximum months for cost history queries
 COST_HISTORY_DEFAULT_LIMIT = 12    # Default months returned
-STREAM_CLEANUP_THREAD_TIMEOUT = 600  # Timeout for cleanup thread (seconds)
-STREAM_CLEANUP_WAIT_DELAY = 1.0      # Delay before checking if message was saved
+STREAM_CLEANUP_THREAD_TIMEOUT_SECONDS = 600  # Timeout for cleanup thread (seconds)
+STREAM_CLEANUP_WAIT_DELAY_SECONDS = 1.0      # Delay before checking if message was saved
 ```
 
 ## Key Files

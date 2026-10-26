@@ -50,7 +50,7 @@ def send_to_subscription(
         data=json.dumps(payload),
         vapid_private_key=Config.VAPID_PRIVATE_KEY,
         vapid_claims=_vapid_claims(),
-        timeout=Config.PUSH_SEND_TIMEOUT,
+        timeout=Config.PUSH_SEND_TIMEOUT_SECONDS,
     )
     return True
 
@@ -129,7 +129,7 @@ def send_push_to_user(
     # NOT a daemon thread: the agent scheduler is a run-and-exit systemd
     # process, and daemon threads are killed at interpreter exit - the
     # 07:20 briefing saved its message but its push died here. A
-    # non-daemon thread blocks exit for at most PUSH_SEND_TIMEOUT per
+    # non-daemon thread blocks exit for at most PUSH_SEND_TIMEOUT_SECONDS per
     # subscription, which is fine for both the scheduler and gunicorn.
     thread = threading.Thread(
         target=send_push_to_user_sync,

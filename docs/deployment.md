@@ -271,10 +271,10 @@ location / {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
-    # Timeouts - must match or exceed GUNICORN_TIMEOUT
+    # Timeouts - must match or exceed GUNICORN_TIMEOUT_SECONDS
     proxy_connect_timeout 60s;
-    proxy_send_timeout 300s;    # Match GUNICORN_TIMEOUT
-    proxy_read_timeout 300s;    # Match GUNICORN_TIMEOUT
+    proxy_send_timeout 300s;    # Match GUNICORN_TIMEOUT_SECONDS
+    proxy_read_timeout 300s;    # Match GUNICORN_TIMEOUT_SECONDS
 
     # Disable buffering for streaming responses
     proxy_buffering off;
@@ -291,7 +291,7 @@ location / {
 
 **Note on gzip**: The gzip directives can also be placed in the `http` or `server` block to apply globally. The `gzip_vary on` directive ensures proper caching behavior with CDNs. Compression is skipped for already-compressed formats (images, PDFs) and responses smaller than `gzip_min_length`.
 
-The app uses SSE keepalive heartbeats (configurable via `SSE_KEEPALIVE_INTERVAL`) to prevent proxy timeouts during LLM "thinking" phases. For very long operations, increase both `GUNICORN_TIMEOUT` and nginx timeouts.
+The app uses SSE keepalive heartbeats (configurable via `SSE_KEEPALIVE_INTERVAL_SECONDS`) to prevent proxy timeouts during LLM "thinking" phases. For very long operations, increase both `GUNICORN_TIMEOUT_SECONDS` and nginx timeouts.
 
 ## Log Rotation and Disk Space
 

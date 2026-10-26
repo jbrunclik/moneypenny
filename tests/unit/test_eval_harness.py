@@ -421,7 +421,7 @@ class TestRunWithTimeout:
     """A case that never returns must not hang the whole suite.
 
     The agent path evals use (ChatAgent directly) has no client timeout -
-    CHAT_TIMEOUT is enforced at the route layer - so a stalled TLS read blocks
+    CHAT_TIMEOUT_SECONDS is enforced at the route layer - so a stalled TLS read blocks
     forever. Observed Sep 15 2026: a run sat in _ssl__SSLSocket_read for 5h38m
     and forfeited 27 completed cases.
     """

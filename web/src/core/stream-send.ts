@@ -94,7 +94,7 @@ async function consumeStream(send: StreamSend, events: AsyncGenerator<StreamEven
       return;
     }
 
-    // Server-side CHAT_TIMEOUT: partial content was saved; let the loop
+    // Server-side CHAT_TIMEOUT_SECONDS: partial content was saved; let the loop
     // drain and the missing-done path recover the saved message
     if (event.type === 'timeout') {
       log.warn('Stream timed out server-side', { conversationId: convId });
