@@ -14,7 +14,6 @@ from tests.e2e_server.integration_fakes import (
 )
 from tests.e2e_server.llm_fakes import (
     create_mock_llm,
-    create_mock_stream_chat,
     create_mock_stream_chat_events,
     mock_check_grounding,
     mock_should_check,
@@ -42,7 +41,6 @@ def apply_service_patches(stack: contextlib.ExitStack) -> None:
     stack.enter_context(patch("src.auth.google_auth.httpx.get", create_mock_google_tokeninfo()))
     stack.enter_context(patch("src.agent.grounding_check.should_check", mock_should_check))
     stack.enter_context(patch("src.agent.grounding_check.check_grounding", mock_check_grounding))
-    stack.enter_context(patch("src.agent.agent.ChatAgent.stream_chat", create_mock_stream_chat()))
     stack.enter_context(
         patch("src.api.helpers.stream_producer.run_deep_research", mock_run_deep_research)
     )

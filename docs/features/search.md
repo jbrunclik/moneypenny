@@ -122,8 +122,6 @@ When navigating to a search result in a large conversation, the app uses `around
 # src/config.py
 SEARCH_MAX_QUERY_LENGTH = 200  # Maximum query length
 SEARCH_MAX_LIMIT = 50          # Maximum results per page
-MESSAGES_AROUND_BEFORE_DEFAULT = 50  # Messages before target
-MESSAGES_AROUND_AFTER_DEFAULT = 50   # Messages after target
 ```
 
 ### Frontend

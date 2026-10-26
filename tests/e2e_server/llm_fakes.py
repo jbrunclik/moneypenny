@@ -70,66 +70,6 @@ def create_mock_llm() -> MagicMock:
     return mock
 
 
-def create_mock_stream_chat() -> Any:
-    """Create a mock stream_chat method that yields tokens properly.
-
-    The default LLM mock doesn't support LangGraph's stream mode, so we need
-    to mock the stream_chat method to yield individual tokens followed by the
-    final result tuple.
-    """
-    from collections.abc import Generator
-
-    def mock_stream_chat(
-        self: Any,
-        message: str,
-        files: list[dict[str, Any]] | None = None,
-        history: list[dict[str, Any]] | None = None,
-        force_tools: list[str] | None = None,
-        user_name: str | None = None,
-        user_id: str | None = None,
-        custom_instructions: str | None = None,
-        is_planning: bool = False,
-        dashboard_data: dict[str, Any] | None = None,
-        conversation_id: str | None = None,
-        is_autonomous: bool = False,
-        agent_context: dict[str, Any] | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
-    ) -> Generator[str | tuple[str, dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
-        """Mock streaming that yields tokens word-by-word."""
-        # Use custom response if set, otherwise use prefix + message
-        if MOCK_CONFIG["custom_response"]:
-            response_text = MOCK_CONFIG["custom_response"]
-        else:
-            prefix = MOCK_CONFIG["response_prefix"]
-            response_text = f"{prefix}{message[:100]}"
-
-        # Stream tokens word-by-word (simulates real LLM streaming)
-        words = response_text.split()
-        delay_s = MOCK_CONFIG["stream_delay_ms"] / 1000
-
-        for i, word in enumerate(words):
-            # Add space before word (except first)
-            token = f" {word}" if i > 0 else word
-            yield token
-            time.sleep(delay_s)
-
-        # Yield final tuple: (clean_content, metadata, tool_results, usage_info)
-        # The real stream_chat yields this at the end
-        input_tokens = MOCK_CONFIG["input_tokens"]
-        output_tokens = MOCK_CONFIG["output_tokens"]
-        usage_info = {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": input_tokens + output_tokens,
-        }
-        yield (response_text, {}, [], usage_info)
-
-    return mock_stream_chat
-
-
 def _mock_artifact_turn(
     user_id: str | None, conversation_id: str | None
 ) -> tuple[dict[str, Any] | None, list[Any]]:
@@ -307,7 +247,7 @@ def create_mock_stream_chat_events() -> Any:  # noqa: C901, PLR0915
             MOCK_CONFIG["deep_research_offer"] = None
             call = {"name": "propose_deep_research", "args": offer_args, "id": "call-dr"}
             final["result_messages"] = [AIMessage(content="", tool_calls=[call])]
-        # Same post-answer step as ChatAgent.stream_chat (patched check below)
+        # Same post-answer step as ChatAgent.stream_chat_events (patched check below)
         from src.agent import grounding_check
 
         if grounding_check.should_check(final["content"], [], stop_reason):

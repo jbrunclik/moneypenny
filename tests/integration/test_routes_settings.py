@@ -234,9 +234,8 @@ class TestDailyBriefingSettings:
         agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
         assert agent.schedule == "15 21 * * *"
         # Same agent reused, not a duplicate
-        assert (
-            len([a for a in test_database.list_agents(user.id) if a.name == "Daily Briefing"]) == 1
-        )
+        agents = [item["agent"] for item in test_database.list_agents_with_status(user.id)]
+        assert len([a for a in agents if a.name == "Daily Briefing"]) == 1
 
     def test_disable_keeps_agent_disabled(
         self,

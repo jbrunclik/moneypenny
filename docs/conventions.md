@@ -95,7 +95,7 @@ session and points here for the rest.
 | ID | Rule | Enforced by |
 |----|------|-------------|
 | C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - all baselined |
-| C2 | No dead code or unused dependencies | knip (frontend files, exports, npm deps; no baseline); planned: vulture, deptry |
+| C2 | No dead code or unused dependencies | knip (frontend files, exports, npm deps; no baseline); vulture (`src/`, `evals/`, `scripts/`, the E2E server; config in `pyproject.toml`, what it can't see in `vulture_whitelist.py` with reasons - its Baseline section only shrinks: 4); planned: deptry |
 | C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). `PLC0415` in `src/`. Not yet: `DTZ` (needs the timezone migration in TODO first - partial adoption mixes aware and naive datetimes), `PT` | ruff; existing violations carry `# noqa: CODE` |
 | C4 | Formatting: ruff format (Python), ESLint (TS), Prettier (CSS, YAML, JSON; not Markdown); `.editorconfig` | ruff, ESLint, Prettier `format:check` in `make lint`; the PostToolUse hook formats on edit |
 | C5 | Type hints everywhere (mypy strict), TypeScript strict | mypy, tsc |
@@ -110,7 +110,7 @@ Details: [testing.md](testing.md).
 | T1 | Bug fixes are test-first: a failing test, then the fix, then the full suite | judgment (`/fix-bug`) |
 | T2 | Coverage floors follow actual coverage, about two points under it (backend 83%; frontend lines 44%, branches 40%) | `fail_under` (pyproject), vitest `coverage.thresholds` |
 | T3 | No placeholder tests (a body of only `pass`, a docstring or comments) | test (`test_test_hygiene.py`) |
-| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 74 and 285) |
+| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 72 and 285) |
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | planned: post-step over the Playwright report |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 92 imports) |

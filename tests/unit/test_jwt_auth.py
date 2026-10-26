@@ -10,7 +10,6 @@ from src.auth.jwt_auth import (
     TokenResult,
     TokenStatus,
     create_token,
-    decode_token,
     decode_token_with_status,
     get_token_from_request,
 )
@@ -77,69 +76,6 @@ class TestCreateToken:
         token2 = create_token(mock_user2)
 
         assert token1 != token2
-
-
-class TestDecodeToken:
-    """Tests for decode_token function."""
-
-    def test_decodes_valid_token(self, mock_user: MagicMock) -> None:
-        """Valid token should be decoded successfully."""
-        token = create_token(mock_user)
-        payload = decode_token(token)
-
-        assert payload is not None
-        assert payload["sub"] == mock_user.id
-        assert payload["email"] == mock_user.email
-
-    def test_returns_none_for_expired_token(self, mock_user: MagicMock) -> None:
-        """Expired token should return None."""
-        # Create expired token manually
-        payload = {
-            "sub": mock_user.id,
-            "email": mock_user.email,
-            "name": mock_user.name,
-            "exp": datetime.now(UTC) - timedelta(hours=1),
-            "iat": datetime.now(UTC) - timedelta(hours=2),
-        }
-        expired_token = jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm=Config.JWT_ALGORITHM)
-
-        result = decode_token(expired_token)
-        assert result is None
-
-    def test_returns_none_for_invalid_token(self) -> None:
-        """Malformed token should return None."""
-        result = decode_token("invalid.token.here")
-        assert result is None
-
-    def test_returns_none_for_empty_string(self) -> None:
-        """Empty string should return None."""
-        result = decode_token("")
-        assert result is None
-
-    def test_returns_none_for_wrong_secret(self, mock_user: MagicMock) -> None:
-        """Token signed with wrong secret should return None."""
-        payload = {
-            "sub": mock_user.id,
-            "email": mock_user.email,
-            "exp": datetime.now(UTC) + timedelta(hours=1),
-            "iat": datetime.now(UTC),
-        }
-        wrong_token = jwt.encode(payload, "wrong-secret-key", algorithm="HS256")
-
-        result = decode_token(wrong_token)
-        assert result is None
-
-    def test_returns_none_for_wrong_algorithm(self, mock_user: MagicMock) -> None:
-        """Token using wrong algorithm should return None."""
-        payload = {
-            "sub": mock_user.id,
-            "exp": datetime.now(UTC) + timedelta(hours=1),
-        }
-        # Create token with different algorithm
-        wrong_alg_token = jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm="HS384")
-
-        result = decode_token(wrong_alg_token)
-        assert result is None
 
 
 class TestGetTokenFromRequest:
@@ -260,6 +196,19 @@ class TestDecodeTokenWithStatus:
     def test_returns_invalid_status_for_empty_string(self) -> None:
         """Empty string should return INVALID status."""
         result = decode_token_with_status("")
+
+        assert result.status == TokenStatus.INVALID
+        assert result.payload is None
+
+    def test_returns_invalid_status_for_wrong_algorithm(self, mock_user: MagicMock) -> None:
+        """A token signed with another algorithm must not validate."""
+        payload = {
+            "sub": mock_user.id,
+            "exp": datetime.now(UTC) + timedelta(hours=1),
+        }
+        wrong_alg_token = jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm="HS384")
+
+        result = decode_token_with_status(wrong_alg_token)
 
         assert result.status == TokenStatus.INVALID
         assert result.payload is None

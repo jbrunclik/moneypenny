@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from dotenv import load_dotenv
 
-from src.constants import BYTES_PER_KB, BYTES_PER_MB, SECONDS_PER_DAY, SECONDS_PER_WEEK
+from src.constants import BYTES_PER_KB, BYTES_PER_MB, SECONDS_PER_WEEK
 
 load_dotenv()
 
@@ -334,14 +334,6 @@ class Config:
         os.getenv("COST_HISTORY_DEFAULT_LIMIT", "12")
     )  # Default to 12 months
 
-    # Currency formatting (decimal places)
-    CURRENCY_DECIMALS: ClassVar[dict[str, int]] = {
-        "USD": 4,
-        "EUR": 4,
-        "GBP": 4,
-        "CZK": 2,
-    }
-
     # Title generation settings
     TITLE_GENERATION_MODEL = "gemini-3.8-flash"
     TITLE_GENERATION_TEMPERATURE = 0.7
@@ -352,7 +344,6 @@ class Config:
 
     # AI assist settings (cron parsing, prompt enhancement)
     AI_ASSIST_MODEL = "gemini-3.8-flash"
-    AI_ASSIST_TIMEOUT_SECONDS = 15  # Minimum allowed by Gemini API is 10s
 
     # LLM settings
     GEMINI_DEFAULT_TEMPERATURE = 0.7
@@ -360,9 +351,6 @@ class Config:
     # Default values (must match frontend)
     DEFAULT_CONVERSATION_TITLE = "New Conversation"
     DEFAULT_IMAGE_GENERATION_MESSAGE = "I've generated the image for you."
-
-    # HTTP caching
-    FILE_CACHE_MAX_AGE_SECONDS = 365 * SECONDS_PER_DAY  # 1 year
 
     # Web search settings
     # Providers are tried in priority order (SEARCH_PROVIDER_ORDER, default
@@ -815,18 +803,8 @@ class Config:
     # Maximum retry delay cap in seconds
     AGENT_RETRY_MAX_DELAY_SECONDS: float = float(os.getenv("AGENT_RETRY_MAX_DELAY_SECONDS", "30.0"))
 
-    # Budget cap settings
-    # Default daily budget limit per agent in USD (0 = unlimited)
-    AGENT_DEFAULT_DAILY_BUDGET_USD: float = float(os.getenv("AGENT_DEFAULT_DAILY_BUDGET_USD", "0"))
-
     # History enrichment: gap threshold for "session resumed" markers (hours)
     HISTORY_SESSION_GAP_HOURS: int = int(os.getenv("HISTORY_SESSION_GAP_HOURS", "4"))
-
-    # Logging truncation settings
-    QUERY_LOG_MAX_LENGTH = 200
-    PARAMS_LOG_MAX_LENGTH = 100
-    PAYLOAD_LOG_MAX_LENGTH = 500
-    FILE_DATA_SNIPPET_LENGTH = 100
 
     # Memory defragmentation settings
     # Automated nightly job consolidates and cleans up memories using LLM
@@ -855,15 +833,9 @@ class Config:
     # client pages on while has_more); bounds a device back from a long sleep
     SYNC_CHANGES_PAGE_SIZE: int = int(os.getenv("SYNC_CHANGES_PAGE_SIZE", "500"))
 
-    # "Around" pagination for search result navigation
-    # These control how many messages are loaded before/after a target message
-    MESSAGES_AROUND_BEFORE_DEFAULT: int = int(os.getenv("MESSAGES_AROUND_BEFORE_DEFAULT", "25"))
-    MESSAGES_AROUND_AFTER_DEFAULT: int = int(os.getenv("MESSAGES_AROUND_AFTER_DEFAULT", "25"))
-
     # Search settings
     SEARCH_MAX_QUERY_LENGTH: int = int(os.getenv("SEARCH_MAX_QUERY_LENGTH", "200"))
     SEARCH_MAX_LIMIT: int = int(os.getenv("SEARCH_MAX_LIMIT", "50"))
-    SEARCH_DEFAULT_LIMIT: int = int(os.getenv("SEARCH_DEFAULT_LIMIT", "20"))
 
     # Todoist integration
     TODOIST_CLIENT_ID: str = os.getenv("TODOIST_CLIENT_ID", "")

@@ -204,21 +204,3 @@ class KVStoreMixin:
             )
             conn.commit()
             return cursor.rowcount
-
-    def kv_clear_user(self, user_id: str) -> int:
-        """Delete all keys for a user across all namespaces.
-
-        Args:
-            user_id: The user's ID
-
-        Returns:
-            Number of keys deleted
-        """
-        with self._pool.get_connection() as conn:
-            cursor = self._execute_with_timing(
-                conn,
-                "DELETE FROM kv_store WHERE user_id = ?",
-                (user_id,),
-            )
-            conn.commit()
-            return cursor.rowcount

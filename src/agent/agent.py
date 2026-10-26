@@ -21,7 +21,7 @@ from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
-from src.agent.stream_events import StreamEventProcessor, iter_token_stream
+from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
@@ -416,73 +416,6 @@ class ChatAgent:
         grounding_check.apply_grounding(response_text, result_messages, usage_info, None, history)
 
         return response_text, tool_results, usage_info, result_messages
-
-    def stream_chat(
-        self,
-        text: str,
-        files: list[dict[str, Any]] | None = None,
-        history: list[dict[str, Any]] | None = None,
-        force_tools: list[str] | None = None,
-        user_name: str | None = None,
-        user_id: str | None = None,
-        custom_instructions: str | None = None,
-        is_planning: bool = False,
-        dashboard_data: dict[str, Any] | None = None,
-        conversation_id: str | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
-        conversation_title: str | None = None,
-    ) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
-        """
-        Stream response tokens using LangGraph's stream method.
-
-        Args:
-            text: The user's message text
-            files: Optional list of file attachments
-            history: Optional list of previous messages with 'role', 'content', and 'files' keys
-            force_tools: Optional list of tool names that must be used
-            user_name: Optional user name from JWT for personalized responses
-            user_id: Optional user ID for memory retrieval and injection
-            custom_instructions: Optional user-provided custom instructions for LLM behavior
-
-        Yields:
-            - str: Text tokens for streaming display
-            - tuple: Final (content, tool_results, usage_info, result_messages) where:
-              - content: Clean response text
-              - tool_results: List of tool message dicts for server-side processing
-              - usage_info: Dict with 'input_tokens' and 'output_tokens'
-              - result_messages: All messages from the graph for metadata extraction
-        """
-        messages = self._build_messages(
-            text,
-            files,
-            history,
-            force_tools=force_tools,
-            user_name=user_name,
-            user_id=user_id,
-            custom_instructions=custom_instructions,
-            is_planning=is_planning,
-            dashboard_data=dashboard_data,
-            is_sports=is_sports,
-            sports_context=sports_context,
-            is_language=is_language,
-            language_context=language_context,
-            conversation_title=conversation_title,
-        )
-        # Stream the graph execution with messages mode for token-level streaming
-        config = get_graph_config()
-        turn_started = time.monotonic()
-        yield from iter_token_stream(
-            self.graph.stream(
-                cast(Any, {"messages": messages}),
-                config=config,
-                stream_mode="messages",
-            ),
-            messages,
-            turn_started,
-        )
 
     def stream_chat_events(
         self,

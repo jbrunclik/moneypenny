@@ -118,7 +118,7 @@ def test_fetch_records_new_pages_and_search_is_cached(board: ResearchBoard) -> N
     tools["research"].invoke({"question": "q"})
 
     assert calls == ["fetch https://new.cz", "search agentury", "research q"]
-    assert {"https://new.cz", "https://r.cz"} <= board.known_urls()
+    assert {"https://new.cz", "https://r.cz"} <= {p.url for p in board.pages()}
 
 
 def test_wrapped_results_carry_the_unseen_block(board: ResearchBoard) -> None:
@@ -174,7 +174,7 @@ def test_a_failed_fetch_is_not_a_page(board: ResearchBoard) -> None:
 
     fetch.invoke({"url": "https://dead.cz"})
 
-    assert "https://dead.cz" not in board.known_urls()
+    assert "https://dead.cz" not in {p.url for p in board.pages()}
     assert board.cached_page("https://dead.cz") is None
 
 

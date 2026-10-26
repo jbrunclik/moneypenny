@@ -42,14 +42,6 @@ class MessageMetadata(TypedDict, total=False):
     artifacts: str | None  # "<id> v<n> '<title>'; ..." - artifacts shown under this reply
 
 
-class EnrichedMessage(TypedDict):
-    """A history message with structured metadata."""
-
-    role: str
-    content: str
-    metadata: MessageMetadata
-
-
 def format_timestamp(dt: datetime) -> str:
     """Format a datetime as an absolute timestamp with timezone.
 

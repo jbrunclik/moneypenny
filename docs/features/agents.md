@@ -211,7 +211,7 @@ Agents can have per-agent daily spending limits to prevent runaway costs.
 
 **Configuration:**
 - Set `budget_limit` in the agent editor (USD per day)
-- Leave empty for unlimited spending (default: `AGENT_DEFAULT_DAILY_BUDGET_USD`)
+- Leave empty for unlimited spending
 - Agents that exceed their daily budget are skipped until the next day
 
 **How it works:**
@@ -274,7 +274,6 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
-| `AGENT_DEFAULT_DAILY_BUDGET_USD` | 0 | Default daily budget (0 = unlimited) |
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
 | `GUNICORN_MAX_REQUESTS` | 1000 | Recycle workers after N requests (memory leak safety net) |
 | `GUNICORN_MAX_REQUESTS_JITTER` | 50 | Random jitter to stagger worker recycling |

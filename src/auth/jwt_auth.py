@@ -54,16 +54,6 @@ def create_token(user: User) -> str:
     return token
 
 
-def decode_token(token: str) -> dict[str, Any] | None:
-    """Decode and validate a JWT token.
-
-    Returns the payload dict if valid, None otherwise.
-    For detailed status information, use decode_token_with_status() instead.
-    """
-    result = decode_token_with_status(token)
-    return result.payload if result.status == TokenStatus.VALID else None
-
-
 def decode_token_with_status(token: str) -> TokenResult:
     """Decode and validate a JWT token with detailed status.
 

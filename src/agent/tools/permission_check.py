@@ -8,8 +8,6 @@ the `request_approval` tool for sensitive actions. This module only handles
 the BLOCKED case (tools not in the agent's permission list).
 """
 
-from collections.abc import Callable
-from functools import wraps
 from typing import Any
 
 from src.agent.permissions import (
@@ -155,31 +153,3 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
         _check_destructive_approval(
             agent.id, tool_name, destructive_op, str(target_id) if target_id else None
         )
-
-
-def requires_permission(tool_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorator that checks tool permissions for autonomous agents.
-
-    Usage:
-        @requires_permission("todoist")
-        def todoist_tool(operation: str, ...):
-            ...
-
-    The decorator checks if the tool is allowed before executing.
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Build tool_args from function arguments
-            tool_args = dict(kwargs)
-
-            # Check permission (raises ToolBlockedError if blocked)
-            check_autonomous_permission(tool_name, tool_args)
-
-            # Permission granted, execute the tool
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator

@@ -19,10 +19,10 @@ All API errors return a standardized JSON format from [errors.py](../../src/api/
 
 **Error codes** (from `ErrorCode` enum):
 - `AUTH_REQUIRED`, `AUTH_INVALID`, `AUTH_EXPIRED`, `AUTH_FORBIDDEN` - Authentication errors
-- `VALIDATION_ERROR`, `MISSING_FIELD`, `INVALID_FORMAT` - Input validation errors
+- `VALIDATION_ERROR`, `INVALID_FORMAT` - Input validation errors
 - `NOT_FOUND`, `GONE` (expired per retention policy), `CONFLICT`, `PAYLOAD_TOO_LARGE` - Resource errors
 - `SERVER_ERROR`, `TIMEOUT`, `SERVICE_UNAVAILABLE`, `RATE_LIMITED` - Server errors (retryable)
-- `EXTERNAL_SERVICE_ERROR`, `LLM_ERROR`, `TOOL_ERROR` - External service errors
+- `EXTERNAL_SERVICE_ERROR`, `LLM_ERROR` - External service errors
 
 **Raising errors** - Use `raise_xxx_error()` functions which raise `APIError` exceptions:
 

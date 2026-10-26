@@ -112,9 +112,8 @@ def init_rate_limiting(app: Flask) -> Limiter | None:
             },
         )
 
-        # Use our standard error response format
-        # Note: We can't use raise_rate_limited_error here because we need to return
-        # a tuple, not raise an exception (Flask error handler convention)
+        # Use our standard error response format (a returned tuple, not a
+        # raised APIError: Flask error handler convention)
         error_body = {
             "error": {
                 "code": ErrorCode.RATE_LIMITED.value,

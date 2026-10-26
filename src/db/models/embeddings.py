@@ -107,17 +107,6 @@ class EmbeddingsMixin:
             )
             return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
 
-    def count_embeddings(self, user_id: str, kind: str) -> int:
-        """How many embeddings exist for a user and kind."""
-        with self._pool.get_connection() as conn:
-            cursor = self._execute_with_timing(
-                conn,
-                "SELECT COUNT(*) FROM embeddings WHERE user_id = ? AND kind = ?",
-                (user_id, kind),
-            )
-            row = cursor.fetchone()
-            return int(row[0]) if row else 0
-
     def get_message_rows_for_ids(
         self, user_id: str, message_ids: list[str]
     ) -> list[tuple[str, str, str, str, str]]:

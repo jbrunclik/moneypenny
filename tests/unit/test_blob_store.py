@@ -142,21 +142,6 @@ class TestBlobStore:
         assert not blob_store.exists("msg-123/1")
         assert blob_store.exists("msg-456/0")
 
-    def test_get_size(self, blob_store):
-        """Test getting blob size without loading data."""
-        key = "msg-123/0"
-        data = b"hello world"
-
-        blob_store.save(key, data, "text/plain")
-
-        size = blob_store.get_size(key)
-        assert size == len(data)
-
-    def test_get_size_nonexistent(self, blob_store):
-        """Test getting size of nonexistent blob."""
-        size = blob_store.get_size("nonexistent")
-        assert size is None
-
     def test_save_replaces_existing(self, blob_store):
         """Test that save replaces existing data."""
         key = "msg-123/0"

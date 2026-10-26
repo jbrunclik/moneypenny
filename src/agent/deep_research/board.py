@@ -115,10 +115,6 @@ class ResearchBoard:
         with self._lock:
             return [page for owner, page in self._pages.values() if owner == agent]
 
-    def known_urls(self) -> set[str]:
-        with self._lock:
-            return set(self._pages)
-
     def cached_search(self, key: str) -> str | None:
         with self._lock:
             return self._searches.get(key)

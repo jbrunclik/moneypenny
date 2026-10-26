@@ -224,40 +224,6 @@ class TestKVStoreMixinClear:
 
         assert deleted == 0
 
-    def test_kv_clear_user(self, test_database: Database, test_user: User) -> None:
-        """Deletes all keys for a user across all namespaces."""
-        clear_user = test_database.get_or_create_user(
-            email="clear-user@example.com",
-            name="Clear User",
-            picture="",
-        )
-        test_database.kv_set(clear_user.id, "ns-a", "k1", "v1")
-        test_database.kv_set(clear_user.id, "ns-a", "k2", "v2")
-        test_database.kv_set(clear_user.id, "ns-b", "k1", "v1")
-
-        deleted = test_database.kv_clear_user(clear_user.id)
-
-        assert deleted == 3
-        assert test_database.kv_list_namespaces(clear_user.id) == []
-
-    def test_kv_clear_user_does_not_touch_other_users(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """kv_clear_user only removes data for the given user."""
-        user_a = test_database.get_or_create_user(
-            email="isolation-a@example.com", name="User A", picture=""
-        )
-        user_b = test_database.get_or_create_user(
-            email="isolation-b@example.com", name="User B", picture=""
-        )
-        test_database.kv_set(user_a.id, "shared-ns", "key", "a-value")
-        test_database.kv_set(user_b.id, "shared-ns", "key", "b-value")
-
-        test_database.kv_clear_user(user_a.id)
-
-        assert test_database.kv_get(user_a.id, "shared-ns", "key") is None
-        assert test_database.kv_get(user_b.id, "shared-ns", "key") == "b-value"
-
 
 class TestKVStoreMixinIsolation:
     """Tests for namespace and user isolation."""

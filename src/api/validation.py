@@ -15,65 +15,11 @@ from apiflask.schema_adapters import registry
 from flask import request
 from pydantic import BaseModel, ValidationError
 
-from src.api.errors import raise_invalid_json_error, raise_validation_error, validation_error_dict
+from src.api.errors import raise_invalid_json_error, raise_validation_error
 from src.api.utils import get_request_json
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def pydantic_to_error_response(
-    error: ValidationError,
-) -> tuple[dict[str, Any], int]:
-    """Convert Pydantic ValidationError to standardized API error response.
-
-    Converts Pydantic's error format to the existing error format used by
-    raise_validation_error() in src/api/errors.py.
-
-    Pydantic error format:
-    {
-        "type": "value_error",
-        "loc": ("field_name",),
-        "msg": "Human-readable message",
-        "input": <invalid_value>,
-        "ctx": {...}  # optional context
-    }
-
-    Our error format:
-    {
-        "error": {
-            "code": "VALIDATION_ERROR",
-            "message": "Human-readable message",
-            "retryable": false,
-            "details": {"field": "field_name"}
-        }
-    }
-    """
-    # Get first error (most relevant)
-    first_error = error.errors()[0]
-
-    # Extract field name from location tuple
-    loc = first_error.get("loc", ())
-    field = ".".join(str(x) for x in loc) if loc else None
-
-    # Get the human-readable message
-    message = first_error.get("msg", "Invalid input")
-
-    # If the message starts with "Value error, " (from custom validators), clean it
-    if message.startswith("Value error, "):
-        message = message[13:]  # Remove "Value error, " prefix
-
-    logger.debug(
-        "Pydantic validation failed",
-        extra={
-            "field": field,
-            "error_message": message,
-            "error_count": len(error.errors()),
-        },
-    )
-
-    # Return dict and status code (works outside Flask context for unit testing)
-    return validation_error_dict(message, field=field)
 
 
 def _extract_validation_error_details(error: ValidationError) -> tuple[str, str | None]:

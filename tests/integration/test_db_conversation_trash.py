@@ -167,9 +167,6 @@ class TestTrashedHiddenEverywhere:
         convs, _, _, total = test_database.list_conversations_paginated_with_counts(test_user.id)
         assert conv_id not in [c.id for c, _, _ in convs]
         assert total == 0
-        plain, _, _, plain_total = test_database.list_conversations_paginated(test_user.id)
-        assert conv_id not in [c.id for c in plain]
-        assert plain_total == 0
         with_counts = test_database.list_conversations_with_message_count(test_user.id)
         assert conv_id not in [c.id for c, _, _ in with_counts]
         everything = test_database.list_conversations(test_user.id, include_planning=True)

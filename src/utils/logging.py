@@ -95,10 +95,6 @@ class JSONFormatter(logging.Formatter):
             if key not in skip_attrs and not key.startswith("_")
         )
 
-        # Also check for custom extra_fields attribute (from log_with_extra helper)
-        if hasattr(record, "extra_fields"):
-            log_data.update(record.extra_fields)
-
         return json.dumps(log_data, default=str)
 
 
@@ -137,34 +133,6 @@ def setup_logging() -> None:
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance with the given name."""
     return logging.getLogger(name)
-
-
-def log_with_extra(
-    logger: logging.Logger,
-    level: int,
-    message: str,
-    **extra: Any,
-) -> None:
-    """Log a message with extra structured fields.
-
-    Args:
-        logger: The logger instance
-        level: Log level (e.g., logging.INFO)
-        message: The log message
-        **extra: Additional fields to include in the log
-    """
-    # Create a new record with extra fields
-    record = logging.LogRecord(
-        name=logger.name,
-        level=level,
-        pathname="",
-        lineno=0,
-        msg=message,
-        args=(),
-        exc_info=None,
-    )
-    record.extra_fields = extra
-    logger.handle(record)
 
 
 def log_payload_snippet(

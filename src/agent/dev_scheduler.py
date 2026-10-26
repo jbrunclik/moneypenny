@@ -80,20 +80,3 @@ def start_dev_scheduler() -> None:
     _scheduler_thread.start()
 
     logger.info("Dev scheduler: started")
-
-
-def stop_dev_scheduler() -> None:
-    """Stop the development scheduler if running."""
-    global _scheduler_thread, _stop_event
-
-    if _stop_event is not None:
-        logger.info("Dev scheduler: stopping")
-        _stop_event.set()
-
-    if _scheduler_thread is not None and _scheduler_thread.is_alive():
-        _scheduler_thread.join(timeout=5)
-
-    _scheduler_thread = None
-    _stop_event = None
-
-    logger.info("Dev scheduler: stopped")

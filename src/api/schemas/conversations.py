@@ -135,20 +135,6 @@ class BulkRestoreResponse(ResponseModel):
     restored_ids: list[str] = Field(..., description="Conversations this call restored")
 
 
-class ConversationDetailResponse(ResponseModel):
-    """Full conversation with messages."""
-
-    id: str
-    title: str
-    model: str
-    created_at: str
-    updated_at: str
-    is_agent: bool = False
-    agent_id: str | None = None
-    anonymous_mode: bool = False
-    messages: list[MessageResponse]
-
-
 class MarkReadRequest(RequestModel):
     """A device has shown the conversation up to this many messages."""
 
@@ -161,12 +147,6 @@ class UpdateAnonymousModeRequest(RequestModel):
     anonymous_mode: bool = Field(
         ..., description="Whether to disable memory and integrations for this conversation"
     )
-
-
-class ConversationsListResponse(ResponseModel):
-    """List of conversations."""
-
-    conversations: list[ConversationResponse]
 
 
 class SyncConversationResponse(ResponseModel):

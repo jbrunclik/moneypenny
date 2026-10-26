@@ -13,8 +13,6 @@ from typing import Any, NoReturn
 
 from apiflask import HTTPError
 
-from src.api.schemas.base import ResponseModel
-
 
 class ErrorCode(StrEnum):
     """Error codes for API responses.
@@ -33,7 +31,6 @@ class ErrorCode(StrEnum):
 
     # Validation errors
     VALIDATION_ERROR = "VALIDATION_ERROR"  # Invalid input data
-    MISSING_FIELD = "MISSING_FIELD"  # Required field missing
     INVALID_FORMAT = "INVALID_FORMAT"  # Field has wrong format
 
     # Resource errors
@@ -51,7 +48,6 @@ class ErrorCode(StrEnum):
     # External service errors
     EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR"  # Third-party API failed
     LLM_ERROR = "LLM_ERROR"  # LLM/Gemini API error
-    TOOL_ERROR = "TOOL_ERROR"  # Tool execution failed
 
 
 # Errors that the frontend may safely retry automatically (for idempotent operations)
@@ -66,26 +62,6 @@ RETRYABLE_ERRORS = {
 def is_retryable(code: ErrorCode) -> bool:
     """Check if an error code indicates a retryable error."""
     return code in RETRYABLE_ERRORS
-
-
-# =============================================================================
-# Pydantic schema for OpenAPI documentation
-# =============================================================================
-
-
-class ErrorDetail(ResponseModel):
-    """Error detail schema for OpenAPI documentation."""
-
-    code: str
-    message: str
-    retryable: bool = False
-    details: dict[str, Any] | None = None
-
-
-class ErrorResponse(ResponseModel):
-    """Error response schema for OpenAPI documentation."""
-
-    error: ErrorDetail
 
 
 # =============================================================================
@@ -189,15 +165,6 @@ def raise_server_error(
     raise APIError(500, ErrorCode.SERVER_ERROR, message)
 
 
-def raise_rate_limited_error(
-    message: str = "Too many requests. Please slow down.",
-    retry_after: int | None = None,
-) -> NoReturn:
-    """Raise a rate limited error (429)."""
-    details = {"retry_after": retry_after} if retry_after else None
-    raise APIError(429, ErrorCode.RATE_LIMITED, message, details)
-
-
 def raise_llm_error(message: str = "AI service error. Please try again.") -> NoReturn:
     """Raise an LLM/Gemini error (502)."""
     raise APIError(502, ErrorCode.LLM_ERROR, message)
@@ -215,50 +182,3 @@ def raise_payload_too_large_error(
     message = "Request body is too large."
     details = {"max_size_bytes": max_size_bytes} if max_size_bytes else None
     raise APIError(413, ErrorCode.PAYLOAD_TOO_LARGE, message, details)
-
-
-# =============================================================================
-# Legacy function-based API (returns values instead of raising)
-# Keep for backward compatibility with existing code
-# =============================================================================
-
-
-def create_error_response(
-    code: ErrorCode,
-    message: str,
-    details: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Create a standardized error response dict.
-
-    Args:
-        code: Error code enum value
-        message: Human-readable error message (safe to show to users)
-        details: Optional additional details (e.g., field name for validation errors)
-
-    Returns:
-        Dict with standardized error structure:
-        {
-            "error": {
-                "code": "ERROR_CODE",
-                "message": "Human-readable message",
-                "retryable": true/false,
-                "details": {...}  # optional
-            }
-        }
-    """
-    error_data: dict[str, Any] = {
-        "code": code.value,
-        "message": message,
-        "retryable": is_retryable(code),
-    }
-
-    if details:
-        error_data["details"] = details
-
-    return {"error": error_data}
-
-
-def validation_error_dict(message: str, field: str | None = None) -> tuple[dict[str, Any], int]:
-    """Create a validation error dict and status code (for use outside Flask context)."""
-    details = {"field": field} if field else None
-    return create_error_response(ErrorCode.VALIDATION_ERROR, message, details), 400

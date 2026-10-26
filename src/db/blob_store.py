@@ -227,23 +227,6 @@ class BlobStore:
             ).fetchone()
             return row is not None
 
-    def get_size(self, key: str) -> int | None:
-        """Get the size of a blob without loading the data.
-
-        Args:
-            key: The blob key
-
-        Returns:
-            Size in bytes if found, None otherwise
-        """
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                "SELECT size FROM blobs WHERE key = ?",
-                (key,),
-            ).fetchone()
-            return row["size"] if row else None
-
 
 # per-worker: one store and connection pool per process; the data is in SQLite
 _blob_store = Lazy(BlobStore)

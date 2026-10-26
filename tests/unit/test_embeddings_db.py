@@ -43,8 +43,7 @@ class TestEmbeddingsMixin:
         )
 
         assert [r[0] for r in test_database.get_embeddings(test_user.id, "memory")] == ["mem-1"]
-        assert test_database.count_embeddings(test_user.id, "memory") == 1
-        assert test_database.count_embeddings(test_user.id, "message") == 1
+        assert [r[0] for r in test_database.get_embeddings(test_user.id, "message")] == ["msg-1"]
 
     def test_delete_embedding(self, test_database: Database, test_user: User) -> None:
         test_database.upsert_embedding(

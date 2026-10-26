@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel
@@ -52,9 +50,3 @@ class GeneratedImageResponse(ResponseModel):
 
     prompt: str
     image_index: int | None = None
-
-
-class ThumbnailPendingResponse(ResponseModel):
-    """Response when thumbnail is still being generated (202)."""
-
-    status: Literal["pending"] = "pending"

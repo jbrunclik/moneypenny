@@ -109,6 +109,27 @@ source_modules = ["src.api.routes"]
 forbidden_modules = ["requests", "httpx"]
 allow_indirect_imports = true
 
+# Dead code (C2). 60% is vulture's lowest level: every unused function, class,
+# method, attribute and variable. Framework entry points are ignored by
+# decorator; what vulture can't see (Pydantic fields, interface methods, test
+# seams) is listed in vulture_whitelist.py with the reason.
+[tool.vulture]
+paths = ["src", "evals", "scripts", "tests/e2e_server", "tests/e2e-server.py", "vulture_whitelist.py"]
+min_confidence = 60
+ignore_decorators = [
+    # Flask / APIFlask routes and request hooks
+    "@*.route",
+    "@*.before_request",
+    "@*.after_request",
+    "@*.teardown_request",
+    "@*.errorhandler",
+    "@*.error_processor",
+    "@*.context_processor",
+    # Pydantic validators run on model construction
+    "@field_validator",
+    "@model_validator",
+]
+
 [tool.mypy]
 python_version = "3.14"
 strict = true

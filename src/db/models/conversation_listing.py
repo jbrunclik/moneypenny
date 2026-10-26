@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 from src.db.models.conversation_rows import (
     page_rows,
-    row_to_conversation,
     row_to_conversation_summary,
 )
 from src.db.models.dataclasses import Conversation
@@ -31,85 +30,6 @@ class ConversationListingMixin:
     ) -> sqlite3.Cursor:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
-
-    def list_conversations_paginated(
-        self,
-        user_id: str,
-        limit: int = 30,
-        cursor: str | None = None,
-    ) -> tuple[list[Conversation], str | None, bool, int]:
-        """List conversations for a user with cursor-based pagination.
-
-        Returns conversations ordered by updated_at DESC (most recent first).
-        Uses cursor-based pagination with (updated_at, id) as the cursor key.
-        Excludes planning conversations (they are fetched separately).
-
-        Args:
-            user_id: The user ID
-            limit: Maximum number of conversations to return
-            cursor: Optional cursor from previous page (format: '{updated_at}:{id}')
-
-        Returns:
-            Tuple of:
-            - List of Conversation objects
-            - Next cursor (None if no more pages)
-            - has_more: True if there are more pages
-            - total_count: Total number of conversations the list shows
-        """
-        with self._pool.get_connection() as conn:
-            # Get total count for this user (excluding planning, agent, and archived conversations)
-            total_row = self._execute_with_timing(
-                conn,
-                """SELECT COUNT(*) as count FROM conversations
-                   WHERE user_id = ?
-                     AND (is_planning = 0 OR is_planning IS NULL)
-                     AND (is_agent = 0 OR is_agent IS NULL)
-                     AND (archived = 0 OR archived IS NULL)
-                     AND deleted_at IS NULL
-                     AND (is_sports = 0 OR is_sports IS NULL)
-                     AND (is_language = 0 OR is_language IS NULL)""",
-                (user_id,),
-            ).fetchone()
-            total_count = int(total_row["count"]) if total_row else 0
-
-            # Build the query based on cursor (excluding planning, agent, and archived conversations)
-            if cursor:
-                cursor_timestamp, cursor_id = parse_cursor(cursor)
-                # Use tuple comparison for stable pagination:
-                # (updated_at, id) < (cursor_updated_at, cursor_id)
-                # This handles tie-breaking when multiple conversations have the same updated_at
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT * FROM conversations
-                       WHERE user_id = ?
-                         AND (is_planning = 0 OR is_planning IS NULL)
-                         AND (is_agent = 0 OR is_agent IS NULL)
-                         AND (archived = 0 OR archived IS NULL)
-                         AND deleted_at IS NULL
-                         AND (updated_at < ? OR (updated_at = ? AND id < ?))
-                       ORDER BY updated_at DESC, id DESC
-                       LIMIT ?""",
-                    (user_id, cursor_timestamp, cursor_timestamp, cursor_id, limit + 1),
-                ).fetchall()
-            else:
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT * FROM conversations
-                       WHERE user_id = ?
-                         AND (is_planning = 0 OR is_planning IS NULL)
-                         AND (is_agent = 0 OR is_agent IS NULL)
-                         AND (archived = 0 OR archived IS NULL)
-                         AND deleted_at IS NULL
-                       ORDER BY updated_at DESC, id DESC
-                       LIMIT ?""",
-                    (user_id, limit + 1),
-                ).fetchall()
-
-            rows, next_cursor, has_more = page_rows(rows, limit)
-
-            conversations = [row_to_conversation(row) for row in rows]
-
-            return conversations, next_cursor, has_more, total_count
 
     def list_conversations_paginated_with_counts(
         self,

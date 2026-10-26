@@ -8,12 +8,14 @@ PIP := $(VENV)/bin/pip
 RUFF := $(VENV)/bin/ruff
 MYPY := $(VENV)/bin/mypy
 LINT_IMPORTS := $(VENV)/bin/lint-imports
+VULTURE := $(VENV)/bin/vulture
 else
 PYTHON := python
 PIP := pip
 RUFF := ruff
 MYPY := mypy
 LINT_IMPORTS := lint-imports
+VULTURE := vulture
 endif
 NPM := npm
 # E2E server port: override to run a second E2E suite side by side
@@ -38,7 +40,7 @@ help:
 	@echo "  run                   Run Flask server only"
 	@echo "  build                 Production build (Vite)"
 	@echo ""
-	@echo "  lint                  Run all linters (ruff, mypy, eslint, knip)"
+	@echo "  lint                  Run all linters (ruff, mypy, vulture, eslint, knip)"
 	@echo "  lint-fix              Auto-fix linting issues"
 	@echo ""
 	@echo "  test                  Run backend tests"
@@ -147,6 +149,7 @@ lint:
 	$(RUFF) format --check src/ tests/ scripts/ evals/
 	$(MYPY) src/ evals/
 	$(LINT_IMPORTS)
+	$(VULTURE)
 	cd web && $(NPM) run typecheck && $(NPM) run lint && $(NPM) run knip && $(NPM) run format:check
 	@$(MAKE) --no-print-directory check-generated
 

@@ -177,24 +177,3 @@ def with_retry[T](
         raise RuntimeError("Unexpected retry loop exit")
 
     return wrapper
-
-
-def retry_on_transient[T](
-    max_retries: int | None = None,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator factory for retry_on_transient.
-
-    Usage:
-        @retry_on_transient()
-        def my_function():
-            ...
-
-        @retry_on_transient(max_retries=5)
-        def my_function():
-            ...
-    """
-
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        return with_retry(func, max_retries=max_retries)
-
-    return decorator

@@ -15,7 +15,7 @@ from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
     generate_thumbnail,
-    process_image_files,
+    process_image_files_sync,
     transcode_image_for_browser,
 )
 
@@ -203,13 +203,13 @@ class TestDownscaleImageForReference:
 
 
 class TestProcessImageFiles:
-    """Tests for process_image_files function."""
+    """Tests for process_image_files_sync function."""
 
     def test_adds_thumbnail_to_images(self, sample_png_base64: str) -> None:
         """Should add thumbnail key to image files."""
         files = [{"name": "test.png", "type": "image/png", "data": sample_png_base64}]
 
-        result = process_image_files(files)
+        result = process_image_files_sync(files)
 
         assert len(result) == 1
         assert "thumbnail" in result[0]
@@ -219,7 +219,7 @@ class TestProcessImageFiles:
         """Non-image files should not get thumbnails."""
         files = [{"name": "doc.pdf", "type": "application/pdf", "data": "base64data"}]
 
-        result = process_image_files(files)
+        result = process_image_files_sync(files)
 
         assert len(result) == 1
         assert "thumbnail" not in result[0]
@@ -232,7 +232,7 @@ class TestProcessImageFiles:
             {"name": "photo.jpg", "type": "image/jpeg", "data": sample_png_base64},
         ]
 
-        result = process_image_files(files)
+        result = process_image_files_sync(files)
 
         assert len(result) == 3
         assert "thumbnail" in result[0]  # PNG
@@ -241,14 +241,14 @@ class TestProcessImageFiles:
 
     def test_handles_empty_list(self) -> None:
         """Empty file list should return empty list."""
-        result = process_image_files([])
+        result = process_image_files_sync([])
         assert result == []
 
     def test_preserves_original_data(self, sample_png_base64: str) -> None:
         """Original file data should be preserved."""
         files = [{"name": "test.png", "type": "image/png", "data": sample_png_base64}]
 
-        result = process_image_files(files)
+        result = process_image_files_sync(files)
 
         assert result[0]["data"] == sample_png_base64
         assert result[0]["name"] == "test.png"

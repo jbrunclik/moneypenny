@@ -197,22 +197,6 @@ def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]
     return files
 
 
-# Keep old name for backwards compatibility (used by extract functions)
-def process_image_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Process a list of files and add thumbnails to images.
-
-    DEPRECATED: Use process_image_files_sync() for synchronous processing,
-    or background_thumbnails functions for async processing.
-
-    Args:
-        files: List of file dictionaries with 'name', 'type', 'data' keys
-
-    Returns:
-        Same list with 'thumbnail' and 'thumbnail_status' keys added to image files
-    """
-    return process_image_files_sync(files)
-
-
 # ============================================================================
 # Tool Result Extraction Helpers
 # ============================================================================

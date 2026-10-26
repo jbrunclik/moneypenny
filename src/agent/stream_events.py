@@ -5,11 +5,10 @@ StreamEventProcessor (ChatAgent.stream_chat_events) consumes the
 "custom"]) and yields the structured events the SSE layer forwards
 (thinking, tool_start/tool_end, token, retry, final), while accumulating the
 turn's response text, tool results, messages and token usage.
-iter_token_stream (ChatAgent.stream_chat) is the plain-token variant.
 """
 
 import time
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from langchain_core.messages import AIMessageChunk, BaseMessage, ToolMessage
@@ -17,7 +16,6 @@ from langchain_core.messages import AIMessageChunk, BaseMessage, ToolMessage
 from src.agent.artifact_refs import artifact_ref_from_tool_content
 from src.agent.content import (
     clean_tool_call_json,
-    extract_text_content,
     extract_thinking_and_text,
 )
 from src.agent.graph_state import CHAT_NODE_NAME
@@ -349,93 +347,3 @@ class StreamEventProcessor:
         if stop_reason:
             final["stop_reason"] = stop_reason
         yield final
-
-
-def iter_token_stream(
-    stream: Iterable[Any], messages: list[BaseMessage], turn_started: float
-) -> Generator[str | tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]]:
-    """Text tokens from a stream_mode="messages" graph stream, then the totals.
-
-    Yields each chat-node text token, and finally
-    (full_response, tool_results, usage_info, all_messages).
-    """
-    # Accumulate full response text
-    full_response = ""
-    # Capture tool results for server-side extraction (e.g., generated images)
-    tool_results: list[dict[str, Any]] = []
-    # Collect all messages for metadata tool arg extraction
-    all_messages: list[BaseMessage] = list(messages)
-    # Track token counts as we stream (memory efficient - only store numbers, not message objects)
-    totals = TokenTotals()
-    chunk_count = 0
-
-    for event in stream:
-        # event is a tuple of (message_chunk, metadata) in messages mode
-        if not (isinstance(event, tuple) and len(event) >= 1):
-            continue
-        message_chunk = event[0]
-        event_meta = event[1] if len(event) >= 2 and isinstance(event[1], dict) else {}
-        source_node = event_meta.get("langgraph_node", "")
-
-        # Capture tool messages (results from tool execution)
-        if isinstance(message_chunk, ToolMessage):
-            tool_results.append(
-                {
-                    "type": "tool",
-                    "content": message_chunk.content,
-                }
-            )
-            all_messages.append(message_chunk)
-            continue
-
-        # Only yield content from AI message chunks (not tool calls or tool results)
-        if not isinstance(message_chunk, AIMessageChunk):
-            continue
-        # Extract usage metadata immediately (don't store the message object)
-        chunk_count += 1
-        totals.add_from(message_chunk)
-
-        # Filter out non-chat node output (plan classifier, plan generation)
-        if source_node and source_node != CHAT_NODE_NAME:
-            continue
-
-        # Collect AIMessage chunks for metadata extraction (chat node only)
-        all_messages.append(message_chunk)
-
-        # Skip chunks that are only tool calls (no text content)
-        if message_chunk.tool_calls or message_chunk.tool_call_chunks:
-            continue
-        content = extract_text_content(message_chunk.content) if message_chunk.content else ""
-        if content:
-            full_response += content
-            yield content
-
-    # Log a warning if we didn't find any usage metadata (should be rare)
-    if not totals.any and chunk_count > 0:
-        logger.warning(
-            "No usage metadata found in streaming chunks",
-            extra={
-                "chunk_count": chunk_count,
-                "note": "This is unusual - Gemini streaming chunks typically include usage_metadata. Cost tracking may be inaccurate for this request.",
-            },
-        )
-
-    usage_info = build_usage_info(
-        totals, all_messages, round((time.monotonic() - turn_started) * 1000)
-    )
-
-    if totals.any:
-        logger.debug(
-            "Usage metadata aggregated from streaming chunks",
-            extra={
-                "input_tokens": totals.input_tokens,
-                "output_tokens": totals.output_tokens,
-                "cached_input_tokens": totals.cached_tokens,
-                "tool_rounds": usage_info["tool_rounds"],
-                "tool_call_count": usage_info["tool_call_count"],
-                "chunk_count": chunk_count,
-            },
-        )
-
-    # Final yield: (content, tool_results, usage_info, all_messages) for server processing
-    yield (full_response, tool_results, usage_info, all_messages)

@@ -199,19 +199,6 @@ class AgentMixin:
 
             return row_to_agent(row)
 
-    def list_agents(self, user_id: str) -> list[Agent]:
-        """List all agents for a user."""
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT * FROM autonomous_agents
-                   WHERE user_id = ?
-                   ORDER BY created_at DESC""",
-                (user_id,),
-            ).fetchall()
-
-            return [row_to_agent(row) for row in rows]
-
     def update_agent(
         self,
         agent_id: str,

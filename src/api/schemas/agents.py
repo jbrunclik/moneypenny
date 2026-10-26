@@ -157,10 +157,6 @@ class ApprovalRequestResponse(ResponseModel):
     resolved_at: str | None = None
 
 
-class ApprovalDecisionRequest(RequestModel):
-    """Schema for POST /api/approvals/<id>/approve or reject."""
-
-
 class AgentExecutionResponse(ResponseModel):
     """Agent execution record."""
 
