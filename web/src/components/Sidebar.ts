@@ -178,7 +178,7 @@ function renderAlternateList(container: HTMLDivElement): boolean {
     return true;
   }
   if (useStore.getState().isTrashView) {
-    renderTrashView(container);
+    renderTrashView(container, renderConversationsList);
     return true;
   }
   return false;

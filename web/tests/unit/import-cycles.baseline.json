@@ -1,13 +1,6 @@
 [
   "components/FileUpload.ts -> components/MessageInput.ts",
   "components/MessageInput.ts -> components/FileUpload.ts",
-  "components/SearchResults.ts -> components/Sidebar.ts",
-  "components/Sidebar.ts -> components/SearchResults.ts",
-  "components/Sidebar.ts -> components/SidebarSelection.ts",
-  "components/Sidebar.ts -> components/TrashView.ts",
-  "components/SidebarSelection.ts -> components/SearchResults.ts",
-  "components/SidebarSelection.ts -> components/Sidebar.ts",
-  "components/TrashView.ts -> components/Sidebar.ts",
   "core/agents.ts -> core/conversation.ts",
   "core/conversation-switch.ts -> core/agents.ts",
   "core/conversation-switch.ts -> core/remote-merge.ts",

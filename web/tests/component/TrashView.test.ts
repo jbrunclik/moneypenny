@@ -50,7 +50,7 @@ describe('renderTrashView', () => {
 
   it('renders rows with restore and delete-forever actions and escaped titles', () => {
     setTrash([trashed('c1', 'Gone <b>', '2099-01-01T00:00:00')]);
-    renderTrashView(container);
+    renderTrashView(container, vi.fn());
 
     expect(container.querySelector('.trash-view-header')).not.toBeNull();
     expect(container.querySelector('[data-restore-id="c1"]')).not.toBeNull();
@@ -63,7 +63,7 @@ describe('renderTrashView', () => {
   it('shows a disabled Emptying… button while the trash is being emptied', () => {
     setTrash([trashed('c1', 'Gone', '2099-01-01T00:00:00')]);
     useStore.setState({ isEmptyingTrash: true });
-    renderTrashView(container);
+    renderTrashView(container, vi.fn());
 
     const btn = container.querySelector<HTMLButtonElement>('[data-empty-trash]')!;
     expect(btn.disabled).toBe(true);
@@ -73,13 +73,13 @@ describe('renderTrashView', () => {
 
   it('rows do not open the conversation', () => {
     setTrash([trashed('c1', 'Gone', '2099-01-01T00:00:00')]);
-    renderTrashView(container);
+    renderTrashView(container, vi.fn());
     expect(container.querySelector('.conversation-item[role="button"]')).toBeNull();
   });
 
   it('shows an empty state without the empty-trash action', () => {
     setTrash([]);
-    renderTrashView(container);
+    renderTrashView(container, vi.fn());
     expect(container.textContent).toContain('Trash is empty');
     expect(container.textContent).toContain('14 days');
     expect(container.querySelector('[data-empty-trash]')).toBeNull();

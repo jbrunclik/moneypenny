@@ -2,6 +2,7 @@
  * Conversation search: the sidebar input and opening a picked result.
  */
 import { initSearchInput } from '../../components/SearchInput';
+import { renderConversationsList } from '../../components/Sidebar';
 import { subscribeToSearchChanges } from '../../components/SearchResults';
 import { createLogger } from '../../utils/logger';
 import { handleSearchResultClick } from '../search';
@@ -17,5 +18,5 @@ export function initSearch(): void {
     void handleSearchResultClick(convId, messageId, resultIndex).catch((error: unknown) =>
       log.error('Failed to open search result', { error }),
     );
-  });
+  }, renderConversationsList);
 }

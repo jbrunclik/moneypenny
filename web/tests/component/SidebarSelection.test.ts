@@ -56,7 +56,12 @@ beforeEach(() => {
     isTrashView: false,
   });
   vi.clearAllMocks();
-  initSidebarSelection({ bulkDelete, leaveTrashView: leaveViews.trash, leaveArchiveView: leaveViews.archive });
+  initSidebarSelection({
+    renderConversationsList,
+    bulkDelete,
+    leaveTrashView: leaveViews.trash,
+    leaveArchiveView: leaveViews.archive,
+  });
   exitSelectionMode();
 });
 

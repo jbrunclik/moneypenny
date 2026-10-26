@@ -7,12 +7,12 @@ import { useStore } from '../state/store';
 import { isConversationSelected, selectedCount } from '../state/slices/selection';
 import type { Conversation } from '../types/api';
 import { CHECK_ICON, DELETE_ICON, setIcon } from '../utils/icons';
-import { renderConversationsList } from './Sidebar';
 import { clearSearch } from './SearchInput';
 import { isSearchResultsVisible } from './SearchResults';
 
-/** The core actions selection mode triggers, passed in at startup (F1). */
+/** What selection mode triggers outside itself, passed in at startup (F1). */
 export interface SelectionActions {
+  renderConversationsList: () => void;
   bulkDelete: () => Promise<void>;
   leaveTrashView: () => void;
   leaveArchiveView: () => void;
@@ -28,13 +28,13 @@ export function enterSelectionMode(): void {
   if (store.isArchiveView) actions?.leaveArchiveView();
   store.startSelection();
   renderSelectionChrome();
-  renderConversationsList();
+  actions?.renderConversationsList();
 }
 
 export function exitSelectionMode(): void {
   useStore.getState().endSelection();
   renderSelectionChrome();
-  renderConversationsList();
+  actions?.renderConversationsList();
 }
 
 /** Bar text, footer button, and the #sidebar.selecting class. */
@@ -68,7 +68,7 @@ export function renderSelectionCheckbox(conv: Conversation): string {
 
 function refresh(): void {
   renderSelectionChrome();
-  renderConversationsList();
+  actions?.renderConversationsList();
 }
 
 /** Sidebar clicks while selecting; returns true when it handled the click. */

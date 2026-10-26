@@ -10,8 +10,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { SearchResult } from '@/types/api';
 
-const sidebar = vi.hoisted(() => ({ renderConversationsList: vi.fn() }));
-vi.mock('@/components/Sidebar', () => sidebar);
+const sidebar = { renderConversationsList: vi.fn() };
 
 import { useStore } from '@/state/store';
 import { renderSearchResults, subscribeToSearchChanges, isSearchResultsVisible } from '@/components/SearchResults';
@@ -136,7 +135,7 @@ describe('SearchResults', () => {
 
   describe('subscribeToSearchChanges', () => {
     it('re-renders when the search state changes', () => {
-      const cleanup = subscribeToSearchChanges(vi.fn());
+      const cleanup = subscribeToSearchChanges(vi.fn(), sidebar.renderConversationsList);
       showResults([result()]);
       expect(items()).toHaveLength(1);
 
@@ -146,7 +145,7 @@ describe('SearchResults', () => {
     });
 
     it('restores the conversation list when search closes', () => {
-      const cleanup = subscribeToSearchChanges(vi.fn());
+      const cleanup = subscribeToSearchChanges(vi.fn(), sidebar.renderConversationsList);
       showResults([result()]);
       expect(sidebar.renderConversationsList).not.toHaveBeenCalled();
 
@@ -157,7 +156,7 @@ describe('SearchResults', () => {
 
     it('reports a clicked result with its conversation, message and position', () => {
       const onClick = vi.fn();
-      const cleanup = subscribeToSearchChanges(onClick);
+      const cleanup = subscribeToSearchChanges(onClick, sidebar.renderConversationsList);
       showResults([result(), result({ conversation_id: 'c2', message_id: null, match_type: 'conversation' })]);
 
       items()[0]?.querySelector('mark')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -170,7 +169,7 @@ describe('SearchResults', () => {
 
     it('ignores clicks outside a result', () => {
       const onClick = vi.fn();
-      const cleanup = subscribeToSearchChanges(onClick);
+      const cleanup = subscribeToSearchChanges(onClick, sidebar.renderConversationsList);
       showResults([result()]);
       (list().querySelector('.search-results-count') as HTMLElement).click();
       expect(onClick).not.toHaveBeenCalled();
@@ -179,7 +178,7 @@ describe('SearchResults', () => {
 
     it('stops rendering and reporting clicks after cleanup', () => {
       const onClick = vi.fn();
-      const cleanup = subscribeToSearchChanges(onClick);
+      const cleanup = subscribeToSearchChanges(onClick, sidebar.renderConversationsList);
       showResults([result()]);
       cleanup();
 

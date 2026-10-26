@@ -7,6 +7,7 @@
  * order matters.
  */
 
+import { renderConversationsList } from '../components/Sidebar';
 import { initSidebarSelection } from '../components/SidebarSelection';
 import { initModal } from '../components/Modal';
 import { initToast } from '../components/Toast';
@@ -78,7 +79,12 @@ export async function init(): Promise<void> {
   initSearch();
   initTTSVoices();
   setupEventListeners();
-  initSidebarSelection({ bulkDelete: bulkDeleteConversations, leaveTrashView, leaveArchiveView });
+  initSidebarSelection({
+    renderConversationsList,
+    bulkDelete: bulkDeleteConversations,
+    leaveTrashView,
+    leaveArchiveView,
+  });
   setupTouchGestures();
   initToolbarButtons();
 

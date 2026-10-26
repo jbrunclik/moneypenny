@@ -15,7 +15,6 @@ import { conversations as conversationsApi } from '../api/conversations';
 import { createLogger } from '../utils/logger';
 import { MS_PER_DAY } from '../constants';
 import { INFINITE_SCROLL_DEBOUNCE_MS, LOAD_MORE_THRESHOLD_PX, TRASH_RETENTION_DAYS } from '../config';
-import { renderConversationsList } from './Sidebar';
 
 const log = createLogger('sidebar');
 
@@ -98,8 +97,9 @@ function renderTrashHeader(totalCount: number, hasItems: boolean): string {
 
 /**
  * Render the full trash view (replaces the conversation list content).
+ * `renderList` re-renders the sidebar list (Sidebar passes its own).
  */
-export function renderTrashView(container: HTMLDivElement): void {
+export function renderTrashView(container: HTMLDivElement, renderList: () => void): void {
   renderTrashEntry();
   const { trashedConversations, trashPagination } = useStore.getState();
   const headerHtml = renderTrashHeader(trashPagination.totalCount, trashedConversations.length > 0);
@@ -135,10 +135,10 @@ export function renderTrashView(container: HTMLDivElement): void {
     : '';
 
   container.innerHTML = headerHtml + itemsHtml + loadMoreHtml;
-  setupTrashInfiniteScroll(container);
+  setupTrashInfiniteScroll(container, renderList);
 }
 
-function setupTrashInfiniteScroll(container: HTMLDivElement): void {
+function setupTrashInfiniteScroll(container: HTMLDivElement, renderList: () => void): void {
   if (trashScrollListenerCleanup) return;
 
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -150,7 +150,7 @@ function setupTrashInfiniteScroll(container: HTMLDivElement): void {
       if (trashPagination.isLoadingMore || !trashPagination.hasMore) return;
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
       if (distanceFromBottom < LOAD_MORE_THRESHOLD_PX) {
-        void loadMoreTrashedConversations();
+        void loadMoreTrashedConversations(renderList);
       }
     }, INFINITE_SCROLL_DEBOUNCE_MS);
   };
@@ -172,13 +172,13 @@ export function cleanupTrashInfiniteScroll(): void {
   }
 }
 
-async function loadMoreTrashedConversations(): Promise<void> {
+async function loadMoreTrashedConversations(renderList: () => void): Promise<void> {
   const store = useStore.getState();
   const { trashPagination } = store;
   if (!trashPagination.hasMore || trashPagination.isLoadingMore) return;
 
   store.setLoadingMoreTrash(true);
-  renderConversationsList();
+  renderList();
   try {
     const result = await conversationsApi.listTrash(undefined, trashPagination.nextCursor ?? undefined);
     store.appendTrashedConversations(result.conversations, result.pagination);
@@ -186,6 +186,6 @@ async function loadMoreTrashedConversations(): Promise<void> {
     log.error('Failed to load more trashed conversations', { error });
   } finally {
     store.setLoadingMoreTrash(false);
-    renderConversationsList();
+    renderList();
   }
 }

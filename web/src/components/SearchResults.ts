@@ -13,7 +13,6 @@ import { useStore } from '../state/store';
 import { escapeHtml, getElementById } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { formatRelativeTime } from '../utils/relative-time';
-import { renderConversationsList } from './Sidebar';
 import type { SearchResult } from '../types/api';
 
 const log = createLogger('search-results');
@@ -148,9 +147,13 @@ function formatSnippet(snippet: string): string {
 }
 
 /**
- * Subscribe to store changes and re-render when search state changes
+ * Subscribe to store changes and re-render when search state changes;
+ * `onSearchClosed` restores the conversation list.
  */
-export function subscribeToSearchChanges(onResultClick: (convId: string, messageId: string | null, resultIndex: number) => void): () => void {
+export function subscribeToSearchChanges(
+  onResultClick: (convId: string, messageId: string | null, resultIndex: number) => void,
+  onSearchClosed: () => void
+): () => void {
   // Track previous search active state to detect when search is deactivated
   let wasSearchActive = useStore.getState().isSearchActive;
 
@@ -167,7 +170,7 @@ export function subscribeToSearchChanges(onResultClick: (convId: string, message
       // If search was active and now it's not, re-render conversation list
       if (wasSearchActive && !state.isSearchActive) {
         log.debug('Search deactivated, re-rendering conversation list');
-        renderConversationsList();
+        onSearchClosed();
       }
       // Update tracking variable
       wasSearchActive = state.isSearchActive;
