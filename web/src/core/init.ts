@@ -3,13 +3,11 @@
  * Handles app shell rendering, login overlay, and initial data loading.
  */
 
-import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { initToast } from '../components/Toast';
 import { initModal } from '../components/Modal';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
-import { initOrientationChangeHandler } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
@@ -31,19 +29,12 @@ import { initMessageCostPopup } from '../components/MessageCostPopup';
 import { costHistoryPopup } from '../components/CostHistoryPopup';
 import { initCompactionIndicator } from '../components/CompactionIndicator';
 import { initVoiceInput } from '../components/VoiceInput';
-import { initScrollToBottom, setBeforeScrollToBottomCallback } from '../components/ScrollToBottom';
-import { initTurnAnchorResizeHold } from '../components/messages/turn-anchor';
-import { initHeaderAutoHide } from './header-autohide';
 import { initVersionBanner } from '../components/VersionBanner';
 import { initErrorReporting } from './error-reporting';
 import { getElementById } from '../utils/dom';
 import { initializeTheme } from '../utils/theme';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
 import { initDeepLinking } from '../router/deeplink';
-import {
-  cleanupNewerMessagesScrollListener,
-  loadAllRemainingNewerMessages,
-} from '../components/messages';
 
 import { sendMessage } from './messaging';
 import { handleStopStreaming } from './active-requests';
@@ -60,6 +51,7 @@ import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
 import { initAuthEvents, startSession } from './startup/auth';
 import { initMessageEvents } from './startup/message-events';
+import { initMessageScrolling } from './startup/message-scrolling';
 
 const log = createLogger('init');
 
@@ -108,28 +100,7 @@ export async function init(): Promise<void> {
   costHistoryPopup.init();
   initCompactionIndicator();
   initAgents();
-  initScrollToBottom();
-  const messagesList = document.getElementById('messages');
-  if (messagesList) initTurnAnchorResizeHold(messagesList);
-  initHeaderAutoHide();
-  // Set up callback to load remaining newer messages before scrolling to bottom
-  // This ensures clicking scroll-to-bottom in a partial view (after search navigation)
-  // loads all missing messages first, so the user sees the actual latest messages
-  setBeforeScrollToBottomCallback(async () => {
-    const store = useStore.getState();
-    const { currentConversation } = store;
-    if (!currentConversation) return;
-
-    const pagination = store.getMessagesPagination(currentConversation.id);
-    if (pagination?.hasNewer) {
-      log.debug('Loading remaining newer messages before scroll-to-bottom', {
-        conversationId: currentConversation.id,
-      });
-      await loadAllRemainingNewerMessages(currentConversation.id);
-      cleanupNewerMessagesScrollListener();
-    }
-  });
-  initOrientationChangeHandler();
+  initMessageScrolling();
   initKeyboardViewportPinning();
   initComposerHeight();
   initQuickActions();
