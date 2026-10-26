@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { showActionSheet, type SheetAction } from '@/components/ActionSheet';
 import { EDIT_ICON, DELETE_ICON } from '@/utils/icons';
 import { destroyPopupEscapeListener, initPopupEscapeListener } from '@/utils/popupEscapeHandler';
@@ -6,10 +6,10 @@ import { destroyPopupEscapeListener, initPopupEscapeListener } from '@/utils/pop
 const sheet = () => document.getElementById('action-sheet');
 const items = () => [...document.querySelectorAll<HTMLElement>('.action-sheet-item[data-action-index]')];
 
-function actions(): Array<SheetAction & { onSelect: ReturnType<typeof vi.fn> }> {
+function actions(): Array<SheetAction & { onSelect: Mock<() => void> }> {
   return [
-    { label: 'Rename', icon: EDIT_ICON, onSelect: vi.fn() },
-    { label: 'Delete', icon: DELETE_ICON, danger: true, onSelect: vi.fn() },
+    { label: 'Rename', icon: EDIT_ICON, onSelect: vi.fn<() => void>() },
+    { label: 'Delete', icon: DELETE_ICON, danger: true, onSelect: vi.fn<() => void>() },
   ];
 }
 
