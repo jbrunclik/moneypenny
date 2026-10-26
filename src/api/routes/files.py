@@ -285,6 +285,27 @@ def get_message_file(
         extra={"user_id": user.id, "message_id": message_id, "file_index": file_index},
     )
 
+    message, file = _requested_file(user, message_id, file_index)
+    file_type = file.get("type", "application/octet-stream")
+    log_extra = {
+        "user_id": user.id,
+        "message_id": message_id,
+        "conversation_id": message.conversation_id,
+        "file_index": file_index,
+    }
+
+    response = _blob_file(message_id, file_index, log_extra)
+    if response is None:
+        response = _legacy_file(file, file_type, log_extra)
+    if response is not None:
+        return response
+
+    logger.warning("No file data found", extra=log_extra)
+    raise_not_found_error("File data")
+
+
+def _requested_file(user: User, message_id: str, file_index: int) -> tuple[Message, dict[str, Any]]:
+    """The message and file a file request names (raises 403/404/410)."""
     # Get the message
     message = db.get_message_by_id(message_id)
     if not message:
@@ -334,65 +355,40 @@ def get_message_file(
             },
         )
         raise_gone_error(f"This file has been cleaned up. {retention_note(file_type)}.")
+    return message, file
 
-    # Try blob store first (new format)
-    blob_store = get_blob_store()
-    blob_key = make_blob_key(message_id, file_index)
-    blob_result = blob_store.get(blob_key)
-    if blob_result:
-        binary_data, mime_type = blob_result
-        # HEIC/HEIF originals are transcoded to JPEG - browsers other than
-        # Safari cannot render them in <img> (lightbox full-size view)
-        binary_data, mime_type = transcode_image_for_browser(binary_data, mime_type)
-        logger.debug(
-            "Returning file from blob store",
-            extra={
-                "user_id": user.id,
-                "message_id": message_id,
-                "conversation_id": message.conversation_id,
-                "file_index": file_index,
-                "file_type": mime_type,
-                "size": len(binary_data),
-            },
-        )
-        return Response(
-            binary_data,
-            mimetype=mime_type,
-            headers={"Cache-Control": "private, max-age=31536000"},
-        )
 
-    # Fall back to legacy base64 data (for unmigrated messages)
-    file_data = file.get("data", "")
-    if file_data:
-        try:
-            binary_data = base64.b64decode(file_data)
-            binary_data, file_type = transcode_image_for_browser(binary_data, file_type)
-            logger.debug(
-                "Returning legacy file",
-                extra={
-                    "user_id": user.id,
-                    "message_id": message_id,
-                    "conversation_id": message.conversation_id,
-                    "file_index": file_index,
-                    "file_type": file_type,
-                    "size": len(binary_data),
-                },
-            )
-            return Response(
-                binary_data,
-                mimetype=file_type,
-                headers={"Cache-Control": "private, max-age=31536000"},
-            )
-        except binascii.Error as e:
-            logger.error("Failed to decode legacy file data", extra={"error": str(e)})  # noqa: TRY400 - corrupt stored data
-
-    logger.warning(
-        "No file data found",
-        extra={
-            "user_id": user.id,
-            "message_id": message_id,
-            "conversation_id": message.conversation_id,
-            "file_index": file_index,
-        },
+def _blob_file(message_id: str, file_index: int, log_extra: dict[str, Any]) -> Response | None:
+    """The file from the blob store (new format), or None when it isn't there."""
+    blob_result = get_blob_store().get(make_blob_key(message_id, file_index))
+    if not blob_result:
+        return None
+    binary_data, mime_type = blob_result
+    # HEIC/HEIF originals are transcoded to JPEG - browsers other than
+    # Safari cannot render them in <img> (lightbox full-size view)
+    binary_data, mime_type = transcode_image_for_browser(binary_data, mime_type)
+    logger.debug(
+        "Returning file from blob store",
+        extra={**log_extra, "file_type": mime_type, "size": len(binary_data)},
     )
-    raise_not_found_error("File data")
+    return _cached_image(binary_data, mime_type)
+
+
+def _legacy_file(
+    file: dict[str, Any], file_type: str, log_extra: dict[str, Any]
+) -> Response | None:
+    """The file from legacy base64 data (unmigrated messages), or None."""
+    file_data = file.get("data", "")
+    if not file_data:
+        return None
+    try:
+        binary_data = base64.b64decode(file_data)
+    except binascii.Error as e:
+        logger.error("Failed to decode legacy file data", extra={"error": str(e)})  # noqa: TRY400 - corrupt stored data
+        return None
+    binary_data, file_type = transcode_image_for_browser(binary_data, file_type)
+    logger.debug(
+        "Returning legacy file",
+        extra={**log_extra, "file_type": file_type, "size": len(binary_data)},
+    )
+    return _cached_image(binary_data, file_type)

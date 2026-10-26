@@ -123,6 +123,13 @@ def _delete_program_data(
 
 def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
     """Register the 5 program-feature endpoints on the given blueprint."""
+    _register_program_crud_routes(api, cfg)
+    _register_program_conversation_routes(api, cfg)
+    register_quick_action_routes(api, cfg)
+
+
+def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
+    """List, create and delete programs."""
     ns = cfg.namespace
 
     @api.route(f"/{ns}/programs", methods=["GET"])
@@ -194,6 +201,11 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
 
         return {"status": "deleted"}
 
+
+def _register_program_conversation_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
+    """Get-or-create and reset a program's conversation."""
+    ns = cfg.namespace
+
     @api.route(f"/{ns}/<program>/conversation", methods=["GET"])
     @api.output(cfg.conversation_response)
     @api.doc(responses=[401, 404, 429])
@@ -245,5 +257,3 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
             "success": True,
             "message": f"{cfg.display_name} conversation reset successfully",
         }
-
-    register_quick_action_routes(api, cfg)

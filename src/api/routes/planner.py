@@ -26,6 +26,14 @@ from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
 from src.services.planner.dashboard import build_planner_dashboard
+from src.services.planner.models import (
+    PlannerDashboard,
+    PlannerDay,
+    PlannerEvent,
+    PlannerHealthSummary,
+    PlannerTask,
+    PlannerWeather,
+)
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -36,6 +44,96 @@ api = APIBlueprint("planner", __name__, url_prefix="/api", tag="Planner")
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
+
+def _event_to_dict(e: PlannerEvent) -> dict[str, Any]:
+    return {
+        "id": e.id,
+        "summary": e.summary,
+        "description": e.description,
+        "start": e.start,
+        "end": e.end,
+        "start_date": e.start_date,
+        "end_date": e.end_date,
+        "location": e.location,
+        "html_link": e.html_link,
+        "is_all_day": e.is_all_day,
+        "attendees": e.attendees,
+        "organizer": e.organizer,
+        "calendar_id": e.calendar_id,
+        "calendar_summary": e.calendar_summary,
+    }
+
+
+def _task_to_dict(t: PlannerTask) -> dict[str, Any]:
+    return {
+        "id": t.id,
+        "content": t.content,
+        "description": t.description,
+        "due_date": t.due_date,
+        "due_string": t.due_string,
+        "priority": t.priority,
+        "project_name": t.project_name,
+        "section_name": t.section_name,
+        "labels": t.labels,
+        "is_recurring": t.is_recurring,
+        "url": t.url,
+    }
+
+
+def _weather_to_dict(weather: PlannerWeather | None) -> dict[str, Any] | None:
+    if not weather:
+        return None
+    return {
+        "temperature_high": weather.temperature_high,
+        "temperature_low": weather.temperature_low,
+        "precipitation": weather.precipitation,
+        "symbol_code": weather.symbol_code,
+        "summary": weather.summary,
+    }
+
+
+def _day_to_dict(day: PlannerDay) -> dict[str, Any]:
+    return {
+        "date": day.date,
+        "day_name": day.day_name,
+        "events": [_event_to_dict(e) for e in day.events],
+        "tasks": [_task_to_dict(t) for t in day.tasks],
+        "weather": _weather_to_dict(day.weather),
+    }
+
+
+def _health_summary_to_dict(health: PlannerHealthSummary | None) -> dict[str, Any] | None:
+    if not health:
+        return None
+    return {
+        "training_readiness": health.training_readiness,
+        "sleep": health.sleep,
+        "stress_avg": health.stress_avg,
+        "resting_hr": health.resting_hr,
+        "body_battery": health.body_battery,
+        "steps_today": health.steps_today,
+        "recent_activities": health.recent_activities,
+    }
+
+
+def _dashboard_to_dict(dashboard: PlannerDashboard) -> dict[str, Any]:
+    """The dashboard as the PlannerDashboardResponse body."""
+    return {
+        "days": [_day_to_dict(day) for day in dashboard.days],
+        "overdue_tasks": [_task_to_dict(t) for t in dashboard.overdue_tasks],
+        "todoist_connected": dashboard.todoist_connected,
+        "calendar_connected": dashboard.calendar_connected,
+        "garmin_connected": dashboard.garmin_connected,
+        "weather_connected": dashboard.weather_connected,
+        "todoist_error": dashboard.todoist_error,
+        "calendar_error": dashboard.calendar_error,
+        "garmin_error": dashboard.garmin_error,
+        "weather_error": dashboard.weather_error,
+        "weather_location": dashboard.weather_location,
+        "health_summary": _health_summary_to_dict(dashboard.health_summary),
+        "server_time": dashboard.server_time,
+    }
 
 
 # ============================================================================
@@ -104,96 +202,7 @@ def get_planner_dashboard(user: User, query: PlannerDashboardQuery) -> dict[str,
     )
 
     # Convert dataclasses to dict for response
-    return {
-        "days": [
-            {
-                "date": day.date,
-                "day_name": day.day_name,
-                "events": [
-                    {
-                        "id": e.id,
-                        "summary": e.summary,
-                        "description": e.description,
-                        "start": e.start,
-                        "end": e.end,
-                        "start_date": e.start_date,
-                        "end_date": e.end_date,
-                        "location": e.location,
-                        "html_link": e.html_link,
-                        "is_all_day": e.is_all_day,
-                        "attendees": e.attendees,
-                        "organizer": e.organizer,
-                        "calendar_id": e.calendar_id,
-                        "calendar_summary": e.calendar_summary,
-                    }
-                    for e in day.events
-                ],
-                "tasks": [
-                    {
-                        "id": t.id,
-                        "content": t.content,
-                        "description": t.description,
-                        "due_date": t.due_date,
-                        "due_string": t.due_string,
-                        "priority": t.priority,
-                        "project_name": t.project_name,
-                        "section_name": t.section_name,
-                        "labels": t.labels,
-                        "is_recurring": t.is_recurring,
-                        "url": t.url,
-                    }
-                    for t in day.tasks
-                ],
-                "weather": {
-                    "temperature_high": day.weather.temperature_high,
-                    "temperature_low": day.weather.temperature_low,
-                    "precipitation": day.weather.precipitation,
-                    "symbol_code": day.weather.symbol_code,
-                    "summary": day.weather.summary,
-                }
-                if day.weather
-                else None,
-            }
-            for day in dashboard.days
-        ],
-        "overdue_tasks": [
-            {
-                "id": t.id,
-                "content": t.content,
-                "description": t.description,
-                "due_date": t.due_date,
-                "due_string": t.due_string,
-                "priority": t.priority,
-                "project_name": t.project_name,
-                "section_name": t.section_name,
-                "labels": t.labels,
-                "is_recurring": t.is_recurring,
-                "url": t.url,
-            }
-            for t in dashboard.overdue_tasks
-        ],
-        "todoist_connected": dashboard.todoist_connected,
-        "calendar_connected": dashboard.calendar_connected,
-        "garmin_connected": dashboard.garmin_connected,
-        "weather_connected": dashboard.weather_connected,
-        "todoist_error": dashboard.todoist_error,
-        "calendar_error": dashboard.calendar_error,
-        "garmin_error": dashboard.garmin_error,
-        "weather_error": dashboard.weather_error,
-        "weather_location": dashboard.weather_location,
-        "health_summary": {
-            "training_readiness": dashboard.health_summary.training_readiness,
-            "sleep": dashboard.health_summary.sleep,
-            "stress_avg": dashboard.health_summary.stress_avg,
-            "resting_hr": dashboard.health_summary.resting_hr,
-            "body_battery": dashboard.health_summary.body_battery,
-            "steps_today": dashboard.health_summary.steps_today,
-            "recent_activities": dashboard.health_summary.recent_activities,
-        }
-        if dashboard.health_summary
-        else None,
-        "server_time": dashboard.server_time,
-    }
+    return _dashboard_to_dict(dashboard)
 
 
 @api.route("/planner/conversation", methods=["GET"])

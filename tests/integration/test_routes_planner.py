@@ -11,8 +11,18 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 from flask.testing import FlaskClient
+
+from src.services.planner.models import (
+    PlannerDashboard,
+    PlannerDay,
+    PlannerEvent,
+    PlannerHealthSummary,
+    PlannerTask,
+    PlannerWeather,
+)
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -138,6 +148,170 @@ class TestGetPlannerDashboard:
         now = datetime.now()
         diff = abs((now - server_time).total_seconds())
         assert diff < 5
+
+    def test_serializes_every_dashboard_field(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """A fully populated dashboard reaches the client field for field."""
+        task = PlannerTask(
+            id="t1",
+            content="Buy milk",
+            description="2 l",
+            due_date="2026-10-26",
+            due_string="today",
+            priority=4,
+            project_name="Home",
+            section_name="Errands",
+            labels=["shop"],
+            is_recurring=True,
+            url="https://todoist.test/t1",
+        )
+        event = PlannerEvent(
+            id="e1",
+            summary="Standup",
+            description="Daily",
+            start="2026-10-26T09:00:00+00:00",
+            end="2026-10-26T09:15:00+00:00",
+            start_date="2026-10-26",
+            end_date="2026-10-26",
+            location="Office",
+            html_link="https://calendar.test/e1",
+            is_all_day=False,
+            attendees=[{"email": "a@example.com"}],
+            organizer={"email": "o@example.com"},
+            calendar_id="primary",
+            calendar_summary="Work",
+        )
+        weather = PlannerWeather(
+            temperature_high=12.5,
+            temperature_low=3.0,
+            precipitation=1.5,
+            symbol_code="rain",
+            summary="Rainy",
+        )
+        health = PlannerHealthSummary(
+            training_readiness={"score": 70},
+            training_status={"status": "productive"},
+            sleep={"score": 80},
+            stress_avg=25.0,
+            resting_hr=50,
+            hrv_status="balanced",
+            body_battery=60,
+            steps_today=4000,
+            recent_activities=[{"name": "Run"}],
+        )
+        dashboard = PlannerDashboard(
+            days=[
+                PlannerDay(
+                    date="2026-10-26",
+                    day_name="Today",
+                    events=[event],
+                    tasks=[task],
+                    weather=weather,
+                ),
+                PlannerDay(date="2026-10-27", day_name="Tomorrow"),
+            ],
+            overdue_tasks=[task],
+            todoist_connected=True,
+            calendar_connected=True,
+            garmin_connected=True,
+            weather_connected=True,
+            todoist_error="t-err",
+            calendar_error="c-err",
+            garmin_error="g-err",
+            weather_error="w-err",
+            server_time="2026-10-26T08:00:00+00:00",
+            weather_location="Prague",
+            health_summary=health,
+        )
+        task_dict = {
+            "id": "t1",
+            "content": "Buy milk",
+            "description": "2 l",
+            "due_date": "2026-10-26",
+            "due_string": "today",
+            "priority": 4,
+            "project_name": "Home",
+            "section_name": "Errands",
+            "labels": ["shop"],
+            "is_recurring": True,
+            "url": "https://todoist.test/t1",
+        }
+
+        with patch("src.api.routes.planner.build_planner_dashboard", return_value=dashboard):
+            response = client.get("/api/planner", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert json.loads(response.data) == {
+            "days": [
+                {
+                    "date": "2026-10-26",
+                    "day_name": "Today",
+                    "events": [
+                        {
+                            "id": "e1",
+                            "summary": "Standup",
+                            "description": "Daily",
+                            "start": "2026-10-26T09:00:00+00:00",
+                            "end": "2026-10-26T09:15:00+00:00",
+                            "start_date": "2026-10-26",
+                            "end_date": "2026-10-26",
+                            "location": "Office",
+                            "html_link": "https://calendar.test/e1",
+                            "is_all_day": False,
+                            # The response schema fills the optional fields
+                            "attendees": [
+                                {"email": "a@example.com", "response_status": None, "self": False}
+                            ],
+                            "organizer": {
+                                "display_name": None,
+                                "email": "o@example.com",
+                                "self": False,
+                            },
+                            "calendar_id": "primary",
+                            "calendar_summary": "Work",
+                        }
+                    ],
+                    "tasks": [task_dict],
+                    "weather": {
+                        "temperature_high": 12.5,
+                        "temperature_low": 3.0,
+                        "precipitation": 1.5,
+                        "symbol_code": "rain",
+                        "summary": "Rainy",
+                    },
+                },
+                {
+                    "date": "2026-10-27",
+                    "day_name": "Tomorrow",
+                    "events": [],
+                    "tasks": [],
+                    "weather": None,
+                },
+            ],
+            "overdue_tasks": [task_dict],
+            "todoist_connected": True,
+            "calendar_connected": True,
+            "garmin_connected": True,
+            "weather_connected": True,
+            "todoist_error": "t-err",
+            "calendar_error": "c-err",
+            "garmin_error": "g-err",
+            "weather_error": "w-err",
+            "weather_location": "Prague",
+            "health_summary": {
+                "training_readiness": {"score": 70},
+                "sleep": {"score": 80},
+                "stress_avg": 25.0,
+                "resting_hr": 50,
+                "body_battery": 60,
+                "steps_today": 4000,
+                "recent_activities": [{"name": "Run"}],
+            },
+            "server_time": "2026-10-26T08:00:00+00:00",
+        }
 
 
 class TestGetPlannerConversation:

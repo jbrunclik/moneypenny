@@ -84,6 +84,65 @@ class TestGetMessageFile:
         assert client.get("/api/messages/msg-1/files/0").status_code == 401
 
 
+class TestFullFileSources:
+    """Which bytes a full-file request serves: the blob store, then legacy base64."""
+
+    def _get(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        file: dict,
+        blobs: dict[str, tuple[bytes, str]],
+    ):
+        from datetime import datetime
+        from unittest.mock import MagicMock, patch
+
+        message = MagicMock(id="m1", conversation_id="c1", files=[file])
+        message.created_at = datetime.now()
+        store = MagicMock()
+        store.get.side_effect = blobs.get
+        with (
+            patch("src.api.routes.files.db") as mock_db,
+            patch("src.api.routes.files.get_blob_store", return_value=store),
+        ):
+            mock_db.get_message_by_id.return_value = message
+            return client.get("/api/messages/m1/files/0", headers=auth_headers)
+
+    def test_blob_store_comes_first(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        file = {"type": "image/png", "data": base64.b64encode(b"legacy").decode()}
+
+        response = self._get(client, auth_headers, file, {"m1/0": (b"blob", "image/webp")})
+
+        assert (response.status_code, response.data, response.mimetype) == (
+            200,
+            b"blob",
+            "image/webp",
+        )
+        assert response.headers["Cache-Control"] == "private, max-age=31536000"
+
+    def test_legacy_data_is_the_fallback(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        file = {"type": "application/pdf", "data": base64.b64encode(b"%PDF-1.4").decode()}
+
+        response = self._get(client, auth_headers, file, {})
+
+        assert (response.status_code, response.data, response.mimetype) == (
+            200,
+            b"%PDF-1.4",
+            "application/pdf",
+        )
+        assert response.headers["Cache-Control"] == "private, max-age=31536000"
+
+    def test_no_file_data_anywhere_is_404(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        for file in ({"type": "image/png"}, {"type": "image/png", "data": "not base64!"}):
+            assert self._get(client, auth_headers, file, {}).status_code == 404
+
+
 class TestGetMessageThumbnail:
     def test_ready_image_returns_binary(
         self,
