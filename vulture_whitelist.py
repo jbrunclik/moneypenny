@@ -159,9 +159,6 @@ _._validated_body  # src/api/validation.py: the OpenAPI/query tests find views b
 _._validated_query
 
 # --- Baseline: dead code not removed yet (only shrinks) -----------------------
-# Not wired: the Garmin client sets no timeout at all (an S5 gap) - wire it
-# into the Garmin calls rather than delete it
-GARMIN_API_TIMEOUT
 # Used only by tests (as fixtures or state probes): delete with their tests
 _.add_artifact_version  # src/db/models/artifacts.py
 _.list_conversations  # src/db/models/conversation.py

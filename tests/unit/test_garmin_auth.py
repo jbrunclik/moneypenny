@@ -6,18 +6,24 @@ upstream renames attributes (e.g. the ``.garth`` -> ``.client`` rename in
 garminconnect 0.3.x).
 """
 
+import logging
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from garminconnect import Garmin
+from garminconnect import client as garmin_client
 
 from src.auth.garmin_auth import (
     GarminAuthError,
     GarminMfaRequired,
     authenticate,
     authenticate_with_mfa,
+    bound_request_timeouts,
+    create_client_from_tokens,
     serialize_tokens,
 )
+from src.config import Config
 
 
 class TestSerializeTokens:
@@ -116,3 +122,122 @@ class TestAuthenticateWithMfa:
 
             with pytest.raises(GarminAuthError, match=r"[Rr]ate limited"):
                 authenticate_with_mfa("u@x.com", "pw", "123456")
+
+
+_TIMEOUT_SECONDS = 7  # distinct from garminconnect's own 15/30 s defaults
+
+
+def _ok_response(request: Any) -> Any:
+    """A real 200 JSON response (requests is only reachable through garminconnect)."""
+    response = garmin_client.requests.Response()
+    response.status_code = 200
+    response._content = b"{}"
+    response.headers["Content-Type"] = "application/json"
+    response.request = request
+    response.url = request.url
+    return response
+
+
+def _build_with_tokens() -> Any:
+    return create_client_from_tokens("t" * 600)
+
+
+def _build_with_password() -> Any:
+    with patch("src.auth.garmin_auth.serialize_tokens", return_value="tokens"):
+        authenticate("user@example.com", "secret")
+
+
+def _build_with_mfa() -> Any:
+    with patch("src.auth.garmin_auth.serialize_tokens", return_value="tokens"):
+        authenticate_with_mfa("user@example.com", "secret", "123456")
+
+
+class TestRequestTimeout:
+    """Every Garmin client we build bounds its HTTP calls with GARMIN_API_TIMEOUT (S5)."""
+
+    @pytest.fixture
+    def sent(self) -> Any:
+        """Fake transport: record (adapter, timeout) per request, answer 200 {}."""
+        calls: list[tuple[Any, Any]] = []
+
+        def fake_send(adapter: Any, request: Any, **kwargs: Any) -> Any:
+            calls.append((adapter, kwargs.get("timeout")))
+            return _ok_response(request)
+
+        with (
+            patch.object(garmin_client.HTTPAdapter, "send", autospec=True, side_effect=fake_send),
+            patch.object(Config, "GARMIN_API_TIMEOUT", _TIMEOUT_SECONDS),
+        ):
+            yield calls
+
+    @pytest.fixture
+    def built(self) -> Any:
+        """Capture the Garmin client a builder creates; login itself is a no-op."""
+        clients: list[Garmin] = []
+
+        def fake_login(garmin: Garmin, *args: Any, **kwargs: Any) -> tuple[object, object]:
+            clients.append(garmin)
+            return (object(), object())
+
+        with patch.object(Garmin, "login", autospec=True, side_effect=fake_login):
+            yield clients
+
+    @pytest.mark.parametrize("build", [_build_with_tokens, _build_with_password, _build_with_mfa])
+    def test_every_session_uses_the_configured_timeout(
+        self, build: Any, built: list[Garmin], sent: list[tuple[Any, Any]]
+    ) -> None:
+        build()
+        client = built[0].client
+        original_adapter = client._api_session.adapters["https://"]._inner
+
+        # An API call through the library's own request path (which passes 15 s)
+        with patch.object(client, "get_api_headers", return_value={}):
+            built[0].connectapi("/userprofile-service/socialProfile")
+        # The SSO / token-refresh session (the library passes 10-30 s)
+        client.cs.get("https://sso.garmin.com/sso/embed", timeout=30)
+
+        assert [timeout for _, timeout in sent] == [_TIMEOUT_SECONDS, _TIMEOUT_SECONDS]
+        # Delegates to the library's own adapter: pools and retries unchanged
+        assert sent[0][0] is original_adapter
+
+    def test_applying_twice_does_not_double_wrap(self, sent: list[tuple[Any, Any]]) -> None:
+        garmin = Garmin()
+        bound_request_timeouts(garmin)
+        bound_request_timeouts(garmin)
+
+        adapter = garmin.client._api_session.adapters["https://"]
+        assert not hasattr(adapter._inner, "_inner")
+
+    def test_curl_cffi_session_gets_the_timeout_as_its_default(self) -> None:
+        if not garmin_client.HAS_CFFI:
+            pytest.skip("curl_cffi not installed")
+        garmin = Garmin()
+        garmin.client.cs = garmin_client.cffi_requests.Session()
+
+        with patch.object(Config, "GARMIN_API_TIMEOUT", _TIMEOUT_SECONDS):
+            bound_request_timeouts(garmin)
+
+        assert garmin.client.cs.timeout == _TIMEOUT_SECONDS
+
+    def test_missing_session_logs_a_warning_and_bounds_the_rest(
+        self, sent: list[tuple[Any, Any]], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A library upgrade that renames a session must not break Garmin."""
+        garmin = Garmin()
+        del garmin.client._api_session
+
+        with caplog.at_level(logging.WARNING, logger="src.auth.garmin_auth"):
+            bound_request_timeouts(garmin)
+
+        warning = next(r for r in caplog.records if r.levelno == logging.WARNING)
+        assert warning.__dict__["session"] == "_api_session"
+        garmin.client.cs.get("https://sso.garmin.com/sso/embed")
+        assert [timeout for _, timeout in sent] == [_TIMEOUT_SECONDS]
+
+    def test_missing_client_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        garmin = MagicMock(spec=[])
+
+        with caplog.at_level(logging.WARNING, logger="src.auth.garmin_auth"):
+            bound_request_timeouts(garmin)
+
+        assert any(r.levelno == logging.WARNING for r in caplog.records)

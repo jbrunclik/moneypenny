@@ -11,10 +11,14 @@ requests. The partially-authenticated client mid-MFA holds curl_cffi sessions
 and thread locks that cannot be pickled (and therefore cannot cross gunicorn
 workers). Instead, ``authenticate_with_mfa`` re-runs the full login in a
 single request with ``prompt_mfa`` providing the code synchronously.
+
+Every client is built by ``_new_garmin``, which bounds its HTTP calls with
+``Config.GARMIN_API_TIMEOUT`` (S5): garminconnect takes no timeout argument.
 """
 
 from typing import Any, NoReturn
 
+from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -53,7 +57,7 @@ def authenticate(email: str, password: str) -> tuple[str, str]:
     try:
         from garminconnect import Garmin  # noqa: PLC0415 - optional dependency (see is_garmin_available)
 
-        garmin = Garmin(email=email, password=password, return_on_mfa=True)
+        garmin = _new_garmin(Garmin, email=email, password=password, return_on_mfa=True)
         result = garmin.login()
 
         # With return_on_mfa=True, login returns:
@@ -99,7 +103,7 @@ def authenticate_with_mfa(email: str, password: str, mfa_code: str) -> tuple[str
 
         # prompt_mfa is invoked synchronously by garminconnect when the MFA
         # step is reached; returning our code completes the flow inline.
-        garmin = Garmin(email=email, password=password, prompt_mfa=lambda: mfa_code)
+        garmin = _new_garmin(Garmin, email=email, password=password, prompt_mfa=lambda: mfa_code)
         garmin.login()
 
         tokens = serialize_tokens(garmin)
@@ -156,7 +160,7 @@ def create_client_from_tokens(tokens_b64: str) -> Any:
         # Use login(tokenstore=...) which loads tokens AND fetches the user
         # profile (display_name, full_name) — required for API URL construction.
         # Passing the base64 string directly works when len > 512.
-        garmin = Garmin()
+        garmin = _new_garmin(Garmin)
         garmin.login(tokenstore=tokens_b64)
 
         return garmin
@@ -206,3 +210,65 @@ def _raise_typed_error(e: Exception) -> NoReturn:
 
     logger.error("Garmin authentication failed", extra={"error": str(e)}, exc_info=e)
     raise GarminAuthError(f"Authentication failed: {e}") from e
+
+
+# garminconnect.client.Client's sessions: ``cs`` (SSO / token refresh) and
+# ``_api_session`` (every API call)
+_CLIENT_SESSIONS = ("cs", "_api_session")
+
+
+class _TimeoutAdapter:
+    """Transport adapter that sends every request with the configured timeout.
+
+    Wraps the adapter garminconnect mounted, so its connection pools and retry
+    policy are untouched. It replaces rather than defaults the timeout: the
+    library passes its own fixed 10-30 s on nearly every call, which would
+    otherwise leave ``GARMIN_API_TIMEOUT`` without effect.
+    """
+
+    def __init__(self, inner: Any, timeout_seconds: float) -> None:
+        self._inner = inner
+        self._timeout_seconds = timeout_seconds
+
+    def send(self, request: Any, **kwargs: Any) -> Any:
+        kwargs["timeout"] = self._timeout_seconds
+        return self._inner.send(request, **kwargs)
+
+    def close(self) -> None:
+        self._inner.close()
+
+
+def _new_garmin(garmin_cls: Any, **kwargs: Any) -> Any:
+    """Construct a Garmin client whose HTTP calls are bounded by the timeout."""
+    garmin = garmin_cls(**kwargs)
+    bound_request_timeouts(garmin)
+    return garmin
+
+
+def bound_request_timeouts(garmin: Any) -> None:
+    """Apply ``Config.GARMIN_API_TIMEOUT`` to every session a Garmin client owns.
+
+    requests sessions get a ``_TimeoutAdapter`` on each mount; a curl_cffi
+    session (the login flow can swap one in as ``cs``) gets it as its default.
+    A session missing after a library upgrade is logged and skipped - Garmin
+    keeps working on the library's own timeouts. Idempotent.
+    """
+    timeout_seconds = Config.GARMIN_API_TIMEOUT
+    client = getattr(garmin, "client", None)
+    if client is None:
+        logger.warning("Garmin client not found: request timeout not applied")
+        return
+    for name in _CLIENT_SESSIONS:
+        session: Any = getattr(client, name, None)
+        adapters = getattr(session, "adapters", None)
+        if isinstance(adapters, dict):
+            for prefix, adapter in list(adapters.items()):
+                inner = adapter._inner if isinstance(adapter, _TimeoutAdapter) else adapter
+                adapters[prefix] = _TimeoutAdapter(inner, timeout_seconds)
+        elif type(session).__module__.startswith("curl_cffi"):
+            session.timeout = timeout_seconds
+        else:
+            logger.warning(
+                "Garmin session not found: request timeout not applied",
+                extra={"session": name, "session_type": type(session).__name__},
+            )
