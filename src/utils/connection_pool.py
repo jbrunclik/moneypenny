@@ -18,7 +18,7 @@ Usage:
 import sqlite3
 import threading
 import weakref
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from pathlib import Path
 
@@ -37,7 +37,12 @@ class ConnectionPool:
     - Thread-local connections avoid thread-safety issues
     """
 
-    def __init__(self, db_path: Path | str, check_same_thread: bool = False) -> None:
+    def __init__(
+        self,
+        db_path: Path | str,
+        check_same_thread: bool = False,
+        on_connect: Callable[[sqlite3.Connection], None] | None = None,
+    ) -> None:
         """Initialize the connection pool.
 
         Args:
@@ -45,9 +50,12 @@ class ConnectionPool:
             check_same_thread: If True, connections can only be used in the thread
                 that created them (SQLite default). Set to False for multi-threaded
                 use with proper synchronization.
+            on_connect: Called with every new connection, e.g. to register SQL
+                functions (the db layer passes its own; this module stays pure).
         """
         self.db_path = Path(db_path) if isinstance(db_path, str) else db_path
         self.check_same_thread = check_same_thread
+        self._on_connect = on_connect
         self._local = threading.local()
         self._lock = threading.Lock()
         # Track all connections for cleanup
@@ -118,6 +126,8 @@ class ConnectionPool:
         conn.row_factory = sqlite3.Row
         # Enable WAL mode for better concurrent read/write performance
         conn.execute("PRAGMA journal_mode=WAL")
+        if self._on_connect is not None:
+            self._on_connect(conn)
         # Note: Foreign keys are intentionally NOT enabled because the app
         # preserves message_costs after message/conversation deletion
         # (for cost reporting - the money was already spent)

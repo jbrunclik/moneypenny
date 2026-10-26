@@ -201,3 +201,24 @@ class TestCloseAllWithLiveThreads:
         t.join(timeout=5)
 
         assert errors == []
+
+
+class TestConnectionPoolOnConnect:
+    def test_runs_once_per_new_connection(self, tmp_path: Path) -> None:
+        seen: list[sqlite3.Connection] = []
+        pool = ConnectionPool(tmp_path / "test.db", on_connect=seen.append)
+
+        with pool.get_connection() as first, pool.get_connection() as again:
+            assert first is again
+
+        def other_thread() -> None:
+            with pool.get_connection() as conn:
+                conn.execute("SELECT 1")
+
+        worker = threading.Thread(target=other_thread)
+        worker.start()
+        worker.join()
+
+        assert len(seen) == 2
+        assert seen[0] is first
+        pool.close_all()

@@ -11,6 +11,7 @@ from typing import Any
 from yoyo import get_backend, read_migrations
 
 from src.config import Config
+from src.db.models.timestamps import register_sql_functions
 from src.utils.connection_pool import ConnectionPool
 from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.logging import get_logger
@@ -41,7 +42,8 @@ class DatabaseBase:
         # Query logging is only active in development/debug mode
         self._should_log_queries, self._slow_query_threshold_ms = init_query_logging()
         # Use connection pool for efficient connection reuse
-        self._pool = ConnectionPool(self.db_path)
+        # Every pooled connection gets the timestamp SQL functions (app_local_date)
+        self._pool = ConnectionPool(self.db_path, on_connect=register_sql_functions)
         if apply_migrations:
             self._init_db()
 

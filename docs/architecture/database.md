@@ -162,6 +162,51 @@ Rule: never close a sqlite connection from a thread other than its live owner.
 
 ---
 
+## Timestamps
+
+Timestamps are stored as ISO strings. Today there are two naive conventions
+(see [datetime_utils.py](../../src/utils/datetime_utils.py)). **Local-naive**
+(host wall-clock time) is used for conversation data, costs and the planner.
+**UTC-naive** is used for agents, caches, kv_store and settings, and only since
+Jun 10 2026: older rows in those tables are local too. The migration to aware
+UTC storage is planned in
+[the timezone design](../superpowers/specs/2026-10-26-timezone-aware-datetimes-design.md).
+Its helpers exist already, but app code does not call them yet (step 2a):
+
+- [utils/clock.py](../../src/utils/clock.py) gives aware time: `utc_now()`, `app_tz()` and
+  `local_today()`. It also gives the household's day boundaries in `APP_TIMEZONE`,
+  returned as UTC instants: `local_day_start(dt)`, `local_month_bounds(year, month)`
+  (`[start, end)`) and `planner_cutoff(now)` (the most recent local 04:00).
+  `to_api(dt)` serializes a value as fixed-width
+  `YYYY-MM-DDTHH:MM:SS.ffffff+00:00`. Boundaries are built from a calendar date
+  and resolved by zoneinfo, never with `replace(hour=...)` on a UTC value, so
+  DST days come out 23 h and 25 h long. Tests move time through `clock._now`,
+  not by patching `time.time`.
+- [db/models/timestamps.py](../../src/db/models/timestamps.py) reads and writes stored
+  values. `from_db(s, legacy)` reads naive values (in the column's `legacy`
+  zone, `"local"` or `"utc"`), `Z` values and offset values, and returns aware
+  UTC. `to_db(dt, legacy, conn)` writes the column's legacy format until the
+  app_settings flag `timestamp_storage` reads `utc`. After that it writes the
+  fixed-width UTC format. The flag is read on every call until it says `utc`,
+  then cached for that database file for the life of the process.
+  `normalize_cursor(ts, legacy, conn)` puts a pagination cursor's timestamp
+  into the stored format before it is compared as a string.
+- The SQL function `app_local_date(ts, legacy)` returns a stored value's
+  `APP_TIMEZONE` date (`YYYY-MM-DD`) in any format, for day buckets in
+  queries. It is deterministic, so it can be used in an expression index. It
+  is registered on every pooled connection through `ConnectionPool(on_connect=...)`.
+  It is not registered on yoyo's migration connection: a migration that needs
+  it must register it itself.
+
+Settings: `APP_TIMEZONE` (default `Europe/Prague`) draws the day boundaries.
+`LEGACY_TIMESTAMP_TIMEZONE` is the zone that local-naive rows were written in.
+Empty means the host zone from `/etc/localtime`, with its full DST rules.
+Both are validated as IANA names at startup. A naive local value in the
+repeated fall-back hour reads as its first occurrence (`fold=0`), because the
+string cannot tell the two apart.
+
+---
+
 ## Database Indexes
 
 The following indexes are defined to optimize common query patterns:
