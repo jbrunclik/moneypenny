@@ -13,16 +13,8 @@ _ROOT = Path(__file__).parents[2]
 _ROUTES = _ROOT / "src" / "api" / "routes"
 _INTEGRATION = _ROOT / "tests" / "integration"
 
-# Tested under another file's name, or not at all; only shrinks
-_UNTESTED_BASELINE = {
-    "agent_command_center",  # test_routes_agents.py
-    "conversation_messages",  # test_routes_messages_around.py, test_routes_pagination.py
-    "conversation_organize",  # test_routes_conversations.py, test_conversation_read_state.py
-    "kv_store",  # test_routes_kv_memory_system.py
-    "memory",  # test_routes_kv_memory_system.py
-    "programs",  # test_routes_language.py, test_routes_sports.py
-    "system",  # test_routes_kv_memory_system.py, test_routes_health.py
-}
+# Emptied Oct 26 2026 (the tests moved to test_routes_<name>.py); stays empty
+_UNTESTED_BASELINE: set[str] = set()
 
 
 def _imported_route_modules() -> set[str]:
