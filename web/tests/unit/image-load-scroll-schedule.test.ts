@@ -131,7 +131,8 @@ describe('image-load chase scheduling', () => {
     runFrames(1);
     expect(scrollToBottom).toHaveBeenCalledTimes(1);
     expect(scrollToBottom).toHaveBeenCalledWith(container, true, expect.any(Function));
-    expect(thumbs.isProgrammaticScrollActive()).toBe(true);
+    const { isProgrammaticScrollActive } = await import('@/utils/programmatic-scroll');
+    expect(isProgrammaticScrollActive()).toBe(true);
 
     runFrames(1);
     expect(checkScrollButtonVisibility).toHaveBeenCalled();

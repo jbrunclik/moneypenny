@@ -12,7 +12,7 @@ import {
   isProgrammaticScrollActive,
   markStreamFollowScroll,
   programmaticScrollToBottom,
-} from '../../utils/thumbnails';
+} from '../../utils/programmatic-scroll';
 import { kbDebugEvent } from '../../core/keyboard-viewport';
 import {
   checkScrollButtonVisibility,

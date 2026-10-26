@@ -75,8 +75,8 @@ describe('streaming follow', () => {
     height = 2600;
     streaming.updateStreamingMessage(el, 'Hello there');
     expect(top).toBe(1600);
-    const thumbs = await import('@/utils/thumbnails');
-    expect(thumbs.isStreamFollowScroll(container)).toBe(true);
+    const { isStreamFollowScroll } = await import('@/utils/programmatic-scroll');
+    expect(isStreamFollowScroll(container)).toBe(true);
   });
 
   it('a fresh stream does not chase the reply and pulses the button once it runs past the screen', () => {

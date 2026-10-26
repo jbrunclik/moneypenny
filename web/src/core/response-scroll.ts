@@ -12,11 +12,13 @@ import { getElementById, isScrolledToBottom } from '../utils/dom';
 import {
   enableScrollOnImageLoad,
   getThumbnailObserver,
-  isProgrammaticScrollActive,
   observeThumbnail,
+} from '../utils/thumbnails';
+import {
+  isProgrammaticScrollActive,
   programmaticScrollToBottom,
   programmaticScrollToElementTop,
-} from '../utils/thumbnails';
+} from '../utils/programmatic-scroll';
 
 /**
  * Watch for a USER scroll between now and a deferred (rAF) scroll of ours.

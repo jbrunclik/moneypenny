@@ -14,7 +14,7 @@
  * - a popup with the depth stats and the summary text the model sees
  */
 
-import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/programmatic-scroll';
 import { costs } from '../api/costs';
 import { COMPACTION_DEEP_GENERATION } from '../config';
 import { useStore } from '../state/store';

@@ -3,7 +3,7 @@
  */
 
 import { getElementById, userScrolledSince } from '../../utils/dom';
-import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
 import { isTurnAnchored } from './turn-anchor';
 import { createLogger } from '../../utils/logger';
 

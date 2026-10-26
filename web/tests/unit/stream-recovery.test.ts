@@ -53,7 +53,7 @@ vi.mock('@/utils/dom', () => ({
   isScrolledToBottom: vi.fn(() => true),
 }));
 
-vi.mock('@/utils/thumbnails', () => ({
+vi.mock('@/utils/programmatic-scroll', () => ({
   programmaticScrollToBottom: vi.fn(),
 }));
 
@@ -102,7 +102,7 @@ import {
   addMessageToUI,
 } from '@/components/messages';
 import { getElementById, isScrolledToBottom } from '@/utils/dom';
-import { programmaticScrollToBottom } from '@/utils/thumbnails';
+import { programmaticScrollToBottom } from '@/utils/programmatic-scroll';
 import { hideNewMessagesAvailableBanner } from '@/core/sync-banner';
 
 // Helper to reset store state

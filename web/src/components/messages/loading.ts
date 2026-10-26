@@ -3,7 +3,7 @@
  */
 
 import { createElement, getElementById } from '../../utils/dom';
-import { programmaticScrollToBottom } from '../../utils/thumbnails';
+import { programmaticScrollToBottom } from '../../utils/programmatic-scroll';
 import { AI_AVATAR, createIconElement } from '../../utils/icons';
 import { anchorTurn } from './turn-anchor';
 

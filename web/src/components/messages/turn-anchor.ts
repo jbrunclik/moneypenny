@@ -14,10 +14,10 @@ import { useStore } from '../../state/store';
 import { hasTrackedRequestFor } from '../../core/active-requests';
 import {
   beginProgrammaticScroll,
-  disableScrollOnImageLoad,
   endProgrammaticScroll,
   programmaticScrollToPosition,
-} from '../../utils/thumbnails';
+} from '../../utils/programmatic-scroll';
+import { disableScrollOnImageLoad } from '../../utils/thumbnails';
 
 // The anchored turn: its element, and how far below that element's top the
 // visible area starts (0, or more for a message taller than the screen).

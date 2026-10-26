@@ -10,7 +10,7 @@ import { toast } from '../components/Toast';
 import { addMessageToUI, getStreamingMessageElement } from '../components/messages';
 import { clearMessageInput } from '../components/MessageInput';
 import { getElementById } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import type { Message } from '../types/api';
 import { getSyncManager } from '../sync/SyncManager';
 

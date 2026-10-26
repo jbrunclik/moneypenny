@@ -2,7 +2,6 @@
   "components/FileUpload.ts -> components/MessageInput.ts",
   "components/MessageInput.ts -> components/FileUpload.ts",
   "components/MessageInput.ts -> components/messages/turn-anchor.ts",
-  "components/ScrollToBottom.ts -> utils/thumbnails.ts",
   "components/SearchResults.ts -> components/Sidebar.ts",
   "components/Sidebar.ts -> components/SearchResults.ts",
   "components/Sidebar.ts -> components/SidebarSelection.ts",
@@ -186,6 +185,5 @@
   "core/trash.ts -> components/TrashView.ts",
   "core/trash.ts -> core/conversation.ts",
   "core/trash.ts -> sync/SyncManager.ts",
-  "sync/SyncManager.ts -> core/stream-recovery.ts",
-  "utils/thumbnails.ts -> components/ScrollToBottom.ts"
+  "sync/SyncManager.ts -> core/stream-recovery.ts"
 ]

@@ -10,7 +10,7 @@
  */
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
 import { getElementById, isScrolledToBottom, isSmoothScrolling, setScrollDebugSink, userScrolledSince } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
   KEYBOARD_DEFINITE_SHRINK_PX,

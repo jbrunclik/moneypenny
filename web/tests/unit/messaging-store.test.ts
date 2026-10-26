@@ -94,8 +94,11 @@ vi.mock('@/components/VoiceInput', () => ({
 vi.mock('@/utils/thumbnails', () => ({
   enableScrollOnImageLoad: vi.fn(),
   getThumbnailObserver: vi.fn(() => ({ unobserve: vi.fn() })),
-  isProgrammaticScrollActive: vi.fn(() => false),
   observeThumbnail: vi.fn(),
+}));
+
+vi.mock('@/utils/programmatic-scroll', () => ({
+  isProgrammaticScrollActive: vi.fn(() => false),
   programmaticScrollToBottom: vi.fn(),
   programmaticScrollToElementTop: vi.fn(),
 }));

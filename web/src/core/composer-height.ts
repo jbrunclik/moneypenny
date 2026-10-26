@@ -8,7 +8,7 @@
  * won't do - a ResizeObserver keeps the variable in sync.
  */
 import { getElementById, isScrolledToBottom, scrollDebug, userScrolledSince } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored, refreshTurnSpace } from '../components/messages/turn-anchor';
 import { createLogger } from '../utils/logger';
 

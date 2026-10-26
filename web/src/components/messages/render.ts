@@ -9,11 +9,10 @@ import { renderMermaidIn } from '../../utils/mermaid';
 import { linkifyText } from '../../utils/linkify';
 import {
   observeThumbnail,
-  beginProgrammaticScroll,
-  endProgrammaticScroll,
   countVisibleImagesForScroll,
   setDeferImageObservation,
 } from '../../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/programmatic-scroll';
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { createWelcomeMessage } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, setIcon } from '../../utils/icons';

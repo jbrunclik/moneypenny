@@ -3,10 +3,10 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { cleanupComposerHeight, initComposerHeight } from '@/core/composer-height';
-import { programmaticScrollToBottom } from '@/utils/thumbnails';
+import { programmaticScrollToBottom } from '@/utils/programmatic-scroll';
 import { isScrolledToBottom, noteUserScrollIntent } from '@/utils/dom';
 
-vi.mock('@/utils/thumbnails', () => ({ programmaticScrollToBottom: vi.fn() }));
+vi.mock('@/utils/programmatic-scroll', () => ({ programmaticScrollToBottom: vi.fn() }));
 vi.mock('@/utils/dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/dom')>();
   return { ...actual, isScrolledToBottom: vi.fn() };

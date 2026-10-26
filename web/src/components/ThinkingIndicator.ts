@@ -34,7 +34,7 @@ import {
   setIcon,
 } from '../utils/icons';
 import { createElement, escapeHtml, isScrolledToBottom } from '../utils/dom';
-import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/programmatic-scroll';
 import { renderMarkdown } from '../utils/markdown';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 

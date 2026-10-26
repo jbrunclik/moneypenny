@@ -7,7 +7,7 @@ import {
   stopMomentumScroll,
 } from '../utils/dom';
 import { CHEVRON_DOWN_ICON, setIcon } from '../utils/icons';
-import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/thumbnails';
+import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/programmatic-scroll';
 import { SCROLL_BUTTON_SHOW_THRESHOLD_PX } from '../config';
 import { onMessagesScroll } from '../utils/scroll-manager';
 import { createLogger } from '../utils/logger';

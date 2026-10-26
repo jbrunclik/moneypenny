@@ -37,7 +37,7 @@ vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => ({ markConversation
 vi.mock('@/core/conversation', () => ({ isTempConversation: () => false, markAgentViewedAndRefresh: vi.fn() }));
 vi.mock('@/core/stream-resume', () => ({ followRemoteStream: vi.fn() }));
 vi.mock('@/core/sync-banner', () => ({ reloadCurrentConversation: vi.fn() }));
-vi.mock('@/utils/thumbnails', () => ({ programmaticScrollToBottom: vi.fn() }));
+vi.mock('@/utils/programmatic-scroll', () => ({ programmaticScrollToBottom: vi.fn() }));
 
 import { useStore } from '@/state/store';
 import { mergeExternalChanges, serverRewroteHistory } from '@/core/remote-merge';

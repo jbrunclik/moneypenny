@@ -30,7 +30,7 @@ import {
   lockOlderQuizBlocks,
 } from '../components/messages';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';

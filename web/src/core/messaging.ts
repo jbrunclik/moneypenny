@@ -34,7 +34,7 @@ import {
 import { clearPendingFiles, getPendingFiles } from '../components/FileUpload';
 import { stopVoiceRecording } from '../components/VoiceInput';
 import { getElementById } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { setConversationHash } from '../router/deeplink';
 import type { Conversation, DeepResearchStart, FileUpload, Message, MessageAction, SendExtras } from '../types/api';
 import { setMessageSendState } from '../components/messages/send-state';

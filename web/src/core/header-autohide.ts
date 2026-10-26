@@ -13,7 +13,7 @@
  */
 import { getElementById } from '../utils/dom';
 import { onMessagesScroll } from '../utils/scroll-manager';
-import { isProgrammaticScrollActive, isStreamFollowScroll } from '../utils/thumbnails';
+import { isProgrammaticScrollActive, isStreamFollowScroll } from '../utils/programmatic-scroll';
 
 // Keep the header while still near the top (it clears roughly its own height).
 const REVEAL_NEAR_TOP_PX = 72;

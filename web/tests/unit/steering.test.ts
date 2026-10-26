@@ -31,7 +31,7 @@ vi.mock('@/components/messages', () => ({
   getStreamingMessageElement,
 }));
 vi.mock('@/components/MessageInput', () => ({ clearMessageInput }));
-vi.mock('@/utils/thumbnails', () => ({ programmaticScrollToBottom }));
+vi.mock('@/utils/programmatic-scroll', () => ({ programmaticScrollToBottom }));
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => ({ incrementLocalMessageCount }) }));
 
 import { answerUnreadSteering, interjectIntoActiveTurn } from '@/core/steering';

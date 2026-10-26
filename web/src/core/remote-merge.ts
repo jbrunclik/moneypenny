@@ -19,7 +19,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import type { Conversation, Message } from '../types/api';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { createLogger } from '../utils/logger';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { isTempConversation, markAgentViewedAndRefresh } from './conversation';
 import { readInflightStream } from './inflight-streams';
 import { followRemoteStream } from './stream-resume';

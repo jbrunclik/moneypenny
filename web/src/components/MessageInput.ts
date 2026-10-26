@@ -1,5 +1,5 @@
 import { escapeHtml, getElementById, autoResizeTextarea, clearElement, isScrolledToBottom } from '../utils/dom';
-import { programmaticScrollToBottom } from '../utils/thumbnails';
+import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from './messages/turn-anchor';
 import { getFileIcon, CLOSE_ICON, SEND_ICON, STOP_ICON, setIcon } from '../utils/icons';
 import { useStore } from '../state/store';
