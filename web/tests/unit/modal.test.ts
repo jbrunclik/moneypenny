@@ -517,6 +517,21 @@ describe('Modal - Accessibility', () => {
     vi.useRealTimers();
   });
 
+  it('is labelled by its title, and unlabelled without one', async () => {
+    const { initModal, showAlert, closeModal } = await import('@/components/Modal');
+    initModal();
+
+    showAlert({ title: 'Delete chat?', message: 'Gone for good.' });
+    const labelId = document.querySelector('.modal')?.getAttribute('aria-labelledby');
+    expect(labelId).toBeTruthy();
+    expect(document.getElementById(labelId ?? '')?.textContent).toBe('Delete chat?');
+
+    closeModal();
+    vi.runAllTimers();
+    showAlert({ message: 'No title' });
+    expect(document.querySelector('.modal')?.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
   it('has role="dialog" attribute', async () => {
     const { initModal, showAlert } = await import('@/components/Modal');
     initModal();

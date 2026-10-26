@@ -275,7 +275,7 @@ function renderModal(options: {
     { class: 'modal', role: 'dialog', 'aria-modal': 'true', ...(options.title ? { 'aria-labelledby': 'modal-title' } : {}) },
     [
       createIconButton({ class: 'modal-close dialog-close', 'aria-label': 'Close' }, CLOSE_ICON),
-      !!options.title && createElement('h2', { class: 'modal-title dialog-title' }, [options.title]),
+      !!options.title && createElement('h2', { id: 'modal-title', class: 'modal-title dialog-title' }, [options.title]),
       createElement('p', { class: 'modal-message' }, [options.message]),
       !!options.showInput &&
         createElement('input', {
