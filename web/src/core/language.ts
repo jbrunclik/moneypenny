@@ -40,7 +40,7 @@ import {
   createLanguageLoadingElement,
 } from '../components/LanguageDashboard';
 import { APP_NAME, LANGUAGE_PROGRAMS_CACHE_MS } from '../config';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import {
   ensureInputAreaVisible,
   hideInputArea,

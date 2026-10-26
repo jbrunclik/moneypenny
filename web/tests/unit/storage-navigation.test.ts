@@ -54,7 +54,7 @@ vi.mock('@/utils/dom', async (importOriginal) => ({
 }));
 
 vi.mock('@/router/deeplink', () => ({ clearConversationHash: vi.fn(), setStorageHash: vi.fn() }));
-vi.mock('@/utils/thumbnails', () => ({ setCurrentConversationForBlobs: vi.fn() }));
+vi.mock('@/utils/thumbnail-blob-urls', () => ({ setCurrentConversationForBlobs: vi.fn() }));
 
 vi.mock('@/config', () => ({ STORAGE_CACHE_MS: 60000, APP_NAME: 'Moneypenny' }));
 

@@ -22,7 +22,7 @@ import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById, clearElement, createElement } from '../utils/dom';
 import { WARNING_ICON, createIconElement } from '../utils/icons';
 import { clearConversationHash, setStorageHash } from '../router/deeplink';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import type { KVStoreCallbacks } from '../components/KVStorePage';
 import type { KVNamespacesResponse, Memory } from '../types/api';
 import {

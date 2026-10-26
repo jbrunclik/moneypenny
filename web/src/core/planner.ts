@@ -30,7 +30,7 @@ import {
 import type { Conversation, Message, PlannerConversation, PlannerDashboard } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
 import { APP_NAME, PLANNER_DASHBOARD_CACHE_MS } from '../config';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import { getSyncManager } from '../sync/SyncManager';
 
 import {

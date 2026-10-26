@@ -4,6 +4,7 @@ import { beginProgrammaticScroll, endProgrammaticScroll, isProgrammaticScrollAct
 import { onMessagesScroll, offMessagesScroll } from './scroll-manager';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { createLogger } from './logger';
+import { trackBlobUrl, untrackBlobUrl } from './thumbnail-blob-urls';
 import {
     THUMBNAIL_MAX_CONCURRENT_FETCHES,
     SCROLL_USER_DETECTION_THRESHOLD_PX,
@@ -18,87 +19,12 @@ const log = createLogger('thumbnails');
 const loadingQueue: Array<() => Promise<void>> = [];
 let activeFetches = 0;
 
-// Track blob URLs per message ID for cleanup on conversation switch
-// Map<messageId, Set<blobUrl>>
-const blobUrlsByMessage = new Map<string, Set<string>>();
-
-// Track all blob URLs for the current conversation for bulk cleanup
-let currentConversationId: string | null = null;
-
 // Flag to indicate we should scroll to bottom after images load
 // This is set when opening a conversation and cleared when switching away
 let shouldScrollOnImageLoad = false;
 
 // Guard to prevent multiple concurrent enableScrollOnImageLoad calls
 let isEnablingScrollMode = false;
-
-/**
- * Track a blob URL for a message.
- * This allows cleanup when the conversation is switched.
- */
-function trackBlobUrl(messageId: string, url: string): void {
-    let urls = blobUrlsByMessage.get(messageId);
-    if (!urls) {
-        urls = new Set();
-        blobUrlsByMessage.set(messageId, urls);
-    }
-    urls.add(url);
-}
-
-/**
- * Untrack a blob URL when it's been cleaned up via MutationObserver.
- */
-function untrackBlobUrl(messageId: string, url: string): void {
-    const urls = blobUrlsByMessage.get(messageId);
-    if (urls) {
-        urls.delete(url);
-        if (urls.size === 0) {
-            blobUrlsByMessage.delete(messageId);
-        }
-    }
-}
-
-/**
- * Clean up all tracked blob URLs for a conversation.
- * Called when switching conversations to prevent memory leaks.
- * @param conversationId - Optional: the conversation ID being switched away from (for logging)
- */
-export function cleanupBlobUrlsForConversation(conversationId?: string): void {
-    if (blobUrlsByMessage.size === 0) {
-        return;
-    }
-
-    let cleanedCount = 0;
-    for (const urls of blobUrlsByMessage.values()) {
-        for (const url of urls) {
-            URL.revokeObjectURL(url);
-            cleanedCount++;
-        }
-    }
-    blobUrlsByMessage.clear();
-
-    if (cleanedCount > 0) {
-        log.debug('Cleaned up blob URLs on conversation switch', {
-            conversationId,
-            cleanedCount,
-        });
-    }
-
-    // Update the current conversation tracking
-    currentConversationId = null;
-}
-
-/**
- * Set the current conversation ID for blob URL tracking.
- * Called when switching to a new conversation.
- */
-export function setCurrentConversationForBlobs(conversationId: string | null): void {
-    // If switching to a different conversation, clean up the old one's blob URLs
-    if (currentConversationId && currentConversationId !== conversationId) {
-        cleanupBlobUrlsForConversation(currentConversationId);
-    }
-    currentConversationId = conversationId;
-}
 
 // Flag to defer image observation until after counting
 // Used in renderMessages() to prevent IntersectionObserver from firing before we count
@@ -963,13 +889,4 @@ export function observeThumbnail(img: HTMLImageElement): void {
         return;
     }
     getThumbnailObserver().observe(img);
-}
-
-/**
- * Clean up blob URLs when images are removed
- */
-export function cleanupBlobUrl(url: string): void {
-    if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-    }
 }

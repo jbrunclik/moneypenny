@@ -99,7 +99,7 @@ vi.mock('@/components/PlannerDashboard', () => ({
   createDashboardLoadingElement: vi.fn(() => document.createElement('div')),
 }));
 
-vi.mock('@/utils/thumbnails', () => ({
+vi.mock('@/utils/thumbnail-blob-urls', () => ({
   setCurrentConversationForBlobs: vi.fn(),
 }));
 

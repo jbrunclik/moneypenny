@@ -26,7 +26,7 @@ import {
   clearConversationHash,
   setAgentsHash,
 } from '../router/deeplink';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import {
   ensureInputAreaVisible,
   focusMessageInput,

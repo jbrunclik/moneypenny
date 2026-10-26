@@ -37,7 +37,7 @@ import {
 } from '../components/MessageInput';
 import { renderModelDropdown } from '../components/ModelSelector';
 import { getElementById } from '../utils/dom';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import { pushEmptyHash } from '../router/deeplink';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, ConversationDetailResponse, Message } from '../types/api';

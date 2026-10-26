@@ -37,6 +37,7 @@ class FakeIntersectionObserver {
 }
 
 type Loader = typeof import('@/utils/thumbnails');
+type BlobUrls = typeof import('@/utils/thumbnail-blob-urls');
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
@@ -56,6 +57,7 @@ function image(messageId: string, index: number): HTMLImageElement {
 
 describe('thumbnail loader', () => {
   let loader: Loader;
+  let blobUrls: BlobUrls;
   let urlCount: number;
 
   beforeEach(async () => {
@@ -67,6 +69,7 @@ describe('thumbnail loader', () => {
     URL.revokeObjectURL = vi.fn();
     document.body.innerHTML = '<div id="messages"></div>';
     loader = await import('@/utils/thumbnails');
+    blobUrls = await import('@/utils/thumbnail-blob-urls');
   });
 
   afterEach(() => {
@@ -164,22 +167,22 @@ describe('thumbnail loader', () => {
 
   it('revokes the open conversation blob URLs when switching to another conversation', async () => {
     fetchThumbnail.mockResolvedValue(new Blob(['x']));
-    loader.setCurrentConversationForBlobs('conv-a');
+    blobUrls.setCurrentConversationForBlobs('conv-a');
     const img = image('m1', 0);
     loader.observeThumbnail(img);
     io().intersect(img);
     await flush();
 
-    loader.setCurrentConversationForBlobs('conv-a');
+    blobUrls.setCurrentConversationForBlobs('conv-a');
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-    loader.setCurrentConversationForBlobs('conv-b');
+    blobUrls.setCurrentConversationForBlobs('conv-b');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:thumb-1');
   });
 
   it('cleanupBlobUrl revokes blob URLs only', () => {
-    loader.cleanupBlobUrl('https://example.com/a.png');
+    blobUrls.cleanupBlobUrl('https://example.com/a.png');
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-    loader.cleanupBlobUrl('blob:abc');
+    blobUrls.cleanupBlobUrl('blob:abc');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:abc');
   });
 });

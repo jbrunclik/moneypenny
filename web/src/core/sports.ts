@@ -40,7 +40,7 @@ import {
   createSportsLoadingElement,
 } from '../components/SportsDashboard';
 import { APP_NAME, SPORTS_PROGRAMS_CACHE_MS } from '../config';
-import { setCurrentConversationForBlobs } from '../utils/thumbnails';
+import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
 import {
   ensureInputAreaVisible,
   hideInputArea,
