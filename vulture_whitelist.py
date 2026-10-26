@@ -67,6 +67,14 @@ STRANDED_PAN
 INSET_MISMATCH
 ANCHOR_DRIFT
 SCROLL_BOTTOM_MISS
+# src/api/schemas/device_checks.py
+build_marker
+standalone
+ua_summary
+environment
+measurements
+notes
+finished_at
 # src/api/schemas/conversations.py
 read_count
 purge_at

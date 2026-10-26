@@ -36,11 +36,13 @@ from apiflask import APIFlask
 # Import all route modules. agent_approvals, agent_assist and
 # agent_command_center attach their routes to agents.api (one shared "Agents"
 # blueprint keeps a single OpenAPI tag and the original endpoint names), so
-# they are imported only for that side effect. conversation_messages,
+# they are imported only for that side effect (admin_device_checks does the
+# same for admin.api). conversation_messages,
 # conversation_organize, conversation_search and conversation_trash do the
 # same for conversations.api.
 from src.api.routes import (
     admin,
+    admin_device_checks,  # noqa: F401 - imported for its routes
     agent_approvals,  # noqa: F401 - imported for its routes
     agent_assist,  # noqa: F401 - imported for its routes
     agent_command_center,  # noqa: F401 - imported for its routes

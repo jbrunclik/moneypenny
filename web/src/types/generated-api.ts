@@ -3957,6 +3957,131 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/admin/device-check-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Device check runs, newest first. */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeviceCheckRunsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Store a finished device check run. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["DeviceCheckRunRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeviceCheckRun"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/bulk-trash": {
         parameters: {
             query?: never;
@@ -4501,6 +4626,96 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/device-check-fixture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A fresh archived fixture conversation (any left by a crashed run is purged). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeviceCheckFixtureResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        /** Permanently delete the user's fixture conversations. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -10786,6 +11001,198 @@ export interface components {
              */
             model?: string | null;
         };
+        /** DeviceCheckScenario */
+        "DeviceCheckRun.DeviceCheckScenario": {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            status: components["schemas"]["DeviceCheckRun.DeviceCheckStatus"];
+            /** Duration Ms */
+            duration_ms: number;
+            /** Measurements */
+            measurements: {
+                [key: string]: number | boolean | string | null;
+            };
+            /** Notes */
+            notes: string[];
+        };
+        /**
+         * DeviceCheckStatus
+         * @description How a scenario ended.
+         * @enum {string}
+         */
+        "DeviceCheckRun.DeviceCheckStatus": "passed" | "failed" | "skipped" | "error";
+        /**
+         * DeviceCheckRun
+         * @description A stored run.
+         */
+        DeviceCheckRun: {
+            /** Id */
+            id: string;
+            /** Build Marker */
+            build_marker: string | null;
+            /** App Version */
+            app_version: string | null;
+            /** Standalone */
+            standalone: boolean;
+            /** Ua Summary */
+            ua_summary: string;
+            /** Environment */
+            environment: {
+                [key: string]: number | boolean | string | null;
+            };
+            /** Scenarios */
+            scenarios: components["schemas"]["DeviceCheckRun.DeviceCheckScenario"][];
+            /** Passed */
+            passed: number;
+            /**
+             * Failed
+             * @description Failed or errored scenarios
+             */
+            failed: number;
+            /** Skipped */
+            skipped: number;
+            /** Started At */
+            started_at: string;
+            /** Finished At */
+            finished_at: string;
+            /** Created At */
+            created_at: string;
+        };
+        /**
+         * DeviceCheckScenarioResult
+         * @description One scenario of a run, with what it measured.
+         */
+        "DeviceCheckRunRequest.DeviceCheckScenarioResult": {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            status: components["schemas"]["DeviceCheckRunRequest.DeviceCheckStatus"];
+            /** Duration Ms */
+            duration_ms: number;
+            measurements?: components["schemas"]["DeviceCheckRunRequest.Measurements"];
+            /** Notes */
+            notes?: string[];
+        };
+        /**
+         * DeviceCheckStatus
+         * @description How a scenario ended.
+         * @enum {string}
+         */
+        "DeviceCheckRunRequest.DeviceCheckStatus": "passed" | "failed" | "skipped" | "error";
+        "DeviceCheckRunRequest.MeasurementValue": number | boolean | string | null;
+        "DeviceCheckRunRequest.Measurements": {
+            [key: string]: components["schemas"]["DeviceCheckRunRequest.MeasurementValue"];
+        };
+        /**
+         * DeviceCheckRunRequest
+         * @description A finished run, sent once by the runner.
+         */
+        DeviceCheckRunRequest: {
+            /**
+             * Build Marker
+             * @description The [kbN] marker
+             * @default null
+             */
+            build_marker?: string | null;
+            /**
+             * App Version
+             * @default null
+             */
+            app_version?: string | null;
+            /**
+             * Standalone
+             * @description Installed PWA (not a browser tab)
+             */
+            standalone: boolean;
+            /**
+             * Ua Summary
+             * @description e.g. iOS 26.1 · Safari
+             */
+            ua_summary: string;
+            environment?: components["schemas"]["DeviceCheckRunRequest.Measurements"];
+            /** Scenarios */
+            scenarios: components["schemas"]["DeviceCheckRunRequest.DeviceCheckScenarioResult"][];
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Finished At
+             * Format: date-time
+             */
+            finished_at: string;
+        };
+        /**
+         * DeviceCheckRun
+         * @description A stored run.
+         */
+        "DeviceCheckRunsResponse.DeviceCheckRun": {
+            /** Id */
+            id: string;
+            /** Build Marker */
+            build_marker: string | null;
+            /** App Version */
+            app_version: string | null;
+            /** Standalone */
+            standalone: boolean;
+            /** Ua Summary */
+            ua_summary: string;
+            /** Environment */
+            environment: {
+                [key: string]: number | boolean | string | null;
+            };
+            /** Scenarios */
+            scenarios: components["schemas"]["DeviceCheckRunsResponse.DeviceCheckScenario"][];
+            /** Passed */
+            passed: number;
+            /**
+             * Failed
+             * @description Failed or errored scenarios
+             */
+            failed: number;
+            /** Skipped */
+            skipped: number;
+            /** Started At */
+            started_at: string;
+            /** Finished At */
+            finished_at: string;
+            /** Created At */
+            created_at: string;
+        };
+        /** DeviceCheckScenario */
+        "DeviceCheckRunsResponse.DeviceCheckScenario": {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            status: components["schemas"]["DeviceCheckRunsResponse.DeviceCheckStatus"];
+            /** Duration Ms */
+            duration_ms: number;
+            /** Measurements */
+            measurements: {
+                [key: string]: number | boolean | string | null;
+            };
+            /** Notes */
+            notes: string[];
+        };
+        /**
+         * DeviceCheckStatus
+         * @description How a scenario ended.
+         * @enum {string}
+         */
+        "DeviceCheckRunsResponse.DeviceCheckStatus": "passed" | "failed" | "skipped" | "error";
+        /** DeviceCheckRunsResponse */
+        DeviceCheckRunsResponse: {
+            /**
+             * Runs
+             * @description Newest first
+             */
+            runs: components["schemas"]["DeviceCheckRunsResponse.DeviceCheckRun"][];
+        };
         /**
          * BulkTrashResponse
          * @description Result of a bulk trash.
@@ -10995,6 +11402,16 @@ export interface components {
              * @default null
              */
             image_generation_cost_formatted: string | null;
+        };
+        /**
+         * DeviceCheckFixtureResponse
+         * @description The throwaway conversation a run scrolls through.
+         */
+        DeviceCheckFixtureResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Message Count */
+            message_count: number;
         };
         /**
          * SelectedCalendarsResponse

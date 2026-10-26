@@ -46,6 +46,7 @@ from src.db.models.dataclasses import (
     SearchResult,
     User,
 )
+from src.db.models.device_checks import DeviceChecksMixin
 from src.db.models.embeddings import EmbeddingsMixin
 from src.db.models.helpers import (
     build_cursor,
@@ -111,6 +112,7 @@ class Database(
     ArtifactMixin,
     AdminMixin,
     ClientErrorsMixin,
+    DeviceChecksMixin,
 ):
     """Main database class combining all mixins.
 

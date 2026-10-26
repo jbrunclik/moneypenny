@@ -16,6 +16,13 @@ type Schemas = import('./generated-api').components['schemas'];
 // Admin page and spend status (S12)
 export type AdminOverview = Schemas['AdminOverviewResponse'];
 export type SpendStatus = Schemas['SpendStatusResponse'];
+// Device check runner (admin page)
+export type DeviceCheckRun = Schemas['DeviceCheckRun'];
+export type DeviceCheckRunRequest = Schemas['DeviceCheckRunRequest'];
+export type DeviceCheckScenarioResult = Schemas['DeviceCheckRunRequest.DeviceCheckScenarioResult'];
+export type DeviceCheckStatus = Schemas['DeviceCheckRun.DeviceCheckStatus'];
+export type DeviceCheckMeasurements = Schemas['DeviceCheckRunRequest.Measurements'];
+export type DeviceCheckFixture = Schemas['DeviceCheckFixtureResponse'];
 
 // Constants
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';

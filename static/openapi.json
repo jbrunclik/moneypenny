@@ -3390,6 +3390,137 @@
         "description": "Agent and program conversations (planner, sports, language) have no\ntrash view and are deleted immediately, as before."
       }
     },
+    "/api/admin/device-check-runs": {
+      "get": {
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Runs to return (clamped to 1..100)",
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCheckRunsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Device check runs, newest first."
+      },
+      "post": {
+        "parameters": [],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCheckRun"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Store a finished device check run.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCheckRunRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/conversations/bulk-trash": {
       "post": {
         "parameters": [],
@@ -3929,6 +4060,79 @@
           "Costs"
         ],
         "summary": "Get cost for a specific message."
+      }
+    },
+    "/api/admin/device-check-fixture": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCheckFixtureResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "A fresh archived fixture conversation (any left by a crashed run is purged)."
+      },
+      "delete": {
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Permanently delete the user's fixture conversations."
       }
     },
     "/api/conversations/{conv_id}/pin": {
@@ -13720,6 +13924,528 @@
         "title": "UpdateConversationRequest",
         "type": "object"
       },
+      "DeviceCheckRun.DeviceCheckScenario": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeviceCheckRun.DeviceCheckStatus"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "measurements": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Measurements",
+            "type": "object"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "duration_ms",
+          "measurements",
+          "notes"
+        ],
+        "title": "DeviceCheckScenario",
+        "type": "object"
+      },
+      "DeviceCheckRun.DeviceCheckStatus": {
+        "description": "How a scenario ended.",
+        "enum": [
+          "passed",
+          "failed",
+          "skipped",
+          "error"
+        ],
+        "title": "DeviceCheckStatus",
+        "type": "string"
+      },
+      "DeviceCheckRun": {
+        "description": "A stored run.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "build_marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Marker"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "standalone": {
+            "title": "Standalone",
+            "type": "boolean"
+          },
+          "ua_summary": {
+            "title": "Ua Summary",
+            "type": "string"
+          },
+          "environment": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Environment",
+            "type": "object"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceCheckRun.DeviceCheckScenario"
+            },
+            "title": "Scenarios",
+            "type": "array"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "failed": {
+            "description": "Failed or errored scenarios",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "build_marker",
+          "app_version",
+          "standalone",
+          "ua_summary",
+          "environment",
+          "scenarios",
+          "passed",
+          "failed",
+          "skipped",
+          "started_at",
+          "finished_at",
+          "created_at"
+        ],
+        "title": "DeviceCheckRun",
+        "type": "object"
+      },
+      "DeviceCheckRunRequest.DeviceCheckScenarioResult": {
+        "description": "One scenario of a run, with what it measured.",
+        "properties": {
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeviceCheckRunRequest.DeviceCheckStatus"
+          },
+          "duration_ms": {
+            "minimum": 0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "measurements": {
+            "$ref": "#/components/schemas/DeviceCheckRunRequest.Measurements"
+          },
+          "notes": {
+            "items": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "duration_ms"
+        ],
+        "title": "DeviceCheckScenarioResult",
+        "type": "object"
+      },
+      "DeviceCheckRunRequest.DeviceCheckStatus": {
+        "description": "How a scenario ended.",
+        "enum": [
+          "passed",
+          "failed",
+          "skipped",
+          "error"
+        ],
+        "title": "DeviceCheckStatus",
+        "type": "string"
+      },
+      "DeviceCheckRunRequest.MeasurementValue": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "maxLength": 200,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "DeviceCheckRunRequest.Measurements": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/DeviceCheckRunRequest.MeasurementValue"
+        },
+        "maxProperties": 40,
+        "type": "object"
+      },
+      "DeviceCheckRunRequest": {
+        "description": "A finished run, sent once by the runner.",
+        "properties": {
+          "build_marker": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The [kbN] marker",
+            "title": "Build Marker"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Version"
+          },
+          "standalone": {
+            "description": "Installed PWA (not a browser tab)",
+            "title": "Standalone",
+            "type": "boolean"
+          },
+          "ua_summary": {
+            "description": "e.g. iOS 26.1 \u00b7 Safari",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Ua Summary",
+            "type": "string"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/DeviceCheckRunRequest.Measurements"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceCheckRunRequest.DeviceCheckScenarioResult"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Scenarios",
+            "type": "array"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "standalone",
+          "ua_summary",
+          "scenarios",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "DeviceCheckRunRequest",
+        "type": "object"
+      },
+      "DeviceCheckRunsResponse.DeviceCheckRun": {
+        "description": "A stored run.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "build_marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Marker"
+          },
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Version"
+          },
+          "standalone": {
+            "title": "Standalone",
+            "type": "boolean"
+          },
+          "ua_summary": {
+            "title": "Ua Summary",
+            "type": "string"
+          },
+          "environment": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Environment",
+            "type": "object"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/DeviceCheckRunsResponse.DeviceCheckScenario"
+            },
+            "title": "Scenarios",
+            "type": "array"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "failed": {
+            "description": "Failed or errored scenarios",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "finished_at": {
+            "title": "Finished At",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "build_marker",
+          "app_version",
+          "standalone",
+          "ua_summary",
+          "environment",
+          "scenarios",
+          "passed",
+          "failed",
+          "skipped",
+          "started_at",
+          "finished_at",
+          "created_at"
+        ],
+        "title": "DeviceCheckRun",
+        "type": "object"
+      },
+      "DeviceCheckRunsResponse.DeviceCheckScenario": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeviceCheckRunsResponse.DeviceCheckStatus"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "measurements": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Measurements",
+            "type": "object"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "duration_ms",
+          "measurements",
+          "notes"
+        ],
+        "title": "DeviceCheckScenario",
+        "type": "object"
+      },
+      "DeviceCheckRunsResponse.DeviceCheckStatus": {
+        "description": "How a scenario ended.",
+        "enum": [
+          "passed",
+          "failed",
+          "skipped",
+          "error"
+        ],
+        "title": "DeviceCheckStatus",
+        "type": "string"
+      },
+      "DeviceCheckRunsResponse": {
+        "properties": {
+          "runs": {
+            "description": "Newest first",
+            "items": {
+              "$ref": "#/components/schemas/DeviceCheckRunsResponse.DeviceCheckRun"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "DeviceCheckRunsResponse",
+        "type": "object"
+      },
       "BulkTrashResponse": {
         "description": "Result of a bulk trash.",
         "properties": {
@@ -14117,6 +14843,25 @@
           "image_generation_cost_formatted"
         ],
         "title": "MessageCostResponse",
+        "type": "object"
+      },
+      "DeviceCheckFixtureResponse": {
+        "description": "The throwaway conversation a run scrolls through.",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "message_count": {
+            "title": "Message Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "message_count"
+        ],
+        "title": "DeviceCheckFixtureResponse",
         "type": "object"
       },
       "SelectedCalendarsResponse": {
