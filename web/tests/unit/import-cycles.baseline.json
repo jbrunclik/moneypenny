@@ -1,8 +1,6 @@
 [
   "core/agents.ts -> core/conversation.ts",
-  "core/conversation-switch.ts -> core/agents.ts",
   "core/conversation.ts -> core/agents.ts",
-  "core/conversation.ts -> core/conversation-switch.ts",
   "core/conversation.ts -> core/sports.ts",
   "core/messaging.ts -> core/conversation.ts",
   "core/messaging.ts -> core/stream-send.ts",

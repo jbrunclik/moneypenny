@@ -37,6 +37,7 @@ import { initComposer } from './startup/composer';
 import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
 import { initMessageUi } from './startup/message-ui';
+import { initNavigation } from './startup/navigation';
 import { initSearch } from './startup/search';
 
 const log = createLogger('init');
@@ -62,6 +63,10 @@ export async function init(): Promise<void> {
 
   // Every init* below looks its elements up in the shell, so it goes first
   mountAppShell(app);
+
+  // Before anything can navigate: conversation selection and switching
+  // reach the feature views through the hooks this sets
+  initNavigation();
 
   // Initialize components
   initToast();

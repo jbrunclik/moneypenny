@@ -41,9 +41,28 @@ import { renderChatHeader } from '../components/ChatHeader';
 import { isTempConversation } from '../utils/conversation-id';
 import { renderChatHeaderForConversation } from './conversation-header';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
-import { navigateToAgents, handleAgentEditById } from './agents';
 
 const log = createLogger('conversation');
+
+/**
+ * The agent conversation header's back and edit actions, set at startup
+ * (core/startup/navigation.ts): the agents view opens conversations, so it
+ * sits above this module and cannot be imported here (F1).
+ */
+interface AgentHeaderActions {
+  openAgents: () => Promise<void>;
+  editAgent: (agentId: string) => Promise<void>;
+}
+let agentHeaderActions: AgentHeaderActions | null = null;
+
+export function setAgentHeaderActions(actions: AgentHeaderActions): void {
+  agentHeaderActions = actions;
+}
+
+function headerActions(): AgentHeaderActions | null {
+  if (!agentHeaderActions) log.debug('Agent header actions not set');
+  return agentHeaderActions;
+}
 
 /** Look up agent name from command center data in the store. */
 function getAgentNameById(agentId: string): string | null {
@@ -87,11 +106,13 @@ function renderAgentHeaderIfAgent(conv: Conversation): void {
   renderAgentConversationHeader(
     agentName,
     () => {
-      void navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }));
+      void headerActions()
+        ?.openAgents()
+        .catch((error: unknown) => log.error('Failed to open agents', { error }));
     },
     () => {
       if (conv.agent_id) {
-        void handleAgentEditById(conv.agent_id);
+        void headerActions()?.editAgent(conv.agent_id);
       }
     },
   );

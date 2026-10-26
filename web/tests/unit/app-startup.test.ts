@@ -83,6 +83,7 @@ vi.mock('@/components/CompactionIndicator', () => ({
 vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),
   navigateToAgents: h.recAsync('navigateToAgents'),
+  handleAgentEditById: h.recAsync('handleAgentEditById'),
 }));
 vi.mock('@/components/ScrollToBottom', () => ({
   initScrollToBottom: h.rec('initScrollToBottom'),

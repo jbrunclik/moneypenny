@@ -46,7 +46,10 @@ const m = vi.hoisted(() => ({
   updateAnonymousButtonState: vi.fn(),
   navigateToAgents: vi.fn(() => Promise.resolve()),
   handleAgentEditById: vi.fn(() => Promise.resolve()),
+  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+
+vi.mock('@/utils/logger', () => ({ createLogger: () => m.log }));
 
 vi.mock('@/core/stream-resume', () => ({
   offerLostReplyRetry: m.offerLostReplyRetry,
@@ -108,6 +111,7 @@ vi.mock('@/core/agents', () => ({
 
 import { useStore } from '@/state/store';
 import { switchToConversation } from '@/core/conversation-switch';
+import { initNavigation } from '@/core/startup/navigation';
 
 function msg(id: string): Message {
   return { id, role: 'user', content: id, created_at: '2026-10-01T00:00:00Z' };
@@ -217,7 +221,8 @@ describe('switchToConversation', () => {
       );
     });
 
-    it("wire the header's back and edit actions", () => {
+    it("wire the header's back and edit actions set at startup", () => {
+      initNavigation();
       switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
       const [, onBack, onEdit] = m.renderAgentConversationHeader.mock.lastCall as [string, () => void, () => void];
 
@@ -226,6 +231,22 @@ describe('switchToConversation', () => {
 
       expect(m.navigateToAgents).toHaveBeenCalled();
       expect(m.handleAgentEditById).toHaveBeenCalledWith('a1');
+    });
+
+    it('log instead of throwing when startup has not set the header actions', async () => {
+      vi.resetModules();
+      const fresh = await import('@/core/conversation-switch');
+      fresh.switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
+      const [, onBack, onEdit] = m.renderAgentConversationHeader.mock.lastCall as [string, () => void, () => void];
+
+      expect(() => {
+        onBack();
+        onEdit();
+      }).not.toThrow();
+
+      expect(m.navigateToAgents).not.toHaveBeenCalled();
+      expect(m.handleAgentEditById).not.toHaveBeenCalled();
+      expect(m.log.debug).toHaveBeenCalledWith('Agent header actions not set');
     });
   });
 
