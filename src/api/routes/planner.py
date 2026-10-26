@@ -5,7 +5,7 @@ dashboard with events from Google Calendar and tasks from Todoist,
 plus an ephemeral chat that resets daily.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -304,7 +304,7 @@ def sync_planner_conversation(user: User) -> dict[str, Any]:
     # Get planner conversation without creating it (sync shouldn't create)
     planner_conv = db.get_planner_conversation(user.id)
 
-    server_time = datetime.utcnow().isoformat()
+    server_time = datetime.now(UTC).isoformat()
 
     if not planner_conv:
         return {"conversation": None, "server_time": server_time}

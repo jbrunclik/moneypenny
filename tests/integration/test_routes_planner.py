@@ -9,7 +9,7 @@ Tests cover:
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from flask.testing import FlaskClient
@@ -581,6 +581,19 @@ class TestPlannerSync:
         # Should have null conversation
         assert data["conversation"] is None
         assert "server_time" in data
+
+    def test_server_time_is_explicit_utc(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+    ) -> None:
+        """server_time carries its UTC offset: a naive UTC string is parsed
+        as browser-local time, off by the UTC offset."""
+        response = client.get("/api/planner/sync", headers=auth_headers)
+
+        server_time = datetime.fromisoformat(json.loads(response.data)["server_time"])
+        assert server_time.utcoffset() == timedelta(0)
+        assert abs(datetime.now(UTC) - server_time) < timedelta(minutes=1)
 
     def test_returns_planner_state_when_exists(
         self,
