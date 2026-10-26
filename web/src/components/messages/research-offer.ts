@@ -43,6 +43,7 @@ export interface ResearchOfferActions {
   ) => Promise<boolean>;
   decline: (offerMessageId: string) => Promise<boolean>;
 }
+// UI-local (F2): injected by startup (F1)
 let actions: ResearchOfferActions | null = null;
 
 /** Test hook: forget auto-started offers. */

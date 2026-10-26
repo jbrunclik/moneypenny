@@ -15,6 +15,7 @@ import { createLogger } from './logger';
 const log = createLogger('mermaid');
 
 const BLOCK_SELECTOR = '.code-block-wrapper:not([data-mermaid]) code.language-mermaid';
+// UI-local (F2): unique diagram ids
 let counter = 0;
 
 type MermaidApi = (typeof import('mermaid'))['default'];

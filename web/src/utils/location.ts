@@ -18,6 +18,7 @@ import { createLogger } from './logger';
 const log = createLogger('location');
 const STORAGE_KEY = 'location_sharing_enabled';
 
+// UI-local (F2): a cached position fix
 let cachedFix: ClientLocation | null = null;
 
 export function isLocationSharingEnabled(): boolean {

@@ -26,6 +26,7 @@ function setGarmin(status: GarminStatus | null, mfaRequired: boolean): void {
  * success, cancel, or any settled outcome. Kept here, out of the shared
  * store, so the password lives only as long as the MFA step.
  */
+// UI-local (F2): the password must not reach the shared store
 let garminPendingCredentials: { email: string; password: string } | null = null;
 
 /** Adopt a freshly fetched status and drop any half-finished MFA flow. */

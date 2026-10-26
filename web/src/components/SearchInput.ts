@@ -18,6 +18,7 @@ import { SEARCH_DEBOUNCE_MS } from '../config';
 const log = createLogger('search-input');
 
 let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+// UI-local (F2): a request-race token for the latest query
 let currentSearchQuery: string = ''; // Track current query to handle race conditions
 
 /**

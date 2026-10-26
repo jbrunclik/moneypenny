@@ -525,6 +525,7 @@ export class SyncManager {
 }
 
 // Singleton instance
+// UI-local (F2): the singleton
 let syncManagerInstance: SyncManager | null = null;
 
 /**

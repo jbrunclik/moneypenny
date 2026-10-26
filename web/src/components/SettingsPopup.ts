@@ -198,6 +198,7 @@ export function closeSettingsPopup(): void {
 /**
  * Initialize settings popup and theme system
  */
+// UI-local (F2): the popup wires its handlers once
 let _settingsInitDone = false;
 
 function ensureSettingsPopupInit(): void {

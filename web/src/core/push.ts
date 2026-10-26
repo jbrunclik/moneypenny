@@ -63,6 +63,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 }
 
+// UI-local (F2): the worker listener installs once
 let workerMessageListenerInstalled = false;
 
 /**

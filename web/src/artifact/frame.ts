@@ -16,6 +16,7 @@ import { isToFrame, type FromFrame } from './protocol';
 // (frame-ancestors 'self'), so the parent is the only possible receiver
 const post = (message: FromFrame): void => window.parent.postMessage(message, '*');
 const client = installBridgeClient(window, post);
+// UI-local (F2): the frame renders its first init only
 let initialized = false;
 
 window.addEventListener('message', (event: MessageEvent) => {

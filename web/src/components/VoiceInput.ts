@@ -55,6 +55,7 @@ declare global {
 }
 
 let recognition: SpeechRecognition | null = null;
+// UI-local (F2): the dictation session and its language picker
 let isRecording = false;
 let currentLang = '';
 let langSelectorVisible = false;

@@ -39,6 +39,7 @@ import { APP_NAME, STORAGE_CACHE_MS } from '../config';
 const log = createLogger('kv-store');
 
 /** Flag to prevent concurrent refresh operations. */
+// UI-local (F2): an in-flight guard
 let isRefreshing = false;
 
 /**

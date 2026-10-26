@@ -114,6 +114,7 @@ function renderKatex(tex: string, displayMode: boolean): string {
 const MATH_TOKEN = /\uE000katex(\d+)\uE001/g;
 
 // Per-parse stash of rendered math segments (renderMarkdown is synchronous)
+// UI-local (F2): scratch for one synchronous parse
 let mathSegments: string[] = [];
 
 function stashMath(tex: string, display: boolean): string {

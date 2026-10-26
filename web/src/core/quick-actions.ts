@@ -62,6 +62,7 @@ export interface QuickActionsContext {
   save: (actions: QuickAction[]) => Promise<QuickAction[]>;
 }
 
+// UI-local (F2): the composer's quick-action mode and slash menu
 let current: QuickActionsContext | null = null;
 let unsubscribeStore: (() => void) | null = null;
 let mode: { action: QuickAction } | null = null;

@@ -22,6 +22,7 @@ const VIEWER_ID = 'pdf-viewer';
 
 // Bumped on every open/close; async page renders from a previous session
 // check it and bail instead of appending to a closed viewer
+// UI-local (F2): a race token for the open viewer's page renders
 let session = 0;
 
 export function closePdfViewer(): void {

@@ -15,6 +15,7 @@ import {
 
 const log = createLogger('thumbnail-loader');
 const loadingQueue: Array<() => Promise<void>> = [];
+// UI-local (F2): the fetch queue's concurrency and deferral
 let activeFetches = 0;
 
 // Flag to defer image observation until after counting
@@ -29,6 +30,7 @@ export interface ThumbnailLoadHooks {
     onLoadEnd: (isError: boolean) => void;
 }
 
+// UI-local (F2): injected by startup (F1)
 let loadHooks: ThumbnailLoadHooks | null = null;
 
 /** Register the callbacks fired around each thumbnail load. */

@@ -33,12 +33,15 @@ interface GalleryItem {
 }
 
 // Gallery session state (reset on close)
+// UI-local (F2): the open viewer's gallery, reset on close
 let gallery: GalleryItem[] = [];
 let currentIndex = 0;
 const blobUrls = new Map<string, string>();
+// UI-local (F2): a request-race token for image loads
 let loadToken = 0;
 
 // Zoom/pan state
+// UI-local (F2): the open viewer's zoom and pan
 let scale = 1;
 let translateX = 0;
 let translateY = 0;

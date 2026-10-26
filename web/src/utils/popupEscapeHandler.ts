@@ -32,6 +32,7 @@ interface PopupHandler {
 const handlers: PopupHandler[] = [];
 
 // Track if listener is initialized
+// UI-local (F2): the listener installs once
 let isInitialized = false;
 
 /**

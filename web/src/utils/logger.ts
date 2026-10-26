@@ -36,6 +36,7 @@ interface LogEntry {
 }
 
 /** Global request ID for correlation (set per request lifecycle) */
+// UI-local (F2): the request id for log correlation
 let currentRequestId: string | null = null;
 
 /**
@@ -60,6 +61,7 @@ export function getRequestId(): string | null {
  */
 export type ErrorSink = (loggerName: string, message: string, error?: Error) => void;
 
+// UI-local (F2): injected by startup (F1)
 let errorSink: ErrorSink | null = null;
 
 export function setErrorSink(sink: ErrorSink | null): void {

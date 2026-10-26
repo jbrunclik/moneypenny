@@ -55,6 +55,7 @@ const log = createLogger('conversation');
 // When user clicks a conversation, we store its ID. If they click another
 // conversation before the first loads, we update this. When an API call completes,
 // we check if it matches - if not, the user navigated away and we should cancel.
+// UI-local (F2): a request-race token for the latest switch
 let pendingConversationId: string | null = null;
 
 /**
@@ -155,6 +156,7 @@ interface ViewLeavers {
   agents: () => void;
   sports: () => void;
 }
+// UI-local (F2): injected by startup (F1)
 let viewLeavers: ViewLeavers | null = null;
 
 export function setViewLeavers(leavers: ViewLeavers): void {

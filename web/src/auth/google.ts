@@ -13,6 +13,7 @@ import {
 
 const log = createLogger('auth');
 
+// UI-local (F2): the Google Identity script initializes once per page
 let googleInitialized = false;
 let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 

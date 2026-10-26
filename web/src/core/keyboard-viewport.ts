@@ -65,10 +65,12 @@ const panGuard = (e: TouchEvent | Event): void => {
   e.preventDefault();
 };
 
+// UI-local (F2): listeners install once
 let panGuardInstalled = false;
 
 // Whether a finger is currently down - the stale-pan auto-reset must never
 // yank the page mid-gesture (same reason as the recovery-drag escape hatch)
+// UI-local (F2): touch tracking for the keyboard inset
 let touchActive = false;
 let touchTrackingInstalled = false;
 
@@ -104,6 +106,7 @@ function setPanGuard(active: boolean): void {
 // inset has failed on iOS in ways that resist local reproduction - this
 // shows every input to the decision so a user screenshot pinpoints it.
 let debugEl: HTMLDivElement | null = null;
+// UI-local (F2): the ?kbdebug overlay's log
 let debugEventLog: string[] = [];
 
 function kbDebugEnabled(): boolean {

@@ -39,6 +39,7 @@ let modalContainer: HTMLDivElement | null = null;
 
 // Current modal state
 let currentResolve: ((value: boolean | string | null) => void) | null = null;
+// UI-local (F2): the open dialog's kind
 let modalType: 'alert' | 'confirm' | 'prompt' = 'alert';
 
 /**

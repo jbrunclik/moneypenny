@@ -21,6 +21,7 @@ const log = createLogger('image-load-scroll');
 
 // Flag to indicate we should scroll to bottom after images load
 // This is set when opening a conversation and cleared when switching away
+// UI-local (F2): the scroll-on-image-load gesture state for the open list
 let shouldScrollOnImageLoad = false;
 
 // Guard to prevent multiple concurrent enableScrollOnImageLoad calls
@@ -49,6 +50,7 @@ let userScrollListener: (() => void) | null = null;
 
 // Track previous scroll position for direction-based user scroll detection
 // This prevents false positives when images loading above viewport increase scrollHeight
+// UI-local (F2): the scroll-on-image-load gesture state for the open list
 let previousScrollTopForImageLoad = 0;
 
 /**

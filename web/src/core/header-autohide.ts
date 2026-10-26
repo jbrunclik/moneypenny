@@ -25,6 +25,7 @@ const DIRECTION_THRESHOLD_PX = 8;
 // a deliberate scroll-up moves out of this zone.
 const BOTTOM_BOUNCE_ZONE_PX = 56;
 
+// UI-local (F2): the scroll direction tracker
 let lastScrollTop = 0;
 
 function setHidden(hidden: boolean): void {

@@ -21,6 +21,7 @@ const GUTTER_PX = 16;
 const CARD_GAP_PX = 6;
 /** Used before the card has laid out (and in tests) */
 const CARD_ESTIMATED_HEIGHT_PX = 160;
+// UI-local (F2): the hover card's open/close timing
 let hoverTimer: number | undefined;
 let leaveTimer: number | undefined;
 let openTarget: HTMLElement | null = null;
@@ -198,6 +199,7 @@ export interface ClaimCardActions {
   /** Send "Look it up" as the user's message (core/messaging) */
   send: (text: string, extras: SendExtras) => Promise<boolean>;
 }
+// UI-local (F2): injected by startup (F1)
 let actions: ClaimCardActions | null = null;
 
 function lookUp(text: string, extras: SendExtras): Promise<boolean> {

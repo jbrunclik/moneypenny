@@ -17,6 +17,7 @@ export interface SelectionActions {
   leaveTrashView: () => void;
   leaveArchiveView: () => void;
 }
+// UI-local (F2): injected by startup (F1)
 let actions: SelectionActions | null = null;
 
 export function enterSelectionMode(): void {
@@ -107,6 +108,7 @@ export function handleSelectionListClick(e: MouseEvent): boolean {
   return target.closest('#conversations-list') !== null;
 }
 
+// UI-local (F2): listeners install once
 let initialized = false;
 
 /** Wire the sidebar click and Escape listeners (once). */

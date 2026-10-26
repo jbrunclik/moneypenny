@@ -17,6 +17,7 @@ const log = createLogger('message-input');
 // must ALWAYS stamp icon/class/title on the button (the old code did this
 // unconditionally via the store subscription's fireImmediately; a
 // change-only guard left the button bare until the first stream)
+// UI-local (F2): the send button's rendered mode
 let isStopMode: boolean | null = null;
 
 // Track whether input is blocked for pending approval
@@ -325,6 +326,7 @@ export function recallLastSentMessage(): boolean {
   return true;
 }
 
+// UI-local (F2): the draft save debounce and the draft being loaded
 let draftSaveTimeout: number | undefined;
 // The conversation being loaded: text typed while it loads belongs to it,
 // not to the conversation still current (Oct 2026: it was saved there and
@@ -430,6 +432,7 @@ function hasActiveStreamForCurrentConversation(): boolean {
  */
 // Set while a quick action is being composed inside the pill: the message
 // has content (the action body) even when the note textarea is empty.
+// UI-local (F2): the pill's quick-action content
 let composerHasExternalContent = false;
 
 export function setComposerHasExternalContent(value: boolean): void {

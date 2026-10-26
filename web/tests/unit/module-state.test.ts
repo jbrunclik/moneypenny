@@ -1,25 +1,30 @@
 /**
- * Rule F2: module-level `let` only for UI-ephemeral handles.
+ * Rule F2: module-level `let` only for UI-ephemeral state.
  *
  * App state belongs in the store, where every change goes through a slice
  * action and sync, tests and other views see it. A module-level `let` is fine
- * for a handle that only this module's UI wiring uses: a timer, an observer, an
- * AbortController, a DOM element. Those are recognised by their declared type
- * (HANDLE_TYPE) and not counted. Every other module-level `let` is counted per
- * file against module-state.baseline.json (Oct 2026), which only shrinks: a
- * new one fails - put the value in the store, or type it as the handle it is.
+ * for what only this module's UI wiring uses:
+ * - a handle, recognised by its declared type (HANDLE_TYPE): a timer, an
+ *   observer, an AbortController, a DOM element, a callback or cleanup
+ *   function, an in-flight promise;
+ * - other module-local UI state (a gesture's progress, a request-race token,
+ *   an init-once flag), marked in place by a comment containing `(F2)` that
+ *   says why it isn't store state. One marker covers the `let`s directly
+ *   after it (comments between them are fine; any other statement ends it).
+ * Every other module-level `let` fails: put the value in the store, or mark it.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import baseline from './module-state.baseline.json';
 
 const SRC = join(__dirname, '../../src');
 
-// Timers, observers, abort controllers, DOM elements and speech sessions
+// Timers, observers, abort controllers, DOM elements, speech sessions,
+// functions (callbacks, cleanups, injected dependencies) and promises
 const HANDLE_TYPE =
-  /\b(?:ReturnType<typeof (?:setTimeout|setInterval)>|AbortController|\w*Observer|HTML\w*Element|Element|SpeechRecognition)\b/;
+  /=>|ReturnType<typeof set(?:Timeout|Interval)>|\b(?:AbortController|\w*Observer|HTML\w*Element|Element|SpeechRecognition|Promise)\b/;
+const MARKER = /\(F2\)/;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -29,47 +34,47 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** Module-level `let` bindings that are not typed as a UI handle. */
-function stateLets(file: string): number {
-  const text = readFileSync(file, 'utf8');
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest);
-  let count = 0;
-  for (const node of source.statements) {
-    if (!ts.isVariableStatement(node)) continue;
-    if (!(node.declarationList.flags & ts.NodeFlags.Let)) continue;
-    for (const decl of node.declarationList.declarations) {
-      const type = decl.type?.getText(source) ?? '';
-      if (!HANDLE_TYPE.test(type)) count++;
-    }
-  }
-  return count;
+function hasMarker(text: string, node: ts.Node): boolean {
+  const comments = ts.getLeadingCommentRanges(text, node.getFullStart()) ?? [];
+  return comments.some((c) => MARKER.test(text.slice(c.pos, c.end)));
 }
 
-function counts(): Record<string, number> {
-  const result: Record<string, number> = {};
-  for (const file of sourceFiles(SRC)) {
-    const n = stateLets(file);
-    if (n > 0) result[relative(SRC, file)] = n;
+/** Module-level `let` bindings that are neither a handle nor marked, as `file:line name`. */
+function unmarkedLets(file: string): string[] {
+  const text = readFileSync(file, 'utf8');
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const found: string[] = [];
+  let covered = false;
+  for (const node of source.statements) {
+    const isLet = ts.isVariableStatement(node) && Boolean(node.declarationList.flags & ts.NodeFlags.Let);
+    if (!isLet) {
+      covered = false;
+      continue;
+    }
+    covered = covered || hasMarker(text, node);
+    if (covered) continue;
+    for (const decl of node.declarationList.declarations) {
+      const type = decl.type?.getText(source) ?? '';
+      if (HANDLE_TYPE.test(type)) continue;
+      const line = source.getLineAndCharacterOfPosition(decl.getStart()).line + 1;
+      found.push(`${relative(SRC, file)}:${line} ${decl.name.getText(source)}`);
+    }
   }
-  return result;
+  return found;
 }
 
 describe('module-level state (F2)', () => {
-  const current = counts();
-  const allowed: Record<string, number> = baseline;
-
-  it('adds no module-level let beyond the baseline', () => {
-    const over = Object.entries(current)
-      .filter(([file, n]) => n > (allowed[file] ?? 0))
-      .map(([file, n]) => `${file}: ${n} (baseline ${allowed[file] ?? 0})`);
-    expect(over).toEqual([]);
+  it('keeps app state out of module-level lets', () => {
+    const unmarked = sourceFiles(SRC).flatMap(unmarkedLets);
+    expect(unmarked, 'move it to the store, or mark why it is module-local UI state with (F2)').toEqual([]);
   });
 
-  it('keeps the baseline at the current counts', () => {
-    // Removed some? Lower module-state.baseline.json so they can't return
-    const under = Object.entries(allowed)
-      .filter(([file, n]) => (current[file] ?? 0) < n)
-      .map(([file, n]) => `${file}: ${current[file] ?? 0} (baseline ${n})`);
-    expect(under).toEqual([]);
+  it('recognises handles by type and honours the marker', () => {
+    expect(HANDLE_TYPE.test('(() => void) | null')).toBe(true);
+    expect(HANDLE_TYPE.test('Promise<void> | null')).toBe(true);
+    expect(HANDLE_TYPE.test('ReturnType<typeof setTimeout> | null')).toBe(true);
+    expect(HANDLE_TYPE.test('HTMLDivElement | null')).toBe(true);
+    expect(HANDLE_TYPE.test('string | null')).toBe(false);
+    expect(HANDLE_TYPE.test('GalleryItem[]')).toBe(false);
   });
 });

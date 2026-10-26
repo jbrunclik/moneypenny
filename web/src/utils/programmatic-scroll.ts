@@ -12,6 +12,7 @@ import { SCROLL_PROGRAMMATIC_RESET_DELAY_MS } from '../config';
 // other's window early - the reserved-space release ended the still-running
 // send glide's, and its last frames auto-hid the header.
 const programmaticScrollTokens = new Set<number>();
+// UI-local (F2): scroll token ids
 let nextProgrammaticScrollToken = 0;
 // A token whose end was never called (a bug elsewhere) must not mute user
 // scrolls forever
@@ -45,6 +46,7 @@ export function isProgrammaticScrollActive(): boolean {
 }
 
 // Where the last stream-follow scroll left #messages (see isStreamFollowScroll)
+// UI-local (F2): the last stream-follow position
 let lastFollowScrollTop: number | null = null;
 
 /** Record the position a stream-follow scroll just wrote. */

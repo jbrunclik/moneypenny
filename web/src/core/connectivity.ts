@@ -9,6 +9,7 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('connectivity');
 
+// UI-local (F2): the shown offline toast
 let offlineNotificationId: string | null = null;
 
 function handleOffline(): void {

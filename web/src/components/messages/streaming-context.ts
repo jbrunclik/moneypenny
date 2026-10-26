@@ -6,6 +6,7 @@ import { setStreamingPausedIndicator } from '../ScrollToBottom';
 import type { StreamingMessageContext } from './types';
 
 // Global context for the current streaming message
+// UI-local (F2): the streaming bubble's DOM context
 let currentStreamingContext: StreamingMessageContext | null = null;
 
 /** The context of the reply streaming on screen, if any. */

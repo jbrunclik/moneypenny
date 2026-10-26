@@ -32,6 +32,7 @@ const log = createLogger('remote-merge');
 // conversation open THEN (a switch meanwhile used to re-run the old one,
 // which bailed, and the new one's merge was lost until its next change)
 let inFlight: Promise<void> | null = null;
+// UI-local (F2): the merge queued behind the running one
 let pendingConvId: string | null = null;
 
 /** Merge the open conversation's external changes (serialized). */

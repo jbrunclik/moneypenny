@@ -46,6 +46,7 @@ const log = createLogger('agents');
  * Flag to prevent concurrent refresh operations.
  * Ensures only one refresh can be in progress at a time.
  */
+// UI-local (F2): an in-flight guard
 let isRefreshing = false;
 
 /**

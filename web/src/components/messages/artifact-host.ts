@@ -47,6 +47,7 @@ interface Entry {
 // registered before it is in the DOM (history renders a message, then appends
 // it), when it has no contentWindow yet
 const entries = new Map<HTMLIFrameElement, Entry>();
+// UI-local (F2): the message listener installs once
 let listening = false;
 let themeObserver: MutationObserver | null = null;
 // Sends an artifact's message as the user's (core/messaging, set at startup:

@@ -9,6 +9,7 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('attention');
 
+// UI-local (F2): the hidden-tab title badge until the user returns
 let baseTitle = '';
 let pendingCount = 0;
 

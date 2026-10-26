@@ -25,6 +25,7 @@ const log = createLogger('search');
 
 // Track the most recently requested message ID for search navigation
 // This prevents stale API responses from rendering when user clicks multiple search results quickly
+// UI-local (F2): a request-race token for the latest result tap
 let pendingSearchNavigationMessageId: string | null = null;
 
 /**

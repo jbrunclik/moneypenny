@@ -31,6 +31,7 @@ const log = createLogger('agent-editor');
 // Modal container element
 let modalContainer: HTMLDivElement | null = null;
 let currentResolve: ((result: Agent | null) => void) | null = null;
+// UI-local (F2): the open editor dialog's session
 let editingAgentId: string | null = null;
 // The close animation's pending cleanup; a reopen runs it at once so it can't
 // fire later and wipe the new session
@@ -52,6 +53,7 @@ const BASE_TOOLS = [
 // Agents created with tool_permissions = null are unrestricted (every
 // available tool, including ones not in this grid). The editor must not
 // silently narrow that: see getToolPermissionsForSave().
+// UI-local (F2): the open editor's permission-grid edits
 let originalPermissionsUnrestricted = false;
 let permissionsTouched = false;
 

@@ -221,6 +221,7 @@ export function anchorTurn(container: HTMLElement, turnEl: HTMLElement, replyEl:
 
 // Whether the smooth scroll running is the send glide (a resize retargets
 // it); the generation tells a retarget's cancelled predecessor apart
+// UI-local (F2): the running glide's identity
 let isAnchorGlide = false;
 let glideGeneration = 0;
 

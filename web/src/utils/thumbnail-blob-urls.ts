@@ -11,6 +11,7 @@ const log = createLogger('thumbnail-blob-urls');
 const blobUrlsByMessage = new Map<string, Set<string>>();
 
 // Track all blob URLs for the current conversation for bulk cleanup
+// UI-local (F2): whose blob URLs are held, for cleanup
 let currentConversationId: string | null = null;
 
 /**

@@ -32,6 +32,7 @@ const COMPACTED_CLASS = 'message--compacted';
 const DEEP_CLASS = 'compaction--deep';
 
 /** Last active status, only while it belongs to the open conversation */
+// UI-local (F2): the open conversation's chip only, refetched on every switch
 let currentStatus: ConversationCompactionResponse | null = null;
 
 /** The cached status, dropped once another conversation is open */

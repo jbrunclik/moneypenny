@@ -24,6 +24,7 @@ const DISMISSED_VERSION_KEY = STORAGE_KEY_VERSION_DISMISSED;
 
 // Module state
 let bannerElement: HTMLDivElement | null = null;
+// UI-local (F2): the update check's timer and throttle
 let checkInterval: number | null = null;
 let lastCheckTime = 0;
 

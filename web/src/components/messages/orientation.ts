@@ -10,6 +10,7 @@ import { createLogger } from '../../utils/logger';
 const log = createLogger('messages');
 
 // Track scroll position for orientation change handling
+// UI-local (F2): the scroll position across one rotation
 let savedScrollPercentage: number | null = null;
 let orientationChangeCleanup: (() => void) | null = null;
 

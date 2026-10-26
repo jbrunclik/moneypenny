@@ -145,12 +145,14 @@ export function autoResizeTextarea(textarea: HTMLTextAreaElement): void {
 }
 
 // Track the current smooth scroll animation frame ID for cancellation
+// UI-local (F2): the running smooth scroll
 let currentSmoothScrollAnimationId: number | null = null;
 // Completion callback of the running animation (fires on finish, abort or cancel)
 let currentSmoothScrollDone: (() => void) | null = null;
 
 // When the user last touched-moved / wheeled / key-scrolled the list (see
 // ScrollToBottom's takeover listeners) - delayed re-pins of ours check it
+// UI-local (F2): the last user scroll input
 let lastUserScrollIntentAt = -Infinity;
 
 /** The user just started scrolling the list themselves. */

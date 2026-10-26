@@ -14,6 +14,7 @@ export interface PushControls {
   sendTest: () => Promise<string>;
 }
 
+// UI-local (F2): injected by startup (F1)
 let pushControls: PushControls | null = null;
 
 export function setPushControls(controls: PushControls): void {

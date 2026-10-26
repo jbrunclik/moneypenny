@@ -83,6 +83,7 @@ export interface ComposerHook {
   onConsumed: () => void;
 }
 
+// UI-local (F2): injected by quick actions
 let composerHook: ComposerHook | null = null;
 
 export function registerComposerHook(hook: ComposerHook | null): void {
@@ -350,6 +351,7 @@ export async function sendUiMessage(text: string, extras: SendExtras = {}): Prom
 // prepareConversationForSend: creating the conversation, unarchiving, loading
 // newer history). A second Enter / tap in that window read the same text and
 // sent it again - a duplicate message, or a second conversation.
+// UI-local (F2): an in-flight guard against a double send
 let sendPreparing = false;
 
 /**

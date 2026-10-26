@@ -125,6 +125,7 @@ function isArchiveViewVisible(): boolean {
 // first-child anchor detects when ANY other renderer (search results,
 // archive, tests rebuilding the DOM) has since written to the shared
 // container, forcing a real render.
+// UI-local (F2): a render cache to skip no-op DOM writes
 let lastRenderedList: DocumentFragment | null = null;
 let lastRenderedFirstChild: Element | null = null;
 
@@ -472,6 +473,7 @@ export async function updateMonthlyCost(): Promise<void> {
 // Timer that keeps relative-time labels ("2m", "3h") and date-group headers
 // fresh: they are computed at render time and would otherwise only update
 // when a sync poll returns changed data
+// UI-local (F2): the relative-time refresh timer
 let timeRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
 /**

@@ -53,6 +53,7 @@ interface AgentHeaderActions {
   openAgents: () => Promise<void>;
   editAgent: (agentId: string) => Promise<void>;
 }
+// UI-local (F2): injected by startup (F1)
 let agentHeaderActions: AgentHeaderActions | null = null;
 
 export function setAgentHeaderActions(actions: AgentHeaderActions): void {

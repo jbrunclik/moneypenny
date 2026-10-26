@@ -31,6 +31,7 @@ interface ParsedRoute {
 type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, isAgents?: boolean, isStorage?: boolean, isSports?: boolean, isLanguage?: boolean, isArchive?: boolean, isTrash?: boolean) => void;
 
 // Module state
+// UI-local (F2): the hash listener's wiring
 let hashChangeCallback: HashChangeCallback | null = null;
 let isIgnoringHashChange = false;
 
