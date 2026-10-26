@@ -123,13 +123,7 @@ def test_rouvy_errors_become_results():
     assert failed["error"] == "Rouvy request failed: 503"
 
 
-def test_rouvy_workout_not_in_sports_excluded():
-    from src.agent.tools import _SPORTS_EXCLUDED_TOOLS
+def test_rouvy_workout_is_registered():
+    from src.agent.tools import get_all_tool_names
 
-    assert "rouvy_workout" not in _SPORTS_EXCLUDED_TOOLS
-
-
-def test_rouvy_workout_in_tool_map():
-    from src.agent.tools import _TOOL_MAP
-
-    assert _TOOL_MAP["rouvy_workout"] is rouvy_workout
+    assert "rouvy_workout" in get_all_tool_names()

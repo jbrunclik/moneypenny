@@ -1,14 +1,64 @@
 """Unit tests for tool selection in the src/agent/tools package (__init__.py)."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.agent.tools import (
+    get_all_tool_names,
     get_available_tools,
     get_tools_for_request,
 )
 from src.config import Config
+
+# What each program conversation withholds: their declarations cost ~7-10k
+# tokens re-sent every tool round, for tools a fitness or language program
+# never uses (the spec; src/agent/tools/__init__.py implements it)
+SPORTS_WITHHELD = {
+    "todoist",
+    "whatsapp",
+    "google_calendar",
+    "generate_image",
+    "execute_code",
+    "search_places",
+    "save_place",
+    "delete_place",
+    "list_places",
+    "get_route",
+    "create_artifact",
+    "update_artifact",
+    "read_artifact",
+}
+LANGUAGE_WITHHELD = SPORTS_WITHHELD | {"garmin_connect", "garmin_workout"}
+ANONYMOUS_WITHHELD = {
+    "todoist",
+    "google_calendar",
+    "garmin_connect",
+    "garmin_workout",
+    "manage_memory",
+    "search_memory",
+    "save_place",
+    "delete_place",
+    "search_conversations",
+    "read_conversation",
+}
+
+
+@pytest.fixture
+def every_tool_available() -> object:
+    """Every registered tool bindable, whatever this machine has configured."""
+    tools = []
+    for name in sorted(get_all_tool_names()):
+        tool = MagicMock()
+        tool.name = name
+        tools.append(tool)
+    with patch("src.agent.tools.get_available_tools", return_value=tools):
+        yield
+
+
+def _names(**kwargs: Any) -> set[str]:
+    return {t.name for t in get_tools_for_request(**kwargs)}
 
 
 class TestGetToolsForRequest:
@@ -50,51 +100,28 @@ class TestGetToolsForRequest:
         assert "manage_memory" in {t.name for t in get_tools_for_request(anonymous_mode=False)}
         assert "manage_memory" not in {t.name for t in get_tools_for_request(anonymous_mode=True)}
 
-    def test_returns_fewer_or_same_tools_in_anonymous_mode(self) -> None:
-        """Should return same or fewer tools in anonymous mode.
-
-        Note: the exact count depends on which integration tools are configured.
-        manage_memory is always withheld, so anonymous mode returns at least one
-        fewer tool than a standard request.
-        """
-        normal_tools = get_tools_for_request(anonymous_mode=False)
-        anonymous_tools = get_tools_for_request(anonymous_mode=True)
-
-        # Anonymous mode should have same or fewer tools
-        assert len(anonymous_tools) <= len(normal_tools)
-
-        # Count how many of the withheld tools are actually available. Derived
-        # from the module's own set so adding a withheld tool cannot make this
-        # test wrong without also making it fail loudly.
-        from src.agent.tools import _ANONYMOUS_EXCLUDED_TOOLS
-
-        normal_tool_names = {t.name for t in normal_tools}
-        withheld_available = len(_ANONYMOUS_EXCLUDED_TOOLS & normal_tool_names)
-
-        # Should be exactly this many fewer
-        assert len(anonymous_tools) == len(normal_tools) - withheld_available
-        assert not _ANONYMOUS_EXCLUDED_TOOLS & {t.name for t in anonymous_tools}
+    @pytest.mark.usefixtures("every_tool_available")
+    def test_anonymous_mode_withholds_integrations_memory_and_history(self) -> None:
+        """Exactly the withheld tools go: everything else a normal chat binds stays."""
+        assert _names(anonymous_mode=True) == _names() - ANONYMOUS_WITHHELD
 
     def test_default_parameter_is_false(self) -> None:
         """Should default to anonymous_mode=False."""
         tools = get_tools_for_request()
         assert [t for t in tools if t.name != "propose_deep_research"] == get_available_tools()
 
+    @pytest.mark.usefixtures("every_tool_available")
     def test_sports_mode_excludes_irrelevant_tools(self) -> None:
         """Sports conversations must not carry todoist/whatsapp/calendar/
         places/image-gen/code declarations - ~7k tokens re-sent every tool
         round for tools a fitness program never uses."""
-        from src.agent.tools import _SPORTS_EXCLUDED_TOOLS
-
-        tool_names = {t.name for t in get_tools_for_request(is_sports=True)}
-        assert not _SPORTS_EXCLUDED_TOOLS & tool_names
+        names = _names(is_sports=True)
+        assert not SPORTS_WITHHELD & names
         # Core sports tools must survive
-        assert "kv_store" in tool_names
-        assert "web_search" in tool_names
-        assert "manage_memory" in tool_names
+        assert {"kv_store", "web_search", "manage_memory"} <= names
         # create_file replaces execute_code for producing downloadable files
         # (e.g. ZWO workouts) in the context-lean sports profile.
-        assert "create_file" in tool_names
+        assert "create_file" in names
 
     def test_sports_mode_keeps_create_file(self) -> None:
         """execute_code is dropped for sports, so create_file must remain the
@@ -103,24 +130,17 @@ class TestGetToolsForRequest:
         assert "create_file" in tool_names
         assert "execute_code" not in tool_names
 
-    def test_sports_mode_keeps_garmin_tools(self) -> None:
-        """Garmin tools are the core of the sports feature - never excluded.
-        (Only asserted via the exclusion set: garmin availability depends on
-        integration config, so presence cannot be asserted directly.)"""
-        from src.agent.tools import _SPORTS_EXCLUDED_TOOLS
+    @pytest.mark.usefixtures("every_tool_available")
+    def test_sports_mode_keeps_the_training_tools(self) -> None:
+        """Garmin and Rouvy are the core of the sports feature - never withheld."""
+        assert {"garmin_connect", "garmin_workout", "rouvy_workout"} <= _names(is_sports=True)
 
-        assert "garmin_connect" not in _SPORTS_EXCLUDED_TOOLS
-        assert "garmin_workout" not in _SPORTS_EXCLUDED_TOOLS
-
+    @pytest.mark.usefixtures("every_tool_available")
     def test_language_mode_excludes_irrelevant_tools(self) -> None:
         """Language conversations additionally drop the garmin pair."""
-        from src.agent.tools import _LANGUAGE_EXCLUDED_TOOLS
-
-        tool_names = {t.name for t in get_tools_for_request(is_language=True)}
-        assert not _LANGUAGE_EXCLUDED_TOOLS & tool_names
-        assert "garmin_connect" in _LANGUAGE_EXCLUDED_TOOLS
-        assert "kv_store" in tool_names
-        assert "web_search" in tool_names
+        names = _names(is_language=True)
+        assert not LANGUAGE_WITHHELD & names
+        assert {"kv_store", "web_search"} <= names
 
     def test_regular_chat_keeps_all_tools(self) -> None:
         """Subsetting applies only to program conversations."""
