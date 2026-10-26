@@ -15,7 +15,7 @@ def _saved_content(content: str, files: list[dict], stop_reason: str | None) -> 
         patch(f"{module}._extract_stream_metadata", return_value=([], [], "en")),
         patch(f"{module}._collect_generated_files", return_value=(files, [])),
         patch(f"{module}._research_for_turn", return_value=None),
-        patch(f"{module}._resolve_title_update", return_value=None),
+        patch(f"{module}.resolve_title_update", return_value=None),
         patch(f"{module}.calculate_and_save_message_cost", return_value=0.0),
         patch(f"{module}.extract_artifact_refs", return_value=[]),
         patch(f"{module}.build_tool_outputs", return_value=None),

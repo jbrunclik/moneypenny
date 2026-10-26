@@ -18,7 +18,7 @@ from src.agent.context_cache import (
     CacheEntry,
     CacheProfile,
     ContextCacheManager,
-    _compute_content_hash,
+    cache_content_hash,
     get_cached_content_name,
 )
 from src.agent.tools.artifacts import update_artifact
@@ -249,59 +249,65 @@ class TestGetDynamicPromptParts:
         assert "No data stored yet" in result
 
 
-# ============ _compute_content_hash Tests ============
+# ============ Cache invalidation by content ============
 
 
-class TestComputeContentHash:
-    """Tests for content hashing."""
+def _builds(*contents: tuple[str, list[Any]]) -> int:
+    """How many caches get_or_create builds for these (prompt, tools) in turn."""
+    manager = ContextCacheManager()
+    with (
+        patch("src.agent.context_cache.Config") as config,
+        patch.object(manager, "_create_cache", return_value="cachedContents/c") as create,
+        patch("src.agent.context_cache.get_static_prompt_for_profile") as prompt_for,
+    ):
+        config.GEMINI_API_KEY = "test-key"
+        config.CONTEXT_CACHE_TTL_SECONDS = 3600
+        config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
+        config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
+        for prompt, tools in contents:
+            prompt_for.return_value = prompt
+            manager.get_or_create(CacheProfile.STANDARD, "gemini-3-flash-preview", tools)
+            _wait_for_build(manager)
+        return create.call_count
 
-    def test_same_input_same_hash(self) -> None:
-        h1 = _compute_content_hash("prompt text", [_make_tool("tool_a"), _make_tool("tool_b")])
-        h2 = _compute_content_hash("prompt text", [_make_tool("tool_a"), _make_tool("tool_b")])
-        assert h1 == h2
 
-    def test_different_prompt_different_hash(self) -> None:
-        h1 = _compute_content_hash("prompt v1", [_make_tool("tool_a")])
-        h2 = _compute_content_hash("prompt v2", [_make_tool("tool_a")])
-        assert h1 != h2
+class TestCacheInvalidation:
+    """The cache is rebuilt exactly when what it holds - the static prompt and
+    the tool declarations - changes."""
 
-    def test_different_tools_different_hash(self) -> None:
-        h1 = _compute_content_hash("prompt", [_make_tool("tool_a")])
-        h2 = _compute_content_hash("prompt", [_make_tool("tool_b")])
-        assert h1 != h2
+    def test_same_content_reuses_the_cache(self) -> None:
+        tools = [_make_tool("tool_a"), _make_tool("tool_b")]
+        assert _builds(("prompt", tools), ("prompt", tools)) == 1
 
-    def test_different_description_different_hash(self) -> None:
+    def test_tool_order_is_irrelevant(self) -> None:
+        a, b = _make_tool("tool_a"), _make_tool("tool_b")
+        assert _builds(("prompt", [b, a]), ("prompt", [a, b])) == 1
+
+    def test_a_prompt_change_rebuilds(self) -> None:
+        tools = [_make_tool("tool_a")]
+        assert _builds(("prompt v1", tools), ("prompt v2", tools)) == 2
+
+    def test_a_tool_change_rebuilds(self) -> None:
+        assert _builds(("prompt", [_make_tool("tool_a")]), ("prompt", [_make_tool("tool_b")])) == 2
+
+    def test_a_description_change_rebuilds(self) -> None:
         """A docstring change must invalidate the cache - the cached function
         declarations would otherwise keep the stale description until TTL."""
-        h1 = _compute_content_hash("prompt", [_make_tool("tool_a", description="old")])
-        h2 = _compute_content_hash("prompt", [_make_tool("tool_a", description="new")])
-        assert h1 != h2
+        old = [_make_tool("tool_a", description="old")]
+        new = [_make_tool("tool_a", description="new")]
+        assert _builds(("prompt", old), ("prompt", new)) == 2
 
-    def test_different_schema_different_hash(self) -> None:
+    def test_a_schema_change_rebuilds(self) -> None:
         """A new tool parameter must invalidate the cache."""
-        h1 = _compute_content_hash(
-            "prompt", [_make_tool("tool_a", schema={"properties": {"query": {}}})]
-        )
-        h2 = _compute_content_hash(
-            "prompt", [_make_tool("tool_a", schema={"properties": {"query": {}, "queries": {}}})]
-        )
-        assert h1 != h2
+        old = [_make_tool("tool_a", schema={"properties": {"query": {}}})]
+        new = [_make_tool("tool_a", schema={"properties": {"query": {}, "queries": {}}})]
+        assert _builds(("prompt", old), ("prompt", new)) == 2
 
-    def test_unreadable_schema_still_hashes(self) -> None:
-        """Schema extraction failure degrades to a weaker hash, not a crash."""
+    def test_an_unreadable_schema_still_caches(self) -> None:
+        """Schema extraction failure degrades to a weaker key, not a crash."""
         broken = _make_tool("tool_a")
         broken.args_schema.model_json_schema.side_effect = TypeError("no schema")
-        h = _compute_content_hash("prompt", [broken])
-        assert len(h) == 16
-
-    def test_tool_order_irrelevant(self) -> None:
-        h1 = _compute_content_hash("prompt", [_make_tool("tool_b"), _make_tool("tool_a")])
-        h2 = _compute_content_hash("prompt", [_make_tool("tool_a"), _make_tool("tool_b")])
-        assert h1 == h2
-
-    def test_hash_length(self) -> None:
-        h = _compute_content_hash("prompt", [_make_tool("tool")])
-        assert len(h) == 16  # SHA-256 truncated to 16 hex chars
+        assert _builds(("prompt", [broken])) == 1
 
 
 # ============ ContextCacheManager Tests ============
@@ -423,7 +429,7 @@ class TestContextCacheManager:
         now = time.time()
         manager._caches["standard:gemini-3-flash-preview"] = CacheEntry(
             cache_name="cachedContents/old",
-            content_hash=_compute_content_hash("static prompt", [tool]),
+            content_hash=cache_content_hash("static prompt", [tool]),
             created_at=now - 3500,
             expires_at=now + 100,  # Expires in 100s, which is < 300s buffer
         )
@@ -449,7 +455,7 @@ class TestContextCacheManager:
         now = time.time()
         entry = CacheEntry(
             cache_name="cachedContents/live",
-            content_hash=_compute_content_hash("static prompt", [tool]),
+            content_hash=cache_content_hash("static prompt", [tool]),
             created_at=now - 3000,
             expires_at=now + expires_in,
         )
@@ -655,7 +661,7 @@ class TestSharedCacheRegistry:
         mock_config.CONTEXT_CACHE_RENEWAL_BUFFER_SECONDS = 300
         mock_config.CONTEXT_CACHE_EXTEND_AHEAD_SECONDS = 600
 
-        content_hash = _compute_content_hash("static prompt", [_make_tool()])
+        content_hash = cache_content_hash("static prompt", [_make_tool()])
         mock_shared_registry.get_context_cache_entry.return_value = {
             "cache_name": "cachedContents/other-worker",
             "content_hash": content_hash,

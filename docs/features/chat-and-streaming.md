@@ -359,9 +359,9 @@ The `forceTools` state in Zustand allows forcing specific tools to be used. Curr
 
 ### Conversation Titles
 
-Titles are set two ways, both resolved by `_resolve_title_update()` in
-[chat_save.py](../../src/api/helpers/chat_save.py) (called from both the stream save
-pipeline and the batch endpoint):
+Titles are set two ways, both resolved by `resolve_title_update()` in
+[conversation_title.py](../../src/api/helpers/conversation_title.py) (called by
+chat_save.py from both the stream save pipeline and the batch endpoint):
 
 1. **First exchange (auto-generation)**: while the title is still `DEFAULT_CONVERSATION_TITLE`,
    `generate_title()` in [title.py](../../src/agent/title.py) creates one with a cheap Flash

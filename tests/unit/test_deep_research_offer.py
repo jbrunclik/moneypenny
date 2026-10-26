@@ -52,7 +52,7 @@ def test_saving_a_new_offer_supersedes_the_open_one(
 
     monkeypatch.setattr(chat_save, "db", test_database)
     monkeypatch.setattr(chat_save, "calculate_and_save_message_cost", MagicMock())
-    monkeypatch.setattr(chat_save, "_resolve_title_update", MagicMock(return_value=None))
+    monkeypatch.setattr(chat_save, "resolve_title_update", MagicMock(return_value=None))
     offer_call = _call(question="Q", context="Praha", sub_questions=["a", "b"])
     args = ([], {}, test_conversation.id, test_conversation.user_id, "m", "q", "r", True)
 

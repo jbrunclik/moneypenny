@@ -60,8 +60,11 @@ class CacheEntry:
     expires_at: float
 
 
-def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
-    """Compute SHA-256 hash for cache invalidation on prompt/tool changes.
+def cache_content_hash(prompt: str, tools: list[Any]) -> str:
+    """The key a cache is valid for: SHA-256 of the prompt and tool declarations.
+
+    Stored with every cache in the shared registry, so all workers agree on
+    whether a cache built elsewhere matches what they would build.
 
     Tool descriptions and schemas are part of the cached content, so they must
     be part of the hash - hashing names alone would keep serving a stale cache
@@ -134,7 +137,7 @@ class ContextCacheManager:
         """
         try:
             prompt = get_static_prompt_for_profile(profile.value)
-            content_hash = _compute_content_hash(prompt, tools)
+            content_hash = cache_content_hash(prompt, tools)
             cache_key = f"{profile.value}:{model_name}"
 
             with self._lock:

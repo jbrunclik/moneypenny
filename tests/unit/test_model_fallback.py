@@ -139,7 +139,7 @@ def test_cost_is_priced_at_the_model_that_answered(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(
         chat_save, "_persist_assistant_message", MagicMock(return_value=MagicMock(id="m1"))
     )
-    monkeypatch.setattr(chat_save, "_resolve_title_update", MagicMock(return_value=None))
+    monkeypatch.setattr(chat_save, "resolve_title_update", MagicMock(return_value=None))
     monkeypatch.setattr(chat_save, "_collect_generated_files", MagicMock(return_value=([], [])))
 
     chat_save.save_message_to_db(

@@ -17,12 +17,10 @@ from src.agent.artifact_refs import extract_artifact_refs
 from src.agent.cancellation import STOPPED_EMPTY_TEXT
 from src.agent.content import (
     detect_response_language,
-    extract_conversation_title,
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
 from src.agent.deep_research.offer import extract_offer, seconds_open
-from src.agent.title import generate_title
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
@@ -30,6 +28,7 @@ from src.agent.tools import (
     set_current_message_files,
     set_location_context,
 )
+from src.api.helpers.conversation_title import resolve_title_update
 from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
@@ -252,63 +251,6 @@ def _superseded(research: dict[str, Any]) -> dict[str, Any]:
     return research
 
 
-def _resolve_title_update(
-    conv_id: str,
-    user_id: str,
-    message_text: str,
-    content: str,
-    result_messages: list[Any],
-) -> str | None:
-    """Resolve the conversation title change for this turn, if any.
-
-    First exchange (title still default): auto-generate via generate_title,
-    which takes precedence over any set_conversation_title call in the same
-    turn. Later turns: apply the agent's set_conversation_title retitle when
-    it differs from the current title. Program conversations (sports, language,
-    planner) are never retitled.
-
-    Wrapped in its own try/except so a title failure can never abort the
-    message save (which already succeeded).
-    """
-    conv = db.get_conversation(conv_id, user_id)
-    if not conv:
-        return None
-
-    try:
-        if conv.title == Config.DEFAULT_CONVERSATION_TITLE:
-            logger.debug(
-                "Auto-generating conversation title from stream",
-                extra={"user_id": user_id, "conversation_id": conv_id},
-            )
-            # The Stop placeholder says nothing about the topic
-            reply = "" if content == STOPPED_EMPTY_TEXT else content
-            new_title = generate_title(message_text, reply)
-        elif conv.is_sports or conv.is_language or conv.is_planning:
-            return None
-        else:
-            new_title = extract_conversation_title(result_messages)
-            if new_title == conv.title:
-                return None
-
-        if new_title is not None:
-            db.update_conversation(conv_id, user_id, title=new_title)
-            logger.debug(
-                "Conversation title updated from stream",
-                extra={
-                    "user_id": user_id,
-                    "conversation_id": conv_id,
-                    "title": new_title,
-                },
-            )
-        return new_title
-    except Exception:
-        logger.exception(
-            "Title generation/update failed (continuing without title)",
-            extra={"user_id": user_id, "conversation_id": conv_id},
-        )
-        return None
-
-
 def _visible_content(
     content: str, all_generated_files: list[dict[str, Any]], stop_reason: str | None
 ) -> str:
@@ -437,7 +379,7 @@ def save_message_to_db(
             research,
         )
 
-        generated_title = _resolve_title_update(
+        generated_title = resolve_title_update(
             conv_id, user_id, message_text, content, result_messages
         )
 

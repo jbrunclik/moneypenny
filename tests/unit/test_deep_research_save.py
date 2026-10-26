@@ -16,7 +16,7 @@ def save(test_database: Any, monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     monkeypatch.setattr(chat_save, "db", test_database)
     priced = MagicMock(return_value=0.05)
     monkeypatch.setattr(chat_save, "calculate_and_save_message_cost", priced)
-    monkeypatch.setattr(chat_save, "_resolve_title_update", MagicMock(return_value=None))
+    monkeypatch.setattr(chat_save, "resolve_title_update", MagicMock(return_value=None))
     return priced
 
 
