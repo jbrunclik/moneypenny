@@ -259,34 +259,10 @@ class AgentMixin:
                 updates.append(f"{column} = ?")
                 params.append(stored)
 
-        # Determine if we need to recalculate next_run_at
-        needs_schedule_update = (
-            not isinstance(schedule, EllipsisType)
-            or not isinstance(timezone, EllipsisType)
-            or not isinstance(enabled, EllipsisType)
-        )
-
-        if needs_schedule_update:
-            # Determine the effective values after update
-            effective_enabled = (
-                enabled if not isinstance(enabled, EllipsisType) else current_agent.enabled
-            )
-            effective_schedule = (
-                schedule if not isinstance(schedule, EllipsisType) else current_agent.schedule
-            )
-            effective_timezone = (
-                timezone if not isinstance(timezone, EllipsisType) else current_agent.timezone
-            )
-
-            if not effective_enabled or not effective_schedule:
-                # Clear next_run_at if disabled or no schedule
-                updates.append("next_run_at = ?")
-                params.append(None)
-            else:
-                # Recalculate next_run_at
-                next_run = self.calculate_next_run(effective_schedule, effective_timezone or "UTC")
-                updates.append("next_run_at = ?")
-                params.append(next_run.isoformat() if next_run else None)
+        next_run_at = self._rescheduled_next_run(current_agent, schedule, timezone, enabled)
+        if not isinstance(next_run_at, EllipsisType):
+            updates.append("next_run_at = ?")
+            params.append(next_run_at)
 
         params.extend([agent_id, user_id])
 
@@ -302,28 +278,77 @@ class AgentMixin:
                 conn.rollback()
                 return None
 
-            # Update conversation title if name changed
-            if not isinstance(name, EllipsisType) and name is not None:
-                self._execute_with_timing(
-                    conn,
-                    """UPDATE conversations SET title = ?
-                       WHERE agent_id = ? AND user_id = ?""",
-                    (f"Agent: {name}", agent_id, user_id),
-                )
-
-            # Update conversation model if agent model changed
-            if not isinstance(model, EllipsisType) and model is not None:
-                self._execute_with_timing(
-                    conn,
-                    """UPDATE conversations SET model = ?
-                       WHERE agent_id = ? AND user_id = ?""",
-                    (model, agent_id, user_id),
-                )
-
+            self._sync_agent_conversation(conn, agent_id, user_id, name, model)
             conn.commit()
 
             # Fetch and return the updated agent
             return self.get_agent(agent_id, user_id)
+
+    def _rescheduled_next_run(
+        self,
+        current_agent: Agent,
+        schedule: str | EllipsisType | None,
+        timezone: str | EllipsisType | None,
+        enabled: bool | EllipsisType | None,
+    ) -> str | EllipsisType | None:
+        """The stored next_run_at after an update (Ellipsis = leave it as is).
+
+        Recalculated when schedule, timezone or enabled changes: cleared if
+        disabled or unscheduled, else computed from the effective values.
+        """
+        # Determine if we need to recalculate next_run_at
+        needs_schedule_update = (
+            not isinstance(schedule, EllipsisType)
+            or not isinstance(timezone, EllipsisType)
+            or not isinstance(enabled, EllipsisType)
+        )
+        if not needs_schedule_update:
+            return ...
+
+        # Determine the effective values after update
+        effective_enabled = (
+            enabled if not isinstance(enabled, EllipsisType) else current_agent.enabled
+        )
+        effective_schedule = (
+            schedule if not isinstance(schedule, EllipsisType) else current_agent.schedule
+        )
+        effective_timezone = (
+            timezone if not isinstance(timezone, EllipsisType) else current_agent.timezone
+        )
+
+        if not effective_enabled or not effective_schedule:
+            # Clear next_run_at if disabled or no schedule
+            return None
+        # Recalculate next_run_at
+        next_run = self.calculate_next_run(effective_schedule, effective_timezone or "UTC")
+        return next_run.isoformat() if next_run else None
+
+    def _sync_agent_conversation(
+        self,
+        conn: sqlite3.Connection,
+        agent_id: str,
+        user_id: str,
+        name: str | EllipsisType | None,
+        model: str | EllipsisType | None,
+    ) -> None:
+        """Carry a name or model change over to the agent's conversation."""
+        # Update conversation title if name changed
+        if not isinstance(name, EllipsisType) and name is not None:
+            self._execute_with_timing(
+                conn,
+                """UPDATE conversations SET title = ?
+                   WHERE agent_id = ? AND user_id = ?""",
+                (f"Agent: {name}", agent_id, user_id),
+            )
+
+        # Update conversation model if agent model changed
+        if not isinstance(model, EllipsisType) and model is not None:
+            self._execute_with_timing(
+                conn,
+                """UPDATE conversations SET model = ?
+                   WHERE agent_id = ? AND user_id = ?""",
+                (model, agent_id, user_id),
+            )
 
     def delete_agent(self, agent_id: str, user_id: str) -> bool:
         """Delete an agent and its associated conversation.

@@ -61,18 +61,7 @@ class SearchMixin:
         """
         # Clean and validate query
         query = query.strip()
-        if not query:
-            return [], 0
-
-        # Escape FTS5 special characters to prevent query syntax errors
-        # FTS5 special chars: " * ( ) : ^ -
-        escaped_query = query.replace('"', '""')
-
-        # Build prefix-matching query: "hello world" -> "hello"* "world"*
-        # This provides better type-ahead search experience
-        words = escaped_query.split()
-        fts_query = " ".join(f'"{word}"*' for word in words if word)
-
+        fts_query = _fts_query(query)
         if not fts_query:
             return [], 0
 
@@ -113,35 +102,7 @@ class SearchMixin:
             if not rows:
                 return [], 0
 
-            # Deduplicate results in Python by message_id (for message matches)
-            # or conversation_id (for title matches). This handles duplicate
-            # index entries that can occur due to trigger timing or other issues.
-            seen: set[str] = set()
-            unique_results: list[SearchResult] = []
-
-            for row in rows:
-                # Use message_id as unique key for message matches,
-                # conversation_id for title matches
-                unique_key = row["message_id"] or row["conversation_id"]
-                if unique_key in seen:
-                    continue
-                seen.add(unique_key)
-
-                unique_results.append(
-                    SearchResult(
-                        conversation_id=row["conversation_id"],
-                        conversation_title=row["conversation_title"],
-                        message_id=row["message_id"],
-                        message_content=row["message_snippet"],
-                        match_type=row["match_type"],
-                        rank=float(row["rank"]),
-                        created_at=(
-                            datetime.fromisoformat(row["message_created_at"])
-                            if row["message_created_at"]
-                            else None
-                        ),
-                    )
-                )
+            unique_results = _unique_results(rows)
 
             # Total count is the number of unique results
             total_count = len(unique_results)
@@ -160,3 +121,50 @@ class SearchMixin:
             )
 
             return paginated_results, total_count
+
+
+def _fts_query(query: str) -> str:
+    """The FTS5 MATCH expression for a stripped query ("" when it has no words)."""
+    # Escape FTS5 special characters to prevent query syntax errors
+    # FTS5 special chars: " * ( ) : ^ -
+    escaped_query = query.replace('"', '""')
+
+    # Build prefix-matching query: "hello world" -> "hello"* "world"*
+    # This provides better type-ahead search experience
+    words = escaped_query.split()
+    return " ".join(f'"{word}"*' for word in words if word)
+
+
+def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:
+    """The rows as SearchResults, one per message (or title) match."""
+    # Deduplicate results in Python by message_id (for message matches)
+    # or conversation_id (for title matches). This handles duplicate
+    # index entries that can occur due to trigger timing or other issues.
+    seen: set[str] = set()
+    unique_results: list[SearchResult] = []
+
+    for row in rows:
+        # Use message_id as unique key for message matches,
+        # conversation_id for title matches
+        unique_key = row["message_id"] or row["conversation_id"]
+        if unique_key in seen:
+            continue
+        seen.add(unique_key)
+
+        unique_results.append(
+            SearchResult(
+                conversation_id=row["conversation_id"],
+                conversation_title=row["conversation_title"],
+                message_id=row["message_id"],
+                message_content=row["message_snippet"],
+                match_type=row["match_type"],
+                rank=float(row["rank"]),
+                created_at=(
+                    datetime.fromisoformat(row["message_created_at"])
+                    if row["message_created_at"]
+                    else None
+                ),
+            )
+        )
+
+    return unique_results

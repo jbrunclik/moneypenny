@@ -421,6 +421,33 @@ class TestAgentDatabaseOperations:
         with patch.object(test_database, "get_agent", return_value=sample_agent):
             assert test_database.update_agent("agent-123", "user-123", name="Renamed") is None
 
+    def test_update_recalculates_next_run_only_when_scheduling_changes(self, test_database):
+        user = test_database.get_or_create_user(email="sched@example.com", name="Sched")
+        agent = test_database.create_agent(user.id, "Sched", schedule="0 9 * * *")
+        assert agent.next_run_at is not None
+
+        kept = test_database.update_agent(agent.id, user.id, description="new")
+        disabled = test_database.update_agent(agent.id, user.id, enabled=False)
+        still_disabled = test_database.update_agent(agent.id, user.id, schedule="0 10 * * *")
+        enabled = test_database.update_agent(agent.id, user.id, enabled=True)
+        unscheduled = test_database.update_agent(agent.id, user.id, schedule=None)
+
+        assert kept.next_run_at == agent.next_run_at
+        assert disabled.next_run_at is None
+        assert still_disabled.next_run_at is None
+        assert enabled.next_run_at is not None
+        assert enabled.next_run_at.hour == 10
+        assert unscheduled.next_run_at is None
+
+    def test_update_carries_name_and_model_to_the_conversation(self, test_database):
+        user = test_database.get_or_create_user(email="conv@example.com", name="Conv")
+        agent = test_database.create_agent(user.id, "Old")
+
+        test_database.update_agent(agent.id, user.id, name="New", model="gemini-test-model")
+
+        conv = test_database.get_conversation(agent.conversation_id, user.id)
+        assert (conv.title, conv.model) == ("Agent: New", "gemini-test-model")
+
 
 # =============================================================================
 # Dev scheduler tests
