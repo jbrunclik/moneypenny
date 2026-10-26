@@ -68,6 +68,33 @@ export function isMobileViewport(): boolean {
 let stopCallback: (() => void) | null = null;
 
 /**
+ * Subscribe to streaming state changes to update the send button's appearance.
+ * fireImmediately ensures we get the current state on subscription.
+ */
+function subscribeSendButtonToStream(): void {
+  useStore.subscribe(
+    (state) => {
+      // Per-conversation: stop mode only when THIS conversation has an active
+      // stream (streamingConversationId alone clobbers with concurrent streams)
+      const currentConvId = state.currentConversation?.id;
+      const request = currentConvId !== undefined ? state.activeRequests.get(currentConvId) : undefined;
+      const activeStream = request?.type === 'stream';
+      return { activeStream, currentConvId, stopping: request?.stopping === true };
+    },
+    () => {
+      // Recompute mode from stream state AND composer content - typed text
+      // keeps the button in Send (steering) mode even while streaming
+      updateSendButtonState();
+    },
+    {
+      equalityFn: (a, b) =>
+        a.activeStream === b.activeStream && a.currentConvId === b.currentConvId && a.stopping === b.stopping,
+      fireImmediately: true,
+    }
+  );
+}
+
+/**
  * Initialize message input handlers
  * @param onSend - Callback when send button is clicked (in send mode)
  * @param onStop - Callback when stop button is clicked (in stop mode)
@@ -117,28 +144,7 @@ export function initMessageInput(onSend: () => void, onStop?: () => void): void 
     }
   });
 
-  // Subscribe to streaming state changes to update button appearance
-  // fireImmediately ensures we get the current state on subscription
-  useStore.subscribe(
-    (state) => {
-      // Per-conversation: stop mode only when THIS conversation has an active
-      // stream (streamingConversationId alone clobbers with concurrent streams)
-      const currentConvId = state.currentConversation?.id;
-      const request = currentConvId !== undefined ? state.activeRequests.get(currentConvId) : undefined;
-      const activeStream = request?.type === 'stream';
-      return { activeStream, currentConvId, stopping: request?.stopping === true };
-    },
-    () => {
-      // Recompute mode from stream state AND composer content - typed text
-      // keeps the button in Send (steering) mode even while streaming
-      updateSendButtonState();
-    },
-    {
-      equalityFn: (a, b) =>
-        a.activeStream === b.activeStream && a.currentConvId === b.currentConvId && a.stopping === b.stopping,
-      fireImmediately: true,
-    }
-  );
+  subscribeSendButtonToStream();
 
   // Clipboard paste handler for images
   input.addEventListener('paste', handlePaste);
