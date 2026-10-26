@@ -4,7 +4,7 @@
  * composer pill above the textarea. Presentation only.
  */
 import type { QuickAction } from '../types/api';
-import { clearElement, escapeHtml } from '../utils/dom';
+import { clearElement, createElement } from '../utils/dom';
 
 export function filterQuickActions(actions: QuickAction[], filter: string): QuickAction[] {
   const q = filter.trim().toLowerCase();
@@ -21,16 +21,25 @@ export function renderSlashMenu(
   onPick: (action: QuickAction) => void
 ): void {
   clearElement(container);
-  container.innerHTML = actions
-    .map(
-      (a, i) => `
-      <button type="button" class="qa-slash-item${i === activeIndex ? ' active' : ''}" role="option" aria-selected="${i === activeIndex}" data-index="${i}">
-        <span class="qa-slash-emoji" aria-hidden="true">${escapeHtml(a.emoji)}</span>
-        <span class="qa-slash-label">${escapeHtml(a.label)}</span>
-        <span class="qa-slash-body">${escapeHtml(a.body)}</span>
-      </button>`
+  container.append(
+    ...actions.map((a, i) =>
+      createElement(
+        'button',
+        {
+          type: 'button',
+          class: `qa-slash-item${i === activeIndex ? ' active' : ''}`,
+          role: 'option',
+          'aria-selected': String(i === activeIndex),
+          'data-index': String(i),
+        },
+        [
+          createElement('span', { class: 'qa-slash-emoji', 'aria-hidden': 'true' }, [a.emoji]),
+          createElement('span', { class: 'qa-slash-label' }, [a.label]),
+          createElement('span', { class: 'qa-slash-body' }, [a.body]),
+        ]
+      )
     )
-    .join('');
+  );
   container.onclick = (e) => {
     const item = (e.target as HTMLElement).closest<HTMLElement>('.qa-slash-item');
     if (!item) return;

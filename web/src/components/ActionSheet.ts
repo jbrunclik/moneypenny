@@ -3,14 +3,15 @@
  * for one subject, replacing crammed multi-button swipe rows. One instance
  * at a time; backdrop tap and Escape dismiss.
  */
-import { escapeHtml } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { hapticTick } from '../utils/haptics';
+import { createIconElement, type IconHtml } from '../utils/icons';
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 
 export interface SheetAction {
   label: string;
-  icon: string;
+  icon: IconHtml;
   danger?: boolean;
   onSelect: () => void;
 }
@@ -27,21 +28,20 @@ export function showActionSheet(title: string, actions: SheetAction[]): void {
   const overlay = document.createElement('div');
   overlay.id = SHEET_ID;
   overlay.className = 'action-sheet-overlay';
-  overlay.innerHTML = `
-    <div class="action-sheet" role="menu" aria-label="${escapeHtml(title)}">
-      <div class="action-sheet-title">${escapeHtml(title)}</div>
-      ${actions
-        .map(
-          (action, index) => `
-        <button class="action-sheet-item${action.danger ? ' danger' : ''}" data-action-index="${index}" role="menuitem">
-          <span class="action-sheet-icon">${action.icon}</span>
-          <span>${escapeHtml(action.label)}</span>
-        </button>`
-        )
-        .join('')}
-      <button class="action-sheet-item action-sheet-cancel">Cancel</button>
-    </div>
-  `;
+  const items = actions.map((action, index) =>
+    createElement(
+      'button',
+      { class: `action-sheet-item${action.danger ? ' danger' : ''}`, 'data-action-index': String(index), role: 'menuitem' },
+      [createIconElement('action-sheet-icon', action.icon), createElement('span', {}, [action.label])]
+    )
+  );
+  overlay.appendChild(
+    createElement('div', { class: 'action-sheet', role: 'menu', 'aria-label': title }, [
+      createElement('div', { class: 'action-sheet-title' }, [title]),
+      ...items,
+      createElement('button', { class: 'action-sheet-item action-sheet-cancel' }, ['Cancel']),
+    ])
+  );
 
   overlay.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;

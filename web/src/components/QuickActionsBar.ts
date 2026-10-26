@@ -6,8 +6,8 @@
  * when it is mounted/visible and what a tap does.
  */
 import type { QuickAction } from '../types/api';
-import { clearElement, escapeHtml } from '../utils/dom';
-import { EDIT_ICON } from '../utils/icons';
+import { clearElement, createElement } from '../utils/dom';
+import { EDIT_ICON, setIcon } from '../utils/icons';
 
 type TapHandler = (action: QuickAction, chip: HTMLElement) => void;
 
@@ -29,17 +29,22 @@ export function renderQuickActionsBar(
   clearElement(container);
   const scroller = document.createElement('div');
   scroller.className = 'quick-actions-scroller';
-  scroller.innerHTML =
-    actions
-      .map(
-        (a) => `
-      <button type="button" class="quick-action-chip" data-action-id="${escapeHtml(a.id)}" title="${escapeHtml(a.body)}">
-        <span class="quick-action-chip-emoji" aria-hidden="true">${escapeHtml(a.emoji)}</span>
-        <span class="quick-action-chip-label">${escapeHtml(a.label)}</span>
-      </button>`
-      )
-      .join('') +
-    `<button type="button" class="quick-action-edit-chip" title="Edit quick actions" aria-label="Edit quick actions">${EDIT_ICON}</button>`;
+  const editChip = createElement('button', {
+    type: 'button',
+    class: 'quick-action-edit-chip',
+    title: 'Edit quick actions',
+    'aria-label': 'Edit quick actions',
+  });
+  setIcon(editChip, EDIT_ICON);
+  scroller.append(
+    ...actions.map((a) =>
+      createElement('button', { type: 'button', class: 'quick-action-chip', 'data-action-id': a.id, title: a.body }, [
+        createElement('span', { class: 'quick-action-chip-emoji', 'aria-hidden': 'true' }, [a.emoji]),
+        createElement('span', { class: 'quick-action-chip-label' }, [a.label]),
+      ])
+    ),
+    editChip
+  );
   container.appendChild(scroller);
 
   if (!handlers.has(container)) {
