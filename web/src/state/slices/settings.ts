@@ -10,7 +10,7 @@ import type {
 import type { AppSlice } from '../store';
 
 /** Each integration's connection status; null until the settings popup fetches it. */
-export interface IntegrationStatuses {
+interface IntegrationStatuses {
   todoist: TodoistStatus | null;
   calendar: CalendarStatus | null;
   garmin: GarminStatus | null;
