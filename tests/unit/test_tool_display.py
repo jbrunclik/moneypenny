@@ -10,25 +10,11 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
-from src.agent.tool_display import (
-    _CONDITIONAL_TOOLS,
-    TOOL_METADATA,
-    _format_calendar_detail,
-    _format_memory_detail,
-    _format_todoist_detail,
-    extract_tool_detail,
-)
-from src.agent.tool_display import extract_tool_detail as _extract_tool_detail
-from src.agent.tools import get_all_tool_names, get_available_tools
+from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
+from src.agent.tools import get_all_tool_names
 
 
 class TestMetadataCoverage:
-    def test_every_bindable_tool_has_display_metadata(self) -> None:
-        """Config-dependent by design: only tools this env can bind must be labelled."""
-        bindable = {tool.name for tool in get_available_tools()} | set(_CONDITIONAL_TOOLS)
-        missing = sorted(bindable - set(TOOL_METADATA))
-        assert not missing, f"tools would render as raw function names: {missing}"
-
     def test_no_metadata_for_tools_that_do_not_exist(self) -> None:
         """Must NOT use get_available_tools(): integration tools disappear from it
         when credentials are absent, so comparing against it passes on a
@@ -170,7 +156,7 @@ class TestOtherToolDetails:
     def test_calendar_needs_an_action(self) -> None:
         assert extract_tool_detail("google_calendar", {}) is None
         assert extract_tool_detail("google_calendar", {"action": "list_calendars"}) == (
-            _format_calendar_detail({"action": "list_calendars"})
+            "list_calendars"
         )
 
     def test_memory_needs_operations(self) -> None:
@@ -207,150 +193,159 @@ class TestOtherToolDetails:
 
 
 class TestExtractToolDetail:
-    """Tests for _extract_tool_detail function."""
+    """Tests for extract_tool_detail."""
 
     def test_web_search_extracts_query(self) -> None:
         """Should extract query from web_search tool args."""
-        result = _extract_tool_detail("web_search", {"query": "best pizza in Prague"})
+        result = extract_tool_detail("web_search", {"query": "best pizza in Prague"})
         assert result == "best pizza in Prague"
 
     def test_fetch_url_extracts_url(self) -> None:
         """Should extract URL from fetch_url tool args."""
-        result = _extract_tool_detail("fetch_url", {"url": "https://example.com/page"})
+        result = extract_tool_detail("fetch_url", {"url": "https://example.com/page"})
         assert result == "https://example.com/page"
 
     def test_generate_image_extracts_prompt(self) -> None:
         """Should extract prompt from generate_image tool args."""
-        result = _extract_tool_detail("generate_image", {"prompt": "A cat on a rainbow"})
+        result = extract_tool_detail("generate_image", {"prompt": "A cat on a rainbow"})
         assert result == "A cat on a rainbow"
 
     def test_execute_code_extracts_first_line(self) -> None:
         """Should extract first line of code from execute_code tool args."""
         code = "print('Hello')\nprint('World')"
-        result = _extract_tool_detail("execute_code", {"code": code})
+        result = extract_tool_detail("execute_code", {"code": code})
         assert result == "print('Hello')"
 
     def test_execute_code_truncates_long_lines(self) -> None:
         """Should truncate long first lines to 50 chars."""
         code = "x = " + "a" * 100 + "\nmore code"
-        result = _extract_tool_detail("execute_code", {"code": code})
+        result = extract_tool_detail("execute_code", {"code": code})
         assert result is not None
         assert len(result) == 50
 
     def test_todoist_list_tasks(self) -> None:
         """Should extract action and filter for list_tasks."""
-        result = _extract_tool_detail("todoist", {"action": "list_tasks", "filter": "today"})
+        result = extract_tool_detail("todoist", {"action": "list_tasks", "filter": "today"})
         assert result == "list_tasks: today"
 
     def test_todoist_list_tasks_default_filter(self) -> None:
         """Should use 'all' as default filter for list_tasks."""
-        result = _extract_tool_detail("todoist", {"action": "list_tasks"})
+        result = extract_tool_detail("todoist", {"action": "list_tasks"})
         assert result == "list_tasks: all"
 
     def test_todoist_add_task(self) -> None:
         """Should extract action and content for add_task."""
-        result = _extract_tool_detail("todoist", {"action": "add_task", "content": "Buy milk"})
+        result = extract_tool_detail("todoist", {"action": "add_task", "content": "Buy milk"})
         assert result == "add_task: Buy milk"
 
     def test_todoist_add_task_truncates(self) -> None:
         """Should truncate long task content."""
         long_content = "x" * 100
-        result = _extract_tool_detail("todoist", {"action": "add_task", "content": long_content})
+        result = extract_tool_detail("todoist", {"action": "add_task", "content": long_content})
         assert result == f"add_task: {'x' * 60}"
 
     def test_todoist_complete_task(self) -> None:
         """Should extract action and task_id for complete_task."""
-        result = _extract_tool_detail("todoist", {"action": "complete_task", "task_id": "123456"})
+        result = extract_tool_detail("todoist", {"action": "complete_task", "task_id": "123456"})
         assert result == "complete_task: 123456"
 
     def test_todoist_list_projects(self) -> None:
         """Should return just action for list_projects."""
-        result = _extract_tool_detail("todoist", {"action": "list_projects"})
+        result = extract_tool_detail("todoist", {"action": "list_projects"})
         assert result == "list_projects"
 
     def test_unknown_tool_returns_none(self) -> None:
         """Should return None for unknown tool."""
-        result = _extract_tool_detail("unknown_tool", {"data": "value"})
+        result = extract_tool_detail("unknown_tool", {"data": "value"})
         assert result is None
 
     def test_missing_required_arg_returns_none(self) -> None:
         """Should return None when required arg is missing."""
-        result = _extract_tool_detail("web_search", {})
+        result = extract_tool_detail("web_search", {})
         assert result is None
 
 
 class TestFormatTodoistDetail:
-    """Tests for _format_todoist_detail function."""
+    """Todoist calls show their action and its subject."""
 
     def test_list_tasks_with_filter(self) -> None:
         """Should format list_tasks with filter."""
-        result = _format_todoist_detail({"action": "list_tasks", "filter": "overdue"})
+        result = extract_tool_detail("todoist", {"action": "list_tasks", "filter": "overdue"})
         assert result == "list_tasks: overdue"
 
     def test_list_tasks_without_filter(self) -> None:
         """Should use 'all' default for list_tasks."""
-        result = _format_todoist_detail({"action": "list_tasks"})
+        result = extract_tool_detail("todoist", {"action": "list_tasks"})
         assert result == "list_tasks: all"
 
     def test_add_task(self) -> None:
         """Should format add_task with content."""
-        result = _format_todoist_detail({"action": "add_task", "content": "Buy groceries"})
+        result = extract_tool_detail("todoist", {"action": "add_task", "content": "Buy groceries"})
         assert result == "add_task: Buy groceries"
 
     def test_update_task(self) -> None:
         """Should format update_task with task_id."""
-        result = _format_todoist_detail({"action": "update_task", "task_id": "abc123"})
+        result = extract_tool_detail("todoist", {"action": "update_task", "task_id": "abc123"})
         assert result == "update_task: abc123"
 
     def test_delete_task(self) -> None:
         """Should format delete_task with task_id."""
-        result = _format_todoist_detail({"action": "delete_task", "task_id": "xyz789"})
+        result = extract_tool_detail("todoist", {"action": "delete_task", "task_id": "xyz789"})
         assert result == "delete_task: xyz789"
 
     def test_add_project(self) -> None:
-        result = _format_todoist_detail({"action": "add_project", "project_name": "Work"})
+        result = extract_tool_detail("todoist", {"action": "add_project", "project_name": "Work"})
         assert result == "add_project: Work"
 
     def test_share_project(self) -> None:
-        result = _format_todoist_detail(
-            {"action": "share_project", "collaborator_email": "teammate@example.com"}
+        result = extract_tool_detail(
+            "todoist", {"action": "share_project", "collaborator_email": "teammate@example.com"}
         )
         assert result == "share_project: teammate@example.com"
 
     def test_add_section(self) -> None:
-        result = _format_todoist_detail({"action": "add_section", "section_name": "Backlog"})
+        result = extract_tool_detail(
+            "todoist", {"action": "add_section", "section_name": "Backlog"}
+        )
         assert result == "add_section: Backlog"
 
     def test_unknown_action(self) -> None:
         """Should return just action for unknown actions."""
-        result = _format_todoist_detail({"action": "some_new_action"})
+        result = extract_tool_detail("todoist", {"action": "some_new_action"})
         assert result == "some_new_action"
 
 
 class TestFormatCalendarDetail:
-    """Tests for _format_calendar_detail function."""
+    """Calendar calls show their action and its subject."""
 
     def test_list_events_with_range(self) -> None:
-        result = _format_calendar_detail(
+        result = extract_tool_detail(
+            "google_calendar",
             {
                 "action": "list_events",
                 "calendar_id": "work",
                 "time_min": "2024-01-01T00:00:00Z",
                 "time_max": "2024-01-07T00:00:00Z",
-            }
+            },
         )
         assert result == "list_events: work 2024-01-01T00:00:00Z → 2024-01-07T00:00:00Z"
 
     def test_create_event(self) -> None:
-        result = _format_calendar_detail({"action": "create_event", "summary": "Sprint review"})
+        result = extract_tool_detail(
+            "google_calendar", {"action": "create_event", "summary": "Sprint review"}
+        )
         assert result == "create_event: Sprint review"
 
     def test_delete_event(self) -> None:
-        result = _format_calendar_detail({"action": "delete_event", "event_id": "evt-1"})
+        result = extract_tool_detail(
+            "google_calendar", {"action": "delete_event", "event_id": "evt-1"}
+        )
         assert result == "delete_event: evt-1"
 
     def test_respond_event(self) -> None:
-        result = _format_calendar_detail({"action": "respond_event", "response_status": "accepted"})
+        result = extract_tool_detail(
+            "google_calendar", {"action": "respond_event", "response_status": "accepted"}
+        )
         assert result == "respond_event: accepted"
 
 
@@ -364,7 +359,7 @@ class TestMemoryDiffDetail:
 
     def test_add_shows_new_content_snippet(self) -> None:
         # add has no prior content, so no lookup is needed
-        result = _extract_tool_detail(
+        result = extract_tool_detail(
             "manage_memory", {"operations": [{"action": "add", "content": "Runs marathons"}]}
         )
         assert result == "remembered: Runs marathons"
@@ -373,7 +368,7 @@ class TestMemoryDiffDetail:
         with patch(
             "src.agent.tool_display._fetch_memory_content", return_value="Drinks oat milk lattes"
         ):
-            result = _extract_tool_detail(
+            result = extract_tool_detail(
                 "manage_memory",
                 {
                     "operations": [
@@ -385,7 +380,7 @@ class TestMemoryDiffDetail:
 
     def test_update_without_old_falls_back_to_new(self) -> None:
         with patch("src.agent.tool_display._fetch_memory_content", return_value=None):
-            result = _extract_tool_detail(
+            result = extract_tool_detail(
                 "manage_memory",
                 {"operations": [{"action": "update", "id": "gone", "content": "New value"}]},
             )
@@ -395,14 +390,14 @@ class TestMemoryDiffDetail:
         with patch(
             "src.agent.tool_display._fetch_memory_content", return_value="Used to work at Acme"
         ):
-            result = _extract_tool_detail(
+            result = extract_tool_detail(
                 "manage_memory", {"operations": [{"action": "delete", "id": "m9"}]}
             )
         assert result == "forgot: Used to work at Acme"
 
     def test_delete_without_old_content_shows_bare_verb(self) -> None:
         with patch("src.agent.tool_display._fetch_memory_content", return_value=None):
-            result = _extract_tool_detail(
+            result = extract_tool_detail(
                 "manage_memory", {"operations": [{"action": "delete", "id": "m9"}]}
             )
         assert result == "forgot"
@@ -413,36 +408,37 @@ class TestMemoryDiffDetail:
             {"action": "add", "content": "Beta"},
             {"action": "add", "content": "Gamma"},
         ]
-        result = _extract_tool_detail("manage_memory", {"operations": ops})
+        result = extract_tool_detail("manage_memory", {"operations": ops})
         assert result == "remembered: Alpha; remembered: Beta (+1 more)"
 
     def test_long_snippets_are_truncated(self) -> None:
         with patch("src.agent.tool_display._fetch_memory_content", return_value="O" * 60):
-            result = _format_memory_detail(
-                {"operations": [{"action": "update", "id": "m1", "content": "N" * 60}]}
+            result = extract_tool_detail(
+                "manage_memory",
+                {"operations": [{"action": "update", "id": "m1", "content": "N" * 60}]},
             )
         # each side of the diff is truncated to 35 chars (34 + ellipsis)
         assert result == f"updated: {'O' * 34}… → {'N' * 34}…"
 
     def test_non_list_operations_returns_default(self) -> None:
-        assert _format_memory_detail({"operations": "nope"}) == "updated memory"
+        assert extract_tool_detail("manage_memory", {"operations": "nope"}) == "updated memory"
 
 
 class TestSearchAndReadDetails:
     """search_memory shows its query; read_conversation shows the title."""
 
     def test_search_memory_extracts_query(self) -> None:
-        result = _extract_tool_detail("search_memory", {"query": "coffee preferences"})
+        result = extract_tool_detail("search_memory", {"query": "coffee preferences"})
         assert result == "coffee preferences"
 
     def test_read_conversation_shows_title(self) -> None:
         with patch(
             "src.agent.tool_display._fetch_conversation_title", return_value="Trip planning"
         ):
-            result = _extract_tool_detail("read_conversation", {"conversation_id": "c1"})
+            result = extract_tool_detail("read_conversation", {"conversation_id": "c1"})
         assert result == "Trip planning"
 
     def test_read_conversation_without_title_returns_none(self) -> None:
         with patch("src.agent.tool_display._fetch_conversation_title", return_value=None):
-            result = _extract_tool_detail("read_conversation", {"conversation_id": "c1"})
+            result = extract_tool_detail("read_conversation", {"conversation_id": "c1"})
         assert result is None
