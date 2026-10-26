@@ -130,15 +130,17 @@ export async function checkAuth(): Promise<boolean> {
     log.info('User authenticated', { userId: user.id, email: user.email });
     store.setUser(user);
 
-    // Schedule automatic token refresh for existing valid token
-    if (store.token) {
-      scheduleTokenRefresh(store.token);
+    // Schedule automatic token refresh for existing valid token (read after
+    // the request: a login or refresh meanwhile replaces it)
+    const { token } = useStore.getState();
+    if (token) {
+      scheduleTokenRefresh(token);
     }
 
     return true;
   } catch (error) {
     // Auth failed - clear any stale token and cancel refresh
-    if (store.token) {
+    if (useStore.getState().token) {
       cancelTokenRefresh();
       store.logout();
 

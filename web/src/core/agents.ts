@@ -142,11 +142,12 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
 
   closeSidebar();
 
-  // Load command center data
-  const cacheAge = Date.now() - (store.commandCenterLastFetch || 0);
-  const needsRefresh = !store.commandCenterData || cacheAge > COMMAND_CENTER_CACHE_MS || forceRefresh;
+  // Load command center data (fresh state: the view chunk was awaited above)
+  const cached = useStore.getState();
+  const cacheAge = Date.now() - (cached.commandCenterLastFetch || 0);
+  const needsRefresh = !cached.commandCenterData || cacheAge > COMMAND_CENTER_CACHE_MS || forceRefresh;
 
-  let commandCenterData = store.commandCenterData;
+  let commandCenterData = cached.commandCenterData;
   let fetchFailed = false;
 
   if (needsRefresh) {

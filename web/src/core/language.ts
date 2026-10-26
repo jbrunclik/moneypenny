@@ -198,7 +198,7 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
     }
 
     // Find program data (fetch if not cached, e.g. on page reload)
-    let programs = store.languagePrograms;
+    let programs = useStore.getState().languagePrograms;
     if (!programs) {
       programs = await language.getPrograms();
       useStore.getState().setLanguagePrograms(programs);

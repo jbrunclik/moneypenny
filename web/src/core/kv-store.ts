@@ -200,13 +200,15 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
 
   closeSidebar();
 
-  // Load storage data and memories in parallel
-  const cacheAge = Date.now() - (store.storageLastFetch || 0);
-  const needsRefresh = !store.storageData || cacheAge > STORAGE_CACHE_MS || forceRefresh;
+  // Load storage data and memories in parallel (fresh state: the view chunk
+  // was awaited above)
+  const cached = useStore.getState();
+  const cacheAge = Date.now() - (cached.storageLastFetch || 0);
+  const needsRefresh = !cached.storageData || cacheAge > STORAGE_CACHE_MS || forceRefresh;
 
   const { storageData, memoriesData, deletedMemories, memoryLimit, fetchFailed } = await loadStorageData(
     needsRefresh,
-    store.storageData
+    cached.storageData
   );
 
   // Check if user navigated away during the async fetch

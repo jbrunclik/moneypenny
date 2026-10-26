@@ -1,6 +1,10 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import noUnsanitized from 'eslint-plugin-no-unsanitized';
+import noStaleStoreSnapshot from './eslint-rules/no-stale-store-snapshot.js';
+
+// Rules written for this repo (eslint-rules/, each tested in tests/unit)
+const local = { rules: { 'no-stale-store-snapshot': noStaleStoreSnapshot } };
 
 // F3: functions whose result is safe to assign as HTML (escaped or sanitized)
 const SAFE_HTML = ['escapeHtml', 'renderMarkdown', 'highlightCode', 'DOMPurify.sanitize'];
@@ -34,7 +38,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
-    plugins: { 'no-unsanitized': noUnsanitized },
+    plugins: { 'no-unsanitized': noUnsanitized, local },
     rules: {
       // F3: HTML assigned from strings goes through a SAFE_HTML function. A static
       // icon goes through setIcon (utils/icons), which never writes innerHTML
@@ -51,6 +55,8 @@ export default tseslint.config(
       complexity: ['error', 15],
       // F8: log through createLogger
       'no-console': 'error',
+      // F2: re-read useStore.getState() after an await
+      'local/no-stale-store-snapshot': 'error',
     },
   },
   // F1: imports point down the layers (docs/conventions.md "Layers")

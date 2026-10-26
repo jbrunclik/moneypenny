@@ -77,6 +77,7 @@ Every baseline only shrinks. Report each count and its change:
 | ruff `# noqa` | `grep -rn "# noqa: [A-Z0-9, ]*$" src \| wc -l` |
 | ESLint suppressions | the `count`s in `web/eslint-suppressions.json` |
 | import cycles | entries in `web/tests/unit/import-cycles.baseline.json` |
+| module-level state | the counts in `web/tests/unit/module-state.baseline.json` |
 | import-linter | `ignore_imports` in `pyproject.toml` |
 | test hygiene | the constants in `tests/unit/test_test_hygiene.py` |
 

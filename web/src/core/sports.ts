@@ -198,7 +198,7 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
     }
 
     // Find program data (fetch if not cached, e.g. on page reload)
-    let programs = store.sportsPrograms;
+    let programs = useStore.getState().sportsPrograms;
     if (!programs) {
       programs = await sports.getPrograms();
       useStore.getState().setSportsPrograms(programs);
