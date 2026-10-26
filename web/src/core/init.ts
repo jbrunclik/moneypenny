@@ -5,16 +5,11 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { initToast, toast } from '../components/Toast';
+import { initToast } from '../components/Toast';
 import { initModal } from '../components/Modal';
-import { initGoogleSignIn, renderGoogleButton, checkAuth } from '../auth/google';
-import { renderConversationsList, cleanupInfiniteScroll } from '../components/Sidebar';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
-import {
-  renderMessages,
-  initOrientationChangeHandler,
-} from '../components/messages';
+import { initOrientationChangeHandler } from '../components/messages';
 import { initMessageInput } from '../components/MessageInput';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
@@ -41,23 +36,17 @@ import { initTurnAnchorResizeHold } from '../components/messages/turn-anchor';
 import { initHeaderAutoHide } from './header-autohide';
 import { initVersionBanner } from '../components/VersionBanner';
 import { initErrorReporting } from './error-reporting';
-import { getElementById, clearElement } from '../utils/dom';
+import { getElementById } from '../utils/dom';
 import { initializeTheme } from '../utils/theme';
 import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
+import { initDeepLinking } from '../router/deeplink';
 import {
-  initDeepLinking,
-  cleanupDeepLinking,
-  clearConversationHash,
-} from '../router/deeplink';
-import { stopSyncManager } from '../sync/SyncManager';
-import {
-  cleanupOlderMessagesScrollListener,
   cleanupNewerMessagesScrollListener,
   loadAllRemainingNewerMessages,
 } from '../components/messages';
 
 import { sendMessage } from './messaging';
-import { handleStopStreaming, abortAllStreamingRequests } from './active-requests';
+import { handleStopStreaming } from './active-requests';
 import { initOutboxHandlers } from './rerun';
 import { handleSearchResultClick } from './search';
 import { setupEventListeners } from './events';
@@ -70,24 +59,9 @@ import { deleteMessage } from './conversation-actions';
 import { initAgents } from './agents';
 import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
-import { initialRouteFromHash } from './startup/initial-route';
-import { loadInitialData } from './startup/initial-data';
+import { initAuthEvents, startSession } from './startup/auth';
 
 const log = createLogger('init');
-
-/**
- * Show the login overlay.
- */
-export function showLoginOverlay(): void {
-  getElementById('login-overlay')?.classList.remove('hidden');
-}
-
-/**
- * Hide the login overlay.
- */
-export function hideLoginOverlay(): void {
-  getElementById('login-overlay')?.classList.add('hidden');
-}
 
 /**
  * Initialize the application.
@@ -183,91 +157,12 @@ export async function init(): Promise<void> {
   // Initialize deep linking and capture initial route from URL
   const initialRoute = initDeepLinking(handleDeepLinkNavigation);
 
-  // Check authentication
-  const isAuthenticated = await checkAuth();
+  // After every init* above: signing in renders data into those components
+  await startSession(initialRoute);
 
-  if (isAuthenticated) {
-    hideLoginOverlay();
-    // Check for integration OAuth callbacks
-    // OAuth callbacks only matter mid-flow (state keys set when the flow
-    // started); gate the settings OAuth import on them so boot stays lean.
-    // Key literals must match TODOIST_STATE_KEY / CALENDAR_STATE_KEY in
-    // components/settings/{todoist,calendar}.ts.
-    if (
-      sessionStorage.getItem('todoist-oauth-state') ||
-      sessionStorage.getItem('calendar-oauth-state')
-    ) {
-      const oauth = await import('../components/settings/oauth');
-      await oauth.checkTodoistOAuthCallback();
-      await oauth.checkCalendarOAuthCallback();
-    }
-    await loadInitialData(initialRoute);
-  } else {
-    showLoginOverlay();
-    // Clear any conversation hash since user isn't authenticated
-    clearConversationHash();
-    await initGoogleSignIn();
-    const loginBtn = getElementById<HTMLDivElement>('google-login-btn');
-    if (loginBtn) {
-      renderGoogleButton(loginBtn);
-    }
-  }
-
-  // Listen for auth events
-  const handleLogin = async (): Promise<void> => {
-    hideLoginOverlay();
-    try {
-      await loadInitialData(initialRouteFromHash());
-    } catch (error) {
-      log.error('Failed to load data after login', { error });
-      toast.error('Failed to load data. Please refresh the page.', {
-        action: { label: 'Refresh', onClick: () => window.location.reload() },
-      });
-    }
-  };
-  window.addEventListener('auth:login', () => {
-    void handleLogin();
-  });
-
-  const handleLogout = async (): Promise<void> => {
-    // Kill in-flight readers and persisted resume entries before anything
-    // else - they would keep writing into the logged-out UI, and another
-    // account on this browser must not resume the previous user's turns
-    abortAllStreamingRequests();
-
-    // Stop sync manager and scroll listeners on logout
-    stopSyncManager();
-    cleanupInfiniteScroll();
-    cleanupOlderMessagesScrollListener();
-    cleanupNewerMessagesScrollListener();
-
-    // Clear URL hash and clean up deep linking
-    clearConversationHash();
-    cleanupDeepLinking();
-
-    showLoginOverlay();
-    // All user data in the store (messages, pagination, drafts, agents,
-    // storage, programs, ...) is wiped by the store.logout() the event
-    // dispatcher already ran - only re-render the now-empty UI here
-    renderConversationsList();
-    renderMessages([]);
-
-    // Re-render Google Sign-In button. A session that started signed in
-    // never initialized sign-in (Google's script loads on demand), so
-    // initialize first - the button used to render empty here
-    await initGoogleSignIn();
-    const loginBtn = getElementById<HTMLDivElement>('google-login-btn');
-    if (loginBtn) {
-      clearElement(loginBtn);
-      renderGoogleButton(loginBtn);
-    }
-
-    // Re-initialize deep linking for next login
-    initDeepLinking(handleDeepLinkNavigation);
-  };
-  window.addEventListener('auth:logout', () => {
-    void handleLogout().catch((error: unknown) => log.error('Failed to reset the UI after logout', { error }));
-  });
+  // Only once the boot session has settled (signed in and loaded, or the
+  // sign-in button shown): the handlers below assume startup is done
+  initAuthEvents();
 
   // Listen for message delete events
   window.addEventListener('message:delete', (event: Event) => {
