@@ -146,11 +146,6 @@
       "count": 1
     }
   },
-  "src/components/messages/image-load-scroll.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/components/messages/live-highlight.ts": {
     "no-unsanitized/property": {
       "count": 2
@@ -179,11 +174,6 @@
   },
   "src/components/messages/streaming.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/components/messages/thumbnail-loader.ts": {
-    "max-depth": {
       "count": 1
     }
   },

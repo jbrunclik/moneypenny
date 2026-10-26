@@ -124,31 +124,9 @@ export function countVisibleImagesForScroll(): void {
     // CRITICAL FIX: If pendingImageLoads is already 0, check if all images are loaded
     // This handles the case where images loaded instantly (from cache) before we could count them
     // We need to check ALL images (not just tracked ones) because cached images might not be tracked yet
-    if (pendingImageLoads === 0) {
-        const allImages = messagesContainer.querySelectorAll<HTMLImageElement>(
-            'img[data-message-id][data-file-index]'
-        );
-        if (allImages.length > 0) {
-            let allLoaded = true;
-            let imagesNeedingLoad = 0;
-            allImages.forEach((img) => {
-                // More lenient check: if image has src and is complete, consider it loaded
-                // even if naturalHeight is 0 (could be a 1x1 transparent pixel or broken image)
-                // The key is that it has src and complete, meaning the browser tried to load it
-                if (!img.src || !img.complete) {
-                    allLoaded = false;
-                    if (!img.src) {
-                        imagesNeedingLoad++;
-                    }
-                }
-            });
-            // If all images are loaded OR if there are no images needing load (all have src),
-            // schedule scroll. This handles the cached image case.
-            if (allLoaded || imagesNeedingLoad === 0) {
-                scheduleScrollAfterImageLoad();
-                return;
-            }
-        }
+    if (pendingImageLoads === 0 && allImagesHaveSrcOrLoaded(messagesContainer)) {
+        scheduleScrollAfterImageLoad();
+        return;
     }
 
     // Find all images that need loading (without src)
@@ -163,25 +141,72 @@ export function countVisibleImagesForScroll(): void {
 
     // If no images need loading, check tracked images to see if they're all done
     if (imagesWithoutSrc.length === 0) {
-        // All images have src - check if any tracked images are still loading
-        let allLoaded = true;
-        let trackedCount = 0;
-        allTrackedImages.forEach((img) => {
-            trackedCount++;
-            if (!img.complete || img.naturalHeight === 0) {
-                allLoaded = false;
-            }
-        });
-
-        // If we have tracked images but pendingImageLoads is 0, we might have a race condition
-        // where images loaded before we could count them properly
-        // In this case, if all images are loaded, trigger scroll
-        if (trackedCount > 0 && allLoaded && pendingImageLoads === 0) {
-            scheduleScrollAfterImageLoad();
-        }
+        scheduleIfTrackedImagesDecoded(allTrackedImages);
         return;
     }
 
+    const foundVisible = trackVisibleImagesWithoutSrc(messagesContainer, imagesWithoutSrc);
+    scheduleIfCountedImagesLoaded(foundVisible, allTrackedImages, imagesWithoutSrc);
+}
+
+/**
+ * Whether the list has images and every one of them is loaded - or at least
+ * has a src (cached images that loaded before they could be counted).
+ */
+function allImagesHaveSrcOrLoaded(messagesContainer: HTMLElement): boolean {
+    const allImages = messagesContainer.querySelectorAll<HTMLImageElement>(
+        'img[data-message-id][data-file-index]'
+    );
+    if (allImages.length === 0) return false;
+    let allLoaded = true;
+    let imagesNeedingLoad = 0;
+    allImages.forEach((img) => {
+        // More lenient check: if image has src and is complete, consider it loaded
+        // even if naturalHeight is 0 (could be a 1x1 transparent pixel or broken image)
+        // The key is that it has src and complete, meaning the browser tried to load it
+        if (!img.src || !img.complete) {
+            allLoaded = false;
+            if (!img.src) {
+                imagesNeedingLoad++;
+            }
+        }
+    });
+    // If all images are loaded OR if there are no images needing load (all have src),
+    // schedule scroll. This handles the cached image case.
+    return allLoaded || imagesNeedingLoad === 0;
+}
+
+/**
+ * Every image has a src: schedule the scroll if all tracked images have
+ * decoded (a non-zero natural height).
+ */
+function scheduleIfTrackedImagesDecoded(allTrackedImages: NodeListOf<HTMLImageElement>): void {
+    // All images have src - check if any tracked images are still loading
+    let allLoaded = true;
+    let trackedCount = 0;
+    allTrackedImages.forEach((img) => {
+        trackedCount++;
+        if (!img.complete || img.naturalHeight === 0) {
+            allLoaded = false;
+        }
+    });
+
+    // If we have tracked images but pendingImageLoads is 0, we might have a race condition
+    // where images loaded before we could count them properly
+    // In this case, if all images are loaded, trigger scroll
+    if (trackedCount > 0 && allLoaded && pendingImageLoads === 0) {
+        scheduleScrollAfterImageLoad();
+    }
+}
+
+/**
+ * Count each visible, not yet tracked image as a pending load and mark it
+ * tracked. Returns whether any visible image was found.
+ */
+function trackVisibleImagesWithoutSrc(
+    messagesContainer: HTMLElement,
+    imagesWithoutSrc: NodeListOf<HTMLImageElement>
+): boolean {
     // Count ALL visible images that need loading (not just ones that became visible after scroll)
     // On initial load, all images are "new" so we need to count all visible ones
     let foundVisible = false;
@@ -208,7 +233,15 @@ export function countVisibleImagesForScroll(): void {
             }
         }
     });
+    return foundVisible;
+}
 
+/** After counting: schedule the scroll if nothing is pending and every tracked image loaded. */
+function scheduleIfCountedImagesLoaded(
+    foundVisible: boolean,
+    allTrackedImages: NodeListOf<HTMLImageElement>,
+    imagesWithoutSrc: NodeListOf<HTMLImageElement>
+): void {
     // Special handling for the 2-image race condition on initial load:
     // If we counted visible images but pendingImageLoads is 0, it means:
     // 1. All images loaded instantly (cached), OR
@@ -225,31 +258,29 @@ export function countVisibleImagesForScroll(): void {
         });
 
         // Check if all tracked images are actually loaded
-        let allTrackedLoaded = true;
-        allTracked.forEach((img) => {
-            // More lenient check: if image has src and is complete, consider it loaded
-            // even if naturalHeight is 0 (could be a 1x1 transparent pixel or broken image)
-            if (!img.src || !img.complete) {
-                allTrackedLoaded = false;
-            }
-        });
-
-        if (allTrackedLoaded && allTracked.size > 0) {
+        if (allHaveSrcAndComplete(allTracked) && allTracked.size > 0) {
             scheduleScrollAfterImageLoad();
         }
     } else if (!foundVisible && pendingImageLoads === 0) {
         // No visible images to load, but pendingImageLoads is 0 - check if all tracked images are done
-        let allTrackedLoaded = true;
-        allTrackedImages.forEach((img) => {
-            // More lenient check: if image has src and is complete, consider it loaded
-            if (!img.src || !img.complete) {
-                allTrackedLoaded = false;
-            }
-        });
-        if (allTrackedLoaded) {
+        if (allHaveSrcAndComplete(allTrackedImages)) {
             scheduleScrollAfterImageLoad();
         }
     }
+}
+
+/**
+ * Whether every image has a src and is complete. More lenient than a decode
+ * check: naturalHeight may be 0 (a 1x1 transparent pixel or a broken image).
+ */
+function allHaveSrcAndComplete(images: Set<HTMLImageElement> | NodeListOf<HTMLImageElement>): boolean {
+    let allLoaded = true;
+    images.forEach((img: HTMLImageElement) => {
+        if (!img.src || !img.complete) {
+            allLoaded = false;
+        }
+    });
+    return allLoaded;
 }
 
 /**
@@ -382,25 +413,30 @@ function handleImageLoadCompletion(
     // If pendingImageLoads is 0, check if all tracked images are actually loaded
     // This handles race conditions where images load before we count them
     if (pendingImageLoads === 0) {
-        const trackedImages = messagesContainer.querySelectorAll<HTMLImageElement>(
-            'img[data-message-id][data-file-index][data-scroll-tracked]'
-        );
-        const { allLoaded, totalImages } = checkTrackedImagesLoaded(messagesContainer);
-
-        // Only schedule scroll if ALL images are actually loaded (complete).
-        // Don't schedule if images just have src but aren't complete yet - wait for them to finish loading.
-        if (allLoaded && totalImages > 0) {
-            scheduleScrollAfterImageLoad();
-        } else {
-            // Some images don't have src yet or aren't complete - retry with delay
-            // Retry after delay to handle race conditions
-            setTimeout(() => {
-                retryImageLoadCheck(messagesContainer, 1, trackedImages.length);
-            }, IMAGE_LOAD_RETRY_DELAY_MS);
-        }
+        scheduleOrRetryWhenTrackedLoaded(messagesContainer);
     } else {
         // pendingImageLoads > 0, so images are still loading - schedule scroll when they complete
         scheduleScrollAfterImageLoad();
+    }
+}
+
+/** Nothing is pending: scroll if every tracked image loaded, else check again later. */
+function scheduleOrRetryWhenTrackedLoaded(messagesContainer: HTMLElement): void {
+    const trackedImages = messagesContainer.querySelectorAll<HTMLImageElement>(
+        'img[data-message-id][data-file-index][data-scroll-tracked]'
+    );
+    const { allLoaded, totalImages } = checkTrackedImagesLoaded(messagesContainer);
+
+    // Only schedule scroll if ALL images are actually loaded (complete).
+    // Don't schedule if images just have src but aren't complete yet - wait for them to finish loading.
+    if (allLoaded && totalImages > 0) {
+        scheduleScrollAfterImageLoad();
+    } else {
+        // Some images don't have src yet or aren't complete - retry with delay
+        // Retry after delay to handle race conditions
+        setTimeout(() => {
+            retryImageLoadCheck(messagesContainer, 1, trackedImages.length);
+        }, IMAGE_LOAD_RETRY_DELAY_MS);
     }
 }
 
@@ -457,71 +493,82 @@ function setupUserScrollListener(): void {
     if (!messagesContainer) return;
 
     userScrollListener = () => {
-        // iOS Safari momentum scroll can cause scrollTop to temporarily go negative
-        // (rubber-banding at top) or past the max (rubber-banding at bottom).
-        // Ignore these out-of-bounds values to prevent false user-scroll detection.
-        const currentScrollTop = messagesContainer.scrollTop;
-        const maxScrollTop = messagesContainer.scrollHeight - messagesContainer.clientHeight;
-        if (currentScrollTop < 0 || currentScrollTop > maxScrollTop) {
-            return; // Ignore rubber-banding scroll events
-        }
-
-        // Direction-based detection: only disable if user scrolled UP
-        // Our programmatic scrollToBottom() never scrolls up, so this is definitely user action
-        const scrolledUp = currentScrollTop < previousScrollTopForImageLoad;
-
-        // CRITICAL: Always update previous scroll position, even during programmatic scrolls.
-        // This ensures we have the correct baseline for detecting the next scroll direction.
-        // If we only updated during user scrolls, after a programmatic scroll to bottom,
-        // previousScrollTopForImageLoad would still be 0, and scrolling to 0 wouldn't be detected as "up".
-        previousScrollTopForImageLoad = currentScrollTop;
-
-        // Track the deepest position followed while armed (incl. our own scrolls
-        // to the growing bottom), so the image-load scheduler can tell a genuine
-        // scroll-up from a jitter regardless of when it fires.
-        if (shouldScrollOnImageLoad && currentScrollTop > maxScrollTopWhileArmed) {
-            maxScrollTopWhileArmed = currentScrollTop;
-        }
-
-        // Ignore programmatic scrolls for the disable decision (but we still
-        // updated the position above) - unless the user is scrolling too: a
-        // window outlives an animation the user's input aborted, and their
-        // scroll-up inside it was dropped, leaving the chase on to pull them
-        // back down at the next image load (CI scroll log, Oct 2026)
-        if (isProgrammaticScrollActive() && !userScrolledRecently()) {
-            return;
-        }
-
-        if (!scrolledUp) {
-            return; // User scrolled down or stayed in place - don't disable
-        }
-        // A move up with no input of the user's in it is layout: the iOS
-        // keyboard closing or the reserved turn space released clamps the
-        // position down (that switched the chase off - later images then
-        // left a gap above the composer)
-        if (!userScrolledRecently()) {
-            return;
-        }
-
-        // User scrolled UP - this is definitely a user action
-        // Direction-based detection eliminates false positives from layout changes
-        // (layout changes from image loading never decrease scrollTop)
-
-        // Check if scroll mode was just enabled (within grace period)
-        // This prevents false positives from initial scroll in renderMessages()
-        const scrollModeEnabledTime = (window as Window & { __scrollModeEnabledTime?: number }).__scrollModeEnabledTime;
-        if (
-            scrollModeEnabledTime &&
-            Date.now() - scrollModeEnabledTime < SCROLL_MODE_GRACE_PERIOD_MS
-        ) {
-            return;
-        }
-
-        // User definitely scrolled up - disable scroll mode
-        safelyDisableScrollOnImageLoad('user scrolled up');
+        handleScrollWhileArmed(messagesContainer);
     };
 
     onMessagesScroll('image-load-scroll-guard', userScrollListener);
+}
+
+/** The image-load scroll guard: one scroll event of #messages. */
+function handleScrollWhileArmed(messagesContainer: HTMLElement): void {
+    // iOS Safari momentum scroll can cause scrollTop to temporarily go negative
+    // (rubber-banding at top) or past the max (rubber-banding at bottom).
+    // Ignore these out-of-bounds values to prevent false user-scroll detection.
+    const currentScrollTop = messagesContainer.scrollTop;
+    const maxScrollTop = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+    if (currentScrollTop < 0 || currentScrollTop > maxScrollTop) {
+        return; // Ignore rubber-banding scroll events
+    }
+
+    // Direction-based detection: only disable if user scrolled UP
+    // Our programmatic scrollToBottom() never scrolls up, so this is definitely user action
+    const scrolledUp = currentScrollTop < previousScrollTopForImageLoad;
+
+    // CRITICAL: Always update previous scroll position, even during programmatic scrolls.
+    // This ensures we have the correct baseline for detecting the next scroll direction.
+    // If we only updated during user scrolls, after a programmatic scroll to bottom,
+    // previousScrollTopForImageLoad would still be 0, and scrolling to 0 wouldn't be detected as "up".
+    previousScrollTopForImageLoad = currentScrollTop;
+
+    // Track the deepest position followed while armed (incl. our own scrolls
+    // to the growing bottom), so the image-load scheduler can tell a genuine
+    // scroll-up from a jitter regardless of when it fires.
+    if (shouldScrollOnImageLoad && currentScrollTop > maxScrollTopWhileArmed) {
+        maxScrollTopWhileArmed = currentScrollTop;
+    }
+
+    if (isUserScrollUp(scrolledUp)) {
+        // User definitely scrolled up - disable scroll mode
+        safelyDisableScrollOnImageLoad('user scrolled up');
+    }
+}
+
+/** Whether a scroll event that moved up (`scrolledUp`) was the user's. */
+function isUserScrollUp(scrolledUp: boolean): boolean {
+    // Ignore programmatic scrolls for the disable decision (but we still
+    // updated the position above) - unless the user is scrolling too: a
+    // window outlives an animation the user's input aborted, and their
+    // scroll-up inside it was dropped, leaving the chase on to pull them
+    // back down at the next image load (CI scroll log, Oct 2026)
+    if (isProgrammaticScrollActive() && !userScrolledRecently()) {
+        return false;
+    }
+
+    if (!scrolledUp) {
+        return false; // User scrolled down or stayed in place - don't disable
+    }
+    // A move up with no input of the user's in it is layout: the iOS
+    // keyboard closing or the reserved turn space released clamps the
+    // position down (that switched the chase off - later images then
+    // left a gap above the composer)
+    if (!userScrolledRecently()) {
+        return false;
+    }
+
+    // User scrolled UP - this is definitely a user action
+    // Direction-based detection eliminates false positives from layout changes
+    // (layout changes from image loading never decrease scrollTop)
+
+    // Check if scroll mode was just enabled (within grace period)
+    // This prevents false positives from initial scroll in renderMessages()
+    const scrollModeEnabledTime = (window as Window & { __scrollModeEnabledTime?: number }).__scrollModeEnabledTime;
+    if (
+        scrollModeEnabledTime &&
+        Date.now() - scrollModeEnabledTime < SCROLL_MODE_GRACE_PERIOD_MS
+    ) {
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -594,114 +641,7 @@ function scheduleScrollAfterImageLoad(): void {
             requestAnimationFrame(() => {
                 // Wrap the entire callback in try/finally to ensure isSchedulingScroll is always reset on error
                 try {
-                    // Re-check conditions before scrolling - user might have scrolled up while images were loading
-                    if (!shouldScrollOnImageLoad) {
-                        isSchedulingScroll = false;
-                        scrollTimeout = undefined;
-                        return;
-                    }
-
-                    // Double-check isSchedulingScroll is still true (should be, but verify)
-                    if (!isSchedulingScroll) {
-                        // Re-set it since we're about to scroll
-                        isSchedulingScroll = true;
-                    }
-
-                    const messagesContainer = getElementById<HTMLDivElement>('messages');
-                    if (!messagesContainer) {
-                        isSchedulingScroll = false;
-                        scrollTimeout = undefined;
-                        return;
-                    }
-
-                    // CRITICAL FIX: Don't check pendingImageLoads here - if we scheduled scroll,
-                    // it means all images are loaded. The counter might be 0 due to race conditions.
-                    // Instead, verify that all tracked images are actually loaded before scrolling.
-                    const allTrackedImages = messagesContainer.querySelectorAll<HTMLImageElement>(
-                        'img[data-message-id][data-file-index][data-scroll-tracked]'
-                    );
-                    let allLoaded = true;
-                    allTrackedImages.forEach((img) => {
-                        // More lenient check: if image has src and is complete, consider it loaded
-                        // even if naturalHeight is 0 (could be a 1x1 transparent pixel or broken image)
-                        if (!img.src || !img.complete) {
-                            allLoaded = false;
-                        }
-                    });
-
-                    if (!allLoaded && allTrackedImages.length > 0) {
-                        // Wait a bit more and check again
-                        scrollTimeout = requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                                // Don't clear flag before recursive call - keep it true during the entire scheduling process
-                                // The recursive call will re-check and either scroll or wait again
-                                scheduleScrollAfterImageLoad();
-                            });
-                        });
-                        return;
-                    }
-
-                    // A genuine scroll-up wins over everything below: if scrollTop has
-                    // dropped well below the deepest position followed while armed, the
-                    // user scrolled up (a bottom image loading never lowers scrollTop).
-                    // This must run BEFORE the near-bottom tolerance check - in a
-                    // conversation that is only barely scrollable (max scroll below
-                    // SCROLL_USER_DETECTION_THRESHOLD_PX, e.g. WebKit's tighter text
-                    // metrics on a short chat) the very TOP still counts as "near the
-                    // bottom", and a late image load yanked the reader back down.
-                    // A content SHRINK (e.g. a streaming placeholder replaced by
-                    // shorter final markup) also lowers scrollTop - but the browser
-                    // clamps it to the new bottom, so "dropped below max" while sitting
-                    // exactly at the bottom is a clamp, not the user.
-                    const distanceFromBottom =
-                        messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
-                    if (
-                        messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX &&
-                        distanceFromBottom > SCROLL_GENUINE_UP_PX
-                    ) {
-                        safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
-                        isSchedulingScroll = false;
-                        scrollTimeout = undefined;
-                        return;
-                    }
-
-                    // Only scroll if user is still at or near the bottom
-                    // This prevents hijacking scroll when user is browsing history
-                    // BUT: If we're scheduling a scroll, don't check isAtBottom because layout changes
-                    // from images loading can temporarily make it appear user scrolled away
-                    const isAtBottom = isScrolledToBottom(messagesContainer, SCROLL_USER_DETECTION_THRESHOLD_PX);
-                    if (!isAtBottom && !isSchedulingScroll) {
-                        // Only disable if we're NOT scheduling a scroll
-                        // If we're scheduling, layout changes from images might be causing false positives
-                        // User has scrolled up - disable scroll mode and don't scroll
-                        safelyDisableScrollOnImageLoad('user scrolled away during scroll scheduling');
-                        isSchedulingScroll = false;
-                        scrollTimeout = undefined;
-                        return;
-                    }
-                    // else: scheduling and not at bottom without a genuine scroll-up is
-                    // a layout-shift false positive (an ABOVE-fold image nudged
-                    // scrollTop) - ignore it and scroll.
-
-                    // Mark this as a programmatic scroll so we don't disable on our own scroll
-                    log.debug('scheduleScrollAfterImageLoad: about to scroll to bottom', {
-                        scrollTop: messagesContainer.scrollTop,
-                        scrollHeight: messagesContainer.scrollHeight,
-                        clientHeight: messagesContainer.clientHeight,
-                    });
-                    const token = beginProgrammaticScroll();
-                    // Use smooth scroll to avoid abrupt flashing; the token and
-                    // the scheduling flag end with the animation (the
-                    // scheduling flag prevents false positives until then)
-                    scrollToBottom(messagesContainer, true, () => {
-                        endProgrammaticScroll(token);
-                        isSchedulingScroll = false;
-                    });
-                    // Update button visibility after scrolling
-                    requestAnimationFrame(() => {
-                        checkScrollButtonVisibility();
-                    });
-                    scrollTimeout = undefined;
+                    runScheduledScroll();
                 } catch (error) {
                     // CRITICAL: Always reset isSchedulingScroll on error to prevent permanent blocking
                     log.error('Error in scheduleScrollAfterImageLoad', { error });
@@ -711,6 +651,132 @@ function scheduleScrollAfterImageLoad(): void {
             });
         });
     });
+}
+
+/** The scheduled scroll, three frames after it was scheduled. */
+function runScheduledScroll(): void {
+    // Re-check conditions before scrolling - user might have scrolled up while images were loading
+    if (!shouldScrollOnImageLoad) {
+        isSchedulingScroll = false;
+        scrollTimeout = undefined;
+        return;
+    }
+
+    // Double-check isSchedulingScroll is still true (should be, but verify)
+    if (!isSchedulingScroll) {
+        // Re-set it since we're about to scroll
+        isSchedulingScroll = true;
+    }
+
+    const messagesContainer = getElementById<HTMLDivElement>('messages');
+    if (!messagesContainer) {
+        isSchedulingScroll = false;
+        scrollTimeout = undefined;
+        return;
+    }
+
+    if (waitForTrackedImages(messagesContainer)) return;
+    if (standDownIfUserLeft(messagesContainer)) return;
+    glideToBottomAfterImageLoad(messagesContainer);
+}
+
+/**
+ * A tracked image is still loading: check again two frames later. Returns
+ * whether it rescheduled.
+ */
+function waitForTrackedImages(messagesContainer: HTMLElement): boolean {
+    // CRITICAL FIX: Don't check pendingImageLoads here - if we scheduled scroll,
+    // it means all images are loaded. The counter might be 0 due to race conditions.
+    // Instead, verify that all tracked images are actually loaded before scrolling.
+    const allTrackedImages = messagesContainer.querySelectorAll<HTMLImageElement>(
+        'img[data-message-id][data-file-index][data-scroll-tracked]'
+    );
+    const allLoaded = allHaveSrcAndComplete(allTrackedImages);
+
+    if (!allLoaded && allTrackedImages.length > 0) {
+        // Wait a bit more and check again
+        scrollTimeout = requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                // Don't clear flag before recursive call - keep it true during the entire scheduling process
+                // The recursive call will re-check and either scroll or wait again
+                scheduleScrollAfterImageLoad();
+            });
+        });
+        return true;
+    }
+    return false;
+}
+
+/**
+ * The user scrolled away from the bottom: switch the mode off instead of
+ * scrolling. Returns whether it did.
+ */
+function standDownIfUserLeft(messagesContainer: HTMLElement): boolean {
+    // A genuine scroll-up wins over everything below: if scrollTop has
+    // dropped well below the deepest position followed while armed, the
+    // user scrolled up (a bottom image loading never lowers scrollTop).
+    // This must run BEFORE the near-bottom tolerance check - in a
+    // conversation that is only barely scrollable (max scroll below
+    // SCROLL_USER_DETECTION_THRESHOLD_PX, e.g. WebKit's tighter text
+    // metrics on a short chat) the very TOP still counts as "near the
+    // bottom", and a late image load yanked the reader back down.
+    // A content SHRINK (e.g. a streaming placeholder replaced by
+    // shorter final markup) also lowers scrollTop - but the browser
+    // clamps it to the new bottom, so "dropped below max" while sitting
+    // exactly at the bottom is a clamp, not the user.
+    const distanceFromBottom =
+        messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight;
+    if (
+        messagesContainer.scrollTop < maxScrollTopWhileArmed - SCROLL_GENUINE_UP_PX &&
+        distanceFromBottom > SCROLL_GENUINE_UP_PX
+    ) {
+        safelyDisableScrollOnImageLoad('user genuinely scrolled up during scroll scheduling');
+        isSchedulingScroll = false;
+        scrollTimeout = undefined;
+        return true;
+    }
+
+    // Only scroll if user is still at or near the bottom
+    // This prevents hijacking scroll when user is browsing history
+    // BUT: If we're scheduling a scroll, don't check isAtBottom because layout changes
+    // from images loading can temporarily make it appear user scrolled away
+    const isAtBottom = isScrolledToBottom(messagesContainer, SCROLL_USER_DETECTION_THRESHOLD_PX);
+    if (!isAtBottom && !isSchedulingScroll) {
+        // Only disable if we're NOT scheduling a scroll
+        // If we're scheduling, layout changes from images might be causing false positives
+        // User has scrolled up - disable scroll mode and don't scroll
+        safelyDisableScrollOnImageLoad('user scrolled away during scroll scheduling');
+        isSchedulingScroll = false;
+        scrollTimeout = undefined;
+        return true;
+    }
+    // else: scheduling and not at bottom without a genuine scroll-up is
+    // a layout-shift false positive (an ABOVE-fold image nudged
+    // scrollTop) - ignore it and scroll.
+    return false;
+}
+
+/** Every tracked image loaded and the user is still following: glide down. */
+function glideToBottomAfterImageLoad(messagesContainer: HTMLElement): void {
+    // Mark this as a programmatic scroll so we don't disable on our own scroll
+    log.debug('scheduleScrollAfterImageLoad: about to scroll to bottom', {
+        scrollTop: messagesContainer.scrollTop,
+        scrollHeight: messagesContainer.scrollHeight,
+        clientHeight: messagesContainer.clientHeight,
+    });
+    const token = beginProgrammaticScroll();
+    // Use smooth scroll to avoid abrupt flashing; the token and
+    // the scheduling flag end with the animation (the
+    // scheduling flag prevents false positives until then)
+    scrollToBottom(messagesContainer, true, () => {
+        endProgrammaticScroll(token);
+        isSchedulingScroll = false;
+    });
+    // Update button visibility after scrolling
+    requestAnimationFrame(() => {
+        checkScrollButtonVisibility();
+    });
+    scrollTimeout = undefined;
 }
 
 // The loader reports each thumbnail load to the scroll mode

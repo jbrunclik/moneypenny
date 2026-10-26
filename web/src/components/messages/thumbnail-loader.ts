@@ -75,92 +75,7 @@ export function createThumbnailObserver(): IntersectionObserver {
         (entries) => {
             entries.forEach((entry) => {
                 if (entry.isIntersecting) {
-                    const img = entry.target as HTMLImageElement;
-                    const messageId = img.dataset.messageId;
-                    const fileIndex = img.dataset.fileIndex;
-
-                    if (messageId && fileIndex) {
-                        // Let the image-load scroll mode count this load
-                        loadHooks?.onLoadStart(img);
-
-                        queueLoad(async () => {
-                            try {
-                                const blob = await files.fetchThumbnail(
-                                    messageId,
-                                    parseInt(fileIndex, 10)
-                                );
-                                const url = URL.createObjectURL(blob);
-                                img.src = url;
-
-                                // Track blob URL for cleanup on conversation switch
-                                trackBlobUrl(messageId, url);
-
-                                // Wait for the image to actually load and render
-                                await new Promise<void>((resolve) => {
-                                    if (img.complete && img.naturalHeight !== 0) {
-                                        // Image already loaded
-                                        resolve();
-                                    } else {
-                                        img.addEventListener('load', () => resolve(), { once: true });
-                                        img.addEventListener('error', () => resolve(), { once: true });
-                                    }
-                                });
-
-                                // Remove loading state from wrapper (if exists) or image
-                                const wrapper = img.closest('.message-image-wrapper');
-                                if (wrapper) {
-                                    wrapper.classList.remove('loading');
-                                }
-                                img.classList.remove('loading');
-                                img.classList.add('loaded');
-
-                                // The image-load scroll mode may scroll now
-                                loadHooks?.onLoadEnd(false);
-
-                                // Clean up blob URL when image is removed from DOM
-                                const cleanup = () => {
-                                    untrackBlobUrl(messageId, url);
-                                    URL.revokeObjectURL(url);
-                                };
-
-                                // Use MutationObserver to detect removal
-                                const parent = img.parentElement;
-                                if (parent) {
-                                    const mutationObserver = new MutationObserver((mutations) => {
-                                        for (const mutation of mutations) {
-                                            if (mutation.removedNodes.length > 0) {
-                                                for (let i = 0; i < mutation.removedNodes.length; i++) {
-                                                    const node = mutation.removedNodes[i];
-                                                    if (node === img || (node as Element).contains?.(img)) {
-                                                        cleanup();
-                                                        mutationObserver.disconnect();
-                                                        return;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    });
-                                    mutationObserver.observe(parent, { childList: true, subtree: true });
-                                }
-                            } catch (error) {
-                                log.error('Failed to load thumbnail', { error });
-                                // Remove loading state from wrapper (if exists) or image
-                                const wrapper = img.closest('.message-image-wrapper');
-                                if (wrapper) {
-                                    wrapper.classList.remove('loading');
-                                    wrapper.classList.add('error');
-                                }
-                                img.classList.remove('loading');
-                                img.classList.add('error');
-
-                                // A failed load counts as done too (same path as success)
-                                loadHooks?.onLoadEnd(true);
-                            }
-                        });
-                    }
-
-                    // Stop observing this image
-                    thumbnailObserver?.unobserve(img);
+                    loadVisibleThumbnail(entry.target as HTMLImageElement);
                 }
             });
         },
@@ -169,6 +84,113 @@ export function createThumbnailObserver(): IntersectionObserver {
             threshold: INTERSECTION_OBSERVER_THRESHOLD,
         }
     );
+}
+
+/** An observed image scrolled into view: queue its fetch and stop observing it. */
+function loadVisibleThumbnail(img: HTMLImageElement): void {
+    const messageId = img.dataset.messageId;
+    const fileIndex = img.dataset.fileIndex;
+
+    if (messageId && fileIndex) {
+        // Let the image-load scroll mode count this load
+        loadHooks?.onLoadStart(img);
+
+        queueLoad(() => loadThumbnail(img, messageId, fileIndex));
+    }
+
+    // Stop observing this image
+    thumbnailObserver?.unobserve(img);
+}
+
+/** Fetch a thumbnail into `img` and mark it loaded - or errored. */
+async function loadThumbnail(img: HTMLImageElement, messageId: string, fileIndex: string): Promise<void> {
+    try {
+        const blob = await files.fetchThumbnail(
+            messageId,
+            parseInt(fileIndex, 10)
+        );
+        const url = URL.createObjectURL(blob);
+        img.src = url;
+
+        // Track blob URL for cleanup on conversation switch
+        trackBlobUrl(messageId, url);
+
+        // Wait for the image to actually load and render
+        await imageRendered(img);
+
+        // Remove loading state from wrapper (if exists) or image
+        const wrapper = img.closest('.message-image-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('loading');
+        }
+        img.classList.remove('loading');
+        img.classList.add('loaded');
+
+        // The image-load scroll mode may scroll now
+        loadHooks?.onLoadEnd(false);
+
+        revokeWhenRemoved(img, messageId, url);
+    } catch (error) {
+        log.error('Failed to load thumbnail', { error });
+        // Remove loading state from wrapper (if exists) or image
+        const wrapper = img.closest('.message-image-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('loading');
+            wrapper.classList.add('error');
+        }
+        img.classList.remove('loading');
+        img.classList.add('error');
+
+        // A failed load counts as done too (same path as success)
+        loadHooks?.onLoadEnd(true);
+    }
+}
+
+/** Resolves once `img` has loaded (or failed to). */
+function imageRendered(img: HTMLImageElement): Promise<void> {
+    return new Promise<void>((resolve) => {
+        if (img.complete && img.naturalHeight !== 0) {
+            // Image already loaded
+            resolve();
+        } else {
+            img.addEventListener('load', () => resolve(), { once: true });
+            img.addEventListener('error', () => resolve(), { once: true });
+        }
+    });
+}
+
+/** Revoke the thumbnail's blob URL once `img` is removed from the DOM. */
+function revokeWhenRemoved(img: HTMLImageElement, messageId: string, url: string): void {
+    // Clean up blob URL when image is removed from DOM
+    const cleanup = () => {
+        untrackBlobUrl(messageId, url);
+        URL.revokeObjectURL(url);
+    };
+
+    // Use MutationObserver to detect removal
+    const parent = img.parentElement;
+    if (parent) {
+        const mutationObserver = new MutationObserver((mutations) => {
+            if (removesNode(mutations, img)) {
+                cleanup();
+                mutationObserver.disconnect();
+            }
+        });
+        mutationObserver.observe(parent, { childList: true, subtree: true });
+    }
+}
+
+/** Whether these mutations removed `img` (itself or an ancestor). */
+function removesNode(mutations: MutationRecord[], img: HTMLImageElement): boolean {
+    for (const mutation of mutations) {
+        for (let i = 0; i < mutation.removedNodes.length; i++) {
+            const node = mutation.removedNodes[i];
+            if (node === img || (node as Element).contains?.(img)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 let thumbnailObserver: IntersectionObserver | null = null;
