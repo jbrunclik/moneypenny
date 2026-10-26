@@ -2,13 +2,14 @@
  * Visual regression tests for Agents (Command Center) feature
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry default state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
     await waitForSidebarSettled(page);
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-default.png');
   });
@@ -19,7 +20,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
     await waitForSidebarSettled(page);
 
     await page.locator('.agents-entry').hover();
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-hover.png');
   });
@@ -28,7 +29,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.agents-entry.active');
     await waitForSidebarSettled(page);
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-active.png');
   });
@@ -61,7 +62,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
     await page.goto('/');
     await page.waitForSelector('.agents-entry');
     await waitForSidebarSettled(page);
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('agents-entry-with-badge.png');
   });
@@ -159,7 +160,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
     await waitForSidebarSettled(page);
     await page.waitForSelector('.agents-entry');
     await waitForSidebarSettled(page);
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sidebar-nav-row-with-badges.png');
   });
@@ -169,7 +170,7 @@ test.describe('Visual: Command Center - Desktop', () => {
   test('empty command center', async ({ page }) => {
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('command-center-empty.png');
   });
@@ -247,7 +248,7 @@ test.describe('Visual: Command Center - Desktop', () => {
 
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('command-center-with-agents.png');
   });
@@ -310,7 +311,7 @@ test.describe('Visual: Command Center - Desktop', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
     await page.waitForSelector('.approval-card');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('command-center-with-approvals.png');
   });
@@ -382,7 +383,7 @@ test.describe('Visual: Command Center - Mobile', () => {
 
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('command-center-mobile.png');
   });
@@ -418,7 +419,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     const convItem = page.locator('.conversation-item').first();
     await convItem.click();
     await page.waitForSelector('.message.trigger-message');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#messages')).toHaveScreenshot('trigger-message-manual.png');
   });
@@ -452,7 +453,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     const convItem = page.locator('.conversation-item').first();
     await convItem.click();
     await page.waitForSelector('.message.trigger-message');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#messages')).toHaveScreenshot('trigger-message-scheduled.png');
   });
@@ -486,7 +487,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     const convItem = page.locator('.conversation-item').first();
     await convItem.click();
     await page.waitForSelector('.message.trigger-message');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#messages')).toHaveScreenshot('trigger-message-agent-chain.png');
   });
@@ -528,7 +529,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     const convItem = page.locator('.conversation-item').first();
     await convItem.click();
     await page.waitForSelector('.message.trigger-message');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#messages')).toHaveScreenshot('trigger-messages-multiple.png');
   });
@@ -542,7 +543,7 @@ test.describe('Visual: Agent Editor Modal', () => {
     // Click the new agent button
     await page.click('.btn-new-agent');
     await page.waitForSelector('.agent-editor');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.agent-editor-modal')).toHaveScreenshot('agent-editor-new.png');
   });
@@ -600,7 +601,7 @@ test.describe('Visual: Agent Editor Modal', () => {
       await whatsappCard.click();
     }
 
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.agent-editor-modal')).toHaveScreenshot('agent-editor-tool-permissions.png');
   });

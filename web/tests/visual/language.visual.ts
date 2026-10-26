@@ -11,12 +11,13 @@
  * TODO: Fix the e2e server user persistence issue to enable all tests.
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Language Sidebar Nav Row', () => {
   test('sidebar nav row includes language entry', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.sidebar-nav-row');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.sidebar-nav-row')).toHaveScreenshot(
       'sidebar-nav-row-with-language.png',
@@ -53,7 +54,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-block').first()).toHaveScreenshot('quiz-multiple-choice.png');
   });
@@ -84,7 +85,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-block').first()).toHaveScreenshot('quiz-mc-selected.png');
   });
@@ -110,7 +111,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-block').first()).toHaveScreenshot('quiz-fill-blank.png');
   });
@@ -136,7 +137,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-block').first()).toHaveScreenshot('quiz-translate.png');
   });
@@ -180,7 +181,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-batch').first()).toHaveScreenshot('quiz-batch.png');
   });
@@ -211,7 +212,7 @@ test.describe('Visual: Quiz Blocks', () => {
       `;
       messagesEl.appendChild(div);
     });
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page.locator('.quiz-block').first()).toHaveScreenshot('quiz-answered.png');
   });

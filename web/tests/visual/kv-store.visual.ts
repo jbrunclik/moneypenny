@@ -2,6 +2,7 @@
  * Visual regression tests for K/V Store (Data Management) page.
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 // Timestamps are generated relative to the test run and sit mid-bucket
 // ("Nmo ago"), so the rendered relative time is identical on every run.
@@ -93,7 +94,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-with-data.png');
   });
@@ -106,7 +107,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-empty.png');
   });
@@ -118,7 +119,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-memories-only.png');
   });
@@ -130,7 +131,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-kv-only.png');
   });
@@ -145,7 +146,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
     // Expand the fitness namespace
     await page.locator('.kv-namespace-title-row').first().click();
     await page.waitForSelector('.kv-keys-list');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-expanded-namespace.png');
   });
@@ -160,7 +161,7 @@ test.describe('Visual: Storage Page - Desktop', () => {
     // Click first memory delete button
     await page.locator('.memory-delete').first().click();
     await page.waitForSelector('.modal-container:not(.modal-hidden)');
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('storage-page-delete-confirm.png', { fullPage: true });
   });
@@ -174,7 +175,7 @@ test.describe('Visual: Storage Page - Mobile', () => {
 
     await page.goto('/#/storage');
     await page.waitForSelector('.kv-store');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-mobile.png');
   });
@@ -189,7 +190,7 @@ test.describe('Visual: Storage Page - Mobile', () => {
     // Expand the fitness namespace
     await page.locator('.kv-namespace-title-row').first().click();
     await page.waitForSelector('.kv-keys-list');
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('storage-page-mobile-expanded.png');
   });

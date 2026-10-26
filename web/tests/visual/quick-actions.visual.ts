@@ -2,6 +2,7 @@
  * Visual regression: chip row, composer mode, slash menu, editor.
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 const PROGRAMS = [
   {
@@ -34,21 +35,21 @@ test.describe('Visual: Quick actions', () => {
     await open(page);
     await page.locator('.quick-action-chip').nth(1).click();
     await page.locator('#quick-action-mode .qa-mode-field-input').nth(0).fill('54');
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
     await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-composer-mode.png');
   });
 
   test('slash menu', async ({ page }) => {
     await open(page);
     await page.fill('#message-input', '/');
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
     await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-slash-menu.png');
   });
 
   test('editor list', async ({ page }) => {
     await open(page);
     await page.locator('.program-quick-actions-btn').click();
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
     await expect(page.locator('.qa-editor')).toHaveScreenshot('quick-actions-editor.png');
   });
 });
@@ -60,7 +61,7 @@ test.describe('Visual: Quick actions mobile', () => {
     await open(page);
     await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-bar-mobile.png');
     await page.locator('.quick-action-chip').nth(1).click();
-    await page.waitForTimeout(250);
+    await screenshotReady(page);
     await expect(page.locator('.input-area')).toHaveScreenshot('quick-actions-composer-mode-mobile.png');
   });
 
@@ -68,7 +69,7 @@ test.describe('Visual: Quick actions mobile', () => {
     await open(page);
     await page.locator('.quick-action-edit-chip').click();
     await page.locator('.qa-editor-edit').first().click();
-    await page.waitForTimeout(200);
+    await screenshotReady(page);
     await expect(page.locator('.qa-editor')).toHaveScreenshot('quick-actions-editor-detail-mobile.png');
   });
 });

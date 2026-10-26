@@ -56,3 +56,21 @@ export async function scrollSettled(
   );
   if (!settled) throw new Error(`${selector} kept scrolling for ${timeoutMs}ms`);
 }
+
+/**
+ * The page is ready for a screenshot: every finite CSS animation and
+ * transition has finished (an entrance has fully landed - text painted
+ * mid-animation antialiases differently from the settled baseline), the web
+ * fonts are loaded, and two frames have painted. Infinite animations (loading
+ * dots, a pulse) are left running: they would never finish.
+ */
+export async function screenshotReady(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((a) => a.finished.catch(() => undefined)));
+    await document.fonts.ready;
+  });
+  await nextFrames(page);
+}

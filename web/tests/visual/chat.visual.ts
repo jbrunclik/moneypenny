@@ -2,6 +2,7 @@
  * Visual regression tests for chat interface
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Chat Interface', () => {
   test('empty conversation state', async ({ page }) => {
@@ -12,8 +13,7 @@ test.describe('Visual: Chat Interface', () => {
     // Wait for welcome message to appear
     await page.waitForSelector('.welcome-message');
 
-    // Wait for any animations to complete
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('empty-conversation.png', {
       fullPage: true,
@@ -32,8 +32,7 @@ test.describe('Visual: Chat Interface', () => {
     // Wait for response
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    // Wait for animations
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('conversation-with-messages.png', {
       fullPage: true,
@@ -55,8 +54,7 @@ test.describe('Visual: Chat Interface', () => {
     // Every generated title has landed
     await expect(page.locator('.conversation-item-wrapper', { hasText: 'New Conversation' })).toHaveCount(0);
 
-    // Wait for animations
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-conversations.png');
   });
@@ -75,7 +73,7 @@ test.describe('Visual: Chat Interface', () => {
     await page.click('#user-menu-btn');
     await page.click('#select-chats-btn');
     await page.locator('#conversations-list .conversation-item').first().click();
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-selection.png');
   });

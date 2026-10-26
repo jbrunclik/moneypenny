@@ -3,6 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
+import { screenshotReady } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -40,7 +41,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-success.png');
   });
@@ -68,7 +69,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-error-with-retry.png');
   });
@@ -95,7 +96,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-warning.png');
   });
@@ -122,7 +123,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-info.png');
   });
@@ -159,7 +160,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-multiple.png');
   });
@@ -230,7 +231,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-confirm.png');
   });
@@ -263,7 +264,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-danger-confirm.png');
   });
@@ -297,7 +298,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-prompt.png');
   });
@@ -408,7 +409,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-alert.png');
   });
@@ -441,7 +442,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-danger-confirm.png');
   });
@@ -475,7 +476,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-prompt.png');
   });
@@ -503,7 +504,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-toast-error.png');
   });
@@ -538,7 +539,7 @@ test.describe('Visual: Version Banner', () => {
       document.body.appendChild(banner);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.version-banner')).toHaveScreenshot('version-banner.png');
   });
@@ -575,7 +576,7 @@ test.describe('Visual: Mobile Version Banner', () => {
       document.body.appendChild(banner);
     });
 
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-version-banner.png');
   });

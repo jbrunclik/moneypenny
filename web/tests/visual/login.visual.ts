@@ -5,6 +5,7 @@
  * Since E2E tests bypass auth, we directly show the login overlay via DOM manipulation.
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Login Screen', () => {
   test('login overlay - desktop', async ({ page }) => {
@@ -21,8 +22,7 @@ test.describe('Visual: Login Screen', () => {
       }
     });
 
-    // Wait for any transitions
-    await page.waitForTimeout(100);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('login-overlay-desktop.png', {
       fullPage: true,
@@ -47,7 +47,7 @@ test.describe('Visual: Login Screen', () => {
         `;
       }
     });
-    await page.waitForTimeout(100);
+    await screenshotReady(page);
 
     await expect(page.locator('.login-box')).toHaveScreenshot('login-overlay-unavailable.png');
   });
@@ -69,8 +69,7 @@ test.describe('Visual: Login Screen', () => {
       }
     });
 
-    // Wait for any transitions
-    await page.waitForTimeout(100);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('login-overlay-mobile.png', {
       fullPage: true,

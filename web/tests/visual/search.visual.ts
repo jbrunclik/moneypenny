@@ -2,6 +2,7 @@
  * Visual regression tests for search functionality
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Search Input', () => {
   test.beforeEach(async ({ page }) => {
@@ -11,8 +12,7 @@ test.describe('Visual: Search Input', () => {
   });
 
   test('search input default state', async ({ page }) => {
-    // Wait for animations
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-default.png');
   });
@@ -21,8 +21,7 @@ test.describe('Visual: Search Input', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.focus();
 
-    // Wait for animations
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-focused.png');
   });
@@ -31,8 +30,7 @@ test.describe('Visual: Search Input', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('test query');
 
-    // Wait for animations
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-with-text.png');
   });
@@ -52,7 +50,7 @@ test.describe('Visual: Search Empty States', () => {
 
     // Wait for hint to appear
     await expect(page.locator('.search-empty')).toBeVisible();
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page.locator('#conversations-list')).toHaveScreenshot('search-empty-hint.png');
   });
@@ -137,7 +135,7 @@ test.describe('Visual: Search Results', () => {
     await searchInput.fill('Python');
 
     // Wait for results
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
     await expect(page.locator('.search-results-header')).toBeVisible();
 
     await expect(page.locator('#conversations-list')).toHaveScreenshot('search-results-list.png');
@@ -231,7 +229,7 @@ test.describe('Visual: Sidebar with Search', () => {
 
     // Screenshot normal state (conversation list visible)
     // Allow small pixel tolerance for dynamic timestamps from created conversation
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-normal-mode.png', {
       maxDiffPixelRatio: 0.02,
     });

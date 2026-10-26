@@ -2,6 +2,7 @@
  * Visual regression tests for mobile layouts
  */
 import { test, expect } from '../global-setup';
+import { screenshotReady } from '../e2e/waits';
 
 test.describe('Visual: Mobile iPhone', () => {
   test.use({ viewport: { width: 375, height: 812 } });
@@ -18,7 +19,7 @@ test.describe('Visual: Mobile iPhone', () => {
   test('mobile layout', async ({ page }) => {
     await page.goto('/');
     await createNewConversation(page);
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-layout.png', {
       fullPage: true,
@@ -33,8 +34,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
 
-    // Wait for animation
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-sidebar-open.png', {
       fullPage: true,
@@ -57,7 +57,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#user-menu-btn');
     await page.click('#select-chats-btn');
     await page.locator('#conversations-list .conversation-item').first().click();
-    await page.waitForTimeout(300);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-sidebar-selection.png', { fullPage: true });
   });
@@ -85,7 +85,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('mobile-conversation.png', {
       fullPage: true,
@@ -114,7 +114,7 @@ test.describe('Visual: Mobile iPad', () => {
     await page.click('#new-chat-btn');
 
     await page.waitForSelector('.welcome-message');
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('ipad-layout.png', {
       fullPage: true,
@@ -130,7 +130,7 @@ test.describe('Visual: Mobile iPad', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page).toHaveScreenshot('ipad-conversation.png', {
       fullPage: true,
@@ -149,7 +149,7 @@ test.describe('Visual: Mobile iPad', () => {
       await page.waitForSelector('.message.assistant', { timeout: 10000 });
     }
 
-    await page.waitForTimeout(500);
+    await screenshotReady(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('ipad-sidebar.png');
   });
