@@ -56,7 +56,7 @@ describe('assistantMessageFromDone', () => {
 
 describe('assistantMessageFromDone grounding', () => {
   it('carries annotations and the grounding summary into the store message', () => {
-    const annotations = [{ type: 'claim' as const, verdict: 'not_found' as const, quote: 'X' }];
+    const annotations = [{ type: 'claim' as const, verdict: 'not_found' as const, quote: 'X', prefix: '' }];
     const message = assistantMessageFromDone(
       { id: 'a1', created_at: '2026-10-03T08:00:00', content: 'X', annotations, grounding: { checked: true, source_count: 2 } },
       'X'

@@ -11,9 +11,9 @@ function setup(): HTMLElement {
   decorateGrounding(msg, {
     grounding: { checked: true, source_count: 3 },
     annotations: [
-      { type: 'claim', verdict: 'supported', quote: 'A je dobré', source: 1, source_quote: 'A' },
-      { type: 'claim', verdict: 'not_found', quote: 'C zavírá v 18:00', reason: 'Není.' },
-      { type: 'claim', verdict: 'contradicted', quote: 'B stojí 1 200 Kč', reason: 'Zdroj: 1 590 Kč' },
+      { type: 'claim', verdict: 'supported', quote: 'A je dobré', prefix: '', source: 1, source_quote: 'A' },
+      { type: 'claim', verdict: 'not_found', quote: 'C zavírá v 18:00', prefix: '', reason: 'Není.' },
+      { type: 'claim', verdict: 'contradicted', quote: 'B stojí 1 200 Kč', prefix: '', reason: 'Zdroj: 1 590 Kč' },
     ],
   });
   initClaimsSheet();

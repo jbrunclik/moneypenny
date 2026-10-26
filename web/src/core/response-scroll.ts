@@ -54,7 +54,7 @@ function watchForUserScroll(container: HTMLElement): () => boolean {
  */
 export function handleImageScrollAfterMessage(
   messageEl: HTMLElement,
-  files: Array<{ type: string; previewUrl?: string }> | undefined
+  files: Array<{ type: string; previewUrl?: string }> | null | undefined
 ): void {
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (!messagesContainer || !files) return;

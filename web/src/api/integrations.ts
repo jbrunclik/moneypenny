@@ -11,6 +11,8 @@ import {
   type CalendarStatus,
   type GarminConnectResponse,
   type GarminStatus,
+  type RouvyConnectResponse,
+  type RouvyStatus,
   type SelectedCalendarsResponse,
 } from '../types/api';
 import { request, requestWithRetry } from './http';
@@ -128,15 +130,9 @@ export const garmin = {
 };
 
 // Rouvy endpoints (no MFA — Rouvy's login flow has none)
-export interface RouvyStatus {
-  connected: boolean;
-  connected_at: string | null;
-  needs_reconnect: boolean;
-}
-
 export const rouvy = {
-  async connect(email: string, password: string): Promise<{ connected: boolean }> {
-    return request<{ connected: boolean }>('/auth/rouvy/connect', {
+  async connect(email: string, password: string): Promise<RouvyConnectResponse> {
+    return request<RouvyConnectResponse>('/auth/rouvy/connect', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });

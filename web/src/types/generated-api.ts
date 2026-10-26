@@ -8984,10 +8984,10 @@ export interface components {
             password: string;
         };
         /**
-         * QuickActionItem
-         * @description A one-tap saved prompt for a program conversation.
+         * QuickActionResponse
+         * @description A saved quick action as the program listings send it.
          */
-        "SportsProgramsResponse.QuickActionItem": {
+        "SportsProgramsResponse.QuickActionResponse": {
             /** Id */
             id: string;
             /** Emoji */
@@ -8997,7 +8997,7 @@ export interface components {
             /** Body */
             body: string;
             /** Fields */
-            fields?: string[];
+            fields: string[];
         };
         /**
          * SportsProgramItem
@@ -9018,7 +9018,7 @@ export interface components {
              */
             has_conversation: boolean;
             /** Quick Actions */
-            quick_actions: components["schemas"]["SportsProgramsResponse.QuickActionItem"][];
+            quick_actions: components["schemas"]["SportsProgramsResponse.QuickActionResponse"][];
         };
         /**
          * SportsProgramsResponse
@@ -9367,13 +9367,13 @@ export interface components {
              */
             has_conversation: boolean;
             /** Quick Actions */
-            quick_actions: components["schemas"]["LanguageProgramsResponse.QuickActionItem"][];
+            quick_actions: components["schemas"]["LanguageProgramsResponse.QuickActionResponse"][];
         };
         /**
-         * QuickActionItem
-         * @description A one-tap saved prompt for a program conversation.
+         * QuickActionResponse
+         * @description A saved quick action as the program listings send it.
          */
-        "LanguageProgramsResponse.QuickActionItem": {
+        "LanguageProgramsResponse.QuickActionResponse": {
             /** Id */
             id: string;
             /** Emoji */
@@ -9383,7 +9383,7 @@ export interface components {
             /** Body */
             body: string;
             /** Fields */
-            fields?: string[];
+            fields: string[];
         };
         /**
          * LanguageProgramsResponse
@@ -9688,10 +9688,10 @@ export interface components {
             source_quote: string | null;
         };
         /**
-         * DeepResearchAction
-         * @description Start on a deep-research offer (the server fills it from the started plan).
+         * DeepResearchActionResponse
+         * @description A stored deep-research start, with the started plan's size.
          */
-        "PlannerConversationResponse.DeepResearchAction": {
+        "PlannerConversationResponse.DeepResearchActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -9703,12 +9703,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items?: number;
+            items: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes?: number;
+            minutes: number;
         };
         /**
          * FileMetadataResponse
@@ -9835,7 +9835,7 @@ export interface components {
              * @description What a message sent on the user's behalf was
              * @default null
              */
-            action: (components["schemas"]["PlannerConversationResponse.VerifyClaimAction"] | components["schemas"]["PlannerConversationResponse.DeepResearchAction"]) | null;
+            action: (components["schemas"]["PlannerConversationResponse.VerifyClaimActionResponse"] | components["schemas"]["PlannerConversationResponse.DeepResearchActionResponse"]) | null;
             /** Created At */
             created_at: string;
         };
@@ -9850,10 +9850,10 @@ export interface components {
             url: string;
         };
         /**
-         * VerifyClaimAction
-         * @description Look it up on a claim card: verify one claim of an earlier answer.
+         * VerifyClaimActionResponse
+         * @description A stored verify-claim action (null ids: converted from old messages).
          */
-        "PlannerConversationResponse.VerifyClaimAction": {
+        "PlannerConversationResponse.VerifyClaimActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -9863,12 +9863,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id?: string | null;
+            source_message_id: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index?: number | null;
+            claim_index: number | null;
             /** Quote */
             quote: string;
         };
@@ -9962,10 +9962,10 @@ export interface components {
             source_quote: string | null;
         };
         /**
-         * DeepResearchAction
-         * @description Start on a deep-research offer (the server fills it from the started plan).
+         * DeepResearchActionResponse
+         * @description A stored deep-research start, with the started plan's size.
          */
-        "MessageResponse.DeepResearchAction": {
+        "MessageResponse.DeepResearchActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -9977,12 +9977,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items?: number;
+            items: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes?: number;
+            minutes: number;
         };
         /**
          * FileMetadataResponse
@@ -10047,10 +10047,10 @@ export interface components {
             url: string;
         };
         /**
-         * VerifyClaimAction
-         * @description Look it up on a claim card: verify one claim of an earlier answer.
+         * VerifyClaimActionResponse
+         * @description A stored verify-claim action (null ids: converted from old messages).
          */
-        "MessageResponse.VerifyClaimAction": {
+        "MessageResponse.VerifyClaimActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -10060,12 +10060,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id?: string | null;
+            source_message_id: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index?: number | null;
+            claim_index: number | null;
             /** Quote */
             quote: string;
         };
@@ -10142,7 +10142,7 @@ export interface components {
              * @description What a message sent on the user's behalf was
              * @default null
              */
-            action: (components["schemas"]["MessageResponse.VerifyClaimAction"] | components["schemas"]["MessageResponse.DeepResearchAction"]) | null;
+            action: (components["schemas"]["MessageResponse.VerifyClaimActionResponse"] | components["schemas"]["MessageResponse.DeepResearchActionResponse"]) | null;
             /** Created At */
             created_at: string;
         };
@@ -10712,10 +10712,10 @@ export interface components {
             source_quote: string | null;
         };
         /**
-         * DeepResearchAction
-         * @description Start on a deep-research offer (the server fills it from the started plan).
+         * DeepResearchActionResponse
+         * @description A stored deep-research start, with the started plan's size.
          */
-        "ConversationDetailPaginatedResponse.DeepResearchAction": {
+        "ConversationDetailPaginatedResponse.DeepResearchActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -10727,12 +10727,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items?: number;
+            items: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes?: number;
+            minutes: number;
         };
         /**
          * FileMetadataResponse
@@ -10859,7 +10859,7 @@ export interface components {
              * @description What a message sent on the user's behalf was
              * @default null
              */
-            action: (components["schemas"]["ConversationDetailPaginatedResponse.VerifyClaimAction"] | components["schemas"]["ConversationDetailPaginatedResponse.DeepResearchAction"]) | null;
+            action: (components["schemas"]["ConversationDetailPaginatedResponse.VerifyClaimActionResponse"] | components["schemas"]["ConversationDetailPaginatedResponse.DeepResearchActionResponse"]) | null;
             /** Created At */
             created_at: string;
         };
@@ -10907,10 +10907,10 @@ export interface components {
             url: string;
         };
         /**
-         * VerifyClaimAction
-         * @description Look it up on a claim card: verify one claim of an earlier answer.
+         * VerifyClaimActionResponse
+         * @description A stored verify-claim action (null ids: converted from old messages).
          */
-        "ConversationDetailPaginatedResponse.VerifyClaimAction": {
+        "ConversationDetailPaginatedResponse.VerifyClaimActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -10920,12 +10920,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id?: string | null;
+            source_message_id: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index?: number | null;
+            claim_index: number | null;
             /** Quote */
             quote: string;
         };
@@ -11675,10 +11675,10 @@ export interface components {
             source_quote: string | null;
         };
         /**
-         * DeepResearchAction
-         * @description Start on a deep-research offer (the server fills it from the started plan).
+         * DeepResearchActionResponse
+         * @description A stored deep-research start, with the started plan's size.
          */
-        "MessagesListResponse.DeepResearchAction": {
+        "MessagesListResponse.DeepResearchActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -11690,12 +11690,12 @@ export interface components {
              * Items
              * @default 0
              */
-            items?: number;
+            items: number;
             /**
              * Minutes
              * @default 0
              */
-            minutes?: number;
+            minutes: number;
         };
         /**
          * FileMetadataResponse
@@ -11822,7 +11822,7 @@ export interface components {
              * @description What a message sent on the user's behalf was
              * @default null
              */
-            action: (components["schemas"]["MessagesListResponse.VerifyClaimAction"] | components["schemas"]["MessagesListResponse.DeepResearchAction"]) | null;
+            action: (components["schemas"]["MessagesListResponse.VerifyClaimActionResponse"] | components["schemas"]["MessagesListResponse.DeepResearchActionResponse"]) | null;
             /** Created At */
             created_at: string;
         };
@@ -11870,10 +11870,10 @@ export interface components {
             url: string;
         };
         /**
-         * VerifyClaimAction
-         * @description Look it up on a claim card: verify one claim of an earlier answer.
+         * VerifyClaimActionResponse
+         * @description A stored verify-claim action (null ids: converted from old messages).
          */
-        "MessagesListResponse.VerifyClaimAction": {
+        "MessagesListResponse.VerifyClaimActionResponse": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -11883,12 +11883,12 @@ export interface components {
              * Source Message Id
              * @default null
              */
-            source_message_id?: string | null;
+            source_message_id: string | null;
             /**
              * Claim Index
              * @default null
              */
-            claim_index?: number | null;
+            claim_index: number | null;
             /** Quote */
             quote: string;
         };

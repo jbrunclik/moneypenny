@@ -4,14 +4,25 @@
  * API types are aliases of the schemas generated from the OpenAPI spec
  * (generated-api.ts, `make types`), extended only for frontend-only fields
  * such as previewUrl (F6). Hand-written types remain for client state
- * (Message, Conversation), SSE event shapes and the few places noted below
- * where the client still relies on a shape the spec does not promise.
+ * (Conversation), SSE event shapes and what the spec types as an open dict
+ * (the deep-research data, the planner's Garmin blocks). A test catches a
+ * hand-written copy of a schema (web/tests/unit/api-types.test.ts).
  */
 
 // Re-export generated types for reference and test validation
 export type { components } from './generated-api';
 
 type Schemas = import('./generated-api').components['schemas'];
+
+/** Keys of T whose value may be null */
+type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? K : never }[keyof T];
+
+/**
+ * A response schema as the client holds it: a field the server may send as
+ * null may also be missing - the SSE done event (not in the spec) leaves out
+ * what it lacks, and so do the messages the client builds itself.
+ */
+type MaybeAbsent<T> = Omit<T, NullableKeys<T>> & Partial<Pick<T, NullableKeys<T>>>;
 
 // Admin page and spend status (S12)
 export type AdminOverview = Schemas['AdminOverviewResponse'];
@@ -85,38 +96,32 @@ export interface Conversation {
 
 export type Source = Schemas['MessageResponse.SourceResponse'];
 
-export interface GeneratedImage {
-  prompt: string;
-  image_index?: number;
-  message_id?: string;
+export type GeneratedImage = MaybeAbsent<Schemas['MessageResponse.GeneratedImageResponse']> & {
+  message_id?: string; // client-only: the message the image info popup is for
+};
+
+/** The message fields whose schema the client narrows (the spec types research as an open dict) */
+type MessagePartKeys = 'files' | 'generated_images' | 'annotations' | 'grounding' | 'research';
+
+interface MessageParts {
+  files?: FileMetadata[] | null;
+  generated_images?: GeneratedImage[] | null;
+  /** Grounding-check claims (src/agent/grounding_annotations.py) */
+  annotations?: ClaimAnnotation[] | null;
+  grounding?: GroundingSummary | null;
+  /** Deep-research offer or run (src/agent/deep_research/) */
+  research?: MessageResearch | null;
 }
 
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  files?: FileMetadata[];
-  sources?: Source[];
-  generated_images?: GeneratedImage[];
-  language?: string; // ISO 639-1 language code for TTS (e.g., 'en', 'cs')
-  /** Assistant reply cut off by the tool-round cap (server-set) */
-  stopped_early?: boolean;
-  /** Why the reply ended early: 'user' = the user pressed Stop (server-set) */
-  stop_reason?: 'user';
-  /** Grounding-check claims (server-set; src/agent/grounding_annotations.py) */
-  annotations?: ClaimAnnotation[];
-  /** Grounding-check summary for the footer (server-set) */
-  grounding?: GroundingSummary;
-  /** Deep-research offer or run (server-set; src/agent/deep_research/) */
-  research?: MessageResearch;
-  /** A user message the app sent on the user's behalf */
-  action?: MessageAction;
-  /** Artifact versions shown under the reply (server-set; src/agent/tools/artifacts.py) */
-  artifacts?: ArtifactRef[];
-  created_at: string;
-  /** Client-only send state; never sent by the server (absent = delivered) */
-  status?: 'pending' | 'failed' | undefined; // patched to undefined (updateMessage) to clear it
-}
+/**
+ * A message in the store: the server's MessageResponse (sent with nulls; the
+ * SSE done event and the client's own messages leave fields out instead).
+ */
+export type Message = Omit<MaybeAbsent<Schemas['MessageResponse']>, MessagePartKeys> &
+  MessageParts & {
+    /** Client-only send state; never sent by the server (absent = delivered) */
+    status?: 'pending' | 'failed' | undefined; // patched to undefined (updateMessage) to clear it
+  };
 
 /** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
 export type ArtifactRef = Schemas['MessageResponse.ArtifactRef'];
@@ -176,28 +181,8 @@ export interface MessageResearch {
 /** The chat request's deep_research field: start an offer with the edited plan */
 export type DeepResearchStart = Schemas['ChatRequest.DeepResearchStart'];
 
-// The action types stay hand-written: the spec reuses the request models in
-// MessageResponse, so items/minutes/source_message_id come out optional,
-// while every stored action has them and the action row reads them.
-
-/** Look it up on a claim card (source_message_id/claim_index null for converted old messages) */
-interface VerifyClaimAction {
-  type: 'verify_claim';
-  source_message_id: string | null;
-  claim_index: number | null;
-  quote: string;
-}
-
-/** Start on a deep-research offer */
-interface DeepResearchAction {
-  type: 'deep_research';
-  offer_message_id: string;
-  items: number;
-  minutes: number;
-}
-
 /** What a user message sent on the user's behalf was (rendered as an action row) */
-export type MessageAction = VerifyClaimAction | DeepResearchAction;
+export type MessageAction = NonNullable<Schemas['MessageResponse']['action']>;
 
 /** This device's Web Push state, as the settings show it (core/push) */
 export type PushState =
@@ -214,48 +199,26 @@ export interface SendExtras {
   action?: MessageAction;
 }
 
-// ClaimAnnotation and GroundingSummary stay hand-written: they also arrive on
-// the SSE done event (not in the spec) and are read back from the DOM, where
-// the optional fields can be missing.
+/**
+ * One claim of an answer and how the turn's sources bear on it. `quote` is a
+ * literal phrase of the message's markdown, `prefix` the text right before it
+ * (picks among repeats), `source` a 1-based index into the message's sources.
+ * The SSE done event leaves out the fields a claim lacks.
+ */
+export type ClaimAnnotation = MaybeAbsent<Schemas['MessageResponse.ClaimAnnotationResponse']>;
 
-export type ClaimVerdict = 'supported' | 'partial' | 'not_found' | 'contradicted';
+export type ClaimVerdict = ClaimAnnotation['verdict'];
 
-/** One claim of an answer and how the turn's sources bear on it */
-export interface ClaimAnnotation {
-  type: 'claim';
-  verdict: ClaimVerdict;
-  /** Literal phrase of the message's markdown */
-  quote: string;
-  /** Text right before the quote (picks among repeats) */
-  prefix?: string | null;
-  reason?: string | null;
-  /** 1-based index into the message's sources */
-  source?: number | null;
-  /** Literal passage of that source */
-  source_quote?: string | null;
-}
-
-export interface GroundingSummary {
-  checked: boolean;
-  source_count?: number | null;
-  /** Converted from the pre-Oct-3-2026 inline markers (no reasons or total) */
-  legacy?: boolean | null;
-}
+/** `legacy`: converted from the pre-Oct-3-2026 inline markers (no reasons or total) */
+export type GroundingSummary = MaybeAbsent<Schemas['MessageResponse.GroundingSummaryResponse']>;
 
 // =============================================================================
 // File types
 // =============================================================================
 
-// FileMetadata and GeneratedImage are Message state (local uploads, SSE done
-// events) with client-only fields, so they stay hand-written like Message.
-
-export interface FileMetadata {
-  name: string;
-  type: string;
-  messageId?: string;
-  fileIndex?: number;
+export type FileMetadata = MaybeAbsent<Schemas['MessageResponse.FileMetadataResponse']> & {
   previewUrl?: string; // blob URL for immediate display (local uploads only)
-}
+};
 
 /** `data` is base64 */
 export type FileUpload = Schemas['ChatRequest.FileAttachment'] & {
@@ -264,15 +227,13 @@ export type FileUpload = Schemas['ChatRequest.FileAttachment'] & {
 
 /**
  * Device GPS fix attached to chat requests when location sharing is enabled.
- * Hand-written: the request schema lets timestamp_ms be omitted, but the
- * client always sets it and reads it back to age its cached fix.
+ * The request lets timestamp_ms be omitted; the client always sets it and
+ * reads it back to age its cached fix.
  */
-export interface ClientLocation {
-  lat: number;
-  lon: number;
+export type ClientLocation = Schemas['ChatRequest.ClientLocation'] & {
   accuracy_m: number | null;
   timestamp_ms: number;
-}
+};
 
 // =============================================================================
 // Model types
@@ -314,21 +275,7 @@ export type StreamEvent = (
   // Another device's turn was running: the send steered it (follow that reply)
   | { type: 'interjected'; message_id: string; message_count: number }
   | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT hit; partial content saved
-  | {
-      type: 'done';
-      id: string;
-      created_at: string;
-      content?: string; // Full content (resume path / recovery if token events were lost)
-      sources?: Source[];
-      generated_images?: GeneratedImage[];
-      files?: FileMetadata[];
-      language?: string; // ISO 639-1 language code for TTS
-      title?: string;
-      user_message_id?: string; // Real ID of the user message (kept for backwards compatibility)
-      stopped_early?: boolean; // Reply cut off by the tool-round cap
-      stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
-      unanswered_steering_id?: string; // Steering the turn never read (now after the reply)
-    }
+  | ({ type: 'done' } & StreamDoneEvent)
   | { type: 'error'; message: string; code?: string; retryable?: boolean }
 ) & {
   /** Journal sequence number for resumable streams (resume with after_seq) */
@@ -371,12 +318,8 @@ export type ConversationsPagination =
 
 export type MessagesPagination = Schemas['MessagesListResponse.MessagesPaginationResponse'];
 
-/** Hand-written: conversations.list() normalizes each raw summary into a Conversation */
-export interface ConversationsResponse {
-  conversations: Conversation[];
-  pinned_conversations?: Conversation[];
-  pagination: ConversationsPagination;
-}
+/** conversations.list() turns each raw summary into a Conversation */
+export type ConversationsResponse = Schemas['ConversationsListPaginatedResponse'];
 
 /** The spec types messages loosely (research is an open dict); the client reads them as Message */
 export type ConversationDetailResponse = Omit<
@@ -394,28 +337,25 @@ export type ModelsResponse = Omit<Schemas['ModelsListResponse'], 'models'> & {
   models: Model[];
 };
 
-/** Hand-written: the batch reply's fields go straight into a Message (optional, not null) */
-export interface ChatResponse {
-  id: string;
-  role: 'assistant';
-  content: string;
-  files?: FileMetadata[];
-  sources?: Source[];
-  generated_images?: GeneratedImage[];
-  language?: string; // ISO 639-1 language code for TTS
-  created_at: string;
-  title?: string;
-  user_message_id?: string; // Real ID of the user message (for updating temp IDs)
-  stopped_early?: boolean; // Reply cut off by the tool-round cap
-  annotations?: ClaimAnnotation[]; // Grounding-check claims
-  grounding?: GroundingSummary; // Grounding-check footer summary
-  stop_reason?: 'user'; // The user pressed Stop (partial reply kept)
-  model_fallback?: string; // Model that answered when the conversation's model was down
-  research?: MessageResearch; // Deep-research offer or run
-  artifacts?: ArtifactRef[]; // Artifact versions shown under the reply
-  message_count?: number; // The conversation's message count after this turn (sync baseline)
-  unanswered_steering_id?: string | null; // Steering the turn never read (now after the reply)
-}
+/** The batch reply (the spec types research as an open dict) */
+export type ChatResponse = Omit<Schemas['ChatBatchResponse'], 'research'> & {
+  research: MessageResearch | null;
+};
+
+/**
+ * Payload of the stream's terminal `done` event: the batch reply's fields,
+ * left out instead of null, plus the approval marker. `content` is missing
+ * on an approval request.
+ */
+export type StreamDoneEvent = Omit<
+  MaybeAbsent<ChatResponse>,
+  'role' | 'content' | 'model_fallback' | MessagePartKeys
+> &
+  MessageParts & {
+  content?: string;
+  approval_required?: boolean;
+  approval_id?: string;
+};
 
 /** The server's error envelope; the spec's HTTPError (APIFlask's default) does not describe it */
 export interface ErrorResponse {
@@ -447,34 +387,21 @@ export type CostHistoryResponse = Schemas['CostHistoryResponse'];
 // Sync types
 // =============================================================================
 
-// ConversationSummary and SyncResponse stay hand-written: the spec sends every
-// field, but SyncManager still branches on missing ones (read_count, pinned,
-// anonymous_mode, cursor, ...) and its tests drive those fallbacks.
+// The server sends every sync field, but SyncManager still has fallbacks for
+// a missing read_count, pinned, anonymous_mode or cursor (the pre-shared-read
+// unread tracking and the legacy timestamp sync) and its tests drive them, so
+// those keys stay optional until the fallbacks go (TODO.md, F6).
+type SyncFallbackKeys = 'created_at' | 'read_count' | 'last_message_preview' | 'last_message_id' | 'archived' | 'trashed' | 'pinned' | 'anonymous_mode';
 
-export interface ConversationSummary {
-  id: string;
-  title: string;
-  model: string;
-  created_at?: string | null;
-  updated_at: string;
-  message_count: number;
-  read_count?: number; // Shown on any of the user's devices (shared unread state)
-  last_message_preview?: string | null;
-  last_message_id?: string | null; // Newest message (detects edits/deletes)
-  archived?: boolean;
-  trashed?: boolean; // In the trash
-  pinned?: boolean;
-  anonymous_mode?: boolean; // Memory and integrations off (adopted across devices)
-}
+/** `read_count`: messages shown on any of the user's devices; `last_message_id` detects edits/deletes */
+export type ConversationSummary = Omit<Schemas['SyncResponse.SyncConversationResponse'], SyncFallbackKeys> &
+  Partial<Pick<Schemas['SyncResponse.SyncConversationResponse'], SyncFallbackKeys>>;
 
-export interface SyncResponse {
-  conversations: ConversationSummary[];
-  server_time: string;
-  is_full_sync: boolean;
-  cursor?: number; // Change-log position for the next ?cursor= sync
-  removed_ids?: string[]; // Permanently deleted since the cursor
-  has_more?: boolean; // More changes after cursor - sync again
-}
+/** `cursor`: change-log position for the next ?cursor= sync; `has_more`: sync again */
+export type SyncResponse = Omit<Schemas['SyncResponse'], 'conversations' | 'cursor' | 'removed_ids' | 'has_more'> &
+  Partial<Pick<Schemas['SyncResponse'], 'cursor' | 'removed_ids' | 'has_more'>> & {
+    conversations: ConversationSummary[];
+  };
 
 // =============================================================================
 // Memory types
@@ -532,6 +459,14 @@ export type BulkTrashRequest = Schemas['BulkTrashRequest'];
 export type GarminConnectResponse = Schemas['GarminConnectResponse'];
 
 export type GarminStatus = Schemas['GarminStatusResponse'];
+
+// =============================================================================
+// Rouvy types
+// =============================================================================
+
+export type RouvyConnectResponse = Schemas['RouvyConnectResponse'];
+
+export type RouvyStatus = Schemas['RouvyStatusResponse'];
 
 // =============================================================================
 // Search types
@@ -624,18 +559,12 @@ export type KVValueResponse = Schemas['KVValueResponse'];
 /**
  * A one-tap saved prompt for a program conversation (sports, language).
  * `fields`: ordered labels asked for before sending; answers append as `Label: value`.
- * The server always sends `fields`; the spec marks it optional because the item
- * model is shared with the update request.
  */
-export type QuickAction = Required<Schemas['SportsProgramsResponse.QuickActionItem']>;
+export type QuickAction = Schemas['SportsProgramsResponse.QuickActionResponse'];
 
-export type SportsProgram = Omit<Schemas['SportsProgramsResponse.SportsProgramItem'], 'quick_actions'> & {
-  quick_actions: QuickAction[];
-};
+export type SportsProgram = Schemas['SportsProgramsResponse.SportsProgramItem'];
 
-export type SportsProgramsResponse = Omit<Schemas['SportsProgramsResponse'], 'programs'> & {
-  programs: SportsProgram[];
-};
+export type SportsProgramsResponse = Schemas['SportsProgramsResponse'];
 
 export type SportsConversation = Omit<Schemas['SportsConversationResponse'], 'messages'> & {
   messages: Message[];
@@ -647,16 +576,9 @@ export type SportsResetResponse = Schemas['SportsResetResponse'];
 // Language Learning types
 // =============================================================================
 
-export type LanguageProgram = Omit<
-  Schemas['LanguageProgramsResponse.LanguageProgramItem'],
-  'quick_actions'
-> & {
-  quick_actions: QuickAction[];
-};
+export type LanguageProgram = Schemas['LanguageProgramsResponse.LanguageProgramItem'];
 
-export type LanguageProgramsResponse = Omit<Schemas['LanguageProgramsResponse'], 'programs'> & {
-  programs: LanguageProgram[];
-};
+export type LanguageProgramsResponse = Schemas['LanguageProgramsResponse'];
 
 export type LanguageConversation = Omit<Schemas['LanguageConversationResponse'], 'messages'> & {
   messages: Message[];

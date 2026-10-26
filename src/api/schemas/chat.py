@@ -196,6 +196,30 @@ class ArtifactRef(ResponseModel):
     title: str = Field(description="Artifact title")
 
 
+class VerifyClaimActionResponse(ResponseModel):
+    """A stored verify-claim action (null ids: converted from old messages)."""
+
+    type: Literal["verify_claim"]
+    source_message_id: str | None = None
+    claim_index: int | None = None
+    quote: str
+
+
+class DeepResearchActionResponse(ResponseModel):
+    """A stored deep-research start, with the started plan's size."""
+
+    type: Literal["deep_research"]
+    offer_message_id: str
+    items: int = 0
+    minutes: int = 0
+
+
+# The action as stored and sent back (a response model: every field is sent)
+MessageActionResponse = Annotated[
+    VerifyClaimActionResponse | DeepResearchActionResponse, Field(discriminator="type")
+]
+
+
 class MessageResponse(ResponseModel):
     """Message in a conversation."""
 
@@ -223,7 +247,7 @@ class MessageResponse(ResponseModel):
     artifacts: list[ArtifactRef] | None = Field(
         default=None, description="Artifact versions shown under the reply"
     )
-    action: MessageAction | None = Field(
+    action: MessageActionResponse | None = Field(
         default=None, description="What a message sent on the user's behalf was"
     )
     created_at: str

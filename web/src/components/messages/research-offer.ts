@@ -59,7 +59,7 @@ export function estimateFrom(rates: ResearchRates, n: number): { minutes: number
 }
 
 /** The open offer of a message: its own, or a report's follow-up. */
-function offerOf(research: MessageResearch | undefined): ResearchOffer | undefined {
+function offerOf(research: MessageResearch | null | undefined): ResearchOffer | undefined {
   return research?.offer ?? research?.run?.followup;
 }
 

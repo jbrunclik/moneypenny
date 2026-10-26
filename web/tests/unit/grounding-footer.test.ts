@@ -3,7 +3,7 @@ import { decorateGrounding, footerText, showGroundingChecking } from '@/componen
 import type { ClaimAnnotation } from '@/types/api';
 
 const anns = (...verdicts: ClaimAnnotation['verdict'][]): ClaimAnnotation[] =>
-  verdicts.map((verdict, i) => ({ type: 'claim', verdict, quote: `q${i}` }));
+  verdicts.map((verdict, i) => ({ type: 'claim', verdict, quote: `q${i}`, prefix: '' }));
 
 function bubble(text: string): HTMLElement {
   const el = document.createElement('div');
@@ -59,7 +59,7 @@ describe('decorateGrounding', () => {
         content: 'PřepiServis vyřídí přepis.',
         created_at: '2026-10-03T08:00:00',
         language: 'cs',
-        annotations: [{ type: 'claim', verdict: 'not_found', quote: 'PřepiServis' }],
+        annotations: [{ type: 'claim', verdict: 'not_found', quote: 'PřepiServis', prefix: '' }],
         grounding: { checked: true, legacy: true },
       },
       container

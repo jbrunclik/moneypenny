@@ -15,8 +15,8 @@ function setup(): HTMLElement {
   decorateGrounding(msg, {
     grounding: { checked: true, source_count: 1 },
     annotations: [
-      { type: 'claim', verdict: 'not_found', quote: 'rychlost 24–48 hodin', reason: 'Stránky popisují jen SPZ Služby.' },
-      { type: 'claim', verdict: 'supported', quote: 'Kurýr', source: 1, source_quote: 'Kurýr vyzvedne' },
+      { type: 'claim', verdict: 'not_found', quote: 'rychlost 24–48 hodin', prefix: '', reason: 'Stránky popisují jen SPZ Služby.' },
+      { type: 'claim', verdict: 'supported', quote: 'Kurýr', prefix: '', source: 1, source_quote: 'Kurýr vyzvedne' },
     ],
   });
   initClaimCard({ send: sendUiMessage });
@@ -108,7 +108,7 @@ describe('ClaimCard', () => {
     document.getElementById('messages')!.appendChild(msg);
     decorateGrounding(msg, {
       grounding: { checked: true, source_count: 1 },
-      annotations: [{ type: 'claim', verdict: 'not_found', quote: '**PřepiServis**' }],
+      annotations: [{ type: 'claim', verdict: 'not_found', quote: '**PřepiServis**', prefix: '' }],
     });
     initClaimCard({ send: sendUiMessage });
     (document.querySelector('.claim') as HTMLElement).click();
@@ -124,7 +124,7 @@ describe('ClaimCard', () => {
     document.getElementById('messages')!.appendChild(msg);
     decorateGrounding(msg, {
       grounding: { checked: true, source_count: 1 },
-      annotations: [{ type: 'claim', verdict: 'not_found', quote: '1 200 Kč' }],
+      annotations: [{ type: 'claim', verdict: 'not_found', quote: '1 200 Kč', prefix: '' }],
     });
     initClaimCard({ send: sendUiMessage });
     (document.querySelector('.claim') as HTMLElement).click();

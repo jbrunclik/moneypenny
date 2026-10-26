@@ -15,16 +15,7 @@ import {
 } from '../components/messages';
 import { getElementById } from '../utils/dom';
 import { toast } from '../components/Toast';
-import type {
-  ArtifactRef,
-  ClaimAnnotation,
-  FileMetadata,
-  GeneratedImage,
-  GroundingSummary,
-  Message,
-  MessageResearch,
-  Source,
-} from '../types/api';
+import type { Message, StreamDoneEvent } from '../types/api';
 import { decorateArtifacts } from '../components/messages/artifacts';
 import { decorateGrounding } from '../components/messages/grounding';
 import { finishResearchMessage } from '../components/messages/research-progress';
@@ -36,29 +27,6 @@ import { handleImageScrollAfterMessage, settleAnchoredReply } from './response-s
 import { isTurnAnchored, settleTurnSpace } from '../components/messages/turn-anchor';
 
 const log = createLogger('messaging');
-
-/** Payload of the stream's terminal `done` event (the saved assistant message). */
-export interface StreamDoneEvent {
-  id: string;
-  created_at: string;
-  content?: string;
-  user_message_id?: string;
-  sources?: Source[];
-  generated_images?: GeneratedImage[];
-  files?: FileMetadata[];
-  title?: string;
-  language?: string;
-  approval_required?: boolean;
-  approval_id?: string;
-  stopped_early?: boolean;
-  stop_reason?: 'user';
-  annotations?: ClaimAnnotation[];
-  grounding?: GroundingSummary;
-  research?: MessageResearch;
-  artifacts?: ArtifactRef[];
-  /** The conversation's message count after this turn (sync baseline) */
-  message_count?: number;
-}
 
 /**
  * The store Message for a completed streamed reply - the same data the
@@ -194,7 +162,7 @@ export async function handleStreamDone(
   convId: string,
   tempUserMessageId: string
 ): Promise<void> {
-  if (event.message_count !== undefined) state.serverMessageCount = event.message_count;
+  if (event.message_count != null) state.serverMessageCount = event.message_count;
   log.info('Streaming complete', {
     conversationId: convId,
     messageId: event.id,

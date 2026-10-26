@@ -1,5 +1,6 @@
 import { CHECK_ICON, WARNING_ICON, ACTIVITY_ICON } from '../../utils/icons';
-import { rouvy, type RouvyStatus } from '../../api/integrations';
+import { rouvy } from '../../api/integrations';
+import type { RouvyStatus } from '../../types/api';
 import { toast } from '../Toast';
 import { createElement } from '../../utils/dom';
 import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';

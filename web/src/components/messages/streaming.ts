@@ -276,11 +276,11 @@ export function finalizeStreamingMessage(
   messageEl: HTMLElement,
   messageId: string,
   createdAt?: string,
-  sources?: Source[],
-  generatedImages?: GeneratedImage[],
-  files?: FileMetadata[],
+  sources?: Source[] | null,
+  generatedImages?: GeneratedImage[] | null,
+  files?: FileMetadata[] | null,
   role: 'user' | 'assistant' = 'assistant',
-  language?: string
+  language?: string | null
 ): boolean {
   markMessageFinal(messageEl, messageId);
 
@@ -364,7 +364,7 @@ function endStreamingContext(messageEl: HTMLElement): boolean {
 }
 
 /** The final text: highlighted code, diagrams and the generated files. */
-function finishContent(messageEl: HTMLElement, messageId: string, files?: FileMetadata[]): void {
+function finishContent(messageEl: HTMLElement, messageId: string, files?: FileMetadata[] | null): void {
   // Apply syntax highlighting to code blocks
   const content = messageEl.querySelector('.message-content');
   if (content) {

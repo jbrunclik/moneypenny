@@ -9940,31 +9940,22 @@
         "title": "GarminConnectRequest",
         "type": "object"
       },
-      "SportsProgramsResponse.QuickActionItem": {
-        "description": "A one-tap saved prompt for a program conversation.",
+      "SportsProgramsResponse.QuickActionResponse": {
+        "description": "A saved quick action as the program listings send it.",
         "properties": {
           "id": {
-            "maxLength": 32,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9_-]+$",
             "title": "Id",
             "type": "string"
           },
           "emoji": {
-            "maxLength": 10,
-            "minLength": 1,
             "title": "Emoji",
             "type": "string"
           },
           "label": {
-            "maxLength": 40,
-            "minLength": 1,
             "title": "Label",
             "type": "string"
           },
           "body": {
-            "maxLength": 2000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -9972,7 +9963,6 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 6,
             "title": "Fields",
             "type": "array"
           }
@@ -9981,9 +9971,10 @@
           "id",
           "emoji",
           "label",
-          "body"
+          "body",
+          "fields"
         ],
-        "title": "QuickActionItem",
+        "title": "QuickActionResponse",
         "type": "object"
       },
       "SportsProgramsResponse.SportsProgramItem": {
@@ -10012,7 +10003,7 @@
           },
           "quick_actions": {
             "items": {
-              "$ref": "#/components/schemas/SportsProgramsResponse.QuickActionItem"
+              "$ref": "#/components/schemas/SportsProgramsResponse.QuickActionResponse"
             },
             "title": "Quick Actions",
             "type": "array"
@@ -10672,7 +10663,7 @@
           },
           "quick_actions": {
             "items": {
-              "$ref": "#/components/schemas/LanguageProgramsResponse.QuickActionItem"
+              "$ref": "#/components/schemas/LanguageProgramsResponse.QuickActionResponse"
             },
             "title": "Quick Actions",
             "type": "array"
@@ -10689,31 +10680,22 @@
         "title": "LanguageProgramItem",
         "type": "object"
       },
-      "LanguageProgramsResponse.QuickActionItem": {
-        "description": "A one-tap saved prompt for a program conversation.",
+      "LanguageProgramsResponse.QuickActionResponse": {
+        "description": "A saved quick action as the program listings send it.",
         "properties": {
           "id": {
-            "maxLength": 32,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9_-]+$",
             "title": "Id",
             "type": "string"
           },
           "emoji": {
-            "maxLength": 10,
-            "minLength": 1,
             "title": "Emoji",
             "type": "string"
           },
           "label": {
-            "maxLength": 40,
-            "minLength": 1,
             "title": "Label",
             "type": "string"
           },
           "body": {
-            "maxLength": 2000,
-            "minLength": 1,
             "title": "Body",
             "type": "string"
           },
@@ -10721,7 +10703,6 @@
             "items": {
               "type": "string"
             },
-            "maxItems": 6,
             "title": "Fields",
             "type": "array"
           }
@@ -10730,9 +10711,10 @@
           "id",
           "emoji",
           "label",
-          "body"
+          "body",
+          "fields"
         ],
-        "title": "QuickActionItem",
+        "title": "QuickActionResponse",
         "type": "object"
       },
       "LanguageProgramsResponse": {
@@ -11260,8 +11242,8 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
-      "PlannerConversationResponse.DeepResearchAction": {
-        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+      "PlannerConversationResponse.DeepResearchActionResponse": {
+        "description": "A stored deep-research start, with the started plan's size.",
         "properties": {
           "type": {
             "const": "deep_research",
@@ -11274,22 +11256,22 @@
           },
           "items": {
             "default": 0,
-            "minimum": 0,
             "title": "Items",
             "type": "integer"
           },
           "minutes": {
             "default": 0,
-            "minimum": 0,
             "title": "Minutes",
             "type": "integer"
           }
         },
         "required": [
           "type",
-          "offer_message_id"
+          "offer_message_id",
+          "items",
+          "minutes"
         ],
-        "title": "DeepResearchAction",
+        "title": "DeepResearchActionResponse",
         "type": "object"
       },
       "PlannerConversationResponse.FileMetadataResponse": {
@@ -11570,17 +11552,17 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "deep_research": "#/components/schemas/PlannerConversationResponse.DeepResearchAction",
-                    "verify_claim": "#/components/schemas/PlannerConversationResponse.VerifyClaimAction"
+                    "deep_research": "#/components/schemas/PlannerConversationResponse.DeepResearchActionResponse",
+                    "verify_claim": "#/components/schemas/PlannerConversationResponse.VerifyClaimActionResponse"
                   },
                   "propertyName": "type"
                 },
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/PlannerConversationResponse.VerifyClaimAction"
+                    "$ref": "#/components/schemas/PlannerConversationResponse.VerifyClaimActionResponse"
                   },
                   {
-                    "$ref": "#/components/schemas/PlannerConversationResponse.DeepResearchAction"
+                    "$ref": "#/components/schemas/PlannerConversationResponse.DeepResearchActionResponse"
                   }
                 ]
               },
@@ -11636,8 +11618,8 @@
         "title": "SourceResponse",
         "type": "object"
       },
-      "PlannerConversationResponse.VerifyClaimAction": {
-        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+      "PlannerConversationResponse.VerifyClaimActionResponse": {
+        "description": "A stored verify-claim action (null ids: converted from old messages).",
         "properties": {
           "type": {
             "const": "verify_claim",
@@ -11659,7 +11641,6 @@
           "claim_index": {
             "anyOf": [
               {
-                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -11670,16 +11651,17 @@
             "title": "Claim Index"
           },
           "quote": {
-            "maxLength": 500,
             "title": "Quote",
             "type": "string"
           }
         },
         "required": [
           "type",
+          "source_message_id",
+          "claim_index",
           "quote"
         ],
-        "title": "VerifyClaimAction",
+        "title": "VerifyClaimActionResponse",
         "type": "object"
       },
       "PlannerConversationResponse": {
@@ -11838,8 +11820,8 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
-      "MessageResponse.DeepResearchAction": {
-        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+      "MessageResponse.DeepResearchActionResponse": {
+        "description": "A stored deep-research start, with the started plan's size.",
         "properties": {
           "type": {
             "const": "deep_research",
@@ -11852,22 +11834,22 @@
           },
           "items": {
             "default": 0,
-            "minimum": 0,
             "title": "Items",
             "type": "integer"
           },
           "minutes": {
             "default": 0,
-            "minimum": 0,
             "title": "Minutes",
             "type": "integer"
           }
         },
         "required": [
           "type",
-          "offer_message_id"
+          "offer_message_id",
+          "items",
+          "minutes"
         ],
-        "title": "DeepResearchAction",
+        "title": "DeepResearchActionResponse",
         "type": "object"
       },
       "MessageResponse.FileMetadataResponse": {
@@ -12002,8 +11984,8 @@
         "title": "SourceResponse",
         "type": "object"
       },
-      "MessageResponse.VerifyClaimAction": {
-        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+      "MessageResponse.VerifyClaimActionResponse": {
+        "description": "A stored verify-claim action (null ids: converted from old messages).",
         "properties": {
           "type": {
             "const": "verify_claim",
@@ -12025,7 +12007,6 @@
           "claim_index": {
             "anyOf": [
               {
-                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -12036,16 +12017,17 @@
             "title": "Claim Index"
           },
           "quote": {
-            "maxLength": 500,
             "title": "Quote",
             "type": "string"
           }
         },
         "required": [
           "type",
+          "source_message_id",
+          "claim_index",
           "quote"
         ],
-        "title": "VerifyClaimAction",
+        "title": "VerifyClaimActionResponse",
         "type": "object"
       },
       "MessageResponse": {
@@ -12213,17 +12195,17 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "deep_research": "#/components/schemas/MessageResponse.DeepResearchAction",
-                    "verify_claim": "#/components/schemas/MessageResponse.VerifyClaimAction"
+                    "deep_research": "#/components/schemas/MessageResponse.DeepResearchActionResponse",
+                    "verify_claim": "#/components/schemas/MessageResponse.VerifyClaimActionResponse"
                   },
                   "propertyName": "type"
                 },
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/MessageResponse.VerifyClaimAction"
+                    "$ref": "#/components/schemas/MessageResponse.VerifyClaimActionResponse"
                   },
                   {
-                    "$ref": "#/components/schemas/MessageResponse.DeepResearchAction"
+                    "$ref": "#/components/schemas/MessageResponse.DeepResearchActionResponse"
                   }
                 ]
               },
@@ -13310,8 +13292,8 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
-      "ConversationDetailPaginatedResponse.DeepResearchAction": {
-        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+      "ConversationDetailPaginatedResponse.DeepResearchActionResponse": {
+        "description": "A stored deep-research start, with the started plan's size.",
         "properties": {
           "type": {
             "const": "deep_research",
@@ -13324,22 +13306,22 @@
           },
           "items": {
             "default": 0,
-            "minimum": 0,
             "title": "Items",
             "type": "integer"
           },
           "minutes": {
             "default": 0,
-            "minimum": 0,
             "title": "Minutes",
             "type": "integer"
           }
         },
         "required": [
           "type",
-          "offer_message_id"
+          "offer_message_id",
+          "items",
+          "minutes"
         ],
-        "title": "DeepResearchAction",
+        "title": "DeepResearchActionResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.FileMetadataResponse": {
@@ -13620,17 +13602,17 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "deep_research": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchAction",
-                    "verify_claim": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimAction"
+                    "deep_research": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchActionResponse",
+                    "verify_claim": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimActionResponse"
                   },
                   "propertyName": "type"
                 },
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimAction"
+                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.VerifyClaimActionResponse"
                   },
                   {
-                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchAction"
+                    "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.DeepResearchActionResponse"
                   }
                 ]
               },
@@ -13741,8 +13723,8 @@
         "title": "SourceResponse",
         "type": "object"
       },
-      "ConversationDetailPaginatedResponse.VerifyClaimAction": {
-        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+      "ConversationDetailPaginatedResponse.VerifyClaimActionResponse": {
+        "description": "A stored verify-claim action (null ids: converted from old messages).",
         "properties": {
           "type": {
             "const": "verify_claim",
@@ -13764,7 +13746,6 @@
           "claim_index": {
             "anyOf": [
               {
-                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -13775,16 +13756,17 @@
             "title": "Claim Index"
           },
           "quote": {
-            "maxLength": 500,
             "title": "Quote",
             "type": "string"
           }
         },
         "required": [
           "type",
+          "source_message_id",
+          "claim_index",
           "quote"
         ],
-        "title": "VerifyClaimAction",
+        "title": "VerifyClaimActionResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse": {
@@ -15335,8 +15317,8 @@
         "title": "ClaimAnnotationResponse",
         "type": "object"
       },
-      "MessagesListResponse.DeepResearchAction": {
-        "description": "Start on a deep-research offer (the server fills it from the started plan).",
+      "MessagesListResponse.DeepResearchActionResponse": {
+        "description": "A stored deep-research start, with the started plan's size.",
         "properties": {
           "type": {
             "const": "deep_research",
@@ -15349,22 +15331,22 @@
           },
           "items": {
             "default": 0,
-            "minimum": 0,
             "title": "Items",
             "type": "integer"
           },
           "minutes": {
             "default": 0,
-            "minimum": 0,
             "title": "Minutes",
             "type": "integer"
           }
         },
         "required": [
           "type",
-          "offer_message_id"
+          "offer_message_id",
+          "items",
+          "minutes"
         ],
-        "title": "DeepResearchAction",
+        "title": "DeepResearchActionResponse",
         "type": "object"
       },
       "MessagesListResponse.FileMetadataResponse": {
@@ -15645,17 +15627,17 @@
               {
                 "discriminator": {
                   "mapping": {
-                    "deep_research": "#/components/schemas/MessagesListResponse.DeepResearchAction",
-                    "verify_claim": "#/components/schemas/MessagesListResponse.VerifyClaimAction"
+                    "deep_research": "#/components/schemas/MessagesListResponse.DeepResearchActionResponse",
+                    "verify_claim": "#/components/schemas/MessagesListResponse.VerifyClaimActionResponse"
                   },
                   "propertyName": "type"
                 },
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/MessagesListResponse.VerifyClaimAction"
+                    "$ref": "#/components/schemas/MessagesListResponse.VerifyClaimActionResponse"
                   },
                   {
-                    "$ref": "#/components/schemas/MessagesListResponse.DeepResearchAction"
+                    "$ref": "#/components/schemas/MessagesListResponse.DeepResearchActionResponse"
                   }
                 ]
               },
@@ -15766,8 +15748,8 @@
         "title": "SourceResponse",
         "type": "object"
       },
-      "MessagesListResponse.VerifyClaimAction": {
-        "description": "Look it up on a claim card: verify one claim of an earlier answer.",
+      "MessagesListResponse.VerifyClaimActionResponse": {
+        "description": "A stored verify-claim action (null ids: converted from old messages).",
         "properties": {
           "type": {
             "const": "verify_claim",
@@ -15789,7 +15771,6 @@
           "claim_index": {
             "anyOf": [
               {
-                "minimum": 0,
                 "type": "integer"
               },
               {
@@ -15800,16 +15781,17 @@
             "title": "Claim Index"
           },
           "quote": {
-            "maxLength": 500,
             "title": "Quote",
             "type": "string"
           }
         },
         "required": [
           "type",
+          "source_message_id",
+          "claim_index",
           "quote"
         ],
-        "title": "VerifyClaimAction",
+        "title": "VerifyClaimActionResponse",
         "type": "object"
       },
       "MessagesListResponse": {

@@ -8,6 +8,8 @@ only say so when each schema inherits RequestModel or ResponseModel.
 import importlib
 import inspect
 import pkgutil
+import typing
+from collections.abc import Iterator
 from typing import Any
 
 from flask import Flask
@@ -48,6 +50,29 @@ def test_every_schema_picks_a_direction() -> None:
         if not issubclass(cls, (RequestModel, ResponseModel))
     ]
     assert not undirected, undirected
+
+
+def _nested_models(annotation: Any) -> Iterator[type[BaseModel]]:
+    if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+        yield annotation
+        return
+    for arg in typing.get_args(annotation):
+        yield from _nested_models(arg)
+
+
+def test_responses_nest_no_request_models() -> None:
+    # A request model inside a response makes its defaulted fields optional in
+    # the spec, though the server sends them (the client then hand-writes the
+    # real shape). Give the response its own ResponseModel.
+    nested = [
+        f"{cls.__name__}.{name}: {sub.__name__}"
+        for cls in _schema_classes()
+        if issubclass(cls, ResponseModel)
+        for name, field in cls.model_fields.items()
+        for sub in _nested_models(field.annotation)
+        if not issubclass(sub, ResponseModel)
+    ]
+    assert not nested, nested
 
 
 def test_routes_use_the_right_direction(app: Flask) -> None:

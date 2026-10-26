@@ -156,7 +156,7 @@ function removeCard(card: HTMLElement): void {
 /** Cards for a message's artifacts (idempotent; drops cards no longer listed). */
 export function decorateArtifacts(
   messageEl: HTMLElement,
-  message: { id: string; artifacts?: ArtifactRef[] }
+  message: { id: string; artifacts?: ArtifactRef[] | null }
 ): void {
   const refs = message.artifacts ?? [];
   const existing = messageEl.querySelector<HTMLElement>(`.${LIST_CLASS}`);

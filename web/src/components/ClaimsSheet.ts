@@ -23,13 +23,13 @@ function storedMessage(messageEl: HTMLElement): Message | undefined {
 }
 
 /** "2 · example.cz" for a cited claim; "Source 2" when the source list is unknown. */
-function citation(ann: ClaimAnnotation, sources: Source[] | undefined): string {
+function citation(ann: ClaimAnnotation, sources: Source[] | null | undefined): string {
   if (!ann.source) return '';
   const url = sources?.[ann.source - 1]?.url;
   return url ? `${ann.source} · ${displayHost(url)}` : groundingStrings().sourceNumber(ann.source);
 }
 
-function row(ann: ClaimAnnotation, index: number, sources?: Source[]): HTMLButtonElement {
+function row(ann: ClaimAnnotation, index: number, sources?: Source[] | null): HTMLButtonElement {
   const s = groundingStrings();
   const detail = ann.verdict === 'supported' ? citation(ann, sources) : (ann.reason ?? '');
   // An inline row: the spaces between verdict, quote and detail show

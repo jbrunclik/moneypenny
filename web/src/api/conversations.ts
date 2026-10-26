@@ -15,10 +15,25 @@ import {
 } from '../types/api';
 import { request, requestWithRetry } from './http';
 
-/** Map an archive/trash summary's snake_case message_count to camelCase messageCount */
-function withMessageCount(conv: Conversation): Conversation {
-  const { message_count } = conv as { message_count?: number };
-  return message_count === undefined ? conv : { ...conv, messageCount: message_count };
+type ConversationListItem = ConversationsResponse['conversations'][number];
+
+/**
+ * The store Conversation for a listed summary: snake_case message_count
+ * becomes messageCount, and the counts and flags the server sends as null
+ * are left out. `withUnread`: the unread badge from the server-side read
+ * state (read_count, shared across devices), so it shows from the first paint.
+ */
+function toConversation(conv: ConversationListItem, withUnread = false): Conversation {
+  const { message_count, read_count, archived, pinned, ...rest } = conv;
+  return {
+    ...rest,
+    ...(archived !== null && { archived }),
+    ...(pinned !== null && { pinned }),
+    ...(message_count !== null && { messageCount: message_count }),
+    ...(withUnread &&
+      message_count !== null &&
+      read_count !== null && { unreadCount: Math.max(0, message_count - read_count) }),
+  };
 }
 
 // Conversation endpoints
@@ -42,23 +57,10 @@ export const conversations = {
     // Map snake_case message_count to camelCase messageCount. Pinned
     // conversations arrive separately (excluded from the paginated portion)
     // and are merged in front so the store holds one list.
-    // read_count is the server-side read state (shared across devices):
-    // the unread badge shows from the first paint, not after a sync
-    const normalize = (conv: Conversation): Conversation => {
-      const { message_count, read_count } = conv as { message_count?: number; read_count?: number };
-      const unreadCount =
-        message_count !== undefined && read_count !== undefined
-          ? Math.max(0, message_count - read_count)
-          : conv.unreadCount;
-      return {
-        ...conv,
-        ...(message_count !== undefined && { messageCount: message_count }),
-        ...(unreadCount !== undefined && { unreadCount }),
-      };
-    };
+    const normalize = (conv: ConversationListItem): Conversation => toConversation(conv, true);
     return {
       conversations: [
-        ...(data.pinned_conversations ?? []).map(normalize),
+        ...data.pinned_conversations.map(normalize),
         ...data.conversations.map(normalize),
       ],
       pagination: data.pagination,
@@ -299,7 +301,7 @@ export const conversations = {
       `/api/conversations/archived${query ? `?${query}` : ''}`
     );
     return {
-      conversations: data.conversations.map(withMessageCount),
+      conversations: data.conversations.map((conv) => toConversation(conv)),
       pagination: data.pagination,
     };
   },
@@ -316,7 +318,7 @@ export const conversations = {
       `/api/conversations/trash${query ? `?${query}` : ''}`
     );
     return {
-      conversations: data.conversations.map(withMessageCount),
+      conversations: data.conversations.map((conv) => toConversation(conv)),
       pagination: data.pagination,
     };
   },

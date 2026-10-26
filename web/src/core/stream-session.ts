@@ -59,7 +59,7 @@ export interface StreamingState {
   /** The server reported the failure (an `error` event), not the network. */
   serverError?: boolean;
   /** Steering this turn never read: a follow-up turn answers it */
-  unansweredSteeringId?: string | undefined; // overwritten by each done event, possibly with undefined
+  unansweredSteeringId?: string | null | undefined; // overwritten by each done event, possibly with undefined
 }
 
 export function createStreamingState(

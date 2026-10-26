@@ -31,7 +31,7 @@ import {
 } from '../components/messages';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
-import type { Message, Source, GeneratedImage, FileMetadata } from '../types/api';
+import type { Message } from '../types/api';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { getSyncManager } from '../sync/SyncManager';
@@ -298,7 +298,7 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
 
       // Update UI if this is the current conversation
       if (isCurrentConversation) {
-        await updateUIWithRecoveredMessage(conversationId, message);
+        await updateUIWithMessage(conversationId, message);
       }
 
       // Note: We do NOT call incrementLocalMessageCount here.
@@ -363,11 +363,7 @@ async function doRecovery(pending: PendingRecovery): Promise<boolean> {
 /**
  * Check if a message has meaningful content (text, files, or generated images).
  */
-function hasContent(message: {
-  content: string | null;
-  files?: unknown[];
-  generated_images?: unknown[];
-}): boolean {
+function hasContent(message: Message): boolean {
   const hasText = !!message.content && message.content.trim() !== '';
   const hasFiles = Array.isArray(message.files) && message.files.length > 0;
   const hasImages = Array.isArray(message.generated_images) && message.generated_images.length > 0;
@@ -391,10 +387,9 @@ function hasContent(message: {
 async function fetchMessageWithRetry(
   messageId: string,
   onContentPolling?: () => void,
-): Promise<{ id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string } | null> {
+): Promise<Message | null> {
   // Phase 1: Find the message (existing retry logic, should succeed immediately with placeholder)
-  type MessageResult = { id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string };
-  let message: MessageResult | null = null;
+  let message: Message | null = null;
 
   for (let attempt = 0; attempt <= STREAM_RECOVERY_RETRY_DELAYS_MS.length; attempt++) {
     try {
@@ -454,34 +449,23 @@ async function fetchMessageWithRetry(
   return null;
 }
 
-/** A message fetched from the server while recovering a stream. */
-type RecoveredMessage = {
-  id: string;
-  content: string | null;
-  created_at: string;
-  sources?: unknown[];
-  generated_images?: unknown[];
-  files?: unknown[];
-  language?: string;
-};
-
 /** The store entry for a recovered message, or null while it has no text. */
-function recoveredStoreMessage(message: RecoveredMessage): Message | null {
+function recoveredStoreMessage(message: Message): Message | null {
   if (!message.content) return null;
   return {
     id: message.id,
     role: 'assistant',
     content: message.content,
     created_at: message.created_at,
-    ...(message.sources && { sources: message.sources as Source[] }),
-    ...(message.generated_images && { generated_images: message.generated_images as GeneratedImage[] }),
-    ...(message.files && { files: message.files as FileMetadata[] }),
-    ...(message.language !== undefined && { language: message.language }),
+    ...(message.sources && { sources: message.sources }),
+    ...(message.generated_images && { generated_images: message.generated_images }),
+    ...(message.files && { files: message.files }),
+    ...(message.language != null && { language: message.language }),
   };
 }
 
 /** Fill a streaming (or orphaned) bubble with the recovered content and finalize it. */
-function finalizeRecoveredElement(el: HTMLElement, message: RecoveredMessage, content: string): void {
+function finalizeRecoveredElement(el: HTMLElement, message: Message, content: string): void {
   // A successful recovery supersedes any earlier error styling (R15)
   el.classList.remove('message-incomplete');
   updateStreamingMessage(el, content);
@@ -489,9 +473,9 @@ function finalizeRecoveredElement(el: HTMLElement, message: RecoveredMessage, co
     el,
     message.id,
     message.created_at,
-    message.sources as Parameters<typeof finalizeStreamingMessage>[3],
-    message.generated_images as Parameters<typeof finalizeStreamingMessage>[4],
-    message.files as Parameters<typeof finalizeStreamingMessage>[5],
+    message.sources,
+    message.generated_images,
+    message.files,
     'assistant',
     message.language
   );
@@ -532,7 +516,7 @@ async function endRecoveredTurn(convId: string): Promise<void> {
 function renderRecoveredInDom(
   convId: string,
   container: HTMLDivElement,
-  message: RecoveredMessage,
+  message: Message,
   content: string,
   recovered: Message | null
 ): void {
@@ -563,7 +547,7 @@ function renderRecoveredInDom(
 /**
  * Update the UI with the recovered message.
  */
-async function updateUIWithRecoveredMessage(convId: string, message: RecoveredMessage): Promise<void> {
+async function updateUIWithMessage(convId: string, message: Message): Promise<void> {
   // Get the streaming message element. After a conversation-switch
   // round-trip the context element can be DETACHED (renderMessages cleared
   // the container) - finalizing it would leave the recovered message

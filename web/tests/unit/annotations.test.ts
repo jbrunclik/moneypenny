@@ -20,6 +20,7 @@ const claim = (over: Partial<ClaimAnnotation>): ClaimAnnotation => ({
   type: 'claim',
   verdict: 'not_found',
   quote: '',
+  prefix: '',
   ...over,
 });
 

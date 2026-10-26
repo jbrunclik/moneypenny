@@ -32,6 +32,16 @@ class QuickActionItem(RequestModel):
         return cleaned
 
 
+class QuickActionResponse(ResponseModel):
+    """A saved quick action as the program listings send it."""
+
+    id: str
+    emoji: str
+    label: str
+    body: str
+    fields: list[str] = Field(default_factory=list)
+
+
 class UpdateQuickActionsRequest(RequestModel):
     """Replace a program's full ordered quick-action list."""
 
@@ -48,7 +58,7 @@ class SportsProgramItem(ResponseModel):
     emoji: str
     created_at: str
     has_conversation: bool = False
-    quick_actions: list[QuickActionItem] = Field(default_factory=list)
+    quick_actions: list[QuickActionResponse] = Field(default_factory=list)
 
 
 class SportsProgramsResponse(ResponseModel):
@@ -91,7 +101,7 @@ class LanguageProgramItem(ResponseModel):
     emoji: str
     created_at: str
     has_conversation: bool = False
-    quick_actions: list[QuickActionItem] = Field(default_factory=list)
+    quick_actions: list[QuickActionResponse] = Field(default_factory=list)
 
 
 class LanguageProgramsResponse(ResponseModel):

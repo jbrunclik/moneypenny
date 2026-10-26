@@ -196,8 +196,8 @@ interface ActionButtons {
 
 function actionButtonsFor(
   role: 'user' | 'assistant',
-  sources: Source[] | undefined,
-  generatedImages: GeneratedImage[] | undefined
+  sources: Source[] | null | undefined,
+  generatedImages: GeneratedImage[] | null | undefined
 ): ActionButtons {
   const isAssistant = role === 'assistant';
   return {
@@ -256,10 +256,10 @@ function attachActionHandlers(
 export function createMessageActions(
   messageId: string,
   createdAt: string | undefined,
-  sources: Source[] | undefined,
-  generatedImages: GeneratedImage[] | undefined,
+  sources: Source[] | null | undefined,
+  generatedImages: GeneratedImage[] | null | undefined,
   role: 'user' | 'assistant',
-  language?: string
+  language?: string | null
 ): HTMLElement {
   const actions = document.createElement('div');
   actions.className = 'message-actions';
@@ -281,6 +281,6 @@ export function createMessageActions(
     createElement('span', { class: 'message-actions-buttons' }, secondaryButtons(timeStr, show))
   );
 
-  attachActionHandlers(actions, messageId, show, language);
+  attachActionHandlers(actions, messageId, show, language ?? undefined);
   return actions;
 }

@@ -71,16 +71,17 @@ export function toAssistantMessage(response: ChatResponse): Message {
     id: response.id,
     role: 'assistant',
     content: response.content,
-    ...(response.sources !== undefined && { sources: response.sources }),
-    ...(response.generated_images !== undefined && { generated_images: response.generated_images }),
-    ...(response.files !== undefined && { files: response.files }),
-    ...(response.language !== undefined && { language: response.language }),
+    sources: response.sources,
+    generated_images: response.generated_images,
+    files: response.files,
+    language: response.language,
     created_at: response.created_at,
-    ...(response.stopped_early !== undefined && { stopped_early: response.stopped_early }),
-    ...(response.annotations !== undefined && { annotations: response.annotations }),
-    ...(response.grounding !== undefined && { grounding: response.grounding }),
-    ...(response.research !== undefined && { research: response.research }),
-    ...(response.artifacts !== undefined && { artifacts: response.artifacts }),
+    stopped_early: response.stopped_early,
+    stop_reason: response.stop_reason,
+    annotations: response.annotations,
+    grounding: response.grounding,
+    research: response.research,
+    artifacts: response.artifacts,
   };
 }
 
@@ -147,7 +148,7 @@ async function completeBatchTurn(
   // The sync baseline first (the server's exact count), even if the user
   // switched away - returning before it left our own turn as "unread 2"
   const sync = getSyncManager();
-  if (response.message_count !== undefined) {
+  if (response.message_count !== null) {
     sync?.setLocalMessageCount(convId, response.message_count);
   } else {
     sync?.incrementLocalMessageCount(convId, 2);

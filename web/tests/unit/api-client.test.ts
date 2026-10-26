@@ -146,7 +146,7 @@ describe('API Client', () => {
           { id: '2', title: 'Second', model: 'gemini', created_at: '', updated_at: '' },
         ];
         const pagination = { next_cursor: null, has_more: false, total_count: 2 };
-        global.fetch = mockFetchResponse({ conversations: convs, pagination });
+        global.fetch = mockFetchResponse({ conversations: convs, pinned_conversations: [], pagination });
 
         const result = await conversations.list();
 
@@ -157,7 +157,11 @@ describe('API Client', () => {
       });
 
       it('includes auth header', async () => {
-        global.fetch = mockFetchResponse({ conversations: [], pagination: { next_cursor: null, has_more: false, total_count: 0 } });
+        global.fetch = mockFetchResponse({
+          conversations: [],
+          pinned_conversations: [],
+          pagination: { next_cursor: null, has_more: false, total_count: 0 },
+        });
 
         await conversations.list();
 
@@ -172,7 +176,11 @@ describe('API Client', () => {
       });
 
       it('passes pagination parameters', async () => {
-        global.fetch = mockFetchResponse({ conversations: [], pagination: { next_cursor: null, has_more: false, total_count: 0 } });
+        global.fetch = mockFetchResponse({
+          conversations: [],
+          pinned_conversations: [],
+          pagination: { next_cursor: null, has_more: false, total_count: 0 },
+        });
 
         await conversations.list(20, 'cursor-abc');
 
@@ -736,7 +744,7 @@ describe('API Client', () => {
         'ai-chatbot-storage',
         JSON.stringify({ state: { token: 'zustand-token' } })
       );
-      global.fetch = mockFetchResponse({ conversations: [] });
+      global.fetch = mockFetchResponse({ conversations: [], pinned_conversations: [] });
 
       await conversations.list();
 
@@ -752,7 +760,7 @@ describe('API Client', () => {
 
     it('works without token', async () => {
       clearLocalStorage();
-      global.fetch = mockFetchResponse({ conversations: [] });
+      global.fetch = mockFetchResponse({ conversations: [], pinned_conversations: [] });
 
       await conversations.list();
 
