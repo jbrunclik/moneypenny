@@ -105,7 +105,9 @@ Messages containing Markdown are automatically converted to WhatsApp-compatible 
 ## Key Files
 
 **Backend:**
-- [tools/whatsapp.py](../../src/agent/tools/whatsapp.py) - WhatsApp tool and API client
+- [tools/whatsapp.py](../../src/agent/tools/whatsapp.py) - the WhatsApp tool
+- [tools/whatsapp_api.py](../../src/agent/tools/whatsapp_api.py) - the Cloud API client (template send, error mapping)
+- [tools/whatsapp_format.py](../../src/agent/tools/whatsapp_format.py) - Markdown conversion, truncation and template sanitizing
 - [tools/context.py](../../src/agent/tools/context.py) - Agent name context for messages
 - [routes/settings.py](../../src/api/routes/settings.py) - User phone number endpoint
 - [models/user.py](../../src/db/models/user.py) - Phone number storage

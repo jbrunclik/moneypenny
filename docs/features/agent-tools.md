@@ -429,6 +429,7 @@ If Playwright or Chromium is not installed, the tool returns a graceful error me
 - [skills/](../../src/agent/skills/) - `SKILL.md` files, loader, `skills_index_prompt()`
 - [tool_display.py](../../src/agent/tool_display.py) - `TOOL_METADATA`, `_CONDITIONAL_TOOLS`
 - [search_provider.py](../../src/services/search_provider.py) - quota-aware search chain and breakers
+- [search_adapters.py](../../src/services/search_adapters.py) - one adapter per provider, `SearchProviderError`
 - [chat_turn.py](../../src/api/helpers/chat_turn.py) - `TurnContext.apply()` / `clear()`
 
 ## See Also
