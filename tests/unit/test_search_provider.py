@@ -36,6 +36,12 @@ from src.services.search_provider import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _default_provider_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The code's default order, whatever the developer's .env sets."""
+    monkeypatch.setattr(Config, "SEARCH_PROVIDER_ORDER", "brave,tavily,exa,linkup")
+
+
 def _stateful_db(store: dict[str, str] | None = None) -> MagicMock:
     """kv_store-shaped mock backed by a real dict (get/set/delete/increment).
 
