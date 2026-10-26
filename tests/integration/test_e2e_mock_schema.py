@@ -80,6 +80,11 @@ PASS_THROUGH = {
     "agents_by_id": "GET /api/agents/<id> returns the agent posted to /test/set-agent",
 }
 
+# Intercepted paths outside the API spec, with the reason
+NOT_IN_SPEC = {
+    "/static/assets/": "build files a test deleted answer 404 (no JSON, not an API route)",
+}
+
 
 @pytest.fixture
 def mock_app(app: Flask, test_database: Database) -> Flask:
@@ -132,9 +137,9 @@ def test_intercepted_responses_match_the_spec(call: Call) -> None:
 
 
 def test_every_intercepted_path_is_checked() -> None:
-    """A new intercept joins CASES, or PASS_THROUGH with its reason."""
+    """A new intercept joins CASES, or PASS_THROUGH or NOT_IN_SPEC with its reason."""
     source = Path(intercepts.__file__).read_text()
-    paths = {url.split("?")[0] for _, url, _ in CASES}
+    paths = {url.split("?")[0] for _, url, _ in CASES} | set(NOT_IN_SPEC)
     exact = set(re.findall(r'request\.path == "([^"]+)"', source))
     prefixes = set(re.findall(r'request\.path\.startswith\("([^"]+)"\)', source))
     assert exact - paths == set()

@@ -5,10 +5,17 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, pdfBuffer, disableStreaming } from './fixtures';
 
-const PDF_VIEWER_CHUNK = '**/PdfViewer-*.js';
+const PDF_VIEWER_CHUNK = 'PdfViewer-*.js';
 
-/** A previous build's chunk, deleted by the rebuild */
-const CHUNK_GONE = { status: 404, body: '' };
+/**
+ * Delete a build file the way a deploy does: the server answers 404 for it,
+ * as in production, instead of a page.route intercept on the chunk loads
+ * around the reload. page.request carries the test's X-Test-Execution-Id.
+ */
+async function deleteChunk(page: Page, pattern: string): Promise<void> {
+  const response = await page.request.post('/test/set-missing-assets', { data: { patterns: [pattern] } });
+  expect(response.ok()).toBeTruthy();
+}
 
 
 /** Send a message with a PDF attached; returns the document link in the user bubble. */
@@ -83,12 +90,16 @@ test.describe('Chat - Inline PDF viewer', () => {
 
     // A page loaded before a deploy asks for the previous build's chunk, which
     // the rebuild deleted: the server answers 404
-    await page.context().route(PDF_VIEWER_CHUNK, (route) => route.fulfill(CHUNK_GONE));
+    await deleteChunk(page, PDF_VIEWER_CHUNK);
     await markPage(page);
+    // The reload replaces the failure: nothing reaches the page as an error
+    const errors: Error[] = [];
+    page.on('pageerror', (error) => errors.push(error));
     const reloaded = page.waitForEvent('load');
     await docLink.click();
     await reloaded;
     expect(await pageWasReloaded(page)).toBe(true);
+    expect(errors.map((error) => error.message)).toEqual([]);
     await expect(page.locator('.message.user .document-preview')).toBeVisible({ timeout: 10000 });
   });
 
@@ -96,7 +107,7 @@ test.describe('Chat - Inline PDF viewer', () => {
     page,
   }) => {
     const docLink = await sendPdf(page);
-    await page.context().route(PDF_VIEWER_CHUNK, (route) => route.fulfill(CHUNK_GONE));
+    await deleteChunk(page, PDF_VIEWER_CHUNK);
     const reloaded = page.waitForEvent('load');
     await docLink.click();
     await reloaded;
@@ -106,7 +117,8 @@ test.describe('Chat - Inline PDF viewer', () => {
     await markPage(page);
     const failure = page.waitForEvent('pageerror');
     await page.locator('.message.user .document-preview').click();
-    await failure;
+    // The chunk's own load failure, not a follow-on error in the click handler
+    expect((await failure).message).toMatch(/dynamically imported module|Importing a module script failed/);
     await page.waitForTimeout(1000);
     expect(await pageWasReloaded(page)).toBe(false);
   });

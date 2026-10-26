@@ -266,3 +266,13 @@ def clear_search_results() -> tuple[dict[str, str], int]:
     MOCK_CONFIG["search_results"] = None
     MOCK_CONFIG["search_total"] = 0
     return {"status": "cleared"}, 200
+
+
+@test_bp.route("/test/set-missing-assets", methods=["POST"])
+def set_missing_assets() -> tuple[dict[str, Any], int]:
+    """404 the /static/assets files matching these fnmatch patterns (a deleted build)."""
+    from flask import request
+
+    data = request.get_json() or {}
+    MOCK_CONFIG["missing_assets"] = tuple(data.get("patterns", ()))
+    return {"status": "set", "patterns": list(MOCK_CONFIG["missing_assets"])}, 200

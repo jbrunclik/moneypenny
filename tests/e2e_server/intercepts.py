@@ -1,9 +1,11 @@
 """Fake integration endpoints: search, planner and connection status, agents,
-KV store and memories answer from the per-test mock config when it is set."""
+KV store and memories answer from the per-test mock config when it is set,
+and build files a test deleted answer 404."""
 
+from fnmatch import fnmatch
 from typing import Any
 
-from flask import Flask, g, jsonify
+from flask import Flask, g, jsonify, request
 from pydantic import BaseModel
 
 from tests.e2e_server.context import MOCK_CONFIG
@@ -13,6 +15,18 @@ def _as_response(model: type[BaseModel], data: dict[str, Any]) -> Any:
     """Serialize through the route's response model, as the real route does:
     every field present, defaults included (the spec marks them required)."""
     return jsonify(model.model_validate(data).model_dump(mode="json"))
+
+
+def intercept_missing_assets() -> tuple[str, int] | None:
+    """404 the build files a test deleted: the server answers, as in production,
+    and no Playwright interception sits on the page's chunk loads."""
+    patterns = MOCK_CONFIG.get("missing_assets", ())
+    if not patterns or not request.path.startswith("/static/assets/"):
+        return None
+    name = request.path.removeprefix("/static/assets/")
+    if any(fnmatch(name, pattern) for pattern in patterns):
+        return "", 404
+    return None
 
 
 # Override search endpoint using before_request to intercept /api/search
@@ -318,6 +332,7 @@ def intercept_kv_store() -> Any | None:
 
 def register_intercepts(app: Flask) -> None:
     """Answer the faked endpoints before their real routes run."""
+    app.before_request(intercept_missing_assets)
     app.before_request(intercept_search)
     app.before_request(intercept_planner)
     app.before_request(intercept_kv_store)
