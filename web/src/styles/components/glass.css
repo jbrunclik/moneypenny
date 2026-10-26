@@ -59,41 +59,6 @@
         box-shadow: inset 0 1px 0 var(--glass-highlight);
     }
 
-    /* Mobile: the frost lives on a layer BEHIND the header's content, not on
-       the header itself. iOS (27) rasterizes text inside a backdrop-filter
-       element softly - the title and menu read blurred - while text merely
-       in front of a blurred layer stays sharp. Same material, same layering
-       (isolation keeps the layer above the page and below the content). */
-    @media (max-width: 768px) {
-        .mobile-header {
-            isolation: isolate;
-            background-color: transparent;
-            -webkit-backdrop-filter: none;
-            backdrop-filter: none;
-            box-shadow: none;
-        }
-
-        /* The header's text on its own GPU layer: drawn at full device
-           resolution, not composited into the frost's (iOS 27 softened it) */
-        .mobile-header #current-chat-title,
-        .sidebar-brand {
-            transform: translateZ(0);
-        }
-
-        .mobile-header::before {
-            content: "";
-            position: absolute;
-            /* Under the 1px bottom border too, as the header's own background was */
-            inset: 0 0 -1px;
-            z-index: -1;
-            pointer-events: none;
-            background-color: var(--glass-bg-header);
-            -webkit-backdrop-filter: blur(var(--glass-blur-header)) saturate(200%);
-            backdrop-filter: blur(var(--glass-blur-header)) saturate(200%);
-            box-shadow: inset 0 1px 0 var(--glass-highlight);
-        }
-    }
-
     /* Genuinely floating panels: more opaque for reading focus, plus a real
        drop shadow so they lift off the content behind them. */
     .model-dropdown,
@@ -152,31 +117,6 @@
         border-color: var(--glass-border);
         box-shadow: inset 0 1px 0 var(--glass-highlight);
     }
-
-    /* Mobile sidebar (fixed): its frost moves behind the content too - see
-       the mobile header above */
-    @media (max-width: 768px) {
-        .sidebar {
-            isolation: isolate;
-            background-color: transparent;
-            -webkit-backdrop-filter: none;
-            backdrop-filter: none;
-            box-shadow: none;
-        }
-
-        .sidebar::before {
-            content: "";
-            position: absolute;
-            /* Under the 1px right border too, as the sidebar's own background was */
-            inset: 0 -1px 0 0;
-            z-index: -1;
-            pointer-events: none;
-            background-color: var(--glass-bg-sidebar);
-            -webkit-backdrop-filter: blur(var(--glass-blur-sidebar));
-            backdrop-filter: blur(var(--glass-blur-sidebar));
-            box-shadow: inset 0 1px 0 var(--glass-highlight);
-        }
-    }
 }
 
 /* Accessibility opt-OUT: only when the user explicitly asks for reduced
@@ -200,10 +140,5 @@
         background-color: var(--bg-secondary);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
-    }
-
-    .mobile-header::before,
-    .sidebar::before {
-        display: none;
     }
 }
