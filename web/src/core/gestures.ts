@@ -5,35 +5,28 @@
 
 import { toggleSidebar, closeSidebar } from '../components/Sidebar';
 import { getElementById } from '../utils/dom';
-import { createSwipeHandler, isTouchDevice, resetSwipeStates } from '../gestures/swipe';
+import { createSwipeHandler, isTouchDevice, resetSwipeStates, type SwipeHandlers } from '../gestures/swipe';
 import { hapticTick } from '../utils/haptics';
 import { useStore } from '../state/store';
 import { SIDEBAR_EDGE_SWIPE_ZONE_PX, SWIPE_THRESHOLD_PX } from '../config';
 
-/**
- * Setup touch gestures for mobile devices.
- */
-export function setupTouchGestures(): void {
-  if (!isTouchDevice()) return;
+// Constants
+const SWIPE_THRESHOLD = SWIPE_THRESHOLD_PX;
+const SWIPE_DISTANCE = 160; // 2 buttons x 80px (more, archive/unarchive)
+const EDGE_ZONE = SIDEBAR_EDGE_SWIPE_ZONE_PX;
 
-  const conversationsList = getElementById('conversations-list');
-  const sidebar = getElementById('sidebar');
-  const main = document.querySelector<HTMLElement>('.main');
+type ActiveSwipeType = 'none' | 'conversation' | 'sidebar';
 
-  if (!conversationsList || !sidebar || !main) return;
+/** Gesture state shared by the conversation-row and sidebar swipes. */
+interface SwipeState {
+  activeSwipeType: ActiveSwipeType;
+}
 
-  // Constants
-  const SWIPE_THRESHOLD = SWIPE_THRESHOLD_PX;
-  const SWIPE_DISTANCE = 160; // 2 buttons x 80px (more, archive/unarchive)
-  const EDGE_ZONE = SIDEBAR_EDGE_SWIPE_ZONE_PX;
-
-  // Track active swipe type to prevent conflicts
-  let activeSwipeType: 'none' | 'conversation' | 'sidebar' = 'none';
-
-  // Swipe to reveal rename and delete on conversations
-  const conversationSwipe = createSwipeHandler({
+/** The conversation-row swipe; shares the active swipe type with the sidebar's. */
+function createConversationSwipe(swipe: SwipeState): SwipeHandlers {
+  return createSwipeHandler({
     shouldStart: (e) => {
-      if (activeSwipeType === 'sidebar') return false;
+      if (swipe.activeSwipeType === 'sidebar') return false;
       // Selection mode (bulk delete): rows toggle on tap, no swipe actions
       if (useStore.getState().isSelecting) return false;
       const wrapper = (e.target as HTMLElement).closest('.conversation-item-wrapper');
@@ -70,10 +63,10 @@ export function setupTouchGestures(): void {
     onSwipeMove: () => {
       // Mark as conversation swipe once actual swiping starts
       // This prevents sidebar swipes from interfering mid-gesture
-      activeSwipeType = 'conversation';
+      swipe.activeSwipeType = 'conversation';
     },
     onComplete: (target, deltaX) => {
-      activeSwipeType = 'none';
+      swipe.activeSwipeType = 'none';
       const wrapper = target.closest('.conversation-item-wrapper');
       if (!wrapper) return;
 
@@ -87,13 +80,32 @@ export function setupTouchGestures(): void {
       }
     },
     onSnapBack: (target) => {
-      activeSwipeType = 'none';
+      swipe.activeSwipeType = 'none';
       const wrapper = target.closest('.conversation-item-wrapper');
       wrapper?.classList.remove('swiped');
     },
     threshold: SWIPE_THRESHOLD,
     maxDistance: SWIPE_DISTANCE,
   });
+}
+
+/**
+ * Setup touch gestures for mobile devices.
+ */
+export function setupTouchGestures(): void {
+  if (!isTouchDevice()) return;
+
+  const conversationsList = getElementById('conversations-list');
+  const sidebar = getElementById('sidebar');
+  const main = document.querySelector<HTMLElement>('.main');
+
+  if (!conversationsList || !sidebar || !main) return;
+
+  // Track active swipe type to prevent conflicts
+  const swipe: SwipeState = { activeSwipeType: 'none' };
+
+  // Swipe to reveal rename and delete on conversations
+  const conversationSwipe = createConversationSwipe(swipe);
 
   conversationsList.addEventListener('touchstart', conversationSwipe.handleTouchStart, { passive: true });
   conversationsList.addEventListener('touchmove', conversationSwipe.handleTouchMove, { passive: true });
@@ -108,7 +120,7 @@ export function setupTouchGestures(): void {
   const sidebarWidth = 280; // matches CSS --sidebar-width
 
   const handleSidebarTouchStart = (e: TouchEvent): void => {
-    if (activeSwipeType === 'conversation') return;
+    if (swipe.activeSwipeType === 'conversation') return;
 
     const touch = e.touches[0];
     if (!touch) return;
@@ -119,8 +131,8 @@ export function setupTouchGestures(): void {
     // Don't start sidebar swipe if touching a conversation item (let conversation swipe handle it)
     if (target.closest('.conversation-item-wrapper')) {
       // Reset activeSwipeType if it was stuck on 'sidebar' from a previous incomplete swipe
-      if (activeSwipeType === 'sidebar') {
-        activeSwipeType = 'none';
+      if (swipe.activeSwipeType === 'sidebar') {
+        swipe.activeSwipeType = 'none';
       }
       return;
     }
@@ -137,18 +149,18 @@ export function setupTouchGestures(): void {
       sidebarSwipeStartY = touch.clientY;
       sidebarSwipeCurrentX = startX;
       isSidebarSwiping = false;
-      activeSwipeType = 'sidebar';
+      swipe.activeSwipeType = 'sidebar';
     } else {
       // Reset if we're not starting a sidebar swipe
-      if (activeSwipeType === 'sidebar') {
-        activeSwipeType = 'none';
+      if (swipe.activeSwipeType === 'sidebar') {
+        swipe.activeSwipeType = 'none';
       }
     }
   };
 
   const handleSidebarTouchMove = (e: TouchEvent): void => {
     const touch = e.touches[0];
-    if (activeSwipeType !== 'sidebar' || !touch) return;
+    if (swipe.activeSwipeType !== 'sidebar' || !touch) return;
 
     sidebarSwipeCurrentX = touch.clientX;
     const deltaX = sidebarSwipeCurrentX - sidebarSwipeStartX;
@@ -163,7 +175,7 @@ export function setupTouchGestures(): void {
     // to native scrolling only once the drag is clearly vertical; otherwise
     // treat every move as the open-swipe and suppress the back-swipe below.
     if (!isSidebarOpen && !isSidebarSwiping && clearlyVertical) {
-      activeSwipeType = 'none';
+      swipe.activeSwipeType = 'none';
       return;
     }
 
@@ -197,7 +209,7 @@ export function setupTouchGestures(): void {
   };
 
   const handleSidebarTouchEnd = (): void => {
-    if (activeSwipeType !== 'sidebar') return;
+    if (swipe.activeSwipeType !== 'sidebar') return;
 
     const deltaX = sidebarSwipeCurrentX - sidebarSwipeStartX;
     const isSidebarOpen = sidebar.classList.contains('open');
@@ -216,7 +228,7 @@ export function setupTouchGestures(): void {
     }
 
     isSidebarSwiping = false;
-    activeSwipeType = 'none';
+    swipe.activeSwipeType = 'none';
   };
 
   // Handle touch cancel (iOS Safari can cancel touches during gestures)
@@ -224,7 +236,7 @@ export function setupTouchGestures(): void {
     sidebar.style.transform = '';
     sidebar.style.transition = '';
     isSidebarSwiping = false;
-    activeSwipeType = 'none';
+    swipe.activeSwipeType = 'none';
   };
 
   // Attach sidebar swipe to main area (for edge swipe to open).
