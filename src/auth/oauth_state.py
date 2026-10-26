@@ -10,8 +10,8 @@ worker gunicorn setup), are single-use, and expire after a short TTL.
 
 import time
 import uuid
-from typing import Any
 
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -22,18 +22,11 @@ OAUTH_STATE_TTL_SECONDS = 600
 _NAMESPACE = "oauth_state"
 
 
-def _db() -> Any:
-    # Resolved at call time so test fixtures patching src.db.models.db apply
-    from src.db.models import db  # noqa: PLC0415
-
-    return db
-
-
 def issue_state(user_id: str, provider: str) -> str:
     """Create and persist a fresh state token for the user/provider."""
     _prune_expired(user_id, provider)
     state = str(uuid.uuid4())
-    _db().kv_set(user_id, _NAMESPACE, f"{provider}:{state}", str(time.time()))
+    db.kv_set(user_id, _NAMESPACE, f"{provider}:{state}", str(time.time()))
     return state
 
 
@@ -43,7 +36,7 @@ def consume_state(user_id: str, provider: str, state: str) -> bool:
     Returns False for unknown, already-used or expired states.
     """
     key = f"{provider}:{state}"
-    raw = _db().kv_get(user_id, _NAMESPACE, key)
+    raw = db.kv_get(user_id, _NAMESPACE, key)
     if raw is None:
         logger.warning(
             "OAuth state rejected (unknown or already used)",
@@ -52,7 +45,7 @@ def consume_state(user_id: str, provider: str, state: str) -> bool:
         return False
 
     # Single-use: delete before checking expiry so a replay always fails
-    _db().kv_delete(user_id, _NAMESPACE, key)
+    db.kv_delete(user_id, _NAMESPACE, key)
 
     try:
         issued_at = float(raw)
@@ -71,12 +64,12 @@ def _prune_expired(user_id: str, provider: str) -> None:
     """Drop expired states so abandoned auth-url clicks don't accumulate."""
     try:
         now = time.time()
-        for key, value in _db().kv_list(user_id, _NAMESPACE, prefix=f"{provider}:"):
+        for key, value in db.kv_list(user_id, _NAMESPACE, prefix=f"{provider}:"):
             try:
                 expired = now - float(value) > OAUTH_STATE_TTL_SECONDS
             except ValueError:
                 expired = True
             if expired:
-                _db().kv_delete(user_id, _NAMESPACE, key)
+                db.kv_delete(user_id, _NAMESPACE, key)
     except Exception:
         logger.debug("OAuth state prune failed", exc_info=True)

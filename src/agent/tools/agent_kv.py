@@ -5,11 +5,16 @@ across conversations and executions using a namespaced K/V store.
 Values must be valid JSON strings.
 """
 
+import json
 from typing import Any
 
 from langchain_core.tools import tool
 
-from src.agent.tools.context import get_conversation_context
+from src.agent.tools.context import (
+    get_conversation_context,
+    get_language_context,
+    get_sports_context,
+)
 from src.agent.tools.errors import tool_error
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -73,10 +78,7 @@ def kv_store(  # noqa: C901, PLR0912, PLR0915
     Returns:
         The result of the operation as a string
     """
-    import json  # noqa: PLC0415
-
-    from src.agent.executor import get_agent_context  # noqa: PLC0415
-    from src.agent.tools.context import get_language_context, get_sports_context  # noqa: PLC0415
+    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> tools -> agent_kv
 
     # Get user context
     _, user_id = get_conversation_context()

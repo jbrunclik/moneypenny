@@ -5,6 +5,7 @@ import contextlib
 import json
 import mimetypes
 import os as local_os
+import subprocess
 import tempfile
 import threading
 from typing import Any
@@ -76,8 +77,6 @@ def _probe_docker_available() -> bool:
     global _docker_available
 
     try:
-        import subprocess  # noqa: PLC0415
-
         # Check if the custom sandbox image exists
         result = subprocess.run(  # noqa: S603 - fixed args, no untrusted input
             ["docker", "images", "-q", Config.CODE_SANDBOX_IMAGE],  # noqa: S607 - docker from PATH: its location differs per host
@@ -107,7 +106,7 @@ def _probe_docker_available() -> bool:
 
         # Verify Docker connectivity with a quick test, using the SAME
         # session settings as execute_code
-        from llm_sandbox import SandboxSession  # noqa: PLC0415
+        from llm_sandbox import SandboxSession  # noqa: PLC0415 - docker client kept off startup
 
         with SandboxSession(
             image=Config.CODE_SANDBOX_IMAGE,

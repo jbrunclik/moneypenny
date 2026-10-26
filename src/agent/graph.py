@@ -31,18 +31,21 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
+from src.agent import interjection
 from src.agent.cancellation import CancelOnToken, TurnCancelled, raise_if_cancelled
 from src.agent.content import (
     extract_text_content,
     strip_echoed_msg_context,
     strip_full_result_from_tool_content,
 )
+from src.agent.permissions import PermissionResult, check_tool_permission
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.round_cap import tool_round_cap
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
+from src.agent.tools.request_approval import ApprovalRequestedException
 from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -53,9 +56,8 @@ logger = get_logger(__name__)
 # Import permission-related modules (at module level to avoid repeated imports)
 # These are only used when is_autonomous=True
 def _get_permission_modules() -> dict[str, Any]:
-    """Lazy import of permission-related modules to avoid circular imports."""
-    from src.agent.executor import get_agent_context  # noqa: PLC0415
-    from src.agent.permissions import PermissionResult, check_tool_permission  # noqa: PLC0415
+    """The permission helpers; get_agent_context is imported lazily (cycle)."""
+    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> agent -> stream_events -> graph
 
     return {
         "get_agent_context": get_agent_context,
@@ -468,8 +470,6 @@ def check_tool_results(  # noqa: C901, PLR0912, PLR0915
     # telling the model to wrap up.
     conv_id, user_id = get_conversation_context()
     if conv_id and user_id:
-        from src.agent import interjection  # noqa: PLC0415
-
         steer_text = interjection.pop_interjection(user_id, conv_id)
         if steer_text:
             logger.info(
@@ -621,8 +621,6 @@ def _handle_tool_errors(e: Exception) -> str:
     The returned string mirrors langgraph's default TOOL_CALL_ERROR_TEMPLATE so
     ordinary tool errors keep the exact same self-correction behavior.
     """
-    from src.agent.tools.request_approval import ApprovalRequestedException  # noqa: PLC0415
-
     if isinstance(e, (ApprovalRequestedException, TurnCancelled)):
         raise e
     return f"Error: {e!r}\n Please fix your mistakes."
@@ -831,8 +829,6 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
         _capture_and_strip_tool_messages(result.get("messages", []), request_id)
 
         if approval_state is not None:
-            from src.agent.tools.request_approval import ApprovalRequestedException  # noqa: PLC0415
-
             try:
                 approval_result = base_tool_node.invoke(approval_state)
             except ApprovalRequestedException as e:

@@ -21,7 +21,7 @@ def _make_user(expires_in_minutes: int) -> MagicMock:
 
 
 class TestGetValidAccessToken:
-    @patch("src.db.models.db")
+    @patch("src.auth.google_calendar.db")
     def test_returns_stored_token_when_fresh(self, mock_db: MagicMock) -> None:
         mock_db.get_user_by_id.return_value = _make_user(expires_in_minutes=60)
 
@@ -29,7 +29,7 @@ class TestGetValidAccessToken:
         mock_db.refresh_user_google_calendar_tokens.assert_not_called()
 
     @patch("src.auth.google_calendar.refresh_access_token")
-    @patch("src.db.models.db")
+    @patch("src.auth.google_calendar.db")
     def test_refreshes_and_stores_with_cas(
         self, mock_db: MagicMock, mock_refresh: MagicMock
     ) -> None:
@@ -49,7 +49,7 @@ class TestGetValidAccessToken:
         assert kwargs["refresh_token"] == "rotated-refresh"
 
     @patch("src.auth.google_calendar.refresh_access_token")
-    @patch("src.db.models.db")
+    @patch("src.auth.google_calendar.db")
     def test_cas_loss_still_returns_valid_token(
         self, mock_db: MagicMock, mock_refresh: MagicMock
     ) -> None:
@@ -61,7 +61,7 @@ class TestGetValidAccessToken:
 
         assert get_valid_access_token("u1") == "loser-access"
 
-    @patch("src.db.models.db")
+    @patch("src.auth.google_calendar.db")
     def test_returns_none_when_not_connected(self, mock_db: MagicMock) -> None:
         mock_db.get_user_by_id.return_value = None
         assert get_valid_access_token("u1") is None

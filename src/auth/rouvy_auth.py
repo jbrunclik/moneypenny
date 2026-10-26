@@ -104,7 +104,7 @@ def login(email: str, password: str) -> str:
 def _login_sync(email: str, password: str) -> str:
     """Blocking headless login; runs on the dedicated rouvy-login thread."""
     from playwright.sync_api import Error as PlaywrightError  # noqa: PLC0415 - optional dependency
-    from playwright.sync_api import sync_playwright  # noqa: PLC0415
+    from playwright.sync_api import sync_playwright  # noqa: PLC0415 - optional dependency
 
     timeout = Config.ROUVY_LOGIN_TIMEOUT_MS
     sign_in = f"{Config.ROUVY_ACCOUNT_URL}/sign-in?riders=true&redirectTo=%2Ffeed"

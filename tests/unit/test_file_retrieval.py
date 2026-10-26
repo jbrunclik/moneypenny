@@ -26,7 +26,7 @@ class TestRetrieveFile:
         assert "error" in parsed
         assert "No conversation context" in parsed["error"]
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_returns_error_for_unauthorized_conversation(self, mock_db: MagicMock) -> None:
         """Should return error when user doesn't own conversation."""
         set_conversation_context("conv-123", "user-456")
@@ -39,7 +39,7 @@ class TestRetrieveFile:
         assert "not authorized" in parsed["error"]
         set_conversation_context(None, None)
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_returns_error_for_nonexistent_message(self, mock_db: MagicMock) -> None:
         """Should return error when message doesn't exist."""
         set_conversation_context("conv-123", "user-456")
@@ -54,7 +54,7 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_returns_error_for_wrong_conversation(self, mock_db: MagicMock) -> None:
         """Should return error when message belongs to different conversation."""
         set_conversation_context("conv-123", "user-456")
@@ -72,7 +72,7 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_returns_error_for_invalid_file_index(self, mock_db: MagicMock) -> None:
         """Should return error when file index is out of bounds."""
         set_conversation_context("conv-123", "user-456")
@@ -92,8 +92,8 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_retrieves_image_as_multimodal(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
     ) -> None:
@@ -125,8 +125,8 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_retrieves_text_file_as_text(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
     ) -> None:
@@ -154,8 +154,8 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_falls_back_to_legacy_data(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
     ) -> None:
@@ -183,8 +183,8 @@ class TestRetrieveFile:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_returns_error_when_no_data_available(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
     ) -> None:
@@ -227,9 +227,9 @@ class TestRetrieveFileVideo:
         mock_message.created_at = datetime.now() - timedelta(days=days_old)
         return mock_message
 
-    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_video_returns_media_block(
         self,
         mock_db: MagicMock,
@@ -260,7 +260,7 @@ class TestRetrieveFileVideo:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_expired_video_returns_cleanup_error(self, mock_db: MagicMock) -> None:
         """Should return a clear cleanup error for videos past retention."""
         set_conversation_context("conv-123", "user-456")
@@ -275,7 +275,7 @@ class TestRetrieveFileVideo:
 
         set_conversation_context(None, None)
 
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_expired_image_returns_cleanup_error(self, mock_db: MagicMock) -> None:
         """Should return a clear cleanup error for images past retention."""
         set_conversation_context("conv-123", "user-456")
@@ -292,9 +292,9 @@ class TestRetrieveFileVideo:
 
         set_conversation_context(None, None)
 
-    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
-    @patch("src.db.blob_store.get_blob_store")
-    @patch("src.db.models.db")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.get_blob_store")
+    @patch("src.agent.tools.file_retrieval.db")
     def test_gemini_failure_returns_error(
         self,
         mock_db: MagicMock,

@@ -7,6 +7,7 @@ enabling multi-agent workflows and coordination.
 from langchain_core.tools import tool
 
 from src.agent.tools.errors import tool_error
+from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -28,14 +29,12 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     Returns:
         Status message indicating if the agent was triggered successfully
     """
-    # Import here to avoid circular imports
-    from src.agent.executor import (  # noqa: PLC0415
+    from src.agent.executor import (  # noqa: PLC0415 - cycle: executor -> tools -> trigger_agent
         AgentBlockedError,
         AgentExecutor,
         get_agent_context,
         get_trigger_chain,
     )
-    from src.agent.tools.request_approval import ApprovalRequestedException  # noqa: PLC0415
 
     # Get current context to find user
     context = get_agent_context()

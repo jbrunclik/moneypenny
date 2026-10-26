@@ -3,6 +3,8 @@
 Split out of prompts.py (Sep 2026); prompts.py assembles the final prompts.
 """
 
+import json
+
 from src.agent.prompt_texts.memory import MEMORY_SYSTEM_PROMPT
 from src.config import Config
 from src.db.models import db
@@ -37,8 +39,6 @@ def get_user_memories_list_prompt(user_id: str) -> str:
     Returns:
         Formatted string with the user's current memories
     """
-    import json as _json  # noqa: PLC0415
-
     memories = db.list_memories(user_id)
     memory_count = len(memories)
     limit = Config.MEMORY_MAX_ENTRIES
@@ -97,7 +97,7 @@ def get_user_memories_list_prompt(user_id: str) -> str:
         # ensure_ascii=False: the model copies what it sees, so \uXXXX-escaped
         # Czech text round-trips into STORED memories via update/consolidation
         prompt_parts.append(
-            "\n```json\n" + _json.dumps(memory_list, indent=2, ensure_ascii=False) + "\n```"
+            "\n```json\n" + json.dumps(memory_list, indent=2, ensure_ascii=False) + "\n```"
         )
     else:
         prompt_parts.append("\nNo memories stored yet.")

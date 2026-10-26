@@ -15,10 +15,11 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from src.agent import freshness, grounding_check
 from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
-from src.agent.context_cache import CacheProfile
+from src.agent.context_cache import CacheProfile, get_cached_content_name
 from src.agent.freshness import FreshnessDecision, freshness_tool_event
+from src.agent.graph import get_compiled_graph, get_graph_config
 from src.agent.message_content import build_message_content, history_to_messages
-from src.agent.prompts import get_system_prompt
+from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
 from src.agent.stream_events import StreamEventProcessor, iter_token_stream
 from src.agent.tools import get_tools_for_request
 from src.agent.turn_usage import batch_usage_info
@@ -55,8 +56,6 @@ class ChatAgent:
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
     ) -> None:
-        from src.agent.context_cache import get_cached_content_name  # noqa: PLC0415
-
         self.model_name = model_name
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
@@ -118,7 +117,6 @@ class ChatAgent:
                 "cached": self._cached_content_name is not None,
             },
         )
-        from src.agent.graph import get_compiled_graph  # noqa: PLC0415
 
         # Memoized by build signature - the compiled graph is stateless and a
         # pure function of these args, so it is reused across requests instead
@@ -202,8 +200,6 @@ class ChatAgent:
         conversation_title: str | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
-        from src.agent.prompts import get_dynamic_prompt_parts  # noqa: PLC0415
-
         messages: list[BaseMessage] = []
 
         # Check for updated dashboard context from refresh_planner_dashboard tool
@@ -343,8 +339,6 @@ class ChatAgent:
         )
 
         # Run the graph
-        from src.agent.graph import get_graph_config  # noqa: PLC0415
-
         config = get_graph_config()
         turn_started = time.monotonic()
         decision = self._freshness_decision(messages)
@@ -430,8 +424,6 @@ class ChatAgent:
             conversation_title=conversation_title,
         )
         # Stream the graph execution with messages mode for token-level streaming
-        from src.agent.graph import get_graph_config  # noqa: PLC0415
-
         config = get_graph_config()
         turn_started = time.monotonic()
         yield from iter_token_stream(
@@ -510,8 +502,6 @@ class ChatAgent:
 
         # Stream the graph execution with messages mode for token-level streaming
         # Wrapped in try-except to handle executor shutdown gracefully
-        from src.agent.graph import get_graph_config  # noqa: PLC0415
-
         config = get_graph_config()
         turn_started = time.monotonic()
         stop_reason: str | None = None

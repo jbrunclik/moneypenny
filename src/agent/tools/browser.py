@@ -66,7 +66,7 @@ def _probe_browser_available() -> bool:
     global _browser_available
 
     try:
-        from playwright.sync_api import sync_playwright  # noqa: PLC0415
+        from playwright.sync_api import sync_playwright  # noqa: PLC0415 - optional dependency, probed here
     except ImportError:
         _browser_available = False
         logger.info("Playwright not installed — browser tool disabled")

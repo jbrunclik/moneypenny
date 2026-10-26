@@ -20,7 +20,9 @@ import time
 from collections import OrderedDict
 from typing import Any
 
+from src.auth.garmin_auth import GarminAuthError, create_client_from_tokens, refresh_and_serialize
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -46,8 +48,6 @@ def get_client(user_id: str) -> Any | None:
     Returns None when the user has no Garmin token or the session cannot be
     restored - callers surface that as "Garmin not connected".
     """
-    from src.db.models import db  # noqa: PLC0415
-
     user = db.get_user_by_id(user_id)
     if not user or not user.garmin_token:
         return None
@@ -64,8 +64,6 @@ def get_client(user_id: str) -> Any | None:
 
     # Build outside the lock: login() is a network call and must not block
     # another user's cache lookup.
-    from src.auth.garmin_auth import GarminAuthError, create_client_from_tokens  # noqa: PLC0415
-
     try:
         client = create_client_from_tokens(user.garmin_token)
     except GarminAuthError as e:
@@ -95,9 +93,6 @@ def persist_tokens_if_changed(user_id: str, client: Any) -> None:
     writes. garth refreshes tokens rarely, so comparing against the last value
     we stored turns that into ~zero writes.
     """
-    from src.auth.garmin_auth import GarminAuthError, refresh_and_serialize  # noqa: PLC0415
-    from src.db.models import db  # noqa: PLC0415
-
     try:
         current = refresh_and_serialize(client)
     except GarminAuthError as e:

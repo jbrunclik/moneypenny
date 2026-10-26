@@ -18,6 +18,8 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.agent.cancellation import TurnCancelled
+from src.agent.content import extract_read_sources
+from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
@@ -58,12 +60,8 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     if not task or not task.strip():
         return tool_error("task must not be empty.", retriable=False)
 
-    # Imported here: delegate -> agent -> tools/__init__ -> delegate would be
-    # a circular import at module load time
-    from src.agent.agent import ChatAgent  # noqa: PLC0415
-    from src.agent.content import extract_read_sources  # noqa: PLC0415
-    from src.agent.prompt_texts.agents import DELEGATE_SYSTEM_PROMPT  # noqa: PLC0415
-    from src.agent.tools import fetch_url, research, web_search  # noqa: PLC0415
+    from src.agent.agent import ChatAgent  # noqa: PLC0415 - cycle: agent -> grounding_check -> delegate
+    from src.agent.tools import fetch_url, research, web_search  # noqa: PLC0415 - cycle: tools/__init__ imports this module
 
     prompt = task.strip()
     if expected_output.strip():

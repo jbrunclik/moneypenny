@@ -9,6 +9,8 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
+
 from src.agent.gemini_clients import shared_genai_client
 from src.config import Config
 from src.db.models import db
@@ -58,9 +60,6 @@ def run_summary_model(prompt: str) -> str | None:
     Returns the stripped summary text, or None if the model returned nothing
     or raised. Callers supply their own fallback text.
     """
-    # Import here to avoid circular imports
-    from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel  # noqa: PLC0415
-
     try:
         client = shared_genai_client()
         response = client.models.generate_content(
@@ -112,8 +111,7 @@ def _segmented_agent_summary(agent: Agent, messages: list[dict[str, Any]]) -> st
     it into a new summary every time compounded the loss), and only the
     messages after it are summarized, from full text, in batches.
     """
-    # Lazy: compaction_segments imports this module for run_summary_model
-    from src.agent.compaction_segments import (  # noqa: PLC0415
+    from src.agent.compaction_segments import (  # noqa: PLC0415 - cycle: compaction_segments imports this module
         Segment,
         extend_segments,
         render_segments,

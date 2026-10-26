@@ -15,7 +15,7 @@ session and points here for the rest.
 - **Existing violations get a baseline that only shrinks.** A new rule applies
   to new code at once; the cleanup of old code is a TODO item, done
   gradually. Never add to a baseline to get a change through. For ruff the
-  baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407, plus 105 `PLC0415`); a
+  baseline is a bare `# noqa: CODE` on the line (Oct 25 2026: 407; `PLC0415`: none since Oct 26 2026); a
   deliberate exception carries a reason instead: `# noqa: CODE - <why>`.
   For ESLint it is `web/eslint-suppressions.json` (228): after fixing some,
   `npx eslint src --prune-suppressions` (ESLint fails on stale entries).
@@ -71,7 +71,7 @@ session and points here for the rest.
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` |
-| B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (105 baselined) |
+| B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (none baselined) |
 | B11 | Env vars are read only in `src/config.py`; time and size settings carry their unit (`_SECONDS`, `_MS`, `_BYTES`); true constants live in `constants.py` | judgment; planned: test |
 
 ### Frontend architecture (F)

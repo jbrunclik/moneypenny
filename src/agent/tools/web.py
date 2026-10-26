@@ -463,7 +463,7 @@ def _escalate_to_research(query: str) -> str:
     back the pages already read removes the follow-up fetch round and usually
     the next search too. Never refuses, so a dependent follow-up still works.
     """
-    from src.agent.tools.research import run_research  # research imports this module  # noqa: PLC0415
+    from src.agent.tools.research import run_research  # noqa: PLC0415 - cycle: research imports this module
 
     payload = json.loads(
         run_research(question=query, max_sources=Config.WEB_SEARCH_ESCALATE_MAX_SOURCES)

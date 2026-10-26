@@ -214,8 +214,8 @@ class _KVHarness:
                 return_value=("conv-1", user_id),
             ),
             patch("src.agent.executor.get_agent_context", return_value=agent_context),
-            patch("src.agent.tools.context.get_sports_context", return_value=sports),
-            patch("src.agent.tools.context.get_language_context", return_value=language),
+            patch("src.agent.tools.agent_kv.get_sports_context", return_value=sports),
+            patch("src.agent.tools.agent_kv.get_language_context", return_value=language),
             patch("src.agent.tools.agent_kv.db"),
         ]
 
@@ -327,7 +327,7 @@ class TestRetrieveFile:
                 "src.agent.tools.file_retrieval.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.db.models.db") as mock_db,
+            patch("src.agent.tools.file_retrieval.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = None
             result = self._invoke()
@@ -342,7 +342,7 @@ class TestRetrieveFile:
                 "src.agent.tools.file_retrieval.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.db.models.db") as mock_db,
+            patch("src.agent.tools.file_retrieval.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = MagicMock()
             mock_db.get_message_by_id.return_value = message
@@ -358,7 +358,7 @@ class TestRetrieveFile:
                 "src.agent.tools.file_retrieval.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.db.models.db") as mock_db,
+            patch("src.agent.tools.file_retrieval.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = MagicMock()
             mock_db.get_message_by_id.return_value = message

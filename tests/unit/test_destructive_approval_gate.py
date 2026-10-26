@@ -20,7 +20,7 @@ from src.agent.tools.permission_check import (
 @pytest.fixture
 def agent_ctx(test_database, test_user, monkeypatch):
     """A real agent set as the current agent context, with db patched."""
-    monkeypatch.setattr("src.db.models.db", test_database)
+    monkeypatch.setattr("src.agent.tools.permission_check.db", test_database)
     agent = test_database.create_agent(user_id=test_user.id, name="Gate Test")
     set_agent_context(AgentContext(agent=agent, user=test_user, trigger_chain=[agent.id]))
     yield agent

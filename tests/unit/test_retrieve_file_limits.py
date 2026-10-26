@@ -48,8 +48,8 @@ def _retrieve(
     return retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
 
 
-@patch("src.db.blob_store.get_blob_store")
-@patch("src.db.models.db")
+@patch("src.agent.tools.file_retrieval.get_blob_store")
+@patch("src.agent.tools.file_retrieval.db")
 class TestRetrieveFileLimits:
     def test_large_image_is_downscaled_inline(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
@@ -60,7 +60,7 @@ class TestRetrieveFileLimits:
         sent = Image.open(io.BytesIO(base64.b64decode(result[1]["base64"])))
         assert max(sent.size) == Config.IMAGE_REFERENCE_MAX_EDGE_PX
 
-    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
     def test_large_pdf_goes_through_files_api(
         self,
         mock_ensure: MagicMock,
@@ -79,7 +79,7 @@ class TestRetrieveFileLimits:
         }
         mock_ensure.assert_called_once_with("msg-1", 0, data, "application/pdf")
 
-    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
     def test_small_pdf_stays_inline(
         self,
         mock_ensure: MagicMock,
@@ -93,7 +93,7 @@ class TestRetrieveFileLimits:
         assert result[1]["base64"] == base64.b64encode(data).decode("utf-8")
         mock_ensure.assert_not_called()
 
-    @patch("src.agent.gemini_files.ensure_gemini_file_uri")
+    @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")
     def test_files_api_failure_returns_error(
         self,
         mock_ensure: MagicMock,

@@ -3,10 +3,14 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from src.agent.agent import ChatAgent
 from src.agent.deep_research.board import ResearchBoard, share_finding_tool, wrap_research_tools
+from src.agent.prompt_texts.deep_research import DEEP_RESEARCH_SUBAGENT_PROMPT
 from src.agent.round_cap import round_cap_override
 from src.agent.source_pages import SourcePage, turn_pages
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
+from src.agent.tools import fetch_url, research, web_search
+from src.agent.tools.delegate import _in_delegate
 from src.config import Config
 
 Status = Literal["done", "failed", "skipped", "timed_out"]
@@ -23,12 +27,6 @@ class ItemResult:
 
 def run_subagent(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
     """Research one sub-question. Raises TurnCancelled when its token is cancelled."""
-    # Imported here: tools -> ... -> agent would be circular at module load
-    from src.agent.agent import ChatAgent  # noqa: PLC0415
-    from src.agent.prompt_texts.deep_research import DEEP_RESEARCH_SUBAGENT_PROMPT  # noqa: PLC0415
-    from src.agent.tools import fetch_url, research, web_search  # noqa: PLC0415
-    from src.agent.tools.delegate import _in_delegate  # noqa: PLC0415
-
     tools: list[Any] = [
         *wrap_research_tools([research, web_search, fetch_url], board, index),
         share_finding_tool(board, index),

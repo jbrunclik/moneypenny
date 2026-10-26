@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from src.agent.content import strip_full_result_from_tool_content
 from src.agent.gemini_clients import chat_model
 from src.agent.prompt_texts.freshness import FRESHNESS_GATE_PROMPT
+from src.agent.tool_display import TOOL_METADATA
 from src.agent.tools.research import research
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
@@ -188,8 +189,6 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
 
 def freshness_tool_event(kind: str, decision: FreshnessDecision) -> dict[str, Any]:
     """tool_start / tool_end for the prefetched research, as the stream sends tools."""
-    from src.agent.tool_display import TOOL_METADATA  # noqa: PLC0415
-
     event: dict[str, Any] = {"type": kind, "tool": "research"}
     if kind == "tool_start":
         event["metadata"] = TOOL_METADATA["research"]

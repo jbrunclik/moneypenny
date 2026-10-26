@@ -16,20 +16,13 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from src.db.models import db
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, Database, User
+    from src.db.models import Agent, User
 
 logger = get_logger(__name__)
-
-
-def _db() -> Database:
-    """Resolve the database at call time so test patches of
-    src.db.models.db are honored."""
-    from src.db.models import db  # noqa: PLC0415
-
-    return db
 
 
 BRIEFING_AGENT_NAME = "Daily Briefing"
@@ -127,7 +120,7 @@ def _cron_to_time(cron: str | None) -> str | None:
 def _resolve_agent(user: User) -> Agent | None:
     if not user.daily_briefing_agent_id:
         return None
-    return _db().get_agent(user.daily_briefing_agent_id, user.id)
+    return db.get_agent(user.daily_briefing_agent_id, user.id)
 
 
 def resolve_agent_system_prompt(agent: Agent) -> str | None:
@@ -170,7 +163,7 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
         if not enabled:
             # Nothing to do - don't create a disabled agent
             return {"enabled": False, "time": time_str, "timezone": timezone}
-        agent = _db().create_agent(
+        agent = db.create_agent(
             user_id=user.id,
             name=BRIEFING_AGENT_NAME,
             description=BRIEFING_AGENT_DESCRIPTION,
@@ -187,13 +180,13 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             fresh_context=True,
             system_type=SYSTEM_TYPE_DAILY_BRIEFING,
         )
-        _db().update_user_daily_briefing_agent(user.id, agent.id)
+        db.update_user_daily_briefing_agent(user.id, agent.id)
         logger.info(
             "Daily briefing agent created",
             extra={"user_id": user.id, "agent_id": agent.id, "time": time_str},
         )
     else:
-        _db().update_agent(
+        db.update_agent(
             agent.id,
             user.id,
             schedule=schedule,

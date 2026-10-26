@@ -7,16 +7,14 @@ class TestChatAgentOverrides:
     @staticmethod
     def _construct(monkeypatch, **kwargs):
         import src.agent.agent as agent_mod
-        import src.agent.context_cache as cache_mod
-        import src.agent.graph as graph_mod
 
         def fail_cache_lookup(*args, **kw):
             raise AssertionError("cache lookup must not run")
 
-        monkeypatch.setattr(cache_mod, "get_cached_content_name", fail_cache_lookup)
+        monkeypatch.setattr(agent_mod, "get_cached_content_name", fail_cache_lookup)
         # ChatAgent now builds via the memoized get_compiled_graph; stub it so
         # construction skips real (slow) graph compilation.
-        monkeypatch.setattr(graph_mod, "get_compiled_graph", lambda *a, **kw: object())
+        monkeypatch.setattr(agent_mod, "get_compiled_graph", lambda *a, **kw: object())
         return agent_mod.ChatAgent(model_name="gemini-test", **kwargs)
 
     def test_cache_opt_out_skips_cache_lookup(self, monkeypatch) -> None:
@@ -42,7 +40,6 @@ class TestInteractiveAgentToolWiring:
     @staticmethod
     def _captured_tool_names(monkeypatch, agent_tools) -> set[str]:
         import src.agent.agent as agent_mod
-        import src.agent.graph as graph_mod
 
         captured: dict[str, list] = {}
 
@@ -50,7 +47,7 @@ class TestInteractiveAgentToolWiring:
             captured["tools"] = kwargs.get("tools") or []
             return object()
 
-        monkeypatch.setattr(graph_mod, "get_compiled_graph", fake_get_compiled_graph)
+        monkeypatch.setattr(agent_mod, "get_compiled_graph", fake_get_compiled_graph)
 
         agent_mod.ChatAgent(
             model_name="gemini-test",

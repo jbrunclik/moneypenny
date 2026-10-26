@@ -983,7 +983,7 @@ class Config:
 
     @classmethod
     def _langdetect_language_errors(cls) -> list[str]:
-        from langdetect.detector_factory import PROFILES_DIRECTORY  # noqa: PLC0415
+        from langdetect.detector_factory import PROFILES_DIRECTORY  # noqa: PLC0415 - only validation needs it
 
         if len(cls.LANGDETECT_LANGUAGES) < 2:
             return ["LANGDETECT_LANGUAGES needs at least two language codes (e.g. cs,en)"]

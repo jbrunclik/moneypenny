@@ -41,10 +41,8 @@ def _make_tool(
 @pytest.fixture(autouse=True)
 def mock_shared_registry() -> Generator[MagicMock]:
     """Isolate tests from the real DB-backed shared cache registry."""
-    with patch("src.agent.context_cache._get_db") as mock_get_db:
-        mock_db = MagicMock()
+    with patch("src.agent.context_cache.db") as mock_db:
         mock_db.get_context_cache_entry.return_value = None
-        mock_get_db.return_value = mock_db
         yield mock_db
 
 
@@ -848,7 +846,7 @@ class TestCreateCache:
         with (
             patch.object(manager, "_get_client", return_value=mock_client),
             patch(
-                "langchain_google_genai._function_utils.convert_to_genai_function_declarations",
+                "src.agent.context_cache.convert_to_genai_function_declarations",
                 return_value=single_tool,
             ),
             patch("google.genai.types.CreateCachedContentConfig") as mock_config_cls,
@@ -878,7 +876,7 @@ class TestCreateCache:
         with (
             patch.object(manager, "_get_client", return_value=mock_client),
             patch(
-                "langchain_google_genai._function_utils.convert_to_genai_function_declarations",
+                "src.agent.context_cache.convert_to_genai_function_declarations",
                 return_value=tool_list,
             ),
             patch("google.genai.types.CreateCachedContentConfig") as mock_config_cls,

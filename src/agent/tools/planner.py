@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
+from src.auth.google_calendar import get_valid_calendar_access_token
 from src.db.models import db
 from src.services.planner_data import build_planner_dashboard
 from src.utils.logging import get_logger
@@ -33,8 +34,6 @@ def _get_user_tokens() -> tuple[str | None, str | None, str | None, str | None]:
         return None, None, None, None
 
     # Get calendar token via centralized helper (handles expiry check, refresh, DB persistence)
-    from src.auth.google_calendar import get_valid_calendar_access_token  # noqa: PLC0415
-
     try:
         calendar_token = (
             get_valid_calendar_access_token(user) if user.google_calendar_access_token else None
@@ -105,7 +104,7 @@ def refresh_planner_dashboard() -> str:
 
         # Update the contextvar with the refreshed dashboard data
         # Convert dataclass to dict for injection into system prompt
-        from src.agent.agent import _planner_dashboard_context  # noqa: PLC0415
+        from src.agent.agent import _planner_dashboard_context  # noqa: PLC0415 - cycle: agent -> tools -> planner
 
         dashboard_dict = asdict(dashboard)
         _planner_dashboard_context.set(dashboard_dict)

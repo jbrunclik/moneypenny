@@ -16,6 +16,7 @@ from src.agent.permissions import (
     PermissionResult,
     check_tool_permission,
 )
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -82,8 +83,6 @@ def _check_destructive_approval(
     agent_id: str, tool_name: str, operation: str, target_id: str | None
 ) -> None:
     """Require + consume an approved request for a destructive operation."""
-    from src.db.models import db  # noqa: PLC0415
-
     if db.consume_approved_request(agent_id, tool_name, target_id=target_id):
         logger.info(
             "Destructive action authorized by consumed approval",
@@ -120,8 +119,7 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
     Raises:
         ToolBlockedError: If the tool is blocked for this agent
     """
-    # Lazy import to avoid circular dependency
-    from src.agent.executor import get_agent_context  # noqa: PLC0415
+    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> tools -> browser -> permission_check
 
     # Get agent context - if not in autonomous mode, allow all
     context = get_agent_context()

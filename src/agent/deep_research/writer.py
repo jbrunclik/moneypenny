@@ -17,6 +17,7 @@ from src.agent.deep_research.board import ResearchBoard, agent_label
 from src.agent.deep_research.plan import DeepResearchPlan
 from src.agent.deep_research.subagent import ItemResult
 from src.agent.gemini_clients import chat_model
+from src.agent.graph import create_chat_model
 from src.agent.prompt_texts.deep_research import FOLLOWUP_PROMPT, REPORT_PROMPT
 from src.agent.source_pages import SourcePage
 from src.agent.tools.web import wrap_untrusted_content
@@ -99,8 +100,6 @@ def report_messages(
 
 
 def writer_model() -> ChatGoogleGenerativeAI:
-    from src.agent.graph import create_chat_model  # noqa: PLC0415
-
     return create_chat_model(Config.DEEP_RESEARCH_WRITER_MODEL, with_tools=False)
 
 

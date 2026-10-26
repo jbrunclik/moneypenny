@@ -257,8 +257,7 @@ def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
 
     See src/agent/source_pages.py for which pages count as read.
     """
-    # Imported here: source_pages imports extract_text_content from this module
-    from src.agent.source_pages import turn_pages  # noqa: PLC0415
+    from src.agent.source_pages import turn_pages  # noqa: PLC0415 - cycle: source_pages imports this module
 
     return [{"title": p.title, "url": p.url} for p in turn_pages(messages)]
 
@@ -278,8 +277,6 @@ def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
         The cleaned title (quotes stripped, clamped to TITLE_MAX_LENGTH),
         or None when the tool wasn't called or the title was blank.
     """
-    from src.config import Config  # noqa: PLC0415
-
     title: str | None = None
     for msg in messages:
         if not isinstance(msg, AIMessage) or not msg.tool_calls:

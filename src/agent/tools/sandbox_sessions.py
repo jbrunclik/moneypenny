@@ -136,9 +136,9 @@ class SandboxSessionPool:
 
 def _make_docker_session() -> Any:
     """Factory for real Docker sandbox sessions (shared settings with execute_code)."""
-    from llm_sandbox import SandboxSession  # noqa: PLC0415
+    from llm_sandbox import SandboxSession  # noqa: PLC0415 - docker client kept off startup
 
-    from src.agent.tools.code_execution import _SANDBOX_SESSION_KWARGS, _sandbox_runtime_configs  # noqa: PLC0415
+    from src.agent.tools.code_execution import _SANDBOX_SESSION_KWARGS, _sandbox_runtime_configs  # noqa: PLC0415 - cycle: code_execution imports this module
 
     return SandboxSession(
         image=Config.CODE_SANDBOX_IMAGE,

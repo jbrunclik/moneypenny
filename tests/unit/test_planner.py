@@ -949,7 +949,7 @@ class TestRefreshPlannerDashboardTool:
 
         # Mock the centralized helper - planner now delegates token refresh to this
         mock_get_token = mocker.patch(
-            "src.auth.google_calendar.get_valid_calendar_access_token",
+            "src.agent.tools.planner.get_valid_calendar_access_token",
             return_value="new-calendar-token",
         )
 

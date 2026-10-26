@@ -197,9 +197,7 @@ class TestExecuteAgentSuccess:
     ) -> None:
         agent = _agent(db, user)
 
-        with patch(
-            "src.agent.compaction.compact_conversation", side_effect=RuntimeError("llm down")
-        ):
+        with patch("src.agent.executor.compact_conversation", side_effect=RuntimeError("llm down")):
             assert _run(db, agent, user) == (True, None)
 
 

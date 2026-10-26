@@ -25,6 +25,7 @@ from src.agent.deep_research.writer import (
     stream_report,
     writer_model,
 )
+from src.agent.graph import create_chat_model, other_model_tier
 from src.agent.grounding_check import GroundingOutcome, check_grounding_pages
 from src.agent.retry import is_model_unavailable
 from src.agent.source_pages import SourcePage
@@ -191,8 +192,6 @@ def _write(
     A writer model that is down before the first token falls back to the
     other tier (as chat turns do, src/agent/graph.py).
     """
-    from src.agent.graph import create_chat_model, other_model_tier  # noqa: PLC0415
-
     model_name = Config.DEEP_RESEARCH_WRITER_MODEL
     try:
         for text in stream_report(messages, writer_model(), totals):

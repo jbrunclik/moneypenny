@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent
+from src.agent.compaction import compact_conversation
 from src.agent.content import (
     detect_response_language,
     extract_image_prompts_from_messages,
@@ -247,8 +248,6 @@ def execute_agent(  # noqa: PLR0915
         return False, error_msg
 
     # Check if conversation needs compaction
-    from src.agent.compaction import compact_conversation  # noqa: PLC0415
-
     try:
         compact_conversation(agent)
     except Exception as e:  # compaction is best-effort; the run continues

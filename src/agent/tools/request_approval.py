@@ -93,8 +93,7 @@ def request_approval(
     Returns:
         A message indicating that approval has been requested and the agent should wait.
     """
-    # Lazy import to avoid circular dependency
-    from src.agent.executor import get_agent_context  # noqa: PLC0415
+    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor imports this module
 
     # Get the current agent context
     agent_context = get_agent_context()

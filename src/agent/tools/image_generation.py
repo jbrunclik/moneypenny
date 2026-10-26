@@ -16,6 +16,8 @@ from src.agent.tools.context import (
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
+from src.db.blob_store import get_blob_store
+from src.db.models import db, make_blob_key
 from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
 
@@ -118,10 +120,6 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
 
         # Handle history image reference (from earlier in conversation)
         if history_image_message_id:
-            # Import here to avoid circular imports
-            from src.db.blob_store import get_blob_store  # noqa: PLC0415
-            from src.db.models import db, make_blob_key  # noqa: PLC0415
-
             conv_id, user_id = get_conversation_context()
 
             if not conv_id or not user_id:

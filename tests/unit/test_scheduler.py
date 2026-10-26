@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.agent import executor, scheduler
+from src.agent import scheduler
 from src.agent.executor import AgentBlockedError
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import Database, User
@@ -32,7 +32,7 @@ def db(test_database: Database, monkeypatch: pytest.MonkeyPatch) -> Iterator[Dat
 def run(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """The faked execute_agent; succeeds unless a test says otherwise."""
     fake = MagicMock(return_value=(True, None))
-    monkeypatch.setattr(executor, "execute_agent", fake)
+    monkeypatch.setattr(scheduler, "execute_agent", fake)
     return fake
 
 

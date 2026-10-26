@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import threading
 
+from src.agent.scheduler import run_scheduled_agents
 from src.config import Config
+from src.services.file_retention import run_file_cleanup_if_due
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -28,8 +30,6 @@ SCHEDULER_INTERVAL_SECONDS = 60
 
 def _scheduler_loop(stop_event: threading.Event) -> None:
     """Main scheduler loop that runs in a background thread."""
-    from src.agent.scheduler import run_scheduled_agents  # noqa: PLC0415
-
     logger.info("Dev scheduler: starting background loop")
 
     while not stop_event.is_set():
@@ -41,8 +41,6 @@ def _scheduler_loop(stop_event: threading.Event) -> None:
         # Dev stand-in for the moneypenny-file-cleanup systemd timer
         # (kv last-run stamp keeps this to at most one sweep per day)
         try:
-            from src.services.file_retention import run_file_cleanup_if_due  # noqa: PLC0415
-
             run_file_cleanup_if_due()
         except Exception:  # the loop must survive a failing sweep
             logger.exception("Dev scheduler: file cleanup failed")

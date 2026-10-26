@@ -14,6 +14,7 @@ import httpx
 
 from src.agent.tools.context import get_conversation_context
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,8 +32,6 @@ def get_todoist_token() -> str | None:
     _, user_id = get_conversation_context()
     if not user_id:
         return None
-
-    from src.db.models import db  # noqa: PLC0415
 
     user = db.get_user_by_id(user_id)
     if not user:

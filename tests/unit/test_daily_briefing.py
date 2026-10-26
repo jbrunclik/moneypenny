@@ -68,7 +68,7 @@ class TestFreshContext:
         assert agent.fresh_context is True
 
     def test_briefing_agent_is_fresh_context(self, test_database, test_user, monkeypatch) -> None:
-        monkeypatch.setattr("src.db.models.db", test_database)
+        monkeypatch.setattr("src.agent.daily_briefing.db", test_database)
         from src.agent.daily_briefing import set_briefing
 
         set_briefing(test_user, enabled=True, time_str="07:00", timezone="Europe/Prague")

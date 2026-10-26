@@ -44,7 +44,7 @@ def test_extra_fields_ride_along() -> None:
 def test_kv_store_failures_are_recognised() -> None:
     with (
         patch("src.agent.tools.agent_kv.get_conversation_context", return_value=("c1", "u1")),
-        patch("src.agent.tools.context.get_sports_context", return_value={"id": "p1"}),
+        patch("src.agent.tools.agent_kv.get_sports_context", return_value={"id": "p1"}),
     ):
         result = kv_store.invoke({"action": "explode"})
     assert _recognised(result) == (

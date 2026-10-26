@@ -114,7 +114,7 @@ class TestKvMerge:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("c1", "u1"),
             ),
-            patch("src.agent.tools.context.get_sports_context", return_value="cycling"),
+            patch("src.agent.tools.agent_kv.get_sports_context", return_value="cycling"),
             patch("src.agent.tools.agent_kv.db") as mock_db,
         ):
             mock_db.kv_get.return_value = stored
@@ -169,7 +169,7 @@ class TestGarminSessionCache:
         with (
             patch("src.db.models.db.get_user_by_id", return_value=self._user("tok-a")),
             patch(
-                "src.auth.garmin_auth.create_client_from_tokens",
+                "src.agent.tools.garmin_session.create_client_from_tokens",
                 return_value=MagicMock(),
             ) as mock_create,
         ):
@@ -183,7 +183,7 @@ class TestGarminSessionCache:
         """A reconnect rewrites the token; every worker must drop its session."""
         with (
             patch(
-                "src.auth.garmin_auth.create_client_from_tokens",
+                "src.agent.tools.garmin_session.create_client_from_tokens",
                 side_effect=lambda t: MagicMock(name=t),
             ) as mock_create,
         ):
@@ -203,7 +203,7 @@ class TestGarminSessionCache:
         with (
             patch("src.db.models.db.get_user_by_id", return_value=self._user("tok-a")),
             patch(
-                "src.auth.garmin_auth.create_client_from_tokens",
+                "src.agent.tools.garmin_session.create_client_from_tokens",
                 # create_client_from_tokens wraps every failure in GarminAuthError
                 side_effect=GarminAuthError("session expired"),
             ),
@@ -215,12 +215,12 @@ class TestGarminSessionCache:
         client = MagicMock()
         with (
             patch("src.db.models.db.get_user_by_id", return_value=self._user("tok-a")),
-            patch("src.auth.garmin_auth.create_client_from_tokens", return_value=client),
+            patch("src.agent.tools.garmin_session.create_client_from_tokens", return_value=client),
         ):
             garmin_session.get_client("u1")
 
         with (
-            patch("src.auth.garmin_auth.refresh_and_serialize", return_value="tok-a"),
+            patch("src.agent.tools.garmin_session.refresh_and_serialize", return_value="tok-a"),
             patch("src.db.models.db.update_user_garmin_token") as mock_update,
         ):
             garmin_session.persist_tokens_if_changed("u1", client)
@@ -231,12 +231,14 @@ class TestGarminSessionCache:
         client = MagicMock()
         with (
             patch("src.db.models.db.get_user_by_id", return_value=self._user("tok-a")),
-            patch("src.auth.garmin_auth.create_client_from_tokens", return_value=client),
+            patch("src.agent.tools.garmin_session.create_client_from_tokens", return_value=client),
         ):
             garmin_session.get_client("u1")
 
         with (
-            patch("src.auth.garmin_auth.refresh_and_serialize", return_value="tok-rotated"),
+            patch(
+                "src.agent.tools.garmin_session.refresh_and_serialize", return_value="tok-rotated"
+            ),
             patch("src.db.models.db.update_user_garmin_token") as mock_update,
         ):
             garmin_session.persist_tokens_if_changed("u1", client)

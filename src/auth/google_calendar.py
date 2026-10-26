@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import httpx
 
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -216,8 +217,6 @@ def get_valid_access_token(user_id: str) -> str | None:
     valid to RETURN, but storing it would overwrite the winner's (possibly
     rotated) refresh token with a stale one.
     """
-    from src.db.models import db  # noqa: PLC0415
-
     user = db.get_user_by_id(user_id)
     if not user or not user.google_calendar_access_token:
         return None

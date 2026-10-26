@@ -28,6 +28,7 @@ import httpx
 from langchain_core.tools import tool
 
 from src.agent.tools.browser import is_browser_available
+from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
 from src.auth import rouvy_auth
@@ -209,8 +210,6 @@ def is_rouvy_available() -> bool:
 
 def _resolve_user() -> User | None:
     """Resolve the current request's user (same seam garmin.py uses)."""
-    from src.agent.tools.context import get_conversation_context  # noqa: PLC0415
-
     _, user_id = get_conversation_context()
     if not user_id:
         return None

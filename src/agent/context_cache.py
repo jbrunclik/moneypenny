@@ -23,8 +23,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from google import genai
+from google.genai import types
+from langchain_google_genai._function_utils import (
+    convert_to_genai_function_declarations,
+)
+
 from src.agent.prompts import get_static_prompt_for_profile
 from src.config import Config
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -72,13 +79,6 @@ def _compute_content_hash(prompt: str, tools: list[Any]) -> str:
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
 
-def _get_db() -> Any:
-    """Indirection for the DB singleton (lazy import, patchable in tests)."""
-    from src.db.models import db  # noqa: PLC0415
-
-    return db
-
-
 class ContextCacheManager:
     """Manages Gemini context caches for different profiles.
 
@@ -107,9 +107,6 @@ class ContextCacheManager:
     def _get_client(self) -> Any:
         """Lazy-initialize the google.genai Client."""
         if self._client is None:
-            from google import genai  # noqa: PLC0415
-            from google.genai import types  # noqa: PLC0415 - with genai above
-
             self._client = genai.Client(
                 api_key=Config.GEMINI_API_KEY,
                 http_options=types.HttpOptions(
@@ -284,8 +281,6 @@ class ContextCacheManager:
     def _extend_cache(self, cache_name: str, ttl_seconds: int) -> bool:
         """Extend a cached content's TTL via the Gemini API (False on failure)."""
         try:
-            from google.genai import types  # noqa: PLC0415
-
             self._get_client().caches.update(
                 name=cache_name,
                 config=types.UpdateCachedContentConfig(ttl=f"{ttl_seconds}s"),
@@ -303,7 +298,7 @@ class ContextCacheManager:
         DB failures degrade to None (this worker creates its own cache).
         """
         try:
-            data = _get_db().get_context_cache_entry(cache_key)
+            data = db.get_context_cache_entry(cache_key)
         except Exception:
             logger.debug("Shared context-cache lookup failed", exc_info=True)
             return None
@@ -319,7 +314,7 @@ class ContextCacheManager:
     def _store_shared_entry(self, cache_key: str, entry: CacheEntry) -> None:
         """Publish a created cache to the shared DB registry (best effort)."""
         try:
-            _get_db().store_context_cache_entry(
+            db.store_context_cache_entry(
                 cache_key,
                 entry.cache_name,
                 entry.content_hash,
@@ -341,11 +336,6 @@ class ContextCacheManager:
         Returns the cache name or None on failure.
         """
         try:
-            from google.genai import types  # noqa: PLC0415
-            from langchain_google_genai._function_utils import (  # noqa: PLC0415
-                convert_to_genai_function_declarations,
-            )
-
             client = self._get_client()
 
             # Convert LangChain tools to google.genai Tool format.

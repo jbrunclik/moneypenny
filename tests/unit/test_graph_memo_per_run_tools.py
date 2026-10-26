@@ -48,7 +48,7 @@ def test_deep_research_subagents_opt_out_of_memoization() -> None:
         agent.chat_batch.return_value = ("digest", [], {}, [])
         return agent
 
-    with patch("src.agent.agent.ChatAgent", side_effect=fake_agent):
+    with patch("src.agent.deep_research.subagent.ChatAgent", side_effect=fake_agent):
         subagent.run_subagent("brief", ResearchBoard(), 0, "req-1")
 
     assert captured["memoize_graph"] is False
