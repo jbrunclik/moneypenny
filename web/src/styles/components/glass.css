@@ -73,6 +73,13 @@
             box-shadow: none;
         }
 
+        /* The header's text on its own GPU layer: drawn at full device
+           resolution, not composited into the frost's (iOS 27 softened it) */
+        .mobile-header #current-chat-title,
+        .sidebar-brand {
+            transform: translateZ(0);
+        }
+
         .mobile-header::before {
             content: "";
             position: absolute;
