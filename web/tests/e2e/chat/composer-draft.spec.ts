@@ -35,7 +35,7 @@ test.describe('Chat - Composer draft', () => {
     await page.locator(`.conversation-item-wrapper[data-conv-id="${first}"] .conversation-item`).click();
     await page.locator('#message-input').pressSequentially('typed while loading');
     // Past the draft-save debounce, so the draft has been saved somewhere
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // past DRAFT_SAVE_DEBOUNCE_MS (300): the draft has been saved
     release();
 
     await expect(page.locator('.message.user').first()).toContainText('First conversation', { timeout: 10000 });

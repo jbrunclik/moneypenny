@@ -406,7 +406,7 @@ test.describe('Deep link - Archived conversations', () => {
     await expect(page.locator('.message.assistant')).toBeVisible();
 
     // And it must not get kicked out by the next sync treating it as deleted
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1500); // a span for the next sync to wrongly drop it (it must stay)
     await expect(page.locator('.message.user')).toContainText('Message before archive');
   });
 });

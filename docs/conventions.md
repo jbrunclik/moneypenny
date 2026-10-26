@@ -110,7 +110,7 @@ Details: [testing.md](testing.md).
 | T1 | Bug fixes are test-first: a failing test, then the fix, then the full suite | judgment (`/fix-bug`) |
 | T2 | Coverage floors follow actual coverage, about two points under it (backend 83%; frontend lines 44%, branches 40%) | `fail_under` (pyproject), vitest `coverage.thresholds` |
 | T3 | No placeholder tests (a body of only `pass`, a docstring or comments) | test (`test_test_hygiene.py`) |
-| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 72 and 285) |
+| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 64 `time.sleep` left; `waitForTimeout` at 0 since Oct 26 2026 - wait on a condition with `web/tests/e2e/waits.ts` (`nextFrames`, `scrollSettled`, `pageSettled`, `serverReplySaved`) or an auto-waiting assertion; a fixed span stays only where elapsed time is the subject) |
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | `web/tests/flaky-gate.ts` after each CI E2E shard (reads the JSON report; `web/tests/e2e/flaky-quarantine.json` lists the allowed flakes, `tests/unit/flaky-gate.test.ts` checks each entry names a real test) |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`: no import of a `_private` name from `src`; the 66 of Oct 26 2026 went the same day - pure logic moved to modules with public names, the rest tested through its entry point) |

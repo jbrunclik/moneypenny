@@ -119,7 +119,7 @@ test.describe('Chat - Inline PDF viewer', () => {
     await page.locator('.message.user .document-preview').click();
     // The chunk's own load failure, not a follow-on error in the click handler
     expect((await failure).message).toMatch(/dynamically imported module|Importing a module script failed/);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // a span for a wrong reload to happen (none must)
     expect(await pageWasReloaded(page)).toBe(false);
   });
 });

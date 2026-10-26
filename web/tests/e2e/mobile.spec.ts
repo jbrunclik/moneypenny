@@ -3,6 +3,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
+import { pageSettled } from './waits';
 
 /**
  * Open the sidebar and wait until its slide-in has finished. The row actions
@@ -264,7 +265,7 @@ test.describe('Touch gestures', () => {
       await page.mouse.up();
 
       // Wait a bit for gesture to complete
-      await page.waitForTimeout(300);
+      await pageSettled(page);
 
       // Sidebar might be open (depends on swipe gesture implementation)
       // This is a basic test - actual behavior depends on gesture thresholds
@@ -316,7 +317,7 @@ test.describe('Touch gestures', () => {
       await page.mouse.up();
 
       // Wait for animation
-      await page.waitForTimeout(300);
+      await pageSettled(page);
 
       // The swipe gesture should reveal the delete action
       // This is a basic test for the gesture system

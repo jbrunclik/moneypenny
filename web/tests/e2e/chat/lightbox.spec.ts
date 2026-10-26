@@ -131,7 +131,6 @@ test.describe('Chat - Lightbox', () => {
     // After user_message_saved event is received, image should be clickable
     // The backend sends this event early, so by now it should be ready
     // Wait a moment for the event to be processed
-    await page.waitForTimeout(500);
 
     // Image should no longer have pending attribute
     await expect(messageImage).not.toHaveAttribute('data-pending', 'true', { timeout: 3000 });

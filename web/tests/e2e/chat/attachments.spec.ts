@@ -10,6 +10,7 @@ import {
   resetBatchDelay,
 } from './fixtures';
 import { Buffer } from 'buffer';
+import { nextFrames, scrollSettled } from '../waits';
 
 test.describe('Chat - Image Loading Scroll', () => {
   /**
@@ -152,7 +153,7 @@ test.describe('Chat - Image Loading Scroll', () => {
     await expect.poll(distanceFromBottom, { timeout: 10000 }).toBeLessThan(100);
     // ...then let that pin finish: it is a smooth scroll (up to 600ms) and a
     // scroll-up landing inside it is treated as the app's own scroll
-    await page.waitForTimeout(800);
+    await scrollSettled(page);
 
     // Scroll up (this should disable auto-scroll)
     await messagesContainer.evaluate((el) => {
@@ -160,7 +161,7 @@ test.describe('Chat - Image Loading Scroll', () => {
     });
 
     // Wait for scroll event to be processed - webkit needs more time
-    await page.waitForTimeout(1000);
+    await nextFrames(page);
 
     // Verify we're still at the top (not scrolled back to bottom)
     const scrollTop = await messagesContainer.evaluate((el) => el.scrollTop);

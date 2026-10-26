@@ -3,7 +3,7 @@
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Planner Sidebar Entry', () => {
   test('planner entry default state', async ({ page }) => {
@@ -14,7 +14,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
     await page.goto('/');
     await page.waitForSelector('.planner-entry');
     await waitForSidebarSettled(page);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('planner-entry-default.png');
   });
@@ -29,7 +29,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
     await waitForSidebarSettled(page);
 
     await page.locator('.planner-entry').hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('planner-entry-hover.png');
   });
@@ -42,7 +42,7 @@ test.describe('Visual: Planner Sidebar Entry', () => {
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-entry.active');
     await waitForSidebarSettled(page);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('planner-entry-active.png');
   });
@@ -156,7 +156,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('dashboard-full.png');
   });
@@ -207,7 +207,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-section.overdue');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('dashboard-overdue.png');
   });
@@ -229,7 +229,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-error');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('dashboard-errors.png');
   });
@@ -264,7 +264,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-empty');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('dashboard-empty.png');
   });
@@ -303,7 +303,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-section details');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('week-collapsed.png');
   });
@@ -503,7 +503,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.waitForSelector('.planner-item');
 
     await page.locator('.planner-item').first().hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('item-hover.png');
   });
@@ -633,7 +633,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-item');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('priority-indicators.png');
   });
@@ -765,7 +765,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.planner-item.all-day');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('all-day-event.png');
   });
@@ -791,7 +791,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await setFixedDateDashboard(page);
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-header')).toHaveScreenshot('buttons-default.png', {
       mask: [page.locator('.dashboard-date')],
@@ -804,7 +804,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.waitForSelector('.planner-refresh-btn');
 
     await page.locator('.planner-refresh-btn').hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-header')).toHaveScreenshot('refresh-hover.png', {
       mask: [page.locator('.dashboard-date')],
@@ -817,7 +817,7 @@ test.describe('Visual: Planner Dashboard - Desktop', () => {
     await page.waitForSelector('.planner-reset-btn');
 
     await page.locator('.planner-reset-btn').hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-header')).toHaveScreenshot('reset-hover.png', {
       mask: [page.locator('.dashboard-date')],
@@ -918,7 +918,7 @@ test.describe('Visual: Planner Dashboard - Mobile', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.dashboard-actions');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-header')).toHaveScreenshot('mobile-buttons.png', {
       mask: [page.locator('.dashboard-date')],
@@ -960,7 +960,7 @@ test.describe('Visual: Planner Integration States', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('todoist-only.png');
   });
@@ -998,7 +998,7 @@ test.describe('Visual: Planner Integration States', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('calendar-only.png');
   });
@@ -1058,7 +1058,7 @@ test.describe('Visual: Health Summary Strip', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.health-summary-strip');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-full.png');
   });
@@ -1092,7 +1092,7 @@ test.describe('Visual: Health Summary Strip', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.health-summary-strip');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-partial.png');
   });
@@ -1157,7 +1157,7 @@ test.describe('Visual: Health Summary Strip', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.health-summary-strip');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.health-summary-strip')).toHaveScreenshot('health-summary-mobile.png');
   });
@@ -1211,7 +1211,7 @@ test.describe('Visual: Weather Badges', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.weather-badge');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('weather-badges.png');
   });
@@ -1305,7 +1305,7 @@ test.describe('Visual: Time Indicator & Past Events', () => {
 
     await page.goto('/#/planner');
     await page.waitForSelector('.time-indicator');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.dashboard-day').first()).toHaveScreenshot('time-indicator-past-events.png');
   });

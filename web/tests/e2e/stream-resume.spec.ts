@@ -239,7 +239,7 @@ test.describe('Resumable streams', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
     // ...stay hidden past the quick-flicker guard (500ms)...
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(700); // hidden past the 500ms quick-flicker guard (STREAM_RECOVERY_MIN_HIDDEN_MS) - the scenario
     // ...and foreground: the client must abort the (possibly dead) reader and
     // resume from its journal offset instead of waiting for a read timeout
     await page.evaluate(() => {

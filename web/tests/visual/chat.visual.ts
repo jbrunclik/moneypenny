@@ -2,7 +2,7 @@
  * Visual regression tests for chat interface
  */
 import { test, expect } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Chat Interface', () => {
   test('empty conversation state', async ({ page }) => {
@@ -13,7 +13,7 @@ test.describe('Visual: Chat Interface', () => {
     // Wait for welcome message to appear
     await page.waitForSelector('.welcome-message');
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('empty-conversation.png', {
       fullPage: true,
@@ -32,7 +32,7 @@ test.describe('Visual: Chat Interface', () => {
     // Wait for response
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('conversation-with-messages.png', {
       fullPage: true,
@@ -54,7 +54,7 @@ test.describe('Visual: Chat Interface', () => {
     // Every generated title has landed
     await expect(page.locator('.conversation-item-wrapper', { hasText: 'New Conversation' })).toHaveCount(0);
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-conversations.png');
   });
@@ -73,7 +73,7 @@ test.describe('Visual: Chat Interface', () => {
     await page.click('#user-menu-btn');
     await page.click('#select-chats-btn');
     await page.locator('#conversations-list .conversation-item').first().click();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-selection.png');
   });
@@ -166,7 +166,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Wait for animations
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the user message to verify URL wrapping
     const userMessage = page.locator('.message.user').first();
@@ -204,7 +204,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.fill('#message-input', 'Show me a wide table');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant table', { timeout: 10000 });
-    await screenshotReady(page);
+    await pageSettled(page);
     await page.request.post('/test/clear-mock-response');
 
     // The bubble widens to contain the table, but the page itself must
@@ -245,7 +245,7 @@ test.describe('Visual: Long Content Wrapping', () => {
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
     // Wait for animations
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the user message to verify it doesn't collapse
     const userMessage = page.locator('.message.user').first();
@@ -317,7 +317,7 @@ test.describe('Visual: Thinking Indicator', () => {
 
     // Wait for animations to complete
     await expect(assistantMessage).not.toHaveClass(/streaming/);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the message (may or may not have thinking indicator based on timing)
     await expect(assistantMessage).toHaveScreenshot('message-with-streaming-response.png');
@@ -349,7 +349,7 @@ test.describe('Visual: Thinking Indicator', () => {
 
     // Wait for animations
     await expect(assistantMessage).not.toHaveClass(/streaming/);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the message (may or may not have tool indicator based on timing)
     await expect(assistantMessage).toHaveScreenshot('message-with-tool-usage.png');
@@ -395,7 +395,7 @@ test.describe('Visual: Sync UI', () => {
     });
 
     // Wait for any animations
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the sidebar showing unread badge
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-unread-badge.png');
@@ -426,7 +426,7 @@ test.describe('Visual: Sync UI', () => {
     });
 
     // Wait for any animations
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot just the conversation item with badge
     const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();

@@ -170,6 +170,14 @@ This ensures:
   render on a CI VM running 5-7× slower than usual — the RAF-scheduled scroll
   hadn't run yet. Note the exception: "asserting something does NOT happen"
   (e.g., auto-scroll stays disabled) genuinely needs a fixed wait.
+- **Condition helpers** (`web/tests/e2e/waits.ts`, Oct 26 2026 - no uncommented
+  `waitForTimeout` is left): `nextFrames` (scroll/resize handlers ran),
+  `scrollSettled` (a glide or re-pin landed), `pageSettled` (finite animations
+  done, fonts loaded - call it before a screenshot taken after an entrance:
+  text painted mid-animation antialiases differently from the baseline) and
+  `serverReplySaved` (the turn's reply is saved server-side). A fixed sleep can
+  also hide a vacuous test: "a long thinking trace raises no pill" slept 2s and
+  never had a tall trace (the live trace is collapsed by default).
 
 ### Interface Extension Checklist
 

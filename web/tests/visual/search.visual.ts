@@ -2,7 +2,7 @@
  * Visual regression tests for search functionality
  */
 import { test, expect } from '../global-setup';
-import { nextFrames, screenshotReady } from '../e2e/waits';
+import { nextFrames, pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Search Input', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,7 +12,7 @@ test.describe('Visual: Search Input', () => {
   });
 
   test('search input default state', async ({ page }) => {
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-default.png');
   });
@@ -21,7 +21,7 @@ test.describe('Visual: Search Input', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.focus();
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-focused.png');
   });
@@ -30,7 +30,7 @@ test.describe('Visual: Search Input', () => {
     const searchInput = page.locator('#search-input');
     await searchInput.fill('test query');
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.search-container')).toHaveScreenshot('search-input-with-text.png');
   });
@@ -50,7 +50,7 @@ test.describe('Visual: Search Empty States', () => {
 
     // Wait for hint to appear
     await expect(page.locator('.search-empty')).toBeVisible();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#conversations-list')).toHaveScreenshot('search-empty-hint.png');
   });
@@ -132,7 +132,7 @@ test.describe('Visual: Search Results', () => {
     await searchInput.fill('Python');
 
     // Wait for results
-    await screenshotReady(page);
+    await pageSettled(page);
     await expect(page.locator('.search-results-header')).toBeVisible();
 
     await expect(page.locator('#conversations-list')).toHaveScreenshot('search-results-list.png');
@@ -225,7 +225,7 @@ test.describe('Visual: Sidebar with Search', () => {
 
     // Screenshot normal state (conversation list visible)
     // Allow small pixel tolerance for dynamic timestamps from created conversation
-    await screenshotReady(page);
+    await pageSettled(page);
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-normal-mode.png', {
       maxDiffPixelRatio: 0.02,
     });
@@ -237,7 +237,7 @@ test.describe('Visual: Sidebar with Search', () => {
 
     // Wait for debounce and results
     await expect(page.locator('.search-result-item').first()).toBeVisible();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot search mode - allow small pixel tolerance for dynamic timestamps
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-search-mode.png', {
@@ -247,7 +247,7 @@ test.describe('Visual: Sidebar with Search', () => {
     // Press escape to deactivate search
     await searchInput.press('Escape');
     await expect(page.locator('.search-result-item')).toHaveCount(0);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot should be back to normal
     await expect(page.locator('#sidebar')).toHaveScreenshot('sidebar-after-search.png', {

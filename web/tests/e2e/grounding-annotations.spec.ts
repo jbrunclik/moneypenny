@@ -1,4 +1,5 @@
 import { test, expect } from '../global-setup';
+import { nextFrames } from './waits';
 
 const ANNOTATIONS = {
   summary: { checked: true, source_count: 1 },
@@ -38,7 +39,7 @@ for (const streaming of [true, false]) {
       // opens.
       const firstClaim = page.locator('.message.assistant .claim').first();
       await firstClaim.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-      await page.waitForTimeout(100);
+      await nextFrames(page);
       await firstClaim.click();
       await page.locator('#claim-card .claim-card__reply').click();
       await expect(page.locator('.message.assistant').last()).toHaveClass(/message--flash/);

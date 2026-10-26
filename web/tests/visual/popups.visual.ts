@@ -3,7 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -82,7 +82,7 @@ test.describe('Visual: Cost Popups', () => {
       document.body.appendChild(popup);
     }, { COST_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#message-cost-popup')).toHaveScreenshot('popup-message-cost.png');
   });
@@ -148,7 +148,7 @@ test.describe('Visual: Cost Popups', () => {
       document.body.appendChild(popup);
     }, { COST_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#cost-history-popup')).toHaveScreenshot('popup-cost-history.png');
   });
@@ -183,7 +183,7 @@ test.describe('Visual: Cost Popups', () => {
       document.body.appendChild(popup);
     }, { COST_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#cost-history-popup')).toHaveScreenshot('popup-cost-history-empty.png');
   });
@@ -236,7 +236,7 @@ test.describe('Visual: Sources Popup', () => {
       document.body.appendChild(popup);
     }, { SOURCES_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#sources-popup')).toHaveScreenshot('popup-sources.png');
   });
@@ -279,7 +279,7 @@ test.describe('Visual: Image Generation Popup', () => {
       document.body.appendChild(popup);
     }, { SPARKLES_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#imagegen-popup')).toHaveScreenshot('popup-imagegen.png');
   });
@@ -324,7 +324,7 @@ test.describe('Visual: Image Generation Popup', () => {
       document.body.appendChild(popup);
     }, { SPARKLES_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#imagegen-popup')).toHaveScreenshot('popup-imagegen-multiple.png');
   });
@@ -360,7 +360,7 @@ test.describe('Visual: Lightbox', () => {
       }
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('lightbox-with-image.png', {
       fullPage: true,
@@ -384,7 +384,7 @@ test.describe('Visual: Lightbox', () => {
       }
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('lightbox-loading.png', {
       fullPage: true,
@@ -461,7 +461,7 @@ test.describe('Visual: Settings Popup', () => {
       document.body.appendChild(popup);
     }, { SETTINGS_ICON, CLOSE_ICON, PHONE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings.png');
   });
@@ -519,7 +519,7 @@ test.describe('Visual: Settings Popup', () => {
       document.body.appendChild(popup);
     }, { SETTINGS_ICON, CLOSE_ICON, PHONE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings-empty.png');
   });
@@ -578,7 +578,7 @@ test.describe('Visual: Settings Popup', () => {
       document.body.appendChild(popup);
     }, { SETTINGS_ICON, CLOSE_ICON, PHONE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#settings-popup')).toHaveScreenshot('popup-settings-warning.png');
   });
@@ -643,7 +643,7 @@ test.describe('Visual: Mobile Popups', () => {
       document.body.appendChild(popup);
     }, { COST_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-popup-message-cost.png');
   });
@@ -689,7 +689,7 @@ test.describe('Visual: Mobile Popups', () => {
       document.body.appendChild(popup);
     }, { SOURCES_ICON, CLOSE_ICON });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-popup-sources.png');
   });
@@ -723,7 +723,7 @@ test.describe('Visual: Mobile Popups', () => {
       }
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-lightbox.png', {
       fullPage: true,
@@ -775,7 +775,7 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
       { SETTINGS_ICON, CLOSE_ICON, ACTIVITY_ICON, garminSectionHtml }
     );
 
-    await screenshotReady(page);
+    await pageSettled(page);
   }
 
   test('garmin section disconnected state', async ({ page }) => {

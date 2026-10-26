@@ -413,7 +413,7 @@ test.describe('Planner - UI State Management', () => {
     // Get the conversation cost (should be non-zero after a message)
     const costDisplay = page.locator('#conversation-cost');
     // Wait for cost to be displayed (might be empty initially)
-    await page.waitForTimeout(500);
+    await expect(costDisplay).toHaveText(/\S/);
     const conversationCost = await costDisplay.textContent();
 
     // Navigate to planner
@@ -482,7 +482,7 @@ test.describe('Planner - UI State Management', () => {
 
     release();
     await page.waitForResponse('**/api/planner/conversation');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for a wrong dashboard render to show (none must)
     await expect(page.locator('#planner-dashboard')).toHaveCount(0);
     await expect(page.locator('.welcome-message')).toBeVisible();
   });

@@ -2,7 +2,7 @@
  * Visual regression tests for mobile layouts
  */
 import { test, expect } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Mobile iPhone', () => {
   test.use({ viewport: { width: 375, height: 812 } });
@@ -19,7 +19,7 @@ test.describe('Visual: Mobile iPhone', () => {
   test('mobile layout', async ({ page }) => {
     await page.goto('/');
     await createNewConversation(page);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-layout.png', {
       fullPage: true,
@@ -34,7 +34,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-sidebar-open.png', {
       fullPage: true,
@@ -57,7 +57,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#user-menu-btn');
     await page.click('#select-chats-btn');
     await page.locator('#conversations-list .conversation-item').first().click();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-sidebar-selection.png', { fullPage: true });
   });
@@ -85,7 +85,7 @@ test.describe('Visual: Mobile iPhone', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-conversation.png', {
       fullPage: true,
@@ -114,7 +114,7 @@ test.describe('Visual: Mobile iPad', () => {
     await page.click('#new-chat-btn');
 
     await page.waitForSelector('.welcome-message');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('ipad-layout.png', {
       fullPage: true,
@@ -130,7 +130,7 @@ test.describe('Visual: Mobile iPad', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('ipad-conversation.png', {
       fullPage: true,
@@ -149,7 +149,7 @@ test.describe('Visual: Mobile iPad', () => {
       await page.waitForSelector('.message.assistant', { timeout: 10000 });
     }
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('#sidebar')).toHaveScreenshot('ipad-sidebar.png');
   });
@@ -178,7 +178,7 @@ test.describe('Visual: Mobile Interactions', () => {
     // Open sidebar (should show empty state)
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the sidebar content area to show empty state message
     await expect(page.locator('.sidebar')).toHaveScreenshot(
@@ -210,7 +210,7 @@ test.describe('Visual: Mobile Interactions', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the user message to verify it doesn't wrap weirdly
     await expect(page.locator('.message.user').first()).toHaveScreenshot(
@@ -271,7 +271,7 @@ test.describe('Visual: Mobile Interactions', () => {
       content:
         '.input-area { visibility: hidden !important; } .messages > .message:first-child { margin-top: 0 !important; }',
     });
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the assistant message with the table
     // The table should be contained within the message bubble with horizontal scroll
@@ -309,7 +309,7 @@ test.describe('Visual: Mobile Interactions', () => {
     await expect(assistantMessage).toContainText('mock response', { timeout: 10000 });
 
     await expect(assistantMessage).not.toHaveClass(/streaming/);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the streaming message on mobile
     await expect(assistantMessage).toHaveScreenshot('mobile-streaming-message.png');
@@ -348,7 +348,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     // Open sidebar
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Reveal the actions the way core/gestures.ts does after a swipe; the
     // real (hover: none) styles apply because this block runs on a touch
@@ -356,7 +356,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     await page.evaluate(() => {
       document.querySelector('.conversation-item-wrapper')?.classList.add('swiped');
     });
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the conversation item with revealed swipe actions
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -399,7 +399,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
     // Open sidebar again
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Unread badge on the other conversation, then reveal its swipe actions
     // the way core/gestures.ts does (real touch-device styles, see above)
@@ -413,7 +413,7 @@ test.describe('Visual: Mobile swipe actions (touch device)', () => {
       item.insertBefore(badge, item.querySelector('.conversation-time')); // same slot Sidebar.ts renders it in
       wrapper.classList.add('swiped');
     });
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Screenshot the conversation item with swipe actions and unread badge
     const convItem = page.locator('.conversation-item-wrapper:not(.active)').first();

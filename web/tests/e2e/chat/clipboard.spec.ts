@@ -264,8 +264,7 @@ test.describe('Chat - Copy to Clipboard', () => {
     await expect(inlineCopyBtn).toHaveClass(/copied/);
 
     // After 2 seconds, copied state should be removed
-    await page.waitForTimeout(2100);
-    await expect(inlineCopyBtn).not.toHaveClass(/copied/);
+    await expect(inlineCopyBtn).not.toHaveClass(/copied/, { timeout: 5000 });
   });
 
   test('message copy button excludes inline copy buttons and language labels', async ({

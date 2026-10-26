@@ -3,7 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { nextFrames, screenshotReady } from '../e2e/waits';
+import { nextFrames, pageSettled } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -41,7 +41,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-success.png');
   });
@@ -69,7 +69,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-error-with-retry.png');
   });
@@ -96,7 +96,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-warning.png');
   });
@@ -123,7 +123,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-info.png');
   });
@@ -160,7 +160,7 @@ test.describe('Visual: Toast Notifications', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.toast-container')).toHaveScreenshot('toast-multiple.png');
   });
@@ -194,7 +194,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // The modal's bottom edge occasionally lands 1px lower on CI runners
     // (~360px of a 1280x1024 frame); a real regression moves thousands.
@@ -231,7 +231,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-confirm.png');
   });
@@ -264,7 +264,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-danger-confirm.png');
   });
@@ -298,7 +298,7 @@ test.describe('Visual: Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.modal-container')).toHaveScreenshot('modal-prompt.png');
   });
@@ -331,7 +331,7 @@ test.describe('Visual: Modal Dialogs', () => {
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });
 
     // Wait for animation to complete
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Deterministic focus state: whether #message-input keeps focus after
     // send varies with load timing, and its focus border is inside this
@@ -367,7 +367,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
     // Wait for our custom modal to appear
     await page.waitForSelector('.modal-container:not(.modal-hidden)', { timeout: 5000 });
-    await screenshotReady(page);
+    await pageSettled(page);
 
     // Take full page screenshot to show modal with overlay
     // Deterministic focus state (see delete-confirmation test)
@@ -409,7 +409,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-alert.png');
   });
@@ -442,7 +442,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-danger-confirm.png');
   });
@@ -476,7 +476,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-modal-prompt.png');
   });
@@ -504,7 +504,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
       document.body.appendChild(container);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-toast-error.png');
   });
@@ -539,7 +539,7 @@ test.describe('Visual: Version Banner', () => {
       document.body.appendChild(banner);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.version-banner')).toHaveScreenshot('version-banner.png');
   });
@@ -576,7 +576,7 @@ test.describe('Visual: Mobile Version Banner', () => {
       document.body.appendChild(banner);
     });
 
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page).toHaveScreenshot('mobile-version-banner.png');
   });

@@ -58,13 +58,13 @@ export async function scrollSettled(
 }
 
 /**
- * The page is ready for a screenshot: every finite CSS animation and
- * transition has finished (an entrance has fully landed - text painted
- * mid-animation antialiases differently from the settled baseline), the web
- * fonts are loaded, and two frames have painted. Infinite animations (loading
+ * The page has settled: every finite CSS animation and transition has
+ * finished (an entrance or a gesture has fully landed - and for a screenshot,
+ * text painted mid-animation antialiases differently from the settled
+ * baseline), the web fonts are loaded, and two frames have painted. Infinite animations (loading
  * dots, a pulse) are left running: they would never finish.
  */
-export async function screenshotReady(page: Page): Promise<void> {
+export async function pageSettled(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const finite = document
       .getAnimations()

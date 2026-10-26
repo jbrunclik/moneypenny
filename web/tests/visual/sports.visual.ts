@@ -2,7 +2,7 @@
  * Visual regression tests for Sports Training feature
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 const SAMPLE_PROGRAMS = [
   {
@@ -24,7 +24,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
     await page.goto('/');
     await page.waitForSelector('.sports-entry');
     await waitForSidebarSettled(page);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sports-entry-default.png');
   });
@@ -35,7 +35,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
     await waitForSidebarSettled(page);
 
     await page.locator('.sports-entry').hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sports-entry-hover.png');
   });
@@ -44,7 +44,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-entry.active');
     await waitForSidebarSettled(page);
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar')).toHaveScreenshot('sports-entry-active.png');
   });
@@ -52,7 +52,7 @@ test.describe('Visual: Sports Sidebar Entry', () => {
   test('sidebar nav row with three entries', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.sidebar-nav-row');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sidebar-nav-row')).toHaveScreenshot(
       'sidebar-nav-row-three-entries.png',
@@ -64,7 +64,7 @@ test.describe('Visual: Sports Programs List', () => {
   test('programs empty state', async ({ page }) => {
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-programs-container');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('programs-empty.png');
   });
@@ -76,7 +76,7 @@ test.describe('Visual: Sports Programs List', () => {
 
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-program-card');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('programs-with-data.png');
   });
@@ -90,7 +90,7 @@ test.describe('Visual: Sports Programs List', () => {
     await page.waitForSelector('.sports-program-card');
 
     await page.locator('.sports-program-card').first().hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('program-card-hover.png');
   });
@@ -103,7 +103,7 @@ test.describe('Visual: New Program Modal', () => {
 
     await page.locator('.sports-add-btn').first().click();
     await page.waitForSelector('.sports-modal-overlay');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sports-modal-overlay')).toHaveScreenshot('new-program-modal.png');
   });
@@ -120,7 +120,7 @@ test.describe('Visual: New Program Modal', () => {
     await page.waitForSelector('.sports-emoji-popover.open');
     await page.locator('.sports-emoji-option').nth(2).click();
     await page.locator('.sports-add-name').fill('Cycling');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sports-modal-overlay')).toHaveScreenshot('new-program-filled.png');
   });
@@ -134,7 +134,7 @@ test.describe('Visual: Program Chat Header', () => {
 
     await page.goto('/#/sports/pushups');
     await page.waitForSelector('.sports-program-header');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sports-program-header')).toHaveScreenshot(
       'program-header-default.png',
@@ -150,7 +150,7 @@ test.describe('Visual: Program Chat Header', () => {
     await page.waitForSelector('.sports-program-header');
 
     await page.locator('.sports-reset-btn').hover();
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.sports-program-header')).toHaveScreenshot(
       'program-header-reset-hover.png',
@@ -168,7 +168,7 @@ test.describe('Visual: Sports Mobile', () => {
 
     await page.goto('/#/sports');
     await page.waitForSelector('.sports-program-card');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('programs-mobile.png');
   });
@@ -184,7 +184,7 @@ test.describe('Visual: Sports Mobile', () => {
     // the whole program view
     await page.waitForSelector('.sports-program-header', { state: 'attached' });
     await page.waitForSelector('.message.assistant');
-    await screenshotReady(page);
+    await pageSettled(page);
 
     await expect(page.locator('.main')).toHaveScreenshot('program-view-mobile.png');
   });

@@ -33,7 +33,7 @@ test.describe('Batch turn after reload', () => {
     await batchRequest;
     await page.waitForSelector('.message-loading');
     // The server saves the user message before the (delayed) agent call
-    await page.waitForTimeout(500);
+    await expect.poll(async () => { const id = page.url().split('/conversations/')[1]; if (!id) return 0; const r = await page.request.get(`/api/conversations/${id}/messages`); return r.ok() ? ((await r.json()) as { messages: unknown[] }).messages.length : 0; }, { timeout: 5000 }).toBeGreaterThan(0);
 
     await page.reload();
     await page.waitForSelector('#new-chat-btn');
@@ -50,7 +50,7 @@ test.describe('Batch turn after reload', () => {
     await expect(page.locator('.message.user')).toHaveCount(1);
     // The turn's in-flight placeholder must not also be followed as another
     // device's reply (one reply, not two)
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1500); // a span for a second (followed) reply to show (none must)
     await expect(page.locator('.message.assistant')).toHaveCount(1);
   });
 });

@@ -6,7 +6,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -28,14 +28,14 @@ async function sendAndWait(page: Page, text: string): Promise<void> {
     for (const el of document.querySelectorAll('.message-time')) el.textContent = '12:00 PM';
   });
   await page.mouse.move(0, 0);
-  await screenshotReady(page);
+  await pageSettled(page);
 }
 
 test.describe('Visual: Dark theme', () => {
   test('empty conversation', async ({ page }) => {
     await newChat(page);
     await page.waitForSelector('.welcome-message');
-    await screenshotReady(page);
+    await pageSettled(page);
     await expect(page).toHaveScreenshot('dark-empty-conversation.png');
   });
 
@@ -54,7 +54,7 @@ test.describe('Visual: Dark theme', () => {
     await item.locator('.conversation-delete').click({ force: true });
     await page.waitForSelector('.modal-container:not(.modal-hidden)');
     await page.locator('#message-input').blur();
-    await screenshotReady(page);
+    await pageSettled(page);
     await expect(page).toHaveScreenshot('dark-confirm-dialog.png');
   });
 
@@ -91,7 +91,7 @@ test.describe('Visual: Dark theme', () => {
     });
     await page.goto('/#/planner');
     await page.waitForSelector('#planner-dashboard');
-    await screenshotReady(page);
+    await pageSettled(page);
     await expect(page.locator('#planner-dashboard')).toHaveScreenshot('dark-planner.png', {
       mask: [page.locator('.dashboard-date')],
     });

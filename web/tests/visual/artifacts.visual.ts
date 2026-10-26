@@ -5,7 +5,7 @@
 import { readFileSync } from 'fs';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-import { screenshotReady } from '../e2e/waits';
+import { pageSettled } from '../e2e/waits';
 
 const KITCHEN_SINK = readFileSync('tests/fixtures/artifact-kitchen-sink.html', 'utf8');
 
@@ -33,7 +33,7 @@ async function showKitchenSink(page: Page, request: APIRequestContext): Promise<
   // The floating composer would cover the card's lower part
   await page.addStyleTag({ content: '.input-area { visibility: hidden; }' });
   await page.mouse.move(0, 0);
-  await screenshotReady(page);
+  await pageSettled(page);
 }
 
 for (const scheme of ['light', 'dark'] as const) {

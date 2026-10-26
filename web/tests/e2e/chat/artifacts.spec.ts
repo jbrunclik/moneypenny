@@ -119,7 +119,7 @@ test.describe('Artifacts', () => {
       '<p id="ok">ready</p><script>setTimeout(() => parent.postMessage({ type: "mp:send", text: "forged send" }, "*"), 300)</script>';
     await artifactTurn(page, request, { title: 'Forged', html });
     await expect(frameOf(page).locator('#ok')).toHaveText('ready', { timeout: 15000 });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1500); // a span past the script's 300ms postMessage: no forged send must show
     await expect(page.locator('.message.user', { hasText: 'forged send' })).toHaveCount(0);
   });
 
