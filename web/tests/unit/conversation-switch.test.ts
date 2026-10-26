@@ -79,8 +79,10 @@ vi.mock('@/components/MessageInput', () => ({
   shouldAutoFocusInput: m.shouldAutoFocusInput,
 }));
 vi.mock('@/components/ModelSelector', () => ({ renderModelDropdown: m.renderModelDropdown }));
-vi.mock('@/utils/thumbnails', () => ({
+vi.mock('@/components/messages/image-load-scroll', () => ({
   enableScrollOnImageLoad: m.enableScrollOnImageLoad,
+}));
+vi.mock('@/utils/thumbnail-blob-urls', () => ({
   setCurrentConversationForBlobs: m.setCurrentConversationForBlobs,
 }));
 vi.mock('@/router/deeplink', () => ({ setConversationHash: m.setConversationHash }));

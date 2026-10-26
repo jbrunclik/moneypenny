@@ -37,8 +37,10 @@ vi.mock('@/components/messages/render', () => ({
 }));
 vi.mock('@/components/messages/artifacts', () => ({ refreshVersionBadges: ui.refreshVersionBadges }));
 vi.mock('@/components/CompactionIndicator', () => ({ applyCompactionMarkers: ui.applyCompactionMarkers }));
-vi.mock('@/utils/thumbnails', () => ({
+vi.mock('@/components/messages/thumbnail-loader', () => ({
   observeThumbnail: ui.observeThumbnail,
+}));
+vi.mock('@/utils/programmatic-scroll', () => ({
   beginProgrammaticScroll: vi.fn(() => 1),
   endProgrammaticScroll: vi.fn(),
 }));
