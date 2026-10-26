@@ -1,7 +1,9 @@
 /**
  * setupEventListeners: delegated clicks in the sidebar list, the messages
- * list and the user menu reach the right action, and the conversation list's
- * roving tabindex moves without wrapping.
+ * list and the user menu reach the right action (a failed menu action
+ * surfaces as a toast), the touch action sheet offers the actions that fit
+ * the conversation, and the conversation list's roving tabindex moves
+ * without wrapping.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -40,6 +42,9 @@ const m = vi.hoisted(() => ({
   openCostHistory: vi.fn(),
   toggleSidebar: vi.fn(),
   toastError: vi.fn(),
+  openAdminPage: vi.fn<() => Promise<void>>(),
+  openSettingsPopup: vi.fn(),
+  openPdfViewer: vi.fn(),
 }));
 
 vi.mock('@/api/costs', () => ({ costs: { getCostHistory: m.getCostHistory } }));
@@ -83,6 +88,9 @@ vi.mock('@/core/file-actions', () => ({
   copyMessageContent: m.copyMessageContent,
   copyInlineContent: m.copyInlineContent,
 }));
+vi.mock('@/components/AdminPage', () => ({ openAdminPage: m.openAdminPage }));
+vi.mock('@/components/SettingsPopup', () => ({ openSettingsPopup: m.openSettingsPopup }));
+vi.mock('@/components/PdfViewer', () => ({ openPdfViewer: m.openPdfViewer }));
 vi.mock('@/components/QuizBlock', () => ({
   handleQuizOptionClick: m.handleQuizOptionClick,
   handleQuizContinue: m.handleQuizContinue,
@@ -113,6 +121,8 @@ describe('setupEventListeners', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = `<main id="root">
+      <button id="new-chat-btn"></button>
+      <button id="menu-btn"></button>
       <div id="conversations-list"></div>
       <div id="messages"></div>
       <div id="user-info">
@@ -202,7 +212,7 @@ describe('setupEventListeners', () => {
   });
 
   describe('messages list clicks', () => {
-    it('opens a PDF in the viewer path and other documents in a new tab', () => {
+    it('opens a PDF in the viewer path and other documents in a new tab', async () => {
       const doc = messages.appendChild(
         el('<a class="document-preview" data-message-id="m1" data-file-index="2" data-file-name="a.txt" data-file-type="text/plain"></a>')
       );
@@ -213,6 +223,7 @@ describe('setupEventListeners', () => {
       m.openFileInNewTab.mockClear();
       click(messages.appendChild(el('<a class="document-preview" data-message-id="m1" data-file-index="0" data-file-type="application/pdf"></a>')));
       expect(m.openFileInNewTab).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(m.openPdfViewer).toHaveBeenCalledWith('m1', 0, 'file.pdf'));
     });
 
     it('downloads with a fallback file name', () => {
@@ -290,6 +301,84 @@ describe('setupEventListeners', () => {
       click(btn);
       await vi.waitFor(() => expect(m.toastError).toHaveBeenCalledWith('Failed to load cost history.'));
     });
+
+    it('opens the admin page, and reports a failure instead of failing silently', async () => {
+      const menu = userInfo.querySelector('.user-menu') as HTMLElement;
+      const btn = menu.appendChild(el('<button id="admin-btn"></button>'));
+      m.openAdminPage.mockResolvedValue(undefined);
+      click(btn);
+      await vi.waitFor(() => expect(m.openAdminPage).toHaveBeenCalled());
+      expect(m.toastError).not.toHaveBeenCalled();
+
+      m.openAdminPage.mockRejectedValue(new Error('chunk gone'));
+      click(btn);
+      await vi.waitFor(() => expect(m.toastError).toHaveBeenCalledWith('Failed to open the admin page.'));
+    });
+
+    it('opens the settings popup from its menu item', async () => {
+      const menu = userInfo.querySelector('.user-menu') as HTMLElement;
+      menu.classList.remove('hidden');
+      click(menu.appendChild(el('<button id="settings-btn"></button>')));
+      expect(menu.classList.contains('hidden')).toBe(true);
+      await vi.waitFor(() => expect(m.openSettingsPopup).toHaveBeenCalled());
+    });
+  });
+
+  describe('header buttons and inputs', () => {
+    it('starts a new chat and toggles the sidebar', () => {
+      click(document.getElementById('new-chat-btn') as Element);
+      click(document.getElementById('menu-btn') as Element);
+      expect(m.createConversation).toHaveBeenCalled();
+      expect(m.toggleSidebar).toHaveBeenCalled();
+    });
+
+    it('routes typing in a quiz text input to the quiz', () => {
+      const input = messages.appendChild(el('<input class="quiz-text-input">')) as HTMLInputElement;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(m.handleQuizInputChange).toHaveBeenCalledWith(input);
+    });
+
+    it('ignores typing in other inputs in the messages list', () => {
+      const input = messages.appendChild(el('<input class="other">'));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(m.handleQuizInputChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('conversation action sheet', () => {
+    type SheetAction = { label: string; danger?: boolean; onSelect: () => void };
+    const sheetActions = (): SheetAction[] => m.showActionSheet.mock.lastCall?.[1] as SheetAction[];
+    const select = (label: string): void => sheetActions().find((a) => a.label === label)?.onSelect();
+
+    it('offers Unpin for a pinned conversation and runs each action on its id', () => {
+      useStore.setState({
+        conversations: [{ id: 'c1', title: 'Chat', model: 'm', created_at: '', updated_at: '', pinned: true }],
+      });
+      click(list.appendChild(el('<button data-more-id="c1"></button>')));
+
+      expect(sheetActions().map((a) => a.label)).toEqual(['Unpin', 'Rename', 'Archive', 'Delete']);
+      expect(sheetActions().find((a) => a.label === 'Delete')?.danger).toBe(true);
+      select('Unpin');
+      select('Rename');
+      select('Archive');
+      select('Delete');
+      expect(m.togglePinConversation).toHaveBeenCalledWith('c1');
+      expect(m.renameConversation).toHaveBeenCalledWith('c1');
+      expect(m.archiveConversation).toHaveBeenCalledWith('c1');
+      expect(m.deleteConversation).toHaveBeenCalledWith('c1');
+    });
+
+    it('titles an archived conversation from the archive list and unarchives it', () => {
+      useStore.setState({
+        archivedConversations: [{ id: 'z1', title: 'Old chat', model: 'm', created_at: '', updated_at: '' }],
+      });
+      click(list.appendChild(el('<button data-more-archived-id="z1"></button>')));
+
+      expect(m.showActionSheet).toHaveBeenLastCalledWith('Old chat', expect.any(Array));
+      select('Unarchive');
+      expect(m.unarchiveConversation).toHaveBeenCalledWith('z1');
+      expect(rowClicks).toBe(0);
+    });
   });
 
   describe('conversation list keyboard', () => {
@@ -331,6 +420,20 @@ describe('setupEventListeners', () => {
       const event = key(items[1] as HTMLElement, 'Enter');
       expect(event.defaultPrevented).toBe(true);
       expect(clicked).toHaveBeenCalled();
+    });
+
+    it('activates a sidebar entry on Space', () => {
+      const entry = list.appendChild(el('<div class="planner-entry" tabindex="0"></div>'));
+      const event = key(entry, ' ');
+      expect(event.defaultPrevented).toBe(true);
+      expect(m.navigateToPlanner).toHaveBeenCalled();
+    });
+
+    it('leaves other keys alone', () => {
+      const items = rows();
+      const event = key(items[0] as HTMLElement, 'a');
+      expect(event.defaultPrevented).toBe(false);
+      expect(items.map((i) => i.getAttribute('tabindex'))).toEqual(['0', '-1', '-1']);
     });
   });
 });
