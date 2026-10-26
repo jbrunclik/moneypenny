@@ -1,3 +1,4 @@
+import { compareTimestamps } from '../../utils/timestamps';
 import type { Conversation, ConversationsPagination } from '../../types/api';
 
 /**
@@ -41,7 +42,7 @@ export function insertSortedByUpdatedAt(
   conversation: Conversation
 ): Conversation[] {
   const result = [...conversations];
-  const insertIndex = result.findIndex((c) => c.updated_at <= conversation.updated_at);
+  const insertIndex = result.findIndex((c) => compareTimestamps(c.updated_at, conversation.updated_at) <= 0);
   if (insertIndex === -1) {
     result.push(conversation);
   } else {
@@ -60,7 +61,7 @@ export function appendSortedByUpdatedAt(
   conversation: Conversation
 ): Conversation[] {
   const result = [...conversations];
-  const insertIndex = result.findIndex((c) => c.updated_at < conversation.updated_at);
+  const insertIndex = result.findIndex((c) => compareTimestamps(c.updated_at, conversation.updated_at) < 0);
   if (insertIndex === -1) {
     result.push(conversation);
   } else {
@@ -72,10 +73,8 @@ export function appendSortedByUpdatedAt(
 /**
  * Current time in the backend's timestamp format: datetime.now().isoformat()
  * - LOCAL time, no timezone suffix (e.g. "2026-08-24T12:34:56.789").
- * Conversation ordering uses lexicographic string comparison, so client-
- * generated timestamps MUST match this format: a UTC toISOString() ("...Z")
- * would sort ~tz-offset hours behind fresh server timestamps and optimistic
- * bumps would undo themselves on the next sync.
+ * Ordering compares instants (utils/timestamps), so a "...Z" string would
+ * sort correctly too; this keeps optimistic bumps in the server's format.
  */
 export function localIsoNow(): string {
   const d = new Date();

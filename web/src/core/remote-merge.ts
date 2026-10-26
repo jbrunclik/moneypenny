@@ -20,6 +20,7 @@ import type { Message } from '../types/api';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
+import { compareTimestamps } from '../utils/timestamps';
 import { markAgentViewedAndRefresh, reloadCurrentConversation } from './conversation';
 import { isTempConversation } from '../utils/conversation-id';
 import { followRemoteStream } from './stream-resume';
@@ -77,7 +78,11 @@ export function serverRewroteHistory(local: readonly Message[], server: readonly
   const windowStart = server[0]?.created_at;
 
   const vanished = local.some(
-    (m) => !isLocalOnly(m) && windowStart !== undefined && m.created_at >= windowStart && !serverIds.has(m.id)
+    (m) =>
+      !isLocalOnly(m) &&
+      windowStart !== undefined &&
+      compareTimestamps(m.created_at, windowStart) >= 0 &&
+      !serverIds.has(m.id)
   );
   const edited = server.some((m) => {
     const known = localById.get(m.id);

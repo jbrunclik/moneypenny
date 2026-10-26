@@ -5,7 +5,7 @@
  * saved version: the partial stayed until a reload even though the full
  * reply was saved.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Message } from '@/types/api';
 
 const server: { messages: Message[] } = { messages: [] };
@@ -97,5 +97,41 @@ describe('serverRewroteHistory', () => {
 
   it('treats an empty server window as no change', () => {
     expect(serverRewroteHistory([user], [])).toBe(false);
+  });
+});
+
+describe('serverRewroteHistory window across timestamp formats', () => {
+  // Server messages are local-naive; a message sent from this device keeps
+  // its optimistic toISOString() created_at. Pinned to the household timezone
+  // (UTC+1 on this date) so text order and instant order differ.
+  const originalTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'Europe/Prague';
+  });
+  afterAll(() => {
+    process.env.TZ = originalTz;
+  });
+
+  const windowFirst: Message = { id: 's1', role: 'user', content: 'Q', created_at: '2026-10-26T11:30:00.123456' };
+  const windowLast: Message = { id: 's2', role: 'assistant', content: 'A', created_at: '2026-10-26T12:30:00' };
+  // A message this device sent, with its toISOString() created_at
+  const mine = (at: Date): Message => ({ id: 'mine', role: 'user', content: 'Mine', created_at: at.toISOString() });
+
+  it('detects a "Z" message inside the window that the server no longer has', () => {
+    // 12:00 Prague: "2026-10-26T11:00:00.000Z"
+    const local = [windowFirst, mine(new Date(2026, 9, 26, 12, 0, 0)), windowLast];
+    expect(serverRewroteHistory(local, [windowFirst, windowLast])).toBe(true);
+  });
+
+  it('ignores a "Z" message from before the window', () => {
+    // 11:15 Prague: "2026-10-26T10:15:00.000Z"
+    const local = [mine(new Date(2026, 9, 26, 11, 15, 0)), windowFirst, windowLast];
+    expect(serverRewroteHistory(local, [windowFirst, windowLast])).toBe(false);
+  });
+
+  it('ignores a "Z" message just before a window that starts within the same second', () => {
+    // 11:30:00.100 Prague is before the window's 11:30:00.123456
+    const local = [mine(new Date(2026, 9, 26, 11, 30, 0, 100)), windowFirst, windowLast];
+    expect(serverRewroteHistory(local, [windowFirst, windowLast])).toBe(false);
   });
 });

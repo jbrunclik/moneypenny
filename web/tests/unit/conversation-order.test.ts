@@ -3,7 +3,7 @@
  * trash slices: the sidebar renders the array in order, so every insert must
  * keep it sorted by updated_at DESC.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterAll, afterEach, beforeAll, vi } from 'vitest';
 import {
   appendSortedByUpdatedAt,
   emptyConversationsPagination,
@@ -12,6 +12,7 @@ import {
   toConversationsPaginationState,
 } from '@/state/slices/conversationOrder';
 import type { Conversation } from '@/types/api';
+import { compareTimestamps } from '@/utils/timestamps';
 
 function conv(id: string, updatedAt: string): Conversation {
   return { id, title: id, model: 'm', created_at: updatedAt, updated_at: updatedAt };
@@ -63,6 +64,37 @@ describe('appendSortedByUpdatedAt', () => {
   });
 });
 
+describe('ordering optimistic "Z" timestamps against server local-naive ones', () => {
+  // The server sends local-naive strings; optimistic entries use toISOString().
+  // Pinned to the household timezone (UTC+1 on this date) so the text order
+  // and the instant order differ on any machine.
+  const originalTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'Europe/Prague';
+  });
+  afterAll(() => {
+    process.env.TZ = originalTz;
+  });
+
+  // 12:30 and 11:30 Prague, as the server sends them
+  const server = () => [conv('later', '2026-10-26T12:30:00.123456'), conv('earlier', '2026-10-26T11:30:00.654321')];
+  // 12:00 Prague, created on this device: "2026-10-26T11:00:00.000Z"
+  const optimistic = () => conv('opt', new Date(2026, 9, 26, 12, 0, 0).toISOString());
+
+  it('inserts the optimistic entry between the server ones by instant', () => {
+    expect(ids(insertSortedByUpdatedAt(server(), optimistic()))).toEqual(['later', 'opt', 'earlier']);
+  });
+
+  it('appends the optimistic entry between the server ones by instant', () => {
+    expect(ids(appendSortedByUpdatedAt(server(), optimistic()))).toEqual(['later', 'opt', 'earlier']);
+  });
+
+  it('places a fresh server bump ahead of an optimistic entry from a moment earlier', () => {
+    const list = [optimistic()];
+    expect(ids(insertSortedByUpdatedAt(list, conv('bump', '2026-10-26T12:00:01')))).toEqual(['bump', 'opt']);
+  });
+});
+
 describe('pagination state', () => {
   it('starts empty', () => {
     expect(emptyConversationsPagination()).toEqual({
@@ -94,10 +126,12 @@ describe('localIsoNow', () => {
     expect(localIsoNow()).toBe('2026-01-05T07:08:09.045');
   });
 
-  it('sorts lexicographically against backend-style timestamps', () => {
+  it('orders against backend-style timestamps, as text and as instants', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 9, 26, 12, 0, 0, 0));
     expect(localIsoNow() > '2026-10-26T11:59:59.999').toBe(true);
     expect(localIsoNow() < '2026-10-26T12:00:00.001').toBe(true);
+    expect(compareTimestamps(localIsoNow(), '2026-10-26T11:59:59.999')).toBeGreaterThan(0);
+    expect(compareTimestamps(localIsoNow(), new Date(2026, 9, 26, 12, 0, 0, 1).toISOString())).toBeLessThan(0);
   });
 });

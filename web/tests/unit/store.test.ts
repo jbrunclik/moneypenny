@@ -348,10 +348,10 @@ describe('Store - Conversations', () => {
 
     it('bumpConversationActivity writes server-format timestamps (local-naive, no Z)', () => {
       // The backend stores datetime.now().isoformat() - LOCAL time with no
-      // timezone suffix. The sidebar sorts by lexicographic string compare,
-      // so a UTC "Z" timestamp from the client would sort ~tz-offset hours
-      // behind server timestamps and the bump would undo itself on the
-      // next sync (observed: E2E conversation-switch failure in UTC+2)
+      // timezone suffix. Ordering now compares instants (utils/timestamps);
+      // when it compared strings, a UTC "Z" timestamp from the client sorted
+      // ~tz-offset hours behind server timestamps and the bump undid itself
+      // on the next sync (observed: E2E conversation-switch failure in UTC+2)
       vi.useFakeTimers();
       vi.setSystemTime(new Date(2024, 5, 15, 14, 30, 45, 123)); // local time
 

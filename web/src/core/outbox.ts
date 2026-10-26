@@ -20,6 +20,7 @@ import {
 } from '../config';
 import type { DeepResearchStart, FileMetadata, FileUpload, Message, MessageAction } from '../types/api';
 import { createLogger } from '../utils/logger';
+import { compareTimestamps } from '../utils/timestamps';
 import { deleteOutboxFiles, loadOutboxFiles, saveOutboxFiles } from './outbox-files';
 
 const log = createLogger('outbox');
@@ -296,7 +297,7 @@ export function reconcileOutboxWithServer(convId: string, serverMessages: Messag
   const serverIds = new Set(serverMessages.map((m) => m.id));
   const extras: Message[] = [];
 
-  for (const entry of [...entries].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+  for (const entry of [...entries].sort((a, b) => compareTimestamps(a.createdAt, b.createdAt))) {
     if (serverIds.has(entry.id)) {
       confirmOutboxEntry(convId, entry.id);
       continue;
