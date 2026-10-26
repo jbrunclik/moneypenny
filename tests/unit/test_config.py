@@ -396,3 +396,89 @@ class TestTokenEncryptionKeyRequired:
         monkeypatch.setattr(Config, "FLASK_ENV", "development")
         monkeypatch.setattr(Config, "TOKEN_ENCRYPTION_KEY", "")
         assert not any("TOKEN_ENCRYPTION_KEY" in e for e in Config.validate())
+
+
+class TestValidateCharacterization:
+    """Every message validate() can produce, word for word and in order."""
+
+    def test_every_error_in_order(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        for name, value in {
+            "GEMINI_API_KEY": "",
+            "FLASK_ENV": "production",
+            "GOOGLE_CLIENT_ID": "",
+            "ALLOWED_EMAILS": [],
+            "JWT_SECRET_KEY": "dev-secret-change-me",
+            "TOKEN_ENCRYPTION_KEY": "",
+            "LANGDETECT_LANGUAGES": ["cs"],
+            "PORT": 0,
+            "MAX_FILE_SIZE": 0,
+            "MAX_VIDEO_FILE_SIZE": -1,
+            "MAX_REQUEST_SIZE": -2,
+            "MAX_FILES_PER_MESSAGE": 0,
+            "COST_CURRENCY": "XYZ",
+            "LOG_LEVEL": "LOUD",
+        }.items():
+            monkeypatch.setattr(Config, name, value)
+        currencies = ", ".join(sorted(Config.CURRENCY_RATES))
+
+        assert Config.validate() == [
+            "GEMINI_API_KEY is required. "
+            "Get your API key from https://ai.google.dev/ and set it in .env",
+            "GOOGLE_CLIENT_ID is required in production. "
+            "Set up OAuth at https://console.cloud.google.com/apis/credentials "
+            "or set FLASK_ENV=development to skip authentication",
+            "ALLOWED_EMAILS is required in production. "
+            "Set a comma-separated list of allowed email addresses "
+            "or set FLASK_ENV=development to skip authentication",
+            "JWT_SECRET_KEY must be set to a secure random value in production. "
+            'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"',
+            "TOKEN_ENCRYPTION_KEY is required in production. Generate one with: make token-key",
+            "LANGDETECT_LANGUAGES needs at least two language codes (e.g. cs,en)",
+            "PORT must be between 1 and 65535, got 0",
+            "MAX_FILE_SIZE must be positive, got 0",
+            "MAX_VIDEO_FILE_SIZE must be positive, got -1",
+            "MAX_REQUEST_SIZE (-2) must be at least 1.4x "
+            "MAX_VIDEO_FILE_SIZE (-1) to fit a base64-encoded video",
+            "MAX_FILES_PER_MESSAGE must be at least 1, got 0",
+            f"COST_CURRENCY 'XYZ' is not supported. Valid currencies: {currencies}",
+            "LOG_LEVEL 'LOUD' is not valid. Valid levels: CRITICAL, DEBUG, ERROR, INFO, WARNING",
+        ]
+
+    def test_short_jwt_secret_and_other_bad_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        for name, value in {
+            "FLASK_ENV": "production",
+            "JWT_SECRET_KEY": "too-short-key",
+            "TOKEN_ENCRYPTION_KEY": "not-a-fernet-key",
+            "LANGDETECT_LANGUAGES": ["cs", "xx", "yy"],
+            "PORT": 65536,
+            "MAX_VIDEO_FILE_SIZE": 100,
+            "MAX_REQUEST_SIZE": 139,
+        }.items():
+            monkeypatch.setattr(Config, name, value)
+
+        assert Config.validate() == [
+            "JWT_SECRET_KEY must be at least 32 characters for security (got 13). "
+            'Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"',
+            "TOKEN_ENCRYPTION_KEY is not a valid Fernet key. Generate one with: make token-key",
+            "LANGDETECT_LANGUAGES has codes with no langdetect profile: xx, yy",
+            "PORT must be between 1 and 65535, got 65536",
+            "MAX_REQUEST_SIZE (139) must be at least 1.4x "
+            "MAX_VIDEO_FILE_SIZE (100) to fit a base64-encoded video",
+        ]
+
+    def test_development_skips_the_production_checks(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        for name, value in {
+            "FLASK_ENV": "development",
+            "GOOGLE_CLIENT_ID": "",
+            "ALLOWED_EMAILS": [],
+            "JWT_SECRET_KEY": "dev-secret-change-me",
+            "TOKEN_ENCRYPTION_KEY": "",
+        }.items():
+            monkeypatch.setattr(Config, name, value)
+        assert Config.validate() == []

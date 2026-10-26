@@ -1013,49 +1013,41 @@ class Config:
         return []
 
     @classmethod
-    def validate(cls) -> list[str]:  # noqa: C901, PLR0912
-        """Validate required configuration. Returns list of errors with clear guidance."""
+    def _production_auth_errors(cls) -> list[str]:
+        """Auth settings production can't run without (development skips auth)."""
         errors: list[str] = []
-
-        # Always required
-        if not cls.GEMINI_API_KEY:
+        if not cls.GOOGLE_CLIENT_ID:
             errors.append(
-                "GEMINI_API_KEY is required. "
-                "Get your API key from https://ai.google.dev/ and set it in .env"
+                "GOOGLE_CLIENT_ID is required in production. "
+                "Set up OAuth at https://console.cloud.google.com/apis/credentials "
+                "or set FLASK_ENV=development to skip authentication"
             )
+        if not cls.ALLOWED_EMAILS:
+            errors.append(
+                "ALLOWED_EMAILS is required in production. "
+                "Set a comma-separated list of allowed email addresses "
+                "or set FLASK_ENV=development to skip authentication"
+            )
+        errors.extend(cls._jwt_secret_errors())
+        return errors
 
-        # Production-only requirements
-        if not cls.is_development():
-            if not cls.GOOGLE_CLIENT_ID:
-                errors.append(
-                    "GOOGLE_CLIENT_ID is required in production. "
-                    "Set up OAuth at https://console.cloud.google.com/apis/credentials "
-                    "or set FLASK_ENV=development to skip authentication"
-                )
-            if not cls.ALLOWED_EMAILS:
-                errors.append(
-                    "ALLOWED_EMAILS is required in production. "
-                    "Set a comma-separated list of allowed email addresses "
-                    "or set FLASK_ENV=development to skip authentication"
-                )
-            if cls.JWT_SECRET_KEY == "dev-secret-change-me":  # noqa: S105 - detecting the placeholder
-                errors.append(
-                    "JWT_SECRET_KEY must be set to a secure random value in production. "
-                    'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
-                )
-            elif len(cls.JWT_SECRET_KEY) < 32:
-                errors.append(
-                    f"JWT_SECRET_KEY must be at least 32 characters for security (got {len(cls.JWT_SECRET_KEY)}). "
-                    'Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"'
-                )
-            errors.extend(cls._token_encryption_key_errors())
+    @classmethod
+    def _jwt_secret_errors(cls) -> list[str]:
+        if cls.JWT_SECRET_KEY == "dev-secret-change-me":  # noqa: S105 - detecting the placeholder
+            return [
+                "JWT_SECRET_KEY must be set to a secure random value in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            ]
+        if len(cls.JWT_SECRET_KEY) < 32:
+            return [
+                f"JWT_SECRET_KEY must be at least 32 characters for security (got {len(cls.JWT_SECRET_KEY)}). "
+                'Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"'
+            ]
+        return []
 
-        errors.extend(cls._langdetect_language_errors())
-
-        # Validate numeric ranges
-        if cls.PORT < 1 or cls.PORT > 65535:
-            errors.append(f"PORT must be between 1 and 65535, got {cls.PORT}")
-
+    @classmethod
+    def _upload_limit_errors(cls) -> list[str]:
+        errors: list[str] = []
         if cls.MAX_FILE_SIZE < 1:
             errors.append(f"MAX_FILE_SIZE must be positive, got {cls.MAX_FILE_SIZE}")
 
@@ -1074,8 +1066,12 @@ class Config:
             errors.append(
                 f"MAX_FILES_PER_MESSAGE must be at least 1, got {cls.MAX_FILES_PER_MESSAGE}"
             )
+        return errors
 
-        # Validate currency
+    @classmethod
+    def _enum_setting_errors(cls) -> list[str]:
+        """Settings that must name one of a fixed set of values."""
+        errors: list[str] = []
         if cls.COST_CURRENCY not in cls.CURRENCY_RATES:
             valid_currencies = ", ".join(sorted(cls.CURRENCY_RATES.keys()))
             errors.append(
@@ -1083,12 +1079,35 @@ class Config:
                 f"Valid currencies: {valid_currencies}"
             )
 
-        # Validate log level
         valid_log_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         if cls.LOG_LEVEL not in valid_log_levels:
             errors.append(
                 f"LOG_LEVEL '{cls.LOG_LEVEL}' is not valid. "
                 f"Valid levels: {', '.join(sorted(valid_log_levels))}"
             )
+        return errors
 
+    @classmethod
+    def validate(cls) -> list[str]:
+        """Validate required configuration. Returns list of errors with clear guidance."""
+        errors: list[str] = []
+
+        # Always required
+        if not cls.GEMINI_API_KEY:
+            errors.append(
+                "GEMINI_API_KEY is required. "
+                "Get your API key from https://ai.google.dev/ and set it in .env"
+            )
+
+        if not cls.is_development():
+            errors.extend(cls._production_auth_errors())
+            errors.extend(cls._token_encryption_key_errors())
+
+        errors.extend(cls._langdetect_language_errors())
+
+        if cls.PORT < 1 or cls.PORT > 65535:
+            errors.append(f"PORT must be between 1 and 65535, got {cls.PORT}")
+
+        errors.extend(cls._upload_limit_errors())
+        errors.extend(cls._enum_setting_errors())
         return errors
