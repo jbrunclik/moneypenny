@@ -1229,7 +1229,7 @@ class TestRetryLogic:
 
         from langchain_core.messages import AIMessage
 
-        from src.agent.chat_node import chat_node
+        from src.agent.graph import chat_node
 
         model = MagicMock()
         model.model_name = "test-model"
@@ -1256,7 +1256,7 @@ class TestRetryLogic:
 
         from langchain_core.messages import AIMessage
 
-        from src.agent.chat_node import chat_node
+        from src.agent.graph import chat_node
 
         model = MagicMock()
         model.model_name = "test-model"

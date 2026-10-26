@@ -10,14 +10,14 @@ from langchain_core.tools import tool
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph import (
+    AgentState,
+    check_tool_results,
     compile_graph,
     create_chat_graph,
+    create_tool_node,
     get_graph_config,
     should_continue,
 )
-from src.agent.graph_state import AgentState
-from src.agent.tool_node import create_tool_node
-from src.agent.tool_round_check import check_tool_results
 from src.config import Config
 
 
@@ -207,7 +207,7 @@ class TestInterjectionInjection:
     def test_injects_pending_interjection(self) -> None:
         with (
             patch(
-                "src.agent.tool_round_check.get_conversation_context",
+                "src.agent.graph.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch(
@@ -230,7 +230,7 @@ class TestInterjectionInjection:
         state["tool_rounds"] = 99
         with (
             patch(
-                "src.agent.tool_round_check.get_conversation_context",
+                "src.agent.graph.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch(
@@ -245,7 +245,7 @@ class TestInterjectionInjection:
     def test_no_interjection_no_change(self) -> None:
         with (
             patch(
-                "src.agent.tool_round_check.get_conversation_context",
+                "src.agent.graph.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch("src.agent.interjection.pop_interjection", return_value=None),
@@ -257,7 +257,7 @@ class TestInterjectionInjection:
     def test_cached_mode_uses_human_message_with_wrapper(self) -> None:
         with (
             patch(
-                "src.agent.tool_round_check.get_conversation_context",
+                "src.agent.graph.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
             patch("src.agent.interjection.pop_interjection", return_value="steer"),
@@ -540,9 +540,9 @@ class TestGraphStructure:
 class TestThinkingLevel:
     """create_chat_model honors the optional per-model thinking_level knob."""
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_passes_thinking_level_when_configured(self, mock_llm_class: MagicMock) -> None:
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         with patch.dict(
             Config.MODELS,
@@ -553,19 +553,19 @@ class TestThinkingLevel:
         call_kwargs = mock_llm_class.call_args[1]
         assert call_kwargs["thinking_level"] == "high"
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         create_chat_model("gemini-3.8-flash", with_tools=False)
 
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_an_explicit_level_overrides_the_model_default(self, mock_llm_class: MagicMock) -> None:
         """The freshness gate picks a lighter level for easy turns."""
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         with patch.dict(
             Config.MODELS,
@@ -579,10 +579,10 @@ class TestThinkingLevel:
 class TestCachedModelCreation:
     """Tests for create_chat_model with cached_content."""
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_cached_content_passed_to_model(self, mock_llm_class: MagicMock) -> None:
         """cached_content should be passed as kwarg to ChatGoogleGenerativeAI."""
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance
@@ -597,10 +597,10 @@ class TestCachedModelCreation:
         call_kwargs = mock_llm_class.call_args[1]
         assert call_kwargs["cached_content"] == "cachedContents/abc123"
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_cached_mode_does_not_bind_tools(self, mock_llm_class: MagicMock) -> None:
         """When cached_content is provided, bind_tools should NOT be called."""
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance
@@ -617,10 +617,10 @@ class TestCachedModelCreation:
         # Should return the model directly
         assert result == mock_instance
 
-    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
+    @patch("src.agent.graph.ChatGoogleGenerativeAI")
     def test_uncached_mode_binds_tools(self, mock_llm_class: MagicMock) -> None:
         """Without cached_content, tools should be bound normally."""
-        from src.agent.chat_model import create_chat_model
+        from src.agent.graph import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance
@@ -699,25 +699,25 @@ class TestAgeConsumedToolMessages:
         ]
 
     def test_consumed_multimodal_result_becomes_stub(self) -> None:
-        from src.agent.tool_result_aging import AGED_MULTIMODAL_STUB, age_consumed_tool_messages
+        from src.agent.graph import AGED_MULTIMODAL_STUB, _age_consumed_tool_messages
 
         messages = self._messages_two_rounds()
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[2].content == AGED_MULTIMODAL_STUB
 
     def test_fresh_results_untouched(self) -> None:
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         messages = self._messages_two_rounds()
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         # The web_search result answers the LATEST tool-calling AIMessage
         assert messages[4].content == '{"results": []}'
 
     def test_fresh_multimodal_untouched(self) -> None:
         """A binary result the model has NOT yet seen must pass through."""
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         pdf_content = [{"type": "image", "base64": "x" * 1000, "mime_type": "application/pdf"}]
         messages = [
@@ -725,12 +725,12 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c1"}]),
             ToolMessage(content=pdf_content, tool_call_id="c1", name="fetch_url"),
         ]
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[2].content == pdf_content
 
     def test_consumed_long_text_truncated(self) -> None:
-        from src.agent.tool_result_aging import AGED_TRUNCATION_MARKER, age_consumed_tool_messages
+        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
 
         long_text = "a" * 10_000
         messages = [
@@ -739,14 +739,14 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c2"}]),
             ToolMessage(content="fresh", tool_call_id="c2", name="web_search"),
         ]
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[1].content.endswith(AGED_TRUNCATION_MARKER)
         assert len(messages[1].content) < 10_000
         assert messages[3].content == "fresh"
 
     def test_short_consumed_text_untouched(self) -> None:
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         messages = [
             AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c1"}]),
@@ -754,7 +754,7 @@ class TestAgeConsumedToolMessages:
             AIMessage(content="", tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}]),
             ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
         ]
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[1].content == "short result"
 
@@ -762,7 +762,7 @@ class TestAgeConsumedToolMessages:
         """Oct 2026 prod: the model answered a research round with only
         set_conversation_title (no text); the research was cut to 2000 chars
         before it wrote a word, and the answer lost its sources."""
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         long_text = "a" * 10_000
         messages = [
@@ -774,7 +774,7 @@ class TestAgeConsumedToolMessages:
             ),
             ToolMessage(content="Title set", tool_call_id="c2", name="set_conversation_title"),
         ]
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[1].content == long_text
 
@@ -783,8 +783,8 @@ class TestAgeConsumedToolMessages:
         it no longer parsed - its pages vanished from the source chips and the
         grounding check (52 of 156 research turns in 30 days). Only the copy
         sent to the model is aged."""
+        from src.agent.graph import AGED_TRUNCATION_MARKER, _age_consumed_tool_messages
         from src.agent.source_pages import turn_pages
-        from src.agent.tool_result_aging import AGED_TRUNCATION_MARKER, age_consumed_tool_messages
 
         research = json.dumps(
             {"sources": [{"title": "Shop", "url": "https://shop.cz", "content": "x" * 10_000}]}
@@ -796,7 +796,7 @@ class TestAgeConsumedToolMessages:
             ToolMessage(content="fresh", tool_call_id="c2", name="fetch_url"),
         ]
         sent = list(state)
-        age_consumed_tool_messages(sent)
+        _age_consumed_tool_messages(sent)
 
         assert sent[1].content.endswith(AGED_TRUNCATION_MARKER)
         assert state[1].content == research
@@ -805,7 +805,7 @@ class TestAgeConsumedToolMessages:
     def test_each_result_is_logged_as_aged_once(self) -> None:
         """Aging re-runs on every model call now that the state keeps the full
         results; the log must still count each aged result once."""
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         state = [
             AIMessage(content="", tool_calls=[{"name": "research", "args": {}, "id": "c1"}]),
@@ -818,21 +818,21 @@ class TestAgeConsumedToolMessages:
             ToolMessage(content="fresh", tool_call_id="c3", name="web_search"),
         ]
 
-        with patch("src.agent.tool_result_aging.logger") as log:
-            age_consumed_tool_messages(list(state))
-            age_consumed_tool_messages([*state, *later_round])
+        with patch("src.agent.graph.logger") as log:
+            _age_consumed_tool_messages(list(state))
+            _age_consumed_tool_messages([*state, *later_round])
 
         aged = [c.kwargs["extra"]["tool"] for c in log.info.call_args_list]
         assert aged == ["research", "fetch_url"]
 
-    @patch("src.agent.tool_result_aging.Config")
+    @patch("src.agent.graph.Config")
     def test_disabled_when_zero(self, mock_config: MagicMock) -> None:
-        from src.agent.tool_result_aging import age_consumed_tool_messages
+        from src.agent.graph import _age_consumed_tool_messages
 
         mock_config.AGENT_AGED_TOOL_RESULT_MAX_CHARS = 0
         messages = self._messages_two_rounds()
         original = messages[2].content
-        age_consumed_tool_messages(messages)
+        _age_consumed_tool_messages(messages)
 
         assert messages[2].content == original
 
@@ -1115,18 +1115,18 @@ class TestCompiledGraphCache:
 
     @pytest.fixture(autouse=True)
     def _isolate_cache(self) -> Any:
-        from src.agent.graph_cache import clear_graph_cache
+        from src.agent.graph import clear_graph_cache
 
         clear_graph_cache()
         yield
         clear_graph_cache()
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_same_signature_returns_cached_instance(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         tools = [self._tool("web_search")]
         g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1135,12 +1135,12 @@ class TestCompiledGraphCache:
         assert mock_create.call_count == 1
         assert mock_compile.call_count == 1
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_different_cached_content_rebuilds(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         tools = [self._tool("web_search")]
         g1 = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1148,35 +1148,35 @@ class TestCompiledGraphCache:
         assert g1 is not g2
         assert mock_compile.call_count == 2
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_different_tool_set_rebuilds(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         g1 = get_compiled_graph("m", tools=[self._tool("web_search")], cached_content="c1")
         g2 = get_compiled_graph("m", tools=[self._tool("fetch_url")], cached_content="c1")
         assert g1 is not g2
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_tool_order_does_not_matter(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         a, b = self._tool("a"), self._tool("b")
         g1 = get_compiled_graph("m", tools=[a, b], cached_content="c1")
         g2 = get_compiled_graph("m", tools=[b, a], cached_content="c1")
         assert g1 is g2  # signature is order-independent (sorted names)
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_thinking_level_gets_its_own_graph(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         tools = [self._tool("web_search")]
         full = get_compiled_graph("m", tools=tools, cached_content="c1")
@@ -1185,12 +1185,12 @@ class TestCompiledGraphCache:
         assert mock_create.call_args.kwargs["thinking_level"] == "low"
         assert get_compiled_graph("m", tools=tools, cached_content="c1") is full
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_lru_evicts_oldest(
         self, mock_create: MagicMock, mock_compile: MagicMock, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         monkeypatch.setattr(Config, "AGENT_GRAPH_CACHE_SIZE", 2)
         tools = [self._tool("web_search")]
@@ -1202,14 +1202,14 @@ class TestCompiledGraphCache:
         assert again is not first  # c1 was evicted and rebuilt fresh
         assert mock_compile.call_count == builds_before + 1
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_rotated_cache_names_do_not_accumulate(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
         """The context-cache name rotates on renewal; dead names for the same
         signature must not fill the LRU (~2.5 MB per compiled graph in prod)."""
-        from src.agent.graph_cache import (
+        from src.agent.graph import (
             _MAX_CACHE_NAMES_PER_SIGNATURE,
             _compiled_graph_cache,
             get_compiled_graph,
@@ -1220,14 +1220,14 @@ class TestCompiledGraphCache:
             get_compiled_graph("m", tools=tools, cached_content=f"c{i}")
         assert len(_compiled_graph_cache) == _MAX_CACHE_NAMES_PER_SIGNATURE
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_live_cache_names_sharing_a_signature_stay_cached(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
         """SPORTS and LANGUAGE bind the same tools, so two live names (plus the
         uncached fallback) share one signature - alternating must not rebuild."""
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         tools = [self._tool("kv_store")]
         for name in (None, "sports", "language"):
@@ -1237,12 +1237,12 @@ class TestCompiledGraphCache:
             get_compiled_graph("m", tools=tools, cached_content=name)
         assert mock_compile.call_count == builds
 
-    @patch("src.agent.graph_cache.compile_graph", side_effect=lambda g: object())
-    @patch("src.agent.graph_cache.create_chat_graph")
+    @patch("src.agent.graph.compile_graph", side_effect=lambda g: object())
+    @patch("src.agent.graph.create_chat_graph")
     def test_name_rotation_keeps_other_signatures(
         self, mock_create: MagicMock, mock_compile: MagicMock
     ) -> None:
-        from src.agent.graph_cache import get_compiled_graph
+        from src.agent.graph import get_compiled_graph
 
         other = get_compiled_graph("pro", tools=[self._tool("web_search")], cached_content="p1")
         tools = [self._tool("web_search")]

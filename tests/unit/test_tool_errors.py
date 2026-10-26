@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import ToolMessage
 
-from src.agent.tool_round_check import tool_message_error
+from src.agent.graph import tool_message_error
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.conversation_search import search_conversations
 from src.agent.tools.errors import action_result, tool_error

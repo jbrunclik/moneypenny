@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from langchain_core.messages import AIMessage
 
-from src.agent import chat_node
+from src.agent import graph
 from src.agent.turn_usage import TokenTotals, collecting_model_usage, record_model_usage
 
 USAGE = {"input_tokens": 120, "output_tokens": 30, "total_tokens": 150}
@@ -34,6 +34,6 @@ def test_every_graph_model_call_feeds_the_sink() -> None:
     totals = TokenTotals()
 
     with collecting_model_usage(totals):
-        chat_node._invoke_model(model, [], None)
+        graph._invoke_model(model, [], None)
 
     assert totals.input_tokens == 120

@@ -20,7 +20,7 @@ from src.agent.content import (
     extract_text_content,
     extract_thinking_and_text,
 )
-from src.agent.graph_state import CHAT_NODE_NAME
+from src.agent.graph import CHAT_NODE_NAME
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
 from src.agent.turn_usage import TokenTotals, build_usage_info
 from src.utils.logging import get_logger
@@ -139,7 +139,7 @@ class StreamEventProcessor:
                     "max_retries": event.get("max_retries"),
                 }
             elif isinstance(event, dict) and event.get("type") == "model_fallback":
-                # The other model tier took over (chat_node.chat_node); client notes it
+                # The other model tier took over (graph.chat_node); client notes it
                 yield {"type": "model_fallback", "to": event.get("to")}
             return
         # Guard clause: a non-tuple event must not fall through to the

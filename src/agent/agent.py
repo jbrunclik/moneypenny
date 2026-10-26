@@ -17,8 +17,7 @@ from src.agent.cancellation import STOP_REASON_USER, TurnCancelled, is_cancelled
 from src.agent.content import final_response_text
 from src.agent.context_cache import CacheProfile, get_cached_content_name
 from src.agent.freshness import FreshnessDecision, freshness_tool_event
-from src.agent.graph import get_graph_config
-from src.agent.graph_cache import get_compiled_graph
+from src.agent.graph import get_compiled_graph, get_graph_config
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
 from src.agent.stream_events import StreamEventProcessor, iter_token_stream

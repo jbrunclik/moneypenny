@@ -52,7 +52,7 @@ def _now() -> datetime:
     return datetime.now().astimezone()
 
 
-# check_tool_results (tool_round_check.py) sends its round nudges, retries and
+# check_tool_results (graph.py) sends its round nudges, retries and
 # interjections as HumanMessages in cached mode, wrapped in this marker
 _GUIDANCE_MARKER = "[SYSTEM GUIDANCE]"
 # A delegated subagent's answer is checked as unnumbered evidence (source_pages)

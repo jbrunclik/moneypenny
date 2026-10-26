@@ -10,14 +10,14 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from src.agent import chat_node
+from src.agent import graph
 
 
 class TestRetryStatus:
     def test_emits_attempt_through_the_stream_writer(self) -> None:
         writer = MagicMock()
-        with patch.object(chat_node, "get_stream_writer", return_value=writer):
-            chat_node._emit_retry_status(RuntimeError("503"), 0)
+        with patch.object(graph, "get_stream_writer", return_value=writer):
+            graph._emit_retry_status(RuntimeError("503"), 0)
 
         writer.assert_called_once()
         payload = writer.call_args.args[0]
@@ -26,8 +26,8 @@ class TestRetryStatus:
 
     def test_no_stream_context_is_harmless(self) -> None:
         """Outside a graph run (batch paths, tests) there is no writer."""
-        with patch.object(chat_node, "get_stream_writer", side_effect=RuntimeError("no context")):
-            chat_node._emit_retry_status(RuntimeError("503"), 1)  # must not raise
+        with patch.object(graph, "get_stream_writer", side_effect=RuntimeError("no context")):
+            graph._emit_retry_status(RuntimeError("503"), 1)  # must not raise
 
 
 class TestStreamForwarding:
@@ -62,7 +62,7 @@ class TestRealGraph:
             n: int
 
         def node(state: State) -> State:
-            chat_node._emit_retry_status(RuntimeError("503"), 0)
+            graph._emit_retry_status(RuntimeError("503"), 0)
             return {"n": state["n"] + 1}
 
         builder = StateGraph(State)
@@ -75,5 +75,5 @@ class TestRealGraph:
 
         assert (
             "custom",
-            {"type": "retry", "attempt": 1, "max_retries": chat_node.Config.AGENT_MAX_RETRIES},
+            {"type": "retry", "attempt": 1, "max_retries": graph.Config.AGENT_MAX_RETRIES},
         ) in events

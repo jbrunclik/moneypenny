@@ -3,8 +3,7 @@
 This module has been refactored into focused submodules. Import directly from:
 - src.agent.agent: ChatAgent, _planner_dashboard_context
 - src.agent.title: generate_title
-- src.agent.graph: create_chat_graph, should_continue (AgentState in graph_state,
-  create_chat_model in chat_model, get_compiled_graph in graph_cache)
+- src.agent.graph: AgentState, create_chat_model, create_chat_graph, etc.
 - src.agent.prompts: System prompts, get_system_prompt, get_user_context, etc.
 - src.agent.content: extract_text_content, detect_response_language, etc.
 - src.agent.tool_results: set_current_request_id, get_full_tool_results, etc.

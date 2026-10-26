@@ -12,7 +12,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from src.agent.deep_research.board import ResearchBoard, wrap_research_tools
-from src.agent.graph_cache import clear_graph_cache, get_compiled_graph
+from src.agent.graph import clear_graph_cache, get_compiled_graph
 from src.agent.tools import fetch_url, research, web_search
 
 

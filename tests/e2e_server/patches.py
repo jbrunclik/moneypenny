@@ -23,7 +23,7 @@ from tests.e2e_server.llm_fakes import (
 
 def apply_service_patches(stack: contextlib.ExitStack) -> None:
     """Apply external service mocks; they stay active while `stack` is open."""
-    stack.enter_context(patch("src.agent.chat_model.ChatGoogleGenerativeAI", create_mock_llm()))
+    stack.enter_context(patch("src.agent.graph.ChatGoogleGenerativeAI", create_mock_llm()))
     stack.enter_context(patch("src.agent.gemini_clients.ChatGoogleGenerativeAI", create_mock_llm()))
     stack.enter_context(patch("src.agent.tools.web.search_web_detailed", mock_search_web_detailed))
     stack.enter_context(patch("src.agent.tools.research.search_web", mock_search_web))

@@ -64,7 +64,7 @@ def test_loaded_skill_is_never_aged_mid_turn() -> None:
     a skill read in round 1 must still be whole in round 3."""
     from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-    from src.agent.tool_result_aging import age_consumed_tool_messages
+    from src.agent.graph import _age_consumed_tool_messages
     from src.config import Config
 
     body = "x" * (Config.AGENT_AGED_TOOL_RESULT_MAX_CHARS * 2)
@@ -75,7 +75,7 @@ def test_loaded_skill_is_never_aged_mid_turn() -> None:
         AIMessage(content="", tool_calls=[{"name": "browser", "args": {}, "id": "c2"}]),
         ToolMessage(content="{}", tool_call_id="c2", name="browser"),
     ]
-    age_consumed_tool_messages(messages)
+    _age_consumed_tool_messages(messages)
     assert messages[2].content == body
 
 
