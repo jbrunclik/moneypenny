@@ -10,12 +10,6 @@
     }
   },
   "src/components/AgentEditor.ts": {
-    "complexity": {
-      "count": 2
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 1
     }
@@ -65,9 +59,6 @@
     "complexity": {
       "count": 1
     },
-    "max-depth": {
-      "count": 1
-    },
     "max-lines-per-function": {
       "count": 1
     },
@@ -109,9 +100,6 @@
     }
   },
   "src/components/QuickActionsEditor.ts": {
-    "max-lines-per-function": {
-      "count": 2
-    },
     "no-unsanitized/property": {
       "count": 5
     }
@@ -140,15 +128,6 @@
     }
   },
   "src/components/Sidebar.ts": {
-    "complexity": {
-      "count": 2
-    },
-    "max-depth": {
-      "count": 1
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 7
     }
@@ -188,11 +167,6 @@
       "count": 1
     }
   },
-  "src/components/VoiceInput.ts": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "src/components/messages/actions.ts": {
     "no-unsanitized/property": {
       "count": 1
@@ -219,9 +193,6 @@
     }
   },
   "src/components/messages/render.ts": {
-    "complexity": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 5
     }
@@ -274,28 +245,7 @@
     }
   },
   "src/core/agents.ts": {
-    "complexity": {
-      "count": 1
-    },
     "no-unsanitized/property": {
-      "count": 2
-    }
-  },
-  "src/core/batch-send.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/core/conversation-actions.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/core/events.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-lines-per-function": {
       "count": 2
     }
   },
@@ -313,12 +263,6 @@
     }
   },
   "src/core/kv-store.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
     "no-unsanitized/property": {
       "count": 2
     }
@@ -329,23 +273,7 @@
     }
   },
   "src/core/planner.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-lines-per-function": {
-      "count": 1
-    },
     "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/remote-merge.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/core/search.ts": {
-    "complexity": {
       "count": 1
     }
   },
@@ -356,24 +284,6 @@
   },
   "src/core/startup/app-shell.ts": {
     "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/stream-events.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/core/stream-recovery.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 3
-    }
-  },
-  "src/core/stream-resume.ts": {
-    "max-depth": {
       "count": 1
     }
   },
