@@ -1647,6 +1647,12 @@ test.describe('Pinned conversations', () => {
 
     // Pin the OLDEST conversation (last row in the recency-ordered list)
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(2, { timeout: 20000 });
+    // Wait for both generated titles: the second one lands after its reply
+    // and re-renders the list - a click mid-render reached no handler (no
+    // pin request was sent) and the Pinned group never appeared
+    await expect(page.locator('.conversation-item-wrapper', { hasText: 'New Conversation' })).toHaveCount(0, {
+      timeout: 20000,
+    });
     const lastRow = page.locator('.conversation-item-wrapper').last();
     const pinnedId = await lastRow.getAttribute('data-conv-id');
     await lastRow.hover();

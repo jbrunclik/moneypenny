@@ -1,11 +1,5 @@
 [
   {
-    "file": "e2e/conversation.spec.ts",
-    "title": "pin moves a conversation to the Pinned group and survives reload",
-    "project": "webkit",
-    "todo": "Open E2E flakes (docs/testing/e2e-reliability.md: WebKit flake: pin moves a conversation)"
-  },
-  {
     "file": "e2e/stream-resume.spec.ts",
     "title": "connection drop mid-stream resumes from offset to full message",
     "project": "chromium",

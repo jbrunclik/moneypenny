@@ -291,6 +291,12 @@ by guessing):
 
 ## E2E Stability Pitfalls (Aug 2026)
 
+- **A click while the list re-renders reaches no handler** (Oct 26 2026): the
+  pin test hovered a row and clicked its pin just as the second conversation's
+  generated title re-rendered the sidebar - no pin request was sent at all.
+  Wait for the state that triggers the re-render (both titles generated)
+  before acting on a row.
+
 - **A switch back can land between the server's save and the client's done** (Oct 26 2026):
   the fetched history already held the finished reply while the client still
   had the stream as active, so the switch rendered it from history AND
@@ -354,12 +360,11 @@ CI fails when a test passes only on a retry (T6, `web/tests/flaky-gate.ts`), unl
 `web/tests/e2e/flaky-quarantine.json` lists it with the entry below that tracks it.
 Fix a flake: delete its entry here and in the quarantine list together.
 
-One-off failures not yet reproduced (each passed on retry). Capture the
+One-off failures not yet reproduced (each passed on retry). Oct 26 2026: none of the entries below failed in 15 repeats each under `--workers=10`, nor in a broad E2E run while the backend suite saturated every core (that run is what caught the pin race, below in Pitfalls). Capture the
 trace and `test-results/` on the next occurrence - copy them before rerunning,
 since a rerun clears the folder. Fixed or quiet for a month: delete the entry.
 
 - **CI hang: WebKit E2E shard froze in deep research** (Oct 9 2026) - run 37948653042 (95249c0), `Frontend E2E Tests (webkit 2/4)` hit the 30-min job timeout (normally ~6 min): `deep-research.spec.ts` "an explicit request starts by itself" (test 86, the countdown autostart) never reported and nothing after test 87 ran; the mock server's SLOW/INFLIGHT log was empty. A hang past Playwright's per-test timeout points at a frozen worker/browser, not an assertion. Re-ran the job; capture the Playwright trace if it recurs. Likely the same root cause found Oct 23 2026: Playwright's WebKit has no push service and `pushManager.getSubscription()` on a service-worker-controlled page could freeze the page; service workers are now blocked suite-wide - drop this item if it does not recur.
-- **WebKit flake: pin moves a conversation to the Pinned group** (Oct 9 2026) - `conversation.spec.ts` "pin moves a conversation..." failed once in a full `make test-all` (first group label stayed "Today" for 10s; the server log shows NO pin request from webkit, so the click on the hover-revealed `[data-pin-id]` never landed). Passed 5/5 alone and 16/16 under `--repeat-each=16 --workers=8`. Suspect a sidebar re-render (title/cost update after the 2nd send) between hover and click; capture a trace on the next occurrence.
 - **Chromium flake: stream resume after a connection drop** (Oct 13 2026) - `stream-resume.spec.ts:63` "connection drop mid-stream resumes from offset to full message" timed out once in a full `make test-all`: `page.waitForRequest('/resume?after_seq=')` never saw the client's resume request within 30s. Webkit passed in the same run; 5/5 alone on chromium. The trace was lost (isolated reruns clear `test-results/`) - copy `test-results/` before rerunning next time.
 - **WebKit stall: sync specs can't find visible buttons** (Oct 14 2026) - one full `make test-all` failed 4 WebKit tests (`sync.spec.ts` x3 in `beforeEach` on `#stream-btn`, `sync-other-device.spec.ts:374` on `#send-btn`): the screenshot shows the button rendered, yet the call log never got past "waiting for locator" - a frozen page, not an assertion. Both specs passed 132/132 with `--repeat-each=3` right after, and the next full run was green. Same shape as the Oct 9 deep-research hang; capture a trace on the next occurrence. Likely the same root cause found Oct 23 2026: Playwright's WebKit has no push service and `pushManager.getSubscription()` on a service-worker-controlled page could freeze the page; service workers are now blocked suite-wide - drop this item if it does not recur.
 - **Two one-off CI flakes, Oct 24 2026 (main run 40069972669, each passed on retry)** - capture artifacts on recurrence: (1) [chromium visual] `grounding.visual.ts:43` claim card rendered 320x99 vs the 320x98 baseline (one-pixel height, 452 px); (2) [webkit] `stream-recovery.spec.ts:333` "handles conversation switch during recovery" - the first conversation's user message never became visible after switching back (30s). Also seen once the same day: [webkit] `chat/thinking-indicator.spec.ts:119` "the live line's chevron is centred on its row (desktop)" (run 40071139480). And on Oct 24 (run 40077189760): [chromium] `grounding-annotations.spec.ts:25` "underline opens a card; Look it up sends a follow-up" - `#claim-card .claim-card__reply` ("Looked up below ↓") resolved, then was detached from the DOM and never came back within 30s (the card closed or re-rendered between the claim click and the reply click).
