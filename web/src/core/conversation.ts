@@ -47,8 +47,6 @@ import { renderChatHeaderForConversation } from './conversation-header';
 import { switchToConversation } from './conversation-switch';
 import { updateConversationCost, updateAnonymousButtonState } from './toolbar';
 import { leaveStorageView } from './kv-store';
-import { leaveSportsView } from './sports';
-import { leaveAgentsView } from './agents';
 import { isTempConversation } from '../utils/conversation-id';
 
 const log = createLogger('conversation');
@@ -149,6 +147,29 @@ export function trackViewedAgentConversation(
 }
 
 /**
+ * How to leave the feature views that open conversations themselves, set at
+ * startup (core/startup/navigation.ts): they sit above this module and
+ * cannot be imported here (F1). Each leaves its view for a conversation.
+ */
+interface ViewLeavers {
+  agents: () => void;
+  sports: () => void;
+}
+let viewLeavers: ViewLeavers | null = null;
+
+export function setViewLeavers(leavers: ViewLeavers): void {
+  viewLeavers = leavers;
+}
+
+function leaveView(view: keyof ViewLeavers): void {
+  if (!viewLeavers) {
+    log.debug('View leavers not set', { view });
+    return;
+  }
+  viewLeavers[view]();
+}
+
+/**
  * Leave any special view (planner, agents, storage, sports) before a
  * conversation takes over the main area.
  */
@@ -158,13 +179,13 @@ function leaveSpecialViewsForChat(): void {
     setPlannerActive(false);
   }
   if (store.isAgentsView) {
-    leaveAgentsView(false);
+    leaveView('agents');
   }
   if (store.isStorageView) {
     leaveStorageView(false);
   }
   if (store.isSportsView) {
-    leaveSportsView();
+    leaveView('sports');
   }
   store.setActiveView('chat');
 }

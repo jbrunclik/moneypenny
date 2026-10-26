@@ -84,6 +84,7 @@ vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),
   navigateToAgents: h.recAsync('navigateToAgents'),
   handleAgentEditById: h.recAsync('handleAgentEditById'),
+  leaveAgentsView: h.rec('leaveAgentsView'),
 }));
 vi.mock('@/components/ScrollToBottom', () => ({
   initScrollToBottom: h.rec('initScrollToBottom'),
@@ -211,6 +212,7 @@ vi.mock('@/core/planner', () => ({
   leavePlannerView: h.rec('leavePlannerView'),
 }));
 vi.mock('@/core/sports', () => ({
+  leaveSportsView: h.rec('leaveSportsView'),
   navigateToSports: h.recAsync('navigateToSports'),
   navigateToSportsProgram: h.recAsync('navigateToSportsProgram'),
 }));
@@ -220,6 +222,14 @@ vi.mock('@/core/language', () => ({
 }));
 vi.mock('@/core/kv-store', () => ({ navigateToStorage: h.recAsync('navigateToStorage') }));
 vi.mock('@/core/remote-merge', () => ({ mergeExternalChanges: h.recAsync('mergeExternalChanges') }));
+vi.mock('@/core/conversation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/conversation')>()),
+  setViewLeavers: h.rec('setViewLeavers'),
+}));
+vi.mock('@/core/conversation-switch', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/conversation-switch')>()),
+  setAgentHeaderActions: h.rec('setAgentHeaderActions'),
+}));
 
 import { init } from '@/core/init';
 import { checkAuth } from '@/auth/google';
@@ -240,6 +250,8 @@ async function flush(): Promise<void> {
 }
 
 const COMPONENT_STEPS = [
+  'setViewLeavers',
+  'setAgentHeaderActions',
   'initToast',
   'initModal',
   'initPopupEscapeListener',
@@ -352,6 +364,29 @@ describe('app startup (signed in)', () => {
       ...DATA_STEPS,
       ...SYNC_AND_FINALLY_STEPS,
     ]);
+  });
+
+  it('hands conversation selection every view leaver, keeping the main area for agents', () => {
+    const [leavers] = argsOf('setViewLeavers') as [Record<string, () => void>];
+    expect(Object.keys(leavers).sort()).toEqual(['agents', 'sports']);
+
+    leavers.agents?.();
+    leavers.sports?.();
+
+    expect(argsOf('leaveAgentsView')).toEqual([false]);
+    expect(argsOf('leaveSportsView')).toEqual([]);
+  });
+
+  it("hands conversation switching the agent header's actions", async () => {
+    const [actions] = argsOf('setAgentHeaderActions') as [
+      { openAgents: () => Promise<void>; editAgent: (id: string) => Promise<void> },
+    ];
+
+    await actions.openAgents();
+    await actions.editAgent('a1');
+
+    expect(argsOf('navigateToAgents')).toEqual([]);
+    expect(argsOf('handleAgentEditById')).toEqual(['a1']);
   });
 
   it('renders the app shell with the login overlay hidden', () => {

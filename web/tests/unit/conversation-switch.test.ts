@@ -107,7 +107,10 @@ vi.mock('@/core/toolbar', () => ({
 vi.mock('@/core/agents', () => ({
   navigateToAgents: m.navigateToAgents,
   handleAgentEditById: m.handleAgentEditById,
+  leaveAgentsView: vi.fn(),
 }));
+vi.mock('@/core/sports', () => ({ leaveSportsView: vi.fn() }));
+vi.mock('@/core/conversation', () => ({ setViewLeavers: vi.fn() }));
 
 import { useStore } from '@/state/store';
 import { switchToConversation } from '@/core/conversation-switch';

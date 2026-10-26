@@ -1,12 +1,1 @@
-[
-  "core/agents.ts -> core/conversation.ts",
-  "core/conversation.ts -> core/agents.ts",
-  "core/conversation.ts -> core/sports.ts",
-  "core/messaging.ts -> core/conversation.ts",
-  "core/messaging.ts -> core/stream-send.ts",
-  "core/quick-actions.ts -> core/messaging.ts",
-  "core/remote-merge.ts -> core/conversation.ts",
-  "core/sports.ts -> core/messaging.ts",
-  "core/sports.ts -> core/quick-actions.ts",
-  "core/stream-send.ts -> core/remote-merge.ts"
-]
+[]

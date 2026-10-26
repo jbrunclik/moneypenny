@@ -2,21 +2,31 @@
  * Opening a conversation from a feature view: selectConversation and
  * createConversation leave the agents view (keeping the main area for the
  * conversation) or the sports view first, then make 'chat' the active view.
- * From a chat nothing is left. Real store; the views' leave functions are
- * mocked to record the call.
+ * From a chat nothing is left. The leavers are wired at startup
+ * (core/startup/navigation.ts); unwired, leaving logs instead of throwing.
+ * Real store; the views' leave functions are mocked to record the call.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import type { ConversationDetailResponse } from '@/types/api';
 
 const m = vi.hoisted(() => ({
   leaveAgentsView: vi.fn(),
   leaveSportsView: vi.fn(),
   getConversation: vi.fn(),
+  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/core/agents', () => ({ leaveAgentsView: m.leaveAgentsView }));
+vi.mock('@/utils/logger', () => ({ createLogger: () => m.log }));
+vi.mock('@/core/agents', () => ({
+  leaveAgentsView: m.leaveAgentsView,
+  navigateToAgents: vi.fn(() => Promise.resolve()),
+  handleAgentEditById: vi.fn(() => Promise.resolve()),
+}));
 vi.mock('@/core/sports', () => ({ leaveSportsView: m.leaveSportsView }));
-vi.mock('@/core/conversation-switch', () => ({ switchToConversation: vi.fn() }));
+vi.mock('@/core/conversation-switch', () => ({
+  switchToConversation: vi.fn(),
+  setAgentHeaderActions: vi.fn(),
+}));
 vi.mock('@/core/kv-store', () => ({ leaveStorageView: vi.fn() }));
 vi.mock('@/core/toolbar', () => ({
   updateConversationCost: vi.fn(() => Promise.resolve()),
@@ -57,6 +67,7 @@ vi.mock('@/components/ModelSelector', () => ({ renderModelDropdown: vi.fn() }));
 
 import { useStore } from '@/state/store';
 import { createConversation, selectConversation } from '@/core/conversation';
+import { initNavigation } from '@/core/startup/navigation';
 
 function detail(id: string): ConversationDetailResponse {
   return {
@@ -81,6 +92,10 @@ function expectChatView(): void {
 }
 
 describe('opening a conversation from a feature view', () => {
+  beforeAll(() => {
+    initNavigation();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     useStore.setState({ conversations: [], currentConversation: null });
@@ -131,5 +146,21 @@ describe('opening a conversation from a feature view', () => {
 
     expect(m.leaveAgentsView).not.toHaveBeenCalled();
     expect(m.leaveSportsView).not.toHaveBeenCalled();
+  });
+});
+
+describe('leaving a feature view before startup wired the leavers', () => {
+  it('logs at debug and still switches to the chat view', async () => {
+    vi.resetModules();
+    const fresh = await import('@/core/conversation');
+    const { useStore: freshStore } = await import('@/state/store');
+    freshStore.getState().setActiveView('sports');
+    vi.clearAllMocks();
+
+    expect(() => fresh.createConversation()).not.toThrow();
+
+    expect(m.leaveSportsView).not.toHaveBeenCalled();
+    expect(m.log.debug).toHaveBeenCalledWith('View leavers not set', { view: 'sports' });
+    expect(freshStore.getState().isSportsView).toBe(false);
   });
 });
