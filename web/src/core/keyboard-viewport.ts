@@ -195,7 +195,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb15]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb16]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -296,6 +296,54 @@ export function cleanupKeyboardViewportPinning(): void {
   document.documentElement.classList.remove('kb-open');
 }
 
+/** The keyboard's extent and whether it counts as one (see update below). */
+function measureKeyboardInset(viewport: VisualViewport): {
+  shrink: number;
+  keyboardLikely: boolean;
+  inset: number;
+} {
+  // Pinch zoom also shrinks the visual viewport - never treat it as a
+  // keyboard. Same for shrinks with no editable element focused
+  // (rotations, browser chrome show/hide).
+  // The overlap deliberately does NOT include viewport.offsetTop: pan
+  // position churns per pixel while the user drags (welcome screen has
+  // no inner scroll container, so drags pan the visual viewport), and an
+  // offsetTop-dependent inset reflows the whole page mid-gesture - the
+  // "extremely laggy scrolling with keyboard open" bug. Keyboard
+  // GEOMETRY (the height terms below) is stable during pans; the
+  // focus-pan itself is handled by the stale-pan recovery further down.
+  // Keyboard extent - ONE formula for every environment, using only
+  // measures that are stable per-state (device-verified across all six
+  // captured states, Aug 2026): innerHeight is NOT among them - in
+  // standalone it oscillates between 471 and 812 while the keyboard is
+  // open (non-atomic resize), which made any innerHeight-based inset
+  // flap and collapse the layout mid-focus (keyboard vanished).
+  //   trueViewportHeight() - visualViewport.height - safeAreaTop()
+  // - standalone keyboard: 874 - 471 - 62 = 341  (both captures)
+  // - standalone rest (settled/pre-settle): 874-874-62 / 874-812-62 -> 0
+  // - Safari keyboard: 654 - 363 - 0 = 291 (saT is 0 in browser tabs)
+  // - Safari rest: 0
+  const shrink = Math.max(
+    0,
+    Math.round(trueViewportHeight() - viewport.height - safeAreaTop())
+  );
+  // Editable-focused is the normal signal, but iOS can fire the resize
+  // BEFORE focus lands - a shrink this large is unambiguously a keyboard
+  // regardless (browser chrome is far smaller), and missing it leaves
+  // the composer hidden behind the keyboard
+  const keyboardLikely =
+    viewport.scale === 1 &&
+    (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
+  const overlap = keyboardLikely ? shrink : 0;
+  // Standalone: the visual viewport excludes only the keyboard - iOS's
+  // floating input-assistant pill hovers over page content unreported
+  // and would cover the composer's bottom edge (Safari tabs exclude it)
+  const accessory =
+    overlap > 0 && isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
+  const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap + accessory : 0;
+  return { shrink, keyboardLikely, inset };
+}
+
 export function initKeyboardViewportPinning(): void {
   const viewport = window.visualViewport;
   if (!viewport) return; // unsupported browsers keep today's overlay behavior
@@ -311,45 +359,7 @@ export function initKeyboardViewportPinning(): void {
     // AbortController removes listeners but cannot cancel callbacks that
     // were already scheduled) - a stale closure must never touch the DOM
     if (signal.aborted) return;
-    // Pinch zoom also shrinks the visual viewport - never treat it as a
-    // keyboard. Same for shrinks with no editable element focused
-    // (rotations, browser chrome show/hide).
-    // The overlap deliberately does NOT include viewport.offsetTop: pan
-    // position churns per pixel while the user drags (welcome screen has
-    // no inner scroll container, so drags pan the visual viewport), and an
-    // offsetTop-dependent inset reflows the whole page mid-gesture - the
-    // "extremely laggy scrolling with keyboard open" bug. Keyboard
-    // GEOMETRY (the height terms below) is stable during pans; the
-    // focus-pan itself is handled by the stale-pan recovery further down.
-    // Keyboard extent - ONE formula for every environment, using only
-    // measures that are stable per-state (device-verified across all six
-    // captured states, Aug 2026): innerHeight is NOT among them - in
-    // standalone it oscillates between 471 and 812 while the keyboard is
-    // open (non-atomic resize), which made any innerHeight-based inset
-    // flap and collapse the layout mid-focus (keyboard vanished).
-    //   trueViewportHeight() - visualViewport.height - safeAreaTop()
-    // - standalone keyboard: 874 - 471 - 62 = 341  (both captures)
-    // - standalone rest (settled/pre-settle): 874-874-62 / 874-812-62 -> 0
-    // - Safari keyboard: 654 - 363 - 0 = 291 (saT is 0 in browser tabs)
-    // - Safari rest: 0
-    const shrink = Math.max(
-      0,
-      Math.round(trueViewportHeight() - viewport.height - safeAreaTop())
-    );
-    // Editable-focused is the normal signal, but iOS can fire the resize
-    // BEFORE focus lands - a shrink this large is unambiguously a keyboard
-    // regardless (browser chrome is far smaller), and missing it leaves
-    // the composer hidden behind the keyboard
-    const keyboardLikely =
-      viewport.scale === 1 &&
-      (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
-    const overlap = keyboardLikely ? shrink : 0;
-    // Standalone: the visual viewport excludes only the keyboard - iOS's
-    // floating input-assistant pill hovers over page content unreported
-    // and would cover the composer's bottom edge (Safari tabs exclude it)
-    const accessory =
-      overlap > 0 && isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
-    const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap + accessory : 0;
+    const { shrink, keyboardLikely, inset } = measureKeyboardInset(viewport);
     kbDebug('update', {
       shrink,
       keyboardLikely,
