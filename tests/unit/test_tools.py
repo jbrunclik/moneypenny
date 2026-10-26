@@ -1,11 +1,14 @@
 """Unit tests for tool selection in the src/agent/tools package (__init__.py)."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.agent.tools import (
     get_available_tools,
     get_tools_for_request,
 )
+from src.config import Config
 
 
 class TestGetToolsForRequest:
@@ -229,3 +232,104 @@ class TestGetToolsForAgent:
         granted = get_tools_for_agent(self._agent(["trigger_agent"]))
         assert "trigger_agent" in {t.name for t in granted}
         assert "trigger_agent" in {t.name for t in get_tools_for_agent(self._agent(None))}
+
+
+# Each integration tool, the availability check that gates it and a value that
+# makes it unavailable (browser and code also need their Config switch)
+_INTEGRATIONS = [
+    ("todoist", "src.agent.tools.is_todoist_available"),
+    ("google_calendar", "src.agent.tools.is_google_calendar_available"),
+    ("garmin_connect", "src.agent.tools.is_garmin_available"),
+    ("garmin_workout", "src.agent.tools.is_garmin_available"),
+    ("rouvy_workout", "src.agent.tools.is_rouvy_available"),
+    ("browser", "src.agent.tools.is_browser_available"),
+]
+
+
+class TestPermittedIntegrationAvailability:
+    """A permitted integration tool is bound only when this deployment can run it."""
+
+    @staticmethod
+    def _agent(tool_permissions: list[str] | None) -> MagicMock:
+        agent = MagicMock()
+        agent.id = "agent-1"
+        agent.user_id = "user-1"
+        agent.tool_permissions = tool_permissions
+        return agent
+
+    @pytest.mark.parametrize(("tool_name", "check"), _INTEGRATIONS)
+    def test_unavailable_integration_is_dropped(self, tool_name: str, check: str) -> None:
+        from src.agent.tools import get_tools_for_agent
+
+        with patch(check, return_value=False), patch.object(Config, "BROWSER_ENABLED", True):
+            requested = get_tools_for_request(agent_tool_permissions=[tool_name])
+            agent_run = get_tools_for_agent(self._agent([tool_name]))
+        assert tool_name not in {t.name for t in requested}
+        assert tool_name not in {t.name for t in agent_run}
+
+    @pytest.mark.parametrize(("tool_name", "check"), _INTEGRATIONS)
+    def test_available_integration_is_bound(self, tool_name: str, check: str) -> None:
+        from src.agent.tools import get_tools_for_agent
+
+        with patch(check, return_value=True), patch.object(Config, "BROWSER_ENABLED", True):
+            requested = get_tools_for_request(agent_tool_permissions=[tool_name])
+            agent_run = get_tools_for_agent(self._agent([tool_name]))
+        assert tool_name in {t.name for t in requested}
+        assert tool_name in {t.name for t in agent_run}
+
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_config_switches_gate_browser_and_code(self, enabled: bool) -> None:
+        from src.agent.tools import get_tools_for_agent
+
+        names = ["browser", "execute_code"]
+        with (
+            patch("src.agent.tools.is_browser_available", return_value=True),
+            patch.object(Config, "BROWSER_ENABLED", enabled),
+            patch.object(Config, "CODE_SANDBOX_ENABLED", enabled),
+        ):
+            requested = {t.name for t in get_tools_for_request(agent_tool_permissions=names)}
+            agent_run = {t.name for t in get_tools_for_agent(self._agent(names))}
+        assert (set(names) <= requested) is enabled
+        assert (set(names) <= agent_run) is enabled
+
+    def test_whatsapp_needs_the_app_for_requests_and_a_phone_for_agents(self) -> None:
+        from src.agent.tools import get_tools_for_agent
+
+        with (
+            patch("src.agent.tools.is_whatsapp_available", return_value=True),
+            patch("src.agent.tools._is_whatsapp_available_for_user", return_value=False) as phone,
+        ):
+            requested = get_tools_for_request(agent_tool_permissions=["whatsapp"])
+            agent_run = get_tools_for_agent(self._agent(["whatsapp"]))
+        assert "whatsapp" in {t.name for t in requested}
+        assert "whatsapp" not in {t.name for t in agent_run}
+        phone.assert_called_with("user-1")
+
+    def test_unknown_permissions_and_duplicates_are_ignored(self) -> None:
+        tools = get_tools_for_request(agent_tool_permissions=["no_such_tool", "web_search"])
+        assert [t.name for t in tools].count("web_search") == 1
+
+    def test_unrestricted_agent_gets_every_available_integration(self) -> None:
+        from src.agent.tools import get_tools_for_agent
+
+        with (
+            patch("src.agent.tools.is_todoist_available", return_value=True),
+            patch("src.agent.tools.is_google_calendar_available", return_value=False),
+            patch("src.agent.tools.is_garmin_available", return_value=True),
+            patch("src.agent.tools.is_rouvy_available", return_value=False),
+            patch("src.agent.tools._is_whatsapp_available_for_user", return_value=True),
+            patch.object(Config, "CODE_SANDBOX_ENABLED", False),
+            patch.object(Config, "BROWSER_ENABLED", False),
+        ):
+            names = [t.name for t in get_tools_for_agent(self._agent(None))]
+        # After the baseline tools, in this order
+        assert names[-7:] == [
+            "todoist",
+            "garmin_connect",
+            "garmin_workout",
+            "whatsapp",
+            "generate_image",
+            "manage_memory",
+            "trigger_agent",
+        ]
+        assert "google_calendar" not in names and "rouvy_workout" not in names

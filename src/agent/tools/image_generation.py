@@ -31,7 +31,7 @@ VALID_IMAGE_SIZES = {"1K", "2K", "4K"}
 
 
 @tool
-def generate_image(  # noqa: C901, PLR0912, PLR0915
+def generate_image(
     prompt: str,
     aspect_ratio: str = "1:1",
     image_size: str = "1K",
@@ -77,6 +77,72 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
     # Check permission for autonomous agents (always requires approval - costs money)
     check_autonomous_permission("generate_image", {"prompt": prompt})
 
+    normalized = _normalized_request(prompt, aspect_ratio, image_size)
+    if isinstance(normalized, str):
+        return normalized
+    prompt, image_size = normalized
+
+    try:
+        logger.debug(
+            "Starting image generation",
+            extra={
+                "model": Config.IMAGE_GENERATION_MODEL,
+                "aspect_ratio": aspect_ratio,
+                "image_size": image_size,
+                "use_search": use_search,
+                "has_reference_images": reference_images is not None,
+                "has_history_image": history_image_message_id is not None,
+            },
+        )
+        client = shared_genai_client()
+
+        # Build contents - either text-only or multimodal with reference images
+        history_image_data: dict[str, str] | None = None
+
+        # Handle history image reference (from earlier in conversation)
+        if history_image_message_id:
+            history_image = _history_image(history_image_message_id, history_image_file_index)
+            if isinstance(history_image, str):
+                return history_image
+            history_image_data = history_image
+
+        contents = _generation_contents(prompt, history_image_data, reference_images)
+
+        # Generate image using Gemini image generation model
+        # The model generates one final image by default (uses internal "thinking" to iterate)
+        logger.debug("Calling Gemini image generation API")
+        response = client.models.generate_content(
+            model=Config.IMAGE_GENERATION_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                image_config=types.ImageConfig(aspect_ratio=aspect_ratio, image_size=image_size),
+                tools=[types.Tool(google_search=types.GoogleSearch())] if use_search else None,
+            ),
+        )
+        logger.debug("Image generation API call completed")
+
+        return _image_result(response, prompt, aspect_ratio, image_size, reference_images)
+
+    except genai_errors.ClientError as e:
+        error_msg = str(e)
+        logger.warning("Image generation client error", extra={"error": error_msg})
+        # Provide user-friendly error messages for common issues
+        if "SAFETY" in error_msg.upper() or "BLOCKED" in error_msg.upper():
+            return tool_error(
+                "The image generation was blocked due to safety filters. Please try a different prompt."
+            )
+        return tool_error(f"Image generation failed: {error_msg}")
+    except genai_errors.ServerError as e:
+        logger.exception("Image generation server error", extra={"error": str(e)})
+        return tool_error("Image generation service temporarily unavailable. Please try again.")
+    except genai_errors.APIError as e:
+        logger.exception("Image generation API error", extra={"error": str(e)})
+        return tool_error(f"Image generation failed: {e}")
+
+
+def _normalized_request(prompt: str, aspect_ratio: str, image_size: str) -> tuple[str, str] | str:
+    """The stripped prompt and upper-cased size, or a tool error for an invalid request."""
     # Validate prompt
     if not prompt or not prompt.strip():
         return tool_error("Prompt cannot be empty")
@@ -99,270 +165,250 @@ def generate_image(  # noqa: C901, PLR0912, PLR0915
         return tool_error(
             f"Invalid aspect ratio '{aspect_ratio}'. Valid options: {', '.join(sorted(VALID_ASPECT_RATIOS))}"
         )
+    return prompt, image_size
 
+
+def _history_file(message_id: str, file_index: int) -> dict[str, Any] | str:
+    """The metadata of an image file in this conversation's history, or a tool error."""
+    conv_id, user_id = get_conversation_context()
+
+    if not conv_id or not user_id:
+        return tool_error("Cannot access conversation history. No conversation context available.")
+
+    # Get the message
+    message = db.get_message_by_id(message_id)
+    if not message:
+        return tool_error(f"Message not found: {message_id}")
+
+    # Verify message belongs to this conversation
+    if message.conversation_id != conv_id:
+        return tool_error("Message does not belong to this conversation.")
+
+    # Check file exists and is an image
+    if not message.files or file_index >= len(message.files):
+        return tool_error(
+            f"File index {file_index} not found in message. "
+            f"Message has {len(message.files) if message.files else 0} file(s)."
+        )
+
+    file_meta: dict[str, Any] = message.files[file_index]
+    mime_type = file_meta.get("type", "")
+    if not mime_type.startswith("image/"):
+        return tool_error(
+            f"File is not an image (type: {mime_type}). Only images can be used as references."
+        )
+    return file_meta
+
+
+def _history_image(message_id: str, file_index: int) -> dict[str, str] | str:
+    """An earlier message's image as inline data for the request, or a tool error."""
+    file_meta = _history_file(message_id, file_index)
+    if isinstance(file_meta, str):
+        return file_meta
+    mime_type = file_meta.get("type", "")
+
+    # Get file data from blob store
+    blob_store = get_blob_store()
+    blob_key = make_blob_key(message_id, file_index)
+    blob_result = blob_store.get(blob_key)
+
+    if blob_result:
+        binary_data, stored_mime_type = blob_result
+        if stored_mime_type:
+            mime_type = stored_mime_type
+    elif "data" in file_meta:
+        try:
+            binary_data = base64.b64decode(file_meta["data"])
+        except ValueError, TypeError:
+            return tool_error("Failed to read image data from conversation history.")
+    else:
+        return tool_error("Image data not found in storage.")
+
+    # Cap resolution so a 4K image can't exceed the inline request limit
+    binary_data, mime_type = downscale_image_for_reference(binary_data, mime_type)
+
+    logger.debug(
+        "Retrieved history image for generation",
+        extra={
+            "message_id": message_id,
+            "file_index": file_index,
+            "mime_type": mime_type,
+            "size": len(binary_data),
+        },
+    )
+    return {
+        "mime_type": mime_type,
+        "data": base64.b64encode(binary_data).decode("utf-8"),
+    }
+
+
+def _reference_indices(reference_images: str, image_count: int) -> list[int]:
+    """Which uploaded images to use: "all" or comma-separated indices."""
+    if reference_images.lower() == "all":
+        return list(range(image_count))
+    # Parse comma-separated indices
     try:
+        return [int(i.strip()) for i in reference_images.split(",") if i.strip().isdigit()]
+    except ValueError:
+        return []
+
+
+def _reference_image_parts(reference_images: str) -> list[dict[str, Any]]:
+    """Inline-data parts for the current message's images named by reference_images."""
+    # Get files from context for image-to-image editing
+    files = get_current_message_files()
+    if not files:
+        logger.warning("reference_images specified but no files in current message")
+        return []
+    # Filter to only image files
+    image_files = [f for f in files if f.get("type", "").startswith("image/")]
+    if not image_files:
+        logger.warning("reference_images specified but no image files found in uploads")
+        return []
+
+    indices = _reference_indices(reference_images, len(image_files))
+    parts = [
+        {
+            "inline_data": {
+                "mime_type": image_files[idx]["type"],
+                "data": image_files[idx]["data"],  # Already base64
+            }
+        }
+        for idx in indices
+        if 0 <= idx < len(image_files)
+    ]
+    if indices:
         logger.debug(
-            "Starting image generation",
+            "Added current message reference images to generation request",
             extra={
-                "model": Config.IMAGE_GENERATION_MODEL,
-                "aspect_ratio": aspect_ratio,
-                "image_size": image_size,
-                "use_search": use_search,
-                "has_reference_images": reference_images is not None,
-                "has_history_image": history_image_message_id is not None,
+                "reference_image_count": len(parts),
+                "total_available_images": len(image_files),
             },
         )
-        client = shared_genai_client()
+    return parts
 
-        # Build contents - either text-only or multimodal with reference images
-        contents: Any = prompt  # Default: text-only
-        history_image_data: dict[str, str] | None = None
 
-        # Handle history image reference (from earlier in conversation)
-        if history_image_message_id:
-            conv_id, user_id = get_conversation_context()
+def _generation_contents(
+    prompt: str, history_image_data: dict[str, str] | None, reference_images: str | None
+) -> Any:
+    """The prompt alone, or the prompt followed by its reference images."""
+    if not reference_images and not history_image_data:
+        return prompt  # Default: text-only
 
-            if not conv_id or not user_id:
-                return tool_error(
-                    "Cannot access conversation history. No conversation context available."
-                )
+    # Start building multimodal contents
+    contents: list[Any] = [prompt]
 
-            # Get the message
-            message = db.get_message_by_id(history_image_message_id)
-            if not message:
-                return tool_error(f"Message not found: {history_image_message_id}")
-
-            # Verify message belongs to this conversation
-            if message.conversation_id != conv_id:
-                return tool_error("Message does not belong to this conversation.")
-
-            # Check file exists and is an image
-            if not message.files or history_image_file_index >= len(message.files):
-                return tool_error(
-                    f"File index {history_image_file_index} not found in message. "
-                    f"Message has {len(message.files) if message.files else 0} file(s)."
-                )
-
-            file_meta = message.files[history_image_file_index]
-            mime_type = file_meta.get("type", "")
-
-            if not mime_type.startswith("image/"):
-                return tool_error(
-                    f"File is not an image (type: {mime_type}). Only images can be used as references."
-                )
-
-            # Get file data from blob store
-            blob_store = get_blob_store()
-            blob_key = make_blob_key(history_image_message_id, history_image_file_index)
-            blob_result = blob_store.get(blob_key)
-
-            if blob_result:
-                binary_data, stored_mime_type = blob_result
-                if stored_mime_type:
-                    mime_type = stored_mime_type
-            elif "data" in file_meta:
-                try:
-                    binary_data = base64.b64decode(file_meta["data"])
-                except ValueError, TypeError:
-                    return tool_error("Failed to read image data from conversation history.")
-            else:
-                return tool_error("Image data not found in storage.")
-
-            # Cap resolution so a 4K image can't exceed the inline request limit
-            binary_data, mime_type = downscale_image_for_reference(binary_data, mime_type)
-
-            # Store the history image data to be added to contents
-            history_image_data = {
-                "mime_type": mime_type,
-                "data": base64.b64encode(binary_data).decode("utf-8"),
-            }
-            logger.debug(
-                "Retrieved history image for generation",
-                extra={
-                    "message_id": history_image_message_id,
-                    "file_index": history_image_file_index,
-                    "mime_type": mime_type,
-                    "size": len(binary_data),
-                },
-            )
-
-        if reference_images or history_image_data:
-            # Start building multimodal contents
-            contents = [prompt]
-
-            # Add history image first if present
-            if history_image_data:
-                contents.append(
-                    {
-                        "inline_data": {
-                            "mime_type": history_image_data["mime_type"],
-                            "data": history_image_data["data"],
-                        }
-                    }
-                )
-                logger.debug("Added history image to generation request")
-
-            # Add current message reference images if specified
-            if reference_images:
-                # Get files from context for image-to-image editing
-                files = get_current_message_files()
-                if files:
-                    # Filter to only image files
-                    image_files = [f for f in files if f.get("type", "").startswith("image/")]
-                    if image_files:
-                        # Determine which images to include
-                        if reference_images.lower() == "all":
-                            indices = list(range(len(image_files)))
-                        else:
-                            # Parse comma-separated indices
-                            try:
-                                indices = [
-                                    int(i.strip())
-                                    for i in reference_images.split(",")
-                                    if i.strip().isdigit()
-                                ]
-                            except ValueError:
-                                indices = []
-
-                        for idx in indices:
-                            if 0 <= idx < len(image_files):
-                                img = image_files[idx]
-                                contents.append(
-                                    {
-                                        "inline_data": {
-                                            "mime_type": img["type"],
-                                            "data": img["data"],  # Already base64
-                                        }
-                                    }
-                                )
-                        if indices:
-                            logger.debug(
-                                "Added current message reference images to generation request",
-                                extra={
-                                    "reference_image_count": len(
-                                        [idx for idx in indices if 0 <= idx < len(image_files)]
-                                    ),
-                                    "total_available_images": len(image_files),
-                                },
-                            )
-                    else:
-                        logger.warning(
-                            "reference_images specified but no image files found in uploads"
-                        )
-                else:
-                    logger.warning("reference_images specified but no files in current message")
-
-            # Log total reference images
-            total_refs = len(contents) - 1  # Subtract 1 for the prompt
-            if total_refs > 0:
-                logger.debug(
-                    "Total reference images for generation",
-                    extra={"count": total_refs},
-                )
-
-        # Generate image using Gemini image generation model
-        # The model generates one final image by default (uses internal "thinking" to iterate)
-        logger.debug("Calling Gemini image generation API")
-        response = client.models.generate_content(
-            model=Config.IMAGE_GENERATION_MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(aspect_ratio=aspect_ratio, image_size=image_size),
-                tools=[types.Tool(google_search=types.GoogleSearch())] if use_search else None,
-            ),
-        )
-        logger.debug("Image generation API call completed")
-
-        # Extract usage metadata for cost tracking
-        usage_metadata_dict: dict[str, Any] | None = None
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            usage = response.usage_metadata
-            usage_metadata_dict = {
-                "prompt_token_count": getattr(usage, "prompt_token_count", 0) or 0,
-                "candidates_token_count": getattr(usage, "candidates_token_count", 0) or 0,
-                "thoughts_token_count": getattr(usage, "thoughts_token_count", 0) or 0,
-                "total_token_count": getattr(usage, "total_token_count", 0) or 0,
-            }
-            # Image output tokens bill ~10x text tokens; record them separately
-            details = getattr(usage, "candidates_tokens_details", None)
-            if isinstance(details, list) and details:
-                usage_metadata_dict["image_output_token_count"] = sum(
-                    d.token_count or 0 for d in details if d.modality == types.MediaModality.IMAGE
-                )
-            logger.debug(
-                "Image generation usage metadata extracted",
-                extra=usage_metadata_dict,
-            )
-
-        # Extract image from response
-        if not response.candidates:
-            logger.warning("No candidates in image generation response")
-            return tool_error("No image generated. The model may have refused the request.")
-
-        candidate = response.candidates[0]
-        if not candidate.content or not candidate.content.parts:
-            logger.warning("No content/parts in image generation response")
-            return tool_error("No image generated. The model may have refused the request.")
-
-        for part in candidate.content.parts:
-            if hasattr(part, "inline_data") and part.inline_data:
-                image_data = part.inline_data
-                # Encode to base64
-                if image_data.data is None:
-                    continue
-                image_base64 = base64.b64encode(image_data.data).decode("utf-8")
-                image_bytes = len(image_data.data)
-                logger.info(
-                    "Image generated successfully",
-                    extra={
-                        "image_size_bytes": image_bytes,
-                        "image_size": image_size,
-                        "mime_type": image_data.mime_type,
-                        "aspect_ratio": aspect_ratio,
-                        "used_reference_images": reference_images is not None,
-                    },
-                )
-                # Return TWO things:
-                # 1. A summary for the LLM (no image data - to avoid sending 500KB back to the model)
-                # 2. The full image data stored in a special field that gets extracted server-side
-                #
-                # The LLM only sees the summary, which confirms the image was generated.
-                # The server extracts _full_result for storage and display.
-                result = {
-                    "success": True,
-                    "prompt": prompt,
-                    "aspect_ratio": aspect_ratio,
-                    "message": "Image generated successfully. The image will be displayed to the user.",
-                    # This field is extracted server-side and NOT sent to the LLM
-                    "_full_result": {
-                        "image": {
-                            "data": image_base64,
-                            "mime_type": image_data.mime_type or "image/png",
-                        },
-                    },
+    # Add history image first if present
+    if history_image_data:
+        contents.append(
+            {
+                "inline_data": {
+                    "mime_type": history_image_data["mime_type"],
+                    "data": history_image_data["data"],
                 }
-                # Include usage_metadata for cost tracking
-                if usage_metadata_dict:
-                    result["usage_metadata"] = usage_metadata_dict
+            }
+        )
+        logger.debug("Added history image to generation request")
 
-                return json.dumps(result)
+    # Add current message reference images if specified
+    if reference_images:
+        contents.extend(_reference_image_parts(reference_images))
 
-        logger.warning("No image data found in response parts")
-        return tool_error("No image data found in response")
+    # Log total reference images
+    total_refs = len(contents) - 1  # Subtract 1 for the prompt
+    if total_refs > 0:
+        logger.debug(
+            "Total reference images for generation",
+            extra={"count": total_refs},
+        )
+    return contents
 
-    except genai_errors.ClientError as e:
-        error_msg = str(e)
-        logger.warning("Image generation client error", extra={"error": error_msg})
-        # Provide user-friendly error messages for common issues
-        if "SAFETY" in error_msg.upper() or "BLOCKED" in error_msg.upper():
-            return tool_error(
-                "The image generation was blocked due to safety filters. Please try a different prompt."
-            )
-        return tool_error(f"Image generation failed: {error_msg}")
-    except genai_errors.ServerError as e:
-        logger.exception("Image generation server error", extra={"error": str(e)})
-        return tool_error("Image generation service temporarily unavailable. Please try again.")
-    except genai_errors.APIError as e:
-        logger.exception("Image generation API error", extra={"error": str(e)})
-        return tool_error(f"Image generation failed: {e}")
+
+def _usage_metadata(response: Any) -> dict[str, Any] | None:
+    """Token usage of the generation for cost tracking, when the response has it."""
+    if not (hasattr(response, "usage_metadata") and response.usage_metadata):
+        return None
+    usage = response.usage_metadata
+    usage_metadata_dict: dict[str, Any] = {
+        "prompt_token_count": getattr(usage, "prompt_token_count", 0) or 0,
+        "candidates_token_count": getattr(usage, "candidates_token_count", 0) or 0,
+        "thoughts_token_count": getattr(usage, "thoughts_token_count", 0) or 0,
+        "total_token_count": getattr(usage, "total_token_count", 0) or 0,
+    }
+    # Image output tokens bill ~10x text tokens; record them separately
+    details = getattr(usage, "candidates_tokens_details", None)
+    if isinstance(details, list) and details:
+        usage_metadata_dict["image_output_token_count"] = sum(
+            d.token_count or 0 for d in details if d.modality == types.MediaModality.IMAGE
+        )
+    logger.debug(
+        "Image generation usage metadata extracted",
+        extra=usage_metadata_dict,
+    )
+    return usage_metadata_dict
+
+
+def _image_result(
+    response: Any,
+    prompt: str,
+    aspect_ratio: str,
+    image_size: str,
+    reference_images: str | None,
+) -> str:
+    """The tool result for a generation response: its image, or why there is none."""
+    # Extract usage metadata for cost tracking
+    usage_metadata_dict = _usage_metadata(response)
+
+    # Extract image from response
+    if not response.candidates:
+        logger.warning("No candidates in image generation response")
+        return tool_error("No image generated. The model may have refused the request.")
+
+    candidate = response.candidates[0]
+    if not candidate.content or not candidate.content.parts:
+        logger.warning("No content/parts in image generation response")
+        return tool_error("No image generated. The model may have refused the request.")
+
+    for part in candidate.content.parts:
+        image_data = part.inline_data if hasattr(part, "inline_data") else None
+        # Encode to base64
+        if not image_data or image_data.data is None:
+            continue
+        image_base64 = base64.b64encode(image_data.data).decode("utf-8")
+        logger.info(
+            "Image generated successfully",
+            extra={
+                "image_size_bytes": len(image_data.data),
+                "image_size": image_size,
+                "mime_type": image_data.mime_type,
+                "aspect_ratio": aspect_ratio,
+                "used_reference_images": reference_images is not None,
+            },
+        )
+        # Return TWO things:
+        # 1. A summary for the LLM (no image data - to avoid sending 500KB back to the model)
+        # 2. The full image data stored in a special field that gets extracted server-side
+        #
+        # The LLM only sees the summary, which confirms the image was generated.
+        # The server extracts _full_result for storage and display.
+        result: dict[str, Any] = {
+            "success": True,
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "message": "Image generated successfully. The image will be displayed to the user.",
+            # This field is extracted server-side and NOT sent to the LLM
+            "_full_result": {
+                "image": {
+                    "data": image_base64,
+                    "mime_type": image_data.mime_type or "image/png",
+                },
+            },
+        }
+        # Include usage_metadata for cost tracking
+        if usage_metadata_dict:
+            result["usage_metadata"] = usage_metadata_dict
+
+        return json.dumps(result)
+
+    logger.warning("No image data found in response parts")
+    return tool_error("No image data found in response")

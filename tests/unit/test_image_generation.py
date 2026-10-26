@@ -3,6 +3,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
 from google.genai import errors as genai_errors
 
 from src.agent.tools import generate_image
@@ -486,3 +487,128 @@ class TestGenerateImageOptions:
             assert parsed["success"] is True, ratio
             config = mock_client.models.generate_content.call_args.kwargs["config"]
             assert config.image_config.aspect_ratio == ratio
+
+
+def _history_message(files: list[dict] | None, conversation_id: str = "c1") -> MagicMock:
+    message = MagicMock()
+    message.conversation_id = conversation_id
+    message.files = files
+    return message
+
+
+class TestHistoryImageReference:
+    """history_image_message_id edits an image from earlier in the conversation."""
+
+    def _invoke(self, message: MagicMock | None, blob: tuple | None = None, **args) -> dict:
+        with (
+            patch(
+                "src.agent.tools.image_generation.get_conversation_context",
+                return_value=("c1", "u1"),
+            ),
+            patch("src.agent.tools.image_generation.db") as mock_db,
+            patch("src.agent.tools.image_generation.get_blob_store") as mock_store,
+            patch(
+                "src.agent.tools.image_generation.downscale_image_for_reference",
+                side_effect=lambda data, mime: (data, mime),
+            ),
+        ):
+            mock_db.get_message_by_id.return_value = message
+            mock_store.return_value.get.return_value = blob
+            return json.loads(
+                generate_image.invoke(
+                    {"prompt": "Make it blue", "history_image_message_id": "m1", **args}
+                )
+            )
+
+    @patch("src.agent.gemini_clients.genai.Client")
+    def test_stored_image_is_sent_before_the_prompt_images(
+        self, mock_client_class: MagicMock
+    ) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        message = _history_message([{"type": "image/png", "name": "a.png"}])
+
+        parsed = self._invoke(message, blob=(b"png-bytes", "image/webp"))
+
+        assert parsed["success"] is True
+        contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+        assert contents == [
+            "Make it blue",
+            {"inline_data": {"mime_type": "image/webp", "data": "cG5nLWJ5dGVz"}},
+        ]
+
+    @patch("src.agent.gemini_clients.genai.Client")
+    def test_legacy_inline_data_is_the_fallback(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        message = _history_message([{"type": "image/png", "data": "cG5nLWJ5dGVz"}])
+
+        assert self._invoke(message)["success"] is True
+        contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+        assert contents[1]["inline_data"] == {"mime_type": "image/png", "data": "cG5nLWJ5dGVz"}
+
+    @pytest.mark.parametrize(
+        ("message", "args", "error"),
+        [
+            (None, {}, "Message not found: m1"),
+            (
+                _history_message([{"type": "image/png"}], "other"),
+                {},
+                "Message does not belong to this conversation.",
+            ),
+            (
+                _history_message([{"type": "image/png"}]),
+                {"history_image_file_index": 1},
+                "File index 1 not found in message. Message has 1 file(s).",
+            ),
+            (
+                _history_message([{"type": "application/pdf"}]),
+                {},
+                "File is not an image (type: application/pdf). Only images can be used as references.",
+            ),
+            (_history_message([{"type": "image/png"}]), {}, "Image data not found in storage."),
+            (
+                _history_message([{"type": "image/png", "data": 5}]),
+                {},
+                "Failed to read image data from conversation history.",
+            ),
+        ],
+    )
+    def test_unusable_history_images_are_reported(
+        self, message: MagicMock | None, args: dict, error: str
+    ) -> None:
+        assert self._invoke(message, **args)["error"] == error
+
+    def test_needs_a_conversation(self) -> None:
+        with patch(
+            "src.agent.tools.image_generation.get_conversation_context",
+            return_value=(None, None),
+        ):
+            parsed = json.loads(
+                generate_image.invoke({"prompt": "x", "history_image_message_id": "m1"})
+            )
+        assert "No conversation context available" in parsed["error"]
+
+
+class TestGenerationFailures:
+    @patch("src.agent.gemini_clients.genai.Client")
+    def test_server_error_is_reported_as_temporary(self, mock_client_class: MagicMock) -> None:
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = genai_errors.ServerError(
+            code=503, response_json={"error": {"message": "overloaded"}}
+        )
+        mock_client_class.return_value = mock_client
+
+        parsed = json.loads(generate_image.invoke({"prompt": "test"}))
+
+        assert parsed["error"] == (
+            "Image generation service temporarily unavailable. Please try again."
+        )
+
+    @patch("src.agent.gemini_clients.genai.Client")
+    def test_a_response_without_image_data_is_an_error(self, mock_client_class: MagicMock) -> None:
+        mock_client = _mock_image_client(mock_client_class)
+        response = mock_client.models.generate_content.return_value
+        response.candidates[0].content.parts[0].inline_data = None
+
+        parsed = json.loads(generate_image.invoke({"prompt": "test"}))
+
+        assert parsed["error"] == "No image data found in response"

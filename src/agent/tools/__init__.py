@@ -3,6 +3,7 @@
 This package contains all tools available to the LLM agent.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 # Import tools from submodules
@@ -203,7 +204,36 @@ def _is_whatsapp_available_for_user(user_id: str) -> bool:
     return bool(user and user.whatsapp_phone)
 
 
-def get_tools_for_request(  # noqa: C901, PLR0912
+def _integration_available(tool_name: str, whatsapp_available: Callable[[], bool]) -> bool:
+    """False for an integration tool this deployment cannot run; True for any other tool."""
+    checks: dict[str, Callable[[], bool]] = {
+        "todoist": is_todoist_available,
+        "google_calendar": is_google_calendar_available,
+        "garmin_connect": is_garmin_available,
+        "garmin_workout": is_garmin_available,
+        "execute_code": lambda: Config.CODE_SANDBOX_ENABLED,
+        "browser": lambda: Config.BROWSER_ENABLED and is_browser_available(),
+        "rouvy_workout": is_rouvy_available,
+        "whatsapp": whatsapp_available,
+    }
+    check = checks.get(tool_name)
+    return check is None or check()
+
+
+def _add_permitted_tools(
+    tools: list[Any], permissions: list[str], whatsapp_available: Callable[[], bool]
+) -> None:
+    """Append each permitted, available tool not already in `tools`."""
+    for tool_name in permissions:
+        tool = _TOOL_MAP.get(tool_name)
+        if tool is None or tool in tools:
+            continue
+        # Check availability for integration tools
+        if _integration_available(tool_name, whatsapp_available):
+            tools.append(tool)
+
+
+def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
     is_sports: bool = False,
@@ -243,32 +273,7 @@ def get_tools_for_request(  # noqa: C901, PLR0912
         ]
 
         # Add permitted tools
-        for tool_name in agent_tool_permissions:
-            if tool_name in _TOOL_MAP:
-                tool = _TOOL_MAP[tool_name]
-                if tool not in tools:
-                    # Check availability for integration tools
-                    if tool_name == "todoist" and not is_todoist_available():
-                        continue
-                    if tool_name == "google_calendar" and not is_google_calendar_available():
-                        continue
-                    if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
-                        continue
-                    if tool_name == "browser" and (
-                        not Config.BROWSER_ENABLED or not is_browser_available()
-                    ):
-                        continue
-                    if tool_name == "rouvy_workout" and not is_rouvy_available():
-                        continue
-                    if (
-                        tool_name in ("garmin_connect", "garmin_workout")
-                        and not is_garmin_available()
-                    ):
-                        continue
-                    if tool_name == "whatsapp" and not is_whatsapp_available():
-                        continue
-                    tools.append(tool)
-
+        _add_permitted_tools(tools, agent_tool_permissions, is_whatsapp_available)
         return tools
 
     # Standard request handling. The tool list is computed per request (not a
@@ -368,7 +373,35 @@ def get_all_tool_names() -> set[str]:
     return set(_TOOL_MAP) | set(_NON_PERMISSIONED_TOOLS)
 
 
-def get_tools_for_agent(agent: Agent) -> list[Any]:  # noqa: C901, PLR0912
+def _unrestricted_agent_tools(agent: Agent) -> list[Any]:
+    """The extra tools of an agent with no permission list: every available one."""
+    tools: list[Any] = []
+    if is_todoist_available():
+        tools.append(todoist)
+    if is_google_calendar_available():
+        tools.append(google_calendar)
+    if is_garmin_available():
+        tools.append(garmin_connect)
+        tools.append(garmin_workout)
+    if is_rouvy_available():
+        tools.append(rouvy_workout)
+    # WhatsApp requires both app config AND user phone number
+    if _is_whatsapp_available_for_user(agent.user_id):
+        tools.append(whatsapp)
+    if Config.CODE_SANDBOX_ENABLED:
+        tools.append(execute_code)
+    if Config.BROWSER_ENABLED and is_browser_available():
+        tools.append(browser)
+    tools.append(generate_image)
+    # Unrestricted agents keep memory access; restricted ones must ask for it
+    tools.append(manage_memory)
+    # Agent-to-agent handoff passes text into another agent's run, so
+    # restricted agents must be granted it like any other capability
+    tools.append(trigger_agent)
+    return tools
+
+
+def get_tools_for_agent(agent: Agent) -> list[Any]:
     """Get tools for an autonomous agent based on its permissions.
 
     Args:
@@ -406,59 +439,16 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:  # noqa: C901, PLR0912
 
     # If agent has specific permissions (including empty list), filter tools
     if agent.tool_permissions is not None:
-        # Explicit permission list - only add permitted tools
-        for tool_name in agent.tool_permissions:
-            if tool_name in _TOOL_MAP:
-                tool = _TOOL_MAP[tool_name]
-                if tool not in tools:
-                    # Check availability for integration tools
-                    if tool_name == "todoist" and not is_todoist_available():
-                        continue
-                    if tool_name == "google_calendar" and not is_google_calendar_available():
-                        continue
-                    if (
-                        tool_name in ("garmin_connect", "garmin_workout")
-                        and not is_garmin_available()
-                    ):
-                        continue
-                    if tool_name == "execute_code" and not Config.CODE_SANDBOX_ENABLED:
-                        continue
-                    if tool_name == "browser" and (
-                        not Config.BROWSER_ENABLED or not is_browser_available()
-                    ):
-                        continue
-                    if tool_name == "rouvy_workout" and not is_rouvy_available():
-                        continue
-                    # WhatsApp requires both app config AND user phone number
-                    if tool_name == "whatsapp" and not _is_whatsapp_available_for_user(
-                        agent.user_id
-                    ):
-                        continue
-                    tools.append(tool)
+        # Explicit permission list - only add permitted tools.
+        # WhatsApp requires both app config AND user phone number
+        _add_permitted_tools(
+            tools,
+            agent.tool_permissions,
+            lambda: _is_whatsapp_available_for_user(agent.user_id),
+        )
     else:
         # No specific permissions (None) - add all available integration tools
-        if is_todoist_available():
-            tools.append(todoist)
-        if is_google_calendar_available():
-            tools.append(google_calendar)
-        if is_garmin_available():
-            tools.append(garmin_connect)
-            tools.append(garmin_workout)
-        if is_rouvy_available():
-            tools.append(rouvy_workout)
-        # WhatsApp requires both app config AND user phone number
-        if _is_whatsapp_available_for_user(agent.user_id):
-            tools.append(whatsapp)
-        if Config.CODE_SANDBOX_ENABLED:
-            tools.append(execute_code)
-        if Config.BROWSER_ENABLED and is_browser_available():
-            tools.append(browser)
-        tools.append(generate_image)
-        # Unrestricted agents keep memory access; restricted ones must ask for it
-        tools.append(manage_memory)
-        # Agent-to-agent handoff passes text into another agent's run, so
-        # restricted agents must be granted it like any other capability
-        tools.append(trigger_agent)
+        tools.extend(_unrestricted_agent_tools(agent))
 
     logger.debug(
         "Tools for agent",

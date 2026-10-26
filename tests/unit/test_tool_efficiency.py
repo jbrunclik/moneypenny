@@ -108,7 +108,7 @@ class TestDeepMerge:
 class TestKvMerge:
     """kv_store merge collapses the get-then-set pattern into one round."""
 
-    def _invoke(self, args: dict, stored: str | None) -> str:
+    def _invoke(self, args: dict, stored: str | None, count: int = 0) -> str:
         with (
             patch(
                 "src.agent.tools.agent_kv.get_conversation_context",
@@ -118,7 +118,7 @@ class TestKvMerge:
             patch("src.agent.tools.agent_kv.db") as mock_db,
         ):
             mock_db.kv_get.return_value = stored
-            mock_db.kv_count.return_value = 0
+            mock_db.kv_count.return_value = count
             result = kv_store.invoke(args)
             self.written = mock_db.kv_set.call_args[0][3] if mock_db.kv_set.call_args else None
         return result
@@ -148,6 +148,28 @@ class TestKvMerge:
     def test_invalid_action_lists_merge(self) -> None:
         result = self._invoke({"action": "frobnicate", "key": "k"}, stored=None)
         assert "merge" in result
+
+    def test_rejects_a_missing_key_or_invalid_json(self) -> None:
+        no_key = self._invoke({"action": "merge", "value": '{"a": 1}'}, stored=None)
+        bad_patch = self._invoke({"action": "merge", "key": "k", "value": "{oops"}, stored=None)
+        bad_stored = self._invoke({"action": "merge", "key": "k", "value": '{"a": 1}'}, "{oops")
+        assert "'key' is required for 'merge' action." in no_key
+        assert "Value must be valid JSON." in bad_patch
+        assert "is not valid JSON. Use 'set' to replace it." in bad_stored
+        assert self.written is None
+
+    def test_a_new_key_in_a_full_namespace_is_refused(self) -> None:
+        result = self._invoke(
+            {"action": "merge", "key": "k", "value": '{"a": 1}'}, stored=None, count=1000
+        )
+        assert "reached the maximum of 1000 keys" in result
+        assert self.written is None
+
+    def test_an_oversized_merge_result_is_refused(self) -> None:
+        stored = json.dumps({"big": "x" * 65530})
+        result = self._invoke({"action": "merge", "key": "k", "value": '{"more": 1}'}, stored)
+        assert "Merged value too large" in result
+        assert self.written is None
 
 
 class TestGarminSessionCache:

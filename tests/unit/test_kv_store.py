@@ -409,6 +409,69 @@ class TestKVStoreTool:
 
         assert "not found" in result
 
+    def test_kv_store_actions_that_need_a_key_say_so(
+        self, mock_db_for_tool: MagicMock, mock_agent_context: MagicMock
+    ) -> None:
+        with (
+            patch(
+                "src.agent.tools.agent_kv.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
+        ):
+            delete = _invoke_kv_store(action="delete")
+            set_ = _invoke_kv_store(action="set", value='{"a": 1}')
+
+        assert "'key' is required for 'delete' action." in delete
+        assert "'key' is required for 'set' action." in set_
+        mock_db_for_tool.kv_delete.assert_not_called()
+        mock_db_for_tool.kv_set.assert_not_called()
+
+    def test_kv_store_get_of_an_absent_key(
+        self, mock_db_for_tool: MagicMock, mock_agent_context: MagicMock
+    ) -> None:
+        mock_db_for_tool.kv_get.return_value = None
+
+        with (
+            patch(
+                "src.agent.tools.agent_kv.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
+        ):
+            result = _invoke_kv_store(action="get", key="ghost")
+
+        assert result == "Key 'ghost' not found in namespace 'agent:agent-abc'."
+
+    @pytest.mark.parametrize(
+        ("sports", "language", "namespace"),
+        [
+            ("cycling", None, "sports"),
+            (None, "czech", "language"),
+            ("cycling", "czech", "language"),
+        ],
+    )
+    def test_kv_store_program_conversations_default_their_namespace(
+        self, mock_db_for_tool: MagicMock, sports: str | None, language: str | None, namespace: str
+    ) -> None:
+        mock_db_for_tool.kv_get.return_value = "1"
+
+        with (
+            patch(
+                "src.agent.tools.agent_kv.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.executor.get_agent_context", return_value=None),
+            patch("src.agent.tools.agent_kv.get_sports_context", return_value=sports),
+            patch("src.agent.tools.agent_kv.get_language_context", return_value=language),
+            patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
+        ):
+            _invoke_kv_store(action="get", key="k")
+
+        mock_db_for_tool.kv_get.assert_called_once_with("user-1", namespace, "k")
+
     def test_kv_store_list(
         self, mock_db_for_tool: MagicMock, mock_agent_context: MagicMock
     ) -> None:
