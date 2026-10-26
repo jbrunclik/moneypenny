@@ -9,10 +9,6 @@ import { initModal } from '../components/Modal';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
-import { initAttention } from './attention';
-import { initConnectivity } from './connectivity';
-import { registerServiceWorker } from './push';
-import { initVersionBanner } from '../components/VersionBanner';
 import { initErrorReporting } from './error-reporting';
 import { getElementById } from '../utils/dom';
 import { initializeTheme } from '../utils/theme';
@@ -34,6 +30,7 @@ import { initMessageScrolling } from './startup/message-scrolling';
 import { initComposer } from './startup/composer';
 import { initMessageUi } from './startup/message-ui';
 import { initSearch } from './startup/search';
+import { initAppStatus } from './startup/app-status';
 
 const log = createLogger('init');
 
@@ -71,12 +68,7 @@ export async function init(): Promise<void> {
   initComposerHeight();
   initQuickActions();
   initKbDebugToggle();
-  initAttention();
-  initConnectivity();
-  initVersionBanner();
-  // Keep an existing push subscription working after reloads; actual
-  // permission requests only happen from the Settings toggle
-  void registerServiceWorker();
+  initAppStatus();
   initSearch();
   initTTSVoices();
   setupEventListeners();
