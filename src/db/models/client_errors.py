@@ -10,12 +10,26 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from src.config import Config
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
+
+
+class LayoutCheckRow(TypedDict):
+    """One failed layout check in one build (see top_layout_checks)."""
+
+    app_version: str | None
+    build_marker: str | None
+    invariant: str
+    shape: str
+    count: int
+    users: int
+    standalone_count: int
+    last_seen: str
+    detail: str  # the latest report's JSON
 
 
 class ClientErrorsMixin:
@@ -43,16 +57,20 @@ class ClientErrorsMixin:
         app_version: str | None,
         user_agent: str | None,
         now: datetime | None = None,
+        detail: str | None = None,
     ) -> None:
-        """Count one occurrence; the latest details replace the stored ones."""
+        """Count one occurrence; the latest details replace the stored ones.
+
+        `detail` is a layout check's measurements as JSON (kind "layout").
+        """
         seen = (now or datetime.now()).isoformat()
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO client_errors
                    (id, user_id, fingerprint, kind, message, stack, path, app_version,
-                    user_agent, count, first_seen, last_seen)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                    user_agent, detail, count, first_seen, last_seen)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
                    ON CONFLICT(user_id, fingerprint) DO UPDATE SET
                        count = count + 1,
                        message = excluded.message,
@@ -60,6 +78,7 @@ class ClientErrorsMixin:
                        path = excluded.path,
                        app_version = excluded.app_version,
                        user_agent = excluded.user_agent,
+                       detail = excluded.detail,
                        last_seen = excluded.last_seen""",
                 (
                     str(uuid.uuid4()),
@@ -71,6 +90,7 @@ class ClientErrorsMixin:
                     path,
                     app_version,
                     user_agent,
+                    detail,
                     seen,
                     seen,
                 ),
@@ -93,6 +113,7 @@ class ClientErrorsMixin:
         """Errors seen since `since` across users, most frequent first.
 
         Counts are lifetime totals of errors that recurred in the window.
+        Layout reports are not errors: see top_layout_checks.
         """
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
@@ -100,10 +121,50 @@ class ClientErrorsMixin:
                 """SELECT fingerprint, kind, message, stack, path, app_version,
                           SUM(count) AS count, COUNT(DISTINCT user_id) AS users,
                           MAX(last_seen) AS last_seen
-                   FROM client_errors WHERE last_seen >= ?
+                   FROM client_errors WHERE last_seen >= ? AND kind != 'layout'
                    GROUP BY fingerprint
                    ORDER BY count DESC, last_seen DESC
                    LIMIT ?""",
                 (since.isoformat(), limit),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def top_layout_checks(self, since: datetime, limit: int) -> list[LayoutCheckRow]:
+        """Failed layout checks seen since `since`, one row per build and check.
+
+        A build is the app version plus the [kbN] marker; the newest-seen
+        rows come first, so the latest build leads. `detail` is the latest
+        report's JSON (SQLite takes bare columns from the MAX(last_seen) row).
+        """
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT app_version,
+                          json_extract(detail, '$.build_marker') AS build_marker,
+                          json_extract(detail, '$.invariant') AS invariant,
+                          json_extract(detail, '$.shape') AS shape,
+                          SUM(count) AS count, COUNT(DISTINCT user_id) AS users,
+                          SUM(CASE WHEN json_extract(detail, '$.standalone')
+                              THEN count ELSE 0 END) AS standalone_count,
+                          MAX(last_seen) AS last_seen, detail
+                   FROM client_errors
+                   WHERE kind = 'layout' AND detail IS NOT NULL AND last_seen >= ?
+                   GROUP BY app_version, build_marker, invariant, shape
+                   ORDER BY last_seen DESC
+                   LIMIT ?""",
+                (since.isoformat(), limit),
+            ).fetchall()
+        return [
+            LayoutCheckRow(
+                app_version=row["app_version"],
+                build_marker=row["build_marker"],
+                invariant=row["invariant"],
+                shape=row["shape"],
+                count=row["count"],
+                users=row["users"],
+                standalone_count=row["standalone_count"],
+                last_seen=row["last_seen"],
+                detail=row["detail"],
+            )
+            for row in rows
+        ]

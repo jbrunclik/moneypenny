@@ -31,6 +31,8 @@ last_seen
 generated_at
 spend
 browser_errors
+layout_checks
+standalone_count
 threshold_usd
 # src/api/schemas/agents.py
 RUNNING
@@ -60,6 +62,11 @@ model_fallback  # also a LangGraph state key (src/agent/graph_state.py)
 ERROR
 UNHANDLED_REJECTION
 LOGGED
+COMPOSER_GAP
+STRANDED_PAN
+INSET_MISMATCH
+ANCHOR_DRIFT
+SCROLL_BOTTOM_MISS
 # src/api/schemas/conversations.py
 read_count
 purge_at

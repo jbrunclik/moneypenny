@@ -32,6 +32,9 @@ The review itself changes nothing in production and edits nothing but
   `client_errors` table: new fingerprints since last time, anything seen by
   more than one person, anything on the current build. Each needs a cause or
   a TODO entry. See [Browser errors](features/admin.md#browser-errors).
+- **Layout checks** - the admin page's "Layout checks" section: a check the
+  deployed build fails and the build before it didn't is an iOS layout
+  regression. See [Layout checks](ui/mobile-and-pwa.md#layout-checks-field-telemetry).
 - **Server errors** - `ERROR` lines in the app's journal over the window,
   grouped by logger and message. The journal keeps only a few days, so the
   weekly cadence matters; anything recurring goes in the report.

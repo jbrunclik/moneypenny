@@ -134,8 +134,17 @@ export function isTurnAnchored(): boolean {
 
 /** Whether the view still sits exactly at the anchored position. */
 export function isAtTurnAnchor(container: HTMLElement): boolean {
+  const drift = turnAnchorDrift(container);
+  return drift !== null && Math.abs(drift) < 3;
+}
+
+/**
+ * How far the view sits from the anchored position, in px (positive: scrolled
+ * past it); null when no turn is anchored. Read-only (the layout checks).
+ */
+export function turnAnchorDrift(container: HTMLElement): number | null {
   const anchorTop = anchorTopOf(container);
-  return anchorTop !== null && Math.abs(container.scrollTop - (anchorTop - topInset(container))) < 3;
+  return anchorTop === null ? null : container.scrollTop - (anchorTop - topInset(container));
 }
 
 /**

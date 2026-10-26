@@ -8312,7 +8312,47 @@ export interface components {
          * @description How the browser caught the error.
          * @enum {string}
          */
-        "ClientErrorReport.ClientErrorKind": "error" | "unhandled_rejection" | "logged";
+        "ClientErrorReport.ClientErrorKind": "error" | "unhandled_rejection" | "logged" | "layout";
+        /**
+         * LayoutCheckDetail
+         * @description What a failed layout check saw: numbers only, never anything on screen.
+         */
+        "ClientErrorReport.LayoutCheckDetail": {
+            invariant: components["schemas"]["ClientErrorReport.LayoutInvariant"];
+            /**
+             * Shape
+             * @description Which way it failed, e.g. gap or overlap
+             */
+            shape: string;
+            /**
+             * Build Marker
+             * @description The keyboard code's [kbN] marker
+             */
+            build_marker: string;
+            /**
+             * Standalone
+             * @description Home-screen app, not a browser tab
+             */
+            standalone: boolean;
+            /**
+             * Ios Version
+             * @default null
+             */
+            ios_version?: string | null;
+            /**
+             * Measurements
+             * @description Viewport numbers in CSS px
+             */
+            measurements: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * LayoutInvariant
+         * @description Which layout check failed (docs/ui/mobile-and-pwa.md, "Layout checks").
+         * @enum {string}
+         */
+        "ClientErrorReport.LayoutInvariant": "composer_gap" | "stranded_pan" | "inset_mismatch" | "anchor_drift" | "scroll_bottom_miss";
         /**
          * ClientErrorReport
          * @description One error from the browser. Long text is accepted and cut server-side.
@@ -8337,6 +8377,11 @@ export interface components {
              * @default null
              */
             app_version?: string | null;
+            /**
+             * @description Only for kind layout
+             * @default null
+             */
+            layout?: components["schemas"]["ClientErrorReport.LayoutCheckDetail"] | null;
         };
         /**
          * GarminStatusResponse
@@ -8463,6 +8508,57 @@ export interface components {
              */
             date: string;
             amount: components["schemas"]["AdminOverviewResponse.Money"];
+        };
+        /**
+         * LayoutCheck
+         * @description One failed layout check in one build, across users (latest numbers).
+         */
+        "AdminOverviewResponse.LayoutCheck": {
+            /**
+             * App Version
+             * @default null
+             */
+            app_version: string | null;
+            /**
+             * Build Marker
+             * @description The keyboard code's [kbN] marker
+             * @default null
+             */
+            build_marker: string | null;
+            /**
+             * Invariant
+             * @description composer_gap, stranded_pan, inset_mismatch, ...
+             */
+            invariant: string;
+            /**
+             * Shape
+             * @description Which way it failed, e.g. gap or overlap
+             */
+            shape: string;
+            /** Count */
+            count: number;
+            /** Users */
+            users: number;
+            /**
+             * Standalone Count
+             * @description Of count, how many in the home-screen app
+             */
+            standalone_count: number;
+            /** Last Seen */
+            last_seen: string;
+            /**
+             * Ios Version
+             * @description Of the latest report
+             * @default null
+             */
+            ios_version: string | null;
+            /**
+             * Measurements
+             * @description Of the latest report, CSS px
+             */
+            measurements: {
+                [key: string]: number;
+            };
         };
         /**
          * Money
@@ -8621,6 +8717,11 @@ export interface components {
              * @description Seen in the last 7 days, most frequent first
              */
             browser_errors: components["schemas"]["AdminOverviewResponse.BrowserError"][];
+            /**
+             * Layout Checks
+             * @description Failed in the last 7 days, most recently seen first
+             */
+            layout_checks: components["schemas"]["AdminOverviewResponse.LayoutCheck"][];
         };
         /**
          * TodoistStatusResponse

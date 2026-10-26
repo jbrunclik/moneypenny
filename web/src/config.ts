@@ -296,6 +296,41 @@ export const KEYBOARD_INSET_MIN_PX = 80;
  */
 export const KEYBOARD_STANDALONE_ACCESSORY_PX = 50;
 
+/**
+ * Which keyboard/layout code a bundle runs: shown as [kbN] in the kbdebug
+ * overlay and sent with layout-check reports. Bump it whenever iterating on
+ * keyboard-viewport.ts, so a screenshot or report names its bundle.
+ */
+export const KEYBOARD_BUILD_MARKER = 'kb19';
+
+// =============================================================================
+// Layout checks (core/layout-checks.ts; docs/ui/mobile-and-pwa.md)
+// =============================================================================
+
+/** Quiet time after the last viewport event before the layout counts as settled */
+export const LAYOUT_CHECK_SETTLE_MS = 700;
+
+/** A failed check is re-run this much later and reported only if it still fails */
+export const LAYOUT_CHECK_CONFIRM_MS = 600;
+
+/** Composer bottom vs the keyboard top (visual viewport bottom, minus the pill) */
+export const LAYOUT_COMPOSER_GAP_TOLERANCE_PX = 20;
+
+/** Applied --keyboard-inset vs what the formula gives for the settled viewport */
+export const LAYOUT_INSET_TOLERANCE_PX = 4;
+
+/** An anchored turn's distance from its anchor after the keyboard opened or closed */
+export const LAYOUT_ANCHOR_DRIFT_TOLERANCE_PX = 8;
+
+/** Distance from the bottom left after a scroll to the bottom finished */
+export const LAYOUT_SCROLL_BOTTOM_TOLERANCE_PX = 24;
+
+/** Layout reports per page load (each distinct failure is sent once anyway) */
+export const LAYOUT_REPORTS_PER_PAGE_MAX = 5;
+
+/** Minimum time between two layout reports; a skipped one may be sent later */
+export const LAYOUT_REPORT_MIN_INTERVAL_MS = 10_000;
+
 // =============================================================================
 // Lightbox
 // =============================================================================

@@ -13,6 +13,7 @@ import { getElementById, isScrolledToBottom, isSmoothScrolling, setScrollDebugSi
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import {
+  KEYBOARD_BUILD_MARKER,
   KEYBOARD_DEFINITE_SHRINK_PX,
   KEYBOARD_INSET_MIN_PX,
   KEYBOARD_STANDALONE_ACCESSORY_PX,
@@ -82,6 +83,11 @@ function installTouchTracking(): void {
   };
   document.addEventListener('touchend', onTouchEnd, { passive: true });
   document.addEventListener('touchcancel', onTouchEnd, { passive: true });
+}
+
+/** Whether a finger is down right now (read-only, for the layout checks). */
+export function isTouchActive(): boolean {
+  return touchActive;
 }
 
 function setPanGuard(active: boolean): void {
@@ -195,7 +201,7 @@ function kbDebug(event: string, data: Record<string, unknown>): void {
     `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
     `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
     `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [kb19]\n` +
+    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [${KEYBOARD_BUILD_MARKER}]\n` +
     (() => {
       const m = document.getElementById('messages');
       const ia = document.querySelector('.input-area');
@@ -260,7 +266,7 @@ function trueViewportHeight(): number {
   return probe.offsetHeight || window.innerHeight;
 }
 
-function isStandaloneDisplay(): boolean {
+export function isStandaloneDisplay(): boolean {
   return (
     (navigator as Navigator & { standalone?: boolean }).standalone === true ||
     (typeof window.matchMedia === 'function' &&
@@ -296,8 +302,11 @@ export function cleanupKeyboardViewportPinning(): void {
   document.documentElement.classList.remove('kb-open');
 }
 
-/** The keyboard's extent and whether it counts as one (see update below). */
-function measureKeyboardInset(viewport: VisualViewport): {
+/**
+ * The keyboard's extent and whether it counts as one (see update below).
+ * Exported for the layout checks, which compare it with the applied inset.
+ */
+export function measureKeyboardInset(viewport: VisualViewport): {
   shrink: number;
   keyboardLikely: boolean;
   inset: number;

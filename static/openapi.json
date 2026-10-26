@@ -8826,9 +8826,88 @@
         "enum": [
           "error",
           "unhandled_rejection",
-          "logged"
+          "logged",
+          "layout"
         ],
         "title": "ClientErrorKind",
+        "type": "string"
+      },
+      "ClientErrorReport.LayoutCheckDetail": {
+        "description": "What a failed layout check saw: numbers only, never anything on screen.",
+        "properties": {
+          "invariant": {
+            "$ref": "#/components/schemas/ClientErrorReport.LayoutInvariant"
+          },
+          "shape": {
+            "description": "Which way it failed, e.g. gap or overlap",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Shape",
+            "type": "string"
+          },
+          "build_marker": {
+            "description": "The keyboard code's [kbN] marker",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Build Marker",
+            "type": "string"
+          },
+          "standalone": {
+            "description": "Home-screen app, not a browser tab",
+            "title": "Standalone",
+            "type": "boolean"
+          },
+          "ios_version": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ios Version"
+          },
+          "measurements": {
+            "description": "Viewport numbers in CSS px",
+            "maxProperties": 16,
+            "patternProperties": {
+              "^[a-z0-9_.-]+$": {
+                "type": "number"
+              }
+            },
+            "propertyNames": {
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "title": "Measurements",
+            "type": "object"
+          }
+        },
+        "required": [
+          "invariant",
+          "shape",
+          "build_marker",
+          "standalone",
+          "measurements"
+        ],
+        "title": "LayoutCheckDetail",
+        "type": "object"
+      },
+      "ClientErrorReport.LayoutInvariant": {
+        "description": "Which layout check failed (docs/ui/mobile-and-pwa.md, \"Layout checks\").",
+        "enum": [
+          "composer_gap",
+          "stranded_pan",
+          "inset_mismatch",
+          "anchor_drift",
+          "scroll_bottom_miss"
+        ],
+        "title": "LayoutInvariant",
         "type": "string"
       },
       "ClientErrorReport": {
@@ -8882,6 +8961,18 @@
             ],
             "default": null,
             "title": "App Version"
+          },
+          "layout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClientErrorReport.LayoutCheckDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only for kind layout"
           }
         },
         "required": [
@@ -9118,6 +9209,98 @@
           "amount"
         ],
         "title": "DailySpend",
+        "type": "object"
+      },
+      "AdminOverviewResponse.LayoutCheck": {
+        "description": "One failed layout check in one build, across users (latest numbers).",
+        "properties": {
+          "app_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "App Version"
+          },
+          "build_marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The keyboard code's [kbN] marker",
+            "title": "Build Marker"
+          },
+          "invariant": {
+            "description": "composer_gap, stranded_pan, inset_mismatch, ...",
+            "title": "Invariant",
+            "type": "string"
+          },
+          "shape": {
+            "description": "Which way it failed, e.g. gap or overlap",
+            "title": "Shape",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "users": {
+            "title": "Users",
+            "type": "integer"
+          },
+          "standalone_count": {
+            "description": "Of count, how many in the home-screen app",
+            "title": "Standalone Count",
+            "type": "integer"
+          },
+          "last_seen": {
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "ios_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Of the latest report",
+            "title": "Ios Version"
+          },
+          "measurements": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Of the latest report, CSS px",
+            "title": "Measurements",
+            "type": "object"
+          }
+        },
+        "required": [
+          "app_version",
+          "build_marker",
+          "invariant",
+          "shape",
+          "count",
+          "users",
+          "standalone_count",
+          "last_seen",
+          "ios_version",
+          "measurements"
+        ],
+        "title": "LayoutCheck",
         "type": "object"
       },
       "AdminOverviewResponse.Money": {
@@ -9456,6 +9639,14 @@
             },
             "title": "Browser Errors",
             "type": "array"
+          },
+          "layout_checks": {
+            "description": "Failed in the last 7 days, most recently seen first",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewResponse.LayoutCheck"
+            },
+            "title": "Layout Checks",
+            "type": "array"
           }
         },
         "required": [
@@ -9466,7 +9657,8 @@
           "search",
           "quality",
           "system",
-          "browser_errors"
+          "browser_errors",
+          "layout_checks"
         ],
         "title": "AdminOverviewResponse",
         "type": "object"

@@ -162,9 +162,11 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   chat title** (PWA; persists via localStorage) - overlay shows all
   geometry inputs + the last 12 detection events (consecutive duplicates
   deduped, or the 300ms settle poller flushes the interesting
-  transitions). Bump the `[kbN]` marker whenever iterating - it identifies
-  which bundle a user screenshot is running, which resolved several
-  "fix doesn't work" rounds that were actually stale tabs.
+  transitions). Bump the `[kbN]` marker (`KEYBOARD_BUILD_MARKER` in
+  `web/src/config.ts`) whenever iterating - it identifies which bundle a
+  user screenshot or a [layout check](#layout-checks-field-telemetry) report
+  is running, which resolved several "fix doesn't work" rounds that were
+  actually stale tabs.
   Other modules log into it via `scrollDebug()` (utils/dom.ts; the overlay is its sink).
 - **Mind HTML cache staleness during mobile iteration**: the index page
   must send `Cache-Control: no-cache` (see docs/deployment.md) or Safari
@@ -195,6 +197,60 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   (gestures, the hardware-keyboard focus and the smooth scroll-to-bottom have
   `gestures-trace`, `message-input-hardware-keyboard` and `smooth-scroll-trace`):
   a refactor must leave those recordings unchanged.
+
+### Layout checks (field telemetry)
+
+The rules above were all found on a device, usually days after a build
+shipped. Since Oct 26 2026 phones and tablets check them during normal use
+([../../web/src/core/layout-checks.ts](../../web/src/core/layout-checks.ts))
+and report a violation to the server, so the admin page shows per build
+whether a new one regressed.
+
+**When it checks.** Only at settled moments: `LAYOUT_CHECK_SETTLE_MS` (700ms)
+after the last visualViewport resize/scroll, window resize/scroll or focus
+change, with the geometry unchanged since that event (iOS moves the viewport
+silently at times - then it waits again). A failure must still hold
+`LAYOUT_CHECK_CONFIRM_MS` (600ms) later, past the keyboard code's 300ms settle
+poller, with no event in between. Pinch zoom (`scale !== 1`) skips. It only
+reads: `measureKeyboardInset()`, `isStandaloneDisplay()` and `isTouchActive()`
+from keyboard-viewport.ts, the applied `--keyboard-inset`, `turnAnchorDrift()`
+from turn-anchor.ts, and the `bottom-done`/`glide-done` scroll diagnostics
+(`addScrollDebugListener` in utils/dom.ts). It never writes a style or
+scrolls. It runs on iOS (`isIOS()`) or a coarse pointer only.
+
+| Invariant (shapes) | Fails when | Tolerance |
+|---|---|---|
+| `composer_gap` (`gap`, `overlap`) | keyboard up (applied and computed inset > 0) and the composer's bottom (`.input-area`) is off the keyboard top: `vv.offsetTop + vv.height`, minus the 50px pill in standalone. `gap`: dead band above the keyboard; `overlap`: composer under it | 20px (`LAYOUT_COMPOSER_GAP_TOLERANCE_PX`) |
+| `stranded_pan` (`keyboard-open`, `keyboard-closed`) | the window stays scrolled with no finger down (the pan reset missed it) | 1px |
+| `inset_mismatch` (`stuck`, `missing`, `off`) | the applied `--keyboard-inset` differs from the unified formula for the settled viewport. `stuck`: left after the keyboard closed; `missing`: a keyboard the inset missed | 4px (`LAYOUT_INSET_TOLERANCE_PX`) |
+| `anchor_drift` (`keyboard-open`, `keyboard-close`) | the view rested on an anchored turn (at a settled check or when the send glide ended), the keyboard opened or closed, no user scroll since, no glide running, and the view ended off the anchor | 8px (`LAYOUT_ANCHOR_DRIFT_TOLERANCE_PX`) |
+| `scroll_bottom_miss` (`short`) | a smooth scroll to the bottom ended (`bottom-done`) more than the tolerance short, and 600ms later the list is still short (no user input, no anchored turn, no other scroll) | 24px (`LAYOUT_SCROLL_BOTTOM_TOLERANCE_PX`) |
+
+The composer tolerance is a first guess: the pill's size varies by device and
+iOS version. If one device reports a steady `composer_gap` of the same size,
+the numbers in the report say whether `KEYBOARD_STANDALONE_ACCESSORY_PX` or
+the tolerance needs the change.
+
+**What is sent.** Each invariant and shape once per page load, at most
+`LAYOUT_REPORTS_PER_PAGE_MAX` (5), at least `LAYOUT_REPORT_MIN_INTERVAL_MS`
+(10s) apart (a skipped one goes out if it recurs later), signed-in users
+only. `POST /api/client-errors` with `kind: "layout"` and a `layout` object:
+the invariant, the shape, the `[kbN]` marker, standalone or tab, the iOS
+version (Safari's `Version/` token, else the UA's OS token - frozen at 18.6 on
+iOS 26) and at most 16 numbers (CSS px, one decimal): `inner_height`,
+`vv_height`, `vv_offset_top`, `keyboard_inset`, `scroll_y`, plus the check's
+own (`composer_top`/`composer_bottom`, `expected_inset`/`shrink`, and
+`deviation`, signed). Names and numbers only - never text from the screen.
+
+**Reading the admin section** ("Layout checks", [admin.md](../features/admin.md)):
+one block per build (app version and `[kbN]` marker), newest first, the
+deployed build marked. Each row is one invariant and shape: how often, how
+many people, home-screen app or browser tab, iOS version, last seen, and the
+latest report's numbers. A check that a build reports and the one before it
+didn't is the regression; a steady count across builds is a known gap (or a
+tolerance to revisit). A device that reports nothing either works or never
+reached a settled failure - the kbdebug overlay is still the tool for a
+single session.
 
 See `isIOSPWA()` in [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts):
 
@@ -378,6 +434,7 @@ The conversation cost display below the input area has `min-height: 16px` and is
 
 **Keyboard:**
 - [../../web/src/core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts) - `--keyboard-inset`, `--app-vh`, `kb-open`, the pan guard, the settle poller and the kbdebug overlay
+- [../../web/src/core/layout-checks.ts](../../web/src/core/layout-checks.ts) - the field layout checks (tests: `web/tests/unit/layout-checks.test.ts`)
 
 **Components:**
 - [../../web/src/components/MessageInput.ts](../../web/src/components/MessageInput.ts) - iOS detection, keyboard handling

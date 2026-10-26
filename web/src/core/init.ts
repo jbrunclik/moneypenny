@@ -26,6 +26,7 @@ import { initErrorReporting } from './error-reporting';
 import { setupEventListeners } from './events';
 import { setupTouchGestures } from './gestures';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
+import { initLayoutChecks } from './layout-checks';
 import { initQuickActions } from './quick-actions';
 import { initToolbarButtons } from './toolbar';
 import { leaveTrashView } from './trash';
@@ -80,6 +81,8 @@ export async function init(): Promise<void> {
   initComposerHeight();
   initQuickActions();
   initKbDebugToggle();
+  // After the keyboard pinning: it observes what that code applies
+  initLayoutChecks();
   initAppStatus();
   initSearch();
   initTTSVoices();

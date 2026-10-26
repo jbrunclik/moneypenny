@@ -172,9 +172,22 @@ export function setScrollDebugSink(sink: ((event: string, data: Record<string, u
   scrollDebugSink = sink;
 }
 
-/** Report a scroll event to the debug overlay, if it is on. */
+type ScrollDebugListener = (event: string, data: Record<string, unknown>) => void;
+
+// Observers of the same events beside the overlay (core/layout-checks.ts
+// watches for scrolls to the bottom finishing)
+const scrollDebugListeners = new Set<ScrollDebugListener>();
+
+/** Also hand scroll diagnostics to `listener`; returns its remover. */
+export function addScrollDebugListener(listener: ScrollDebugListener): () => void {
+  scrollDebugListeners.add(listener);
+  return () => scrollDebugListeners.delete(listener);
+}
+
+/** Report a scroll event to the debug overlay, if it is on, and the listeners. */
 export function scrollDebug(event: string, data: Record<string, unknown> = {}): void {
   scrollDebugSink?.(event, data);
+  for (const listener of scrollDebugListeners) listener(event, data);
 }
 
 function finishSmoothScroll(): void {

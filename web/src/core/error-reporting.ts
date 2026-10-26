@@ -6,8 +6,11 @@
  * once each per page load, at most ERROR_REPORTS_PER_PAGE_MAX, and only for a
  * signed-in user. Sent: the kind, message, stack, route and build version -
  * never the log context, which can hold what the user wrote.
+ *
+ * Failed layout checks (core/layout-checks.ts, which dedupes and limits
+ * them itself) go out through the same endpoint as kind "layout".
  */
-import { clientErrors, type ClientErrorReport } from '../api/client-errors';
+import { clientErrors, type ClientErrorReport, type LayoutCheckDetail } from '../api/client-errors';
 import { getToken } from '../api/http';
 import { ERROR_REPORTS_PER_PAGE_MAX } from '../config';
 import { setErrorSink } from '../utils/logger';
@@ -24,19 +27,35 @@ function describe(reason: unknown): { message: string; stack: string | null } {
   return { message: String(reason), stack: null };
 }
 
+function currentPath(): string {
+  return window.location.hash.split('?')[0] || window.location.pathname;
+}
+
+function appVersion(): string | null {
+  return document.getElementById('app')?.dataset.version ?? null;
+}
+
 function send(kind: Kind, message: string, stack: string | null): void {
   const key = `${kind}|${message}`;
   if (!getToken() || sent.has(key) || sent.size >= ERROR_REPORTS_PER_PAGE_MAX) return;
   sent.add(key);
-  const report: ClientErrorReport = {
-    kind,
-    message,
-    stack,
-    path: window.location.hash.split('?')[0] || window.location.pathname,
-    app_version: document.getElementById('app')?.dataset.version ?? null,
-  };
+  const report: ClientErrorReport = { kind, message, stack, path: currentPath(), app_version: appVersion() };
   // Reporting a failed report would loop; a lost report is acceptable
   clientErrors.report(report).catch(() => {});
+}
+
+/** Send a failed layout check; false when signed out (nothing sent). */
+export function reportLayoutCheck(layout: LayoutCheckDetail): boolean {
+  if (!getToken()) return false;
+  const report: ClientErrorReport = {
+    kind: 'layout',
+    message: `${layout.invariant}: ${layout.shape}`,
+    path: currentPath(),
+    app_version: appVersion(),
+    layout,
+  };
+  clientErrors.report(report).catch(() => {});
+  return true;
 }
 
 export function initErrorReporting(): void {

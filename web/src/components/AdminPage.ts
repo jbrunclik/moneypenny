@@ -209,6 +209,91 @@ function browserErrorsSection(errors: AdminOverview['browser_errors']): HTMLElem
   ]);
 }
 
+type LayoutCheck = AdminOverview['layout_checks'][number];
+
+// What each check means, and which way it failed (core/layout-checks.ts)
+const LAYOUT_CHECKS: Record<string, { label: string; shapes: Record<string, string> }> = {
+  composer_gap: { label: 'Composer off the keyboard', shapes: { gap: 'gap above it', overlap: 'covered by it' } },
+  stranded_pan: {
+    label: 'Page left scrolled',
+    shapes: { 'keyboard-open': 'keyboard open', 'keyboard-closed': 'keyboard closed' },
+  },
+  inset_mismatch: {
+    label: 'Keyboard space wrong',
+    shapes: { stuck: 'left after closing', missing: 'missing', off: 'wrong size' },
+  },
+  anchor_drift: {
+    label: 'Sent message moved',
+    shapes: { 'keyboard-open': 'keyboard opening', 'keyboard-close': 'keyboard closing' },
+  },
+  scroll_bottom_miss: { label: 'Scroll to the end fell short', shapes: { short: '' } },
+};
+
+function layoutWhere(c: LayoutCheck): string {
+  if (c.standalone_count === c.count) return 'home-screen app';
+  if (c.standalone_count === 0) return 'browser tab';
+  return `${c.standalone_count} in the app, ${c.count - c.standalone_count} in a tab`;
+}
+
+function layoutCheck(c: LayoutCheck): HTMLElement {
+  const known = LAYOUT_CHECKS[c.invariant];
+  const shape = known ? (known.shapes[c.shape] ?? c.shape) : c.shape;
+  const meta = [
+    `${c.count}×`,
+    c.users === 1 ? '1 person' : `${c.users} people`,
+    layoutWhere(c),
+    c.ios_version ? `iOS ${c.ios_version}` : '',
+    `last ${dateTime(c.last_seen)}`,
+  ].filter(Boolean);
+  const numbers = Object.entries(c.measurements)
+    .map(([name, value]) => `${name} ${value}`)
+    .join('\n');
+  return el('li', { 'data-invariant': c.invariant }, [
+    el('span', { class: 'admin-layout-name' }, [known?.label ?? c.invariant]),
+    !!shape && ' ',
+    !!shape && el('span', { class: 'admin-layout-shape' }, [shape]),
+    el('br'),
+    el('span', { class: 'admin-browser-error-meta' }, [meta.join(' · ')]),
+    el('details', {}, [el('summary', {}, ['Latest numbers']), el('pre', {}, [numbers])]),
+  ]);
+}
+
+/** Group checks by build (app version + [kbN] marker), newest build first. */
+function byBuild(checks: AdminOverview['layout_checks']): LayoutCheck[][] {
+  const builds = new Map<string, LayoutCheck[]>();
+  for (const check of checks) {
+    const key = `${check.app_version ?? ''}|${check.build_marker ?? ''}`;
+    builds.set(key, [...(builds.get(key) ?? []), check]);
+  }
+  return [...builds.values()];
+}
+
+function layoutBuild(checks: LayoutCheck[], currentVersion: string | null | undefined): HTMLElement {
+  const first = checks[0];
+  const total = checks.reduce((sum, c) => sum + c.count, 0);
+  const name = [first?.app_version ?? 'unknown build', first?.build_marker ?? ''].filter(Boolean).join(' · ');
+  const deployed = !!first?.app_version && first.app_version === currentVersion;
+  return el('div', { class: 'admin-layout-build' }, [
+    el('h3', {}, [
+      el('span', {}, [name]),
+      deployed && el('span', { class: 'admin-layout-current' }, ['Deployed']),
+      el('span', { class: 'admin-layout-total' }, [`${total}×`]),
+    ]),
+    el('ul', { class: 'admin-failures admin-layout-checks' }, checks.map(layoutCheck)),
+  ]);
+}
+
+function layoutChecksSection(checks: AdminOverview['layout_checks'], currentVersion: string | null | undefined): HTMLElement {
+  return section('Layout checks (7 days)', [
+    ...(checks.length
+      ? byBuild(checks).map((build) => layoutBuild(build, currentVersion))
+      : [el('p', { class: 'admin-note' }, ['No layout check failed in the last 7 days.'])]),
+    el('p', { class: 'admin-note' }, [
+      'Phones and tablets check the keyboard and scroll layout as they are used; a check a build fails and the one before it did not is a regression.',
+    ]),
+  ]);
+}
+
 function systemSection(system: AdminOverview['system']): HTMLElement {
   const facts: [string, string][] = [
     ['Version', system.version ?? '-'],
@@ -231,6 +316,7 @@ export function renderAdminOverview(data: AdminOverview): HTMLElement[] {
     searchSection(data.search),
     qualitySection(data.quality),
     browserErrorsSection(data.browser_errors),
+    layoutChecksSection(data.layout_checks, data.system.version),
     systemSection(data.system),
     el('p', { class: 'admin-note' }, [`Updated ${dateTime(data.generated_at)}`]),
   ];

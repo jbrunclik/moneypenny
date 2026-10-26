@@ -87,6 +87,32 @@ const OVERVIEW = {
       last_seen: '2026-10-24T21:40:00',
     },
   ],
+  layout_checks: [
+    {
+      app_version: '072db55d',
+      build_marker: 'kb20',
+      invariant: 'composer_gap',
+      shape: 'overlap',
+      count: 6,
+      users: 2,
+      standalone_count: 6,
+      last_seen: '2026-10-25T13:10:00',
+      ios_version: '26.0',
+      measurements: { inner_height: 812, vv_height: 471, vv_offset_top: 62, keyboard_inset: 391, deviation: -24 },
+    },
+    {
+      app_version: '9b1e04c2',
+      build_marker: 'kb19',
+      invariant: 'stranded_pan',
+      shape: 'keyboard-open',
+      count: 2,
+      users: 1,
+      standalone_count: 0,
+      last_seen: '2026-10-22T08:31:00',
+      ios_version: '26.0',
+      measurements: { inner_height: 654, vv_height: 363, scroll_y: 291, deviation: 291 },
+    },
+  ],
 };
 
 async function openAdmin(page: Page): Promise<void> {

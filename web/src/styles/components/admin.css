@@ -186,17 +186,20 @@
     overflow-wrap: anywhere;
 }
 
-.admin-browser-errors details {
+.admin-browser-errors details,
+.admin-layout-checks details {
     margin-top: var(--space-1);
 }
 
-.admin-browser-errors summary {
+.admin-browser-errors summary,
+.admin-layout-checks summary {
     color: var(--text-muted);
     font-size: var(--font-size-xs);
     cursor: pointer;
 }
 
-.admin-browser-errors pre {
+.admin-browser-errors pre,
+.admin-layout-checks pre {
     margin: var(--space-1) 0 0;
     padding: var(--space-2);
     overflow-x: auto;
@@ -235,6 +238,50 @@
     background: var(--bg-secondary);
     color: var(--warning-text);
     font-size: var(--font-size-sm);
+}
+
+/* Layout checks: one block per build, newest first */
+.admin-layout-build + .admin-layout-build {
+    margin-top: var(--space-2);
+}
+
+.admin-layout-build h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-layout-build h3 > span:first-child {
+    overflow-wrap: anywhere;
+}
+
+.admin-layout-current {
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--accent-muted);
+    color: var(--accent-text);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+}
+
+.admin-layout-total {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.admin-layout-name {
+    color: var(--text-primary);
+}
+
+.admin-layout-shape {
+    color: var(--text-secondary);
+}
+
+.admin-layout-checks pre {
+    white-space: pre-wrap;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ----------------------------------------

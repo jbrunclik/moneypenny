@@ -95,6 +95,21 @@ class BrowserError(ResponseModel):
     last_seen: str
 
 
+class LayoutCheck(ResponseModel):
+    """One failed layout check in one build, across users (latest numbers)."""
+
+    app_version: str | None = None
+    build_marker: str | None = Field(None, description="The keyboard code's [kbN] marker")
+    invariant: str = Field(..., description="composer_gap, stranded_pan, inset_mismatch, ...")
+    shape: str = Field(..., description="Which way it failed, e.g. gap or overlap")
+    count: int
+    users: int
+    standalone_count: int = Field(..., description="Of count, how many in the home-screen app")
+    last_seen: str
+    ios_version: str | None = Field(None, description="Of the latest report")
+    measurements: dict[str, float] = Field(..., description="Of the latest report, CSS px")
+
+
 class AdminOverviewResponse(ResponseModel):
     """Everything the admin page shows - names and numbers, no conversation content."""
 
@@ -107,6 +122,9 @@ class AdminOverviewResponse(ResponseModel):
     system: SystemSection
     browser_errors: list[BrowserError] = Field(
         ..., description="Seen in the last 7 days, most frequent first"
+    )
+    layout_checks: list[LayoutCheck] = Field(
+        ..., description="Failed in the last 7 days, most recently seen first"
     )
 
 

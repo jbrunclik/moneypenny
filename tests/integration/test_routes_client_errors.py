@@ -161,3 +161,88 @@ class TestAdminOverview:
             data = client.get("/api/admin/overview", headers=auth_headers).get_json()
         errors = data["browser_errors"]
         assert [(e["message"], e["count"]) for e in errors] == [("common", 3), ("rare", 1)]
+
+
+def _layout_report(**overrides: Any) -> dict[str, Any]:
+    layout = {
+        "invariant": "composer_gap",
+        "shape": "overlap",
+        "build_marker": "kb19",
+        "standalone": True,
+        "ios_version": "26.0",
+        "measurements": {"vv_height": 471, "keyboard_inset": 391, "deviation": -62.25},
+        **overrides.pop("layout", {}),
+    }
+    return {
+        "kind": "layout",
+        "message": "composer_gap: overlap",
+        "path": "#/chat/abc",
+        "app_version": "abc123",
+        "layout": layout,
+        **overrides,
+    }
+
+
+def _layout_checks(client: FlaskClient, headers: dict[str, str], user: User) -> list[Any]:
+    with patch.object(Config, "ADMIN_EMAILS", [user.email]):
+        data = client.get("/api/admin/overview", headers=headers).get_json()
+    checks: list[Any] = data["layout_checks"]
+    return checks
+
+
+class TestLayoutReport:
+    """Layout checks (web/src/core/layout-checks.ts) ride the same endpoint."""
+
+    def test_is_counted_per_build_and_listed_apart_from_errors(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        for _ in range(2):
+            assert client.post(URL, json=_layout_report(), headers=auth_headers).status_code == 204
+        # The next build is a separate row: did it regress or not?
+        client.post(URL, json=_layout_report(app_version="def456"), headers=auth_headers)
+        with patch.object(Config, "ADMIN_EMAILS", [test_user.email]):
+            data = client.get("/api/admin/overview", headers=auth_headers).get_json()
+        assert data["browser_errors"] == []
+        checks = {c["app_version"]: c for c in data["layout_checks"]}
+        assert set(checks) == {"abc123", "def456"}
+        check = checks["abc123"]
+        assert (check["invariant"], check["shape"], check["build_marker"]) == (
+            "composer_gap",
+            "overlap",
+            "kb19",
+        )
+        assert (check["count"], check["users"], check["standalone_count"]) == (2, 1, 2)
+        assert check["ios_version"] == "26.0"
+        assert check["measurements"] == {
+            "vv_height": 471,
+            "keyboard_inset": 391,
+            "deviation": -62.2,
+        }
+
+    def test_tab_and_home_screen_app_count_apart(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        client.post(URL, json=_layout_report(), headers=auth_headers)
+        client.post(URL, json=_layout_report(layout={"standalone": False}), headers=auth_headers)
+        [check] = _layout_checks(client, auth_headers, test_user)
+        assert (check["count"], check["standalone_count"]) == (2, 1)
+
+    def test_needs_its_detail_and_only_layout_has_one(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        missing = _layout_report()
+        del missing["layout"]
+        assert client.post(URL, json=missing, headers=auth_headers).status_code == 400
+        stray = _report(layout=_layout_report()["layout"])
+        assert client.post(URL, json=stray, headers=auth_headers).status_code == 400
+
+    def test_rejects_an_unknown_invariant_and_free_text(
+        self, client: FlaskClient, auth_headers: dict[str, str]
+    ) -> None:
+        unknown = _layout_report(layout={"invariant": "vibes"})
+        assert client.post(URL, json=unknown, headers=auth_headers).status_code == 400
+        # Names and numbers only: a measurement name is a token, not text
+        text = _layout_report(layout={"measurements": {"what the user typed": 1}})
+        assert client.post(URL, json=text, headers=auth_headers).status_code == 400
+        many = _layout_report(layout={"measurements": {f"m{i}": i for i in range(17)}})
+        assert client.post(URL, json=many, headers=auth_headers).status_code == 400

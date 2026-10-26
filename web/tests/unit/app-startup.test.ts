@@ -107,6 +107,7 @@ vi.mock('@/core/keyboard-viewport', () => ({
   initKeyboardViewportPinning: h.rec('initKeyboardViewportPinning'),
   initKbDebugToggle: h.rec('initKbDebugToggle'),
 }));
+vi.mock('@/core/layout-checks', () => ({ initLayoutChecks: h.rec('initLayoutChecks') }));
 vi.mock('@/core/composer-height', () => ({ initComposerHeight: h.rec('initComposerHeight') }));
 vi.mock('@/core/quick-actions', () => ({ initQuickActions: h.rec('initQuickActions') }));
 vi.mock('@/core/attention', () => ({ initAttention: h.rec('initAttention') }));
@@ -299,6 +300,7 @@ const COMPONENT_STEPS = [
   'initComposerHeight',
   'initQuickActions',
   'initKbDebugToggle',
+  'initLayoutChecks',
   'initAttention',
   'initConnectivity',
   'initVersionBanner',

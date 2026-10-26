@@ -11,6 +11,24 @@ function at<T>(items: ArrayLike<T>, i: number): T {
 
 const money = (usd: number) => ({ usd, formatted: `${(usd * 23).toFixed(2)} Kč` });
 
+type LayoutCheck = AdminOverview['layout_checks'][number];
+
+function layoutCheck(overrides: Partial<LayoutCheck> = {}): LayoutCheck {
+  return {
+    app_version: 'abc123',
+    build_marker: 'kb20',
+    invariant: 'composer_gap',
+    shape: 'overlap',
+    count: 1,
+    users: 1,
+    standalone_count: 1,
+    last_seen: '2026-10-25T13:10:00',
+    ios_version: '26.0',
+    measurements: { vv_height: 471, keyboard_inset: 391, deviation: -24 },
+    ...overrides,
+  };
+}
+
 function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
   return {
     generated_at: '2026-10-25T15:00:00',
@@ -65,6 +83,11 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
         users: 2,
         last_seen: '2026-10-25T14:02:00',
       },
+    ],
+    layout_checks: [
+      layoutCheck({ app_version: 'abc123', build_marker: 'kb20', count: 4, standalone_count: 3 }),
+      layoutCheck({ app_version: 'abc123', build_marker: 'kb20', invariant: 'stranded_pan', shape: 'keyboard-open', count: 1, standalone_count: 1 }),
+      layoutCheck({ app_version: 'old999', build_marker: 'kb19', count: 9, users: 2, standalone_count: 0 }),
     ],
     ...overrides,
   };
@@ -137,6 +160,37 @@ describe('renderAdminOverview', () => {
   it('says when the browser reported no errors', () => {
     const page = render(overview({ browser_errors: [] }));
     expect(page.textContent).toContain('No browser errors in the last 7 days');
+  });
+
+  it('groups layout checks by build, the deployed one first and marked', () => {
+    const builds = [...render(overview()).querySelectorAll('.admin-layout-build')];
+    expect(builds.map((b) => b.querySelector('h3 span')?.textContent)).toEqual(['abc123 · kb20', 'old999 · kb19']);
+    expect(at(builds, 0).querySelector('.admin-layout-current')?.textContent).toBe('Deployed');
+    expect(at(builds, 1).querySelector('.admin-layout-current')).toBeNull();
+    expect(at(builds, 0).querySelector('.admin-layout-total')?.textContent).toBe('5×');
+    expect(at(builds, 0).querySelectorAll('li')).toHaveLength(2);
+  });
+
+  it('says what failed, how often, where and the latest numbers', () => {
+    const [deployed, old] = [...render(overview()).querySelectorAll('.admin-layout-checks li')].filter(
+      (li) => li.getAttribute('data-invariant') === 'composer_gap'
+    );
+    expect(deployed?.textContent).toContain('Composer off the keyboard');
+    expect(deployed?.textContent).toContain('covered by it');
+    expect(deployed?.textContent).toContain('4×');
+    expect(deployed?.textContent).toContain('3 in the app, 1 in a tab');
+    expect(deployed?.textContent).toContain('iOS 26.0');
+    expect(deployed?.querySelector('details pre')?.textContent).toContain('keyboard_inset 391');
+    expect(old?.textContent).toContain('2 people');
+    expect(old?.textContent).toContain('browser tab');
+  });
+
+  it('escapes an unknown check and says when none failed', () => {
+    const unknown = render(overview({ layout_checks: [layoutCheck({ invariant: '<i>new</i>', shape: '<b>x</b>' })] }));
+    expect(unknown.querySelector('.admin-layout-checks i, .admin-layout-checks b')).toBeNull();
+    expect(unknown.querySelector('.admin-layout-name')?.textContent).toBe('<i>new</i>');
+    const none = render(overview({ layout_checks: [] }));
+    expect(none.textContent).toContain('No layout check failed in the last 7 days');
   });
 
   it('shows response quality and system facts readably', () => {

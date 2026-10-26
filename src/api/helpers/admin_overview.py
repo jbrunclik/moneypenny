@@ -3,6 +3,7 @@
 Names and numbers only: no conversation titles or content ever leave here.
 """
 
+import json
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -18,6 +19,7 @@ from src.services.search_provider import degraded_today, quota_status
 SPEND_CHART_DAYS = 30
 RECENT_WINDOW = timedelta(days=7)
 BROWSER_ERRORS_SHOWN = 15
+LAYOUT_CHECKS_SHOWN = 40
 STACK_FRAMES_SHOWN = 6  # the message line and five frames
 RECENT_FAILURES_SHOWN = 5
 # scripts/backup_databases.py writes backups/<database file name>/
@@ -144,6 +146,22 @@ def _browser_errors(now: datetime) -> list[dict[str, Any]]:
     return errors
 
 
+def _layout_checks(now: datetime) -> list[dict[str, object]]:
+    """Each build's failed checks, with the latest report's iOS version and numbers."""
+    checks: list[dict[str, object]] = []
+    for row in db.top_layout_checks(now - RECENT_WINDOW, limit=LAYOUT_CHECKS_SHOWN):
+        detail = json.loads(row["detail"])
+        check = {key: value for key, value in row.items() if key != "detail"}
+        checks.append(
+            {
+                **check,
+                "ios_version": detail.get("ios_version"),
+                "measurements": detail.get("measurements", {}),
+            }
+        )
+    return checks
+
+
 def build_overview(now: datetime | None = None) -> dict[str, Any]:
     """The whole admin page payload. `now` is a test seam."""
     now = now or datetime.now()
@@ -156,6 +174,7 @@ def build_overview(now: datetime | None = None) -> dict[str, Any]:
         "quality": _quality(now),
         "system": _system(),
         "browser_errors": _browser_errors(now),
+        "layout_checks": _layout_checks(now),
     }
 
 

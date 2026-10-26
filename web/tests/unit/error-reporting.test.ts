@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clientErrors } from '@/api/client-errors';
 import { getToken } from '@/api/http';
-import { initErrorReporting, stopErrorReporting } from '@/core/error-reporting';
+import { initErrorReporting, reportLayoutCheck, stopErrorReporting } from '@/core/error-reporting';
 import { ERROR_REPORTS_PER_PAGE_MAX } from '@/config';
 import { createLogger } from '@/utils/logger';
 
@@ -89,6 +89,28 @@ describe('error reporting', () => {
     throwUncaught('first');
     await Promise.resolve();
     await Promise.resolve();
+    expect(report).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a layout check as kind layout, with the route and build', () => {
+    const layout = {
+      invariant: 'stranded_pan' as const,
+      shape: 'keyboard-open',
+      build_marker: 'kb20',
+      standalone: true,
+      ios_version: '26.0',
+      measurements: { scroll_y: 291 },
+    };
+    expect(reportLayoutCheck(layout)).toBe(true);
+    expect(report).toHaveBeenCalledWith({
+      kind: 'layout',
+      message: 'stranded_pan: keyboard-open',
+      path: '#/chat/abc',
+      app_version: '1.2.3',
+      layout,
+    });
+    vi.mocked(getToken).mockReturnValue(null);
+    expect(reportLayoutCheck(layout)).toBe(false);
     expect(report).toHaveBeenCalledTimes(1);
   });
 });
