@@ -14,6 +14,7 @@ from typing import Any
 from src.agent.prompts import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
 from src.services.planner.dates import day_name, parse_date, parse_datetime
+from src.services.planner.google_calendar import format_event
 from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
@@ -21,9 +22,6 @@ from src.services.planner.models import (
     PlannerTask,
 )
 from src.services.planner.todoist import format_task
-from src.services.planner_data import (
-    _format_event_for_dashboard,
-)
 
 
 class TestShouldResetPlanner:
@@ -240,7 +238,7 @@ class TestFormatTaskForDashboard:
 
 
 class TestFormatEventForDashboard:
-    """Tests for _format_event_for_dashboard helper function."""
+    """Tests for the format_event helper."""
 
     def test_timed_event(self) -> None:
         """Test formatting a timed event."""
@@ -252,7 +250,7 @@ class TestFormatEventForDashboard:
             "end": {"dateTime": "2024-12-25T11:00:00"},
             "location": "Conference Room A",
         }
-        result = _format_event_for_dashboard(event_data)
+        result = format_event(event_data)
         assert result.id == "event-123"
         assert result.summary == "Team Meeting"
         assert result.start == "2024-12-25T10:00:00"
@@ -267,7 +265,7 @@ class TestFormatEventForDashboard:
             "start": {"date": "2024-12-25"},
             "end": {"date": "2024-12-26"},
         }
-        result = _format_event_for_dashboard(event_data)
+        result = format_event(event_data)
         assert result.id == "event-456"
         assert result.summary == "Holiday"
         assert result.start_date == "2024-12-25"
@@ -285,7 +283,7 @@ class TestFormatEventForDashboard:
                 {"email": "bob@example.com", "responseStatus": "tentative"},
             ],
         }
-        result = _format_event_for_dashboard(event_data)
+        result = format_event(event_data)
         assert len(result.attendees) == 2
         assert result.attendees[0]["email"] == "alice@example.com"
 
