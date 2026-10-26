@@ -676,7 +676,7 @@ body.has-quick-actions .message-save-quick-action-btn {
 .qa-detail-done {
     background: var(--accent);
     border-color: transparent;
-    color: #fff;
+    color: var(--color-user-text);
 }
 .qa-detail-done:hover {
     background: var(--accent-hover);

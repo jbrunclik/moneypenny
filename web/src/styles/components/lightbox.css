@@ -39,7 +39,7 @@
     gap: var(--space-3);
     padding: calc(var(--space-3) + env(safe-area-inset-top, 0)) var(--space-4) var(--space-6);
     background: linear-gradient(rgba(0, 0, 0, 0.55), transparent);
-    z-index: 301;
+    z-index: calc(var(--z-lightbox) + 1);
 }
 
 .lightbox-meta {
@@ -122,7 +122,7 @@
     transition:
         background-color var(--transition-fast),
         opacity var(--transition-fast);
-    z-index: 301;
+    z-index: calc(var(--z-lightbox) + 1);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }

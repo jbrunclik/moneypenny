@@ -38,7 +38,7 @@
 
 /* Highlight unanswered question when user tries to submit */
 .quiz-block.quiz-incomplete {
-    border-color: var(--color-error-500, #ef4444);
+    border-color: var(--color-error-500);
     animation: quiz-shake 0.3s ease-in-out;
 }
 

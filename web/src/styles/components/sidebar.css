@@ -980,7 +980,7 @@
 .conversation-item-wrapper.selected .conversation-select {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--color-user-text);
 }
 
 .conversation-select svg {

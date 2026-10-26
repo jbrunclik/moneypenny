@@ -364,7 +364,7 @@
     position: absolute;
     top: calc(100% + var(--space-2));
     left: 0;
-    z-index: 50;
+    z-index: var(--z-dropdown);
     padding: var(--space-3);
     background: var(--bg-secondary);
     border: 1px solid var(--border);

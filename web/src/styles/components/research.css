@@ -190,7 +190,7 @@
     border: 0;
     border-radius: var(--radius-full);
     background: var(--accent);
-    color: #fff;
+    color: var(--color-user-text);
     font: inherit;
     font-weight: 600;
     cursor: pointer;

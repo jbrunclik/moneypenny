@@ -596,7 +596,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    color: var(--error, #ef4444);
+    color: var(--error);
 }
 
 .send-status-label svg {
