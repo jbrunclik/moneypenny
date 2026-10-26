@@ -333,7 +333,45 @@ def get_dynamic_prompt_parts(
     return "\n\n".join(parts)
 
 
-def get_system_prompt(  # noqa: C901
+def _tools_prompt(anonymous_mode: bool) -> str:
+    """The tools documentation for the tools this deployment and mode offer."""
+    # Always include base tools documentation
+    prompt = TOOLS_SYSTEM_PROMPT_BASE
+    prompt += skills_index_prompt()
+    # Include places/routing docs only when the Mapy.com key is configured
+    if is_mapy_configured():
+        prompt += TOOLS_SYSTEM_PROMPT_PLACES
+    # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode
+    if not anonymous_mode:
+        prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
+    # Always include context and citation section
+    return prompt + TOOLS_SYSTEM_PROMPT_CONTEXT
+
+
+def _program_prompts(
+    sports_context: dict[str, Any] | None, language_context: dict[str, Any] | None
+) -> str:
+    """The sports trainer and language tutor prompts for the active program mode."""
+    prompt = ""
+    # Add sports trainer prompt if in sports mode
+    if sports_context:
+        prompt += SPORTS_TRAINER_SYSTEM_PROMPT.format(
+            program_name=sports_context.get("program_name", "Training"),
+            program_id=sports_context.get("program_id", "program"),
+            kv_data_section=format_sports_kv_data(sports_context),
+        )
+
+    # Add language tutor prompt if in language mode
+    if language_context:
+        prompt += LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
+            program_name=language_context.get("program_name", "Language"),
+            program_id=language_context.get("program_id", "program"),
+            kv_data_section=format_language_kv_data(language_context),
+        )
+    return prompt
+
+
+def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,
     user_name: str | None = None,
@@ -386,17 +424,7 @@ def get_system_prompt(  # noqa: C901
         prompt += title_context
 
     if with_tools and get_available_tools():
-        # Always include base tools documentation
-        prompt += TOOLS_SYSTEM_PROMPT_BASE
-        prompt += skills_index_prompt()
-        # Include places/routing docs only when the Mapy.com key is configured
-        if is_mapy_configured():
-            prompt += TOOLS_SYSTEM_PROMPT_PLACES
-        # Include productivity tools (Todoist, Calendar) docs only when NOT in anonymous mode
-        if not anonymous_mode:
-            prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
-        # Always include context and citation section
-        prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
+        prompt += _tools_prompt(anonymous_mode)
 
     # Add planner-specific prompt if in planning mode
     if is_planning:
@@ -410,21 +438,9 @@ def get_system_prompt(  # noqa: C901
         if active_dashboard:
             prompt += get_dashboard_context_prompt(active_dashboard)
 
-    # Add sports trainer prompt if in sports mode
-    if is_sports and sports_context:
-        prompt += SPORTS_TRAINER_SYSTEM_PROMPT.format(
-            program_name=sports_context.get("program_name", "Training"),
-            program_id=sports_context.get("program_id", "program"),
-            kv_data_section=format_sports_kv_data(sports_context),
-        )
-
-    # Add language tutor prompt if in language mode
-    if is_language and language_context:
-        prompt += LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
-            program_name=language_context.get("program_name", "Language"),
-            program_id=language_context.get("program_id", "program"),
-            kv_data_section=format_language_kv_data(language_context),
-        )
+    prompt += _program_prompts(
+        sports_context if is_sports else None, language_context if is_language else None
+    )
 
     # Add autonomous agent prompt if running as an agent
     if is_autonomous and agent_context:

@@ -20,7 +20,20 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:  # noqa: C901
+def _text_part(part: Any) -> str | None:
+    """The text of one list part, or None for metadata parts ('extras', 'signature', ...)."""
+    if isinstance(part, str):
+        return part
+    if not isinstance(part, dict):
+        return None
+    if part.get("type") == "text":
+        return str(part.get("text", ""))
+    if "text" in part and "type" not in part:
+        return str(part["text"])
+    return None
+
+
+def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:
     """Extract text from message content, handling various formats from Gemini."""
     if isinstance(content, str):
         return content
@@ -37,23 +50,36 @@ def extract_text_content(content: str | list[Any] | dict[str, Any]) -> str:  # n
 
     # Handle list format from Gemini (e.g., [{'type': 'text', 'text': '...'}])
     if isinstance(content, list):
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict):
-                # Extract text from dict, skip 'extras' and other metadata
-                if part.get("type") == "text":
-                    text_parts.append(str(part.get("text", "")))
-                elif "text" in part and "type" not in part:
-                    text_parts.append(str(part["text"]))
-                # Skip parts with 'extras', 'signature', etc.
-            elif isinstance(part, str):
-                text_parts.append(part)
-        return "".join(text_parts)
+        return "".join(text for part in content if (text := _text_part(part)) is not None)
 
     return str(content)
 
 
-def extract_thinking_and_text(  # noqa: C901, PLR0912
+def _thinking_part(part: dict[str, Any]) -> str | None:
+    """The thinking text of a part, or None when the part is not a thought."""
+    # Old format: {'thought': true, 'text': '...'}
+    if part.get("thought"):
+        return str(part.get("text", ""))
+    # Gemini format: {'type': 'thinking', 'thinking': '...'}
+    if part.get("type") == "thinking":
+        return str(part.get("thinking", ""))
+    return None
+
+
+def _split_thinking_parts(content: list[Any]) -> tuple[str | None, str]:
+    """Separate thought parts from regular text parts of list content."""
+    thinking_parts = []
+    text_parts = []
+    for part in content:
+        thinking = _thinking_part(part) if isinstance(part, dict) else None
+        if thinking is not None:
+            thinking_parts.append(thinking)
+        elif (text := _text_part(part)) is not None:
+            text_parts.append(text)
+    return ("".join(thinking_parts) if thinking_parts else None), "".join(text_parts)
+
+
+def extract_thinking_and_text(
     content: str | list[Any] | dict[str, Any],
 ) -> tuple[str | None, str]:
     """Extract thinking content and regular text from message content.
@@ -73,12 +99,9 @@ def extract_thinking_and_text(  # noqa: C901, PLR0912
 
     # Handle dict format
     if isinstance(content, dict):
-        # Check if this is a thought part (old format: {'thought': true, 'text': '...'})
-        if content.get("thought"):
-            return str(content.get("text", "")), ""
-        # Check for thinking content (Gemini format: {'type': 'thinking', 'thinking': '...'})
-        if content.get("type") == "thinking":
-            return str(content.get("thinking", "")), ""
+        thinking = _thinking_part(content)
+        if thinking is not None:
+            return thinking, ""
         if content.get("type") == "text":
             return None, str(content.get("text", ""))
         if "text" in content:
@@ -87,27 +110,7 @@ def extract_thinking_and_text(  # noqa: C901, PLR0912
 
     # Handle list format - separate thought parts from regular text parts
     if isinstance(content, list):
-        thinking_parts = []
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict):
-                # Check for thought content (old format: {'thought': true, 'text': '...'})
-                if part.get("thought"):
-                    thinking_parts.append(str(part.get("text", "")))
-                # Check for thinking content (Gemini format: {'type': 'thinking', 'thinking': '...'})
-                elif part.get("type") == "thinking":
-                    thinking_parts.append(str(part.get("thinking", "")))
-                elif part.get("type") == "text":
-                    text_parts.append(str(part.get("text", "")))
-                elif "text" in part and "type" not in part:
-                    text_parts.append(str(part["text"]))
-                # Skip parts with 'extras', 'signature', etc.
-            elif isinstance(part, str):
-                text_parts.append(part)
-
-        thinking = "".join(thinking_parts) if thinking_parts else None
-        text = "".join(text_parts)
-        return thinking, text
+        return _split_thinking_parts(content)
 
     return None, str(content)
 

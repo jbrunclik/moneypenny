@@ -6,8 +6,85 @@ Split out of prompts.py (Sep 2026); prompts.py assembles the final prompts.
 import json
 from typing import Any
 
+# Health summary fields in output order; the numeric ones count when zero
+_HEALTH_FIELDS = (
+    "training_readiness",
+    "sleep",
+    "resting_hr",
+    "stress_avg",
+    "hrv_status",
+    "body_battery",
+    "steps_today",
+    "recent_activities",
+)
+_NUMERIC_HEALTH_FIELDS = frozenset({"resting_hr", "stress_avg", "body_battery", "steps_today"})
 
-def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:  # noqa: C901, PLR0912
+
+def _health_data(health: dict[str, Any]) -> dict[str, Any]:
+    """The Garmin health fields that carry a value."""
+    health_data: dict[str, Any] = {}
+    for key in _HEALTH_FIELDS:
+        value = health.get(key)
+        present = value is not None if key in _NUMERIC_HEALTH_FIELDS else bool(value)
+        if present:
+            health_data[key] = value
+    return health_data
+
+
+def _day_data(day: dict[str, Any]) -> dict[str, Any] | None:
+    """One day's events, tasks and weather, or None for a day with none of them."""
+    events = day.get("events", [])
+    tasks = day.get("tasks", [])
+    weather = day.get("weather")
+
+    # Skip days with no content at all
+    if not events and not tasks and not weather:
+        return None
+
+    day_data: dict[str, Any] = {
+        "day_name": day.get("day_name", "Unknown"),
+        "date": day.get("date", ""),
+        "events": [
+            {
+                "summary": event.get("summary", "(No title)"),
+                "start": event.get("start"),
+                "end": event.get("end"),
+                "start_date": event.get("start_date"),
+                "end_date": event.get("end_date"),
+                "is_all_day": event.get("is_all_day", False),
+                "location": event.get("location"),
+                "attendees": event.get("attendees", []),
+                "organizer": event.get("organizer"),
+                "calendar_id": event.get("calendar_id"),
+                "calendar_summary": event.get("calendar_summary"),
+            }
+            for event in events
+        ],
+        "tasks": [
+            {
+                "content": task.get("content", ""),
+                "priority": task.get("priority", 1),
+                "project_name": task.get("project_name"),
+                "section_name": task.get("section_name"),
+                "due_date": task.get("due_date"),
+                "is_recurring": task.get("is_recurring", False),
+                "labels": task.get("labels", []),
+            }
+            for task in tasks
+        ],
+    }
+
+    if weather and isinstance(weather, dict):
+        day_data["weather"] = {
+            "high_c": weather.get("temperature_high"),
+            "low_c": weather.get("temperature_low"),
+            "precipitation_mm": weather.get("precipitation", 0),
+            "summary": weather.get("summary", ""),
+        }
+    return day_data
+
+
+def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:
     """Format dashboard data for injection into the planner system prompt.
 
     Uses JSON format for better structure and semantic clarity for the LLM.
@@ -49,78 +126,15 @@ def get_dashboard_context_prompt(dashboard: dict[str, Any]) -> str:  # noqa: C90
     # Add health summary if Garmin is connected
     health = dashboard.get("health_summary")
     if health and isinstance(health, dict):
-        health_data: dict[str, Any] = {}
-        if health.get("training_readiness"):
-            health_data["training_readiness"] = health["training_readiness"]
-        if health.get("sleep"):
-            health_data["sleep"] = health["sleep"]
-        if health.get("resting_hr") is not None:
-            health_data["resting_hr"] = health["resting_hr"]
-        if health.get("stress_avg") is not None:
-            health_data["stress_avg"] = health["stress_avg"]
-        if health.get("hrv_status"):
-            health_data["hrv_status"] = health["hrv_status"]
-        if health.get("body_battery") is not None:
-            health_data["body_battery"] = health["body_battery"]
-        if health.get("steps_today") is not None:
-            health_data["steps_today"] = health["steps_today"]
-        if health.get("recent_activities"):
-            health_data["recent_activities"] = health["recent_activities"]
+        health_data = _health_data(health)
         if health_data:
             schedule_data["health_summary"] = health_data
 
     # Process days
     for day in dashboard.get("days", []):
-        events = day.get("events", [])
-        tasks = day.get("tasks", [])
-        weather = day.get("weather")
-
-        # Skip days with no content at all
-        if not events and not tasks and not weather:
-            continue
-
-        day_data: dict[str, Any] = {
-            "day_name": day.get("day_name", "Unknown"),
-            "date": day.get("date", ""),
-            "events": [
-                {
-                    "summary": event.get("summary", "(No title)"),
-                    "start": event.get("start"),
-                    "end": event.get("end"),
-                    "start_date": event.get("start_date"),
-                    "end_date": event.get("end_date"),
-                    "is_all_day": event.get("is_all_day", False),
-                    "location": event.get("location"),
-                    "attendees": event.get("attendees", []),
-                    "organizer": event.get("organizer"),
-                    "calendar_id": event.get("calendar_id"),
-                    "calendar_summary": event.get("calendar_summary"),
-                }
-                for event in events
-            ],
-            "tasks": [
-                {
-                    "content": task.get("content", ""),
-                    "priority": task.get("priority", 1),
-                    "project_name": task.get("project_name"),
-                    "section_name": task.get("section_name"),
-                    "due_date": task.get("due_date"),
-                    "is_recurring": task.get("is_recurring", False),
-                    "labels": task.get("labels", []),
-                }
-                for task in tasks
-            ],
-        }
-
-        if weather and isinstance(weather, dict):
-            day_data["weather"] = {
-                "high_c": weather.get("temperature_high"),
-                "low_c": weather.get("temperature_low"),
-                "precipitation_mm": weather.get("precipitation", 0),
-                "summary": weather.get("summary", ""),
-            }
-
-        schedule_data["days"].append(day_data)
+        day_data = _day_data(day)
+        if day_data is not None:
+            schedule_data["days"].append(day_data)
 
     # Format as JSON with explanation (ensure_ascii=False: Czech event titles
     # must reach the model as real characters, not \uXXXX escapes)

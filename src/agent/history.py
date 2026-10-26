@@ -269,7 +269,68 @@ def format_tool_summary(
     return ", ".join(parts) if parts else None
 
 
-def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:  # noqa: C901, PLR0912
+def _add_tool_usage(metadata: MessageMetadata, msg: Message) -> None:
+    """Add which tools an assistant message used, a summary and the pages it read."""
+    tools_used = infer_tools_used(msg.sources, msg.generated_images)
+    if tools_used:
+        metadata["tools_used"] = tools_used
+
+    tool_summary = format_tool_summary(msg.sources, msg.generated_images)
+    if tool_summary:
+        metadata["tool_summary"] = tool_summary
+
+    tool_digest = format_tool_digest(msg.sources)
+    if tool_digest:
+        metadata["tool_digest"] = tool_digest
+
+
+def _add_answer_context(metadata: MessageMetadata, msg: Message) -> None:
+    """Add an assistant message's artifacts, research round and grounding."""
+    if msg.artifacts:
+        metadata["artifacts"] = "; ".join(
+            f"{a['id']} v{a['version']} '{a['title']}'" for a in msg.artifacts
+        )
+
+    run = (msg.research or {}).get("run")
+    if run:
+        items = "; ".join(run.get("sub_questions") or [])
+        metadata["research"] = f"deep research round {run.get('round', 1)}: {items}"
+
+    grounding = format_grounding_context(msg.annotations)
+    if grounding:
+        metadata["grounding"] = grounding
+    # For the grounding check only (not serialized into MSG_CONTEXT)
+    verified = verified_claims(msg.annotations, msg.sources)
+    if verified:
+        metadata["verified_claims"] = verified
+
+
+def _add_tool_outputs(metadata: MessageMetadata, msg: Message) -> None:
+    """Add an assistant message's tool outputs, counting their tools as used."""
+    tool_outputs = format_tool_outputs(msg.tool_outputs)
+    if not tool_outputs:
+        return
+    metadata["tool_outputs"] = tool_outputs
+    used = list(metadata.get("tools_used") or [])
+    for output in msg.tool_outputs or []:
+        if output["tool"] != "…" and output["tool"] not in used:
+            used.append(output["tool"])
+    metadata["tools_used"] = used
+
+
+def _add_role_metadata(metadata: MessageMetadata, msg: Message) -> None:
+    """Add the metadata specific to the message's role."""
+    if msg.role.value == "user":
+        files = format_file_metadata(msg)
+        if files:
+            metadata["files"] = files
+    elif msg.role.value == "assistant":
+        _add_tool_usage(metadata, msg)
+        _add_answer_context(metadata, msg)
+        _add_tool_outputs(metadata, msg)
+
+
+def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
     """Enrich conversation history with temporal context and metadata.
 
     Args:
@@ -302,50 +363,7 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:  # noqa: C9
             if gap is not None:
                 metadata["session_gap"] = format_session_gap(gap)
 
-        # Add role-specific metadata
-        if msg.role.value == "user":
-            files = format_file_metadata(msg)
-            if files:
-                metadata["files"] = files
-        elif msg.role.value == "assistant":
-            tools_used = infer_tools_used(msg.sources, msg.generated_images)
-            if tools_used:
-                metadata["tools_used"] = tools_used
-
-            tool_summary = format_tool_summary(msg.sources, msg.generated_images)
-            if tool_summary:
-                metadata["tool_summary"] = tool_summary
-
-            tool_digest = format_tool_digest(msg.sources)
-            if tool_digest:
-                metadata["tool_digest"] = tool_digest
-
-            if msg.artifacts:
-                metadata["artifacts"] = "; ".join(
-                    f"{a['id']} v{a['version']} '{a['title']}'" for a in msg.artifacts
-                )
-
-            run = (msg.research or {}).get("run")
-            if run:
-                items = "; ".join(run.get("sub_questions") or [])
-                metadata["research"] = f"deep research round {run.get('round', 1)}: {items}"
-
-            grounding = format_grounding_context(msg.annotations)
-            if grounding:
-                metadata["grounding"] = grounding
-            # For the grounding check only (not serialized into MSG_CONTEXT)
-            verified = verified_claims(msg.annotations, msg.sources)
-            if verified:
-                metadata["verified_claims"] = verified
-
-            tool_outputs = format_tool_outputs(msg.tool_outputs)
-            if tool_outputs:
-                metadata["tool_outputs"] = tool_outputs
-                used = list(metadata.get("tools_used") or [])
-                for output in msg.tool_outputs or []:
-                    if output["tool"] != "…" and output["tool"] not in used:
-                        used.append(output["tool"])
-                metadata["tools_used"] = used
+        _add_role_metadata(metadata, msg)
 
         enriched.append(
             {

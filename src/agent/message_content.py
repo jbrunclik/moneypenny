@@ -91,7 +91,44 @@ def build_message_content(
     return blocks if blocks else text
 
 
-def format_message_with_metadata(msg: dict[str, Any]) -> str:  # noqa: C901
+# Assistant-message fields copied into MSG_CONTEXT as is, in this order
+_ASSISTANT_CONTEXT_KEYS = (
+    # Tool usage
+    "tools_used",
+    "tool_summary",
+    # Which exact sources the turn read (title + URL) - lets follow-ups
+    # like "what did that article say?" re-fetch precisely instead of
+    # re-running searches. Derived from persisted sources, so the
+    # serialized bytes are stable across turns (prefix-cache safe).
+    "tool_digest",
+    # Head of each non-web tool result from that turn (Garmin, Todoist,
+    # kv_store, code...) - raw ToolMessages are gone by the next turn, so
+    # this is what lets "what was my HRV again?" skip re-calling the tool
+    "tool_outputs",
+    # Claims of that answer the grounding check found unsourced or
+    # contradicted - a follow-up must not restate them as fact
+    "grounding",
+    # The reply is a deep-research report: follow-ups can use it as is
+    "research",
+    # Artifacts under this reply: update_artifact / read_artifact take these ids
+    "artifacts",
+)
+
+
+def _compact_files(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """User-message files in the compact form tools address them by."""
+    return [
+        {
+            "name": f["name"],
+            "type": f["type"],
+            "id": f"{f['message_id']}:{f['file_index']}",
+            **({"expired": True} if f.get("expired") else {}),
+        }
+        for f in files
+    ]
+
+
+def format_message_with_metadata(msg: dict[str, Any]) -> str:
     """Format message content with metadata context for LLM.
 
     Enriches message content with temporal context, file references,
@@ -111,53 +148,20 @@ def format_message_with_metadata(msg: dict[str, Any]) -> str:  # noqa: C901
     # Build compact metadata dict with only present fields
     meta_dict: dict[str, Any] = {}
 
-    # Session gap indicator (if present)
-    if metadata.get("session_gap"):
-        meta_dict["session_gap"] = metadata["session_gap"]
-
-    # Timestamps (absolute only — a recomputed relative time would change
-    # the serialized bytes every turn and defeat history prefix caching)
-    if metadata.get("timestamp"):
-        meta_dict["timestamp"] = metadata["timestamp"]
+    # Session gap indicator, then the timestamp (absolute only — a recomputed
+    # relative time would change the serialized bytes every turn and defeat
+    # history prefix caching)
+    for key in ("session_gap", "timestamp"):
+        if metadata.get(key):
+            meta_dict[key] = metadata[key]
 
     # Files (for user messages) - compact format for direct tool access
     if metadata.get("files"):
-        meta_dict["files"] = [
-            {
-                "name": f["name"],
-                "type": f["type"],
-                "id": f"{f['message_id']}:{f['file_index']}",
-                **({"expired": True} if f.get("expired") else {}),
-            }
-            for f in metadata["files"]
-        ]
+        meta_dict["files"] = _compact_files(metadata["files"])
 
-    # Tool usage (for assistant messages)
-    if metadata.get("tools_used"):
-        meta_dict["tools_used"] = metadata["tools_used"]
-    if metadata.get("tool_summary"):
-        meta_dict["tool_summary"] = metadata["tool_summary"]
-    # Which exact sources the turn read (title + URL) - lets follow-ups
-    # like "what did that article say?" re-fetch precisely instead of
-    # re-running searches. Derived from persisted sources, so the
-    # serialized bytes are stable across turns (prefix-cache safe).
-    if metadata.get("tool_digest"):
-        meta_dict["tool_digest"] = metadata["tool_digest"]
-    # Head of each non-web tool result from that turn (Garmin, Todoist,
-    # kv_store, code...) - raw ToolMessages are gone by the next turn, so
-    # this is what lets "what was my HRV again?" skip re-calling the tool
-    if metadata.get("tool_outputs"):
-        meta_dict["tool_outputs"] = metadata["tool_outputs"]
-    # Claims of that answer the grounding check found unsourced or
-    # contradicted - a follow-up must not restate them as fact
-    if metadata.get("grounding"):
-        meta_dict["grounding"] = metadata["grounding"]
-    # The reply is a deep-research report: follow-ups can use it as is
-    if metadata.get("research"):
-        meta_dict["research"] = metadata["research"]
-    # Artifacts under this reply: update_artifact / read_artifact take these ids
-    if metadata.get("artifacts"):
-        meta_dict["artifacts"] = metadata["artifacts"]
+    for key in _ASSISTANT_CONTEXT_KEYS:
+        if metadata.get(key):
+            meta_dict[key] = metadata[key]
 
     # Return with metadata block if we have any metadata
     # Use MSG_CONTEXT marker (distinct from response METADATA) to prevent echoing
