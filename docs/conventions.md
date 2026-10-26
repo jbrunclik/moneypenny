@@ -63,7 +63,7 @@ session and points here for the rest.
 | ID | Rule | Enforced by |
 |----|------|-------------|
 | B1 | Imports only point down the [layer order](#layers); `db` and `agent` never import `api`, `db` never imports `services`, `utils` imports no other layer | import-linter (`pyproject.toml`; no baseline) |
-| B2 | No importing another module's `_private` names - make it public or move it | planned: test |
+| B2 | No importing another module's `_private` names - make it public or move it | `tests/unit/test_private_imports.py` (`src/`; only APIFlask's `_annotate` baselined, Oct 26 2026); T7 for tests |
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | `tests/unit/test_route_input.py` |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined); `tests/unit/test_tool_errors.py` (no `"Error: ..."` tool results) |
@@ -113,7 +113,7 @@ Details: [testing.md](testing.md).
 | T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 72 and 285) |
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | planned: post-step over the Playwright report |
-| T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 92 imports) |
+| T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 66 imports, Oct 26 2026) |
 | T8 | A new route module or `core/*.ts` module ships with a test | planned: CI script |
 | T9 | Unit tests touch neither a database nor the Flask client; anything that does is an integration test | judgment |
 | T10 | E2E runs the last `make build`; rebuild after any frontend change ([rule](../.claude/rules/testing.md)) | judgment |
@@ -251,7 +251,7 @@ re-exports), and run lint and the full suite.
 ### Refactoring patterns
 Extract a helper when you see deep nesting, repeated logic, code that is hard
 to test alone, or a conditional that deserves a name.
-- **State encapsulation**: group related variables into a class/interface (e.g., `_StreamContext`, `StreamingState`)
+- **State encapsulation**: group related variables into a class/interface (e.g., `StreamContext`, `StreamingState`)
 - **Handler extraction**: move event handlers to separate named functions
 - **Parser helpers**: extract parsing/validation logic into reusable functions
 - **Choreography helpers**: extract complex async/callback sequences into named functions
