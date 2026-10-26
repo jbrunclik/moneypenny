@@ -30,6 +30,7 @@ not a routed view - so there is no `#/admin` link. Sections:
 | Browser errors | the 15 most frequent errors browsers reported in the last 7 days: message, how often, how many people, route, build, the first stack frames | `client_errors` (see below) |
 | Layout checks | failed iOS layout checks of the last 7 days, one block per build (app version and `[kbN]` marker, the deployed one marked): which check and which way, how often, how many people, home-screen app or tab, iOS version, last seen, the latest numbers | `client_errors` rows of kind `layout` (see below) |
 | System | deployed version, `chatbot.db` and `files.db` sizes, last backup, latest migration, users | files on disk, `_yoyo_migration` |
+| Device checks | the run button and the history of device check runs per build ([below](#device-checks)) | `device_check_runs` |
 
 **Privacy:** names and numbers only. The overview never carries conversation
 titles or content (an integration test checks it). Spend from purged
@@ -64,6 +65,41 @@ JSON (migration 0070) and the browser-errors list leaves these rows out
 What is checked and how to read the section:
 [mobile-and-pwa.md](../ui/mobile-and-pwa.md#layout-checks-field-telemetry).
 
+## Device checks
+
+The last section, added Oct 26 2026: **Run device checks** and the run
+history. The runner (how to use it on the iPhone, the scenarios and their
+tolerances: [mobile-and-pwa.md](../ui/mobile-and-pwa.md#device-check-runner))
+closes the page, runs scripted layout checks on this device, and Close
+brings the page back with the new run on top: "[kb19] 3/3 passed, 3 skipped
+· standalone · iOS 26.1 · today 14:32", expandable to every scenario's
+status, notes and measurements.
+
+- `POST /api/admin/device-check-runs` (201, the stored run with its passed /
+  failed - errors included - / skipped tallies) and
+  `GET /api/admin/device-check-runs?limit=` (newest first, default 20, max
+  100). Table `device_check_runs` (migration 0071): build marker, app
+  version, standalone, UA summary, environment and scenarios as JSON,
+  started/finished (client clock), created_at ("utc" legacy format). The
+  newest `DEVICE_CHECK_RUNS_KEPT` (200) are kept, pruned on insert. Every
+  admin sees every admin's runs.
+- `POST /api/admin/device-check-fixture` (201 `{conversation_id,
+  message_count}`) writes an archived conversation with 80 scripted messages
+  straight to the database - not through `add_message`, so no embedding -
+  after purging any earlier fixture; `DELETE` (204) purges them. Only ids
+  listed in `device_check_fixtures` are ever deleted, so a real
+  conversation can never match. Archived keeps it out of every list and
+  sync on other devices; nothing is pushed or sent to a model.
+- Code: `src/api/routes/admin_device_checks.py`,
+  `src/api/helpers/device_checks.py` (the fixture script, tallies),
+  `src/api/schemas/device_checks.py`, `src/db/models/device_checks.py`;
+  `web/src/core/device-checks/` (`runner.ts`, `scenarios.ts`, `measure.ts`,
+  `evaluate.ts`), `web/src/components/DeviceCheckRunner.ts` (the card),
+  `web/src/components/AdminDeviceChecks.ts` (the section),
+  `web/src/styles/components/device-checks.css`. The admin page gets the
+  runner from `core/events.ts` (`openAdminPage({ onRunDeviceChecks })`):
+  components don't import core.
+
 ## Code
 
 - Backend: `src/auth/admin.py` (`is_admin`, `require_admin`),
@@ -90,6 +126,15 @@ What is checked and how to read the section:
   out, no log context, no report loop); `web/tests/unit/layout-checks.test.ts`
   (each invariant, no report mid-animation, dedupe, rate limit, touch only).
 - `web/tests/component/admin-page.test.ts`, `spend-banner.test.ts`.
+- Device checks: `tests/integration/test_routes_admin_device_checks.py` (admin
+  only, validation, tallies, pruning, the fixture: archived, no embeddings,
+  purged for good, never a real conversation);
+  `web/tests/unit/device-check-evaluate.test.ts` (every verdict with fake
+  numbers), `device-check-runner.test.ts` (order, cleanup on Stop and
+  failure, back to the open chat), `web/tests/component/device-checks.test.ts`
+  (the card's tap runs inside the click; the history);
+  `web/tests/e2e/device-checks.spec.ts` (desktop and phone, keyboard steps
+  skipped).
 - `web/tests/e2e/admin.spec.ts` - the E2E server lists `local@localhost` in
   `ADMIN_EMAILS`; `/test/seed` accepts `cost_usd` on a message to seed spend.
 - `web/tests/visual/admin.visual.ts` (desktop and mobile, fixed JSON).

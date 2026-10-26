@@ -6,6 +6,7 @@ This document covers mobile-specific functionality, Progressive Web App (PWA) fe
 
 - [Touch Gestures](#touch-gestures)
 - [iOS Safari Gotchas](#ios-safari-gotchas)
+- [Device check runner](#device-check-runner)
 - [PWA Viewport Height Fix](#pwa-viewport-height-fix)
 - [Key Files](#key-files)
 - [Testing](#testing)
@@ -164,9 +165,9 @@ iOS Safari in PWA mode miscalculates the scroll position when the keyboard opens
   deduped, or the 300ms settle poller flushes the interesting
   transitions). Bump the `[kbN]` marker (`KEYBOARD_BUILD_MARKER` in
   `web/src/config.ts`) whenever iterating - it identifies which bundle a
-  user screenshot or a [layout check](#layout-checks-field-telemetry) report
-  is running, which resolved several "fix doesn't work" rounds that were
-  actually stale tabs.
+  user screenshot, a [layout check](#layout-checks-field-telemetry) report
+  or a [device check run](#device-check-runner) is running, which resolved
+  several "fix doesn't work" rounds that were actually stale tabs.
   Other modules log into it via `scrollDebug()` (utils/dom.ts; the overlay is its sink).
 - **Mind HTML cache staleness during mobile iteration**: the index page
   must send `Cache-Control: no-cache` (see docs/deployment.md) or Safari
@@ -372,6 +373,59 @@ function focusMessageInput() {
 - All `focusMessageInput()` calls are wrapped with `if (shouldAutoFocusInput())`
 - For iPad + hardware keyboard users: a global `keydown` listener focuses the input when the user starts typing anywhere (so they can type immediately without tapping)
 - This provides stable UX (no jumping) while preserving "type immediately" for hardware keyboard users
+
+## Device check runner
+
+Scripted layout checks that run inside the app, so they reach the installed
+standalone PWA, which no external automation can (Oct 26 2026). Results,
+with the measured numbers, go to the admin page's **Device checks** section
+per `[kbN]` build ([admin.md](../features/admin.md#device-checks)).
+
+**On the iPhone** (after every keyboard or scroll change, once per build):
+
+1. Deploy, then open the **installed** app (home screen icon - a Safari tab
+   measures the tab, also worth a run) and pull a fresh bundle: close and
+   reopen it; the kbdebug overlay (5 taps on the title) shows the `[kbN]`.
+2. User menu -> **Admin** -> **Device checks** -> **Run device checks**. The
+   admin page closes and a card sits over the top of the chat.
+3. The run opens a temporary conversation (80 scripted messages, archived so
+   no other device lists it, no model call) and checks itself. When the card
+   shows **Tap to open the keyboard**, tap it: iOS opens the keyboard only
+   from a real tap, so the button's own handler focuses the composer. Don't
+   touch the screen otherwise. Then **Tap to close the keyboard**.
+4. The summary reads e.g. "6/6 passed"; **Close** returns to the admin page,
+   where the run is listed ("[kb19] 6/6 passed - standalone - iOS 26.1 -
+   today 14:32"); expand it for every scenario's numbers.
+
+**Stop** ends a run without storing it. Either way the temporary
+conversation is deleted permanently and the chat that was open comes back;
+one left by a crashed run (app killed mid-run) is purged by the next run.
+
+| Scenario | Passes when |
+|---|---|
+| Environment | always (standalone, UA summary, inner / visual / true viewport heights, safe-area insets, `[kbN]`, app version) |
+| Long conversation opens at the bottom | distance to the bottom <= 2px, no window pan (scrollY, visualViewport.offsetTop <= 1px) |
+| Send-to-top anchors the turn | a local user message + the batch loader (`showLoadingIndicator`, which anchors like a real send; nothing is sent): the turn's top within 3px of `scroll-padding-top`, `isTurnAnchored()`, no pan |
+| Keyboard opens (tap) | after the settle: `--keyboard-inset` equals the [unified formula](#5-pwa-keyboard-scroll-miscalculation) within 2px; composer-to-keyboard gap (keyboard top = vvH + saT) equals the accessory allowance (50 standalone, 0 tab) within 6px; no pan; the anchored turn moved <= 4px |
+| Scroll-to-bottom button with the keyboard up | the button shows after scrolling to the top; its tap ends within 2px of the bottom; composer gap as above; no pan |
+| Keyboard closes (tap) | inset 0, `kb-open` gone, `#app` as tall as the true viewport and the composer flush with its bottom (1px), no pan |
+
+The tolerances are `DEVICE_CHECK_*` in `web/src/config.ts`. Without a
+software keyboard (desktop, Playwright) the keyboard steps are "skipped - no
+software keyboard" with no tap asked; on a touch device whose keyboard never
+appears (a hardware keyboard on an iPad) the later steps skip with "the
+keyboard did not open", while a keyboard that opened with a wrong inset fails.
+The UA summary reads iOS Safari's version from `Version/` (iOS 26 freezes
+the OS token at 18.6); the standalone PWA sends no `Version/`, so its run
+shows the frozen OS - the build marker and the `standalone` flag tell runs
+apart.
+
+**Adding a scenario:** an entry in `DEVICE_CHECK_SCENARIOS`
+(`web/src/core/device-checks/scenarios.ts`: drive the app's real code path,
+measure with `measure.ts`, judge with a pure function in `evaluate.ts` and
+unit-test it with fake numbers in `device-check-evaluate.test.ts`).
+`requires` marks the keyboard steps. `core/layout-checks.ts` (field
+telemetry) measures similar invariants; the two measurement modules can merge.
 
 ## PWA Viewport Height Fix
 
