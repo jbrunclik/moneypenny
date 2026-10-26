@@ -224,8 +224,9 @@ Why it still matters with capable models, which read large files fine:
 - **Edit precision**: edits match exact text; long files repeat more
   patterns, so edits land ambiguously or fail.
 - **Parallel sessions**: several agents work in one checkout. A file every
-  feature touches (`core/init.ts`) is a merge-conflict point at any size -
-  give each feature its own module and a one-line hook-up.
+  feature touches is a merge-conflict point at any size - give each feature
+  its own module and a one-line hook-up (as `core/init.ts` does with
+  `core/startup/`).
 
 ### When to split
 - A function exceeds the limits above.

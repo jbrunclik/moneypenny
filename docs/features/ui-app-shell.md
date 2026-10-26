@@ -45,7 +45,7 @@ The app supports hash-based routing (`#/conversations/{conversationId}`) for dee
 - [deeplink.ts](../../web/src/router/deeplink.ts) - Router functions
 
 **Integration:**
-- [init.ts](../../web/src/core/init.ts) - Deep linking initialization
+- [init.ts](../../web/src/core/init.ts) - Deep linking initialization; [startup/initial-route.ts](../../web/src/core/startup/initial-route.ts) - opening the initial route after sign-in
 - [conversation-deeplink.ts](../../web/src/core/conversation-deeplink.ts) - Deep linking handlers and navigation
 - [store.ts](../../web/src/state/store.ts) - `currentConversationId` persisted to localStorage
 

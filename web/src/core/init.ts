@@ -1,36 +1,39 @@
 /**
- * App initialization module.
- * Handles app shell rendering, login overlay, and initial data loading.
+ * App startup: the order the app's features start in.
+ *
+ * Each feature's startup lives in its own module (core/startup/*.ts, or the
+ * feature's own init function) and hooks in here with one line. Add a new
+ * feature as one line in the right place; the comments mark the steps whose
+ * order matters.
  */
 
-import { createLogger } from '../utils/logger';
-import { initToast } from '../components/Toast';
-import { initModal } from '../components/Modal';
-import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
-import { initComposerHeight } from './composer-height';
-import { initQuickActions } from './quick-actions';
-import { initErrorReporting } from './error-reporting';
-import { getElementById } from '../utils/dom';
-import { initializeTheme } from '../utils/theme';
-import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
-import { initDeepLinking } from '../router/deeplink';
-
-import { setupEventListeners } from './events';
 import { initSidebarSelection } from '../components/SidebarSelection';
-import { setupTouchGestures } from './gestures';
-import { initTTSVoices } from './tts';
-import { initToolbarButtons } from './toolbar';
-import { handleDeepLinkNavigation } from './conversation-deeplink';
-import { initAgents } from './agents';
+import { initModal } from '../components/Modal';
+import { initToast } from '../components/Toast';
+import { initDeepLinking } from '../router/deeplink';
 import { installAvatarFallback } from '../utils/avatar';
+import { getElementById } from '../utils/dom';
+import { createLogger } from '../utils/logger';
+import { initPopupEscapeListener } from '../utils/popupEscapeHandler';
+import { initializeTheme } from '../utils/theme';
+import { initAgents } from './agents';
+import { initComposerHeight } from './composer-height';
+import { handleDeepLinkNavigation } from './conversation-deeplink';
+import { initErrorReporting } from './error-reporting';
+import { setupEventListeners } from './events';
+import { setupTouchGestures } from './gestures';
+import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
+import { initQuickActions } from './quick-actions';
+import { initToolbarButtons } from './toolbar';
+import { initTTSVoices } from './tts';
 import { mountAppShell } from './startup/app-shell';
+import { initAppStatus } from './startup/app-status';
 import { initAuthEvents, startSession } from './startup/auth';
+import { initComposer } from './startup/composer';
 import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
-import { initComposer } from './startup/composer';
 import { initMessageUi } from './startup/message-ui';
 import { initSearch } from './startup/search';
-import { initAppStatus } from './startup/app-status';
 
 const log = createLogger('init');
 
@@ -74,11 +77,10 @@ export async function init(): Promise<void> {
   setupEventListeners();
   initSidebarSelection();
   setupTouchGestures();
-
-  // Initialize toolbar buttons
   initToolbarButtons();
 
-  // Initialize deep linking and capture initial route from URL
+  // Capture the initial route from the URL BEFORE the session starts: a
+  // signed-out start clears the conversation hash
   const initialRoute = initDeepLinking(handleDeepLinkNavigation);
 
   // After every init* above: signing in renders data into those components

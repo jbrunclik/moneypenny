@@ -2,7 +2,8 @@
  * Core module - main application logic.
  *
  * This module contains the core functionality split from main.ts into focused modules:
- * - init.ts: App initialization, login overlay, theme
+ * - init.ts: App startup order; startup/: per-feature startup (app shell,
+ *   sign-in, initial data and route, sync start, composer, message UI, search)
  * - conversation.ts: Conversation selection, temp IDs, switching, New Chat
  *   (conversation-switch.ts: rendering a switch; conversation-actions.ts:
  *   delete/rename/pin/auto-title; archive.ts:

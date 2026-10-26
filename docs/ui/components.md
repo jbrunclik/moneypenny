@@ -140,7 +140,7 @@ All popups use a centralized Escape key handler instead of individual document-l
 
 ### How It Works
 
-1. `initPopupEscapeListener()` is called once in init.ts during app initialization
+1. `initPopupEscapeListener()` is called once in `init()` (core/init.ts) during app initialization
 2. Each popup registers via `registerPopupEscapeHandler(popupId, closeCallback)`
 3. On Escape key, the handler finds the topmost visible popup and closes it
 4. Handlers are called in reverse registration order (most recent first)
@@ -261,15 +261,18 @@ Add import to [web/src/styles/main.css](../../web/src/styles/main.css):
 @import './components/my-component.css';
 ```
 
-### Step 4: Wire in init.ts
+### Step 4: Hook it into startup
 
-Initialize component in [web/src/core/init.ts](../../web/src/core/init.ts):
+Startup is a list of one-line hook-ups in `init()` ([web/src/core/init.ts](../../web/src/core/init.ts)); each feature's startup lives in its own module. Call your init from the [core/startup/](../../web/src/core/startup/) module of its feature (`composer.ts`, `message-ui.ts`, `message-scrolling.ts`, `search.ts`, `app-status.ts`, ...), or add one line to `init()` - or a new `core/startup/<feature>.ts` - when it needs several steps. Keep it after `mountAppShell()` (the shell holds its elements) and mind the order comments there:
 
 ```typescript
-import { initMyComponent } from '../components/MyComponent';
+// core/startup/message-ui.ts
+import { initMyComponent } from '../../components/MyComponent';
 
-// In init function
-const myComponent = initMyComponent();
+export function initMessageUi(): void {
+  // ...
+  initMyComponent();
+}
 ```
 
 ### Step 5: Add to HTML
@@ -363,7 +366,8 @@ themes.
 
 **Main:**
 - [web/src/main.ts](../../web/src/main.ts) - Entry point
-- [web/src/core/init.ts](../../web/src/core/init.ts) - App initialization
+- [web/src/core/init.ts](../../web/src/core/init.ts) - App startup order (one-line hook-ups)
+- [web/src/core/startup/](../../web/src/core/startup/) - Per-feature startup: app shell markup, sign-in, initial data and route, sync start, composer, message UI and scrolling, search, app status
 
 **Template:**
 - [src/templates/index.html](../../src/templates/index.html) - HTML shell

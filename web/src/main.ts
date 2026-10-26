@@ -2,7 +2,7 @@
  * Main entry point for the Moneypenny frontend.
  *
  * This file has been refactored into focused modules in web/src/core/:
- * - init.ts: App initialization, login overlay, theme
+ * - init.ts: App startup order; startup/: per-feature startup (shell, sign-in, data, sync)
  * - conversation.ts: Conversation CRUD, selection, temp IDs, switching
  * - messaging.ts: Message sending, streaming, batch mode, request management
  * - planner.ts: Planner navigation and management

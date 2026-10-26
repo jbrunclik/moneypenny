@@ -161,7 +161,7 @@ and stores the verdicts as annotations beside the unchanged text. Design:
   supported; a row scrolls to the claim and flashes it for `CLAIM_FLASH_MS`.
   Sources stay in the numbered sources popup. Styles in
   [grounding.css](../../web/src/styles/components/grounding.css) with tokens in
-  `variables.css`; both components are initialised in `core/init.ts`. The
+  `variables.css`; both components are initialised in `core/startup/message-ui.ts`. The
   footer lines under an answer (this footer, a deep research offer) keep equal
   ink gaps above and below each rule: body text carries about 7px of trailing
   leading, so `.grounding-footer` has a larger `padding-top` than
