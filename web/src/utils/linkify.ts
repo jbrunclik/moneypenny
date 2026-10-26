@@ -56,3 +56,17 @@ export function containsUrls(text: string): boolean {
   const pattern = /(\b(?:https?:\/\/|www\.)[^\s<>"{}|\\^`[\]]+)/i;
   return pattern.test(text);
 }
+
+/**
+ * The normalized URL when it is http(s), else null. For server- or
+ * agent-provided URLs put into an href: escaping keeps them inside the
+ * attribute, but a javascript: or data: URL would still run when clicked.
+ */
+export function safeHttpUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}

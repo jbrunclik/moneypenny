@@ -1,26 +1,30 @@
 import type { Source } from '../types/api';
 import { escapeHtml } from '../utils/dom';
 import { SOURCES_ICON } from '../utils/icons';
+import { safeHttpUrl } from '../utils/linkify';
 import { createPopup, type PopupInstance } from './InfoPopup';
+
+/**
+ * One source row: a link only for an http(s) URL - escaping keeps a
+ * javascript: or data: URL inside the attribute, but a click would still run
+ * it - else the same row as plain text.
+ */
+function renderSourceItem(source: Source, index: number): string {
+  const href = safeHttpUrl(source.url);
+  const inner = `
+        <span class="source-number">${index + 1}</span>
+        <span class="source-title">${escapeHtml(source.title)}</span>
+        <span class="source-url">${href ? escapeHtml(new URL(href).hostname) : ''}</span>`;
+  return href
+    ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="source-item">${inner}</a>`
+    : `<div class="source-item">${inner}</div>`;
+}
 
 /**
  * Render sources list HTML
  */
 function renderSourcesList(sources: Source[]): string {
-  const sourcesHtml = sources
-    .map(
-      (source, index) => `
-      <a href="${escapeHtml(source.url)}"
-         target="_blank"
-         rel="noopener noreferrer"
-         class="source-item">
-        <span class="source-number">${index + 1}</span>
-        <span class="source-title">${escapeHtml(source.title)}</span>
-        <span class="source-url">${escapeHtml(new URL(source.url).hostname)}</span>
-      </a>
-    `
-    )
-    .join('');
+  const sourcesHtml = sources.map((source, index) => renderSourceItem(source, index)).join('');
 
   return `
     <div class="sources-header-badge">

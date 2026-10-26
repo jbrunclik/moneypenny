@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linkifyText, containsUrls } from '../../src/utils/linkify';
+import { linkifyText, containsUrls, safeHttpUrl } from '../../src/utils/linkify';
 
 describe('linkifyText', () => {
   it('should convert http:// URLs to clickable links', () => {
@@ -146,5 +146,21 @@ describe('containsUrls', () => {
 
   it('should return true for multiple URLs', () => {
     expect(containsUrls('Check https://example.com and www.test.org')).toBe(true);
+  });
+});
+
+describe('safeHttpUrl', () => {
+  it('returns http(s) URLs normalized', () => {
+    expect(safeHttpUrl('https://example.com/a?b=1')).toBe('https://example.com/a?b=1');
+    expect(safeHttpUrl('http://example.com')).toBe('http://example.com/');
+  });
+
+  it('rejects other schemes and unparsable input', () => {
+    expect(safeHttpUrl('javascript:alert(1)')).toBeNull();
+    expect(safeHttpUrl(' JavaScript:alert(1)')).toBeNull();
+    expect(safeHttpUrl('data:text/html,<script>alert(1)</script>')).toBeNull();
+    expect(safeHttpUrl('vbscript:msgbox(1)')).toBeNull();
+    expect(safeHttpUrl('not a url')).toBeNull();
+    expect(safeHttpUrl('')).toBeNull();
   });
 });
