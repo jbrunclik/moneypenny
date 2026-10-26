@@ -124,7 +124,6 @@ Dashboard data is cached in SQLite (`dashboard_cache` table, one row per user) w
 - [models/](../../src/db/models/) - Planner conversation management and caching
 
 **Frontend:**
-- [PlannerView.ts](../../web/src/components/PlannerView.ts) - Planner container
 - [PlannerDashboard.ts](../../web/src/components/PlannerDashboard.ts) - Dashboard rendering
 - [planner.css](../../web/src/styles/components/planner.css) - Planner-specific styles
 - UI structure, CSS classes and visual patterns: [Planner Dashboard UI](../ui/planner-dashboard.md)

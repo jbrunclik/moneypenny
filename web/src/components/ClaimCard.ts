@@ -106,7 +106,7 @@ export function closeClaimCard(restoreFocus = false): void {
   if (restoreFocus) opener?.focus();
 }
 
-export function openClaimCard(target: HTMLElement, focus = false): void {
+function openClaimCard(target: HTMLElement, focus = false): void {
   const ctx = contextFor(target);
   closeClaimCard();
   if (!ctx) return;

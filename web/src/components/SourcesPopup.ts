@@ -63,10 +63,3 @@ export function openSourcesPopup(sources: Source[]): void {
     sourcesPopup.open(sources);
   }
 }
-
-/**
- * Close sources popup
- */
-export function closeSourcesPopup(): void {
-  sourcesPopup.close();
-}

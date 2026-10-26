@@ -4,17 +4,17 @@ import { useStore } from '../state/store';
 import { toast } from '../components/Toast';
 import { createLogger } from '../utils/logger';
 import { disablePush } from '../core/push';
-import { GOOGLE_BUTTON_WIDTH, GOOGLE_SCRIPT_POLL_INTERVAL_MS, GOOGLE_SCRIPT_TIMEOUT_MS } from '../config';
+import {
+  GOOGLE_BUTTON_WIDTH,
+  GOOGLE_SCRIPT_POLL_INTERVAL_MS,
+  GOOGLE_SCRIPT_TIMEOUT_MS,
+  TOKEN_REFRESH_BUFFER_MS,
+} from '../config';
 
 const log = createLogger('auth');
 
 let googleInitialized = false;
 let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-// Refresh token when less than 2 days remain (tokens last 7 days)
-// This gives a 48-hour window where any app open will trigger refresh,
-// so users can skip a day without getting logged out.
-const TOKEN_REFRESH_BUFFER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
 // Loaded on demand: only the login screen needs it (must come from Google's CDN)
 const GOOGLE_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
@@ -231,7 +231,7 @@ function decodeJwtPayload(token: string): { exp?: number; iat?: number } | null 
  * Schedule automatic token refresh before expiration.
  * Called after successful login or token refresh.
  */
-export function scheduleTokenRefresh(token: string): void {
+function scheduleTokenRefresh(token: string): void {
   // Clear any existing scheduled refresh
   cancelTokenRefresh();
 
@@ -262,7 +262,7 @@ export function scheduleTokenRefresh(token: string): void {
 /**
  * Cancel any scheduled token refresh.
  */
-export function cancelTokenRefresh(): void {
+function cancelTokenRefresh(): void {
   if (tokenRefreshTimeoutId) {
     clearTimeout(tokenRefreshTimeoutId);
     tokenRefreshTimeoutId = null;

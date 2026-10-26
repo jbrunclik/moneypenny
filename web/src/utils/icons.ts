@@ -329,6 +329,7 @@ export const SOURCES_ICON = icon(`<svg viewBox="0 0 24 24" fill="none" stroke="c
 
 /**
  * Globe icon (for browser tool - reuses sources globe design)
+ * @alias
  */
 export const GLOBE_ICON = SOURCES_ICON;
 

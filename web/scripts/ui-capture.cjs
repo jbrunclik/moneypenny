@@ -8,7 +8,7 @@
  *
  * Output: web/ui-captures/<viewport>-<theme>-<page>.png (gitignored)
  */
-const { chromium } = require('playwright');
+const { chromium } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 

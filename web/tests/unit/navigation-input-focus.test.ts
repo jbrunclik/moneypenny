@@ -116,7 +116,6 @@ vi.mock('@/components/CommandCenter', () => ({
 }));
 
 vi.mock('@/components/AgentEditor', () => ({
-  initAgentEditor: vi.fn(),
   showAgentEditor: vi.fn(),
 }));
 

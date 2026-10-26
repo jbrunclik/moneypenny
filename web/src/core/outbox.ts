@@ -264,7 +264,7 @@ export function removeOutboxEntry(convId: string, id: string): void {
 }
 
 /** Render an outbox entry as a client-side message. */
-export function outboxEntryToMessage(entry: OutboxEntry): Message {
+function outboxEntryToMessage(entry: OutboxEntry): Message {
   const files: FileMetadata[] = entry.files.map((f, i) => ({
     name: f.name,
     type: f.type,

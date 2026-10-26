@@ -482,13 +482,6 @@ function resetRecordingState(voiceBtn: HTMLButtonElement): void {
 }
 
 /**
- * Check if currently recording
- */
-export function isVoiceRecording(): boolean {
-  return isRecording;
-}
-
-/**
  * Stop recording if active
  * Uses abort() instead of stop() to discard any pending results,
  * preventing transcribed text from being re-added after input is cleared

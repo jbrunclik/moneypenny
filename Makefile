@@ -38,7 +38,7 @@ help:
 	@echo "  run                   Run Flask server only"
 	@echo "  build                 Production build (Vite)"
 	@echo ""
-	@echo "  lint                  Run all linters (ruff, mypy, eslint)"
+	@echo "  lint                  Run all linters (ruff, mypy, eslint, knip)"
 	@echo "  lint-fix              Auto-fix linting issues"
 	@echo ""
 	@echo "  test                  Run backend tests"
@@ -147,7 +147,7 @@ lint:
 	$(RUFF) format --check src/ tests/ scripts/ evals/
 	$(MYPY) src/ evals/
 	$(LINT_IMPORTS)
-	cd web && $(NPM) run typecheck && $(NPM) run lint && $(NPM) run format:check
+	cd web && $(NPM) run typecheck && $(NPM) run lint && $(NPM) run knip && $(NPM) run format:check
 	@$(MAKE) --no-print-directory check-generated
 
 # P1: the committed OpenAPI spec and TS types must match the schemas. Regenerates

@@ -18,9 +18,6 @@ let scrollButton: HTMLButtonElement | null = null;
 
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
-// Track whether streaming is active and auto-scroll is paused
-let isStreamingPaused = false;
-
 // Optional callback called BEFORE scrolling - allows caller to load more messages if needed
 // Returns a promise that resolves when any async work is done
 let onBeforeScrollToBottom: (() => Promise<void>) | null = null;
@@ -218,15 +215,7 @@ export function checkScrollButtonVisibility(): void {
  * @param paused - Whether streaming auto-scroll is paused
  */
 export function setStreamingPausedIndicator(paused: boolean): void {
-  isStreamingPaused = paused;
   if (scrollButton) {
     scrollButton.classList.toggle('streaming-paused', paused);
   }
-}
-
-/**
- * Get the current streaming paused state
- */
-export function isStreamingAutoScrollPaused(): boolean {
-  return isStreamingPaused;
 }

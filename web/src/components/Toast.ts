@@ -24,9 +24,6 @@ import { escapeHtml } from '../utils/dom';
 import { ALERT_CIRCLE_ICON, CLOSE_ICON, CHECK_ICON, WARNING_ICON, INFO_ICON } from '../utils/icons';
 import { TOAST_ACTION_DURATION_MS, TOAST_DEFAULT_DURATION_MS } from '../config';
 
-// Re-export types for convenience
-export type { Notification } from '../state/slices/ui';
-
 // Default duration in milliseconds (0 = persistent)
 const DEFAULT_DURATION = TOAST_DEFAULT_DURATION_MS;
 

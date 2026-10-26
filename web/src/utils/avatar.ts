@@ -3,7 +3,7 @@ import { escapeHtml } from './dom';
 /**
  * Get initials from a name or email (up to 2 characters)
  */
-export function getInitials(nameOrEmail: string): string {
+function getInitials(nameOrEmail: string): string {
   return nameOrEmail
     .split(' ')
     .map((part) => part.charAt(0).toUpperCase())

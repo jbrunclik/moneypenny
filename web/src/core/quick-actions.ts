@@ -88,7 +88,7 @@ function isCurrentConversationStreaming(): boolean {
 }
 
 /** Re-evaluate the chip row's visibility + disabled state. */
-export function refreshQuickActionsBar(): void {
+function refreshQuickActionsBar(): void {
   const bar = getElementById<HTMLElement>('quick-actions-bar');
   if (!bar) return;
   if (!current || mode || slash) {
@@ -133,16 +133,6 @@ function activateQuickAction(action: QuickAction): void {
   enterComposerMode(action);
 }
 
-/** Compose the message, put it in the composer and send through the normal path. */
-export async function sendQuickAction(
-  action: QuickAction,
-  values: Record<string, string>
-): Promise<void> {
-  const text = composeQuickActionMessage(action, values);
-  log.info('Sending quick action', { id: action.id, fields: Object.keys(values).length });
-  await sendComposedText(text);
-}
-
 /** Put text in the composer and send it through the normal path. */
 export async function sendComposedText(text: string): Promise<void> {
   const textarea = getElementById<HTMLTextAreaElement>('message-input');
@@ -156,10 +146,6 @@ export async function sendComposedText(text: string): Promise<void> {
     textarea.value = draft;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
-}
-
-export function isComposerModeActive(): boolean {
-  return mode !== null;
 }
 
 function enterComposerMode(action: QuickAction): void {
@@ -189,7 +175,7 @@ function enterComposerMode(action: QuickAction): void {
   log.debug('Composer mode entered', { id: action.id });
 }
 
-export function exitComposerMode(): void {
+function exitComposerMode(): void {
   if (!mode) return;
   mode = null;
   const modeEl = getElementById<HTMLElement>('quick-action-mode');

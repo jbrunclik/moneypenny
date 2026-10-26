@@ -21,7 +21,7 @@ export const MS_PER_SECOND = 1000;
 export const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 
 /** Milliseconds in one hour */
-export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 
 /** Milliseconds in one day */
 export const MS_PER_DAY = 24 * MS_PER_HOUR;
@@ -31,7 +31,7 @@ export const MS_PER_DAY = 24 * MS_PER_HOUR;
 // =============================================================================
 
 /** Bytes in one kilobyte */
-export const BYTES_PER_KB = 1024;
+const BYTES_PER_KB = 1024;
 
 /** Bytes in one megabyte */
 export const BYTES_PER_MB = 1024 * BYTES_PER_KB;

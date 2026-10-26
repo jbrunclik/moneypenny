@@ -254,7 +254,7 @@ export async function selectConversation(convId: string): Promise<void> {
 }
 
 /** Store a freshly fetched conversation and switch to it. */
-export function showLoadedConversation(convId: string, response: ConversationDetailResponse): void {
+function showLoadedConversation(convId: string, response: ConversationDetailResponse): void {
   const store = useStore.getState();
 
   // Merge in unconfirmed outbox sends (pending/failed) before storing:

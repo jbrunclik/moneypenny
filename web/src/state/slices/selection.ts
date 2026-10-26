@@ -2,7 +2,7 @@ import type { BulkTrashRequest, Conversation } from '../../types/api';
 import type { AppSlice, AppState } from '../store';
 import { isTempConversation } from '../../utils/conversation-id';
 
-export type SelectionMode = 'ids' | 'all';
+type SelectionMode = 'ids' | 'all';
 
 /**
  * Sidebar selection for bulk delete. In 'ids' mode selectedIds are the

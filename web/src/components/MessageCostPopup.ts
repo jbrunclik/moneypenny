@@ -60,19 +60,3 @@ export function initMessageCostPopup(): void {
   messageCostPopup.init();
 }
 
-/**
- * Open message cost popup with the given cost data
- */
-export function openMessageCostPopup(data: MessageCostResponse): void {
-  if (data) {
-    messageCostPopup.open(data);
-  }
-}
-
-/**
- * Close message cost popup
- */
-export function closeMessageCostPopup(): void {
-  messageCostPopup.close();
-}
-

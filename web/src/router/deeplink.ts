@@ -185,14 +185,6 @@ export function setPlannerHash(): void {
 }
 
 /**
- * Check if the current route is the planner.
- */
-export function isPlannerRoute(): boolean {
-  const route = parseHash();
-  return route.type === 'planner';
-}
-
-/**
  * Set the URL hash to the agents route.
  */
 export function setArchiveHash(): void {
@@ -250,14 +242,6 @@ export function setAgentsHash(): void {
 }
 
 /**
- * Check if the current route is agents.
- */
-export function isAgentsRoute(): boolean {
-  const route = parseHash();
-  return route.type === 'agents';
-}
-
-/**
  * Set the URL hash to the storage route.
  */
 export function setStorageHash(): void {
@@ -275,14 +259,6 @@ export function setStorageHash(): void {
   setTimeout(() => {
     isIgnoringHashChange = false;
   }, 0);
-}
-
-/**
- * Check if the current route is storage.
- */
-export function isStorageRoute(): boolean {
-  const route = parseHash();
-  return route.type === 'storage';
 }
 
 /**
@@ -304,14 +280,6 @@ export function setSportsHash(program?: string): void {
   setTimeout(() => {
     isIgnoringHashChange = false;
   }, 0);
-}
-
-/**
- * Check if the current route is sports.
- */
-export function isSportsRoute(): boolean {
-  const route = parseHash();
-  return route.type === 'sports';
 }
 
 /**
@@ -344,14 +312,6 @@ export function setLanguageHash(program?: string): void {
   setTimeout(() => {
     isIgnoringHashChange = false;
   }, 0);
-}
-
-/**
- * Check if the current route is language.
- */
-export function isLanguageRoute(): boolean {
-  const route = parseHash();
-  return route.type === 'language';
 }
 
 /**

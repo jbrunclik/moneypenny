@@ -87,7 +87,7 @@ session and points here for the rest.
 | F7 | CSS uses tokens from `variables.css`: no hex/`rgb()` elsewhere, z-index via tokens; one stylesheet per component prefix | planned: grep test (like `css-class-collisions.test.ts`) |
 | F8 | No `console.*` outside the logger; a logger's name is its module path | ESLint `no-console`; judgment for names |
 | F9 | Real `<button>`, not `role="button"` on a div - except a row that holds other buttons (a `<button>` cannot nest them), which keeps `role="button"` with `tabindex` and Enter/Space handling; a button inside a `<form>` declares its `type`; an `aria-modal` dialog traps focus | `web/tests/unit/button-types.test.ts` (types in forms); judgment (the rest; every `aria-modal` dialog traps focus and every `role="button"` handles Enter/Space as of Oct 25 2026) |
-| F10 | No unused exports (a config value nobody reads drifts from the copy someone does) | planned: knip |
+| F10 | No unused exports (a config value nobody reads drifts from the copy someone does) | knip (`web/knip.jsonc`, in `make lint`; no baseline - a deliberate alias export carries `@alias`) |
 | F11 | State management is Zustand ([store.ts](../web/src/state/store.ts)); dynamic content uses event delegation; `textContent` for plain text; icons from `icons.ts` | judgment |
 
 ### Code shape, both stacks (C)
@@ -95,7 +95,7 @@ session and points here for the rest.
 | ID | Rule | Enforced by |
 |----|------|-------------|
 | C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - all baselined |
-| C2 | No dead code or unused dependencies | planned: vulture, knip, deptry |
+| C2 | No dead code or unused dependencies | knip (frontend files, exports, npm deps; no baseline); planned: vulture, deptry |
 | C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). `PLC0415` in `src/`. Not yet: `DTZ` (needs the timezone migration in TODO first - partial adoption mixes aware and naive datetimes), `PT` | ruff; existing violations carry `# noqa: CODE` |
 | C4 | Formatting: ruff format (Python), ESLint (TS), Prettier (CSS, YAML, JSON; not Markdown); `.editorconfig` | ruff, ESLint, Prettier `format:check` in `make lint`; the PostToolUse hook formats on edit |
 | C5 | Type hints everywhere (mypy strict), TypeScript strict | mypy, tsc |

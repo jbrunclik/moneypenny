@@ -22,7 +22,7 @@ const PANEL_CLASS = 'research-progress';
 const CHIP_CLASS = 'research-chip';
 const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩';
 
-export type ItemState = 'queued' | 'waiting' | 'started' | 'done' | 'failed' | 'skipped' | 'timed_out';
+type ItemState = 'queued' | 'waiting' | 'started' | 'done' | 'failed' | 'skipped' | 'timed_out';
 
 export interface ResearchProgress {
   items: string[];
@@ -48,7 +48,7 @@ export function _resetResearchProgress(): void {
 }
 
 /** ① for agent 0, ② for agent 1, ... (#11 beyond ten) - as the server labels them. */
-export function agentLabel(agent: number): string {
+function agentLabel(agent: number): string {
   return CIRCLED[agent] ?? `#${agent + 1}`;
 }
 

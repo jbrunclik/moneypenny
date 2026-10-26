@@ -89,7 +89,6 @@ messagesContainer.scrollTop = 0; // NOT scrollToBottom()
 ## Key Files
 
 - [web/src/components/PlannerDashboard.ts](../../web/src/components/PlannerDashboard.ts) - dashboard rendering, copy handlers
-- [web/src/components/PlannerView.ts](../../web/src/components/PlannerView.ts) - planner view container
 - [web/src/core/planner.ts](../../web/src/core/planner.ts) - `navigateToPlanner()`, refresh/reset handlers
 - [web/src/styles/components/planner.css](../../web/src/styles/components/planner.css) - dashboard styles
 

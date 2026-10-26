@@ -18,7 +18,7 @@ export interface SheetAction {
 
 const SHEET_ID = 'action-sheet';
 
-export function closeActionSheet(): void {
+function closeActionSheet(): void {
   document.getElementById(SHEET_ID)?.remove();
 }
 

@@ -56,7 +56,7 @@ export async function getClientLocation(): Promise<ClientLocation | null> {
   });
 }
 
-export type LocationFixFailure = 'unsupported' | 'denied' | 'unavailable' | 'timeout';
+type LocationFixFailure = 'unsupported' | 'denied' | 'unavailable' | 'timeout';
 
 export type LocationFixResult =
   | { ok: true; fix: ClientLocation }

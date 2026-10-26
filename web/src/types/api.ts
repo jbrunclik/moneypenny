@@ -9,14 +9,13 @@
  */
 
 // Re-export generated types for reference and test validation
-export type { components, paths } from './generated-api';
+export type { components } from './generated-api';
 
 type Schemas = import('./generated-api').components['schemas'];
 
 // Admin page and spend status (S12)
 export type AdminOverview = Schemas['AdminOverviewResponse'];
 export type SpendStatus = Schemas['SpendStatusResponse'];
-export type Money = Schemas['AdminOverviewResponse.Money'];
 
 // Constants
 export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
@@ -175,7 +174,7 @@ export type DeepResearchStart = Schemas['ChatRequest.DeepResearchStart'];
 // while every stored action has them and the action row reads them.
 
 /** Look it up on a claim card (source_message_id/claim_index null for converted old messages) */
-export interface VerifyClaimAction {
+interface VerifyClaimAction {
   type: 'verify_claim';
   source_message_id: string | null;
   claim_index: number | null;
@@ -183,7 +182,7 @@ export interface VerifyClaimAction {
 }
 
 /** Start on a deep-research offer */
-export interface DeepResearchAction {
+interface DeepResearchAction {
   type: 'deep_research';
   offer_message_id: string;
   items: number;
@@ -510,8 +509,6 @@ export type SelectedCalendarsResponse = Schemas['SelectedCalendarsResponse'];
 /** POST /api/conversations/bulk-trash: hand-picked ids, or all (minus exclude_ids, plus ids) */
 export type BulkTrashRequest = Schemas['BulkTrashRequest'];
 
-export type UpdateSelectedCalendarsRequest = Schemas['UpdateSelectedCalendarsRequest'];
-
 // =============================================================================
 // Garmin Connect types
 // =============================================================================
@@ -535,8 +532,6 @@ export type SearchResponse = Schemas['SearchResultsResponse'];
 export type PlannerTask = Schemas['PlannerDashboardResponse.PlannerTaskResponse'];
 
 export type PlannerEvent = Schemas['PlannerDashboardResponse.PlannerEventResponse'];
-
-export type PlannerWeather = Schemas['PlannerDashboardResponse.PlannerWeatherResponse'];
 
 /** The spec types the Garmin blocks as open dicts; these are the keys the planner reads */
 export type PlannerHealthSummary = Omit<
@@ -565,28 +560,6 @@ export type PlannerSyncResponse = Schemas['PlannerSyncResponse'];
 // =============================================================================
 // Autonomous Agent types
 // =============================================================================
-
-export const AgentStatus = {
-  RUNNING: 'running',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  WAITING_APPROVAL: 'waiting_approval',
-} as const;
-export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus];
-
-export const AgentTriggerType = {
-  SCHEDULED: 'scheduled',
-  MANUAL: 'manual',
-  AGENT_TRIGGER: 'agent_trigger',
-} as const;
-export type AgentTriggerType = (typeof AgentTriggerType)[keyof typeof AgentTriggerType];
-
-export const ApprovalStatus = {
-  PENDING: 'pending',
-  APPROVED: 'approved',
-  REJECTED: 'rejected',
-} as const;
-export type ApprovalStatus = (typeof ApprovalStatus)[keyof typeof ApprovalStatus];
 
 /**
  * `budget_limit`: daily USD limit (null = unlimited); `system_type`: system-managed
@@ -678,8 +651,6 @@ export type LanguageResetResponse = Schemas['LanguageResetResponse'];
 // =============================================================================
 // AI Assist types
 // =============================================================================
-
-export type ParseScheduleRequest = Schemas['ParseScheduleRequest'];
 
 export type ParseScheduleResponse = Schemas['ParseScheduleResponse'];
 

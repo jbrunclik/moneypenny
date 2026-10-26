@@ -26,7 +26,7 @@ const log = createLogger('conversation');
 /**
  * Remove conversations from the UI; clears the open chat if it was one of them.
  */
-export function removeConversationsFromUI(ids: string[]): void {
+function removeConversationsFromUI(ids: string[]): void {
   const store = useStore.getState();
   store.removeConversations(ids);
   renderConversationsList();
@@ -47,7 +47,7 @@ export function removeConversationsFromUI(ids: string[]): void {
 }
 
 /** Remove one conversation from the UI (see removeConversationsFromUI). */
-export function removeConversationFromUI(convId: string): void {
+function removeConversationFromUI(convId: string): void {
   removeConversationsFromUI([convId]);
 }
 

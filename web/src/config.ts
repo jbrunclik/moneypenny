@@ -148,7 +148,11 @@ export const LOCATION_ENABLE_RETRY_DELAYS_MS = [2 * MS_PER_SECOND, 4 * MS_PER_SE
 // Authentication
 // =============================================================================
 
-/** Buffer time before token expiration to trigger refresh (2 days) */
+/**
+ * Refresh the token when less than 2 days remain (tokens last 7 days): a
+ * 48-hour window where any app open refreshes it, so users can skip a day
+ * without getting logged out.
+ */
 export const TOKEN_REFRESH_BUFFER_MS = 2 * MS_PER_DAY;
 
 /** Width of the Google Sign-In button */
@@ -227,6 +231,7 @@ export const INTERSECTION_OBSERVER_THRESHOLD = 0.1;
  * decision (streaming follow, scroll button, post-send repositioning,
  * image-load scrolls) agrees - divergent thresholds made the same scroll
  * position count as "following" in one code path and not in another.
+ * @alias
  */
 export const SCROLL_BOTTOM_THRESHOLD_PX = SCROLL_USER_DETECTION_THRESHOLD_PX;
 
@@ -237,6 +242,7 @@ export const SCROLL_BOTTOM_THRESHOLD_PX = SCROLL_USER_DETECTION_THRESHOLD_PX;
  * - setupStreamingScrollListener: Re-enable auto-scroll detection
  * - autoScrollForStreaming: Pause detection
  * - restoreStreamingMessage: Restored state "at bottom" check
+ * @alias
  */
 export const STREAMING_SCROLL_THRESHOLD_PX = SCROLL_USER_DETECTION_THRESHOLD_PX;
 
@@ -493,9 +499,6 @@ export const STORAGE_CACHE_MS = 5 * MS_PER_MINUTE;
 // =============================================================================
 // Default Values
 // =============================================================================
-
-/** Default conversation title for new conversations */
-export const DEFAULT_CONVERSATION_TITLE = 'New Conversation';
 
 /** Product name, shown in the header/sidebar when no conversation is active. */
 export const APP_NAME = 'Moneypenny';

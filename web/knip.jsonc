@@ -1,0 +1,15 @@
+// knip (C2, F10): unused files, exports and dependencies. Runs in `make lint`.
+// Vite, Vitest, Playwright and ESLint configs are picked up by knip's plugins.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    // Not imported by the app: served as /sw.js, and the dev scripts run by hand
+    "public/sw.js",
+    "scripts/*.cjs",
+    // Resolved through the `react` alias in vite.config.ts / vitest.config.ts
+    "src/utils/react-stub.ts"
+  ],
+  "project": ["src/**/*.ts", "tests/**/*.ts", "public/**/*.js", "scripts/**/*.cjs"],
+  // Generated from the OpenAPI spec (make types): its unused types are not ours to trim
+  "ignore": ["src/types/generated-api.ts"]
+}

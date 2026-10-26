@@ -70,6 +70,3 @@ export { appendStoppedEarlyNote } from './stopped-early';
 
 // Utils
 export { updateChatTitle, updateUserMessageId } from './utils';
-
-// Types
-export type { RenderMessagesOptions, StreamingMessageContext } from './types';

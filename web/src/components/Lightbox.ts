@@ -151,7 +151,7 @@ export function initLightbox(): void {
  * Open the lightbox on a message image. All images of the same message form
  * the gallery (prev/next, swipe, arrow keys).
  */
-export async function openLightbox(messageId: string, fileIndex: number): Promise<void> {
+async function openLightbox(messageId: string, fileIndex: number): Promise<void> {
   // Collect the message's images from the DOM (they carry index + name)
   const imgs = Array.from(
     document.querySelectorAll<HTMLImageElement>(
@@ -454,7 +454,7 @@ function clampPan(img: HTMLImageElement): void {
 /**
  * Close lightbox
  */
-export function closeLightbox(): void {
+function closeLightbox(): void {
   const lightbox = getElementById<HTMLDivElement>('lightbox');
   const img = getElementById<HTMLImageElement>('lightbox-img');
 

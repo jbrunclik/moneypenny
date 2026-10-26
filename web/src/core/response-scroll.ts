@@ -26,7 +26,7 @@ import { hasTrackedRequestFor } from './active-requests';
  * of where it already was, and the deferred pin then yanked them back down.
  * A scroll event fires regardless of how far the position moved.
  */
-export function watchForUserScroll(container: HTMLElement): () => boolean {
+function watchForUserScroll(container: HTMLElement): () => boolean {
   let scrolled = false;
   let last = container.scrollTop;
   const onScroll = (): void => {
@@ -84,7 +84,7 @@ export function handleImageScrollAfterMessage(
 /**
  * Trigger observation for visible images that haven't started loading.
  */
-export function triggerVisibleImageObservation(
+function triggerVisibleImageObservation(
   messageEl: HTMLElement,
   container: HTMLElement
 ): void {

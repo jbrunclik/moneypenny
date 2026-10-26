@@ -11,7 +11,7 @@
 /** Inserts `script` (via `insert`) and resolves once it has run or failed. */
 export type ScriptRunner = (script: HTMLScriptElement, insert: () => void) => Promise<void>;
 
-export const runScript: ScriptRunner = (script, insert) => {
+const runScript: ScriptRunner = (script, insert) => {
   if (!script.src) {
     insert();
     return Promise.resolve();

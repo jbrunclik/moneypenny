@@ -21,8 +21,8 @@ import {
 } from '../utils/icons';
 import { toast } from './Toast';
 
-export const QUICK_ACTIONS_MAX = 12;
-export const QUICK_ACTION_FIELDS_MAX = 6;
+const QUICK_ACTIONS_MAX = 12;
+const QUICK_ACTION_FIELDS_MAX = 6;
 const LABEL_MAX = 40;
 const BODY_MAX = 2000;
 
@@ -41,12 +41,12 @@ function swapItems<T>(items: T[], i: number, j: number): void {
   items[j] = a;
 }
 
-export function newQuickActionId(): string {
+function newQuickActionId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
 /** First user-perceived character (grapheme cluster) of a string, or ''. */
-export function firstGrapheme(value: string): string {
+function firstGrapheme(value: string): string {
   if (!value) return '';
   const Segmenter = (
     Intl as unknown as {

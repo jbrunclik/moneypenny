@@ -22,7 +22,7 @@
 import { LOG_LEVEL, LOG_LEVELS, type LogLevel } from '../config';
 
 /** Context fields that can be attached to log entries */
-export interface LogContext {
+interface LogContext {
   [key: string]: unknown;
 }
 

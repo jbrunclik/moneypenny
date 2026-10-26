@@ -35,7 +35,7 @@ let archiveScrollListenerCleanup: (() => void) | null = null;
  * Check if the planner entry should be shown.
  * Only visible when user has Todoist or Google Calendar connected.
  */
-export function shouldShowPlanner(user: User | null): boolean {
+function shouldShowPlanner(user: User | null): boolean {
   if (!user) return false;
   // Check if user has either integration connected
   // These fields are set after fetching integration status in loadInitialData
@@ -46,7 +46,7 @@ export function shouldShowPlanner(user: User | null): boolean {
  * Check if the agents entry should be shown.
  * Always visible when user is logged in (agents are a core feature).
  */
-export function shouldShowAgents(user: User | null): boolean {
+function shouldShowAgents(user: User | null): boolean {
   return !!user;
 }
 
@@ -54,7 +54,7 @@ export function shouldShowAgents(user: User | null): boolean {
  * Check if the sports entry should be shown.
  * Always visible when user is logged in.
  */
-export function shouldShowSports(user: User | null): boolean {
+function shouldShowSports(user: User | null): boolean {
   return !!user;
 }
 
@@ -62,7 +62,7 @@ export function shouldShowSports(user: User | null): boolean {
  * Check if the language entry should be shown.
  * Always visible when user is logged in.
  */
-export function shouldShowLanguage(user: User | null): boolean {
+function shouldShowLanguage(user: User | null): boolean {
   return !!user;
 }
 

@@ -15,10 +15,10 @@ import { sendUiMessage } from './messaging';
 
 const log = createLogger('deep-research');
 
-export const START_MESSAGE = 'Start deep research';
+const START_MESSAGE = 'Start deep research';
 
 /** The research data with its open offer (or a report's follow-up) set to status. */
-export function withOfferStatus(research: MessageResearch, status: ResearchOfferStatus): MessageResearch {
+function withOfferStatus(research: MessageResearch, status: ResearchOfferStatus): MessageResearch {
   if (research.offer) return { ...research, offer: { ...research.offer, status } };
   if (research.run?.followup) {
     return { ...research, run: { ...research.run, followup: { ...research.run.followup, status } } };

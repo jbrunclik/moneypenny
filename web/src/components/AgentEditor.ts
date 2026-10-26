@@ -106,7 +106,7 @@ function isValidCron(cron: string): boolean {
  * Initialize the agent editor.
  * Call this once during app initialization.
  */
-export function initAgentEditor(): void {
+function initAgentEditor(): void {
   if (!modalContainer) {
     modalContainer = document.createElement('div');
     modalContainer.id = 'agent-editor-modal';
@@ -151,7 +151,7 @@ export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
 /**
  * Close the agent editor.
  */
-export function closeAgentEditor(result: Agent | null = null): void {
+function closeAgentEditor(result: Agent | null = null): void {
   if (!modalContainer || !currentResolve) return;
 
   // Start exit animation

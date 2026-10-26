@@ -41,7 +41,7 @@ function rowHtml(ann: ClaimAnnotation, index: number, sources?: Source[]): strin
 
 let opener: HTMLElement | null = null;
 
-export function closeClaimsSheet(restoreFocus = false): void {
+function closeClaimsSheet(restoreFocus = false): void {
   const sheet = document.getElementById(SHEET_ID);
   if (!sheet) return;
   sheet.remove();
@@ -55,7 +55,7 @@ function flash(target: HTMLElement): void {
   window.setTimeout(() => target.classList.remove('claim--flash'), CLAIM_FLASH_MS);
 }
 
-export function openClaimsSheet(messageEl: HTMLElement): void {
+function openClaimsSheet(messageEl: HTMLElement): void {
   const annotations = getMessageAnnotations(messageEl);
   const grounding = getMessageGrounding(messageEl);
   if (!annotations?.length || !grounding) return;

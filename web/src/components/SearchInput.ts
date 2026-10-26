@@ -42,7 +42,7 @@ export function initSearchInput(): void {
 /**
  * Render the search input HTML
  */
-export function renderSearchInput(): void {
+function renderSearchInput(): void {
   const container = getElementById<HTMLDivElement>('search-container');
   if (!container) return;
 
@@ -257,12 +257,4 @@ export function clearSearch(): void {
   clearBtn?.classList.add('hidden');
 
   log.debug('Search cleared');
-}
-
-/**
- * Focus the search input
- */
-export function focusSearchInput(): void {
-  const input = getElementById<HTMLInputElement>('search-input');
-  input?.focus();
 }

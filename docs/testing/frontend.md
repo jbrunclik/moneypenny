@@ -21,7 +21,7 @@ web/tests/
 │   └── Messages.test.ts           # Message rendering
 ├── e2e/                           # Playwright E2E tests
 │   ├── chat/                      # Chat functionality (split into modules)
-│   │   ├── fixtures.ts            # Shared utilities (disableStreaming, sendMessageAndWait)
+│   │   ├── fixtures.ts            # Shared utilities (disableStreaming, setStreamDelay)
 │   │   ├── batch-mode.spec.ts     # Batch mode message sending
 │   │   ├── streaming.spec.ts      # Streaming, auto-scroll, stop
 │   │   ├── rerun.spec.ts          # Retry / re-run of a turn

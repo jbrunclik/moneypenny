@@ -87,19 +87,3 @@ export function initImageGenPopup(): void {
     void showImageGenCost(e);
   });
 }
-
-/**
- * Open image generation popup with the given images
- */
-export function openImageGenPopup(images: GeneratedImage[]): void {
-  if (images && images.length > 0) {
-    imageGenPopup.open(images);
-  }
-}
-
-/**
- * Close image generation popup
- */
-export function closeImageGenPopup(): void {
-  imageGenPopup.close();
-}

@@ -21,7 +21,7 @@ export interface Notification {
  * Active request state for a conversation
  * Used to restore UI when switching back to a conversation with an active request
  */
-export interface ActiveRequestState {
+interface ActiveRequestState {
   conversationId: string;
   type: 'stream' | 'batch';
   // Streaming-specific state
