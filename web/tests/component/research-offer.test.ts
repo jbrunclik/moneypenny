@@ -126,6 +126,16 @@ describe('research offer card', () => {
     await vi.waitFor(() => expect(document.querySelector('.research-offer')).toBeNull());
   });
 
+  it('a failed decline keeps the offer and re-enables No thanks', async () => {
+    vi.mocked(declineDeepResearch).mockResolvedValueOnce(false);
+    render(offer());
+    const decline = card().querySelector<HTMLButtonElement>('.research-offer__decline')!;
+    decline.click();
+    expect(decline.disabled).toBe(true);
+    await vi.waitFor(() => expect(decline.disabled).toBe(false));
+    expect(document.querySelector('.research-offer')).not.toBeNull();
+  });
+
   it('an explicit request counts down in the editor, then starts once', () => {
     vi.useFakeTimers();
     const o = offer({ autostart: true });

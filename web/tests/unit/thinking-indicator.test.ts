@@ -435,5 +435,28 @@ describe('ThinkingIndicator', () => {
       expect(summary?.textContent).toBe('Searched');
       expect(toggle.getAttribute('aria-expanded')).toBe('true');
     });
+
+    it('lists thinking before tools in the finalized trace', () => {
+      addToolStartToTrace(state, 'web_search', 'query 1');
+      markToolCompletedInTrace(state, 'web_search');
+      addThinkingToTrace(state, 'Later thinking');
+      finalizeThinkingIndicator(indicator, state);
+
+      const items = [...indicator.querySelectorAll('.thinking-details .thinking-trace-item')];
+      expect(items).toHaveLength(2);
+      expect(items[0]?.querySelector('.thinking-detail')?.textContent).toContain('Later thinking');
+    });
+
+    it('builds the trace from thinking text and completed tools when there is no trace', () => {
+      state.trace = [];
+      state.thinkingText = 'Plain thinking';
+      state.completedTools = ['web_search', 'fetch_url'];
+      finalizeThinkingIndicator(indicator, state);
+
+      const items = indicator.querySelectorAll('.thinking-details .thinking-trace-item');
+      expect(items).toHaveLength(3);
+      expect(items[0]?.querySelector('.thinking-detail')?.textContent).toContain('Plain thinking');
+      expect(indicator.querySelector('.thinking-toggle-summary')?.textContent).not.toBe('');
+    });
   });
 });

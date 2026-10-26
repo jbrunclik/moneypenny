@@ -4,7 +4,7 @@
  * All evaluation is done by the LLM — the client only collects answers.
  * These tests verify rendering and answer collection, not correctness evaluation.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderQuizBlock, handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from '@/components/QuizBlock';
 
 describe('renderQuizBlock', () => {
@@ -196,6 +196,39 @@ describe('handleQuizContinue', () => {
     expect(document.querySelector('.quiz-batch')!.classList.contains('answered')).toBe(false);
     // Should mark as incomplete
     expect(document.querySelector('.quiz-multiple-choice')!.classList.contains('quiz-incomplete')).toBe(true);
+  });
+
+  function renderFillBlank(): HTMLButtonElement {
+    document.body.innerHTML = `<div class="message-content">${renderQuizBlock(
+      JSON.stringify({ type: 'fill-blank', question: 'Ich ___ müde.' })
+    )}</div><textarea id="message-input"></textarea><button id="send-btn"></button>`;
+    return document.querySelector('.quiz-continue') as HTMLButtonElement;
+  }
+
+  it('focuses an empty text answer instead of sending', () => {
+    const continueBtn = renderFillBlank();
+    const send = vi.fn();
+    document.getElementById('send-btn')?.addEventListener('click', send);
+
+    handleQuizContinue(continueBtn);
+
+    const input = document.querySelector('.quiz-text-input') as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(document.querySelector('.quiz-block')?.classList.contains('quiz-incomplete')).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('sends a complete quiz through the composer and locks it', () => {
+    const continueBtn = renderFillBlank();
+    const send = vi.fn();
+    document.getElementById('send-btn')?.addEventListener('click', send);
+    (document.querySelector('.quiz-text-input') as HTMLInputElement).value = 'bin';
+
+    handleQuizContinue(continueBtn);
+
+    expect(document.querySelector('.quiz-block')?.classList.contains('answered')).toBe(true);
+    expect((document.getElementById('message-input') as HTMLTextAreaElement).value).toContain('bin');
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 

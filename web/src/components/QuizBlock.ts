@@ -226,24 +226,7 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
     : [quizBlock];
 
   for (const block of blocks) {
-    const el = block as HTMLElement;
-    if (el.classList.contains('quiz-multiple-choice')) {
-      if (!el.querySelector('.quiz-option.selected')) {
-        el.classList.add('quiz-incomplete');
-        el.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-        setTimeout(() => el.classList.remove('quiz-incomplete'), 1500);
-        return;
-      }
-    } else {
-      const input = el.querySelector('.quiz-text-input') as HTMLInputElement;
-      if (!input?.value?.trim()) {
-        input?.focus();
-        el.classList.add('quiz-incomplete');
-        el.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-        setTimeout(() => el.classList.remove('quiz-incomplete'), 1500);
-        return;
-      }
-    }
+    if (nudgeIfUnanswered(block as HTMLElement)) return;
   }
 
   // Lock the quiz
@@ -251,16 +234,37 @@ export function handleQuizContinue(continueBtn: HTMLButtonElement): void {
   showMultipleChoiceFeedback(blocks);
 
   // Build and send results
-  const results = collectQuizAnswers(quizBlock);
-  const textarea = document.getElementById('message-input') as HTMLTextAreaElement;
-  if (textarea) {
-    textarea.value = results;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  sendThroughComposer(collectQuizAnswers(quizBlock));
+}
 
-    const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
-    if (sendBtn) {
-      sendBtn.click();
-    }
+/**
+ * Point the user at an unanswered question (flash it, scroll to it, focus
+ * a text answer). Returns false when the question is answered.
+ */
+function nudgeIfUnanswered(el: HTMLElement): boolean {
+  if (el.classList.contains('quiz-multiple-choice')) {
+    if (el.querySelector('.quiz-option.selected')) return false;
+  } else {
+    const input = el.querySelector('.quiz-text-input') as HTMLInputElement;
+    if (input?.value?.trim()) return false;
+    input?.focus();
+  }
+  el.classList.add('quiz-incomplete');
+  el.scrollIntoView?.({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+  setTimeout(() => el.classList.remove('quiz-incomplete'), 1500);
+  return true;
+}
+
+/** Send text as the user's message: fill the composer and press Send. */
+function sendThroughComposer(text: string): void {
+  const textarea = document.getElementById('message-input') as HTMLTextAreaElement;
+  if (!textarea) return;
+  textarea.value = text;
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+  const sendBtn = document.getElementById('send-btn') as HTMLButtonElement;
+  if (sendBtn) {
+    sendBtn.click();
   }
 }
 

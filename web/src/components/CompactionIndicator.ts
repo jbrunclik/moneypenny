@@ -175,6 +175,30 @@ function findScrollAnchor(container: HTMLElement): HTMLElement | null {
 }
 
 /**
+ * Clear the divider and dimming, then mark the open conversation's boundary
+ * again. Returns whether there was a divider before or after.
+ */
+function replaceCompactionMarkers(container: HTMLElement): boolean {
+  const hadDivider = container.querySelector(`.${DIVIDER_CLASS}`) !== null;
+  container.querySelectorAll(`.${DIVIDER_CLASS}`).forEach((el) => el.remove());
+  container.querySelectorAll(`.${COMPACTED_CLASS}`).forEach((el) => {
+    el.classList.remove(COMPACTED_CLASS);
+  });
+
+  const status = statusForOpenConversation();
+  const boundary = status?.boundary_message_id
+    ? container.querySelector<HTMLElement>(`.message[data-message-id="${status.boundary_message_id}"]`)
+    : null;
+  if (!status || !boundary) return hadDivider;
+  for (const el of container.querySelectorAll<HTMLElement>('.message')) {
+    el.classList.add(COMPACTED_CLASS);
+    if (el === boundary) break;
+  }
+  boundary.after(buildDivider(status));
+  return true;
+}
+
+/**
  * Place the divider after the boundary message and dim everything up to it.
  *
  * Idempotent - safe to call after any (re-)render.
@@ -199,27 +223,9 @@ export function applyCompactionMarkers(
   const anchor = preserve && !wasAtBottom ? findScrollAnchor(container) : null;
   const anchorTop = anchor?.getBoundingClientRect().top ?? 0;
 
-  const hadDivider = container.querySelector(`.${DIVIDER_CLASS}`) !== null;
-  container.querySelectorAll(`.${DIVIDER_CLASS}`).forEach((el) => el.remove());
-  container.querySelectorAll(`.${COMPACTED_CLASS}`).forEach((el) => {
-    el.classList.remove(COMPACTED_CLASS);
-  });
-
-  const status = statusForOpenConversation();
-  const boundary = status?.boundary_message_id
-    ? container.querySelector<HTMLElement>(`.message[data-message-id="${status.boundary_message_id}"]`)
-    : null;
-  if (status && boundary) {
-    for (const el of container.querySelectorAll<HTMLElement>('.message')) {
-      el.classList.add(COMPACTED_CLASS);
-      if (el === boundary) break;
-    }
-    boundary.after(buildDivider(status));
-  }
-
   // No divider before or after: nothing moved, so leave the scroll alone
   // (this runs after every turn)
-  if (!hadDivider && !(status && boundary)) return;
+  if (!replaceCompactionMarkers(container)) return;
 
   if (wasAtBottom) {
     endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll

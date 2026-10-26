@@ -358,6 +358,38 @@ export function collapseThinkingIndicator(container: HTMLElement, state: Thinkin
 }
 
 /**
+ * The finalized view's trace: rendered detail rows and the steps the summary
+ * names (the same ones). Thinking comes first, then tools.
+ */
+function finalizedTrace(state: ThinkingState): { traceItems: string[]; summaryItems: ThinkingTraceItem[] } {
+  // Reorder trace for finalized view: thinking first, then tools (logical reading order)
+  // During streaming, thinking is at the end for auto-scroll, but for reading it makes sense first
+  const reorderedTrace = [
+    ...state.trace.filter(item => item.type === 'thinking'),
+    ...state.trace.filter(item => item.type === 'tool'),
+  ];
+
+  // Pass showFullDetail=true to show full text in finalized view
+  const traceItems = reorderedTrace.map((item) => renderTraceItem({ ...item, completed: true }, false, true));
+  // The summary names the same steps the details list
+  const summaryItems: ThinkingTraceItem[] = [...reorderedTrace];
+  if (traceItems.length > 0) return { traceItems, summaryItems };
+
+  // If no trace but we have thinking text or completed tools, build from those
+  if (state.thinkingText) {
+    const thinking: ThinkingTraceItem = { type: 'thinking', label: 'thinking', detail: state.thinkingText, completed: true };
+    traceItems.push(renderTraceItem(thinking, false, true));
+    summaryItems.push(thinking);
+  }
+  for (const tool of state.completedTools) {
+    const item: ThinkingTraceItem = { type: 'tool', label: tool, completed: true };
+    traceItems.push(renderTraceItem(item, false, true));
+    summaryItems.push(item);
+  }
+  return { traceItems, summaryItems };
+}
+
+/**
  * Finalize the thinking indicator - collapse into a toggle
  * @param container The thinking indicator element
  * @param state Final state with thinking text and completed tools
@@ -379,36 +411,7 @@ export function finalizeThinkingIndicator(
   container.classList.add('finalized');
   container.classList.remove('streaming');
 
-  // Reorder trace for finalized view: thinking first, then tools (logical reading order)
-  // During streaming, thinking is at the end for auto-scroll, but for reading it makes sense first
-  const reorderedTrace = [
-    ...state.trace.filter(item => item.type === 'thinking'),
-    ...state.trace.filter(item => item.type === 'tool'),
-  ];
-
-  // Render the collapsed toggle with full trace in details
-  // Pass showFullDetail=true to show full text in finalized view
-  const traceItems: string[] = [];
-
-  for (const item of reorderedTrace) {
-    traceItems.push(renderTraceItem({ ...item, completed: true }, false, true));
-  }
-  // The summary names the same steps the details list
-  const summaryItems: ThinkingTraceItem[] = [...reorderedTrace];
-
-  // If no trace but we have thinking text or completed tools, build from those
-  if (traceItems.length === 0) {
-    if (state.thinkingText) {
-      const thinking: ThinkingTraceItem = { type: 'thinking', label: 'thinking', detail: state.thinkingText, completed: true };
-      traceItems.push(renderTraceItem(thinking, false, true));
-      summaryItems.push(thinking);
-    }
-    for (const tool of state.completedTools) {
-      const item: ThinkingTraceItem = { type: 'tool', label: tool, completed: true };
-      traceItems.push(renderTraceItem(item, false, true));
-      summaryItems.push(item);
-    }
-  }
+  const { traceItems, summaryItems } = finalizedTrace(state);
 
   // Collapsing the expanded trace shrinks content ABOVE anything the user is
   // reading further down - without compensation their reading position jumps

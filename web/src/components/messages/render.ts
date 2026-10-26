@@ -348,93 +348,14 @@ export function addMessageToUI(
     log.warn('Messages container not found, skipping message render');
     return;
   }
-  // Check if this is a trigger message (agent execution notification)
-  if (message.role === 'user' && isTriggerMessage(message.content)) {
-    addTriggerMessageToUI(message, container);
-    return;
-  }
+  if (renderSpecialMessage(message, container, approvalResolutions, options)) return;
 
-  // Sent by the app for the user (Look it up, deep-research start): a row, not a bubble
-  if (message.role === 'user' && message.action) {
-    addActionRowToUI(message, container, options);
-    return;
-  }
-
-  // Check if this is an approval request message (assistant asking for permission)
-  if (message.role === 'assistant' && isApprovalRequestMessage(message.content)) {
-    const resolution = approvalResolutions?.get(message.id);
-    addApprovalRequestMessageToUI(
-      message,
-      container,
-      resolution?.resolved ?? false,
-      resolution?.approved ?? true
-    );
-    return;
-  }
-
-  // Check if this is an action approved/rejected message - skip rendering since status is shown on the request
-  if (message.role === 'user' && (isActionApprovedMessage(message.content) || isActionRejectedMessage(message.content))) {
-    // Don't render the "Action approved/rejected" message as separate - status is shown on the approval request
-    return;
-  }
-
-  const messageEl = document.createElement('div');
-  messageEl.className = `message ${message.role}`;
-  messageEl.dataset.messageId = message.id;
-
-  // Entrance animation only for live appends (never on history load).
-  // Transform/opacity only - does not affect layout or scroll anchoring.
-  if (options?.animate) {
-    messageEl.classList.add('message--entering');
-    messageEl.addEventListener(
-      'animationend',
-      () => messageEl.classList.remove('message--entering'),
-      { once: true },
-    );
-  }
-
-  // Avatar: replies only - in a 1:1 chat the user's own right-aligned bubble
-  // needs no marker (as in ChatGPT / Claude.ai)
-  if (message.role === 'assistant') {
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    setIcon(avatar, AI_AVATAR);
-    messageEl.appendChild(avatar);
-  }
+  const messageEl = createMessageElement(message, options?.animate ?? false);
 
   // Content wrapper
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'message-content-wrapper';
-
-  // Render text content
-  const content = document.createElement('div');
-  content.className = 'message-content';
-
-  if (message.role === 'assistant') {
-    // Assistant: text first, then files inside the bubble (same as user)
-    content.innerHTML = renderMarkdown(message.content);
-    highlightAllCodeBlocks(content);
-    void renderMermaidIn(content);
-    if (message.files && message.files.length > 0) {
-      const filesContainer = renderMessageFiles(message.files, message.id);
-      content.appendChild(filesContainer);
-    }
-    contentWrapper.appendChild(content);
-  } else {
-    // User: text first, then files inside the bubble
-    if (message.content) {
-      // Escape HTML, replace newlines, then linkify URLs
-      const escapedContent = escapeHtml(message.content).replace(/\n/g, '<br>');
-      const linkedContent = linkifyText(escapedContent);
-      content.innerHTML = `<p>${linkedContent}</p>`;
-    }
-    if (message.files && message.files.length > 0) {
-      // Unconfirmed sends (pending/failed) have no server-side blobs yet
-      const filesContainer = renderMessageFiles(message.files, message.id, !!message.status);
-      content.appendChild(filesContainer);
-    }
-    contentWrapper.appendChild(content);
-  }
+  contentWrapper.appendChild(renderMessageContent(message));
 
   // Create message actions with all buttons and handlers
   if (message.role === 'assistant' && (message.stop_reason === 'user' || message.stopped_early)) {
@@ -467,6 +388,101 @@ export function addMessageToUI(
   }
   container.appendChild(messageEl);
   updateLatestAssistantMarker(container);
+}
+
+/**
+ * Messages that are not chat bubbles: agent triggers and app-sent actions
+ * (rows), approval requests (cards), and approval outcomes (not rendered -
+ * the request shows the status). Returns whether the message was one.
+ */
+function renderSpecialMessage(
+  message: Message,
+  container: HTMLElement,
+  approvalResolutions: Map<string, { resolved: boolean; approved: boolean }> | undefined,
+  options: { animate?: boolean } | undefined
+): boolean {
+  if (message.role === 'assistant') {
+    // An approval request (assistant asking for permission)
+    if (!isApprovalRequestMessage(message.content)) return false;
+    const resolution = approvalResolutions?.get(message.id);
+    addApprovalRequestMessageToUI(
+      message,
+      container,
+      resolution?.resolved ?? false,
+      resolution?.approved ?? true
+    );
+    return true;
+  }
+  if (message.role !== 'user') return false;
+  // A trigger message (agent execution notification)
+  if (isTriggerMessage(message.content)) {
+    addTriggerMessageToUI(message, container);
+    return true;
+  }
+  // Sent by the app for the user (Look it up, deep-research start): a row, not a bubble
+  if (message.action) {
+    addActionRowToUI(message, container, options);
+    return true;
+  }
+  // Don't render the "Action approved/rejected" message as separate - status is shown on the approval request
+  return isActionApprovedMessage(message.content) || isActionRejectedMessage(message.content);
+}
+
+/** The message bubble element, with the reply avatar and (live appends only) the entrance animation. */
+function createMessageElement(message: Message, animate: boolean): HTMLDivElement {
+  const messageEl = document.createElement('div');
+  messageEl.className = `message ${message.role}`;
+  messageEl.dataset.messageId = message.id;
+
+  // Entrance animation only for live appends (never on history load).
+  // Transform/opacity only - does not affect layout or scroll anchoring.
+  if (animate) {
+    messageEl.classList.add('message--entering');
+    messageEl.addEventListener(
+      'animationend',
+      () => messageEl.classList.remove('message--entering'),
+      { once: true },
+    );
+  }
+
+  // Avatar: replies only - in a 1:1 chat the user's own right-aligned bubble
+  // needs no marker (as in ChatGPT / Claude.ai)
+  if (message.role === 'assistant') {
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    setIcon(avatar, AI_AVATAR);
+    messageEl.appendChild(avatar);
+  }
+  return messageEl;
+}
+
+/** The bubble's content: text first, then files inside the bubble. */
+function renderMessageContent(message: Message): HTMLDivElement {
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  const hasFiles = message.files !== undefined && message.files.length > 0;
+
+  if (message.role === 'assistant') {
+    content.innerHTML = renderMarkdown(message.content);
+    highlightAllCodeBlocks(content);
+    void renderMermaidIn(content);
+    if (hasFiles && message.files) {
+      content.appendChild(renderMessageFiles(message.files, message.id));
+    }
+    return content;
+  }
+
+  if (message.content) {
+    // Escape HTML, replace newlines, then linkify URLs
+    const escapedContent = escapeHtml(message.content).replace(/\n/g, '<br>');
+    const linkedContent = linkifyText(escapedContent);
+    content.innerHTML = `<p>${linkedContent}</p>`;
+  }
+  if (hasFiles && message.files) {
+    // Unconfirmed sends (pending/failed) have no server-side blobs yet
+    content.appendChild(renderMessageFiles(message.files, message.id, !!message.status));
+  }
+  return content;
 }
 
 /**
@@ -541,6 +557,38 @@ function isActionRejectedMessage(content: string): boolean {
   return ACTION_REJECTED_PATTERN.test(content.trim());
 }
 
+/** The outcome shown on a handled approval request. */
+function approvalResultHtml(approved: boolean): string {
+  return `
+      <div class="approval-result ${approved ? 'approved' : 'rejected'}">
+        ${approved ? CHECK_ICON : CLOSE_ICON}
+        <span>${approved ? 'Approved' : 'Rejected'}</span>
+      </div>
+    `;
+}
+
+/** Approve/reject buttons of a pending approval request. */
+function approvalButtonsHtml(approvalId: string): string {
+  return `
+      <button class="btn btn-approve" data-approval-id="${approvalId}">
+        ${CHECK_ICON}
+        <span>Approve</span>
+      </button>
+      <button class="btn btn-reject" data-approval-id="${approvalId}">
+        ${CLOSE_ICON}
+        <span>Reject</span>
+      </button>
+    `;
+}
+
+/** Header icon and title of an approval request: pending, approved or rejected. */
+function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: string; title: string } {
+  if (!isResolved) return { icon: WARNING_ICON, title: 'Action requires approval' };
+  return wasApproved
+    ? { icon: CHECK_ICON, title: 'Action approved' }
+    : { icon: CLOSE_ICON, title: 'Action rejected' };
+}
+
 /**
  * Add an approval request message to the UI.
  * These show the action requiring approval with approve/reject buttons.
@@ -576,34 +624,14 @@ function addApprovalRequestMessageToUI(
     : '';
 
   // Show buttons if pending, show result if resolved
-  let actionsHtml: string;
-  if (isResolved) {
-    // Show the result status
-    actionsHtml = `
-      <div class="approval-result ${wasApproved ? 'approved' : 'rejected'}">
-        ${wasApproved ? CHECK_ICON : CLOSE_ICON}
-        <span>${wasApproved ? 'Approved' : 'Rejected'}</span>
-      </div>
-    `;
-  } else {
-    // Show approve/reject buttons
-    actionsHtml = `
-      <button class="btn btn-approve" data-approval-id="${parsed?.approvalId || ''}">
-        ${CHECK_ICON}
-        <span>Approve</span>
-      </button>
-      <button class="btn btn-reject" data-approval-id="${parsed?.approvalId || ''}">
-        ${CLOSE_ICON}
-        <span>Reject</span>
-      </button>
-    `;
-  }
+  const actionsHtml = isResolved ? approvalResultHtml(wasApproved) : approvalButtonsHtml(parsed?.approvalId || '');
+  const header = approvalHeader(isResolved, wasApproved);
 
   messageEl.innerHTML = `
     <div class="approval-request-content">
       <div class="approval-request-header">
-        <span class="approval-icon">${isResolved ? (wasApproved ? CHECK_ICON : CLOSE_ICON) : WARNING_ICON}</span>
-        <span class="approval-title">${isResolved ? (wasApproved ? 'Action approved' : 'Action rejected') : 'Action requires approval'}</span>
+        <span class="approval-icon">${header.icon}</span>
+        <span class="approval-title">${header.title}</span>
       </div>
       <div class="approval-request-body">
         <p class="approval-description">${escapeHtml(description)}</p>
@@ -617,20 +645,13 @@ function addApprovalRequestMessageToUI(
 
   // Only add event listeners if not resolved
   if (!isResolved && parsed?.approvalId) {
-    const approveBtn = messageEl.querySelector('.btn-approve');
-    const rejectBtn = messageEl.querySelector('.btn-reject');
-
-    if (approveBtn) {
-      approveBtn.addEventListener('click', () => {
-        void handleApprovalAction(parsed.approvalId, true, messageEl);
-      });
-    }
-
-    if (rejectBtn) {
-      rejectBtn.addEventListener('click', () => {
-        void handleApprovalAction(parsed.approvalId, false, messageEl);
-      });
-    }
+    const { approvalId } = parsed;
+    messageEl.querySelector('.btn-approve')?.addEventListener('click', () => {
+      void handleApprovalAction(approvalId, true, messageEl);
+    });
+    messageEl.querySelector('.btn-reject')?.addEventListener('click', () => {
+      void handleApprovalAction(approvalId, false, messageEl);
+    });
   }
 
   container.appendChild(messageEl);
@@ -661,12 +682,7 @@ async function handleApprovalAction(approvalId: string, approved: boolean, messa
     // Update the UI to show the result
     const actionsDiv = messageEl.querySelector('.approval-request-actions');
     if (actionsDiv) {
-      actionsDiv.innerHTML = `
-        <div class="approval-result ${approved ? 'approved' : 'rejected'}">
-          ${approved ? CHECK_ICON : CLOSE_ICON}
-          <span>${approved ? 'Approved' : 'Rejected'}</span>
-        </div>
-      `;
+      actionsDiv.innerHTML = approvalResultHtml(approved);
     }
 
     // Refresh the sidebar to update badges

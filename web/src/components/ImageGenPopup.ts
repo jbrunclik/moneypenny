@@ -42,6 +42,28 @@ const imageGenPopup: PopupInstance<GeneratedImage[]> = createPopup<GeneratedImag
   renderImageGenInfo
 );
 
+/** Replace the cost placeholder with the message's image generation cost, or drop it. */
+async function fillImageGenCost(costPlaceholder: HTMLElement, messageId: string): Promise<void> {
+  try {
+    const costData = await costs.getMessageCost(messageId);
+    // Show image generation cost if available, otherwise show nothing
+    if (costData.image_generation_cost_formatted) {
+      costPlaceholder.outerHTML = `
+        <div class="imagegen-cost">
+          <div class="imagegen-label">Image generation cost:</div>
+          <div class="imagegen-cost-value">${escapeHtml(costData.image_generation_cost_formatted)}</div>
+        </div>
+      `;
+    } else {
+      costPlaceholder.remove();
+    }
+  } catch (error) {
+    // Silently fail - cost display is optional
+    log.warn('Failed to fetch message cost for image gen popup', { error });
+    costPlaceholder.remove();
+  }
+}
+
 /**
  * Initialize image generation popup event handlers
  */
@@ -52,34 +74,13 @@ export function initImageGenPopup(): void {
   const showImageGenCost = async (e: Event): Promise<void> => {
     const event = e as CustomEvent<GeneratedImage[]>;
     const messageId = event.detail?.[0]?.message_id;
+    const costPlaceholder = document.getElementById('imagegen-cost-placeholder');
+    if (!costPlaceholder) return;
     if (messageId) {
-      const costPlaceholder = document.getElementById('imagegen-cost-placeholder');
-      if (costPlaceholder) {
-        try {
-          const costData = await costs.getMessageCost(messageId);
-          // Show image generation cost if available, otherwise show nothing
-          if (costData.image_generation_cost_formatted) {
-            costPlaceholder.outerHTML = `
-              <div class="imagegen-cost">
-                <div class="imagegen-label">Image generation cost:</div>
-                <div class="imagegen-cost-value">${escapeHtml(costData.image_generation_cost_formatted)}</div>
-              </div>
-            `;
-          } else {
-            costPlaceholder.remove();
-          }
-        } catch (error) {
-          // Silently fail - cost display is optional
-          log.warn('Failed to fetch message cost for image gen popup', { error });
-          costPlaceholder.remove();
-        }
-      }
+      await fillImageGenCost(costPlaceholder, messageId);
     } else {
       // Remove placeholder if no message_id
-      const costPlaceholder = document.getElementById('imagegen-cost-placeholder');
-      if (costPlaceholder) {
-        costPlaceholder.remove();
-      }
+      costPlaceholder.remove();
     }
   };
   window.addEventListener('imagegen:open', (e: Event) => {

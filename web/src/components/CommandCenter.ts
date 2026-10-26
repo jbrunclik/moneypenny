@@ -42,6 +42,147 @@ export function renderCommandCenterLoading(): HTMLDivElement {
   return el;
 }
 
+/** Observability strip: runs + cost over the trailing week (null without runs). */
+function renderStatsStrip(stats: CommandCenterResponse['stats']): HTMLDivElement | null {
+  if (!stats || stats.total_runs <= 0) return null;
+  const successRate = Math.round((stats.total_completed / stats.total_runs) * 100);
+  const strip = document.createElement('div');
+  strip.className = 'command-center-stats';
+  strip.innerHTML = `
+    <span class="stats-window">Last ${stats.days} days</span>
+    <span class="stats-item">${stats.total_runs} run${stats.total_runs === 1 ? '' : 's'}</span>
+    <span class="stats-item">${successRate}% success</span>
+    ${stats.total_failed > 0 ? `<span class="stats-item stats-item--failed">${stats.total_failed} failed</span>` : ''}
+    <span class="stats-item stats-item--cost" title="Total agent cost over the window">${escapeHtml(stats.total_cost_display)}</span>
+  `;
+  return strip;
+}
+
+/** Pending Approvals section (always shown as a control panel). */
+function renderApprovalsSection(data: CommandCenterResponse, onApproval: ApprovalCallback): HTMLDivElement {
+  const approvalsSection = document.createElement('div');
+  approvalsSection.className = `command-center-section command-center-section--approvals ${data.pending_approvals.length > 0 ? 'has-approvals' : ''}`;
+
+  if (data.pending_approvals.length === 0) {
+    approvalsSection.innerHTML = `
+      <h3 class="section-title">
+        <span class="section-icon">${CHECK_ICON}</span>
+        Approvals
+      </h3>
+      <p class="section-empty-note">No pending approvals.</p>
+    `;
+    return approvalsSection;
+  }
+
+  approvalsSection.innerHTML = `
+    <h3 class="section-title">
+      <span class="section-icon">${WARNING_ICON}</span>
+      Pending Approvals
+      <span class="badge badge--warning">${data.pending_approvals.length}</span>
+    </h3>
+  `;
+  const approvalsList = document.createElement('div');
+  approvalsList.className = 'approvals-list';
+  data.pending_approvals.forEach(approval => {
+    // Find the agent to get schedule context
+    const agent = data.agents.find(a => a.id === approval.agent_id);
+    approvalsList.appendChild(renderApprovalCard(approval, agent, onApproval));
+  });
+  approvalsSection.appendChild(approvalsList);
+  return approvalsSection;
+}
+
+/** Agents section: a card per agent, or an empty state offering to create one. */
+function renderAgentsSection(
+  data: CommandCenterResponse,
+  statsByAgent: Map<string, AgentWindowStats>,
+  onAgentSelect: AgentSelectCallback,
+  onAgentRun: AgentRunCallback,
+  onAgentEdit: AgentEditCallback,
+  onNewAgent: NewAgentCallback,
+): HTMLDivElement {
+  const agentsSection = document.createElement('div');
+  agentsSection.className = 'command-center-section command-center-section--agents';
+  agentsSection.innerHTML = `
+    <h3 class="section-title">
+      <span class="section-icon">${ROBOT_ICON}</span>
+      Agents
+      <span class="badge">${data.agents.length}</span>
+    </h3>
+  `;
+
+  if (data.agents.length === 0) {
+    const holder = document.createElement('div');
+    holder.innerHTML = renderEmptyStateHtml({
+      icon: ROBOT_ICON,
+      title: 'No agents yet',
+      hint: 'Create an agent to automate tasks.',
+      ctaHtml: `<button class="btn-create-agent">${PLUS_ICON}<span>Create Agent</span></button>`,
+    });
+    const emptyState = holder.firstElementChild as HTMLElement;
+    emptyState.querySelector('.btn-create-agent')?.addEventListener('click', () => {
+      onNewAgent();
+    });
+    agentsSection.appendChild(emptyState);
+    return agentsSection;
+  }
+
+  const agentsList = document.createElement('div');
+  agentsList.className = 'agents-list';
+  data.agents.forEach(agent => {
+    agentsList.appendChild(
+      renderAgentCard(agent, onAgentSelect, onAgentRun, onAgentEdit, statsByAgent.get(agent.id))
+    );
+  });
+  agentsSection.appendChild(agentsList);
+  return agentsSection;
+}
+
+/** Recent Executions section (collapsible, shows last 10 executions); null when there are none. */
+function renderExecutionsSection(data: CommandCenterResponse): HTMLDivElement | null {
+  if (!data.recent_executions || data.recent_executions.length === 0) return null;
+  const executionsSection = document.createElement('div');
+  executionsSection.className = 'command-center-section command-center-section--executions';
+  executionsSection.innerHTML = `
+    <h3 class="section-title section-title--collapsible" data-collapsed="false">
+      <span class="section-icon">${HISTORY_ICON}</span>
+      Recent Activity
+      <span class="badge">${data.recent_executions.length}</span>
+      <span class="section-toggle">${CHEVRON_DOWN_ICON}</span>
+    </h3>
+  `;
+
+  // Show the latest 3 by default; "Show all" reveals the rest
+  const executions = data.recent_executions.slice(0, 10);
+  const executionsList = document.createElement('div');
+  executionsList.className = 'executions-list executions-list--limited';
+  executions.forEach(execution => {
+    executionsList.appendChild(renderExecutionItem(execution, data.agents));
+  });
+  executionsSection.appendChild(executionsList);
+
+  if (executions.length > 3) {
+    const showAllBtn = document.createElement('button');
+    showAllBtn.className = 'executions-show-all';
+    showAllBtn.textContent = `Show all (${executions.length})`;
+    showAllBtn.addEventListener('click', () => {
+      executionsList.classList.remove('executions-list--limited');
+      showAllBtn.remove();
+    });
+    executionsSection.appendChild(showAllBtn);
+  }
+
+  // Toggle collapsed state (chevron rotates via CSS)
+  const titleEl = executionsSection.querySelector('.section-title--collapsible');
+  titleEl?.addEventListener('click', () => {
+    const isCollapsed = titleEl.getAttribute('data-collapsed') === 'true';
+    titleEl.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
+    executionsList.classList.toggle('collapsed', !isCollapsed);
+    executionsSection.querySelector('.executions-show-all')?.classList.toggle('hidden', !isCollapsed);
+  });
+  return executionsSection;
+}
+
 /**
  * Render the command center dashboard.
  */
@@ -83,138 +224,65 @@ export function renderCommandCenter(
   });
   el.appendChild(header);
 
-  // Observability strip: runs + cost over the trailing week
   const stats = data.stats;
-  if (stats && stats.total_runs > 0) {
-    const successRate = Math.round((stats.total_completed / stats.total_runs) * 100);
-    const strip = document.createElement('div');
-    strip.className = 'command-center-stats';
-    strip.innerHTML = `
-      <span class="stats-window">Last ${stats.days} days</span>
-      <span class="stats-item">${stats.total_runs} run${stats.total_runs === 1 ? '' : 's'}</span>
-      <span class="stats-item">${successRate}% success</span>
-      ${stats.total_failed > 0 ? `<span class="stats-item stats-item--failed">${stats.total_failed} failed</span>` : ''}
-      <span class="stats-item stats-item--cost" title="Total agent cost over the window">${escapeHtml(stats.total_cost_display)}</span>
-    `;
-    el.appendChild(strip);
-  }
+  const strip = renderStatsStrip(stats);
+  if (strip) el.appendChild(strip);
 
   const statsByAgent = new Map((stats?.per_agent ?? []).map((s) => [s.agent_id, s]));
-
-  // Pending Approvals section (always shown as a control panel)
-  const approvalsSection = document.createElement('div');
-  approvalsSection.className = `command-center-section command-center-section--approvals ${data.pending_approvals.length > 0 ? 'has-approvals' : ''}`;
-
-  if (data.pending_approvals.length > 0) {
-    approvalsSection.innerHTML = `
-      <h3 class="section-title">
-        <span class="section-icon">${WARNING_ICON}</span>
-        Pending Approvals
-        <span class="badge badge--warning">${data.pending_approvals.length}</span>
-      </h3>
-    `;
-
-    const approvalsList = document.createElement('div');
-    approvalsList.className = 'approvals-list';
-    data.pending_approvals.forEach(approval => {
-      // Find the agent to get schedule context
-      const agent = data.agents.find(a => a.id === approval.agent_id);
-      approvalsList.appendChild(renderApprovalCard(approval, agent, onApproval));
-    });
-    approvalsSection.appendChild(approvalsList);
-  } else {
-    approvalsSection.innerHTML = `
-      <h3 class="section-title">
-        <span class="section-icon">${CHECK_ICON}</span>
-        Approvals
-      </h3>
-      <p class="section-empty-note">No pending approvals.</p>
-    `;
-  }
-  el.appendChild(approvalsSection);
-
-  // Agents section
-  const agentsSection = document.createElement('div');
-  agentsSection.className = 'command-center-section command-center-section--agents';
-  agentsSection.innerHTML = `
-    <h3 class="section-title">
-      <span class="section-icon">${ROBOT_ICON}</span>
-      Agents
-      <span class="badge">${data.agents.length}</span>
-    </h3>
-  `;
-
-  if (data.agents.length === 0) {
-    const holder = document.createElement('div');
-    holder.innerHTML = renderEmptyStateHtml({
-      icon: ROBOT_ICON,
-      title: 'No agents yet',
-      hint: 'Create an agent to automate tasks.',
-      ctaHtml: `<button class="btn-create-agent">${PLUS_ICON}<span>Create Agent</span></button>`,
-    });
-    const emptyState = holder.firstElementChild as HTMLElement;
-    emptyState.querySelector('.btn-create-agent')?.addEventListener('click', () => {
-      onNewAgent();
-    });
-    agentsSection.appendChild(emptyState);
-  } else {
-    const agentsList = document.createElement('div');
-    agentsList.className = 'agents-list';
-    data.agents.forEach(agent => {
-      agentsList.appendChild(
-        renderAgentCard(agent, onAgentSelect, onAgentRun, onAgentEdit, statsByAgent.get(agent.id))
-      );
-    });
-    agentsSection.appendChild(agentsList);
-  }
-  el.appendChild(agentsSection);
-
-  // Recent Executions section (collapsible, shows last 10 executions)
-  if (data.recent_executions && data.recent_executions.length > 0) {
-    const executionsSection = document.createElement('div');
-    executionsSection.className = 'command-center-section command-center-section--executions';
-    executionsSection.innerHTML = `
-      <h3 class="section-title section-title--collapsible" data-collapsed="false">
-        <span class="section-icon">${HISTORY_ICON}</span>
-        Recent Activity
-        <span class="badge">${data.recent_executions.length}</span>
-        <span class="section-toggle">${CHEVRON_DOWN_ICON}</span>
-      </h3>
-    `;
-
-    // Show the latest 3 by default; "Show all" reveals the rest
-    const executions = data.recent_executions.slice(0, 10);
-    const executionsList = document.createElement('div');
-    executionsList.className = 'executions-list executions-list--limited';
-    executions.forEach(execution => {
-      executionsList.appendChild(renderExecutionItem(execution, data.agents));
-    });
-    executionsSection.appendChild(executionsList);
-
-    if (executions.length > 3) {
-      const showAllBtn = document.createElement('button');
-      showAllBtn.className = 'executions-show-all';
-      showAllBtn.textContent = `Show all (${executions.length})`;
-      showAllBtn.addEventListener('click', () => {
-        executionsList.classList.remove('executions-list--limited');
-        showAllBtn.remove();
-      });
-      executionsSection.appendChild(showAllBtn);
-    }
-
-    // Toggle collapsed state (chevron rotates via CSS)
-    const titleEl = executionsSection.querySelector('.section-title--collapsible');
-    titleEl?.addEventListener('click', () => {
-      const isCollapsed = titleEl.getAttribute('data-collapsed') === 'true';
-      titleEl.setAttribute('data-collapsed', isCollapsed ? 'false' : 'true');
-      executionsList.classList.toggle('collapsed', !isCollapsed);
-      executionsSection.querySelector('.executions-show-all')?.classList.toggle('hidden', !isCollapsed);
-    });
-
-    el.appendChild(executionsSection);
-  }
+  el.appendChild(renderApprovalsSection(data, onApproval));
+  el.appendChild(renderAgentsSection(data, statsByAgent, onAgentSelect, onAgentRun, onAgentEdit, onNewAgent));
+  const executionsSection = renderExecutionsSection(data);
+  if (executionsSection) el.appendChild(executionsSection);
 
   return el;
+}
+
+/** The status dot next to an agent's name (pending approval, disabled, last run outcome). */
+function agentStatusIndicatorHtml(agent: Agent): string {
+  if (agent.has_pending_approval) {
+    return `<span class="status-indicator status-indicator--warning" title="Waiting for approval"></span>`;
+  }
+  if (!agent.enabled) {
+    return `<span class="status-indicator status-indicator--disabled" title="Disabled"></span>`;
+  }
+  if (agent.last_execution_status === 'failed') {
+    return `<span class="status-indicator status-indicator--error" title="Last run failed"></span>`;
+  }
+  if (agent.last_execution_status === 'completed') {
+    return `<span class="status-indicator status-indicator--success" title="Last run completed"></span>`;
+  }
+  return '';
+}
+
+/** An agent's schedule, last run and next run as display text ('' when absent). */
+function agentScheduleTexts(agent: Agent): { scheduleText: string; lastRunText: string; nextRunText: string } {
+  const scheduleText = agent.schedule ? formatSchedule(agent.schedule) : 'Manual only';
+  const lastRunText = agent.last_run_at ? formatRelativeTime(new Date(agent.last_run_at)) : '';
+  const nextRunText =
+    agent.next_run_at && agent.enabled && agent.schedule ? formatRelativeTime(new Date(agent.next_run_at)) : '';
+  return { scheduleText, lastRunText, nextRunText };
+}
+
+/**
+ * System-managed agents get a badge so it's clear the app owns their
+ * lifecycle; extend the map for future special agent types.
+ */
+function agentSystemBadgeHtml(agent: Agent): string {
+  const systemTypeLabels: Record<string, string> = {
+    daily_briefing: 'Built-in',
+  };
+  return agent.system_type
+    ? `<span class="agent-system-badge" title="Built-in agent - schedule and delivery are configured in Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'Built-in')}</span>`
+    : '';
+}
+
+/** The agent's runs and cost over the stats window ('' when it did not run). */
+function agentWindowStatsHtml(windowStats: AgentWindowStats | undefined): string {
+  if (!windowStats || windowStats.runs <= 0) return '';
+  const failed = windowStats.failed > 0
+    ? ` · <span class="agent-window-stats--failed">${windowStats.failed} failed</span>`
+    : '';
+  return `<span class="agent-window-stats" title="Runs and cost over the last 7 days">7d: ${windowStats.runs} run${windowStats.runs === 1 ? '' : 's'}${failed} · ${escapeHtml(windowStats.cost_display)}</span>`;
 }
 
 /**
@@ -231,51 +299,15 @@ function renderAgentCard(
   card.className = `agent-card ${agent.enabled ? '' : 'agent-card--disabled'}`;
   card.dataset.agentId = agent.id;
 
-  // Status indicators (dot next to name)
-  let statusIndicator = '';
-  if (agent.has_pending_approval) {
-    statusIndicator = `<span class="status-indicator status-indicator--warning" title="Waiting for approval"></span>`;
-  } else if (!agent.enabled) {
-    statusIndicator = `<span class="status-indicator status-indicator--disabled" title="Disabled"></span>`;
-  } else if (agent.last_execution_status === 'failed') {
-    statusIndicator = `<span class="status-indicator status-indicator--error" title="Last run failed"></span>`;
-  } else if (agent.last_execution_status === 'completed') {
-    statusIndicator = `<span class="status-indicator status-indicator--success" title="Last run completed"></span>`;
-  }
+  const statusIndicator = agentStatusIndicatorHtml(agent);
 
   // Unread badge
   const unreadBadge = agent.unread_count > 0
     ? `<span class="unread-badge">${agent.unread_count > 99 ? '99+' : agent.unread_count}</span>`
     : '';
 
-  // Schedule display
-  let scheduleText = 'Manual only';
-  if (agent.schedule) {
-    scheduleText = formatSchedule(agent.schedule);
-  }
-
-  // Last run display
-  let lastRunText = '';
-  if (agent.last_run_at) {
-    const lastRun = new Date(agent.last_run_at);
-    lastRunText = formatRelativeTime(lastRun);
-  }
-
-  // Next run display
-  let nextRunText = '';
-  if (agent.next_run_at && agent.enabled && agent.schedule) {
-    const nextRun = new Date(agent.next_run_at);
-    nextRunText = formatRelativeTime(nextRun);
-  }
-
-  // System-managed agents get a badge so it's clear the app owns their
-  // lifecycle; extend the map for future special agent types
-  const systemTypeLabels: Record<string, string> = {
-    daily_briefing: 'Built-in',
-  };
-  const systemBadge = agent.system_type
-    ? `<span class="agent-system-badge" title="Built-in agent - schedule and delivery are configured in Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'Built-in')}</span>`
-    : '';
+  const { scheduleText, lastRunText, nextRunText } = agentScheduleTexts(agent);
+  const systemBadge = agentSystemBadgeHtml(agent);
 
   card.innerHTML = `
     <div class="agent-card-header">
@@ -301,9 +333,7 @@ function renderAgentCard(
       <span class="agent-schedule">${escapeHtml(scheduleText)}</span>
       ${lastRunText ? `<span class="agent-last-run">Last: ${escapeHtml(lastRunText)}</span>` : ''}
       ${nextRunText ? `<span class="agent-next-run">Next: ${escapeHtml(nextRunText)}</span>` : ''}
-      ${windowStats && windowStats.runs > 0
-        ? `<span class="agent-window-stats" title="Runs and cost over the last 7 days">7d: ${windowStats.runs} run${windowStats.runs === 1 ? '' : 's'}${windowStats.failed > 0 ? ` · <span class="agent-window-stats--failed">${windowStats.failed} failed</span>` : ''} · ${escapeHtml(windowStats.cost_display)}</span>`
-        : ''}
+      ${agentWindowStatsHtml(windowStats)}
     </div>
   `;
 
@@ -405,10 +435,67 @@ function renderApprovalCard(
   return card;
 }
 
+/** Whether a cron field is a plain number (not a step, range or list). */
+function isPlainNumber(val: string): boolean {
+  return /^\d+$/.test(val);
+}
+
+/** HH:MM of plain-number cron hour and minute fields. */
+function clockTime(hour: string, minute: string): string {
+  const h = parseInt(hour, 10);
+  const m = parseInt(minute, 10);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+/** Step schedules: every N hours or every N minutes. */
+function formatStepSchedule(minute: string, hour: string): string | null {
+  if (hour.startsWith('*/') && minute !== '*') {
+    const interval = parseInt(hour.slice(2), 10);
+    if (!isNaN(interval)) {
+      return `Every ${interval}h at :${minute.padStart(2, '0')}`;
+    }
+  }
+  if (minute.startsWith('*/')) {
+    const interval = parseInt(minute.slice(2), 10);
+    if (!isNaN(interval)) {
+      return `Every ${interval} min`;
+    }
+  }
+  return null;
+}
+
+/** Daily, hourly, weekly and weekday schedules. */
+function formatCalendarSchedule(
+  minute: string,
+  hour: string,
+  dayOfMonth: string,
+  month: string,
+  dayOfWeek: string
+): string | null {
+  const atTime = isPlainNumber(hour) && isPlainNumber(minute);
+  // Daily at specific time - only if hour is a plain number
+  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*' && atTime) {
+    return `Daily at ${clockTime(hour, minute)}`;
+  }
+  if (hour === '*' && isPlainNumber(minute)) {
+    return `Every hour at :${minute.padStart(2, '0')}`;
+  }
+  // Weekly - only if dayOfWeek is a plain number
+  if (isPlainNumber(dayOfWeek)) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return `Weekly on ${days[parseInt(dayOfWeek, 10)] || dayOfWeek}`;
+  }
+  if (dayOfWeek === '1-5' && atTime) {
+    return `Weekdays at ${clockTime(hour, minute)}`;
+  }
+  return null;
+}
+
 /**
- * Format a cron schedule to human-readable text.
+ * Format a cron schedule to human-readable text (the raw expression when
+ * it is none of the common shapes).
  */
-function formatSchedule(schedule: string): string {
+export function formatSchedule(schedule: string): string {
   // Simple cron parsing - could be enhanced with a library
   const parts = schedule.split(' ');
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
@@ -422,55 +509,11 @@ function formatSchedule(schedule: string): string {
   ) {
     return schedule;
   }
-
-  // Helper to check if a value is a plain number (not a step or range)
-  const isPlainNumber = (val: string): boolean => /^\d+$/.test(val);
-
-  // Every N hours (step value like */2)
-  if (hour.startsWith('*/') && minute !== '*') {
-    const interval = parseInt(hour.slice(2), 10);
-    if (!isNaN(interval)) {
-      return `Every ${interval}h at :${minute.padStart(2, '0')}`;
-    }
-  }
-
-  // Every N minutes (step value like */15)
-  if (minute.startsWith('*/')) {
-    const interval = parseInt(minute.slice(2), 10);
-    if (!isNaN(interval)) {
-      return `Every ${interval} min`;
-    }
-  }
-
-  // Daily at specific time - only if hour is a plain number
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*' && isPlainNumber(hour) && isPlainNumber(minute)) {
-    const h = parseInt(hour, 10);
-    const m = parseInt(minute, 10);
-    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    return `Daily at ${time}`;
-  }
-
-  // Every hour
-  if (hour === '*' && isPlainNumber(minute)) {
-    return `Every hour at :${minute.padStart(2, '0')}`;
-  }
-
-  // Weekly - only if dayOfWeek is a plain number or range
-  if (dayOfWeek !== '*' && isPlainNumber(dayOfWeek)) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const dayName = days[parseInt(dayOfWeek, 10)] || dayOfWeek;
-    return `Weekly on ${dayName}`;
-  }
-
-  // Weekday range (1-5)
-  if (dayOfWeek === '1-5' && isPlainNumber(hour) && isPlainNumber(minute)) {
-    const h = parseInt(hour, 10);
-    const m = parseInt(minute, 10);
-    const time = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    return `Weekdays at ${time}`;
-  }
-
-  return schedule;
+  return (
+    formatStepSchedule(minute, hour) ??
+    formatCalendarSchedule(minute, hour, dayOfMonth, month, dayOfWeek) ??
+    schedule
+  );
 }
 
 /**

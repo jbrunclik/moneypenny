@@ -211,50 +211,70 @@ function fillEditor(card: HTMLElement, offer: ResearchOffer): void {
   refresh(card);
 }
 
-function onClick(e: Event): void {
-  const button = (e.target as Element).closest<HTMLButtonElement>(`.${CARD_CLASS} button`);
-  const card = button?.closest<HTMLElement>(`.${CARD_CLASS}`);
-  if (!button || !card) return;
-  if (button.classList.contains('research-offer__report')) {
-    const report = document.querySelector<HTMLElement>(`.message[data-message-id="${button.dataset.reportId}"]`);
-    if (report) flashElement(report, 'message--flash');
-    return;
+/** Scroll to and flash the report a started offer links to. */
+function flashReport(button: HTMLButtonElement): void {
+  const report = document.querySelector<HTMLElement>(`.message[data-message-id="${button.dataset.reportId}"]`);
+  if (report) flashElement(report, 'message--flash');
+}
+
+/** No thanks: decline on the server; the card goes away once that succeeds. */
+function declineOffer(card: HTMLElement, button: HTMLButtonElement): void {
+  stopCountdown(card);
+  const messageId = card.dataset.messageId;
+  if (!messageId) return;
+  button.disabled = true;
+  void declineDeepResearch(messageId).then((ok) => {
+    if (ok === false) button.disabled = false;
+    else card.remove(); // nothing left to act on
+  });
+}
+
+/** Show the context field in place of its text, focused. */
+function editContext(card: HTMLElement, button: HTMLButtonElement): void {
+  const contextText = card.querySelector<HTMLElement>('.research-offer__context-text');
+  if (contextText) contextText.hidden = true;
+  button.hidden = true;
+  const field = card.querySelector<HTMLTextAreaElement>('.research-offer__context textarea');
+  if (field) {
+    field.hidden = false;
+    field.focus();
   }
-  if (!button.classList.contains('research-offer__start') && !button.classList.contains('research-offer__decline')) {
-    stopCountdown(card); // the user is changing the plan
-  }
-  if (button.classList.contains('research-offer__edit')) {
-    card.querySelector<HTMLTextAreaElement>('.research-offer__item textarea')?.focus();
-    return;
-  }
+}
+
+/** Plan edits: remove or add a question, edit the context. */
+function editPlan(card: HTMLElement, button: HTMLButtonElement): void {
   if (button.classList.contains('research-offer__remove')) {
     button.closest('.research-offer__item')?.remove();
   } else if (button.classList.contains('research-offer__add')) {
     card.querySelector('.research-offer__items')?.insertAdjacentHTML('beforeend', itemHtml(''));
     card.querySelector<HTMLTextAreaElement>('.research-offer__item:last-child textarea')?.focus();
   } else if (button.classList.contains('research-offer__context-edit')) {
-    const contextText = card.querySelector<HTMLElement>('.research-offer__context-text');
-    if (contextText) contextText.hidden = true;
-    button.hidden = true;
-    const field = card.querySelector<HTMLTextAreaElement>('.research-offer__context textarea');
-    if (field) {
-      field.hidden = false;
-      field.focus();
-    }
-  } else if (button.classList.contains('research-offer__start')) {
-    start(card, items(card), context(card));
-    return;
-  } else if (button.classList.contains('research-offer__decline')) {
-    stopCountdown(card);
-    const messageId = card.dataset.messageId;
-    if (!messageId) return;
-    button.disabled = true;
-    void declineDeepResearch(messageId).then((ok) => {
-      if (ok === false) button.disabled = false;
-      else card.remove(); // nothing left to act on
-    });
+    editContext(card, button);
+  }
+}
+
+function onClick(e: Event): void {
+  const button = (e.target as Element).closest<HTMLButtonElement>(`.${CARD_CLASS} button`);
+  const card = button?.closest<HTMLElement>(`.${CARD_CLASS}`);
+  if (!button || !card) return;
+  if (button.classList.contains('research-offer__report')) {
+    flashReport(button);
     return;
   }
+  if (button.classList.contains('research-offer__start')) {
+    start(card, items(card), context(card));
+    return;
+  }
+  if (button.classList.contains('research-offer__decline')) {
+    declineOffer(card, button);
+    return;
+  }
+  stopCountdown(card); // the user is changing the plan
+  if (button.classList.contains('research-offer__edit')) {
+    card.querySelector<HTMLTextAreaElement>('.research-offer__item textarea')?.focus();
+    return;
+  }
+  editPlan(card, button);
   refresh(card);
 }
 

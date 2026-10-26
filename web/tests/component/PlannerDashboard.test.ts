@@ -78,3 +78,52 @@ describe('PlannerDashboard week section', () => {
     expect(render(d).querySelector('.week summary')?.textContent).not.toContain('1 items');
   });
 });
+
+describe('PlannerDashboard today timeline', () => {
+  const event = (id: string, start: string, end: string, isAllDay = false) =>
+    ({
+      id,
+      summary: id,
+      description: null,
+      start,
+      end,
+      is_all_day: isAllDay,
+      location: null,
+    }) as unknown as PlannerDay['events'][number];
+
+  /** The order of event rows and the "Now" line in today's section */
+  function timeline(events: PlannerDay['events']): string[] {
+    const el = render(dashboard({ days: [day('2026-10-09', { events }), day('2026-10-10')] }));
+    const section = el.querySelector('.dashboard-events') as HTMLElement;
+    return [...section.querySelectorAll<HTMLElement>('.planner-item-event, .time-indicator')].map((n) =>
+      n.classList.contains('time-indicator')
+        ? 'NOW'
+        : `${n.dataset.past ? 'past:' : ''}${n.querySelector('.planner-item-title')?.textContent ?? ''}`
+    );
+  }
+
+  it('puts the Now line between past and upcoming events and dims the past ones', () => {
+    const order = timeline([
+      event('Standup', '2026-10-09T07:00:00', '2026-10-09T07:30:00'),
+      event('Lunch', '2026-10-09T12:00:00', '2026-10-09T13:00:00'),
+    ]);
+    expect(order).toEqual(['past:Standup', 'NOW', 'Lunch']);
+  });
+
+  it('skips all-day events when placing the Now line', () => {
+    const order = timeline([
+      event('Holiday', '2026-10-09', '2026-10-10', true),
+      event('Lunch', '2026-10-09T12:00:00', '2026-10-09T13:00:00'),
+    ]);
+    expect(order).toEqual(['Holiday', 'NOW', 'Lunch']);
+  });
+
+  it('puts the Now line last when every timed event is over', () => {
+    const order = timeline([event('Standup', '2026-10-09T07:00:00', '2026-10-09T07:30:00')]);
+    expect(order).toEqual(['past:Standup', 'NOW']);
+  });
+
+  it('shows no Now line among only all-day events', () => {
+    expect(timeline([event('Holiday', '2026-10-09', '2026-10-10', true)])).toEqual(['Holiday']);
+  });
+});

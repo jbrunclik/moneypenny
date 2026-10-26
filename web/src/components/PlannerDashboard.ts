@@ -181,6 +181,33 @@ function renderOverdueSection(tasks: PlannerTask[]): string {
 }
 
 /**
+ * A day's events in order; today's get past events dimmed and the time
+ * indicator between past and future timed events (all-day events skipped).
+ */
+function renderDayEvents(events: PlannerDay['events'], isToday: boolean, now: Date): string {
+  let eventsHtml = '';
+  let timeIndicatorInserted = false;
+  for (const event of events) {
+    const isPast = isToday && isEventPast(event, now);
+
+    // Insert time indicator between past and future timed events (skip all-day)
+    if (isToday && !timeIndicatorInserted && !event.is_all_day && !isPast) {
+      eventsHtml += renderTimeIndicator(now);
+      timeIndicatorInserted = true;
+    }
+
+    eventsHtml += renderEventItem(event, isPast);
+  }
+
+  // If all timed events are past, insert time indicator after the last one
+  const hasTimedEvents = events.some((e) => !e.is_all_day);
+  if (isToday && !timeIndicatorInserted && hasTimedEvents) {
+    eventsHtml += renderTimeIndicator(now);
+  }
+  return eventsHtml;
+}
+
+/**
  * Render a day section (Today, Tomorrow, or a weekday).
  * @param isToday - If true, adds time indicator and dims past events
  */
@@ -200,33 +227,13 @@ function renderDaySection(day: PlannerDay, isToday = false, now = new Date()): s
   }
 
   let content = '';
-  let timeIndicatorInserted = false;
 
   // Events
   if (day.events.length > 0) {
-    let eventsHtml = '';
-    for (const event of day.events) {
-      const isPast = isToday && isEventPast(event, now);
-
-      // Insert time indicator between past and future timed events (skip all-day)
-      if (isToday && !timeIndicatorInserted && !event.is_all_day && !isPast) {
-        eventsHtml += renderTimeIndicator(now);
-        timeIndicatorInserted = true;
-      }
-
-      eventsHtml += renderEventItem(event, isPast);
-    }
-
-    // If all timed events are past, insert time indicator after the last one
-    const hasTimedEvents = day.events.some((e) => !e.is_all_day);
-    if (isToday && !timeIndicatorInserted && hasTimedEvents) {
-      eventsHtml += renderTimeIndicator(now);
-    }
-
     content += `
       <div class="dashboard-events">
         <div class="dashboard-events-header">Events</div>
-        ${eventsHtml}
+        ${renderDayEvents(day.events, isToday, now)}
       </div>
     `;
   } else if (isToday) {

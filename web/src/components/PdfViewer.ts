@@ -15,6 +15,7 @@ import { escapeHtml } from '../utils/dom';
 import { CLOSE_ICON, DOWNLOAD_ICON } from '../utils/icons';
 import { downloadFile } from '../core/file-actions';
 import { computeFitWidthScale, clampPageCount } from './pdf-viewer-utils';
+import type { PDFPageProxy } from 'pdfjs-dist';
 
 const log = createLogger('pdf-viewer');
 
@@ -31,14 +32,8 @@ export function closePdfViewer(): void {
 
 registerPopupEscapeHandler(VIEWER_ID, closePdfViewer);
 
-export async function openPdfViewer(
-  messageId: string,
-  fileIndex: number,
-  fileName: string
-): Promise<void> {
-  closePdfViewer();
-  const thisSession = ++session;
-
+/** The viewer overlay: toolbar (title, page count, download, close) and the page column. */
+function buildViewerOverlay(messageId: string, fileIndex: number, fileName: string): HTMLDivElement {
   const overlay = document.createElement('div');
   overlay.id = VIEWER_ID;
   overlay.className = 'pdf-viewer-overlay';
@@ -60,6 +55,47 @@ export async function openPdfViewer(
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closePdfViewer();
   });
+  return overlay;
+}
+
+/** Render one page fit-to-width as a canvas at the device pixel ratio (capped by the caller). */
+async function renderPage(
+  page: PDFPageProxy,
+  scroll: HTMLDivElement,
+  containerWidth: number,
+  dpr: number
+): Promise<void> {
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = computeFitWidthScale(containerWidth, baseViewport.width);
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pdf-viewer-page';
+  canvas.width = Math.floor(viewport.width * dpr);
+  canvas.height = Math.floor(viewport.height * dpr);
+  canvas.style.width = `${Math.floor(viewport.width)}px`;
+  canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  scroll.appendChild(canvas);
+  await page.render({
+    canvas,
+    canvasContext: ctx,
+    viewport,
+    transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+  }).promise;
+}
+
+export async function openPdfViewer(
+  messageId: string,
+  fileIndex: number,
+  fileName: string
+): Promise<void> {
+  closePdfViewer();
+  const thisSession = ++session;
+
+  const overlay = buildViewerOverlay(messageId, fileIndex, fileName);
   document.body.appendChild(overlay);
 
   try {
@@ -92,26 +128,7 @@ export async function openPdfViewer(
       const page = await doc.getPage(i);
       if (thisSession !== session) return;
 
-      const baseViewport = page.getViewport({ scale: 1 });
-      const scale = computeFitWidthScale(containerWidth, baseViewport.width);
-      const viewport = page.getViewport({ scale });
-
-      const canvas = document.createElement('canvas');
-      canvas.className = 'pdf-viewer-page';
-      canvas.width = Math.floor(viewport.width * dpr);
-      canvas.height = Math.floor(viewport.height * dpr);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) continue;
-      scroll.appendChild(canvas);
-      await page.render({
-        canvas,
-        canvasContext: ctx,
-        viewport,
-        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-      }).promise;
+      await renderPage(page, scroll, containerWidth, dpr);
     }
 
     if (truncated && thisSession === session) {

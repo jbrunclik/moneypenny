@@ -181,6 +181,70 @@ function attachSaveQuickActionHandler(actions: HTMLElement, messageId: string): 
 // Main Function
 // ============================================================================
 
+/** Which optional action buttons a message gets. */
+interface ActionButtons {
+  sources: Source[] | null;
+  generatedImages: GeneratedImage[] | null;
+  cost: boolean;
+  speak: boolean;
+  rerun: boolean;
+  edit: boolean;
+  saveQuickAction: boolean;
+}
+
+function actionButtonsFor(
+  role: 'user' | 'assistant',
+  sources: Source[] | undefined,
+  generatedImages: GeneratedImage[] | undefined
+): ActionButtons {
+  const isAssistant = role === 'assistant';
+  return {
+    sources: sources && sources.length > 0 ? sources : null,
+    generatedImages: generatedImages && generatedImages.length > 0 ? generatedImages : null,
+    cost: isAssistant,
+    speak: isAssistant && typeof speechSynthesis !== 'undefined',
+    // Rendered on every assistant/user message; CSS reveals them only where
+    // they make sense (regenerate/continue on the LAST assistant message)
+    rerun: isAssistant,
+    edit: !isAssistant,
+    // Only meaningful inside program conversations; CSS hides it elsewhere
+    // (body.has-quick-actions), so it is rendered on every user message.
+    saveQuickAction: !isAssistant,
+  };
+}
+
+/** The secondary buttons (collapsed behind the overflow toggle on touch devices). */
+function secondaryButtonsHtml(timeStr: string, show: ActionButtons): string {
+  return `
+      ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
+      ${show.rerun ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
+      ${show.rerun ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
+      ${show.edit ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
+      ${show.saveQuickAction ? `<button class="message-save-quick-action-btn" title="Save as quick action">${PIN_ICON}</button>` : ''}
+      ${show.sources ? `<button class="message-sources-btn" title="View sources (${show.sources.length})">${SOURCES_ICON}</button>` : ''}
+      ${show.generatedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
+      ${show.cost ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
+      ${show.speak ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
+      <button class="message-delete-btn" title="Delete message">${DELETE_ICON}</button>
+    `;
+}
+
+function attachActionHandlers(
+  actions: HTMLElement,
+  messageId: string,
+  show: ActionButtons,
+  language: string | undefined
+): void {
+  attachDeleteHandler(actions, messageId);
+  if (show.rerun) attachRerunHandlers(actions, messageId);
+  if (show.edit) attachEditHandler(actions, messageId);
+  if (show.saveQuickAction) attachSaveQuickActionHandler(actions, messageId);
+  if (show.sources) attachSourcesHandler(actions, show.sources);
+  if (show.generatedImages) attachImagegenHandler(actions, show.generatedImages, messageId);
+  if (show.cost) attachCostHandler(actions, messageId);
+  if (show.speak) attachSpeakHandler(actions, messageId, language);
+}
+
 /**
  * Create message actions container with all buttons and handlers.
  */
@@ -196,17 +260,7 @@ export function createMessageActions(
   actions.className = 'message-actions';
 
   const timeStr = createdAt ? formatMessageTime(createdAt) : '';
-  const hasSources = sources && sources.length > 0;
-  const hasGeneratedImages = generatedImages && generatedImages.length > 0;
-  const showCostButton = role === 'assistant';
-  const showSpeakButton = role === 'assistant' && typeof speechSynthesis !== 'undefined';
-  // Rendered on every assistant/user message; CSS reveals them only where
-  // they make sense (regenerate/continue on the LAST assistant message)
-  const showRerunButtons = role === 'assistant';
-  const showEditButton = role === 'user';
-  // Only meaningful inside program conversations; CSS hides it elsewhere
-  // (body.has-quick-actions), so it is rendered on every user message.
-  const showSaveQuickActionButton = role === 'user';
+  const show = actionButtonsFor(role, sources, generatedImages);
 
   // Build HTML. On touch devices the secondary buttons collapse behind
   // the overflow toggle (CSS-controlled); copy is the most-used action
@@ -215,29 +269,9 @@ export function createMessageActions(
   actions.innerHTML = `
     <button class="message-copy-btn" title="Copy message">${COPY_ICON}</button>
     <button class="message-actions-overflow" aria-label="Message actions" aria-expanded="false">⋯</button>
-    <span class="message-actions-buttons">
-      ${timeStr ? `<span class="message-time">${timeStr}</span>` : ''}
-      ${showRerunButtons ? `<button class="message-regenerate-btn" title="Regenerate response">${REFRESH_ICON}</button>` : ''}
-      ${showRerunButtons ? `<button class="message-continue-btn" title="Continue response">${CONTINUE_ICON}</button>` : ''}
-      ${showEditButton ? `<button class="message-edit-btn" title="Edit and resend">${EDIT_ICON}</button>` : ''}
-      ${showSaveQuickActionButton ? `<button class="message-save-quick-action-btn" title="Save as quick action">${PIN_ICON}</button>` : ''}
-      ${hasSources ? `<button class="message-sources-btn" title="View sources (${sources.length})">${SOURCES_ICON}</button>` : ''}
-      ${hasGeneratedImages ? `<button class="message-imagegen-btn" title="View image generation info">${SPARKLES_ICON}</button>` : ''}
-      ${showCostButton ? `<button class="message-cost-btn" title="View message cost">${COST_ICON}</button>` : ''}
-      ${showSpeakButton ? `<button class="message-speak-btn" title="Read aloud">${SPEAKER_ICON}</button>` : ''}
-      <button class="message-delete-btn" title="Delete message">${DELETE_ICON}</button>
-    </span>
+    <span class="message-actions-buttons">${secondaryButtonsHtml(timeStr, show)}</span>
   `;
 
-  // Attach handlers
-  attachDeleteHandler(actions, messageId);
-  if (showRerunButtons) attachRerunHandlers(actions, messageId);
-  if (showEditButton) attachEditHandler(actions, messageId);
-  if (showSaveQuickActionButton) attachSaveQuickActionHandler(actions, messageId);
-  if (hasSources) attachSourcesHandler(actions, sources);
-  if (hasGeneratedImages) attachImagegenHandler(actions, generatedImages, messageId);
-  if (showCostButton) attachCostHandler(actions, messageId);
-  if (showSpeakButton) attachSpeakHandler(actions, messageId, language);
-
+  attachActionHandlers(actions, messageId, show, language);
   return actions;
 }

@@ -9,6 +9,88 @@ import { getFileIcon, DOWNLOAD_ICON, PLAY_ICON, setIcon } from '../../utils/icon
 import type { FileMetadata } from '../../types/api';
 
 /**
+ * One gallery image: a local preview, a lazily fetched thumbnail, or (an
+ * unconfirmed send with no preview) a filename placeholder. Clicking opens
+ * the lightbox once the server has the message.
+ */
+function renderMessageImage(
+  file: FileMetadata,
+  fileIndex: number,
+  messageId: string,
+  pendingUpload: boolean
+): HTMLElement {
+  const imgWrapper = document.createElement('div');
+  imgWrapper.className = 'message-image-wrapper';
+
+  const img = document.createElement('img');
+  img.className = 'message-image';
+  img.alt = file.name;
+  img.dataset.messageId = file.messageId || messageId;
+  img.dataset.fileIndex = String(file.fileIndex ?? fileIndex);
+
+  // Unconfirmed sends: the file blob isn't on the server yet, so the
+  // lightbox (which fetches by message ID) must stay disabled
+  if (pendingUpload) {
+    img.dataset.pending = 'true';
+  }
+
+  // If we have a local preview URL (just-uploaded file), use it directly
+  // Otherwise, use lazy loading to fetch thumbnail from server
+  if (file.previewUrl) {
+    img.src = file.previewUrl;
+  } else if (pendingUpload) {
+    // No local preview and not on the server (e.g. failed send restored
+    // after reload): show the filename placeholder, don't fetch
+    imgWrapper.classList.add('loading');
+    const placeholder = document.createElement('span');
+    placeholder.className = 'image-placeholder';
+    placeholder.textContent = file.name;
+    imgWrapper.appendChild(placeholder);
+  } else {
+    // Add loading state for server-fetched images
+    imgWrapper.classList.add('loading');
+
+    // Add placeholder with filename
+    const placeholder = document.createElement('span');
+    placeholder.className = 'image-placeholder';
+    placeholder.textContent = file.name;
+    imgWrapper.appendChild(placeholder);
+
+    img.loading = 'lazy';
+
+    // Set up lazy loading - remove loading class from wrapper when loaded
+    img.addEventListener('load', () => {
+      imgWrapper.classList.remove('loading');
+    });
+
+    // Observe the image for lazy loading
+    // Note: During renderMessages(), we'll also observe after counting to ensure
+    // we count before IntersectionObserver fires, but we still need to observe here
+    // for cases where images are added outside of renderMessages() (e.g., streaming)
+    observeThumbnail(img);
+  }
+
+  // Click to open lightbox (only if not pending)
+  img.addEventListener('click', () => {
+    if (img.dataset.pending === 'true') {
+      // Message not confirmed by the server yet - lightbox would fail
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent('lightbox:open', {
+        detail: {
+          messageId: img.dataset.messageId,
+          fileIndex: img.dataset.fileIndex,
+        },
+      })
+    );
+  });
+
+  imgWrapper.appendChild(img);
+  return imgWrapper;
+}
+
+/**
  * Render files attached to a message
  */
 export function renderMessageFiles(
@@ -32,76 +114,7 @@ export function renderMessageFiles(
     gallery.className = 'message-images';
 
     images.forEach((file) => {
-      const fileIndex = files.indexOf(file);
-      const imgWrapper = document.createElement('div');
-      imgWrapper.className = 'message-image-wrapper';
-
-      const img = document.createElement('img');
-      img.className = 'message-image';
-      img.alt = file.name;
-      img.dataset.messageId = file.messageId || messageId;
-      img.dataset.fileIndex = String(file.fileIndex ?? fileIndex);
-
-      // Unconfirmed sends: the file blob isn't on the server yet, so the
-      // lightbox (which fetches by message ID) must stay disabled
-      if (pendingUpload) {
-        img.dataset.pending = 'true';
-      }
-
-      // If we have a local preview URL (just-uploaded file), use it directly
-      // Otherwise, use lazy loading to fetch thumbnail from server
-      if (file.previewUrl) {
-        img.src = file.previewUrl;
-      } else if (pendingUpload) {
-        // No local preview and not on the server (e.g. failed send restored
-        // after reload): show the filename placeholder, don't fetch
-        imgWrapper.classList.add('loading');
-        const placeholder = document.createElement('span');
-        placeholder.className = 'image-placeholder';
-        placeholder.textContent = file.name;
-        imgWrapper.appendChild(placeholder);
-      } else {
-        // Add loading state for server-fetched images
-        imgWrapper.classList.add('loading');
-
-        // Add placeholder with filename
-        const placeholder = document.createElement('span');
-        placeholder.className = 'image-placeholder';
-        placeholder.textContent = file.name;
-        imgWrapper.appendChild(placeholder);
-
-        img.loading = 'lazy';
-
-        // Set up lazy loading - remove loading class from wrapper when loaded
-        img.addEventListener('load', () => {
-          imgWrapper.classList.remove('loading');
-        });
-
-        // Observe the image for lazy loading
-        // Note: During renderMessages(), we'll also observe after counting to ensure
-        // we count before IntersectionObserver fires, but we still need to observe here
-        // for cases where images are added outside of renderMessages() (e.g., streaming)
-        observeThumbnail(img);
-      }
-
-      // Click to open lightbox (only if not pending)
-      img.addEventListener('click', () => {
-        if (img.dataset.pending === 'true') {
-          // Message not confirmed by the server yet - lightbox would fail
-          return;
-        }
-        window.dispatchEvent(
-          new CustomEvent('lightbox:open', {
-            detail: {
-              messageId: img.dataset.messageId,
-              fileIndex: img.dataset.fileIndex,
-            },
-          })
-        );
-      });
-
-      imgWrapper.appendChild(img);
-      gallery.appendChild(imgWrapper);
+      gallery.appendChild(renderMessageImage(file, files.indexOf(file), messageId, pendingUpload));
     });
 
     container.appendChild(gallery);

@@ -479,3 +479,91 @@ describe('Messages - removeRenderedMessagesFrom (edit truncation)', () => {
     expect(marked?.getAttribute('data-message-id')).toBe('a1');
   });
 });
+
+describe('Messages - addMessageToUI special messages', () => {
+  const APPROVAL =
+    '[approval-request:ab12-cd34]\nI need your permission to: **Send the weekly report**\nTool: `send_email`';
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="messages" class="messages"></div>';
+    container = document.getElementById('messages')!;
+    resetStore();
+  });
+
+  it('renders a pending approval request with approve and reject buttons', () => {
+    addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container);
+
+    const el = container.querySelector<HTMLElement>('.approval-request-message')!;
+    expect(el.dataset.approvalId).toBe('ab12-cd34');
+    expect(el.querySelector('.approval-title')?.textContent).toBe('Action requires approval');
+    expect(el.querySelector('.approval-description')?.textContent).toBe('Send the weekly report');
+    expect(el.querySelector('.approval-tool code')?.textContent).toBe('send_email');
+    expect(el.querySelector<HTMLElement>('.btn-approve')?.dataset.approvalId).toBe('ab12-cd34');
+    expect(el.querySelector('.btn-reject')).not.toBeNull();
+  });
+
+  it('shows the outcome of a resolved approval instead of buttons', () => {
+    const resolutions = new Map([
+      ['a1', { resolved: true, approved: true }],
+      ['a2', { resolved: true, approved: false }],
+    ]);
+    addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container, resolutions);
+    addMessageToUI(createMessage('a2', APPROVAL, 'assistant'), container, resolutions);
+
+    const [approved, rejected] = [...container.querySelectorAll('.approval-request-message')];
+    expect(approved?.querySelector('.approval-title')?.textContent).toBe('Action approved');
+    expect(approved?.querySelector('.approval-result.approved')?.textContent).toContain('Approved');
+    expect(rejected?.querySelector('.approval-title')?.textContent).toBe('Action rejected');
+    expect(rejected?.querySelector('.approval-result.rejected')?.textContent).toContain('Rejected');
+    expect(container.querySelector('.btn-approve')).toBeNull();
+  });
+
+  it('hides a generic tool name', () => {
+    addMessageToUI(
+      createMessage('a1', '[approval-request:ab12]\nI need your permission to: **Do it**\nTool: `custom_action`', 'assistant'),
+      container
+    );
+    expect(container.querySelector('.approval-tool')).toBeNull();
+  });
+
+  it('skips the action approved/rejected follow-ups', () => {
+    addMessageToUI(createMessage('u1', '[Action approved: send]'), container);
+    addMessageToUI(createMessage('u2', '[Action rejected: send]'), container);
+    expect(container.children).toHaveLength(0);
+  });
+
+  it('renders an agent trigger as a system row, not a bubble', () => {
+    addMessageToUI(createMessage('u1', '[Scheduled run at 2026-01-15 09:00 UTC]'), container);
+    const el = container.querySelector('.trigger-message');
+    expect(el?.classList.contains('trigger--scheduled')).toBe(true);
+    expect(el?.querySelector('.trigger-label')?.textContent).toBe('Scheduled');
+    expect(container.querySelector('.message-content')).toBeNull();
+  });
+
+  it('escapes user text, keeps line breaks and links URLs', () => {
+    addMessageToUI(createMessage('u1', '<b>hi</b>\nsee https://example.com'), container);
+    const content = container.querySelector('.message.user .message-content')!;
+    expect(content.querySelector('b')).toBeNull();
+    expect(content.textContent).toContain('<b>hi</b>');
+    expect(content.querySelector('br')).not.toBeNull();
+    expect(content.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
+  });
+
+  it('renders an empty user message with files only', () => {
+    addMessageToUI(createMessage('u1', '', 'user', [{ name: 'a.txt', type: 'text/plain' }]), container);
+    const content = container.querySelector('.message.user .message-content')!;
+    expect(content.querySelector('p')).toBeNull();
+    expect(content.querySelector('.message-documents')).not.toBeNull();
+  });
+
+  it('animates live appends only', () => {
+    addMessageToUI(createMessage('u1', 'live'), container, undefined, { animate: true });
+    addMessageToUI(createMessage('u2', 'history'), container);
+    const [live, history] = [...container.querySelectorAll('.message')];
+    expect(live?.classList.contains('message--entering')).toBe(true);
+    expect(history?.classList.contains('message--entering')).toBe(false);
+    live?.dispatchEvent(new Event('animationend'));
+    expect(live?.classList.contains('message--entering')).toBe(false);
+  });
+});
