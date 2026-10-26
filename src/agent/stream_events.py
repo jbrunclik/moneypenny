@@ -20,7 +20,7 @@ from src.agent.content import (
     extract_text_content,
     extract_thinking_and_text,
 )
-from src.agent.graph import CHAT_NODE_NAME
+from src.agent.graph_state import CHAT_NODE_NAME
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
 from src.agent.turn_usage import TokenTotals, build_usage_info
 from src.utils.logging import get_logger

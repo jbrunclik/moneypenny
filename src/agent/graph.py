@@ -20,7 +20,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from typing import Annotated, Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal
 
 from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -28,7 +28,6 @@ from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
-from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode as BaseToolNode
 
 from src.agent import interjection
@@ -38,6 +37,7 @@ from src.agent.content import (
     strip_echoed_msg_context,
     strip_full_result_from_tool_content,
 )
+from src.agent.graph_state import AgentState
 from src.agent.permissions import PermissionResult, check_tool_permission
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.round_cap import tool_round_cap
@@ -64,25 +64,6 @@ def _get_permission_modules() -> dict[str, Any]:
         "check_tool_permission": check_tool_permission,
         "PermissionResult": PermissionResult,
     }
-
-
-# ============ Agent State ============
-
-
-class AgentState(TypedDict):
-    """State for the chat agent."""
-
-    messages: Annotated[list[BaseMessage], add_messages]
-    tool_retries: int  # Consecutive tool failure count
-    tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
-    # Set once the turn's model was down and the other tier took over
-    model_fallback: NotRequired[str]
-
-
-# ============ Node Constants ============
-
-# Node name used to filter streaming output — only chunks from this node are sent to frontend
-CHAT_NODE_NAME = "chat"
 
 
 # ============ Model Creation ============
