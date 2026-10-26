@@ -24,6 +24,7 @@ import {
 import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
 import { DEFAULT_CONVERSATION_TITLE, type ConversationSummary, type SyncResponse } from '../types/api';
 import { SyncState, type SyncManagerCallbacks } from './sync-state';
+import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
 
 const log = createLogger('sync');
 
@@ -475,12 +476,12 @@ export class SyncManager {
    */
   private addFromChangeLog(conv: ConversationSummary): boolean {
     const store = useStore.getState();
-    if (!conv.pinned && !this.inLoadedWindow(conv.updated_at)) {
+    if (!conv.pinned && !inLoadedWindow(conv.updated_at)) {
       this.state.localMessageCounts.set(conv.id, conv.message_count);
       return false;
     }
     const known = this.state.localMessageCounts.get(conv.id);
-    const isNew = conv.created_at ? !this.isPaginationDiscovered(conv.created_at) : known === undefined;
+    const isNew = conv.created_at ? !isPaginationDiscovered(this.state.initialLoadTime, conv.created_at) : known === undefined;
     const baseline = known ?? (isNew ? 0 : conv.message_count);
     this.state.localMessageCounts.set(conv.id, baseline);
     const unread =
@@ -502,16 +503,6 @@ export class SyncManager {
       hasExternalUpdate: false,
     });
     return true;
-  }
-
-  /** Whether `updatedAt` falls inside the part of the list already loaded. */
-  private inLoadedWindow(updatedAt: string): boolean {
-    const store = useStore.getState();
-    if (!store.conversationsPagination.hasMore) return true;
-    const unpinned = store.conversations.filter((c) => !c.pinned);
-    const oldest = unpinned[unpinned.length - 1];
-    if (!oldest) return true;
-    return new Date(updatedAt).getTime() >= new Date(oldest.updated_at).getTime();
   }
 
   /**
@@ -575,7 +566,7 @@ export class SyncManager {
         // list, not initialLoadTime: a conversation created on another
         // device while this page booted predates that time and was lost.
         // A pinned one always belongs (the pinned group is never paged)
-        if (serverConv.pinned || this.inLoadedWindow(serverConv.updated_at)) {
+        if (serverConv.pinned || inLoadedWindow(serverConv.updated_at)) {
           newServerConvs.push(serverConv);
         } else {
           // Pagination-discovered: just track the message count for when it's loaded via pagination
@@ -603,7 +594,7 @@ export class SyncManager {
       // created after this page loaded, or beyond a count we already knew -
       // an older one (continued, restored) isn't wholly new
       const knownCount = this.state.localMessageCounts.get(serverConv.id);
-      const createdBeforeLoad = this.isPaginationDiscovered(serverConv.created_at ?? serverConv.updated_at);
+      const createdBeforeLoad = isPaginationDiscovered(this.state.initialLoadTime, serverConv.created_at ?? serverConv.updated_at);
       const baseline = knownCount ?? (createdBeforeLoad ? serverConv.message_count : 0);
       this.state.localMessageCounts.set(serverConv.id, baseline);
       const unreadCount =
@@ -734,18 +725,18 @@ export class SyncManager {
         // Incremental sync: Distinguish between:
         // 1. Pagination-discovered: Older conversations that weren't in initial page load
         // 2. Actually new: Created/updated after initial page load (e.g., on another device)
-        const isPaginationDiscovered = this.isPaginationDiscovered(serverConv.updated_at);
+        const discoveredByPagination = isPaginationDiscovered(this.state.initialLoadTime, serverConv.updated_at);
 
         // For actually new conversations, show unread badge with message count
         // For pagination-discovered, no badge (user just hasn't scrolled to see it yet).
         // An older conversation continued on another device has a count we
         // already know (full sync tracks unloaded ones): only the rest is new.
         const knownCount = this.state.localMessageCounts.get(serverConv.id);
-        const unreadCount = isPaginationDiscovered
+        const unreadCount = discoveredByPagination
           ? 0
           : Math.max(0, serverConv.message_count - (knownCount ?? 0));
 
-        if (isPaginationDiscovered) {
+        if (discoveredByPagination) {
           log.info('Pagination-discovered conversation (not unread, skipping add)', {
             conversationId: serverConv.id,
             updated_at: serverConv.updated_at,
@@ -1055,63 +1046,6 @@ export class SyncManager {
       }
       this.schedulePoll();
     }, SYNC_POLL_INTERVAL_MS);
-  }
-
-  /**
-   * Determine if a conversation was discovered via pagination (not actually new).
-   *
-   * Compares updated_at (server time) to initialLoadTime (server time from first sync).
-   * If older than initialLoadTime minus a buffer, it's pagination discovery.
-   *
-   * Note: This is only called for incremental sync now, since full sync no longer adds
-   * new conversations. Incremental syncs only return conversations updated since lastSyncTime,
-   * so most will be actually new. But we still check the timestamp to handle edge cases
-   * (invalid timestamps or conversations updated but still older than initialLoadTime).
-   *
-   * @param updatedAt ISO timestamp of when conversation was last updated (server time)
-   * @returns true if conversation is pagination-discovered, false if actually new
-   */
-  private isPaginationDiscovered(updatedAt: string): boolean {
-    // We need initialLoadTime (server time) to compare
-    if (!this.state.initialLoadTime) {
-      // If we don't have initialLoadTime yet (first sync), we can't distinguish.
-      // Default to treating as pagination-discovered to be safe (no false unread badges).
-      // This handles the case where conversations are discovered during the initial full sync
-      // before we've established the baseline timestamp.
-      return true;
-    }
-
-    // Compare server timestamps: if updated_at is older than initialLoadTime,
-    // it's pagination discovery (existed before initial page load)
-    // Both timestamps are server time, so no clock skew issues
-    try {
-      const updatedDate = new Date(updatedAt);
-      const initialDate = new Date(this.state.initialLoadTime);
-
-      // Check for invalid dates (new Date() doesn't throw, returns Invalid Date)
-      if (isNaN(updatedDate.getTime()) || isNaN(initialDate.getTime())) {
-        log.warn('Invalid timestamp for pagination detection', {
-          updatedAt,
-          initialLoadTime: this.state.initialLoadTime,
-        });
-        return true; // Default to pagination-discovered to be safe
-      }
-
-      // If updated_at is older than initial load time, it's pagination discovery
-      // Add a small buffer (5 seconds) to account for timing differences between
-      // when the conversation was last updated and when the initial page load happened
-      // Both timestamps are server time, so minimal buffer needed
-      const bufferMs = 5 * 1000; // 5 seconds
-      return updatedDate.getTime() < (initialDate.getTime() - bufferMs);
-    } catch (error) {
-      // If timestamp parsing fails, default to pagination-discovered to be safe
-      log.warn('Failed to parse timestamp for pagination detection', {
-        updatedAt,
-        initialLoadTime: this.state.initialLoadTime,
-        error,
-      });
-      return true;
-    }
   }
 
   /**
