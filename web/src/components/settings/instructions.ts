@@ -2,28 +2,21 @@ import { createElement } from '../../utils/dom';
 import { EDIT_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
-import type { UserSettings } from '../../types/api';
+import { useStore } from '../../state/store';
 import { fieldLabel, helper, log, showSavedIndicator } from './shared';
 
 const CHAR_LIMIT = 2000;
 
-/** Current custom instructions value */
-let currentInstructions = '';
-
-/** Adopt the server-side custom instructions after a settings fetch. */
-export function loadInstructionsSettings(data: UserSettings): void {
-  currentInstructions = data.custom_instructions || '';
-}
-
-export function getInstructionsLength(): number {
-  return currentInstructions.length;
+/** The saved custom instructions (store: settings slice). */
+function savedInstructions(): string {
+  return useStore.getState().userSettings?.custom_instructions || '';
 }
 
 /**
  * The "AI Instructions" tab section.
  */
 export function renderInstructionsSection(): HTMLElement {
-  const instructions = currentInstructions;
+  const instructions = savedInstructions();
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
   const textarea = createElement('textarea', {
@@ -70,11 +63,11 @@ async function saveCustomInstructions(): Promise<void> {
   const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement | null;
   if (!textarea) return;
   const instructions = textarea.value.trim();
-  if (instructions === currentInstructions) return;
+  if (instructions === savedInstructions()) return;
 
   try {
     await settings.update({ custom_instructions: instructions });
-    currentInstructions = instructions;
+    useStore.getState().patchUserSettings({ custom_instructions: instructions });
     showSavedIndicator('custom-instructions');
     log.info('Custom instructions saved', { length: instructions.length });
   } catch (error) {

@@ -106,7 +106,10 @@ The store is composed from per-domain slices in
 [../../web/src/state/slices/](../../web/src/state/slices/) (one `StateCreator` +
 state/action types per domain); `store.ts` only composes them and owns the
 `persist` config. Add new state to the matching slice; `logout` resets every
-slice via its `initial*Data()` function.
+slice via its `initial*Data()` function. Views read their data from the store,
+not from module-level copies: the settings popup's sections (`components/settings/*`)
+render from the `settings` slice (fetched settings, integration statuses,
+calendar choice, push state), so a logout wipes them with the rest (F2).
 
 ```typescript
 import { useStore } from './state/store';

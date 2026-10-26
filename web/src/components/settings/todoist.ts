@@ -11,12 +11,9 @@ export const TODOIST_STATE_KEY = 'todoist-oauth-state';
 
 const LABEL = 'Todoist Integration';
 
-/** Current Todoist status */
-let todoistStatus: TodoistStatus | null = null;
-
-export function setTodoistStatus(status: TodoistStatus | null): void {
-  todoistStatus = status;
-}
+/** The connection status (store: settings slice). */
+const todoistStatus = () => useStore.getState().integrationStatuses.todoist;
+const setTodoist = (status: TodoistStatus): void => useStore.getState().setIntegrationStatus('todoist', status);
 
 /**
  * The Todoist connection status
@@ -59,11 +56,11 @@ function todoistBody(status: TodoistStatus | null): HTMLElement[] {
 
 /** The whole Todoist field (label + status body). */
 export function renderTodoistField(): HTMLElement {
-  return settingsField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus));
+  return settingsField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus()));
 }
 
 function updateTodoistSection(): void {
-  rerenderField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus));
+  rerenderField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus()));
 }
 
 /**
@@ -92,7 +89,7 @@ async function handleTodoistDisconnect(): Promise<void> {
   try {
     log.debug('Disconnecting Todoist');
     await todoist.disconnect();
-    todoistStatus = { connected: false, todoist_email: null, connected_at: null, needs_reconnect: false };
+    setTodoist({ connected: false, todoist_email: null, connected_at: null, needs_reconnect: false });
     updateTodoistSection();
 
     // Update store and re-render sidebar to hide planner entry

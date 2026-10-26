@@ -8,7 +8,7 @@ import {
   saveColorScheme,
   applyColorScheme,
 } from '../../utils/theme';
-import type { UserSettings } from '../../types/api';
+import { useStore } from '../../state/store';
 import { renderConversationsList } from '../Sidebar';
 import {
   isSidebarPreviewsEnabled,
@@ -18,11 +18,10 @@ import {
 } from '../../utils/preferences';
 import { fieldLabel, helper, log, toggle } from './shared';
 
-/** Current color scheme value */
-let currentColorScheme: ColorScheme = 'system';
-
-/** Current primary language ('' = auto: match the user's messages) */
-let currentPreferredLanguage = '';
+/** The saved primary language ('' = auto: match the user's messages; store: settings slice). */
+function savedLanguage(): string {
+  return useStore.getState().userSettings?.preferred_language || '';
+}
 
 /** Primary-language options: stored value (English name) + display label */
 const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -36,16 +35,6 @@ const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'French', label: 'Français' },
   { value: 'Italian', label: 'Italiano' },
 ];
-
-/** Load the stored color scheme (called when the popup opens). */
-export function loadColorScheme(): void {
-  currentColorScheme = getStoredColorScheme();
-}
-
-/** Adopt the server-side appearance settings after a settings fetch. */
-export function loadAppearanceSettings(data: UserSettings): void {
-  currentPreferredLanguage = data.preferred_language || '';
-}
 
 /**
  * A color scheme option button
@@ -65,7 +54,8 @@ function colorSchemeOption(value: ColorScheme, icon: IconHtml, label: string, se
  * The "Appearance & Language" tab section.
  */
 export function renderAppearanceSection(): HTMLElement {
-  const colorScheme = currentColorScheme;
+  const colorScheme = getStoredColorScheme();
+  const language = savedLanguage();
   return createElement('div', { class: 'settings-section active', 'data-settings-section': 'appearance' }, [
     createElement('div', { class: 'settings-section-title' }, ['Appearance & Language']),
     createElement('div', { class: 'settings-field' }, [
@@ -86,7 +76,7 @@ export function renderAppearanceSection(): HTMLElement {
         'select',
         { id: 'preferred-language', class: 'settings-input settings-language-select' },
         LANGUAGE_OPTIONS.map((opt) =>
-          createElement('option', { value: opt.value, ...(opt.value === currentPreferredLanguage ? { selected: '' } : {}) }, [opt.label])
+          createElement('option', { value: opt.value, ...(opt.value === language ? { selected: '' } : {}) }, [opt.label])
         )
       ),
     ]),
@@ -97,7 +87,7 @@ export function renderAppearanceSection(): HTMLElement {
  * Handle color scheme option click
  */
 function handleColorSchemeClick(scheme: ColorScheme): void {
-  if (scheme === currentColorScheme) return;
+  if (scheme === getStoredColorScheme()) return;
 
   // Update selection UI
   const options = document.querySelectorAll('.settings-color-scheme-option');
@@ -107,7 +97,6 @@ function handleColorSchemeClick(scheme: ColorScheme): void {
   });
 
   // Apply and save the theme
-  currentColorScheme = scheme;
   saveColorScheme(scheme);
   applyColorScheme(scheme);
 
@@ -132,13 +121,13 @@ async function handlePreferredLanguageChange(select: HTMLSelectElement): Promise
   const value = select.value;
   try {
     await settings.update({ preferred_language: value });
-    currentPreferredLanguage = value;
+    useStore.getState().patchUserSettings({ preferred_language: value });
     const label = LANGUAGE_OPTIONS.find((o) => o.value === value)?.label ?? value;
     toast.success(value ? `Primary language set to ${label}` : 'Language set to auto');
   } catch (error) {
     log.error('Failed to update preferred language', { error });
     toast.error('Failed to update language.');
-    select.value = currentPreferredLanguage;
+    select.value = savedLanguage();
   }
 }
 

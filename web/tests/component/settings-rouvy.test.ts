@@ -14,8 +14,12 @@ const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('@/api/integrations', () => ({ rouvy: api }));
 vi.mock('@/components/Toast', () => ({ toast: toastMock }));
 
-import { handleRouvyClick, renderRouvyField, setRouvyStatus } from '@/components/settings/rouvy';
+import { handleRouvyClick, renderRouvyField } from '@/components/settings/rouvy';
 import { POPUP_ID } from '@/components/settings/shared';
+import { useStore } from '@/state/store';
+import type { RouvyStatus } from '@/types/api';
+
+const setRouvyStatus = (status: RouvyStatus | null): void => useStore.getState().setIntegrationStatus('rouvy', status);
 
 function mount(): void {
   const popup = document.createElement('div');

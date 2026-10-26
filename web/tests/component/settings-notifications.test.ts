@@ -24,10 +24,10 @@ import {
   fetchPushState,
   handleNotificationsChange,
   handleNotificationsClick,
-  loadNotificationSettings,
   renderNotificationsSection,
   setPushControls,
 } from '@/components/settings/notifications';
+import { useStore } from '@/state/store';
 
 // What core/startup passes in (core/push)
 setPushControls({
@@ -38,7 +38,8 @@ setPushControls({
 });
 
 function load(data: Partial<UserSettings>, state: PushState = 'not-subscribed'): void {
-  loadNotificationSettings(data as UserSettings, state);
+  useStore.getState().setUserSettings(data as UserSettings);
+  useStore.getState().setPushState(state);
 }
 
 function mount(): void {

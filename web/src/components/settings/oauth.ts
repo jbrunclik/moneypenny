@@ -9,8 +9,8 @@ import { useStore } from '../../state/store';
 import { renderConversationsList } from '../Sidebar';
 import { openSettingsPopup } from '../SettingsPopup';
 import { log } from './shared';
-import { TODOIST_STATE_KEY, setTodoistStatus } from './todoist';
-import { CALENDAR_STATE_KEY, setCalendarStatus } from './calendar';
+import { TODOIST_STATE_KEY } from './todoist';
+import { CALENDAR_STATE_KEY } from './calendar';
 
 interface OAuthFlow {
   name: string;
@@ -94,7 +94,7 @@ export function checkTodoistOAuthCallback(): Promise<boolean> {
     stateKey: TODOIST_STATE_KEY,
     complete: async (code, state) => {
       const result = await todoist.connect(code, state);
-      setTodoistStatus({
+      useStore.getState().setIntegrationStatus('todoist', {
         connected: result.connected,
         todoist_email: result.todoist_email,
         connected_at: new Date().toISOString(),
@@ -102,7 +102,7 @@ export function checkTodoistOAuthCallback(): Promise<boolean> {
       });
       markUserConnected('todoist_connected');
       toast.success('Todoist connected successfully');
-      log.info('Todoist connected', { email: result.todoist_email });
+      log.info('Todoist connected');
     },
   });
 }
@@ -117,7 +117,7 @@ export function checkCalendarOAuthCallback(): Promise<boolean> {
     stateKey: CALENDAR_STATE_KEY,
     complete: async (code, state) => {
       const result = await calendar.connect(code, state);
-      setCalendarStatus({
+      useStore.getState().setIntegrationStatus('calendar', {
         connected: result.connected,
         calendar_email: result.calendar_email,
         connected_at: new Date().toISOString(),
@@ -125,7 +125,7 @@ export function checkCalendarOAuthCallback(): Promise<boolean> {
       });
       markUserConnected('calendar_connected');
       toast.success('Google Calendar connected successfully');
-      log.info('Google Calendar connected', { email: result.calendar_email });
+      log.info('Google Calendar connected');
     },
   });
 }

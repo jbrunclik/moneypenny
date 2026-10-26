@@ -2,7 +2,8 @@ import { createElement } from '../../utils/dom';
 import { BELL_ICON, SUNRISE_ICON, PHONE_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
-import type { DailyBriefingSettings, PushState, UserSettings } from '../../types/api';
+import type { DailyBriefingSettings, PushState } from '../../types/api';
+import { useStore } from '../../state/store';
 import { fieldLabel, helper, log, showSavedIndicator, toggle } from './shared';
 
 /** This device's push subscription (core/push), passed in at startup (F1). */
@@ -28,28 +29,16 @@ export function fetchPushState(): Promise<PushState> {
   return pushControls.getState();
 }
 
-/** Current push notification state on this device */
-let pushState: PushState = 'unsupported';
+const DEFAULT_BRIEFING: DailyBriefingSettings = { enabled: false, time: '08:00', timezone: 'UTC' };
 
-/** Current Daily Briefing settings */
-let briefingSettings: DailyBriefingSettings = {
-  enabled: false,
-  time: '08:00',
-  timezone: 'UTC',
-};
-
-/** Current WhatsApp phone number */
-let currentWhatsappPhone = '';
-
-/** Whether WhatsApp is available at the app level */
-let whatsappAvailable = false;
-
-/** Adopt server settings and this device's push state after a settings fetch. */
-export function loadNotificationSettings(data: UserSettings, push: PushState): void {
-  currentWhatsappPhone = data.whatsapp_phone || '';
-  whatsappAvailable = data.whatsapp_available ?? false;
-  briefingSettings = data.daily_briefing ?? briefingSettings;
-  pushState = push;
+/** The saved notification settings (store: settings slice). */
+function saved(): { briefing: DailyBriefingSettings; whatsappPhone: string; whatsappAvailable: boolean } {
+  const data = useStore.getState().userSettings;
+  return {
+    briefing: data?.daily_briefing ?? DEFAULT_BRIEFING,
+    whatsappPhone: data?.whatsapp_phone || '',
+    whatsappAvailable: data?.whatsapp_available ?? false,
+  };
 }
 
 /**
@@ -86,6 +75,7 @@ function pushBody(state: PushState): HTMLElement[] {
 }
 
 function whatsappField(): HTMLElement[] {
+  const { whatsappAvailable, whatsappPhone } = saved();
   if (!whatsappAvailable) return [];
   return [
     createElement('div', { class: 'settings-divider' }),
@@ -98,7 +88,7 @@ function whatsappField(): HTMLElement[] {
         class: 'settings-input',
         placeholder: '+1234567890',
         maxlength: '20',
-        value: currentWhatsappPhone,
+        value: whatsappPhone,
       }),
       helper('Format: E.164 (e.g., +420123456789)', true),
       createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'whatsapp-phone' }, ['Saved']),
@@ -110,11 +100,12 @@ function whatsappField(): HTMLElement[] {
  * The "Notifications" tab section: push, Daily Briefing, WhatsApp.
  */
 export function renderNotificationsSection(): HTMLElement {
+  const { briefing } = saved();
   return createElement('div', { class: 'settings-section', 'data-settings-section': 'notifications' }, [
     createElement('div', { class: 'settings-section-title' }, ['Notifications']),
     createElement('div', { class: 'settings-field', 'data-section': 'push' }, [
       fieldLabel(BELL_ICON, 'Notifications'),
-      createElement('div', { class: 'settings-push-body' }, pushBody(pushState)),
+      createElement('div', { class: 'settings-push-body' }, pushBody(useStore.getState().pushState)),
     ]),
     createElement('div', { class: 'settings-divider' }),
     createElement('div', { class: 'settings-field', 'data-section': 'briefing' }, [
@@ -123,14 +114,14 @@ export function renderNotificationsSection(): HTMLElement {
         'A morning summary of your schedule, tasks and readiness, delivered as a notification. Runs as an agent you can also find in the Command Center.'
       ),
       createElement('div', { class: 'settings-briefing-controls' }, [
-        toggle('briefing-enabled', briefingSettings.enabled, 'Enabled'),
+        toggle('briefing-enabled', briefing.enabled, 'Enabled'),
         createElement('label', { class: 'settings-briefing-time-label', for: 'briefing-time' }, [
           ' Deliver at ',
           createElement('input', {
             type: 'time',
             id: 'briefing-time',
             class: 'settings-input settings-briefing-time',
-            value: briefingSettings.time,
+            value: briefing.time,
           }),
         ]),
       ]),
@@ -145,7 +136,7 @@ export function renderNotificationsSection(): HTMLElement {
 function updatePushSection(): void {
   const section = document.querySelector('[data-section="push"] .settings-push-body');
   if (section) {
-    section.replaceChildren(...pushBody(pushState));
+    section.replaceChildren(...pushBody(useStore.getState().pushState));
   }
 }
 
@@ -161,7 +152,8 @@ async function handlePushToggle(btn: HTMLButtonElement): Promise<void> {
   }
   btn.disabled = true;
   try {
-    pushState = enable ? await pushControls.enable() : await pushControls.disable();
+    const pushState = enable ? await pushControls.enable() : await pushControls.disable();
+    useStore.getState().setPushState(pushState);
     if (enable && pushState === 'subscribed') {
       toast.success('Notifications enabled');
     } else if (!enable && pushState === 'not-subscribed') {
@@ -218,7 +210,7 @@ async function handleBriefingChange(): Promise<void> {
 
   try {
     await settings.update({ daily_briefing: update });
-    briefingSettings = update;
+    useStore.getState().patchUserSettings({ daily_briefing: update });
     toast.success(
       update.enabled ? `Daily briefing scheduled for ${update.time}` : 'Daily briefing disabled'
     );
@@ -226,8 +218,9 @@ async function handleBriefingChange(): Promise<void> {
     log.error('Failed to update daily briefing', { error });
     toast.error('Failed to update daily briefing.');
     // Restore the controls to the last known good state
-    enabledEl.checked = briefingSettings.enabled;
-    timeEl.value = briefingSettings.time;
+    const { briefing } = saved();
+    enabledEl.checked = briefing.enabled;
+    timeEl.value = briefing.time;
   }
 }
 
@@ -236,13 +229,14 @@ async function handleBriefingChange(): Promise<void> {
  */
 async function saveWhatsappPhone(): Promise<void> {
   const phoneInput = document.getElementById('whatsapp-phone') as HTMLInputElement | null;
-  if (!phoneInput || !whatsappAvailable) return;
+  const current = saved();
+  if (!phoneInput || !current.whatsappAvailable) return;
   const whatsappPhone = phoneInput.value.trim();
-  if (whatsappPhone === currentWhatsappPhone) return;
+  if (whatsappPhone === current.whatsappPhone) return;
 
   try {
     await settings.update({ whatsapp_phone: whatsappPhone });
-    currentWhatsappPhone = whatsappPhone;
+    useStore.getState().patchUserSettings({ whatsapp_phone: whatsappPhone });
     showSavedIndicator('whatsapp-phone');
     log.info('WhatsApp phone saved', { hasPhone: !!whatsappPhone });
   } catch (error) {

@@ -10,6 +10,7 @@ import { createLanguageSlice, type LanguageSlice } from './slices/language';
 import { createMessagesSlice, type MessagesSlice } from './slices/messages';
 import { createPlannerSlice, type PlannerSlice } from './slices/planner';
 import { createSearchSlice, type SearchSlice } from './slices/search';
+import { createSettingsSlice, type SettingsSlice } from './slices/settings';
 import { createSportsSlice, type SportsSlice } from './slices/sports';
 import { createStorageSlice, type StorageSlice } from './slices/storage';
 import { createUiSlice, type UiSlice } from './slices/ui';
@@ -31,7 +32,8 @@ export type AppState = AuthSlice &
   SelectionSlice &
   StorageSlice &
   SportsSlice &
-  LanguageSlice;
+  LanguageSlice &
+  SettingsSlice;
 
 /** A slice creator contributing `T` to AppState under this store's middleware. */
 export type AppSlice<T> = StateCreator<
@@ -58,6 +60,7 @@ export const useStore = create<AppState>()(
         ...createStorageSlice(...a),
         ...createSportsSlice(...a),
         ...createLanguageSlice(...a),
+        ...createSettingsSlice(...a),
       }),
       {
         name: 'ai-chatbot-storage',

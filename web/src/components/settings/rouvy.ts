@@ -3,16 +3,14 @@ import { rouvy } from '../../api/integrations';
 import type { RouvyStatus } from '../../types/api';
 import { toast } from '../Toast';
 import { createElement } from '../../utils/dom';
+import { useStore } from '../../state/store';
 import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 const LABEL = 'Rouvy';
 
-/** Current Rouvy connection status */
-let rouvyStatus: RouvyStatus | null = null;
-
-export function setRouvyStatus(status: RouvyStatus | null): void {
-  rouvyStatus = status;
-}
+/** The connection status (store: settings slice). */
+const rouvyStatus = () => useStore.getState().integrationStatuses.rouvy;
+const setRouvy = (status: RouvyStatus): void => useStore.getState().setIntegrationStatus('rouvy', status);
 
 /**
  * The Rouvy section (no MFA — Rouvy's login flow has none)
@@ -64,14 +62,14 @@ function rouvyBody(status: RouvyStatus | null): HTMLElement[] {
 
 /** The whole Rouvy field (label + status body). */
 export function renderRouvyField(): HTMLElement {
-  return settingsField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus));
+  return settingsField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus()));
 }
 
 /**
  * Update Rouvy section in the popup
  */
 function updateRouvySection(): void {
-  rerenderField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus));
+  rerenderField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus()));
 }
 
 /**
@@ -93,7 +91,7 @@ async function handleRouvyConnect(): Promise<void> {
   try {
     log.debug('Connecting to Rouvy');
     await rouvy.connect(email, password);
-    rouvyStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
+    setRouvy({ connected: true, connected_at: new Date().toISOString(), needs_reconnect: false });
     updateRouvySection();
     toast.success('Rouvy connected');
     log.info('Rouvy connected');
@@ -111,7 +109,7 @@ async function handleRouvyDisconnect(): Promise<void> {
   try {
     log.debug('Disconnecting Rouvy');
     await rouvy.disconnect();
-    rouvyStatus = { connected: false, connected_at: null, needs_reconnect: false };
+    setRouvy({ connected: false, connected_at: null, needs_reconnect: false });
     updateRouvySection();
     toast.success('Rouvy disconnected');
     log.info('Rouvy disconnected');
@@ -129,7 +127,7 @@ export function handleRouvyClick(target: HTMLElement): void {
 
   // Show login form (reconnect)
   if (target.classList.contains('settings-rouvy-show-login')) {
-    rouvyStatus = { connected: false, connected_at: null, needs_reconnect: false };
+    setRouvy({ connected: false, connected_at: null, needs_reconnect: false });
     updateRouvySection();
   }
 

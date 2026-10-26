@@ -5,6 +5,7 @@ import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { Calendar, CalendarStatus } from '../../types/api';
 import { useStore } from '../../state/store';
+import { initialCalendarChoice } from '../../state/slices/settings';
 import { renderConversationsList } from '../Sidebar';
 import { checkbox, helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
@@ -12,24 +13,11 @@ export const CALENDAR_STATE_KEY = 'calendar-oauth-state';
 
 const LABEL = 'Google Calendar Integration';
 
-/** Current Google Calendar status */
-let calendarStatus: CalendarStatus | null = null;
-
-/** Available calendars from Google */
-let availableCalendars: Calendar[] | null = null;
-
-/** Selected calendar IDs */
-let selectedCalendarIds: string[] = ['primary'];
-
-/** Loading state for calendar list */
-let calendarsLoading = false;
-
-/** Error message when fetching calendar list fails */
-let calendarsError: string | null = null;
-
-export function setCalendarStatus(status: CalendarStatus | null): void {
-  calendarStatus = status;
-}
+/** The calendars to choose from and the chosen ones (store: settings slice). */
+const choice = () => useStore.getState().calendarChoice;
+const updateChoice = (changes: Partial<ReturnType<typeof choice>>): void =>
+  useStore.getState().updateCalendarChoice(changes);
+const calendarStatus = () => useStore.getState().integrationStatuses.calendar;
 
 /**
  * The calendar selection: a checkbox per calendar
@@ -135,7 +123,8 @@ function calendarBody(status: CalendarStatus | null): HTMLElement[] {
 
   if (status.connected) {
     const save = textButton('btn btn-primary settings-calendar-save-btn', 'Save Selection');
-    save.disabled = selectedCalendarIds.length === 0 || calendarsLoading;
+    const { calendars, selectedIds, loading, error } = choice();
+    save.disabled = selectedIds.length === 0 || loading;
     return [
       createElement('div', { class: 'settings-calendar-connected-wrapper' }, [
         createElement('div', { class: 'settings-calendar-connected' }, [
@@ -144,7 +133,7 @@ function calendarBody(status: CalendarStatus | null): HTMLElement[] {
         ]),
         createElement('div', { class: 'settings-calendar-selection' }, [
           createElement('label', { class: 'settings-label' }, ['Show events from:']),
-          ...calendarSelection(availableCalendars || [], selectedCalendarIds, calendarsLoading, calendarsError),
+          ...calendarSelection(calendars || [], selectedIds, loading, error),
           save,
         ]),
       ]),
@@ -161,11 +150,11 @@ function calendarBody(status: CalendarStatus | null): HTMLElement[] {
 
 /** The whole Google Calendar field (label + status body). */
 export function renderCalendarField(): HTMLElement {
-  return settingsField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus));
+  return settingsField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus()));
 }
 
 function updateCalendarSection(): void {
-  rerenderField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus));
+  rerenderField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus()));
 }
 
 /**
@@ -173,7 +162,7 @@ function updateCalendarSection(): void {
  * section (shows a loading state while in flight).
  */
 export async function loadCalendarSelection(): Promise<void> {
-  calendarsLoading = true;
+  updateChoice({ loading: true });
 
   // Re-render to show loading state
   updateCalendarSection();
@@ -184,23 +173,23 @@ export async function loadCalendarSelection(): Promise<void> {
       calendar.getSelectedCalendars(),
     ]);
 
-    availableCalendars = calendarsResp.calendars;
-    calendarsError = null;
-    selectedCalendarIds = selectedResp.calendar_ids;
+    updateChoice({ calendars: calendarsResp.calendars, error: null, selectedIds: selectedResp.calendar_ids });
 
     log.debug('Calendars loaded', {
-      available: availableCalendars?.length ?? 0,
-      selected: selectedCalendarIds.length
+      available: calendarsResp.calendars.length,
+      selected: selectedResp.calendar_ids.length,
     });
   } catch (err) {
     log.error('Failed to fetch calendars', { error: err });
-    availableCalendars = [];
-    // Don't overwrite selectedCalendarIds - preserve user's existing selection
+    // The selection stays - preserve the user's existing selection
     // They won't be able to change it until the error is resolved, but we won't lose their data
     // The server's message says what to do ("... Please reconnect.")
-    calendarsError = err instanceof ApiError ? err.message : 'Failed to load calendars. Please try again.';
+    updateChoice({
+      calendars: [],
+      error: err instanceof ApiError ? err.message : 'Failed to load calendars. Please try again.',
+    });
   } finally {
-    calendarsLoading = false;
+    updateChoice({ loading: false });
     // Re-render with loaded data
     updateCalendarSection();
   }
@@ -222,17 +211,19 @@ async function handleCalendarDisconnect(): Promise<void> {
   try {
     log.debug('Disconnecting Google Calendar');
     await calendar.disconnect();
-    calendarStatus = { connected: false, calendar_email: null, connected_at: null, needs_reconnect: false };
-
+    const store = useStore.getState();
+    store.setIntegrationStatus('calendar', {
+      connected: false,
+      calendar_email: null,
+      connected_at: null,
+      needs_reconnect: false,
+    });
     // Clear calendar data
-    availableCalendars = null;
-    selectedCalendarIds = ['primary'];
-    calendarsLoading = false;
+    store.updateCalendarChoice(initialCalendarChoice());
 
     updateCalendarSection();
 
     // Update store and re-render sidebar to hide planner entry
-    const store = useStore.getState();
     const user = store.user;
     if (user) {
       store.setUser({ ...user, calendar_connected: false });
@@ -252,9 +243,10 @@ async function handleCalendarDisconnect(): Promise<void> {
  */
 function handleCalendarCheckboxChange(): void {
   const checkboxes = document.querySelectorAll<HTMLInputElement>('.settings-calendar-checkbox');
-  selectedCalendarIds = Array.from(checkboxes)
+  const selectedCalendarIds = Array.from(checkboxes)
     .filter(cb => cb.checked)
     .flatMap(cb => cb.dataset.calendarId ?? []);
+  updateChoice({ selectedIds: selectedCalendarIds });
 
   // Update helper text
   const helper = document.querySelector('.settings-calendar-selection .settings-helper');
@@ -277,6 +269,7 @@ function handleCalendarCheckboxChange(): void {
  * Save calendar selection to backend
  */
 async function handleCalendarSaveSelection(): Promise<void> {
+  const { calendars, selectedIds: selectedCalendarIds } = choice();
   if (selectedCalendarIds.length === 0) {
     toast.error('Select at least one calendar');
     return;
@@ -294,7 +287,7 @@ async function handleCalendarSaveSelection(): Promise<void> {
     log.debug('Saving calendar selection', { count: selectedCalendarIds.length });
 
     // Normalize: replace primary calendar's actual ID with "primary"
-    const primaryCalendar = availableCalendars?.find(cal => cal.primary);
+    const primaryCalendar = calendars?.find(cal => cal.primary);
     const normalizedIds = selectedCalendarIds.map(id =>
       (primaryCalendar && id === primaryCalendar.id) ? 'primary' : id
     );

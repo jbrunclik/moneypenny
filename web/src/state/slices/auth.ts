@@ -9,6 +9,7 @@ import { initialLanguageData } from './language';
 import { initialMessagesData } from './messages';
 import { initialPlannerData } from './planner';
 import { initialSearchData } from './search';
+import { initialSettingsData } from './settings';
 import { initialSportsData } from './sports';
 import { initialStorageData } from './storage';
 import { initialUiSessionData } from './ui';
@@ -53,5 +54,6 @@ export const createAuthSlice: AppSlice<AuthSlice> = (set) => ({
       ...initialStorageData(),
       ...initialSportsData(),
       ...initialLanguageData(),
+      ...initialSettingsData(),
     }),
 });

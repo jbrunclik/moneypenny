@@ -9,12 +9,13 @@ import { describe, it, expect, vi } from 'vitest';
 const api = vi.hoisted(() => ({ listCalendars: vi.fn(), getSelectedCalendars: vi.fn() }));
 vi.mock('@/api/integrations', () => ({ calendar: api }));
 
-import { loadCalendarSelection, renderCalendarField, setCalendarStatus } from '@/components/settings/calendar';
+import { loadCalendarSelection, renderCalendarField } from '@/components/settings/calendar';
 import { POPUP_ID } from '@/components/settings/shared';
 import type { CalendarStatus } from '@/types/api';
+import { useStore } from '@/state/store';
 
 async function render(colors: (string | null)[]): Promise<HTMLElement[]> {
-  setCalendarStatus({ connected: true, calendar_email: 'a@b.c', connected_at: null, needs_reconnect: false } as CalendarStatus);
+  useStore.getState().setIntegrationStatus('calendar', { connected: true, calendar_email: 'a@b.c', connected_at: null, needs_reconnect: false } as CalendarStatus);
   api.listCalendars.mockResolvedValue({
     calendars: colors.map((background_color, i) => ({
       id: `c${i}`,

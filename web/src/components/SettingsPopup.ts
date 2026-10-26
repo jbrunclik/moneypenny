@@ -15,38 +15,22 @@ import {
 import { registerPopupEscapeHandler } from '../utils/popupEscapeHandler';
 import { attachSheetDismiss } from '../utils/sheet-gesture';
 import { log, POPUP_ID } from './settings/shared';
-import {
-  bindColorSchemeOptions,
-  handleAppearanceChange,
-  loadAppearanceSettings,
-  loadColorScheme,
-  renderAppearanceSection,
-} from './settings/appearance';
+import { bindColorSchemeOptions, handleAppearanceChange, renderAppearanceSection } from './settings/appearance';
 import { handleIntegrationsChange, renderIntegrationsSection } from './settings/integrations';
-import { handleTodoistClick, setTodoistStatus } from './settings/todoist';
-import {
-  handleCalendarChange,
-  handleCalendarClick,
-  loadCalendarSelection,
-  setCalendarStatus,
-} from './settings/calendar';
+import { handleTodoistClick } from './settings/todoist';
+import { handleCalendarChange, handleCalendarClick, loadCalendarSelection } from './settings/calendar';
 import { handleGarminClick, resetGarminState } from './settings/garmin';
-import { handleRouvyClick, setRouvyStatus } from './settings/rouvy';
+import { handleRouvyClick } from './settings/rouvy';
 import {
   bindWhatsappField,
   fetchPushState,
   handleNotificationsChange,
   handleNotificationsClick,
-  loadNotificationSettings,
   renderNotificationsSection,
 } from './settings/notifications';
 import type { PushState } from '../types/api';
-import {
-  bindInstructionsField,
-  getInstructionsLength,
-  loadInstructionsSettings,
-  renderInstructionsSection,
-} from './settings/instructions';
+import { bindInstructionsField, renderInstructionsSection } from './settings/instructions';
+import { useStore } from '../state/store';
 
 function settingsBody(): HTMLElement {
   const tab = (key: string, label: string, active = false): HTMLButtonElement =>
@@ -124,15 +108,15 @@ async function loadAllSettings(): Promise<{ calendarConnected: boolean }> {
     }),
   ]);
 
-  loadInstructionsSettings(settingsData);
-  loadNotificationSettings(settingsData, pushStateData);
-  loadAppearanceSettings(settingsData);
-  setTodoistStatus(todoistData);
-  setCalendarStatus(calendarData);
+  const store = useStore.getState();
+  store.setUserSettings(settingsData);
+  store.setPushState(pushStateData);
+  store.setIntegrationStatus('todoist', todoistData);
+  store.setIntegrationStatus('calendar', calendarData);
   resetGarminState(garminData);
-  setRouvyStatus(rouvyData);
+  store.setIntegrationStatus('rouvy', rouvyData);
   log.info('Settings loaded', {
-    instructionsLength: getInstructionsLength(),
+    instructionsLength: settingsData.custom_instructions.length,
     hasWhatsappPhone: !!settingsData.whatsapp_phone,
     whatsappAvailable: settingsData.whatsapp_available ?? false,
     todoistConnected: todoistData?.connected ?? false,
@@ -167,9 +151,6 @@ export async function openSettingsPopup(): Promise<void> {
 
   const popup = getElementById<HTMLDivElement>(POPUP_ID);
   if (!popup) return;
-
-  // Load current color scheme
-  loadColorScheme();
 
   // Show popup with loading state
   renderLoadingShell(popup);

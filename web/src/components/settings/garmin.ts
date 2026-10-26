@@ -4,31 +4,33 @@ import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { GarminStatus } from '../../types/api';
 import { createElement } from '../../utils/dom';
+import { useStore } from '../../state/store';
 import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 const LABEL = 'Garmin Connect';
 
 const DISCONNECTED: GarminStatus = { connected: false, connected_at: null, needs_reconnect: false };
 
-/** Current Garmin Connect status */
-let garminStatus: GarminStatus | null = null;
-
-/** Garmin MFA state: awaiting MFA code input */
-let garminMfaRequired = false;
+/** The status and whether the login waits for an MFA code (store: settings slice). */
+function setGarmin(status: GarminStatus | null, mfaRequired: boolean): void {
+  const store = useStore.getState();
+  store.setIntegrationStatus('garmin', status);
+  store.setGarminMfaRequired(mfaRequired);
+}
 
 /**
  * Credentials retained in memory while we await the MFA code so we can
  * re-submit them together with the code. The MFA flow on the backend runs
  * a single full login per request (no cross-request state), which means we
  * have to resend email+password with the MFA code. Cleared after MFA
- * success, cancel, or any settled outcome.
+ * success, cancel, or any settled outcome. Kept here, out of the shared
+ * store, so the password lives only as long as the MFA step.
  */
 let garminPendingCredentials: { email: string; password: string } | null = null;
 
 /** Adopt a freshly fetched status and drop any half-finished MFA flow. */
 export function resetGarminState(status: GarminStatus | null): void {
-  garminStatus = status;
-  garminMfaRequired = false;
+  setGarmin(status, false);
   garminPendingCredentials = null;
 }
 
@@ -105,21 +107,22 @@ function garminBody(status: GarminStatus | null, mfaRequired: boolean): HTMLElem
 
 /** The whole Garmin field (label + status body). */
 export function renderGarminField(): HTMLElement {
-  return settingsField('garmin', ACTIVITY_ICON, LABEL, garminBody(garminStatus, garminMfaRequired));
+  const { integrationStatuses, garminMfaRequired } = useStore.getState();
+  return settingsField('garmin', ACTIVITY_ICON, LABEL, garminBody(integrationStatuses.garmin, garminMfaRequired));
 }
 
 /**
  * Update Garmin section in the popup
  */
 function updateGarminSection(): void {
-  rerenderField('garmin', ACTIVITY_ICON, LABEL, garminBody(garminStatus, garminMfaRequired));
+  const { integrationStatuses, garminMfaRequired } = useStore.getState();
+  rerenderField('garmin', ACTIVITY_ICON, LABEL, garminBody(integrationStatuses.garmin, garminMfaRequired));
 }
 
 /** Mark the Garmin account connected after a successful login. */
 function markGarminConnected(): void {
   garminPendingCredentials = null;
-  garminStatus = { connected: true, connected_at: new Date().toISOString(), needs_reconnect: false };
-  garminMfaRequired = false;
+  setGarmin({ connected: true, connected_at: new Date().toISOString(), needs_reconnect: false }, false);
   updateGarminSection();
   toast.success('Garmin connected successfully');
 }
@@ -171,7 +174,7 @@ async function handleGarminConnect(): Promise<void> {
       // the code — the backend completes login in a single request and has
       // no cross-request session state.
       garminPendingCredentials = { email, password };
-      garminMfaRequired = true;
+      useStore.getState().setGarminMfaRequired(true);
       updateGarminSection();
       return;
     }
@@ -205,7 +208,7 @@ async function handleGarminMfaSubmit(): Promise<void> {
 
   if (!garminPendingCredentials) {
     toast.error('Session expired. Please start the connection again.');
-    garminMfaRequired = false;
+    useStore.getState().setGarminMfaRequired(false);
     updateGarminSection();
     return;
   }
@@ -241,8 +244,7 @@ async function handleGarminDisconnect(): Promise<void> {
   try {
     log.debug('Disconnecting Garmin');
     await garmin.disconnect();
-    garminStatus = { ...DISCONNECTED };
-    garminMfaRequired = false;
+    setGarmin({ ...DISCONNECTED }, false);
     updateGarminSection();
     toast.success('Garmin disconnected');
     log.info('Garmin disconnected');

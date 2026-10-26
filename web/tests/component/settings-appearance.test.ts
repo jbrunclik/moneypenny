@@ -31,10 +31,9 @@ vi.mock('@/components/Sidebar', () => ({ renderConversationsList }));
 import {
   bindColorSchemeOptions,
   handleAppearanceChange,
-  loadAppearanceSettings,
-  loadColorScheme,
   renderAppearanceSection,
 } from '@/components/settings/appearance';
+import { useStore } from '@/state/store';
 
 function mount(): HTMLElement {
   const popup = document.createElement('div');
@@ -62,14 +61,12 @@ beforeEach(() => {
   theme.getStoredColorScheme.mockReturnValue('system');
   prefs.isSidebarPreviewsEnabled.mockReturnValue(true);
   prefs.getSwipeQuickAction.mockReturnValue('archive');
-  loadColorScheme();
-  loadAppearanceSettings({ preferred_language: '' } as UserSettings);
+  useStore.getState().setUserSettings({ preferred_language: '' } as UserSettings);
 });
 
 describe('color scheme', () => {
   it('marks the stored scheme as selected', () => {
     theme.getStoredColorScheme.mockReturnValue('dark');
-    loadColorScheme();
     mount();
     expect(selectedScheme()).toEqual(['dark']);
   });
@@ -121,7 +118,7 @@ describe('device toggles', () => {
 
 describe('primary language', () => {
   it('selects the stored language', () => {
-    loadAppearanceSettings({ preferred_language: 'German' } as UserSettings);
+    useStore.getState().setUserSettings({ preferred_language: 'German' } as UserSettings);
     mount();
     expect(q<HTMLSelectElement>('#preferred-language').value).toBe('German');
   });
@@ -136,7 +133,7 @@ describe('primary language', () => {
   });
 
   it('confirms going back to auto', async () => {
-    loadAppearanceSettings({ preferred_language: 'English' } as UserSettings);
+    useStore.getState().setUserSettings({ preferred_language: 'English' } as UserSettings);
     mount();
     const select = q<HTMLSelectElement>('#preferred-language');
     select.value = '';
@@ -146,7 +143,7 @@ describe('primary language', () => {
 
   it('restores the previous language when saving fails', async () => {
     settingsApi.update.mockRejectedValue(new Error('boom'));
-    loadAppearanceSettings({ preferred_language: 'English' } as UserSettings);
+    useStore.getState().setUserSettings({ preferred_language: 'English' } as UserSettings);
     mount();
     const select = q<HTMLSelectElement>('#preferred-language');
     select.value = 'Polish';

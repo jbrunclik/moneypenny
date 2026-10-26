@@ -15,8 +15,6 @@ const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 const ui = vi.hoisted(() => ({
   renderConversationsList: vi.fn(),
   openSettingsPopup: vi.fn(() => Promise.resolve()),
-  setTodoistStatus: vi.fn(),
-  setCalendarStatus: vi.fn(),
 }));
 
 vi.mock('@/api/integrations', () => ({
@@ -28,11 +26,9 @@ vi.mock('@/components/Sidebar', () => ({ renderConversationsList: ui.renderConve
 vi.mock('@/components/SettingsPopup', () => ({ openSettingsPopup: ui.openSettingsPopup }));
 vi.mock('@/components/settings/todoist', () => ({
   TODOIST_STATE_KEY: 'todoist-oauth-state',
-  setTodoistStatus: ui.setTodoistStatus,
 }));
 vi.mock('@/components/settings/calendar', () => ({
   CALENDAR_STATE_KEY: 'calendar-oauth-state',
-  setCalendarStatus: ui.setCalendarStatus,
 }));
 
 import { checkCalendarOAuthCallback, checkTodoistOAuthCallback } from '@/components/settings/oauth';
@@ -76,7 +72,7 @@ describe('integration OAuth callback', () => {
     expect(window.location.search).toBe('');
     expect(window.location.hash).toBe('#/c/42');
     expect(sessionStorage.getItem('todoist-oauth-state')).toBeNull();
-    expect(ui.setTodoistStatus).toHaveBeenCalledWith(
+    expect(useStore.getState().integrationStatuses.todoist).toEqual(
       expect.objectContaining({ connected: true, todoist_email: 'me@example.com', needs_reconnect: false })
     );
     expect(useStore.getState().user?.todoist_connected).toBe(true);
@@ -92,7 +88,7 @@ describe('integration OAuth callback', () => {
     expect(await checkCalendarOAuthCallback()).toBe(true);
 
     expect(api.calendarConnect).toHaveBeenCalledWith('xyz', 's2');
-    expect(ui.setCalendarStatus).toHaveBeenCalledWith(expect.objectContaining({ connected: true }));
+    expect(useStore.getState().integrationStatuses.calendar).toEqual(expect.objectContaining({ connected: true }));
     expect(useStore.getState().user?.calendar_connected).toBe(true);
     expect(toastMock.success).toHaveBeenCalledWith('Google Calendar connected successfully');
   });
