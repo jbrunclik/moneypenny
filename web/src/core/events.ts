@@ -283,8 +283,10 @@ function openDocumentPreview(el: HTMLElement, e: MouseEvent): void {
   // PDFs open in the inline viewer (window.open is pop-up-blocked and
   // broken in the installed PWA); other documents keep the new tab
   if (fileType === 'application/pdf') {
-    void import('../components/PdfViewer').then(({ openPdfViewer }) =>
-      openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
+    // A stale chunk resolves the import with undefined (the vite:preloadError
+    // handler prevented the error to reload the page): nothing to open
+    void import('../components/PdfViewer').then((mod: typeof import('../components/PdfViewer') | undefined) =>
+      mod?.openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
     );
   } else {
     void openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
