@@ -16,13 +16,12 @@ import { addMessageToUI, lockOlderQuizBlocks, updateLatestAssistantMarker } from
 import { showNewMessagesPill } from '../components/ScrollToBottom';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';
-import type { Conversation, Message } from '../types/api';
+import type { Message } from '../types/api';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { markAgentViewedAndRefresh, reloadCurrentConversation } from './conversation';
 import { isTempConversation } from '../utils/conversation-id';
-import { readInflightStream } from './inflight-streams';
 import { followRemoteStream } from './stream-resume';
 import { confirmDelivery } from './send-delivery';
 
@@ -200,17 +199,4 @@ function renderInServerOrder(convId: string, container: HTMLElement, message: Me
     added.push(el);
   }
   for (const el of added) container.insertBefore(el, before);
-}
-
-/**
- * Opening a conversation another device is streaming into: follow its reply
- * live (the server reports it - the empty placeholder itself is filtered
- * from responses), unless this device owns that turn (a reload resumes it
- * via resumeInflightStreamIfAny).
- */
-export function followRemoteStreamOnOpen(conv: Conversation): void {
-  if (!conv.streaming_message_id || readInflightStream(conv.id)) return;
-  // Opening the chat: anchor the turn like a send (the open's own scroll to
-  // the bottom hasn't landed yet, so "is the reader at the bottom" is moot)
-  void followRemoteStream(conv.id, conv.streaming_message_id, { anchor: true });
 }

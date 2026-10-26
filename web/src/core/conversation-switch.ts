@@ -6,8 +6,8 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { offerLostReplyRetry, resumeInflightStreamIfAny } from './stream-resume';
-import { followRemoteStreamOnOpen } from './remote-merge';
+import { followRemoteStream, offerLostReplyRetry, resumeInflightStreamIfAny } from './stream-resume';
+import { readInflightStream } from './inflight-streams';
 import { resumeInflightBatchIfAny } from './batch-resume';
 import { renderConversationsList, setActiveConversation, closeSidebar } from '../components/Sidebar';
 import {
@@ -154,6 +154,19 @@ function refreshChromeAfterSwitch(conv: Conversation, totalMessageCount?: number
   const messageCount = totalMessageCount ?? conv.messages?.length ?? 0;
   getSyncManager()?.markConversationRead(conv.id, messageCount);
   renderConversationsList();
+}
+
+/**
+ * Opening a conversation another device is streaming into: follow its reply
+ * live (the server reports it - the empty placeholder itself is filtered
+ * from responses), unless this device owns that turn (a reload resumes it
+ * via resumeInflightStreamIfAny).
+ */
+function followRemoteStreamOnOpen(conv: Conversation): void {
+  if (!conv.streaming_message_id || readInflightStream(conv.id)) return;
+  // Opening the chat: anchor the turn like a send (the open's own scroll to
+  // the bottom hasn't landed yet, so "is the reader at the bottom" is moot)
+  void followRemoteStream(conv.id, conv.streaming_message_id, { anchor: true });
 }
 
 /**
