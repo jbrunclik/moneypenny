@@ -273,6 +273,20 @@ describe('Messages - renderMessages', () => {
       expect(assistantMessage?.innerHTML).toContain('Hello!');
     });
 
+    // The server sends files: null on messages without attachments
+    it('renders messages whose files are null', () => {
+      const messages = [
+        { ...createMessage('1', 'Hi'), files: null },
+        { ...createMessage('2', 'Hello!', 'assistant'), files: null },
+      ] as unknown as Message[];
+
+      renderMessages(messages);
+
+      const container = document.getElementById('messages');
+      expect(container?.querySelector('.message.user')?.textContent).toContain('Hi');
+      expect(container?.querySelector('.message.assistant')?.textContent).toContain('Hello!');
+    });
+
     it('renders images with loading state for lazy-loaded images', () => {
       const messages = [
         createMessage('1', 'Image', 'user', [{ name: 'test.jpg', type: 'image/jpeg' }]),

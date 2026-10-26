@@ -460,7 +460,8 @@ function createMessageElement(message: Message, animate: boolean): HTMLDivElemen
 function renderMessageContent(message: Message): HTMLDivElement {
   const content = document.createElement('div');
   content.className = 'message-content';
-  const hasFiles = message.files !== undefined && message.files.length > 0;
+  // Truthiness, not !== undefined: the server sends files: null
+  const hasFiles = !!message.files && message.files.length > 0;
 
   if (message.role === 'assistant') {
     content.innerHTML = renderMarkdown(message.content);
