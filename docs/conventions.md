@@ -67,7 +67,7 @@ session and points here for the rest.
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | `tests/unit/test_route_input.py` |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined); `tests/unit/test_tool_errors.py` (no `"Error: ..."` tool results) |
-| B6 | Typing follows [Typing](#typing) | mypy strict; planned: `Any` ratchet |
+| B6 | Typing follows [Typing](#typing) | mypy strict; `tests/unit/test_any_ratchet.py` (`Any` uses in `src/` only go down: 1,116 on Oct 26 2026) |
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` |
@@ -199,7 +199,7 @@ never a family member's conversation in full.
   `cast` need a reason in a comment.
 - A public function's dict-shaped parameter or result gets a `TypedDict`,
   dataclass or Pydantic model, not `dict[str, Any]`; the existing `Any` count
-  (about 1,000, Oct 2026) may only go down.
+  (1,116, Oct 26 2026) may only go down.
 - Frontend: no `any`, no `as unknown as`; check DOM lookups with
   `instanceof` instead of casting; parse untrusted JSON through a guard, not
   `JSON.parse(...) as T`.
