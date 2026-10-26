@@ -3,8 +3,9 @@
 import pytest
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 
-from src.agent.graph import AgentState, check_tool_results
+from src.agent.graph_state import AgentState
 from src.agent.round_cap import round_cap_override, tool_round_cap
+from src.agent.tool_round_check import check_tool_results
 from src.config import Config
 
 

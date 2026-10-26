@@ -207,7 +207,7 @@ class TestStreamNodeFiltering:
         """
         from langchain_core.messages import AIMessageChunk, ToolMessage
 
-        from src.agent.graph import CHAT_NODE_NAME
+        from src.agent.graph_state import CHAT_NODE_NAME
 
         yielded_events: list[dict] = []
         full_response = ""

@@ -458,7 +458,7 @@ def execute_agent(
         )
 
         # No retry wrapper here: chat_node already retries each LLM call with
-        # backoff (graph.py), and replaying the whole turn would re-execute
+        # backoff (chat_node.py), and replaying the whole turn would re-execute
         # non-idempotent tools (Todoist/Calendar writes, WhatsApp sends).
         raw_response, tool_results, usage_info, result_messages = chat_agent.chat_batch(
             text=trigger_message,

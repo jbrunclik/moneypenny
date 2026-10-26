@@ -12,12 +12,12 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
+from src.agent.chat_model import create_chat_model
 from src.agent.content import extract_text_content
 from src.agent.deep_research.board import ResearchBoard, agent_label
 from src.agent.deep_research.plan import DeepResearchPlan
 from src.agent.deep_research.subagent import ItemResult
 from src.agent.gemini_clients import chat_model
-from src.agent.graph import create_chat_model
 from src.agent.prompt_texts.deep_research import FOLLOWUP_PROMPT, REPORT_PROMPT
 from src.agent.source_pages import SourcePage
 from src.agent.tools.web import wrap_untrusted_content

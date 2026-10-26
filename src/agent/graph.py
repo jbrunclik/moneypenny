@@ -1,7 +1,9 @@
-"""LangGraph chat graph construction for the chat agent.
+"""LangGraph chat graph construction for the chat agent: topology and routing.
 
-This module handles creating and configuring the LangGraph state machine
-that powers the chat agent's conversation flow with tool support.
+This module wires the LangGraph state machine that powers the chat agent's
+conversation flow with tool support. The nodes live in chat_node.py,
+tool_node.py and tool_round_check.py; compiled graphs are memoized in
+graph_cache.py.
 
 Graph flow (with tools):
   START -> chat -> should_continue -> "tools": tools -> check_tool_results -> chat (loop)
@@ -15,142 +17,20 @@ thinking_level knob in Config.MODELS); the old classifier+plan-node subsystem
 was removed in Aug 2026 (git history has it).
 """
 
-import json
-import threading
-import time
-from collections import OrderedDict
-from collections.abc import Callable
-from typing import Annotated, Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal
 
-from langchain_core.callbacks import BaseCallbackManager
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.runnables import RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.config import get_stream_writer
+from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode as BaseToolNode
 
-from src.agent import interjection
-from src.agent.cancellation import CancelOnToken, TurnCancelled, raise_if_cancelled
-from src.agent.content import (
-    extract_text_content,
-    strip_echoed_msg_context,
-    strip_full_result_from_tool_content,
-)
-from src.agent.permissions import PermissionResult, check_tool_permission
-from src.agent.retry import is_model_unavailable, with_retry
-from src.agent.round_cap import tool_round_cap
-from src.agent.tool_results import get_current_request_id, store_tool_result
+from src.agent.chat_model import create_chat_model, fallback_model_factory
+from src.agent.chat_node import chat_node
+from src.agent.content import extract_text_content, strip_echoed_msg_context
+from src.agent.graph_state import AgentState
+from src.agent.tool_node import create_tool_node
+from src.agent.tool_round_check import check_tool_results
 from src.agent.tools import get_available_tools
-from src.agent.tools.context import get_conversation_context
 from src.agent.tools.metadata import EXTRACT_ONLY_TOOL_NAMES
-from src.agent.tools.request_approval import ApprovalRequestedException
-from src.agent.turn_usage import record_model_usage
 from src.config import Config
-from src.utils.logging import get_logger
-
-logger = get_logger(__name__)
-
-
-# Import permission-related modules (at module level to avoid repeated imports)
-# These are only used when is_autonomous=True
-def _get_permission_modules() -> dict[str, Any]:
-    """The permission helpers; get_agent_context is imported lazily (cycle)."""
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> agent -> stream_events -> graph
-
-    return {
-        "get_agent_context": get_agent_context,
-        "check_tool_permission": check_tool_permission,
-        "PermissionResult": PermissionResult,
-    }
-
-
-# ============ Agent State ============
-
-
-class AgentState(TypedDict):
-    """State for the chat agent."""
-
-    messages: Annotated[list[BaseMessage], add_messages]
-    tool_retries: int  # Consecutive tool failure count
-    tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
-    # Set once the turn's model was down and the other tier took over
-    model_fallback: NotRequired[str]
-
-
-# ============ Node Constants ============
-
-# Node name used to filter streaming output — only chunks from this node are sent to frontend
-CHAT_NODE_NAME = "chat"
-
-
-# ============ Model Creation ============
-
-
-def create_chat_model(
-    model_name: str,
-    with_tools: bool = True,
-    include_thoughts: bool = False,
-    tools: list[Any] | None = None,
-    temperature: float | None = None,
-    cached_content: str | None = None,
-    thinking_level: str | None = None,
-) -> ChatGoogleGenerativeAI:
-    """Create a Gemini chat model, optionally with tools bound.
-
-    Args:
-        model_name: The Gemini model to use
-        with_tools: Whether to bind tools to the model
-        include_thoughts: Whether to include thinking/reasoning summaries in responses
-        tools: Custom list of tools to bind (defaults to get_available_tools())
-        temperature: Override for model temperature (defaults to Config.GEMINI_DEFAULT_TEMPERATURE)
-        cached_content: Gemini cached content name. When provided, tools are NOT bound
-            (they're already in the cache) and system_instruction is omitted.
-        thinking_level: Overrides the model's configured thinking_level (the
-            freshness gate runs easy turns lighter).
-    """
-    # No convert_system_message_to_human: deprecated, and on langchain-google-genai
-    # 4.x it folded the system prompt into the first HumanMessage instead of using
-    # Gemini's native systemInstruction field (plus a DeprecationWarning per request).
-    # Native handling: SystemMessage at position 0 becomes systemInstruction, and
-    # mid-conversation SystemMessages are merged into it (dropped only when there is
-    # no position-0 SystemMessage - hence the HumanMessage guidance in cached mode).
-    kwargs: dict[str, Any] = {
-        "model": model_name,
-        "google_api_key": Config.GEMINI_API_KEY,
-        "max_retries": Config.AGENT_MODEL_SDK_MAX_RETRIES,
-        "temperature": temperature
-        if temperature is not None
-        else Config.GEMINI_DEFAULT_TEMPERATURE,
-        "include_thoughts": include_thoughts,
-    }
-
-    # Optional per-model reasoning depth (Gemini 3+ thinking_level). Unset =
-    # API default. Configured via the "thinking_level" key on MODELS entries.
-    thinking_level = thinking_level or Config.MODELS.get(model_name, {}).get("thinking_level")
-    if thinking_level:
-        kwargs["thinking_level"] = thinking_level
-
-    if cached_content:
-        kwargs["cached_content"] = cached_content
-        # Do NOT bind_tools when using cached_content — tools are in the cache
-        logger.info(
-            "Creating model with cached content",
-            extra={"cached_content": cached_content, "model": model_name},
-        )
-        return ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
-
-    model = ChatGoogleGenerativeAI(**kwargs, timeout=Config.GEMINI_REQUEST_TIMEOUT_SECONDS)
-
-    active_tools = tools if tools is not None else get_available_tools()
-    if with_tools and active_tools:
-        return model.bind_tools(active_tools)  # type: ignore[return-value]
-
-    return model
-
-
-# ============ Graph Nodes ============
 
 
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
@@ -187,691 +67,59 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     return "end"
 
 
-AGED_MULTIMODAL_STUB = (
-    "[The binary content returned by this tool was shown to you in an earlier "
-    "step of this turn and has been removed to save tokens. Use what you "
-    "already extracted from it; call the tool again only if you truly need it.]"
-)
-
-AGED_TRUNCATION_MARKER = "\n[...result truncated after you already processed it]"
-
-
-def _age_consumed_tool_messages(messages: list[BaseMessage]) -> None:
-    """Shrink tool results the model has already consumed once.
-
-    Within a turn, every ToolMessage is re-sent on each subsequent LLM call.
-    ToolMessages that answer the LATEST tool-calling AIMessage are fresh (the
-    model has not seen them yet) and must pass through untouched - especially
-    multimodal content (fetched PDFs/images, screenshots) which the model
-    needs to analyze exactly once. Anything older has already been consumed:
-    multimodal content becomes a stub and long text is truncated.
-
-    Aged results are copies put into `messages` (the list sent to the model):
-    the turn's state keeps the full results, which the source chips and the
-    grounding check read after the turn (Oct 2026: aging a research JSON in
-    place left it unparseable, and 52 of 156 research turns in 30 days lost
-    their pages).
-
-    A round that only set the title consumed nothing: the model still has to
-    answer from the results before it (Oct 2026: 48 turns in 14 days lost
-    their research this way and answered with no sources).
-    """
-    max_chars = Config.AGENT_AGED_TOOL_RESULT_MAX_CHARS
-    if max_chars <= 0:
-        return
-
-    rounds = [
-        i
-        for i, msg in enumerate(messages)
-        if isinstance(msg, AIMessage)
-        and msg.tool_calls
-        and not all(tc["name"] in EXTRACT_ONLY_TOOL_NAMES for tc in msg.tool_calls)
-    ]
-    last_tool_call_idx = rounds[-1] if rounds else len(messages)
-    # Results before the previous round were aged (and logged) by an earlier call
-    first_new_idx = rounds[-2] if len(rounds) > 1 else -1
-
-    for i, msg in enumerate(messages[:last_tool_call_idx]):
-        # A loaded skill is instructions for the whole turn, not consumed data:
-        # truncating it would drop exactly the guidance later rounds need
-        if not isinstance(msg, ToolMessage) or msg.name == "load_skill":
-            continue
-        log = logger.info if i > first_new_idx else logger.debug
-        if isinstance(msg.content, list):
-            log("Aged multimodal tool result", extra={"tool": getattr(msg, "name", None)})
-            messages[i] = msg.model_copy(update={"content": AGED_MULTIMODAL_STUB})
-        elif isinstance(msg.content, str) and len(msg.content) > max_chars:
-            log(
-                "Aged oversized tool result",
-                extra={"tool": getattr(msg, "name", None), "chars_before": len(msg.content)},
-            )
-            aged = msg.content[:max_chars] + AGED_TRUNCATION_MARKER
-            messages[i] = msg.model_copy(update={"content": aged})
-
-
-def _emit_retry_status(error: Exception, attempt: int) -> None:
-    """Tell the stream a transient model error is being retried.
-
-    The backoff can add up to ~70 s per model call; without a status the turn
-    looked hung. Written to LangGraph's custom stream (forwarded as a `retry`
-    SSE event); outside a streaming run there is no writer and this is a no-op.
-    """
-    try:
-        writer = get_stream_writer()
-        writer(
-            {
-                "type": "retry",
-                "attempt": attempt + 1,
-                "max_retries": Config.AGENT_MAX_RETRIES,
-            }
-        )
-    except Exception:
-        logger.debug("No stream writer for retry status", exc_info=True)
-
-
-FallbackModel = Callable[[], tuple[str, ChatGoogleGenerativeAI]]
-
-
-def other_model_tier(model_name: str) -> str | None:
-    """The other user-selectable model (Fast <-> Advanced), if there is one."""
-    others = [name for name in Config.MODELS if name != model_name]
-    return others[0] if model_name in Config.MODELS and others else None
-
-
-def _emit_model_fallback(from_model: str, to_model: str) -> None:
-    """Tell the stream the other model tier is answering (client shows a note)."""
-    try:
-        get_stream_writer()({"type": "model_fallback", "from": from_model, "to": to_model})
-    except Exception:
-        logger.debug("No stream writer for model fallback", exc_info=True)
-
-
-def _invoke_with_fallback(
-    state: AgentState,
-    model: ChatGoogleGenerativeAI,
-    messages: list[BaseMessage],
-    config: RunnableConfig | None,
-    fallback: FallbackModel | None,
-) -> tuple[BaseMessage, str | None]:
-    """The model's reply, or the other tier's when the model is down (503).
-
-    Once a turn fell back it stays on the fallback: every round would
-    otherwise first wait for the dead model again.
-    """
-    invoke = with_retry(_invoke_model, on_retry=_emit_retry_status)
-    if state.get("model_fallback") and fallback:
-        name, backup = fallback()
-        return invoke(backup, messages, config), name
-    try:
-        return invoke(model, messages, config), None
-    except Exception as error:
-        if fallback is None or not is_model_unavailable(error):
-            raise
-        name, backup = fallback()
-        primary = getattr(model, "model_name", "unknown")
-        logger.warning(
-            "Model unavailable, falling back", extra={"model": primary, "fallback": name}
-        )
-        _emit_model_fallback(primary, name)
-        return invoke(backup, messages, config), name
-
-
-def chat_node(
-    state: AgentState,
-    model: ChatGoogleGenerativeAI,
-    use_cache: bool = False,
-    config: RunnableConfig | None = None,
-    fallback: FallbackModel | None = None,
-) -> dict[str, Any]:
-    """Process messages and generate a response.
-
-    use_cache is unused here but kept in the signature for parity with
-    check_tool_results (both are bound via lambda in create_chat_graph and
-    the flag documents which mode the graph was built for).
-    """
-    # Server-side Stop: never start another model call once Stop was pressed
-    raise_if_cancelled()
-
-    messages = list(state["messages"])
-
-    # Shrink tool results the model already consumed in this turn (they are
-    # otherwise re-sent in full on every loop iteration)
-    _age_consumed_tool_messages(messages)
-
-    message_count = len(messages)
-    logger.debug(
-        "Invoking LLM",
-        extra={
-            "message_count": message_count,
-            "model": model.model_name if hasattr(model, "model_name") else "unknown",
-        },
+def _add_chat_node(
+    graph: StateGraph[AgentState],
+    model_name: str,
+    *,
+    with_tools: bool,
+    include_thoughts: bool,
+    tools: list[Any],
+    cached_content: str | None,
+    thinking_level: str | None,
+) -> None:
+    """The chat node: the turn's model, with the other tier as its fallback."""
+    model = create_chat_model(
+        model_name,
+        with_tools=with_tools,
+        include_thoughts=include_thoughts,
+        tools=tools,
+        cached_content=cached_content,
+        thinking_level=thinking_level,
     )
-    response, fallback_name = _invoke_with_fallback(state, model, messages, config, fallback)
-    if fallback_name and isinstance(response, AIMessage):
-        response.response_metadata["model_fallback"] = fallback_name
-
-    # Log tool calls if present
-    if isinstance(response, AIMessage) and response.tool_calls:
-        tool_names = [tc.get("name", "unknown") for tc in response.tool_calls]
-        logger.info(
-            "LLM requested tool calls",
-            extra={"tool_calls": tool_names, "count": len(response.tool_calls)},
-        )
-    else:
-        logger.debug("LLM response received", extra={"has_content": bool(response.content)})
-
-    # Log usage metadata if available
-    # Note: usage_metadata is a direct attribute, not in response_metadata
-    if isinstance(response, AIMessage):
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            usage = response.usage_metadata
-            logger.debug(
-                "Usage metadata captured",
-                extra={
-                    "input_tokens": usage.get("input_tokens", 0),
-                    "output_tokens": usage.get("output_tokens", 0),
-                    "total_tokens": usage.get("total_tokens", 0),
-                },
-            )
-        else:
-            logger.debug("No usage_metadata attribute found on AIMessage")
-
-    if fallback_name:
-        return {"messages": [response], "model_fallback": fallback_name}
-    return {"messages": [response]}
-
-
-def _invoke_model(
-    model: ChatGoogleGenerativeAI, messages: list[BaseMessage], config: RunnableConfig | None
-) -> BaseMessage:
-    """One model call that Stop can abort mid-stream (checked per attempt and per token)."""
-    raise_if_cancelled()
-    response = model.invoke(messages, config=_with_cancel_callback(config))
-    record_model_usage(response)
-    return response
-
-
-def _with_cancel_callback(config: RunnableConfig | None) -> RunnableConfig:
-    """The node's config plus CancelOnToken, KEEPING the inherited callbacks.
-
-    Replacing them (config={"callbacks": [...]} or with_config) drops
-    LangGraph's streaming handler: the model then answers without streaming
-    and no tokens reach the client.
-    """
-    config = config or {}
-    inherited = config.get("callbacks")
-    handler = CancelOnToken()
-    if isinstance(inherited, BaseCallbackManager):
-        callbacks: Any = inherited.copy()
-        callbacks.add_handler(handler, inherit=True)
-    else:
-        callbacks = [*(inherited or []), handler]
-    return {**config, "callbacks": callbacks}
-
-
-def tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
-    """Return (error_text, retriable) if the ToolMessage is a failure, else None.
-
-    Detection is structural — never substring matching, which false-positived
-    on legitimate content (e.g. a fetched page that *describes* a failure):
-    - status == "error": set by the ToolNode exception handler and the
-      permission-blocked path
-    - a JSON object with a truthy "error" key: the envelope every tool in
-      src/agent/tools returns on failure
-
-    Tools mark permanent failures (integration not configured, invalid
-    action, ...) with "retriable": false so self-correction skips pointless
-    retries; absent flag defaults to retriable.
-    """
-    if getattr(msg, "status", None) == "error":
-        return str(msg.content)[:200], True
-    if isinstance(msg.content, str):
-        try:
-            data = json.loads(msg.content)
-        except json.JSONDecodeError, TypeError:
-            return None
-        if isinstance(data, dict) and data.get("error"):
-            return str(data["error"])[:200], bool(data.get("retriable", True))
-    return None
-
-
-def check_tool_results(  # noqa: C901, PLR0912, PLR0915
-    state: AgentState,
-    use_cache: bool = False,
-) -> dict[str, Any]:
-    """Inspect tool results and provide self-correction guidance if errors occurred.
-
-    After tools execute, this node checks for errors:
-    - If errors found and retries < max: increment retries, add correction guidance
-    - If errors found and retries >= max: increment retries, add give-up guidance
-    - If no errors: reset retries to 0
-    Always routes back to "chat" - the LLM decides whether to retry or respond.
-
-    When use_cache is True, guidance is sent as HumanMessage (not SystemMessage)
-    because LangChain drops mid-conversation SystemMessages in cached mode.
-    """
-    # Server-side Stop: the round that just finished is the last one
-    raise_if_cancelled()
-
-    messages = state["messages"]
-    tool_retries = state.get("tool_retries", 0)
-    max_retries = Config.AGENT_MAX_TOOL_RETRIES
-
-    # This node runs once per completed tool round, so it is the natural place
-    # to count them. Each round re-invokes the model with the full accumulated
-    # context, so unbounded rounds multiply input-token cost.
-    tool_rounds = state.get("tool_rounds", 0) + 1
-    max_rounds = tool_round_cap()
-
-    # Mid-run steering: the user may have sent guidance while this turn was
-    # running (stored cross-worker in kv_store by the interject route).
-    # Checked FIRST so steering is never swallowed by the round-cap or
-    # nudge early-returns below - redirecting the work takes priority over
-    # telling the model to wrap up.
-    conv_id, user_id = get_conversation_context()
-    if conv_id and user_id:
-        steer_text = interjection.pop_interjection(user_id, conv_id)
-        if steer_text:
-            logger.info(
-                "Interjection injected between tool rounds",
-                extra={"conversation_id": conv_id, "tool_rounds": tool_rounds},
-            )
-            guidance_message = HumanMessage if use_cache else SystemMessage
-            steer_content = (
-                "[USER INTERJECTION] The user just sent this while you were "
-                f'working: "{steer_text}"\n'
-                "Adjust course immediately: incorporate this guidance into the "
-                "current task, drop work it makes irrelevant, and acknowledge "
-                "the change in your final answer."
-            )
-            if use_cache:
-                steer_content = f"[SYSTEM GUIDANCE]\n{steer_content}\n[/SYSTEM GUIDANCE]"
-            return {
-                "tool_rounds": tool_rounds,
-                "tool_retries": state.get("tool_retries", 0),
-                "messages": [guidance_message(content=steer_content)],
-            }
-
-    # Soft round cap: once hit, stop gathering and answer with what we have.
-    # Fires on every subsequent round too (tool_rounds stays >= cap), so the
-    # pressure escalates naturally if the model ignores the first nudge. The
-    # recursion limit remains the hard backstop.
-    if max_rounds > 0 and tool_rounds >= max_rounds:
-        logger.info(
-            "Tool round cap reached, nudging model to answer",
-            extra={"tool_rounds": tool_rounds, "max_rounds": max_rounds},
-        )
-        guidance_message = HumanMessage if use_cache else SystemMessage
-        cap_content = (
-            f"You have run {tool_rounds} rounds of tool calls for this request. "
-            "Stop calling tools now and answer the user with the information you "
-            "already have. If you searched for something you could not find, say so "
-            "and give your best answer with what is available. Do not issue more "
-            "tool calls unless absolutely essential."
-        )
-        if use_cache:
-            cap_content = f"[SYSTEM GUIDANCE]\n{cap_content}\n[/SYSTEM GUIDANCE]"
-        return {
-            "tool_rounds": tool_rounds,
-            "tool_retries": 0,
-            "messages": [guidance_message(content=cap_content)],
-        }
-
-    # Soft efficiency nudge, well before the hard cap: overruns observed in
-    # evals came from drip-feeding single tool calls; a gentle reminder at
-    # this point cuts rounds without forcing a premature answer.
-    soft_nudge = Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE
-    if soft_nudge > 0 and tool_rounds == soft_nudge:
-        guidance_message = HumanMessage if use_cache else SystemMessage
-        nudge_content = (
-            f"You have used {tool_rounds} tool rounds. Be efficient from here: "
-            "consolidate remaining lookups (batch queries, prefer the research "
-            "tool over separate fetches) and aim to answer within the next "
-            "round or two."
-        )
-        if use_cache:
-            nudge_content = f"[SYSTEM GUIDANCE]\n{nudge_content}\n[/SYSTEM GUIDANCE]"
-        logger.info("Soft round nudge injected", extra={"tool_rounds": tool_rounds})
-        return {
-            "tool_rounds": tool_rounds,
-            "tool_retries": 0,
-            "messages": [guidance_message(content=nudge_content)],
-        }
-
-    # Scan latest ToolMessages for errors
-    has_error = False
-    any_retriable = False
-    error_details: list[str] = []
-    for msg in reversed(messages):
-        if isinstance(msg, ToolMessage):
-            found = tool_message_error(msg)
-            if found is not None:
-                error_text, retriable = found
-                has_error = True
-                any_retriable = any_retriable or retriable
-                error_details.append(error_text)
-        elif isinstance(msg, AIMessage):
-            # Stop scanning once we hit the AIMessage that triggered the tools
-            break
-
-    if not has_error:
-        # No errors - reset retry counter
-        if tool_retries > 0:
-            logger.debug("Tool retries reset after successful execution")
-        return {"tool_retries": 0, "tool_rounds": tool_rounds}
-
-    new_retries = tool_retries + 1
-    error_summary = "; ".join(error_details[:3])
-
-    # Use HumanMessage in cached mode (LangChain drops mid-conversation SystemMessages)
-    guidance_message = HumanMessage if use_cache else SystemMessage
-
-    if not any_retriable:
-        # Every failure is marked permanent (e.g. integration not configured) -
-        # retrying with different arguments cannot help; go straight to give-up
-        logger.info(
-            "Tool error is non-retriable, skipping self-correction retries",
-            extra={"errors": error_summary},
-        )
-        new_retries = max_retries + 1
-
-    if new_retries <= max_retries:
-        logger.info(
-            "Tool error detected, providing self-correction guidance",
-            extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
-        )
-        guidance_content = (
-            "The tool call failed with the following error. "
-            "Analyze the error and try a different approach or different arguments. "
-            "Do not repeat the same failing call.\n\n"
-            f"Error: {error_summary}"
-        )
-        if use_cache:
-            guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
-        guidance = guidance_message(content=guidance_content)
-        return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
-    logger.warning(
-        "Tool error after max retries, providing give-up guidance",
-        extra={"retry": new_retries, "max_retries": max_retries, "errors": error_summary},
-    )
-    guidance_content = (
-        "The tool has failed after multiple retries. "
-        "Respond to the user explaining what happened and offer alternatives. "
-        "Do not attempt to call the same tool again."
-    )
-    if use_cache:
-        guidance_content = f"[SYSTEM GUIDANCE]\n{guidance_content}\n[/SYSTEM GUIDANCE]"
-    guidance = guidance_message(content=guidance_content)
-    return {"tool_retries": new_retries, "tool_rounds": tool_rounds, "messages": [guidance]}
-
-
-# ============ Tool Node Factory ============
-
-
-def _handle_tool_errors(e: Exception) -> str:
-    """Convert tool exceptions into error ToolMessages, except control-flow exceptions.
-
-    ApprovalRequestedException is control flow, not an error: it must propagate
-    to the executor/streaming handler so the run pauses in waiting_approval.
-    TurnCancelled (the user pressed Stop) likewise must end the turn, not become
-    an error ToolMessage the model then reacts to.
-    handle_tool_errors=True would swallow it into an error ToolMessage
-    (verified on langgraph 1.0.5), silently completing the run instead.
-
-    The returned string mirrors langgraph's default TOOL_CALL_ERROR_TEMPLATE so
-    ordinary tool errors keep the exact same self-correction behavior.
-    """
-    if isinstance(e, (ApprovalRequestedException, TurnCancelled)):
-        raise e
-    return f"Error: {e!r}\n Please fix your mistakes."
-
-
-def _split_blocked_tool_calls(
-    state: AgentState,
-    modules: dict[str, Any],
-    agent: Any,
-) -> tuple[list[ToolMessage], AgentState | None]:
-    """Split pending tool calls into blocked error responses and an executable state.
-
-    Returns (blocked_tool_messages, state_with_only_allowed_calls). The state
-    is None when every call was blocked (nothing left to execute), and the
-    original state when nothing was blocked.
-    """
-    last_message = state["messages"][-1]
-    if not (isinstance(last_message, AIMessage) and last_message.tool_calls):
-        return [], state
-
-    blocked: list[ToolMessage] = []
-    allowed: list[Any] = []
-    for tool_call in last_message.tool_calls:
-        tool_name = tool_call.get("name")
-        permission = (
-            modules["check_tool_permission"](agent, tool_name, tool_call.get("args", {}))
-            if tool_name
-            else modules["PermissionResult"].ALLOWED
-        )
-        if permission == modules["PermissionResult"].BLOCKED:
-            blocked.append(
-                ToolMessage(
-                    content=f"Tool '{tool_name}' is not permitted for this agent",
-                    tool_call_id=tool_call.get("id", ""),
-                    status="error",
-                )
-            )
-        else:
-            allowed.append(tool_call)
-
-    if not blocked:
-        return [], state
-    if not allowed:
-        return blocked, None
-
-    # Re-issue the AIMessage with only the allowed calls for the base ToolNode
-    pruned = AIMessage(content=last_message.content, tool_calls=allowed)
-    exec_state: AgentState = {**state, "messages": [*state["messages"][:-1], pruned]}
-    return blocked, exec_state
-
-
-def _split_approval_tool_calls(
-    state: AgentState,
-) -> tuple[AgentState | None, AgentState | None]:
-    """Split request_approval calls from their batch siblings (R3).
-
-    request_approval pauses the whole run by raising; executed alongside
-    siblings, their ToolMessages were discarded with the aborted node - work
-    already done server-side went unrecorded and was redone after approval.
-
-    Returns (approval_only_state, siblings_state); either is None when empty.
-    When there are no approval calls, returns (None, state) unchanged.
-    """
-    last_message = state["messages"][-1]
-    if not (isinstance(last_message, AIMessage) and last_message.tool_calls):
-        return None, state
-
-    approval_calls = [tc for tc in last_message.tool_calls if tc.get("name") == "request_approval"]
-    if not approval_calls:
-        return None, state
-    sibling_calls = [tc for tc in last_message.tool_calls if tc.get("name") != "request_approval"]
-
-    def _with_calls(calls: list[Any]) -> AgentState:
-        pruned = AIMessage(content=last_message.content, tool_calls=calls)
-        return {**state, "messages": [*state["messages"][:-1], pruned]}
-
-    approval_state = _with_calls(approval_calls)
-    siblings_state = _with_calls(sibling_calls) if sibling_calls else None
-    return approval_state, siblings_state
-
-
-def _log_tool_round(messages: list[Any], elapsed_ms: int) -> None:
-    """Record what a tool round ran, how it ended, and how long it took.
-
-    Until Sep 2026 nothing logged tool timing at all: the only way to see how
-    slow a tool was, was to diff the timestamps of the LLM calls around it.
-    Since ~95% of rounds carry a single tool call, the round's wall-clock is
-    that tool's latency; batched rounds run concurrently, so the round time is
-    the number that actually matters there too.
-    """
-    outcomes = [
-        {
-            "tool": msg.name or "unknown",
-            "status": getattr(msg, "status", None) or "success",
-            "result_chars": len(msg.content) if isinstance(msg.content, str) else None,
-        }
-        for msg in messages
-        if isinstance(msg, ToolMessage)
-    ]
-    if not outcomes:
-        return
-
-    logger.info(
-        "Tool round completed",
-        extra={
-            "tools": [o["tool"] for o in outcomes],
-            "count": len(outcomes),
-            "elapsed_ms": elapsed_ms,
-            "outcomes": outcomes,
-        },
+    use_cache = cached_content is not None
+    fallback = fallback_model_factory(model_name, with_tools, include_thoughts, tools)
+    graph.add_node(
+        "chat",
+        lambda state, config: chat_node(
+            state, model, use_cache=use_cache, config=config, fallback=fallback
+        ),
     )
 
 
-def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None) -> None:
-    """Store original tool results for server-side extraction, then strip
-    _full_result payloads (e.g. generated images) before they reach the LLM."""
-    for msg in messages:
-        if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
-            if request_id is not None:
-                store_tool_result(request_id, msg.content)
+def _add_tool_loop(
+    graph: StateGraph[AgentState], tools: list[Any], is_autonomous: bool, use_cache: bool
+) -> None:
+    """chat -> should_continue -> tools -> check_tool_results -> chat."""
+    # Add tool node with stripping of large results and error handling
+    tool_node = create_tool_node(tools, is_autonomous=is_autonomous)
+    graph.add_node("tools", tool_node)
 
-            content_len_before = len(msg.content)
-            msg.content = strip_full_result_from_tool_content(msg.content)
-            content_len_after = len(msg.content)
-            if content_len_before != content_len_after:
-                logger.info(
-                    "Stripped _full_result from tool message",
-                    extra={
-                        "content_len_before": content_len_before,
-                        "content_len_after": content_len_after,
-                        "bytes_saved": content_len_before - content_len_after,
-                    },
-                )
+    # Add self-correction node
+    graph.add_node(
+        "check_tool_results",
+        lambda state: check_tool_results(state, use_cache=use_cache),
+    )
 
+    graph.set_entry_point("chat")
 
-_SIBLING_RESULT_MAX_CHARS = 500
+    # Add conditional edge based on whether to use tools
+    graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})
 
+    # After tools, check results for errors
+    graph.add_edge("tools", "check_tool_results")
 
-def _summarize_sibling_results(messages: list[Any]) -> list[tuple[str, str]]:
-    """Compact (tool_name, result) pairs for the approval pause message."""
-    summaries: list[tuple[str, str]] = []
-    for msg in messages:
-        if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
-            content = msg.content
-            if len(content) > _SIBLING_RESULT_MAX_CHARS:
-                content = content[:_SIBLING_RESULT_MAX_CHARS] + "…"
-            summaries.append((msg.name or "tool", content))
-    return summaries
-
-
-def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
-    """Create a tool node that strips large data from results before sending to LLM.
-
-    This prevents the ~650K token cost of sending generated images back to the model.
-    The full tool results are still captured separately for server-side extraction.
-
-    The request ID is read from the _current_request_id contextvar at runtime,
-    allowing per-request capture while using a single shared graph instance.
-
-    For autonomous agents (is_autonomous=True), this also checks tool permissions
-    and may raise ApprovalRequestedException if a tool call requires user approval.
-
-    Args:
-        tools: List of tools to use
-        is_autonomous: If True, check permissions and require approval for dangerous operations
-    """
-    base_tool_node = BaseToolNode(tools, handle_tool_errors=_handle_tool_errors)
-
-    def tool_node_with_stripping(state: AgentState) -> dict[str, Any]:
-        """Execute tools and strip _full_result from results."""
-        logger.debug("tool_node_with_stripping starting", extra={"is_autonomous": is_autonomous})
-
-        # Get the current request ID from contextvar
-        request_id = get_current_request_id()
-
-        # For autonomous agents, split blocked calls out of the batch. Every
-        # tool_call_id must get a ToolMessage (Gemini rejects the next turn on
-        # a call/response mismatch) and allowed siblings must still execute.
-        blocked_messages: list[ToolMessage] = []
-        exec_state: AgentState | None = state
-        if is_autonomous:
-            modules = _get_permission_modules()
-            agent_context = modules["get_agent_context"]()
-            if agent_context:
-                blocked_messages, exec_state = _split_blocked_tool_calls(
-                    state, modules, agent_context.agent
-                )
-
-        # R3: run request_approval AFTER its batch siblings. It pauses the
-        # whole run by raising; executed alongside siblings, their results
-        # were discarded with the aborted node.
-        approval_state: AgentState | None = None
-        if is_autonomous and exec_state is not None:
-            approval_state, exec_state = _split_approval_tool_calls(exec_state)
-
-        if exec_state is None:
-            # Every call was blocked (or was an approval request)
-            result: dict[str, Any] = {"messages": blocked_messages}
-        else:
-            started = time.monotonic()
-            result = base_tool_node.invoke(exec_state)
-            _log_tool_round(result.get("messages", []), int((time.monotonic() - started) * 1000))
-            if blocked_messages:
-                result["messages"] = blocked_messages + list(result.get("messages", []))
-
-        _capture_and_strip_tool_messages(result.get("messages", []), request_id)
-
-        if approval_state is not None:
-            try:
-                approval_result = base_tool_node.invoke(approval_state)
-            except ApprovalRequestedException as e:
-                # Record what already ran so the post-approval run doesn't
-                # redo or forget it (the pause discards this node's output)
-                e.sibling_results = _summarize_sibling_results(result.get("messages", []))
-                raise
-            # request_approval returned without pausing (e.g. outside agent
-            # context) - merge its error message normally
-            _capture_and_strip_tool_messages(approval_result.get("messages", []), request_id)
-            result["messages"] = list(result.get("messages", [])) + list(
-                approval_result.get("messages", [])
-            )
-
-        logger.debug("tool_node_with_stripping completed")
-        return result
-
-    return tool_node_with_stripping
-
-
-# ============ Graph Factory ============
-
-
-def _fallback_factory(
-    model_name: str, with_tools: bool, include_thoughts: bool, tools: list[Any]
-) -> FallbackModel | None:
-    """Builds the other tier's model on first use: same tools, no context cache
-    (the cache is per (profile, model))."""
-    other = other_model_tier(model_name)
-    if other is None:
-        return None
-    built: list[ChatGoogleGenerativeAI] = []
-
-    def factory() -> tuple[str, ChatGoogleGenerativeAI]:
-        if not built:
-            built.append(
-                create_chat_model(
-                    other, with_tools=with_tools, include_thoughts=include_thoughts, tools=tools
-                )
-            )
-        return other, built[0]
-
-    return factory
+    # After checking results, go back to chat
+    graph.add_edge("check_tool_results", "chat")
 
 
 def create_chat_graph(
@@ -900,7 +148,12 @@ def create_chat_graph(
         thinking_level: Overrides the model's configured thinking_level
     """
     active_tools = tools if tools is not None else get_available_tools()
-    model = create_chat_model(
+    # Capture whether cache is active for nodes that inject guidance messages
+    use_cache = cached_content is not None
+
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
+    _add_chat_node(
+        graph,
         model_name,
         with_tools=with_tools,
         include_thoughts=include_thoughts,
@@ -909,177 +162,14 @@ def create_chat_graph(
         thinking_level=thinking_level,
     )
 
-    # Capture whether cache is active for nodes that inject guidance messages
-    use_cache = cached_content is not None
-
-    # Define the graph
-    graph: StateGraph[AgentState] = StateGraph(AgentState)
-
-    fallback = _fallback_factory(model_name, with_tools, include_thoughts, active_tools)
-
-    # Add the chat node
-    graph.add_node(
-        "chat",
-        lambda state, config: chat_node(
-            state, model, use_cache=use_cache, config=config, fallback=fallback
-        ),
-    )
-
     if with_tools and active_tools:
-        # Add tool node with stripping of large results and error handling
-        tool_node = create_tool_node(active_tools, is_autonomous=is_autonomous)
-        graph.add_node("tools", tool_node)
-
-        # Add self-correction node
-        graph.add_node(
-            "check_tool_results",
-            lambda state: check_tool_results(state, use_cache=use_cache),
-        )
-
-        graph.set_entry_point("chat")
-
-        # Add conditional edge based on whether to use tools
-        graph.add_conditional_edges("chat", should_continue, {"tools": "tools", "end": END})
-
-        # After tools, check results for errors
-        graph.add_edge("tools", "check_tool_results")
-
-        # After checking results, go back to chat
-        graph.add_edge("check_tool_results", "chat")
+        _add_tool_loop(graph, active_tools, is_autonomous, use_cache)
     else:
         # Simple graph without tools
         graph.set_entry_point("chat")
         graph.add_edge("chat", END)
 
     return graph
-
-
-# ============ Compiled-graph memoization ============
-#
-# create_chat_graph + compile_graph ran in ChatAgent.__init__ on every request,
-# rebuilding + recompiling a graph that is a pure function of its build
-# signature. The compiled graph is stateless (state is passed per invoke; the
-# request id rides a contextvar, not the graph), so it is safe to compile once
-# per signature and share across requests and threads.
-
-# per-worker: a memo of compiled graphs, rebuilt on a miss
-_compiled_graph_cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
-_compiled_graph_lock = threading.Lock()
-
-# Context-cache names kept per otherwise-identical signature. The name rotates
-# whenever a Gemini cache lapses or is recreated, so without this cap every dead
-# name stays compiled until the global LRU evicts it (~2.5 MB per graph). Three
-# covers the live set: the uncached fallback (None) plus SPORTS and LANGUAGE,
-# the two profiles that bind the same tools.
-_MAX_CACHE_NAMES_PER_SIGNATURE = 3
-
-
-def _graph_signature(
-    model_name: str,
-    with_tools: bool,
-    include_thoughts: bool,
-    tools: list[Any],
-    is_autonomous: bool,
-    thinking_level: str | None,
-    cached_content: str | None,
-) -> tuple[Any, ...]:
-    """Everything the compiled graph depends on. Tool names are sorted so the
-    key is order-independent (the tool set, not its ordering, matters).
-    cached_content stays last: the per-signature name cap slices it off."""
-    tool_sig = tuple(sorted(t.name for t in tools)) if tools else ()
-    return (
-        model_name,
-        with_tools,
-        include_thoughts,
-        tool_sig,
-        is_autonomous,
-        thinking_level,
-        cached_content,
-    )
-
-
-def clear_graph_cache() -> None:
-    """Drop all memoized compiled graphs (used by tests for isolation)."""
-    with _compiled_graph_lock:
-        _compiled_graph_cache.clear()
-
-
-def get_compiled_graph(
-    model_name: str,
-    with_tools: bool = True,
-    include_thoughts: bool = False,
-    tools: list[Any] | None = None,
-    is_autonomous: bool = False,
-    cached_content: str | None = None,
-    memoize: bool = True,
-    thinking_level: str | None = None,
-) -> Any:
-    """Return a compiled chat graph for this signature, building it once.
-
-    `memoize=False` for tools that are per-run closures (deep research wraps
-    its tools around each run's board, with the same names every run): the
-    signature knows only tool names, so a memoized graph would run an earlier
-    run's tools.
-
-    Bounded LRU (Config.AGENT_GRAPH_CACHE_SIZE): the cached_content name rotates
-    hourly, so stale entries are evicted rather than accumulating unbounded.
-    """
-    active_tools = tools if tools is not None else get_available_tools()
-    if not memoize:
-        return compile_graph(
-            create_chat_graph(
-                model_name,
-                with_tools=with_tools,
-                include_thoughts=include_thoughts,
-                tools=active_tools,
-                is_autonomous=is_autonomous,
-                cached_content=cached_content,
-                thinking_level=thinking_level,
-            )
-        )
-    key = _graph_signature(
-        model_name,
-        with_tools,
-        include_thoughts,
-        active_tools,
-        is_autonomous,
-        thinking_level,
-        cached_content,
-    )
-
-    with _compiled_graph_lock:
-        cached = _compiled_graph_cache.get(key)
-        if cached is not None:
-            _compiled_graph_cache.move_to_end(key)  # mark most-recently-used
-            return cached
-
-    # Build outside the lock - compilation is the slow part we don't want to
-    # serialize. A rare concurrent double-build is harmless (both are valid);
-    # the second store just overwrites with an equivalent graph.
-    compiled = compile_graph(
-        create_chat_graph(
-            model_name,
-            with_tools=with_tools,
-            include_thoughts=include_thoughts,
-            tools=active_tools,
-            is_autonomous=is_autonomous,
-            cached_content=cached_content,
-            thinking_level=thinking_level,
-        )
-    )
-
-    with _compiled_graph_lock:
-        _compiled_graph_cache[key] = compiled
-        _compiled_graph_cache.move_to_end(key)
-        # cached_content is the last signature element; drop this signature's
-        # least-recently-used names beyond the cap (dead rotated caches)
-        same_signature = [k for k in _compiled_graph_cache if k[:-1] == key[:-1]]
-        for stale in same_signature[:-_MAX_CACHE_NAMES_PER_SIGNATURE]:
-            del _compiled_graph_cache[stale]
-        max_size = Config.AGENT_GRAPH_CACHE_SIZE
-        while max_size > 0 and len(_compiled_graph_cache) > max_size:
-            _compiled_graph_cache.popitem(last=False)  # evict least-recently-used
-    return compiled
 
 
 def compile_graph(graph: StateGraph[AgentState]) -> Any:

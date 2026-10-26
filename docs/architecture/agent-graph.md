@@ -1,7 +1,7 @@
 # Agent Graph
 
 The agent loop behind every turn - interactive chat (batch and streaming) and autonomous
-agents alike - is a LangGraph state machine in [graph.py](../../src/agent/graph.py),
+agents alike - is a LangGraph state machine built in [graph.py](../../src/agent/graph.py),
 driven by `ChatAgent` in [agent.py](../../src/agent/agent.py). What the loop is fed
 (enriched, possibly compacted history) is covered in
 [Conversation Context](conversation-context.md); how its events reach the browser in
@@ -104,7 +104,7 @@ After tool execution, `check_tool_results()` inspects `ToolMessage` results for 
 **How it works:**
 
 1. Scans the latest batch of `ToolMessage` objects (stops at the preceding `AIMessage`)
-2. Detects errors **structurally** in `tool_message_error()` ([graph.py](../../src/agent/graph.py)): `status == "error"` (set by the ToolNode exception handler and the permission-blocked path) or a JSON object with a truthy `"error"` key (the envelope every tool returns on failure, built by `tool_error()` in [tools/errors.py](../../src/agent/tools/errors.py); a plain `"Error: ..."` string reads as success, and `tests/unit/test_tool_errors.py` rejects one). It deliberately **never** substring-matches content - matching `"Error:"`/`"failed"` false-positived on legitimate results, e.g. a fetched page that describes a failure. Tools mark permanent failures (integration not configured, invalid action) with `"retriable": false` (`tool_error(..., retriable=False)`), which skips pointless retries
+2. Detects errors **structurally** in `tool_message_error()` ([tool_round_check.py](../../src/agent/tool_round_check.py)): `status == "error"` (set by the ToolNode exception handler and the permission-blocked path) or a JSON object with a truthy `"error"` key (the envelope every tool returns on failure, built by `tool_error()` in [tools/errors.py](../../src/agent/tools/errors.py); a plain `"Error: ..."` string reads as success, and `tests/unit/test_tool_errors.py` rejects one). It deliberately **never** substring-matches content - matching `"Error:"`/`"failed"` false-positived on legitimate results, e.g. a fetched page that describes a failure. Tools mark permanent failures (integration not configured, invalid action) with `"retriable": false` (`tool_error(..., retriable=False)`), which skips pointless retries
 3. On a retriable error with retries remaining: increments `tool_retries`, injects guidance telling the LLM to try a different approach
 4. On error after max retries (or a non-retriable one): injects guidance telling the LLM to give up gracefully and explain the issue
    - Guidance is a `SystemMessage`, or a `HumanMessage` wrapped in `[SYSTEM GUIDANCE]` markers in cached mode (LangChain drops mid-conversation system messages there)
@@ -128,7 +128,7 @@ mock reads steering only with `/test/set-consume-steering`.
 
 The `ToolNode` is created with `handle_tool_errors=_handle_tool_errors` (a callable, **not** `True`) so ordinary tool exceptions become `ToolMessage` errors rather than crashes, while control-flow exceptions still propagate.
 
-> **Pitfall — never pass `handle_tool_errors=True`.** With `True`, LangGraph's `ToolNode` catches *every* `Exception` subclass and converts it into an error `ToolMessage` (`status="error"`). That silently swallows control-flow exceptions too: `ApprovalRequestedException` (raised by the autonomous-agent approval flow) never reached the executor, so runs *completed* instead of pausing in `waiting_approval`, and self-correction told the model to retry — producing duplicate approval records. The fix is the `_handle_tool_errors(e)` callable in [graph.py](../../src/agent/graph.py): it re-raises `ApprovalRequestedException` and returns the default error-template string for everything else. (LangGraph's own `interrupt()` uses `GraphBubbleUp`, which the framework exempts — the native alternative.)
+> **Pitfall — never pass `handle_tool_errors=True`.** With `True`, LangGraph's `ToolNode` catches *every* `Exception` subclass and converts it into an error `ToolMessage` (`status="error"`). That silently swallows control-flow exceptions too: `ApprovalRequestedException` (raised by the autonomous-agent approval flow) never reached the executor, so runs *completed* instead of pausing in `waiting_approval`, and self-correction told the model to retry — producing duplicate approval records. The fix is the `_handle_tool_errors(e)` callable in [tool_node.py](../../src/agent/tool_node.py): it re-raises `ApprovalRequestedException` and returns the default error-template string for everything else. (LangGraph's own `interrupt()` uses `GraphBubbleUp`, which the framework exempts — the native alternative.)
 >
 > **Lesson:** when an exception must cross a framework boundary (`ToolNode`, `executor.map`, `graph.stream`), write the regression test through a **real compiled graph**, not a mocked node — tests that mocked `execute_agent` never exercised this propagation boundary, and the `except` in the streaming layer was dead code until the exception actually started arriving. Fixing propagation can also unmask latent bugs in the previously-dead catch paths.
 
@@ -211,7 +211,10 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 
 ## Key Files
 
-- [graph.py](../../src/agent/graph.py) - graph construction, `chat_node`, `check_tool_results`, tool node, graph cache
+- [graph.py](../../src/agent/graph.py) - graph construction and `should_continue` routing; [graph_state.py](../../src/agent/graph_state.py) - `AgentState`
+- [chat_node.py](../../src/agent/chat_node.py) - `chat_node` (retries, Stop, model fallback); [chat_model.py](../../src/agent/chat_model.py) - `create_chat_model`, fallback tier; [tool_result_aging.py](../../src/agent/tool_result_aging.py) - shrinking consumed results
+- [tool_node.py](../../src/agent/tool_node.py) - tool node (permissions, approval ordering, result stripping); [tool_round_check.py](../../src/agent/tool_round_check.py) - `check_tool_results`
+- [graph_cache.py](../../src/agent/graph_cache.py) - `get_compiled_graph`, the compiled-graph LRU
 - [agent.py](../../src/agent/agent.py) - `ChatAgent`, `stream_chat_events()`, `chat_batch()`
 - [retry.py](../../src/agent/retry.py) - `with_retry`, `is_transient_error`
 - [interjection.py](../../src/agent/interjection.py) - mid-run steering carrier
@@ -222,7 +225,7 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 
 ## Testing
 
-- [test_graph.py](../../tests/unit/test_graph.py) - self-correction, routing, graph structure
+- [test_graph.py](../../tests/unit/test_graph.py) - self-correction, routing, graph structure; [test_tool_round_check.py](../../tests/unit/test_tool_round_check.py) - every `check_tool_results` branch with its exact guidance
 - [test_retry.py](../../tests/unit/test_retry.py), [test_retry_status.py](../../tests/unit/test_retry_status.py) - backoff and the `retry` event; `web/tests/unit/streaming-retry-status.test.ts` for the UI line
 - [test_tool_efficiency.py](../../tests/unit/test_tool_efficiency.py) - fetch nudge, per-call search counting and composite actions
 - [test_search_escalation.py](../../tests/unit/test_search_escalation.py) - repeat single-query `web_search` runs as `research`

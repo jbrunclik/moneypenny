@@ -339,7 +339,7 @@ def test_agent(test_database: Database, test_user: User):
 @pytest.fixture
 def mock_gemini_llm() -> Generator[MagicMock]:
     """Mock ChatGoogleGenerativeAI to avoid real API calls."""
-    with patch("src.agent.graph.ChatGoogleGenerativeAI") as mock:
+    with patch("src.agent.chat_model.ChatGoogleGenerativeAI") as mock:
         mock_instance = MagicMock()
         mock_instance.invoke.return_value = MagicMock(
             content="Test response from LLM",

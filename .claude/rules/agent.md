@@ -10,4 +10,4 @@ paths:
 - **Tool results**: put efficiency/next-step directives in the tool RESULT, not the system prompt — prompt-level guidance was measured to be ignored.
 - **Change available models**: edit the `MODELS` dict in [src/config.py](../../src/config.py).
 - **Browser tool**: `make browser-setup` installs Playwright + Chromium. Enabled by default (`BROWSER_ENABLED=true`); set `BROWSER_ENABLED=false` in `.env` to disable. See [docs/features/agent-tools.md](../../docs/features/agent-tools.md#browser-tool).
-- **Key files**: `agent.py`, `graph.py` (nodes, routing, self-correction), `prompts.py` (assembly) + `prompt_texts/` (static texts), `content.py`, `history.py`.
+- **Key files**: `agent.py`, `graph.py` (topology, routing) with its nodes `chat_node.py`, `tool_node.py`, `tool_round_check.py` (self-correction), `prompts.py` (assembly) + `prompt_texts/` (static texts), `content.py`, `history.py`.

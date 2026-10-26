@@ -411,7 +411,7 @@ moneypenny/
 │   │   ├── schemas/              # Pydantic request/response schemas by feature (OpenAPI source)
 │   │   └── rate_limiting.py
 │   ├── agent/                    # LangGraph agent
-│   │   ├── graph.py              # Nodes, routing, self-correction
+│   │   ├── graph.py              # Graph topology and routing (nodes: chat_node, tool_node, tool_round_check)
 │   │   ├── prompts.py            # System prompts (static/cacheable vs per-request)
 │   │   ├── tools/                # One module per tool
 │   │   ├── executor.py           # Autonomous agent execution

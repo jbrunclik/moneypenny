@@ -12,7 +12,8 @@ class TestSmartRouting:
         """set_conversation_title-only tool calls should route to 'end'."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {
             "messages": [
@@ -36,7 +37,8 @@ class TestSmartRouting:
         """
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {
             "messages": [
@@ -58,7 +60,8 @@ class TestSmartRouting:
         """A batch containing manage_memory must still reach the tool node."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {
             "messages": [
@@ -77,7 +80,8 @@ class TestSmartRouting:
         """Non-metadata tool calls should route to 'tools'."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {
             "messages": [
@@ -93,7 +97,8 @@ class TestSmartRouting:
         """Mix of real + metadata tool calls should route to 'tools'."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {
             "messages": [
@@ -112,7 +117,8 @@ class TestSmartRouting:
         """Message without tool calls should route to 'end'."""
         from langchain_core.messages import AIMessage
 
-        from src.agent.graph import AgentState, should_continue
+        from src.agent.graph import should_continue
+        from src.agent.graph_state import AgentState
 
         state: AgentState = {"messages": [AIMessage(content="Just text.")]}
         assert should_continue(state) == "end"
