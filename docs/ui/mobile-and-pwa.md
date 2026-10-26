@@ -374,6 +374,18 @@ function focusMessageInput() {
 - For iPad + hardware keyboard users: a global `keydown` listener focuses the input when the user starts typing anywhere (so they can type immediately without tapping)
 - This provides stable UX (no jumping) while preserving "type immediately" for hardware keyboard users
 
+### 10. Liquid glass softens header text (iOS 27)
+
+On iOS 27 (Oct 2026) the mobile header title and the sidebar's app name read
+slightly soft over the liquid glass (`backdrop-filter`); body text is sharp.
+It is not the code: the header renders byte-identically to builds from before
+the iOS update in WebKit, and Settings > Accessibility > Reduce Transparency
+(which drops the blur) makes the text sharp. Tried and reverted, neither helped
+on the device: the frost on a `::before` layer behind the content, and the
+title on its own GPU layer (`translateZ(0)`). Only removing the blur fixes it,
+and the glass is the chosen look, so it stays. Kept from that work: the title
+is centered between gutters, not with `translateX(-50%)` (a half device pixel).
+
 ## Device check runner
 
 Scripted layout checks that run inside the app, so they reach the installed
