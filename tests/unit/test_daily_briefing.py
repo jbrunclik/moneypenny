@@ -1,8 +1,8 @@
-"""Unit tests for the Daily Briefing time/cron helpers."""
+"""Daily Briefing: its delivery time as a daily cron, and the fresh-context rule."""
 
 import pytest
 
-from src.agent.daily_briefing import _cron_to_time, _time_to_cron
+from src.utils.cron import daily_cron, daily_cron_time
 
 
 class TestTimeToCron:
@@ -16,12 +16,12 @@ class TestTimeToCron:
         ],
     )
     def test_valid(self, time_str: str, cron: str) -> None:
-        assert _time_to_cron(time_str) == cron
+        assert daily_cron(time_str) == cron
 
     @pytest.mark.parametrize("bad", ["24:00", "8:00", "08:60", "abc", "", "08:00:00"])
     def test_invalid_raises(self, bad: str) -> None:
-        with pytest.raises(ValueError, match="Invalid briefing time"):
-            _time_to_cron(bad)
+        with pytest.raises(ValueError, match="Invalid time"):
+            daily_cron(bad)
 
 
 class TestCronToTime:
@@ -34,7 +34,7 @@ class TestCronToTime:
         ],
     )
     def test_valid(self, cron: str, time_str: str) -> None:
-        assert _cron_to_time(cron) == time_str
+        assert daily_cron_time(cron) == time_str
 
     @pytest.mark.parametrize(
         "cron",
@@ -47,10 +47,10 @@ class TestCronToTime:
         ],
     )
     def test_non_daily_returns_none(self, cron: str | None) -> None:
-        assert _cron_to_time(cron) is None
+        assert daily_cron_time(cron) is None
 
     def test_round_trip(self) -> None:
-        assert _cron_to_time(_time_to_cron("06:45")) == "06:45"
+        assert daily_cron_time(daily_cron("06:45")) == "06:45"
 
 
 class TestFreshContext:

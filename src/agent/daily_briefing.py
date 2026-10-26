@@ -13,10 +13,10 @@ status reports disabled and the next enable creates a fresh agent.
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from src.db.models import db
+from src.utils.cron import daily_cron, daily_cron_time
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -89,33 +89,6 @@ SYSTEM_AGENT_PROMPTS: dict[str, str] = {
     SYSTEM_TYPE_DAILY_BRIEFING: BRIEFING_SYSTEM_PROMPT,
 }
 
-_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
-
-
-def _time_to_cron(time_str: str) -> str:
-    """'07:30' -> '30 7 * * *'."""
-    match = _TIME_RE.match(time_str)
-    if not match:
-        raise ValueError(f"Invalid briefing time: {time_str!r}")
-    hour, minute = int(match.group(1)), int(match.group(2))
-    return f"{minute} {hour} * * *"
-
-
-def _cron_to_time(cron: str | None) -> str | None:
-    """'30 7 * * *' -> '07:30'; None for non-daily/missing schedules."""
-    if not cron:
-        return None
-    parts = cron.split()
-    if len(parts) != 5 or parts[2:] != ["*", "*", "*"]:
-        return None
-    try:
-        minute, hour = int(parts[0]), int(parts[1])
-    except ValueError:
-        return None
-    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        return None
-    return f"{hour:02d}:{minute:02d}"
-
 
 def _resolve_agent(user: User) -> Agent | None:
     if not user.daily_briefing_agent_id:
@@ -146,7 +119,7 @@ def get_briefing_status(user: User) -> dict[str, object]:
         return {"enabled": False, "time": DEFAULT_BRIEFING_TIME, "timezone": "UTC"}
     return {
         "enabled": agent.enabled and bool(agent.schedule),
-        "time": _cron_to_time(agent.schedule) or DEFAULT_BRIEFING_TIME,
+        "time": daily_cron_time(agent.schedule) or DEFAULT_BRIEFING_TIME,
         "timezone": agent.timezone,
     }
 
@@ -156,7 +129,7 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
 
     Returns the resulting status dict (same shape as get_briefing_status).
     """
-    schedule = _time_to_cron(time_str)
+    schedule = daily_cron(time_str)
     agent = _resolve_agent(user)
 
     if agent is None:
