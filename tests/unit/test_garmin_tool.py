@@ -189,6 +189,38 @@ class TestGarminGuards:
         assert result["action"] == "get_stats"
         assert result["date"] == "2026-06-10"
 
+    @pytest.mark.parametrize(
+        ("action", "api_method", "result_key"),
+        [
+            ("get_stats", "get_stats", "stats"),
+            ("get_heart_rates", "get_heart_rates", "heart_rates"),
+            ("get_sleep_data", "get_sleep_data", "sleep"),
+            ("get_stress_data", "get_stress_data", "stress"),
+            ("get_hrv_data", "get_hrv_data", "hrv"),
+            ("get_spo2_data", "get_spo2_data", "spo2"),
+            ("get_body_composition", "get_body_composition", "body_composition"),
+            ("get_training_readiness", "get_training_readiness", "training_readiness"),
+            ("get_training_status", "get_training_status", "training_status"),
+            ("get_steps", "get_steps_data", "steps"),
+        ],
+    )
+    def test_daily_reads_call_their_api_for_the_date(
+        self, action: str, api_method: str, result_key: str
+    ) -> None:
+        garmin = MagicMock()
+        with (
+            patch("src.agent.tools.garmin._get_garmin_client", return_value=garmin),
+            patch("src.agent.tools.garmin._safe_api_call", return_value={"v": 1}) as call,
+        ):
+            result = json.loads(garmin_connect.invoke({"action": action, "date_str": "2026-06-10"}))
+        call.assert_called_once_with(garmin, api_method, "2026-06-10")
+        assert result == {"action": action, "date": "2026-06-10", result_key: {"v": 1}}
+
+    def test_course_details_requires_id(self) -> None:
+        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+            result = json.loads(garmin_connect.invoke({"action": "get_course_details"}))
+        assert "course_id is required" in result["error"]
+
     def test_get_activities_applies_limit(self) -> None:
         activities = [{"activityId": i} for i in range(30)]
         with (

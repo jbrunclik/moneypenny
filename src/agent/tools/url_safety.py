@@ -41,7 +41,7 @@ def _blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return any(addr in network for network in BLOCKED_NETWORKS)
 
 
-def check_host(hostname: str | None, port: int | None = None) -> str | None:  # noqa: C901
+def check_host(hostname: str | None, port: int | None = None) -> str | None:
     """Validate a hostname/IP for SSRF. Returns an error message, or None if OK.
 
     Rejects localhost aliases, literal private/reserved IPs, and hostnames that
@@ -68,7 +68,11 @@ def check_host(hostname: str | None, port: int | None = None) -> str | None:  # 
             return f"Access to {hostname} is blocked (private/reserved address)."
         return None
 
-    # Hostname → resolve and check every address it points to
+    return _check_resolved_host(hostname, port)
+
+
+def _check_resolved_host(hostname: str, port: int | None) -> str | None:
+    """Resolve a hostname and check every address it points to."""
     try:
         infos = socket.getaddrinfo(hostname, port or None, proto=socket.IPPROTO_TCP)
     except socket.gaierror:

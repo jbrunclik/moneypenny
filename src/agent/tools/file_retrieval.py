@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 @tool
-def retrieve_file(  # noqa: C901
+def retrieve_file(
     message_id: str,
     file_index: int = 0,
 ) -> str | list[dict[str, Any]]:
@@ -127,33 +127,10 @@ def retrieve_file(  # noqa: C901
             f"{retention_note(mime_type)}."
         )
 
-    # Get file data from blob store
-    blob_store = get_blob_store()
-    blob_key = make_blob_key(message_id, file_index)
-    blob_result = blob_store.get(blob_key)
-
-    if blob_result:
-        binary_data, stored_mime_type = blob_result
-        # Use stored MIME type if available
-        if stored_mime_type:
-            mime_type = stored_mime_type
-    else:
-        # Fall back to legacy base64 data in message
-        if "data" in file_meta:
-            try:
-                binary_data = base64.b64decode(file_meta["data"])
-            except ValueError, TypeError:
-                logger.error(  # noqa: TRY400 - corrupt stored data; a traceback adds nothing
-                    "retrieve_file: failed to decode legacy base64 data",
-                    extra={"message_id": message_id, "file_index": file_index},
-                )
-                return tool_error("Failed to read file data.")
-        else:
-            logger.warning(
-                "retrieve_file: no file data found",
-                extra={"message_id": message_id, "file_index": file_index},
-            )
-            return tool_error("File data not found in storage.")
+    loaded = _load_file_data(message_id, file_index, file_meta, mime_type)
+    if isinstance(loaded, str):
+        return loaded
+    binary_data, mime_type = loaded
 
     logger.info(
         "retrieve_file: file retrieved successfully",
@@ -166,6 +143,37 @@ def retrieve_file(  # noqa: C901
         },
     )
     return _build_file_content(message_id, file_index, file_name, mime_type, binary_data)
+
+
+def _load_file_data(
+    message_id: str, file_index: int, file_meta: dict[str, Any], mime_type: str
+) -> tuple[bytes, str] | str:
+    """The file's bytes and MIME type, or a tool error when they cannot be read."""
+    # Get file data from blob store
+    blob_store = get_blob_store()
+    blob_key = make_blob_key(message_id, file_index)
+    blob_result = blob_store.get(blob_key)
+
+    if blob_result:
+        binary_data, stored_mime_type = blob_result
+        # Use stored MIME type if available
+        return binary_data, stored_mime_type or mime_type
+
+    # Fall back to legacy base64 data in message
+    if "data" not in file_meta:
+        logger.warning(
+            "retrieve_file: no file data found",
+            extra={"message_id": message_id, "file_index": file_index},
+        )
+        return tool_error("File data not found in storage.")
+    try:
+        return base64.b64decode(file_meta["data"]), mime_type
+    except ValueError, TypeError:
+        logger.error(  # noqa: TRY400 - corrupt stored data; a traceback adds nothing
+            "retrieve_file: failed to decode legacy base64 data",
+            extra={"message_id": message_id, "file_index": file_index},
+        )
+        return tool_error("Failed to read file data.")
 
 
 def _build_file_content(

@@ -439,8 +439,61 @@ def _build_execution_response(
     return response
 
 
+def _collect_execution_response(session: Any, result: Any) -> dict[str, Any]:
+    """The response for a finished run, with the files and plots it produced."""
+    # Parse output and extract files
+    stdout = result.stdout or ""
+    output_files, clean_stdout = _parse_output_files_from_stdout(stdout)
+
+    # Extract files from sandbox
+    full_result_files: list[dict[str, Any]] = []
+    file_metadata: list[dict[str, Any]] = []
+
+    if output_files and result.exit_code == 0:
+        full_files, file_metadata = _extract_output_files(session, output_files)
+        full_result_files.extend(full_files)
+        if file_metadata:
+            logger.info(
+                "Code execution extracted files",
+                extra={
+                    "file_count": len(file_metadata),
+                    "filenames": [f["name"] for f in file_metadata],
+                },
+            )
+
+    # Extract matplotlib plots
+    plot_full_data, plot_metadata = _extract_plots(result)
+    full_result_files.extend(plot_full_data)
+    if plot_metadata:
+        logger.info("Code execution captured plots", extra={"plot_count": len(plot_metadata)})
+
+    return _build_execution_response(
+        result, clean_stdout, file_metadata, plot_metadata, full_result_files
+    )
+
+
+def _log_execution_result(result: Any, response: dict[str, Any]) -> None:
+    if result.exit_code == 0:
+        logger.info(
+            "Code execution succeeded",
+            extra={
+                "stdout_length": len(response["stdout"]),
+                "has_files": bool(response.get("files")),
+                "has_plots": bool(response.get("plots")),
+            },
+        )
+    else:
+        logger.warning(
+            "Code execution failed",
+            extra={
+                "exit_code": result.exit_code,
+                "stderr_preview": (result.stderr or "")[:500],
+            },
+        )
+
+
 @tool
-def execute_code(code: str) -> str:  # noqa: C901
+def execute_code(code: str) -> str:
     """Execute Python code in a secure, isolated sandbox environment.
 
     Use this tool for tasks that require computation, data processing, or generating files.
@@ -551,58 +604,8 @@ def execute_code(code: str) -> str:  # noqa: C901
             with on_cancel(lambda: _kill_user_code(session)):
                 result = session.run(wrapped_code)
 
-            # Parse output and extract files
-            stdout = result.stdout or ""
-            output_files, clean_stdout = _parse_output_files_from_stdout(stdout)
-
-            # Extract files from sandbox
-            full_result_files: list[dict[str, Any]] = []
-            file_metadata: list[dict[str, Any]] = []
-
-            if output_files and result.exit_code == 0:
-                full_files, file_metadata = _extract_output_files(session, output_files)
-                full_result_files.extend(full_files)
-                if file_metadata:
-                    logger.info(
-                        "Code execution extracted files",
-                        extra={
-                            "file_count": len(file_metadata),
-                            "filenames": [f["name"] for f in file_metadata],
-                        },
-                    )
-
-            # Extract matplotlib plots
-            plot_full_data, plot_metadata = _extract_plots(result)
-            full_result_files.extend(plot_full_data)
-            if plot_metadata:
-                logger.info(
-                    "Code execution captured plots", extra={"plot_count": len(plot_metadata)}
-                )
-
-            # Build response
-            response = _build_execution_response(
-                result, clean_stdout, file_metadata, plot_metadata, full_result_files
-            )
-
-            # Log execution result
-            if result.exit_code == 0:
-                logger.info(
-                    "Code execution succeeded",
-                    extra={
-                        "stdout_length": len(response["stdout"]),
-                        "has_files": bool(response.get("files")),
-                        "has_plots": bool(response.get("plots")),
-                    },
-                )
-            else:
-                logger.warning(
-                    "Code execution failed",
-                    extra={
-                        "exit_code": result.exit_code,
-                        "stderr_preview": (result.stderr or "")[:500],
-                    },
-                )
-
+            response = _collect_execution_response(session, result)
+            _log_execution_result(result, response)
             return json.dumps(response)
 
     except TurnCancelled:

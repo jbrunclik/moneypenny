@@ -11,7 +11,26 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def format_task(  # noqa: C901
+def _add_placement(
+    formatted: dict[str, Any],
+    task: dict[str, Any],
+    section_map: dict[str, str] | None,
+    project_map: dict[str, str] | None,
+) -> None:
+    """Add the task's project and section ids, with their names when known."""
+    # Project and project name
+    if task.get("project_id"):
+        formatted["project_id"] = task["project_id"]
+        if project_map and task["project_id"] in project_map:
+            formatted["project_name"] = project_map[task["project_id"]]
+    # Section info - important for context (sections organize tasks within projects)
+    if task.get("section_id"):
+        formatted["section_id"] = task["section_id"]
+        if section_map and task["section_id"] in section_map:
+            formatted["section_name"] = section_map[task["section_id"]]
+
+
+def format_task(
     task: dict[str, Any],
     section_map: dict[str, str] | None = None,
     project_map: dict[str, str] | None = None,
@@ -35,16 +54,7 @@ def format_task(  # noqa: C901
     if task.get("due"):
         formatted["due"] = task["due"].get("string") or task["due"].get("date")
         formatted["is_recurring"] = task["due"].get("is_recurring", False)
-    # Project and project name
-    if task.get("project_id"):
-        formatted["project_id"] = task["project_id"]
-        if project_map and task["project_id"] in project_map:
-            formatted["project_name"] = project_map[task["project_id"]]
-    # Section info - important for context (sections organize tasks within projects)
-    if task.get("section_id"):
-        formatted["section_id"] = task["section_id"]
-        if section_map and task["section_id"] in section_map:
-            formatted["section_name"] = section_map[task["section_id"]]
+    _add_placement(formatted, task, section_map, project_map)
     # Parent task ID for subtask hierarchy
     if task.get("parent_id"):
         formatted["parent_id"] = task["parent_id"]
@@ -104,7 +114,18 @@ def _invalid_filter_result(filter_string: str) -> dict[str, Any]:
     }
 
 
-def todoist_list_tasks(  # noqa: C901, PLR0912
+def _fetch_name_map(token: str, path: str, failure_message: str) -> dict[str, str]:
+    """id -> name for every section or project; empty when the fetch fails."""
+    try:
+        items = todoist_client.todoist_api_request("GET", path, token)
+        if isinstance(items, list):
+            return {i["id"]: i["name"] for i in items if i.get("id") and i.get("name")}
+    except Exception as e:  # the client raises bare Exception; names are optional
+        logger.warning(failure_message, extra={"error": str(e)}, exc_info=True)
+    return {}
+
+
+def todoist_list_tasks(
     token: str,
     filter_string: str | None = None,
     project_id: str | None = None,
@@ -120,10 +141,10 @@ def todoist_list_tasks(  # noqa: C901, PLR0912
     # recurring ones, which the briefing then mislabeled as overdue. Route any
     # filter through /tasks/filter with the `query` param; plain project
     # listing stays on /tasks.
+    params: dict[str, Any] = {"query": filter_string} if filter_string else {}
+    if project_id:
+        params["project_id"] = project_id
     if filter_string:
-        params: dict[str, Any] = {"query": filter_string}
-        if project_id:
-            params["project_id"] = project_id
         try:
             tasks = todoist_client.todoist_api_request("GET", "/tasks/filter", token, params=params)
         except Exception as e:
@@ -131,9 +152,6 @@ def todoist_list_tasks(  # noqa: C901, PLR0912
                 return _invalid_filter_result(filter_string)
             raise
     else:
-        params = {}
-        if project_id:
-            params["project_id"] = project_id
         tasks = todoist_client.todoist_api_request("GET", "/tasks", token, params=params)
     if not isinstance(tasks, list):
         tasks = []
@@ -142,43 +160,19 @@ def todoist_list_tasks(  # noqa: C901, PLR0912
     truncated_count = max(0, len(tasks) - Config.TODOIST_MAX_TASK_RESULTS)
     tasks = tasks[: Config.TODOIST_MAX_TASK_RESULTS]
 
-    # Build section and project maps for enrichment
+    # Build section and project maps for enrichment, fetching all sections
+    # and projects once (more efficient than per-item requests) - and only
+    # when some task has one
     section_map: dict[str, str] = {}
     project_map: dict[str, str] = {}
-
-    # Collect unique section_ids and project_ids from tasks
-    section_ids = {t.get("section_id") for t in tasks if t.get("section_id")}
-    project_ids = {t.get("project_id") for t in tasks if t.get("project_id")}
-
-    # Fetch all sections (more efficient than per-section requests)
-    if section_ids:
-        try:
-            sections = todoist_client.todoist_api_request("GET", "/sections", token)
-            if isinstance(sections, list):
-                section_map = {
-                    s["id"]: s["name"] for s in sections if s.get("id") and s.get("name")
-                }
-        except Exception as e:  # the client raises bare Exception; names are optional
-            logger.warning(
-                "Failed to fetch sections for task enrichment",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
-
-    # Fetch all projects for names
-    if project_ids:
-        try:
-            projects = todoist_client.todoist_api_request("GET", "/projects", token)
-            if isinstance(projects, list):
-                project_map = {
-                    p["id"]: p["name"] for p in projects if p.get("id") and p.get("name")
-                }
-        except Exception as e:  # the client raises bare Exception; names are optional
-            logger.warning(
-                "Failed to fetch projects for task enrichment",
-                extra={"error": str(e)},
-                exc_info=True,
-            )
+    if any(t.get("section_id") for t in tasks):
+        section_map = _fetch_name_map(
+            token, "/sections", "Failed to fetch sections for task enrichment"
+        )
+    if any(t.get("project_id") for t in tasks):
+        project_map = _fetch_name_map(
+            token, "/projects", "Failed to fetch projects for task enrichment"
+        )
 
     formatted_tasks = [format_task(task, section_map, project_map) for task in tasks]
 

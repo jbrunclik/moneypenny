@@ -324,7 +324,18 @@ def _climb_record(prof: list[tuple[float, float]], a: int, b: int) -> dict[str, 
     }
 
 
-def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:  # noqa: C901
+def _qualifying_climb(
+    prof: list[tuple[float, float]], base_i: int, peak_i: int
+) -> list[dict[str, float]]:
+    """The climb from base to peak as a one-item list, or [] below the thresholds."""
+    gain = prof[peak_i][1] - prof[base_i][1]
+    length = prof[peak_i][0] - prof[base_i][0]
+    if gain >= _CLIMB_MIN_GAIN_M and length > 0 and gain / length >= _CLIMB_MIN_GRADE:
+        return [_climb_record(prof, base_i, peak_i)]
+    return []
+
+
+def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:
     """Derive sustained climbs from an elevation profile (Garmin gives none).
 
     Walks a fixed-step resample tracking the current valley (base) and running
@@ -338,12 +349,6 @@ def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:
     base_i = peak_i = 0
     in_climb = False
 
-    def close() -> None:
-        gain = prof[peak_i][1] - prof[base_i][1]
-        length = prof[peak_i][0] - prof[base_i][0]
-        if gain >= _CLIMB_MIN_GAIN_M and length > 0 and gain / length >= _CLIMB_MIN_GRADE:
-            climbs.append(_climb_record(prof, base_i, peak_i))
-
     for i in range(1, len(prof)):
         elev = prof[i][1]
         if elev > prof[peak_i][1]:
@@ -354,11 +359,11 @@ def _detect_climbs(points: list[tuple[float, float]]) -> list[dict[str, float]]:
             elif prof[peak_i][1] - prof[base_i][1] >= _CLIMB_MIN_GAIN_M:
                 in_climb = True
         elif prof[peak_i][1] - elev > _CLIMB_MAX_DROP_M:
-            close()
+            climbs.extend(_qualifying_climb(prof, base_i, peak_i))
             base_i = peak_i = i
             in_climb = False
     if in_climb:
-        close()
+        climbs.extend(_qualifying_climb(prof, base_i, peak_i))
     return climbs
 
 
@@ -481,7 +486,7 @@ _GARMIN_ACTIONS = {
 
 
 @tool
-def garmin_connect(  # noqa: C901, PLR0912
+def garmin_connect(
     action: str,
     date_str: str | None = None,
     activity_id: str | None = None,
@@ -572,147 +577,96 @@ def garmin_connect(  # noqa: C901, PLR0912
         if action == "get_readiness_snapshot":
             return json.dumps(_readiness_snapshot(garmin, target_date, limit))
 
-        if action == "get_stats":
-            result = _safe_api_call(garmin, "get_stats", target_date)
+        if action in _DAILY_ACTIONS:
+            api_method, result_key = _DAILY_ACTIONS[action]
+            result = _safe_api_call(garmin, api_method, target_date)
             return json.dumps(
-                {"action": "get_stats", "date": target_date, "stats": _strip_bulky_fields(result)}
-            )
-
-        if action == "get_heart_rates":
-            result = _safe_api_call(garmin, "get_heart_rates", target_date)
-            return json.dumps(
-                {
-                    "action": "get_heart_rates",
-                    "date": target_date,
-                    "heart_rates": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_sleep_data":
-            result = _safe_api_call(garmin, "get_sleep_data", target_date)
-            return json.dumps(
-                {
-                    "action": "get_sleep_data",
-                    "date": target_date,
-                    "sleep": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_stress_data":
-            result = _safe_api_call(garmin, "get_stress_data", target_date)
-            return json.dumps(
-                {
-                    "action": "get_stress_data",
-                    "date": target_date,
-                    "stress": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_hrv_data":
-            result = _safe_api_call(garmin, "get_hrv_data", target_date)
-            return json.dumps(
-                {"action": "get_hrv_data", "date": target_date, "hrv": _strip_bulky_fields(result)}
-            )
-
-        if action == "get_spo2_data":
-            result = _safe_api_call(garmin, "get_spo2_data", target_date)
-            return json.dumps(
-                {
-                    "action": "get_spo2_data",
-                    "date": target_date,
-                    "spo2": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_body_composition":
-            result = _safe_api_call(garmin, "get_body_composition", target_date)
-            return json.dumps(
-                {
-                    "action": "get_body_composition",
-                    "date": target_date,
-                    "body_composition": _strip_bulky_fields(result),
-                }
+                {"action": action, "date": target_date, result_key: _strip_bulky_fields(result)}
             )
 
         if action == "get_activities":
-            start = (date.today() - timedelta(days=90)).isoformat()
-            end = date.today().isoformat()
-            result = _safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
-            if isinstance(result, list):
-                result = result[:limit] if limit else result[:10]
-            return json.dumps(
-                {
-                    "action": "get_activities",
-                    "count": len(result) if isinstance(result, list) else 0,
-                    "activities": _strip_bulky_fields(result, max_list_items=50),
-                }
-            )
+            return _activities_result(garmin, limit, activity_type)
 
         if action == "get_activity_details":
-            if not activity_id:
-                return tool_error("activity_id is required for get_activity_details")
-            result = _safe_api_call(garmin, "get_activity", activity_id)
-            payload: dict[str, Any] = {
-                "action": "get_activity_details",
-                "activity_id": activity_id,
-                "activity": _strip_bulky_fields(result),
-            }
-            # get_activity returns only summaryDTO. The granular breakdowns
-            # (strength sets, HR time-in-zone, per-lap splits) each live in a
-            # separate endpoint - attach them best-effort.
-            _attach_activity_breakdowns(garmin, activity_id, payload)
-            return json.dumps(payload)
-
-        if action == "get_training_readiness":
-            result = _safe_api_call(garmin, "get_training_readiness", target_date)
-            return json.dumps(
-                {
-                    "action": "get_training_readiness",
-                    "date": target_date,
-                    "training_readiness": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_training_status":
-            result = _safe_api_call(garmin, "get_training_status", target_date)
-            return json.dumps(
-                {
-                    "action": "get_training_status",
-                    "date": target_date,
-                    "training_status": _strip_bulky_fields(result),
-                }
-            )
-
-        if action == "get_steps":
-            result = _safe_api_call(garmin, "get_steps_data", target_date)
-            return json.dumps(
-                {"action": "get_steps", "date": target_date, "steps": _strip_bulky_fields(result)}
-            )
+            return _activity_details_result(garmin, activity_id)
 
         if action == "get_courses":
-            result = _safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
-            courses = (
-                [_slim_course_summary(c) for c in result if isinstance(c, dict)]
-                if isinstance(result, list)
-                else []
-            )
-            if activity_type:
-                courses = [c for c in courses if activity_type in (c.get("activity_type") or "")]
-            return json.dumps({"action": "get_courses", "count": len(courses), "courses": courses})
+            return _courses_result(garmin, activity_type)
 
         if action == "get_course_details":
-            if not course_id:
-                return tool_error("course_id is required for get_course_details")
-            result = _safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
-            return json.dumps(
-                {"action": "get_course_details", "course": _slim_course_detail(result)}
-            )
+            return _course_details_result(garmin, course_id)
 
         return tool_error(f"Unknown action: {action}", available_actions=sorted(_GARMIN_ACTIONS))
 
     except Exception as e:
         logger.exception("Garmin tool error", extra={"action": action, "error": str(e)})
         return tool_error(str(e), action=action)
+
+
+# One-day reads: action -> (Garmin API method, result key)
+_DAILY_ACTIONS = {
+    "get_stats": ("get_stats", "stats"),
+    "get_heart_rates": ("get_heart_rates", "heart_rates"),
+    "get_sleep_data": ("get_sleep_data", "sleep"),
+    "get_stress_data": ("get_stress_data", "stress"),
+    "get_hrv_data": ("get_hrv_data", "hrv"),
+    "get_spo2_data": ("get_spo2_data", "spo2"),
+    "get_body_composition": ("get_body_composition", "body_composition"),
+    "get_training_readiness": ("get_training_readiness", "training_readiness"),
+    "get_training_status": ("get_training_status", "training_status"),
+    "get_steps": ("get_steps_data", "steps"),
+}
+
+
+def _activities_result(garmin: Any, limit: int | None, activity_type: str | None) -> str:
+    """The last 90 days of activities, newest `limit` (default 10)."""
+    start = (date.today() - timedelta(days=90)).isoformat()
+    end = date.today().isoformat()
+    result = _safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
+    if isinstance(result, list):
+        result = result[:limit] if limit else result[:10]
+    return json.dumps(
+        {
+            "action": "get_activities",
+            "count": len(result) if isinstance(result, list) else 0,
+            "activities": _strip_bulky_fields(result, max_list_items=50),
+        }
+    )
+
+
+def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
+    if not activity_id:
+        return tool_error("activity_id is required for get_activity_details")
+    result = _safe_api_call(garmin, "get_activity", activity_id)
+    payload: dict[str, Any] = {
+        "action": "get_activity_details",
+        "activity_id": activity_id,
+        "activity": _strip_bulky_fields(result),
+    }
+    # get_activity returns only summaryDTO. The granular breakdowns
+    # (strength sets, HR time-in-zone, per-lap splits) each live in a
+    # separate endpoint - attach them best-effort.
+    _attach_activity_breakdowns(garmin, activity_id, payload)
+    return json.dumps(payload)
+
+
+def _courses_result(garmin: Any, activity_type: str | None) -> str:
+    result = _safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
+    courses = (
+        [_slim_course_summary(c) for c in result if isinstance(c, dict)]
+        if isinstance(result, list)
+        else []
+    )
+    if activity_type:
+        courses = [c for c in courses if activity_type in (c.get("activity_type") or "")]
+    return json.dumps({"action": "get_courses", "count": len(courses), "courses": courses})
+
+
+def _course_details_result(garmin: Any, course_id: str | None) -> str:
+    if not course_id:
+        return tool_error("course_id is required for get_course_details")
+    result = _safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
+    return json.dumps({"action": "get_course_details", "course": _slim_course_detail(result)})
 
 
 def is_garmin_available() -> bool:
