@@ -146,6 +146,18 @@ class _DatabaseHandle:
     def __getattr__(self, name: str) -> Any:
         return getattr(self.target, name)
 
+    # Writes go to the target too: a test patching db.some_method must patch
+    # that Database. Set on the handle, monkeypatch's undo wrote back a bound
+    # method of the then-current database, shadowing every later one.
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "target":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self.target, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        delattr(self.target, name)
+
 
 # Never migrates on import: every timer and script imports this module, and only
 # the web app may apply migrations (create_app calls db.migrate())
