@@ -1,6 +1,4 @@
 [
-  "components/FileUpload.ts -> components/MessageInput.ts",
-  "components/MessageInput.ts -> components/FileUpload.ts",
   "core/agents.ts -> core/conversation.ts",
   "core/conversation-switch.ts -> core/agents.ts",
   "core/conversation-switch.ts -> core/remote-merge.ts",

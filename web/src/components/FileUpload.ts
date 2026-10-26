@@ -1,6 +1,5 @@
 import { getElementById } from '../utils/dom';
 import { useStore } from '../state/store';
-import { renderFilePreview, updateSendButtonState } from './MessageInput';
 import { toast, showToast, dismissToast } from './Toast';
 import { createLogger } from '../utils/logger';
 import { compressImageFile } from '../utils/image-compression';
@@ -8,6 +7,10 @@ import { transcodeVideoFile } from '../utils/video-transcode';
 import type { FileUpload, UploadConfig } from '../types/api';
 
 const log = createLogger('file-upload');
+
+// Re-renders the composer's file preview and send button after the pending
+// files change (MessageInput's, passed in by initFileUpload: it imports us)
+let onPendingFilesChanged: (() => void) | null = null;
 
 /** Per-type upload size limit (videos get a larger allowance) */
 export function maxSizeForType(config: UploadConfig, mimeType: string): number {
@@ -82,7 +85,8 @@ export function resolveFileType(file: File): string {
 /**
  * Initialize file upload handlers
  */
-export function initFileUpload(): void {
+export function initFileUpload(onFilesChanged: () => void): void {
+  onPendingFilesChanged = onFilesChanged;
   const attachBtn = getElementById<HTMLButtonElement>('attach-btn');
   const fileInput = getElementById<HTMLInputElement>('file-input');
   const filePreview = getElementById<HTMLDivElement>('file-preview');
@@ -214,8 +218,7 @@ export async function addFilesToPending(files: File[]): Promise<void> {
     }
   }
 
-  renderFilePreview();
-  updateSendButtonState();
+  onPendingFilesChanged?.();
 }
 
 /**
@@ -231,8 +234,7 @@ function removeFile(index: number): void {
   }
 
   store.removePendingFile(index);
-  renderFilePreview();
-  updateSendButtonState();
+  onPendingFilesChanged?.();
 }
 
 /**
@@ -245,8 +247,7 @@ function removeFile(index: number): void {
 export function clearPendingFiles(): void {
   const store = useStore.getState();
   store.clearPendingFiles();
-  renderFilePreview();
-  updateSendButtonState();
+  onPendingFilesChanged?.();
 }
 
 /**

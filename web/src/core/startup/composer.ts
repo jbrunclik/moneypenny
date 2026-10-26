@@ -3,7 +3,7 @@
  * attachments and voice input.
  */
 import { initFileUpload } from '../../components/FileUpload';
-import { initMessageInput } from '../../components/MessageInput';
+import { initMessageInput, renderFilePreview, updateSendButtonState } from '../../components/MessageInput';
 import { initModelSelector } from '../../components/ModelSelector';
 import { initVoiceInput } from '../../components/VoiceInput';
 import { createLogger } from '../../utils/logger';
@@ -22,6 +22,9 @@ export function initComposer(): void {
   }, handleStopStreaming);
   initOutboxHandlers();
   initModelSelector();
-  initFileUpload();
+  initFileUpload(() => {
+    renderFilePreview();
+    updateSendButtonState();
+  });
   initVoiceInput();
 }
