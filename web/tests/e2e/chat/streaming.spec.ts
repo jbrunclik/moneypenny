@@ -1347,6 +1347,71 @@ test.describe('Send-to-top - band changes keep the turn anchored', () => {
   });
 });
 
+// The iOS keyboard opening mid-stream (device check, Oct 26 2026, standalone
+// PWA): the short band (list 490px) made the "keep 160px of the reply in
+// view" offset - meant for a message taller than the screen - slide a message
+// that fits under the header. Playwright has no software keyboard: a fake
+// visualViewport shrinks the way iOS's does (standalone: +50 accessory pill).
+test.describe('Send-to-top - the iOS keyboard opening mid-stream', () => {
+  test.use({ viewport: { width: 390, height: 874 }, hasTouch: true });
+
+  test.afterEach(async ({ page }) => {
+    await clearMockResponse(page);
+    await resetStreamDelay(page);
+  });
+
+  test('keeps a message that fits the band whole under the header', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });
+      const viewport = Object.assign(new EventTarget(), { height: 874, width: 390, offsetTop: 0, offsetLeft: 0, scale: 1 });
+      Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
+    });
+    await page.goto('/');
+    await page.waitForSelector('#menu-btn');
+    await page.click('#menu-btn');
+    await page.click('#new-chat-btn');
+    await enableStreaming(page);
+    await setMockResponse(page, 'First answer.');
+    await page.fill('#message-input', 'First question');
+    await page.click('#send-btn');
+    await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 10000 });
+
+    await setMockResponse(page, LONG_RESPONSE);
+    await setStreamDelay(page, 150);
+    // A few lines: fits the keyboard-open band, but not with 160px of reply under it
+    await page.fill('#message-input', 'A question that wraps over several lines in the phone bubble, long enough to need most of the band that is left between the header and the composer once the keyboard is up.');
+    await page.click('#send-btn');
+    await expect
+      .poll(async () => {
+        const gap = await turnTopBelowHeader(page, '.mobile-header');
+        return gap >= 0 && gap < 40;
+      }, { timeout: 5000 })
+      .toBe(true);
+    await page.waitForTimeout(700);
+    const anchored = await turnTopBelowHeader(page, '.mobile-header');
+
+    // The keyboard opens while the reply streams: 874 - 540 = 334 + 50 pill
+    await page.focus('#message-input');
+    await page.evaluate(() => {
+      const viewport = window.visualViewport as unknown as EventTarget & { height: number };
+      viewport.height = 540;
+      viewport.dispatchEvent(new Event('resize'));
+    });
+    await expect(page.locator('html')).toHaveClass(/kb-open/);
+    await page.waitForTimeout(1000); // the delayed keyboard holds (150/350/600ms)
+
+    const band = await page.evaluate(() => {
+      const list = document.getElementById('messages')!;
+      const turns = list.querySelectorAll<HTMLElement>('.message.user');
+      return { list: list.clientHeight, message: turns[turns.length - 1]!.offsetHeight };
+    });
+    expect(band.list).toBe(490);
+    expect(band.message).toBeGreaterThan(150); // + 160 of reply overflows the band
+    expect(Math.abs((await turnTopBelowHeader(page, '.mobile-header')) - anchored)).toBeLessThan(3);
+    await expect(page.locator('.message.assistant').last()).toHaveClass(/streaming/);
+  });
+});
+
 // With real motion, explicitly (a reduced-motion glide is a jump).
 // A message that wraps in the phone composer shrinks it as the send clears
 // the input - mid-glide - and the glide used to take that move for the user

@@ -67,10 +67,16 @@ function contentTop(container: HTMLElement, el: HTMLElement): number {
  * view). Depends on the band's height - recomputed when the list resizes
  * (sent with the iOS keyboard open, it closes: the band grows and the turn
  * belongs at the top again, not the keyboard-open offset under the header).
+ * A message that fits the band stays whole at the top even when less than
+ * TURN_REPLY_MIN_VISIBLE_PX of the reply fits below it: the offset slid a
+ * one-line message under the header when the keyboard opened (device check,
+ * Oct 26 2026: -55px in the standalone PWA's 245px band).
  */
 function anchorExtra(container: HTMLElement, turnEl: HTMLElement, replyEl: HTMLElement): number {
   const turnTop = contentTop(container, turnEl);
-  const replyStart = contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visibleHeight(container);
+  const visible = visibleHeight(container);
+  if (contentTop(container, replyEl) - turnTop <= visible) return 0;
+  const replyStart = contentTop(container, replyEl) + TURN_REPLY_MIN_VISIBLE_PX - visible;
   return Math.max(0, Math.max(turnTop, replyStart) - turnTop);
 }
 
