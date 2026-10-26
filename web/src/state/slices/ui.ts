@@ -31,6 +31,8 @@ interface ActiveRequestState {
   stopping?: boolean;
   /** Artifacts the turn made so far (restored after a conversation switch) */
   artifacts?: ArtifactRef[];
+  /** The reply's message id (user_message_saved), once the server has the turn */
+  assistantMessageId?: string;
 }
 
 export type ActiveView = 'chat' | 'planner' | 'agents' | 'storage' | 'sports' | 'language';
@@ -92,6 +94,7 @@ export interface UiSlice extends UiSessionData {
   updateActiveRequestContent: (convId: string, content: string, thinkingState?: ThinkingState) => void;
   /** Record a version the running turn made (one per artifact, the latest) */
   addActiveRequestArtifact: (convId: string, ref: ArtifactRef) => void;
+  setActiveRequestAssistantId: (convId: string, assistantMessageId: string) => void;
   removeActiveRequest: (convId: string) => void;
   getActiveRequest: (convId: string) => ActiveRequestState | undefined;
   setUploadProgress: (progress: number | null) => void;
@@ -209,6 +212,14 @@ function conversationFlagActions(set: UiSet, get: UiGet) {
         artifacts.splice(index === -1 ? artifacts.length : index, 0, ref);
         const newMap = new Map(s.activeRequests);
         newMap.set(convId, { ...existing, artifacts });
+        return { activeRequests: newMap };
+      }),
+    setActiveRequestAssistantId: (convId: string, assistantMessageId: string) =>
+      set((s) => {
+        const existing = s.activeRequests.get(convId);
+        if (!existing) return s;
+        const newMap = new Map(s.activeRequests);
+        newMap.set(convId, { ...existing, assistantMessageId });
         return { activeRequests: newMap };
       }),
     removeActiveRequest: (convId: string) =>

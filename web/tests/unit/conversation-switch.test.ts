@@ -272,6 +272,24 @@ describe('switchToConversation', () => {
       expect(m.showLoadingIndicator).not.toHaveBeenCalled();
     });
 
+    it('does not restore a bubble for a reply the history already shows', () => {
+      // Switching back as the stream ends: the server saved the reply (the
+      // fetched history has it) but this client hasn't handled done yet. A
+      // restored bubble showed the reply twice.
+      useStore.getState().setActiveRequest('c1', {
+        conversationId: 'c1',
+        type: 'stream',
+        content: 'Full answer',
+        assistantMessageId: 'a1',
+      });
+
+      switchToConversation(
+        conv({ messages: [msg('m1'), { id: 'a1', role: 'assistant', content: 'Full answer', created_at: '' }] })
+      );
+
+      expect(m.restoreStreamingMessage).not.toHaveBeenCalled();
+    });
+
     it('shows the loading indicator for a batch request', () => {
       useStore.getState().setActiveRequest('c1', { conversationId: 'c1', type: 'batch' });
 

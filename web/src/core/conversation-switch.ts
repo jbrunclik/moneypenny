@@ -122,10 +122,19 @@ function renderAgentHeaderIfAgent(conv: Conversation): void {
 /**
  * Check if there's an active request for this conversation and restore UI state
  */
-function restoreActiveRequestUi(convId: string): void {
+function restoreActiveRequestUi(conv: Conversation): void {
+  const convId = conv.id;
   const activeRequest = useStore.getState().getActiveRequest(convId);
   if (!activeRequest) return;
   log.debug('Restoring active request UI', { conversationId: convId, type: activeRequest.type });
+  // Switched back as the stream ended: the server saved the reply (the history
+  // just rendered shows it) before this client handled done. A restored bubble
+  // would show it twice; done finalizes the detached original instead.
+  const replyId = activeRequest.assistantMessageId;
+  if (replyId && conv.messages?.some((m) => m.id === replyId)) {
+    log.debug('Reply already in the history - not restoring the bubble', { conversationId: convId });
+    return;
+  }
   if (activeRequest.type === 'stream') {
     // Restore streaming message UI with accumulated content
     // The element is tracked in Messages.ts via currentStreamingContext
@@ -231,7 +240,7 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
     setupOlderMessagesScrollListener(conv.id);
   }
 
-  restoreActiveRequestUi(conv.id);
+  restoreActiveRequestUi(conv);
 
   // If the page died mid-stream in this conversation, resume from the journal.
   // MUST run after the active-request restore above: the resume registers an

@@ -62,6 +62,8 @@ function handleUserMessageSaved(
   // Capture the expected assistant message ID for stream recovery
   if (!event.expected_assistant_message_id) return;
   state.expectedAssistantMessageId = event.expected_assistant_message_id as string;
+  // A switch back can then tell whether the history already shows the reply
+  useStore.getState().setActiveRequestAssistantId(convId, state.expectedAssistantMessageId);
   // Persist so a crashed/reloaded page can resume this turn from the journal
   // (not another device's turn this tab merely follows - its reload would
   // resume it as its own)

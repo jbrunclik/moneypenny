@@ -42,16 +42,6 @@
     "todo": "Open E2E flakes (WebKit flake: PDF chunk reload specs)"
   },
   {
-    "file": "e2e/chat/conversation-switch.spec.ts",
-    "title": "preserves accumulated content when switching back to streaming conversation",
-    "todo": "Open E2E flakes (WebKit flake under load: streaming message never appears)"
-  },
-  {
-    "file": "e2e/chat/conversation-switch.spec.ts",
-    "title": "multiple rapid conversation switches preserve streaming state",
-    "todo": "Open E2E flakes (WebKit flake under load: streaming message never appears)"
-  },
-  {
     "file": "e2e/planner.spec.ts",
     "title": "model selector shows planner model when navigating to planner",
     "project": "webkit",
