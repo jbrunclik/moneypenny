@@ -6,7 +6,7 @@
  * core/layout-checks.ts (the field telemetry) measures similar invariants;
  * the two can share one measurement module later.
  */
-import { isStandaloneDisplay, safeAreaTop, trueViewportHeight } from '../keyboard-viewport';
+import { isStandaloneDisplay, safeAreaTop, trueViewportHeight } from '../keyboard/metrics';
 import { DEVICE_CHECK_SETTLE_MS, DEVICE_CHECK_SETTLE_TIMEOUT_MS } from '../../config';
 import type { KeyboardGeometry, PanMeasure } from './evaluate';
 

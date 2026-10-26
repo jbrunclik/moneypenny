@@ -32,7 +32,8 @@ import {
 } from '../config';
 import { addScrollDebugListener, isSmoothScrolling, userScrolledSince } from '../utils/dom';
 import { reportLayoutCheck } from './error-reporting';
-import { isStandaloneDisplay, isTouchActive, measureKeyboardInset } from './keyboard-viewport';
+import { isStandaloneDisplay, measureKeyboardInset } from './keyboard/metrics';
+import { isTouchActive } from './keyboard/touch-guard';
 
 type Invariant = LayoutCheckDetail['invariant'];
 type Measurements = Record<string, number>;

@@ -213,8 +213,8 @@ change, with the geometry unchanged since that event (iOS moves the viewport
 silently at times - then it waits again). A failure must still hold
 `LAYOUT_CHECK_CONFIRM_MS` (600ms) later, past the keyboard code's 300ms settle
 poller, with no event in between. Pinch zoom (`scale !== 1`) skips. It only
-reads: `measureKeyboardInset()`, `isStandaloneDisplay()` and `isTouchActive()`
-from keyboard-viewport.ts, the applied `--keyboard-inset`, `turnAnchorDrift()`
+reads: `measureKeyboardInset()`, `isStandaloneDisplay()` (core/keyboard/metrics.ts)
+and `isTouchActive()` (core/keyboard/touch-guard.ts), the applied `--keyboard-inset`, `turnAnchorDrift()`
 from turn-anchor.ts, and the `bottom-done`/`glide-done` scroll diagnostics
 (`addScrollDebugListener` in utils/dom.ts). It never writes a style or
 scrolls. It runs on iOS (`isIOS()`) or a coarse pointer only.
@@ -499,7 +499,7 @@ The conversation cost display below the input area has `min-height: 16px` and is
 - [../../web/src/core/gestures.ts](../../web/src/core/gestures.ts) - `setupTouchGestures()`: the conversation-row swipe (`createConversationSwipe`) and the sidebar edge swipe (`createSidebarSwipeHandlers`), sharing one active-swipe state
 
 **Keyboard:**
-- [../../web/src/core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts) - `--keyboard-inset`, `--app-vh`, `kb-open`, the pan guard, the settle poller and the kbdebug overlay
+- [../../web/src/core/keyboard-viewport.ts](../../web/src/core/keyboard-viewport.ts) - `--keyboard-inset`, `--app-vh`, `kb-open` and the settle poller; its parts in [../../web/src/core/keyboard/](../../web/src/core/keyboard/): `metrics.ts` (true viewport height, safe area, the inset formula), `touch-guard.ts` (finger-down tracking, the pan guard) and `debug-overlay.ts` (the kbdebug overlay)
 - [../../web/src/core/layout-checks.ts](../../web/src/core/layout-checks.ts) - the field layout checks (tests: `web/tests/unit/layout-checks.test.ts`)
 
 **Components:**

@@ -105,8 +105,8 @@ vi.mock('@/components/messages', () => ({
 }));
 vi.mock('@/core/keyboard-viewport', () => ({
   initKeyboardViewportPinning: h.rec('initKeyboardViewportPinning'),
-  initKbDebugToggle: h.rec('initKbDebugToggle'),
 }));
+vi.mock('@/core/keyboard/debug-overlay', () => ({ initKbDebugToggle: h.rec('initKbDebugToggle') }));
 vi.mock('@/core/layout-checks', () => ({ initLayoutChecks: h.rec('initLayoutChecks') }));
 vi.mock('@/core/composer-height', () => ({ initComposerHeight: h.rec('initComposerHeight') }));
 vi.mock('@/core/quick-actions', () => ({ initQuickActions: h.rec('initQuickActions') }));

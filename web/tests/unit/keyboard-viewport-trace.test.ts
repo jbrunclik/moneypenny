@@ -511,7 +511,9 @@ describe('keyboard viewport write trace', () => {
 
   it('debug toggle: five quick taps on the header', async () => {
     kv.initKeyboardViewportPinning();
-    kv.initKbDebugToggle();
+    // The overlay instance the fresh keyboard-viewport module logs to
+    const { initKbDebugToggle } = await import('@/core/keyboard/debug-overlay');
+    initKbDebugToggle();
     const header = document.createElement('div');
     header.className = 'chat-header';
     const title = document.createElement('span');

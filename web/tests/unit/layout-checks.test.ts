@@ -20,8 +20,8 @@ vi.mock('@/components/messages/turn-anchor', () => ({
   isTurnAnchored: () => ctl.anchored,
   turnAnchorDrift: () => ctl.drift,
 }));
-vi.mock('@/core/keyboard-viewport', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/core/keyboard-viewport')>()),
+vi.mock('@/core/keyboard/touch-guard', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/core/keyboard/touch-guard')>()),
   isTouchActive: () => ctl.touch,
 }));
 vi.mock('@/utils/dom', async (importOriginal) => ({

@@ -9,223 +9,15 @@
  * re-pins the messages scroll to the bottom when the user was following.
  */
 import { holdTurnAnchor, isAtTurnAnchor, isTurnAnchored } from '../components/messages/turn-anchor';
-import { getElementById, isScrolledToBottom, isSmoothScrolling, setScrollDebugSink, userScrolledSince } from '../utils/dom';
+import { getElementById, isScrolledToBottom, isSmoothScrolling, userScrolledSince } from '../utils/dom';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
-import {
-  KEYBOARD_BUILD_MARKER,
-  KEYBOARD_DEFINITE_SHRINK_PX,
-  KEYBOARD_INSET_MIN_PX,
-  KEYBOARD_STANDALONE_ACCESSORY_PX,
-} from '../config';
 import { createLogger } from '../utils/logger';
+import { kbDebug } from './keyboard/debug-overlay';
+import { measureKeyboardInset, trueViewportHeight } from './keyboard/metrics';
+import { installTouchTracking, isTouchActive, setPanGuard } from './keyboard/touch-guard';
 
 const log = createLogger('keyboard-viewport');
-
-function isEditableElement(el: Element | null): boolean {
-  if (!el) return false;
-  return (
-    el.tagName === 'TEXTAREA' ||
-    el.tagName === 'INPUT' ||
-    (el as HTMLElement).isContentEditable
-  );
-}
-
-/** True when some ancestor of the touch target can actually scroll. */
-function touchCanScrollSomewhere(target: EventTarget | null): boolean {
-  let el = target instanceof Element ? target : null;
-  while (el && el !== document.documentElement) {
-    if (el.scrollHeight > el.clientHeight) {
-      const overflowY = getComputedStyle(el).overflowY;
-      if (overflowY === 'auto' || overflowY === 'scroll') return true;
-    }
-    el = el.parentElement;
-  }
-  return false;
-}
-
-// With the keyboard open, iOS pans the VISUAL viewport within the still-
-// full-height layout viewport - our shrunk page leaves a keyboard-sized
-// pan range, so drags on non-scrollable screens (welcome screen) bounce
-// the whole page. Prevent touchmoves nothing can consume while the inset
-// is active. passive:false is required to be allowed to preventDefault.
-const panGuard = (e: TouchEvent | Event): void => {
-  if (!e.cancelable) return;
-  // Escape hatch: if the viewport is ALREADY panned (a pan can slip in
-  // via exempted targets, e.g. drags starting on the textarea), never
-  // block - otherwise the recovery drag on empty space is prevented and
-  // the page is stranded in the panned state
-  if ((window.visualViewport?.offsetTop ?? 0) > 0) return;
-  // Never interfere with drags inside form controls (text selection,
-  // native textarea scrolling)
-  if (e.target instanceof Element && isEditableElement(e.target.closest('textarea, input'))) {
-    return;
-  }
-  if (touchCanScrollSomewhere(e.target)) return;
-  e.preventDefault();
-};
-
-// UI-local (F2): listeners install once
-let panGuardInstalled = false;
-
-// Whether a finger is currently down - the stale-pan auto-reset must never
-// yank the page mid-gesture (same reason as the recovery-drag escape hatch)
-// UI-local (F2): touch tracking for the keyboard inset
-let touchActive = false;
-let touchTrackingInstalled = false;
-
-function installTouchTracking(): void {
-  if (touchTrackingInstalled) return;
-  touchTrackingInstalled = true;
-  document.addEventListener('touchstart', () => {
-    touchActive = true;
-  }, { passive: true });
-  const onTouchEnd = (e: Event): void => {
-    touchActive = ((e as TouchEvent).touches?.length ?? 0) > 0;
-  };
-  document.addEventListener('touchend', onTouchEnd, { passive: true });
-  document.addEventListener('touchcancel', onTouchEnd, { passive: true });
-}
-
-/** Whether a finger is down right now (read-only, for the layout checks). */
-export function isTouchActive(): boolean {
-  return touchActive;
-}
-
-function setPanGuard(active: boolean): void {
-  if (active === panGuardInstalled) return;
-  panGuardInstalled = active;
-  if (active) {
-    document.addEventListener('touchmove', panGuard, { passive: false });
-  } else {
-    document.removeEventListener('touchmove', panGuard);
-  }
-}
-
-// Diagnostic overlay for real-device debugging (?kbdebug=1): the keyboard
-// inset has failed on iOS in ways that resist local reproduction - this
-// shows every input to the decision so a user screenshot pinpoints it.
-let debugEl: HTMLDivElement | null = null;
-// UI-local (F2): the ?kbdebug overlay's log
-let debugEventLog: string[] = [];
-
-function kbDebugEnabled(): boolean {
-  // ?kbdebug=1 in a browser tab; PWAs launch from a fixed start_url, so
-  // the flag also persists via localStorage (toggled by 5 quick taps on
-  // the chat title - see initKbDebugToggle)
-  return location.search.includes('kbdebug') || localStorage.getItem('kbdebug') === '1';
-}
-
-/** 5 quick taps on the chat title toggle the overlay (PWA has no URL bar). */
-export function initKbDebugToggle(): void {
-  setScrollDebugSink(kbDebug);
-  let taps = 0;
-  let lastTap = 0;
-  let lastTouchTs = 0;
-  const onTap = (e: Event): void => {
-    if (
-      !(e.target instanceof Element) ||
-      !e.target.closest('#current-chat-title, .mobile-header, .chat-header')
-    ) {
-      return;
-    }
-    const now = Date.now();
-    // A touch tap fires touchend AND a synthesized click - count it once
-    if (e.type === 'touchend') {
-      lastTouchTs = now;
-    } else if (now - lastTouchTs < 500) {
-      return;
-    }
-    taps = now - lastTap < 600 ? taps + 1 : 1;
-    lastTap = now;
-    if (taps >= 5) {
-      taps = 0;
-      const next = localStorage.getItem('kbdebug') === '1' ? '0' : '1';
-      localStorage.setItem('kbdebug', next);
-      if (next === '0' && debugEl) {
-        debugEl.remove();
-        debugEl = null;
-      } else {
-        kbDebug('enabled', {});
-      }
-    }
-  };
-  // touchend, not only click: iOS does NOT deliver document-level click
-  // events for taps on non-interactive elements (the same quirk that
-  // forbids inline onclick in this codebase)
-  document.addEventListener('touchend', onTap);
-  document.addEventListener('click', onTap);
-}
-
-function backdropFilterSupported(): boolean | undefined {
-  return (
-    typeof CSS !== 'undefined' &&
-    (CSS.supports?.('backdrop-filter', 'blur(1px)') ||
-      CSS.supports?.('-webkit-backdrop-filter', 'blur(1px)'))
-  );
-}
-
-function kbDebug(event: string, data: Record<string, unknown>): void {
-  if (!kbDebugEnabled()) return;
-  if (!debugEl) {
-    debugEl = document.createElement('div');
-    debugEl.style.cssText =
-      'position:fixed;top:60px;left:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.85);' +
-      'color:#7fff7f;font:11px/1.5 monospace;padding:8px;border-radius:8px;pointer-events:none;' +
-      'white-space:pre-wrap;';
-    document.body.appendChild(debugEl);
-  }
-  const vv = window.visualViewport;
-  // Keep the overlay inside the VISUAL viewport - keyboard-open pans move
-  // fixed elements out of view exactly when the numbers matter most
-  debugEl.style.top = `${Math.round((vv?.offsetTop ?? 0) + window.scrollY + 60)}px`;
-  // Dedupe consecutive identical lines: the settle poller emits an update
-  // every 300ms while the keyboard is open, flushing the interesting
-  // transition events out of the log window
-  const line = `${event} ${JSON.stringify(data)}`;
-  if (debugEventLog[debugEventLog.length - 1] !== line) {
-    debugEventLog.push(line);
-    debugEventLog = debugEventLog.slice(-12);
-  }
-  // Resolved safe-area insets are only readable via a probe element
-  let saProbe = document.getElementById('kbdebug-sa-probe');
-  if (!saProbe) {
-    saProbe = document.createElement('div');
-    saProbe.id = 'kbdebug-sa-probe';
-    saProbe.style.cssText =
-      'position:fixed;visibility:hidden;height:env(safe-area-inset-bottom,0px);' +
-      'width:env(safe-area-inset-top,0px);pointer-events:none;';
-    document.body.appendChild(saProbe);
-  }
-  debugEl.textContent =
-    `inH=${window.innerHeight} vvH=${vv?.height?.toFixed(0)} vvTop=${vv?.offsetTop?.toFixed(0)} ` +
-    `scale=${vv?.scale} active=${document.activeElement?.tagName}\n` +
-    `winY=${window.scrollY} docST=${document.scrollingElement?.scrollTop} ` +
-    `bodyH=${document.body.clientHeight} docH=${document.documentElement.clientHeight}\n` +
-    `scrH=${screen.height} outH=${window.outerHeight} scrY=${window.screenY} ` +
-    `saB=${saProbe.offsetHeight} saT=${saProbe.offsetWidth} ` +
-    `standalone=${(navigator as Navigator & { standalone?: boolean }).standalone === true} [${KEYBOARD_BUILD_MARKER}]\n` +
-    (() => {
-      const m = document.getElementById('messages');
-      const ia = document.querySelector('.input-area');
-      const pill = document.getElementById('input-container');
-      const cph = getComputedStyle(document.documentElement).getPropertyValue('--composer-height').trim();
-      const padB = m ? getComputedStyle(m).paddingBottom : '?';
-      const dist = m ? Math.round(m.scrollHeight - m.scrollTop - m.clientHeight) : -1;
-      const r = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
-      const mr = r(m), iar = r(ia), pr = r(pill);
-      const reduceT = window.matchMedia?.('(prefers-reduced-transparency: reduce)').matches;
-      const bfOk = backdropFilterSupported();
-      const hdr = document.querySelector('.mobile-header');
-      const hdrBg = hdr ? getComputedStyle(hdr).backgroundColor : '?';
-      return (
-        `msgST=${m?.scrollTop.toFixed(0)} msgSH=${m?.scrollHeight} msgCH=${m?.clientHeight} distBottom=${dist} cph=${cph} padB=${padB}\n` +
-        `msgBot=${mr?.bottom.toFixed(0)} iaTop=${iar?.top.toFixed(0)} iaBot=${iar?.bottom.toFixed(0)} pillTop=${pr?.top.toFixed(0)} pillBot=${pr?.bottom.toFixed(0)}\n` +
-        `reduceTransparency=${reduceT} backdropOk=${bfOk} hdrBg=${hdrBg}\n`
-      );
-    })() +
-    debugEventLog.join('\n');
-}
 
 // Safety net for missed close events: standalone PWAs resize innerHeight
 // and the visualViewport non-atomically, and dismissing the keyboard via
@@ -246,51 +38,6 @@ function setSettlePoller(active: boolean): void {
   }
 }
 
-/**
- * The real usable viewport height. Every native measure lies in exactly
- * one environment (observed on device, Aug 2026):
- * - Safari browser: innerHeight is truthful (654 with chrome expanded);
- *   100vh lies (largest viewport, 743).
- * - Standalone PWA (black-translucent): 100vh is truthful (874, the full
- *   webview); innerHeight lies (874 minus the status bar = 812), leaving
- *   a permanent dead band at the bottom when trusted.
- * So: standalone reads a 100vh probe; browsers read innerHeight.
- */
-export function trueViewportHeight(): number {
-  if (!isStandaloneDisplay()) return window.innerHeight;
-  let probe = document.getElementById('vh-probe');
-  if (!probe) {
-    probe = document.createElement('div');
-    probe.id = 'vh-probe';
-    probe.style.cssText =
-      'position:fixed;top:0;left:0;width:1px;height:100vh;visibility:hidden;pointer-events:none;';
-    document.body.appendChild(probe);
-  }
-  return probe.offsetHeight || window.innerHeight;
-}
-
-export function isStandaloneDisplay(): boolean {
-  return (
-    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-    (typeof window.matchMedia === 'function' &&
-      window.matchMedia('(display-mode: standalone)').matches)
-  );
-}
-
-/** Resolved env(safe-area-inset-top) in px, via a probe element. */
-export function safeAreaTop(): number {
-  let probe = document.getElementById('sat-probe');
-  if (!probe) {
-    probe = document.createElement('div');
-    probe.id = 'sat-probe';
-    probe.style.cssText =
-      'position:fixed;visibility:hidden;pointer-events:none;' +
-      'height:env(safe-area-inset-top,0px);width:1px;';
-    document.body.appendChild(probe);
-  }
-  return probe.offsetHeight;
-}
-
 // Aborts all listeners of the previous init - re-initializing (tests do,
 // prod doesn't) must not leave stale update closures reacting to events
 let initAbort: AbortController | null = null;
@@ -305,57 +52,6 @@ export function cleanupKeyboardViewportPinning(): void {
   document.documentElement.classList.remove('kb-open');
 }
 
-/**
- * The keyboard's extent and whether it counts as one (see update below).
- * Exported for the layout checks, which compare it with the applied inset.
- */
-export function measureKeyboardInset(viewport: VisualViewport): {
-  shrink: number;
-  keyboardLikely: boolean;
-  inset: number;
-} {
-  // Pinch zoom also shrinks the visual viewport - never treat it as a
-  // keyboard. Same for shrinks with no editable element focused
-  // (rotations, browser chrome show/hide).
-  // The overlap deliberately does NOT include viewport.offsetTop: pan
-  // position churns per pixel while the user drags (welcome screen has
-  // no inner scroll container, so drags pan the visual viewport), and an
-  // offsetTop-dependent inset reflows the whole page mid-gesture - the
-  // "extremely laggy scrolling with keyboard open" bug. Keyboard
-  // GEOMETRY (the height terms below) is stable during pans; the
-  // focus-pan itself is handled by the stale-pan recovery further down.
-  // Keyboard extent - ONE formula for every environment, using only
-  // measures that are stable per-state (device-verified across all six
-  // captured states, Aug 2026): innerHeight is NOT among them - in
-  // standalone it oscillates between 471 and 812 while the keyboard is
-  // open (non-atomic resize), which made any innerHeight-based inset
-  // flap and collapse the layout mid-focus (keyboard vanished).
-  //   trueViewportHeight() - visualViewport.height - safeAreaTop()
-  // - standalone keyboard: 874 - 471 - 62 = 341  (both captures)
-  // - standalone rest (settled/pre-settle): 874-874-62 / 874-812-62 -> 0
-  // - Safari keyboard: 654 - 363 - 0 = 291 (saT is 0 in browser tabs)
-  // - Safari rest: 0
-  const shrink = Math.max(
-    0,
-    Math.round(trueViewportHeight() - viewport.height - safeAreaTop())
-  );
-  // Editable-focused is the normal signal, but iOS can fire the resize
-  // BEFORE focus lands - a shrink this large is unambiguously a keyboard
-  // regardless (browser chrome is far smaller), and missing it leaves
-  // the composer hidden behind the keyboard
-  const keyboardLikely =
-    viewport.scale === 1 &&
-    (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
-  const overlap = keyboardLikely ? shrink : 0;
-  // Standalone: the visual viewport excludes only the keyboard - iOS's
-  // floating input-assistant pill hovers over page content unreported
-  // and would cover the composer's bottom edge (Safari tabs exclude it)
-  const accessory =
-    overlap > 0 && isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
-  const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap + accessory : 0;
-  return { shrink, keyboardLikely, inset };
-}
-
 /** Undo iOS's stray window scroll (see update below for when it runs). */
 function resetStrayWindowScroll(currentInset: number, inset: number): void {
   // Stale focus-scroll recovery: the window is NEVER legitimately
@@ -367,7 +63,7 @@ function resetStrayWindowScroll(currentInset: number, inset: number): void {
   // the inset correctly stays 0 - so this must NOT be gated on inset).
   // Reset whenever no finger is down; the winscroll listener triggers
   // this update the moment the stray scroll happens.
-  if (!touchActive && !(currentInset === 0 && inset > 0)) {
+  if (!isTouchActive() && !(currentInset === 0 && inset > 0)) {
     const scrolled =
       window.scrollY > 0 || (document.scrollingElement?.scrollTop ?? 0) > 0;
     if (scrolled) {
