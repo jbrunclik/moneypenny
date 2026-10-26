@@ -20,14 +20,14 @@ import {
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
 import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
-import type { ConversationSummary, SyncResponse } from '../types/api';
+import type { ConversationSummary } from '../types/api';
 import { SyncState, type SyncManagerCallbacks } from './sync-state';
-import { inLoadedWindow, isPaginationDiscovered } from './pagination-window';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
 import { applyChanges, applyDeferredState } from './summary-merge';
 import { applyFullSync } from './full-sync-merge';
+import { applyChangeLog } from './change-log-merge';
 
 const log = createLogger('sync');
 
@@ -35,9 +35,6 @@ const log = createLogger('sync');
  * SyncManager class manages conversation synchronization with the server.
  * Should be initialized after authentication and stopped on logout.
  */
-/** Why a conversation left this device's list from another device. */
-type ExternalRemoval = 'deleted' | 'trashed' | 'archived';
-
 export class SyncManager {
   private lastSyncTime: string | null = null;
 
@@ -319,175 +316,10 @@ export class SyncManager {
       this.state.markSyncRequest();
       const result = await conversationsApi.syncChanges(this.changeCursor);
       this.lastSyncTime = result.server_time;
-      this.applyChangeLog(result);
+      applyChangeLog(this.state, result);
       if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
       if (!result.has_more) return;
     }
-  }
-
-  /**
-   * Apply one change-log page: removals (deleted / trashed / archived on
-   * another device) leave the list right away - the timestamp sync only
-   * noticed them on a full sync, which a visible tab never ran - then
-   * updates, pins and conversations that (re)appeared.
-   */
-  private applyChangeLog(result: SyncResponse): void {
-    // Before the removals below change the main list
-    const lists = this.archiveOrTrashTouched(result);
-    if (lists.archive || lists.trash) this.callbacks.onArchiveOrTrashChanged?.(lists);
-
-    let changed = false;
-    for (const id of result.removed_ids ?? []) {
-      if (this.state.changedLocallySinceRequest(id)) continue;
-      changed = this.removeExternally(id, 'deleted') || changed;
-    }
-
-    const store = useStore.getState();
-    const openConv = store.currentConversation;
-    const existing: ConversationSummary[] = [];
-    for (const conv of result.conversations) {
-      if (this.state.changedLocallySinceRequest(conv.id)) continue;
-      // An archived chat that is OPEN here (archive view, search, deep link):
-      // its changes - our own read echo included - are just changes to the
-      // open chat, not "archived on another device"
-      if (conv.archived && !conv.trashed && openConv?.id === conv.id && openConv.archived) {
-        continue;
-      }
-      if (conv.trashed || conv.archived) {
-        changed = this.removeExternally(conv.id, conv.trashed ? 'trashed' : 'archived') || changed;
-      } else if (store.conversations.some((c) => c.id === conv.id)) {
-        existing.push(conv);
-      } else {
-        changed = this.addFromChangeLog(conv) || changed;
-      }
-    }
-
-    this.state.notifiedCurrentUpdate = false;
-    if (existing.length > 0) {
-      applyChanges(this.state, existing, false);
-      changed = true;
-    }
-    if (changed) this.callbacks.onConversationsUpdated();
-
-    // Any change to the open conversation - not only a higher count (a
-    // delete, a regenerate or another device's finished stream keep it the
-    // same), and also when it isn't in the loaded sidebar list (opened from
-    // search or a deep link). The merge diffs against what is rendered, so
-    // our own changes are a no-op.
-    const open = useStore.getState().currentConversation;
-    const changedOpen = result.conversations.find((c) => c.id === open?.id && !c.trashed);
-    if (
-      open &&
-      changedOpen &&
-      !this.state.notifiedCurrentUpdate &&
-      !this.state.streamingConversations.has(open.id) &&
-      (!changedOpen.archived || open.archived)
-    ) {
-      this.callbacks.onCurrentConversationExternalUpdate(changedOpen.message_count);
-    }
-  }
-
-  /**
-   * Which of the archive / trash lists a change-log page disagrees with: a
-   * chat archived or trashed there that the list lacks, or one the list
-   * still holds that left it (unarchived, restored, deleted for good). Both
-   * lists are loaded at startup (their counts badge the user menu), so a
-   * mismatch is a change made elsewhere; this device's own changes already
-   * moved the rows and echo back as a match.
-   */
-  private archiveOrTrashTouched(result: SyncResponse): { archive: boolean; trash: boolean } {
-    const { archivedConversations, trashedConversations } = useStore.getState();
-    const archived = new Set(archivedConversations.map((c) => c.id));
-    const trashed = new Set(trashedConversations.map((c) => c.id));
-    const lists = { archive: false, trash: false };
-    for (const id of result.removed_ids ?? []) {
-      if (this.state.changedLocallySinceRequest(id)) continue;
-      lists.archive ||= archived.has(id);
-      lists.trash ||= trashed.has(id);
-    }
-    for (const conv of result.conversations) {
-      if (this.state.changedLocallySinceRequest(conv.id)) continue;
-      const inArchive = Boolean(conv.archived) && !conv.trashed;
-      lists.archive ||= inArchive !== archived.has(conv.id);
-      lists.trash ||= Boolean(conv.trashed) !== trashed.has(conv.id);
-    }
-    return lists;
-  }
-
-  /**
-   * A conversation removed on another device. An archived one that is open
-   * here stays open (it's still readable); trashed or deleted closes.
-   * Returns whether anything changed on this device.
-   */
-  private removeExternally(id: string, reason: ExternalRemoval): boolean {
-    const store = useStore.getState();
-    const inList = store.conversations.some((c) => c.id === id);
-    const current = store.currentConversation?.id === id ? store.currentConversation : null;
-    // Gone here too: a recovery of its interrupted reply ends silently
-    if (reason !== 'archived') cancelRecovery(id);
-    // The known count stays (pruned on the next full sync): a restore or
-    // unarchive then compares against it instead of counting it all unread
-    this.state.deferredUpdates.delete(id);
-    if (!inList && !current) return false;
-    log.info('Conversation removed on another device', { conversationId: id, reason });
-
-    if (reason === 'archived') {
-      if (inList) store.removeConversation(id);
-      if (current) {
-        store.setCurrentConversation({ ...current, archived: true });
-        toast.info('This conversation was archived on another device.');
-      }
-      return true;
-    }
-
-    if (inList) store.removeConversation(id);
-    if (current) {
-      toast.warning(
-        reason === 'trashed'
-          ? 'This conversation was moved to the trash on another device.'
-          : 'This conversation was deleted on another device.'
-      );
-      this.callbacks.onCurrentConversationDeleted();
-    }
-    return true;
-  }
-
-  /**
-   * A live conversation the list doesn't hold: new on another device,
-   * continued there, or restored/unarchived there. Added when it belongs in
-   * the loaded part of the list (older ones arrive with pagination). Only a
-   * conversation created after this page loaded counts as wholly unread; a
-   * restored or unarchived one is old content.
-   */
-  private addFromChangeLog(conv: ConversationSummary): boolean {
-    const store = useStore.getState();
-    if (!conv.pinned && !inLoadedWindow(conv.updated_at)) {
-      this.state.localMessageCounts.set(conv.id, conv.message_count);
-      return false;
-    }
-    const known = this.state.localMessageCounts.get(conv.id);
-    const isNew = conv.created_at ? !isPaginationDiscovered(this.state.initialLoadTime, conv.created_at) : known === undefined;
-    const baseline = known ?? (isNew ? 0 : conv.message_count);
-    this.state.localMessageCounts.set(conv.id, baseline);
-    const unread =
-      conv.read_count !== undefined
-        ? Math.max(0, conv.message_count - conv.read_count)
-        : Math.max(0, conv.message_count - baseline);
-    log.info('Conversation appeared from another device', { conversationId: conv.id, isNew });
-
-    store.addConversation({
-      id: conv.id,
-      title: conv.title,
-      model: conv.model,
-      created_at: conv.created_at ?? conv.updated_at,
-      updated_at: conv.updated_at,
-      messageCount: conv.message_count,
-      last_message_preview: conv.last_message_preview,
-      pinned: conv.pinned,
-      unreadCount: unread,
-      hasExternalUpdate: false,
-    });
-    return true;
   }
 
   /**

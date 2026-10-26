@@ -441,9 +441,6 @@
     }
   },
   "src/sync/SyncManager.ts": {
-    "complexity": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
