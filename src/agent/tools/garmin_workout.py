@@ -22,7 +22,7 @@ whole agent-facing surface in kg.
 """
 
 import json
-from typing import Any
+from typing import Any, NamedTuple
 
 from langchain_core.tools import tool
 
@@ -266,7 +266,77 @@ def _renumber(raw: dict[str, Any]) -> None:
             visit(step)
 
 
-def _apply_one_edit(  # noqa: C901, PLR0912
+class _StepShape(NamedTuple):
+    """What decides which edits fit a raw step."""
+
+    sid: Any
+    is_repeat: bool
+    end_key: str | None
+    kind: str | None
+
+
+# (change, warning) for one requested field - exactly one is set
+_FieldEdit = tuple[dict[str, Any] | None, str | None]
+
+
+def _edit_exercise(step: dict[str, Any], value: Any, shape: _StepShape) -> _FieldEdit:
+    if shape.is_repeat or shape.kind != "interval":
+        return None, f"step {shape.sid}: exercise swap only applies to an exercise step"
+    entry = _resolve_exercise(value)
+    if not entry:
+        return None, f"step {shape.sid}: unknown exercise {value!r}"
+    old = step.get("exerciseName") or step.get("category")
+    step["category"] = entry["category"]
+    step["exerciseName"] = entry["exercise"]
+    return {"field": "exercise", "old": old, "new": entry["exercise"]}, None
+
+
+def _edit_sets(step: dict[str, Any], value: Any, shape: _StepShape) -> _FieldEdit:
+    if not shape.is_repeat:
+        return None, f"step {shape.sid}: 'sets' only applies to a set-block"
+    old = _to_int(step.get("numberOfIterations"))
+    step["numberOfIterations"] = int(value)
+    step["endConditionValue"] = float(value)
+    return {"field": "sets", "old": old, "new": int(value)}, None
+
+
+def _edit_reps(step: dict[str, Any], value: Any, shape: _StepShape) -> _FieldEdit:
+    if shape.is_repeat or shape.end_key != "reps":
+        return None, f"step {shape.sid}: reps not editable (end_condition={shape.end_key or 'n/a'})"
+    old = _to_int(step.get("endConditionValue"))
+    step["endConditionValue"] = float(value)
+    return {"field": "reps", "old": old, "new": int(value)}, None
+
+
+def _edit_weight(step: dict[str, Any], value: Any, shape: _StepShape) -> _FieldEdit:
+    if shape.is_repeat or shape.kind == "rest":
+        return None, f"step {shape.sid}: weight not applicable"
+    old = step.get("weightValue")
+    old = round(old, 1) if isinstance(old, int | float) else None
+    step["weightValue"] = float(value)
+    step["weightUnit"] = dict(_KG_UNIT)
+    return {"field": "weight_kg", "old": old, "new": float(value)}, None
+
+
+def _edit_rest(step: dict[str, Any], value: Any, shape: _StepShape) -> _FieldEdit:
+    if shape.kind != "rest" or shape.end_key != "time":
+        return None, f"step {shape.sid}: rest_s only applies to a rest step"
+    old = _to_int(step.get("endConditionValue"))
+    step["endConditionValue"] = float(value)
+    return {"field": "rest_s", "old": old, "new": int(value)}, None
+
+
+# Editable fields in the order they are applied
+_FIELD_EDITORS = (
+    ("exercise", _edit_exercise),
+    ("sets", _edit_sets),
+    ("reps", _edit_reps),
+    ("weight_kg", _edit_weight),
+    ("rest_s", _edit_rest),
+)
+
+
+def _apply_one_edit(
     step: dict[str, Any], edit: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Apply an in-place edit (numbers and/or exercise swap) to one raw node.
@@ -277,59 +347,20 @@ def _apply_one_edit(  # noqa: C901, PLR0912
     """
     changes: list[dict[str, Any]] = []
     warnings: list[str] = []
-    sid = step.get("stepId")
-    is_repeat = step.get("type") == "RepeatGroupDTO"
-    end_key = (step.get("endCondition") or {}).get("conditionTypeKey")
-    step_kind = (step.get("stepType") or {}).get("stepTypeKey")
-
-    if edit.get("exercise") is not None:
-        if not is_repeat and step_kind == "interval":
-            entry = _resolve_exercise(edit["exercise"])
-            if entry:
-                old = step.get("exerciseName") or step.get("category")
-                step["category"] = entry["category"]
-                step["exerciseName"] = entry["exercise"]
-                changes.append({"field": "exercise", "old": old, "new": entry["exercise"]})
-            else:
-                warnings.append(f"step {sid}: unknown exercise {edit['exercise']!r}")
-        else:
-            warnings.append(f"step {sid}: exercise swap only applies to an exercise step")
-
-    if edit.get("sets") is not None:
-        if is_repeat:
-            old = _to_int(step.get("numberOfIterations"))
-            step["numberOfIterations"] = int(edit["sets"])
-            step["endConditionValue"] = float(edit["sets"])
-            changes.append({"field": "sets", "old": old, "new": int(edit["sets"])})
-        else:
-            warnings.append(f"step {sid}: 'sets' only applies to a set-block")
-
-    if edit.get("reps") is not None:
-        if not is_repeat and end_key == "reps":
-            old = _to_int(step.get("endConditionValue"))
-            step["endConditionValue"] = float(edit["reps"])
-            changes.append({"field": "reps", "old": old, "new": int(edit["reps"])})
-        else:
-            warnings.append(f"step {sid}: reps not editable (end_condition={end_key or 'n/a'})")
-
-    if edit.get("weight_kg") is not None:
-        if not is_repeat and step_kind != "rest":
-            old = step.get("weightValue")
-            old = round(old, 1) if isinstance(old, int | float) else None
-            step["weightValue"] = float(edit["weight_kg"])
-            step["weightUnit"] = dict(_KG_UNIT)
-            changes.append({"field": "weight_kg", "old": old, "new": float(edit["weight_kg"])})
-        else:
-            warnings.append(f"step {sid}: weight not applicable")
-
-    if edit.get("rest_s") is not None:
-        if step_kind == "rest" and end_key == "time":
-            old = _to_int(step.get("endConditionValue"))
-            step["endConditionValue"] = float(edit["rest_s"])
-            changes.append({"field": "rest_s", "old": old, "new": int(edit["rest_s"])})
-        else:
-            warnings.append(f"step {sid}: rest_s only applies to a rest step")
-
+    shape = _StepShape(
+        sid=step.get("stepId"),
+        is_repeat=step.get("type") == "RepeatGroupDTO",
+        end_key=(step.get("endCondition") or {}).get("conditionTypeKey"),
+        kind=(step.get("stepType") or {}).get("stepTypeKey"),
+    )
+    for field, editor in _FIELD_EDITORS:
+        if edit.get(field) is None:
+            continue
+        change, warning = editor(step, edit[field], shape)
+        if change:
+            changes.append(change)
+        if warning:
+            warnings.append(warning)
     return changes, warnings
 
 
@@ -471,8 +502,51 @@ def _parse_edits(edits: Any) -> list[dict[str, Any]]:
     return [e for e in edits if isinstance(e, dict)]
 
 
+def _list_workouts(garmin: Any) -> str:
+    """The user's saved workouts (id, name, sport)."""
+    result = _safe_api_call(garmin, "get_workouts", 0, 100)
+    workouts = [
+        {
+            "workout_id": w.get("workoutId"),
+            "name": w.get("workoutName"),
+            "sport": (w.get("sportType") or {}).get("sportTypeKey"),
+        }
+        for w in (result or [])
+        if isinstance(w, dict)
+    ]
+    return json.dumps({"action": "list", "count": len(workouts), "workouts": workouts})
+
+
+def _update_workout(garmin: Any, workout_id: str | None, edits: str | None) -> str:
+    """Apply the edits to a workout, save it and return Garmin's saved view."""
+    if not workout_id:
+        return tool_error("workout_id is required for update")
+    if edits is None:
+        return tool_error("edits is required for update")
+    try:
+        parsed = _parse_edits(edits)
+    except (ValueError, json.JSONDecodeError) as e:
+        return tool_error(f"invalid edits: {e}")
+    if not parsed:
+        return tool_error("edits must contain at least one edit")
+
+    raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
+    raw, applied, warnings = _apply_edits(raw, parsed)
+    _safe_api_call(garmin, "update_workout", workout_id, raw)
+    # Re-fetch so the returned view is Garmin's persisted ground truth.
+    refreshed = _safe_api_call(garmin, "get_workout_by_id", workout_id)
+    return json.dumps(
+        {
+            "action": "update",
+            "applied": applied,
+            "warnings": warnings,
+            "workout": _slim_workout(refreshed),
+        }
+    )
+
+
 @tool
-def garmin_workout(  # noqa: C901
+def garmin_workout(
     action: str,
     workout_id: str | None = None,
     edits: str | None = None,
@@ -547,17 +621,7 @@ def garmin_workout(  # noqa: C901
 
     try:
         if action == "list":
-            result = _safe_api_call(garmin, "get_workouts", 0, 100)
-            workouts = [
-                {
-                    "workout_id": w.get("workoutId"),
-                    "name": w.get("workoutName"),
-                    "sport": (w.get("sportType") or {}).get("sportTypeKey"),
-                }
-                for w in (result or [])
-                if isinstance(w, dict)
-            ]
-            return json.dumps({"action": "list", "count": len(workouts), "workouts": workouts})
+            return _list_workouts(garmin)
 
         if action == "get":
             if not workout_id:
@@ -566,30 +630,7 @@ def garmin_workout(  # noqa: C901
             return json.dumps({"action": "get", "workout": _slim_workout(raw)})
 
         if action == "update":
-            if not workout_id:
-                return tool_error("workout_id is required for update")
-            if edits is None:
-                return tool_error("edits is required for update")
-            try:
-                parsed = _parse_edits(edits)
-            except (ValueError, json.JSONDecodeError) as e:
-                return tool_error(f"invalid edits: {e}")
-            if not parsed:
-                return tool_error("edits must contain at least one edit")
-
-            raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
-            raw, applied, warnings = _apply_edits(raw, parsed)
-            _safe_api_call(garmin, "update_workout", workout_id, raw)
-            # Re-fetch so the returned view is Garmin's persisted ground truth.
-            refreshed = _safe_api_call(garmin, "get_workout_by_id", workout_id)
-            return json.dumps(
-                {
-                    "action": "update",
-                    "applied": applied,
-                    "warnings": warnings,
-                    "workout": _slim_workout(refreshed),
-                }
-            )
+            return _update_workout(garmin, workout_id, edits)
 
         return tool_error(
             f"Unknown action: {action}",

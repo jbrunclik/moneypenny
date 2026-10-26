@@ -216,8 +216,40 @@ def _resolve_user() -> User | None:
     return db.get_user_by_id(user_id)
 
 
+def _read_workouts(user: User, action: str, workout_id: int | None) -> str:
+    """list or get."""
+    if action == "list":
+        return json.dumps({"success": True, "workouts": rouvy_list(user)})
+    if not workout_id:
+        return tool_error("get needs workout_id.", success=False)
+    return json.dumps({"success": True, "workout": rouvy_get(user, int(workout_id))})
+
+
+def _write_workout(
+    user: User,
+    action: str,
+    workout_id: int | None,
+    content: str | None,
+    name: str | None,
+    description: str | None,
+) -> str:
+    """create, update or delete."""
+    if action == "create":
+        if not content or not name:
+            return tool_error("create needs content and name.", success=False)
+        return json.dumps({"success": True, **rouvy_create(user, content, name, description)})
+    if action == "update":
+        if not workout_id or not content or not name:
+            return tool_error("update needs workout_id, content, name.", success=False)
+        res = rouvy_update(user, int(workout_id), content, name, description)
+        return json.dumps({"success": True, "note": "workout id/URL changed", **res})
+    if not workout_id:
+        return tool_error("delete needs workout_id.", success=False)
+    return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
+
+
 @tool
-def rouvy_workout(  # noqa: C901, PLR0912
+def rouvy_workout(
     action: str,
     workout_id: int | None = None,
     content: str | None = None,
@@ -242,25 +274,10 @@ def rouvy_workout(  # noqa: C901, PLR0912
     if user is None or not user.rouvy_session:
         return not_connected_result("rouvy", success=False)
     try:
-        if action == "list":
-            return json.dumps({"success": True, "workouts": rouvy_list(user)})
-        if action == "get":
-            if not workout_id:
-                return tool_error("get needs workout_id.", success=False)
-            return json.dumps({"success": True, "workout": rouvy_get(user, int(workout_id))})
-        if action == "create":
-            if not content or not name:
-                return tool_error("create needs content and name.", success=False)
-            return json.dumps({"success": True, **rouvy_create(user, content, name, description)})
-        if action == "update":
-            if not workout_id or not content or not name:
-                return tool_error("update needs workout_id, content, name.", success=False)
-            res = rouvy_update(user, int(workout_id), content, name, description)
-            return json.dumps({"success": True, "note": "workout id/URL changed", **res})
-        if action == "delete":
-            if not workout_id:
-                return tool_error("delete needs workout_id.", success=False)
-            return json.dumps({"success": True, **rouvy_delete(user, int(workout_id))})
+        if action in ("list", "get"):
+            return _read_workouts(user, action, workout_id)
+        if action in ("create", "update", "delete"):
+            return _write_workout(user, action, workout_id, content, name, description)
         return tool_error(f"Unknown action: {action}", success=False)
     except RouvyNotConnectedError:
         return not_connected_result("rouvy", success=False)

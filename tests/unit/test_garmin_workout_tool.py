@@ -195,6 +195,12 @@ class TestApplyEdits:
         assert applied == []
         assert any("only applies to a rest step" in w for w in warnings)
 
+    def test_weight_on_rest_step_rejected(self):
+        raw = _fixture()
+        _, applied, warnings = _apply_edits(raw, [{"step_id": 102, "weight_kg": 20}])
+        assert applied == []
+        assert warnings == ["step 102: weight not applicable"]
+
     def test_unknown_step_id_warns(self):
         raw = _fixture()
         _, applied, warnings = _apply_edits(raw, [{"step_id": 999, "reps": 6}])
@@ -480,6 +486,33 @@ class TestToolDispatch:
                 garmin_workout.invoke({"action": "update", "workout_id": "1647614440"})
             )
         assert "edits is required" in result["error"]
+
+    def test_update_requires_workout_id(self):
+        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+            result = json.loads(garmin_workout.invoke({"action": "update", "edits": "[]"}))
+        assert "workout_id is required for update" in result["error"]
+
+    def test_update_rejects_malformed_or_empty_edits(self):
+        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+            bad = json.loads(
+                garmin_workout.invoke({"action": "update", "workout_id": "1", "edits": "{oops"})
+            )
+            empty = json.loads(
+                garmin_workout.invoke({"action": "update", "workout_id": "1", "edits": "[]"})
+            )
+        assert bad["error"].startswith("invalid edits:")
+        assert empty["error"] == "edits must contain at least one edit"
+
+    def test_api_failure_is_contained(self):
+        with (
+            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
+            patch(
+                "src.agent.tools.garmin_workout._safe_api_call", side_effect=Exception("expired")
+            ),
+        ):
+            result = json.loads(garmin_workout.invoke({"action": "list"}))
+        assert result["error"] == "expired"
+        assert result["action"] == "list"
 
 
 class TestToolSchema:

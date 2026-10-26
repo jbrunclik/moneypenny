@@ -1,6 +1,7 @@
 """Google Calendar management tool."""
 
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -68,7 +69,51 @@ def _calendar_time_range(
     return f"{start.isoformat()}Z", f"{end.isoformat()}Z"
 
 
-def _google_calendar_api_request(  # noqa: C901
+def _send_calendar_request(
+    method: str,
+    url: str,
+    token: str,
+    params: dict[str, Any] | None,
+    data: dict[str, Any] | None,
+) -> httpx.Response:
+    """Send one Google Calendar API request with the given HTTP method."""
+    headers = {"Authorization": f"Bearer {token}"}
+    if method == "GET":
+        response = httpx.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+            follow_redirects=True,
+        )
+    elif method == "POST":
+        headers["Content-Type"] = "application/json"
+        response = httpx.post(
+            url,
+            headers=headers,
+            params=params,
+            json=data,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+        )
+    elif method == "PATCH":
+        headers["Content-Type"] = "application/json"
+        response = httpx.patch(
+            url,
+            headers=headers,
+            params=params,
+            json=data,
+            timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
+        )
+    elif method == "DELETE":
+        response = httpx.delete(
+            url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT
+        )
+    else:
+        raise ValueError(f"Unsupported HTTP method: {method}")
+    return response
+
+
+def _google_calendar_api_request(
     method: str,
     endpoint: str,
     token: str,
@@ -78,41 +123,9 @@ def _google_calendar_api_request(  # noqa: C901
 ) -> dict[str, Any] | list[dict[str, Any]] | None:
     """Call the Google Calendar REST API. Retries once on 401 after refreshing the token."""
     url = f"{Config.GOOGLE_CALENDAR_API_BASE_URL}{endpoint}"
-    headers = {"Authorization": f"Bearer {token}"}
 
     try:
-        if method == "GET":
-            response = httpx.get(
-                url,
-                headers=headers,
-                params=params,
-                timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
-                follow_redirects=True,
-            )
-        elif method == "POST":
-            headers["Content-Type"] = "application/json"
-            response = httpx.post(
-                url,
-                headers=headers,
-                params=params,
-                json=data,
-                timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
-            )
-        elif method == "PATCH":
-            headers["Content-Type"] = "application/json"
-            response = httpx.patch(
-                url,
-                headers=headers,
-                params=params,
-                json=data,
-                timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT,
-            )
-        elif method == "DELETE":
-            response = httpx.delete(
-                url, headers=headers, params=params, timeout=Config.GOOGLE_CALENDAR_API_TIMEOUT
-            )
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
+        response = _send_calendar_request(method, url, token, params, data)
     except httpx.HTTPError as exc:  # pragma: no cover - network failure
         logger.exception(
             "Google Calendar API request failed",
@@ -514,7 +527,7 @@ _CALENDAR_ACTIONS = {
 
 
 @tool
-def google_calendar(  # noqa: C901, PLR0912
+def google_calendar(
     action: str,
     calendar_id: str | None = None,
     event_id: str | None = None,
@@ -575,75 +588,69 @@ def google_calendar(  # noqa: C901, PLR0912
     token, calendar_email = token_info
     calendar_id = calendar_id or "primary"
 
-    try:
-        if action == "list_calendars":
-            result = _google_calendar_list_calendars(token)
-        elif action == "list_events":
-            result = _google_calendar_list_events(
-                token, calendar_id, time_min, time_max, max_results, query
-            )
-        elif action == "get_event":
-            if not event_id:
-                return tool_error("event_id is required for get_event")
-            result = _google_calendar_get_event(token, calendar_id, event_id)
-        elif action == "create_event":
-            result = _google_calendar_create_event(
-                token,
-                calendar_id,
-                summary,
-                description,
-                location,
-                start_time,
-                end_time,
-                timezone,
-                all_day,
-                attendees,
-                reminders,
-                recurrence,
-                conference,
-                send_updates,
-            )
-        elif action == "update_event":
-            if not event_id:
-                return tool_error("event_id is required for update_event")
-            result = _google_calendar_update_event(
-                token,
-                calendar_id,
-                event_id,
-                summary,
-                description,
-                location,
-                start_time,
-                end_time,
-                timezone,
-                all_day,
-                attendees,
-                reminders,
-                recurrence,
-                conference,
-                send_updates,
-            )
-        elif action == "delete_event":
-            if not event_id:
-                return tool_error("event_id is required for delete_event")
-            result = _google_calendar_delete_event(token, calendar_id, event_id, send_updates)
-        elif action == "respond_event":
-            if not event_id or not response_status:
-                return tool_error("event_id and response_status are required for respond_event")
-            result = _google_calendar_respond_event(
-                token,
-                calendar_id,
-                event_id,
-                response_status,
-                calendar_email,
-                send_updates,
-            )
-        else:
-            return tool_error(
-                f"Unknown action: {action}", available_actions=list(_CALENDAR_ACTIONS)
-            )
+    missing = _missing_event_args(action, event_id, response_status)
+    if missing:
+        return tool_error(missing)
 
-        return action_result(result)
+    # Checked above for every action that uses them
+    eid = event_id or ""
+    handlers: dict[str, Callable[[], Any]] = {
+        "list_calendars": lambda: _google_calendar_list_calendars(token),
+        "list_events": lambda: _google_calendar_list_events(
+            token, calendar_id, time_min, time_max, max_results, query
+        ),
+        "get_event": lambda: _google_calendar_get_event(token, calendar_id, eid),
+        "create_event": lambda: _google_calendar_create_event(
+            token,
+            calendar_id,
+            summary,
+            description,
+            location,
+            start_time,
+            end_time,
+            timezone,
+            all_day,
+            attendees,
+            reminders,
+            recurrence,
+            conference,
+            send_updates,
+        ),
+        "update_event": lambda: _google_calendar_update_event(
+            token,
+            calendar_id,
+            eid,
+            summary,
+            description,
+            location,
+            start_time,
+            end_time,
+            timezone,
+            all_day,
+            attendees,
+            reminders,
+            recurrence,
+            conference,
+            send_updates,
+        ),
+        "delete_event": lambda: _google_calendar_delete_event(
+            token, calendar_id, eid, send_updates
+        ),
+        "respond_event": lambda: _google_calendar_respond_event(
+            token,
+            calendar_id,
+            eid,
+            response_status or "",
+            calendar_email,
+            send_updates,
+        ),
+    }
+    handler = handlers.get(action)
+    if handler is None:
+        return tool_error(f"Unknown action: {action}", available_actions=list(_CALENDAR_ACTIONS))
+
+    try:
+        return action_result(handler())
 
     except CalendarDisconnectedError:
         return not_connected_result("google_calendar", was_connected=True)
@@ -653,6 +660,17 @@ def google_calendar(  # noqa: C901, PLR0912
             extra={"action": action, "error": str(exc)},
         )
         return tool_error(str(exc), action=action)
+
+
+def _missing_event_args(
+    action: str, event_id: str | None, response_status: str | None
+) -> str | None:
+    """The error for an event action called without the ids it needs, else None."""
+    if action in ("get_event", "update_event", "delete_event") and not event_id:
+        return f"event_id is required for {action}"
+    if action == "respond_event" and (not event_id or not response_status):
+        return "event_id and response_status are required for respond_event"
+    return None
 
 
 def is_google_calendar_available() -> bool:

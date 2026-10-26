@@ -1,7 +1,96 @@
 """Unit tests for the Google Calendar tool (src/agent/tools/google_calendar.py)."""
 
 import json
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
+
+import pytest
+
+from src.agent.tools.google_calendar import google_calendar
+
+
+def _response(status: int, body: object = None) -> MagicMock:
+    response = MagicMock(status_code=status, text="boom")
+    response.json.return_value = body
+    return response
+
+
+class TestCalendarRequests:
+    """The REST layer under the tool: methods, empty replies, errors, the 401 retry."""
+
+    @pytest.fixture(autouse=True)
+    def connected(self) -> Iterator[MagicMock]:
+        with (
+            patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "id"),
+            patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET", "s"),
+            patch("src.agent.tools.google_calendar._get_google_calendar_access_token") as token,
+        ):
+            token.return_value = ("tok", "user@example.com")
+            yield token
+
+    @patch("src.agent.tools.google_calendar.httpx.get")
+    def test_reads_send_the_bearer_token(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = _response(200, {"items": [{"id": "c1", "primary": True}]})
+
+        result = json.loads(google_calendar.invoke({"action": "list_calendars"}))
+
+        assert result["count"] == 1
+        assert mock_get.call_args.kwargs["headers"] == {"Authorization": "Bearer tok"}
+
+    @patch("src.agent.tools.google_calendar.httpx.patch")
+    @patch("src.agent.tools.google_calendar.httpx.post")
+    def test_writes_send_json(self, mock_post: MagicMock, mock_patch: MagicMock) -> None:
+        mock_post.return_value = _response(200, {"id": "e1", "summary": "Run"})
+        mock_patch.return_value = _response(200, {"id": "e1", "summary": "Walk"})
+        times = {"start_time": "2026-06-10T08:00:00", "end_time": "2026-06-10T09:00:00"}
+
+        google_calendar.invoke({"action": "create_event", "summary": "Run", **times})
+        google_calendar.invoke({"action": "update_event", "event_id": "e1", "summary": "Walk"})
+
+        for call in (mock_post.call_args, mock_patch.call_args):
+            assert call.kwargs["headers"]["Content-Type"] == "application/json"
+        assert mock_post.call_args.kwargs["json"]["summary"] == "Run"
+        assert mock_patch.call_args.kwargs["json"] == {"summary": "Walk"}
+
+    @patch("src.agent.tools.google_calendar.httpx.delete")
+    def test_delete_accepts_no_content(self, mock_delete: MagicMock) -> None:
+        mock_delete.return_value = _response(204)
+
+        result = json.loads(google_calendar.invoke({"action": "delete_event", "event_id": "e1"}))
+
+        assert "error" not in result
+        mock_delete.assert_called_once()
+
+    @patch("src.agent.tools.google_calendar.httpx.get")
+    def test_401_retries_once_with_a_refreshed_token(
+        self, mock_get: MagicMock, connected: MagicMock
+    ) -> None:
+        mock_get.side_effect = [_response(401), _response(200, {"items": []})]
+        connected.side_effect = [("stale", "user@example.com"), ("fresh", "user@example.com")]
+
+        result = json.loads(google_calendar.invoke({"action": "list_calendars"}))
+
+        assert result["count"] == 0
+        assert mock_get.call_args.kwargs["headers"] == {"Authorization": "Bearer fresh"}
+
+    @patch("src.agent.tools.google_calendar.httpx.get")
+    def test_401_after_the_refresh_reports_disconnected(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = _response(401)
+
+        result = json.loads(google_calendar.invoke({"action": "list_calendars"}))
+
+        assert mock_get.call_count == 2
+        assert result["retriable"] is False
+        assert "disconnected" in result["error"].lower()
+
+    @patch("src.agent.tools.google_calendar.httpx.get")
+    def test_error_status_is_reported_with_the_body(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = _response(500)
+
+        result = json.loads(google_calendar.invoke({"action": "list_calendars"}))
+
+        assert result["error"] == "Google Calendar API error (500): boom"
+
 
 # ============================================================================
 # Tests for Google Calendar Tool
