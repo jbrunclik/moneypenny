@@ -286,8 +286,63 @@
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
     /* ----------------------------------------
+       Fixed palette: the same in both themes, for what doesn't follow
+       the theme - media chrome over photos, video and PDFs, shadows,
+       the version banner on the brand colour - and the status tints,
+       syntax and memory-category colours that never had a light
+       variant. Theme-aware tokens are above; prefer them for new UI.
+       ---------------------------------------- */
+    --accent-a0: rgba(87, 83, 232, 0);
+    --accent-a40: rgba(87, 83, 232, 0.4);
+    --black: #000000;
+    --black-a10: rgba(0, 0, 0, 0.1);
+    --black-a20: rgba(0, 0, 0, 0.2);
+    --black-a25: rgba(0, 0, 0, 0.25);
+    --black-a28: rgba(0, 0, 0, 0.28);
+    --black-a30: rgba(0, 0, 0, 0.3);
+    --black-a35: rgba(0, 0, 0, 0.35);
+    --black-a50: rgba(0, 0, 0, 0.5);
+    --black-a55: rgba(0, 0, 0, 0.55);
+    --black-a70: rgba(0, 0, 0, 0.7);
+    --black-a88: rgba(0, 0, 0, 0.88);
+    --error-a10: rgba(239, 68, 68, 0.1);
+    --error-a15: rgba(239, 68, 68, 0.15);
+    --error-light-a30: rgba(248, 113, 113, 0.3);
+    --info-a15: rgba(59, 130, 246, 0.15);
+    --memory-fact-text: #60a5fa;
+    --memory-preference-text: #a78bfa;
+    --purple-a15: rgba(124, 92, 232, 0.15);
+    --success-a15: rgba(34, 197, 94, 0.15);
+    --syntax-keyword: #c678dd;
+    --syntax-number: #d19a66;
+    --syntax-string: #98c379;
+    --video-placeholder-edge: #0c0c0e;
+    --video-placeholder-glow: #2a2a2e;
+    --warning-a10: rgba(245, 158, 11, 0.1);
+    --warning-a15: rgba(245, 158, 11, 0.15);
+    --warning-a30: rgba(245, 158, 11, 0.3);
+    --warning-light-a30: rgba(251, 191, 36, 0.3);
+    --white: #ffffff;
+    --white-a10: rgba(255, 255, 255, 0.1);
+    --white-a12: rgba(255, 255, 255, 0.12);
+    --white-a15: rgba(255, 255, 255, 0.15);
+    --white-a16: rgba(255, 255, 255, 0.16);
+    --white-a20: rgba(255, 255, 255, 0.2);
+    --white-a24: rgba(255, 255, 255, 0.24);
+    --white-a25: rgba(255, 255, 255, 0.25);
+    --white-a30: rgba(255, 255, 255, 0.3);
+    --white-a50: rgba(255, 255, 255, 0.5);
+    --white-a60: rgba(255, 255, 255, 0.6);
+    --white-a70: rgba(255, 255, 255, 0.7);
+    --white-a75: rgba(255, 255, 255, 0.75);
+    --white-a80: rgba(255, 255, 255, 0.8);
+    --white-a85: rgba(255, 255, 255, 0.85);
+    --yellow-a10: rgba(234, 179, 8, 0.1);
+
+    /* ----------------------------------------
        Z-Index Scale
        ---------------------------------------- */
+    --z-floating-button: 20; /* scroll-to-bottom, over the message list */
     --z-dropdown: 50;
     --z-sidebar: 50;
     --z-overlay: 40;
@@ -295,6 +350,10 @@
     --z-modal-backdrop: 200;
     --z-lightbox: 300;
     --z-popup: 300;
+    /* Editor modals, the claim card and sheet, the voice language picker:
+       above popups, below toasts */
+    --z-floating-backdrop: 999;
+    --z-floating: 1000;
     --z-toast: 10000;
     --z-modal: 10001;
 

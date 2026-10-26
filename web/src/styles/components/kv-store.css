@@ -48,7 +48,7 @@
 
 .kv-store-error .error-message {
     background: var(--color-error-900);
-    border: 2px solid rgba(248, 113, 113, 0.3);
+    border: 2px solid var(--error-light-a30);
     border-left: 4px solid var(--color-error-500);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
@@ -426,15 +426,15 @@
 
 /* JSON syntax highlighting */
 .kv-key-value .json-string {
-    color: rgb(152, 195, 121);
+    color: var(--syntax-string);
 }
 
 .kv-key-value .json-number {
-    color: rgb(209, 154, 102);
+    color: var(--syntax-number);
 }
 
 .kv-key-value .json-keyword {
-    color: rgb(198, 120, 221);
+    color: var(--syntax-keyword);
 }
 
 .kv-key-delete {
@@ -616,22 +616,22 @@
 }
 
 .memory-category--preference {
-    background: rgba(124, 92, 232, 0.15);
-    color: rgb(167, 139, 250);
+    background: var(--purple-a15);
+    color: var(--memory-preference-text);
 }
 
 .memory-category--fact {
-    background: rgba(59, 130, 246, 0.15);
-    color: rgb(96, 165, 250);
+    background: var(--info-a15);
+    color: var(--memory-fact-text);
 }
 
 .memory-category--context {
-    background: rgba(34, 197, 94, 0.15);
+    background: var(--success-a15);
     color: var(--color-success-400);
 }
 
 .memory-category--goal {
-    background: rgba(245, 158, 11, 0.15);
+    background: var(--warning-a15);
     color: var(--color-warning-400);
 }
 

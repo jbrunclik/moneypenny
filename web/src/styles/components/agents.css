@@ -162,7 +162,7 @@
 
 .command-center-error .error-message {
     background: var(--color-error-900);
-    border: 2px solid rgba(248, 113, 113, 0.3);
+    border: 2px solid var(--error-light-a30);
     border-left: 4px solid var(--color-error-500);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
@@ -354,7 +354,7 @@
 }
 
 [data-theme="dark"] .command-center-section--approvals.has-approvals {
-    background: rgba(234, 179, 8, 0.1);
+    background: var(--yellow-a10);
     border-color: var(--color-warning-500);
 }
 
@@ -419,7 +419,7 @@
 
 .agent-card:hover {
     border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px var(--black-a10);
     transform: translateY(-2px);
 }
 
@@ -649,7 +649,7 @@
 
 .approval-card {
     background: var(--color-warning-900);
-    border: 2px solid rgba(251, 191, 36, 0.3);
+    border: 2px solid var(--warning-light-a30);
     border-left: 4px solid var(--color-warning-500);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
@@ -1125,7 +1125,7 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
-    z-index: 1000;
+    z-index: var(--z-floating);
     backdrop-filter: blur(4px);
     animation: agent-editor-overlay-in var(--transition-normal) ease-out;
 }
@@ -1168,7 +1168,7 @@
     display: flex;
     flex-direction: column;
     animation: agent-editor-in var(--transition-normal) ease-out;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 25px 50px var(--black-a25);
 }
 
 .agent-editor.agent-editor-exit {
@@ -1526,7 +1526,7 @@
     background: white;
     border-radius: 50%;
     transition: transform var(--transition-fast);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px var(--black-a20);
 }
 
 .toggle-label input[type="checkbox"]:checked + .toggle-switch {

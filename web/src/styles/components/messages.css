@@ -222,7 +222,7 @@
 /* Accent-on-accent selection is illegible inside the user bubble */
 .message.user .message-content::selection,
 .message.user .message-content *::selection {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: var(--white-a30);
     color: inherit;
 }
 
@@ -556,8 +556,8 @@
     width: fit-content;
     margin-top: var(--space-3);
     padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 20px);
-    background-color: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    background-color: var(--warning-a10);
+    border: 1px solid var(--warning-a30);
     border-radius: var(--radius-sm);
     /* --warning-text, not --warning: amber-500 on the light theme is ~2.1:1 */
     color: var(--warning-text);
@@ -711,7 +711,7 @@
     display: block;
     padding: var(--space-3);
     font-size: var(--font-size-sm);
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--white-a60);
     text-align: center;
     word-break: break-word;
     max-width: 100%;
@@ -758,9 +758,9 @@
     min-height: 120px;
     background: linear-gradient(
         110deg,
-        rgba(255, 255, 255, 0.1) 0%,
-        rgba(255, 255, 255, 0.2) 50%,
-        rgba(255, 255, 255, 0.1) 100%
+        var(--white-a10) 0%,
+        var(--white-a20) 50%,
+        var(--white-a10) 100%
     );
     background-size: 200% 100%;
     animation: user-image-shimmer 1.5s ease-in-out infinite;
@@ -1394,7 +1394,7 @@ a.document-name:hover {
     gap: var(--space-3);
     padding: var(--space-4);
     background: var(--color-warning-900);
-    border: 2px solid rgba(251, 191, 36, 0.3);
+    border: 2px solid var(--warning-light-a30);
     border-left: 4px solid var(--color-warning-500);
     border-radius: var(--radius-lg);
     max-width: 480px;
@@ -1540,7 +1540,7 @@ a.document-name:hover {
 }
 
 [data-theme="dark"] .approval-result.rejected {
-    background-color: rgba(239, 68, 68, 0.15);
+    background-color: var(--error-a15);
     color: var(--color-error-400);
 }
 
@@ -1625,7 +1625,7 @@ a.document-name:hover {
     width: 100%;
     max-height: 300px;
     border-radius: var(--radius-md);
-    background: #000;
+    background: var(--black);
 }
 
 .message-video-load {
@@ -1638,10 +1638,14 @@ a.document-name:hover {
     aspect-ratio: 16 / 9;
     padding: 0;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 40%, #2a2a2e, #0c0c0e);
+    background: radial-gradient(
+        circle at 50% 40%,
+        var(--video-placeholder-glow),
+        var(--video-placeholder-edge)
+    );
     border: none;
     border-radius: var(--radius-md);
-    color: #fff;
+    color: var(--white);
     font: inherit;
     cursor: pointer;
 }
@@ -1653,7 +1657,7 @@ a.document-name:hover {
     width: 52px;
     height: 52px;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.16);
+    background: var(--white-a16);
     backdrop-filter: blur(6px);
     transition:
         transform 0.15s ease,
@@ -1670,7 +1674,7 @@ a.document-name:hover {
 @media (hover: hover) {
     .message-video-load:not(:disabled):hover .video-load-icon {
         transform: scale(1.06);
-        background: rgba(255, 255, 255, 0.24);
+        background: var(--white-a24);
     }
 }
 
@@ -1683,7 +1687,7 @@ a.document-name:hover {
     align-items: baseline;
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+    background: linear-gradient(transparent, var(--black-a55));
     font-size: var(--font-size-xs);
     text-align: left;
 }
@@ -1698,7 +1702,7 @@ a.document-name:hover {
 
 .message-video-load .video-load-hint {
     flex-shrink: 0;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--white-a70);
 }
 
 .message-video-load:disabled .video-load-icon {

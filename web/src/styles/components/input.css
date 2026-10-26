@@ -360,7 +360,7 @@
     position: absolute;
     top: 2px;
     right: 2px;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: var(--black-a70);
     color: white;
     border: none;
     border-radius: var(--radius-full);
@@ -417,7 +417,7 @@
     min-width: 160px;
     max-height: 240px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: var(--z-floating);
 }
 
 .voice-lang-option {

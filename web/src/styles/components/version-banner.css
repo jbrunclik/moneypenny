@@ -29,7 +29,7 @@
 .version-banner.visible {
     transform: translateY(0);
     visibility: visible;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px var(--black-a30);
     transition:
         transform var(--transition-slow),
         visibility 0s;
@@ -64,21 +64,21 @@
 }
 
 .version-banner-reload:hover {
-    background-color: rgba(255, 255, 255, 0.85);
+    background-color: var(--white-a85);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px var(--black-a20);
 }
 
 .version-banner-reload:active {
     transform: translateY(0);
     box-shadow: none;
-    background-color: rgba(255, 255, 255, 0.75);
+    background-color: var(--white-a75);
 }
 
 .version-banner-dismiss {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: var(--white-a15);
     color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--white-a30);
     padding: var(--space-1-5) var(--space-3);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-ui);
@@ -94,14 +94,14 @@
 }
 
 .version-banner-dismiss:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.8);
+    background-color: var(--white-a15);
+    border-color: var(--white-a80);
     transform: translateY(-1px);
 }
 
 .version-banner-dismiss:active {
     transform: translateY(0);
-    background-color: rgba(255, 255, 255, 0.25);
+    background-color: var(--white-a25);
 }
 
 .version-banner-reload svg,

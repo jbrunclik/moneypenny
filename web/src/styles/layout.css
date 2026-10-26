@@ -76,7 +76,7 @@
     flex-shrink: 0;
     /* Subtle contact shadow so the mark sits on the surface as an app
        icon rather than a flat pasted sticker */
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px var(--black-a20);
 }
 
 .sidebar-header h1 {
@@ -102,7 +102,7 @@
     /* Lighter scrim so the chat content behind the open sidebar isn't dimmed
        to near-black - the frosted sidebar needs something to read through for
        the translucency to be noticeable. */
-    background-color: rgba(0, 0, 0, 0.28);
+    background-color: var(--black-a28);
     z-index: var(--z-overlay);
 }
 

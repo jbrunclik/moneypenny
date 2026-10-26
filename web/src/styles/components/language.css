@@ -154,7 +154,7 @@
 .language-modal-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: var(--z-floating);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -172,7 +172,7 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 16px 48px var(--black-a30);
     animation: language-modal-in 0.15s ease-out;
 }
 
@@ -404,7 +404,7 @@
 
 .language-program-card:hover {
     border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px var(--black-a10);
     transform: translateY(-2px);
 }
 
