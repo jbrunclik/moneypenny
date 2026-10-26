@@ -482,3 +482,41 @@ class TestValidateCharacterization:
         }.items():
             monkeypatch.setattr(Config, name, value)
         assert Config.validate() == []
+
+
+class TestTimezoneSettings:
+    def test_defaults(self) -> None:
+        from src.config import Config
+
+        assert Config._timezone_errors() == []
+
+    @pytest.mark.parametrize("zone", ["UTC", "Europe/Prague", "Pacific/Chatham"])
+    def test_valid_zones(self, monkeypatch: pytest.MonkeyPatch, zone: str) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "APP_TIMEZONE", zone)
+        monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", zone)
+        assert Config._timezone_errors() == []
+
+    @pytest.mark.parametrize("zone", ["Mars/Olympus", "CEST+2", "", "../etc/passwd"])
+    def test_invalid_app_timezone(self, monkeypatch: pytest.MonkeyPatch, zone: str) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "APP_TIMEZONE", zone)
+        errors = Config.validate()
+        assert any(e.startswith("APP_TIMEZONE") for e in errors)
+
+    def test_empty_legacy_zone_means_the_host_zone(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "")
+        assert Config._timezone_errors() == []
+
+    def test_invalid_legacy_zone(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "Europe/Atlantis")
+        assert Config._timezone_errors() == [
+            "LEGACY_TIMESTAMP_TIMEZONE 'Europe/Atlantis' is not a valid IANA timezone "
+            "(e.g. 'Europe/Prague', 'UTC')"
+        ]

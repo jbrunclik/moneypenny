@@ -18,6 +18,9 @@ SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE
 SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR
 SECONDS_PER_WEEK = 7 * SECONDS_PER_DAY
 
+# The planner starts a new day at this local hour (APP_TIMEZONE), not at midnight
+PLANNER_RESET_HOUR = 4
+
 # =============================================================================
 # Size Constants (Base Units)
 # =============================================================================

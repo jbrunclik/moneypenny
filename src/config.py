@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import ClassVar
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
 
@@ -156,6 +157,14 @@ class Config:
     # User location (for contextual responses - units, locale, recommendations)
     # Format: "City, Country" (e.g., "Prague, Czech Republic" or "New York, USA")
     USER_LOCATION: str = os.getenv("USER_LOCATION", "")
+
+    # Timezones (IANA names). APP_TIMEZONE draws the household's day
+    # boundaries (planner 4am reset, today's spend, cost months, admin daily
+    # buckets). LEGACY_TIMESTAMP_TIMEZONE is the zone local-naive stored
+    # timestamps were written in; empty = the host zone (/etc/localtime).
+    # See docs/architecture/database.md#timestamps.
+    APP_TIMEZONE: str = os.getenv("APP_TIMEZONE", "Europe/Prague")
+    LEGACY_TIMESTAMP_TIMEZONE: str = os.getenv("LEGACY_TIMESTAMP_TIMEZONE", "")
 
     # Cost tracking
     COST_CURRENCY: str = os.getenv("COST_CURRENCY", "CZK").upper()  # Default to CZK
@@ -1063,6 +1072,22 @@ class Config:
         return errors
 
     @classmethod
+    def _timezone_errors(cls) -> list[str]:
+        """Timezone settings must name a zone in the IANA database."""
+        zones = {"APP_TIMEZONE": cls.APP_TIMEZONE}
+        if cls.LEGACY_TIMESTAMP_TIMEZONE:
+            zones["LEGACY_TIMESTAMP_TIMEZONE"] = cls.LEGACY_TIMESTAMP_TIMEZONE
+        errors: list[str] = []
+        for name, zone in zones.items():
+            try:
+                ZoneInfo(zone)
+            except ZoneInfoNotFoundError, ValueError:
+                errors.append(
+                    f"{name} '{zone}' is not a valid IANA timezone (e.g. 'Europe/Prague', 'UTC')"
+                )
+        return errors
+
+    @classmethod
     def validate(cls) -> list[str]:
         """Validate required configuration. Returns list of errors with clear guidance."""
         errors: list[str] = []
@@ -1085,4 +1110,5 @@ class Config:
 
         errors.extend(cls._upload_limit_errors())
         errors.extend(cls._enum_setting_errors())
+        errors.extend(cls._timezone_errors())
         return errors

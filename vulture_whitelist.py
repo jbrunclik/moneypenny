@@ -156,3 +156,12 @@ _.connection_count  # src/utils/connection_pool.py
 _.peek  # src/utils/lazy.py (tests/conftest.py)
 _._validated_body  # src/api/validation.py: the OpenAPI/query tests find views by it
 _._validated_query
+
+# --- Staged rollout: shipped ahead of their callers ---------------------------
+# Timezone migration step 2a (docs/superpowers/specs/2026-10-26-timezone-aware-
+# datetimes-design.md): step 2b moves the app onto them, then drop these lines
+local_today  # src/utils/clock.py
+local_day_start
+local_month_bounds
+planner_cutoff
+normalize_cursor  # src/db/models/timestamps.py
