@@ -3,7 +3,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from src.agent.tools.research import _ranked_unique_urls, research
+from src.agent.tools.research import research
 from src.config import Config
 
 
@@ -11,22 +11,30 @@ def _result(url: str, title: str = "T") -> dict[str, str]:
     return {"title": title, "url": url, "snippet": f"snippet for {url}"}
 
 
-class TestRankedUniqueUrls:
+class TestSourceRanking:
+    """Results are interleaved by rank across queries and deduplicated by URL:
+    every query's best hit is read before any query's second one."""
+
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
     @patch("src.agent.tools.research.search_web")
-    def test_interleaves_by_rank_and_dedupes(self, mock_search: MagicMock) -> None:
+    def test_interleaves_by_rank_and_dedupes(
+        self, mock_search: MagicMock, _fetch: MagicMock
+    ) -> None:
         mock_search.side_effect = [
             [_result("https://a"), _result("https://b")],
             [_result("https://a"), _result("https://c")],
         ]
 
-        ordered, failed = _ranked_unique_urls(["q1", "q2"], per_query=2)
+        parsed = json.loads(
+            research.invoke({"question": "q", "queries": ["q1", "q2"], "max_sources": 3})
+        )
 
-        assert failed == 0
         # Rank-0 results first across queries, dupes dropped
-        assert [r["url"] for r in ordered] == ["https://a", "https://b", "https://c"]
+        assert [s["url"] for s in parsed["sources"]] == ["https://a", "https://b", "https://c"]
 
+    @patch("src.agent.tools.research.fetch_page_text", return_value=("page", None))
     @patch("src.agent.tools.research.search_web")
-    def test_failed_query_skipped(self, mock_search: MagicMock) -> None:
+    def test_failed_query_skipped(self, mock_search: MagicMock, _fetch: MagicMock) -> None:
         from src.services.search_adapters import SearchProviderError
 
         mock_search.side_effect = [
@@ -34,10 +42,11 @@ class TestRankedUniqueUrls:
             [_result("https://a")],
         ]
 
-        ordered, failed = _ranked_unique_urls(["q1", "q2"], per_query=2)
+        parsed = json.loads(
+            research.invoke({"question": "q", "queries": ["q1", "q2"], "max_sources": 2})
+        )
 
-        assert [r["url"] for r in ordered] == ["https://a"]
-        assert failed == 1
+        assert [s["url"] for s in parsed["sources"]] == ["https://a"]
 
 
 class TestResearchTool:

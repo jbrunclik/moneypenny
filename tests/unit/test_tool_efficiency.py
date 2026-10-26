@@ -15,13 +15,14 @@ import pytest
 
 from src.agent.tool_results import set_current_request_id
 from src.agent.tools import garmin_session
-from src.agent.tools.agent_kv import _deep_merge, kv_store
+from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.turn_usage import (
     get_tool_call_count,
     record_tool_call,
     reset_turn_usage,
 )
 from src.auth.garmin_auth import GarminAuthError
+from src.utils.json_merge import merge_patch
 
 
 @pytest.fixture
@@ -93,22 +94,22 @@ class TestBatchingNudge:
         assert "EFFICIENCY" in after and "research" in after
 
 
-class TestDeepMerge:
+class TestMergePatch:
     def test_adds_and_overwrites_scalars(self) -> None:
-        assert _deep_merge({"a": 1, "b": 2}, {"b": 3, "c": 4}) == {"a": 1, "b": 3, "c": 4}
+        assert merge_patch({"a": 1, "b": 2}, {"b": 3, "c": 4}) == {"a": 1, "b": 3, "c": 4}
 
     def test_nested_objects_merge_rather_than_replace(self) -> None:
         base = {"progress": {"squat": 100, "bench": 60}}
-        assert _deep_merge(base, {"progress": {"bench": 65}}) == {
+        assert merge_patch(base, {"progress": {"bench": 65}}) == {
             "progress": {"squat": 100, "bench": 65}
         }
 
     def test_null_deletes_a_key(self) -> None:
-        assert _deep_merge({"a": 1, "b": 2}, {"b": None}) == {"a": 1}
+        assert merge_patch({"a": 1, "b": 2}, {"b": None}) == {"a": 1}
 
     def test_base_is_not_mutated(self) -> None:
         base = {"a": {"b": 1}}
-        _deep_merge(base, {"a": {"c": 2}})
+        merge_patch(base, {"a": {"c": 2}})
         assert base == {"a": {"b": 1}}
 
 

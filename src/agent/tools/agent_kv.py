@@ -18,6 +18,7 @@ from src.agent.tools.context import (
 )
 from src.agent.tools.errors import tool_error
 from src.db.models import db
+from src.utils.json_merge import merge_patch
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -26,24 +27,6 @@ logger = get_logger(__name__)
 _MAX_KEY_LENGTH = 256
 _MAX_VALUE_SIZE = 65536  # 64KB
 _MAX_KEYS_PER_NAMESPACE = 1000
-
-
-def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    """Recursively merge `patch` into `base`, returning a new dict.
-
-    Nested objects merge rather than replace, so updating one field of
-    `progress.bench` does not drop `progress.squat`. An explicit null removes
-    the key, which is the only way to delete a field without a full rewrite.
-    """
-    out = dict(base)
-    for k, v in patch.items():
-        if v is None:
-            out.pop(k, None)
-        elif isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
 
 
 @tool
@@ -201,7 +184,7 @@ def _kv_merge(user_id: str, namespace: str, key: str, value: str) -> str:
     if isinstance(base, str):
         return base
 
-    merged = json.dumps(_deep_merge(base, patch))
+    merged = json.dumps(merge_patch(base, patch))
     if len(merged) > _MAX_VALUE_SIZE:
         return tool_error(
             f"Merged value too large ({len(merged)} bytes). Maximum is {_MAX_VALUE_SIZE} bytes (64KB)."
