@@ -34,6 +34,14 @@ export function setIcon(el: Element, markup: IconHtml): void {
   el.replaceChildren(parseIcon(markup).cloneNode(true));
 }
 
+/** A new element of the given class holding a static icon: `<span class="…">ICON</span>`. */
+export function createIconElement(className: string, markup: IconHtml, tag: 'span' | 'div' = 'span'): HTMLElement {
+  const el = document.createElement(tag);
+  el.className = className;
+  setIcon(el, markup);
+  return el;
+}
+
 /**
  * AI assistant avatar (robot image)
  */

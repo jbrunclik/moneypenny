@@ -29,7 +29,7 @@
   },
   "src/components/CommandCenter.ts": {
     "no-unsanitized/property": {
-      "count": 11
+      "count": 10
     }
   },
   "src/components/CompactionIndicator.ts": {
@@ -43,16 +43,13 @@
     }
   },
   "src/components/KVStorePage.ts": {
-    "no-unsanitized/method": {
-      "count": 2
-    },
     "no-unsanitized/property": {
-      "count": 9
+      "count": 8
     }
   },
   "src/components/LanguageDashboard.ts": {
     "no-unsanitized/property": {
-      "count": 4
+      "count": 3
     }
   },
   "src/components/MessageInput.ts": {
@@ -144,7 +141,7 @@
   },
   "src/components/SportsDashboard.ts": {
     "no-unsanitized/property": {
-      "count": 4
+      "count": 3
     }
   },
   "src/components/ThinkingIndicator.ts": {

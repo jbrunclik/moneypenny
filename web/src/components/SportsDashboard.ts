@@ -20,7 +20,7 @@ import {
 } from '../utils/icons';
 import { escapeHtml, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
-import { renderEmptyStateHtml } from './EmptyState';
+import { createEmptyState } from './EmptyState';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('SportsDashboard');
@@ -61,16 +61,16 @@ export function createSportsProgramsElement(
   container.appendChild(header);
 
   if (programs.length === 0) {
-    const empty = document.createElement('div');
-    empty.innerHTML = renderEmptyStateHtml({
+    const cta = createElement('button', { class: 'sports-add-btn program-empty-cta' });
+    setIcon(cta, PLUS_ICON);
+    cta.append(createElement('span', {}, ['Create your first program']));
+    container.appendChild(createEmptyState({
       icon: SPORTS_ICON,
       title: 'No training programs yet',
       hint: 'Create a program to start training with your AI coach.',
-      ctaHtml: `<button class="sports-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>`,
+      cta,
       className: 'sports-empty-state',
-    });
-    const emptyState = empty.firstElementChild;
-    if (emptyState) container.appendChild(emptyState);
+    }));
   } else {
     const grid = document.createElement('div');
     grid.className = 'sports-programs-grid';

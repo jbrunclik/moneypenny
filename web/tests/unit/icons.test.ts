@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import * as icons from '@/utils/icons';
-import { AI_AVATAR, CHECK_ICON, CLOSE_ICON, setIcon, type IconHtml } from '@/utils/icons';
+import { AI_AVATAR, CHECK_ICON, CLOSE_ICON, createIconElement, setIcon, type IconHtml } from '@/utils/icons';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -61,5 +61,14 @@ describe('setIcon', () => {
     const el = document.createElement('span');
     // @ts-expect-error a plain string is not trusted icon markup
     expect(() => setIcon(el, '<svg></svg>')).not.toThrow();
+  });
+});
+
+describe('createIconElement', () => {
+  it('wraps an icon in an element of the given class', () => {
+    expect(createIconElement('section-icon', CHECK_ICON).outerHTML).toBe(`<span class="section-icon">${serialized(CHECK_ICON)}</span>`);
+    expect(createIconElement('empty-state__icon', CLOSE_ICON, 'div').outerHTML).toBe(
+      `<div class="empty-state__icon">${serialized(CLOSE_ICON)}</div>`
+    );
   });
 });

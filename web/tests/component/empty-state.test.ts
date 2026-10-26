@@ -2,7 +2,8 @@
  * One empty-state component across the feature pages.
  */
 import { describe, it, expect } from 'vitest';
-import { renderEmptyStateHtml } from '@/components/EmptyState';
+import { createEmptyState, renderEmptyStateHtml } from '@/components/EmptyState';
+import { ROBOT_ICON } from '@/utils/icons';
 
 function render(html: string): HTMLElement {
   const el = document.createElement('div');
@@ -31,5 +32,24 @@ describe('renderEmptyStateHtml', () => {
     expect(el.classList.contains('empty-state--compact')).toBe(true);
     expect(el.classList.contains('dashboard-empty')).toBe(true);
     expect(el.querySelector('.empty-state__hint')).toBeNull();
+  });
+});
+
+describe('createEmptyState', () => {
+  it('builds the same nodes as the markup, texts as text', () => {
+    const cta = document.createElement('button');
+    cta.textContent = 'Go';
+    const el = createEmptyState({ icon: ROBOT_ICON, title: '<b>x</b>', hint: 'Create one.', cta, compact: true, className: 'x-empty' });
+    const html = render(
+      renderEmptyStateHtml({ icon: ROBOT_ICON, title: '<b>x</b>', hint: 'Create one.', ctaHtml: '<button>Go</button>', compact: true, className: 'x-empty' })
+    );
+    const squeeze = (markup: string) => markup.replace(/>\s+</g, '><');
+    expect(squeeze(el.outerHTML)).toBe(squeeze(html.outerHTML));
+    expect(el.querySelector('b')).toBeNull();
+    expect(el.lastElementChild).toBe(cta);
+  });
+
+  it('leaves out an absent hint', () => {
+    expect(createEmptyState({ icon: ROBOT_ICON, title: 'None' }).querySelector('.empty-state__hint')).toBeNull();
   });
 });

@@ -4,9 +4,9 @@
  * Agent status (last execution, unreads) is shown inline on each agent card.
  */
 
-import { escapeHtml } from '../utils/dom';
-import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON } from '../utils/icons';
-import { renderEmptyStateHtml } from './EmptyState';
+import { createElement, escapeHtml } from '../utils/dom';
+import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, setIcon } from '../utils/icons';
+import { createEmptyState } from './EmptyState';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
 type RefreshCallback = () => Promise<void>;
@@ -112,18 +112,18 @@ function renderAgentsSection(
   `;
 
   if (data.agents.length === 0) {
-    const holder = document.createElement('div');
-    holder.innerHTML = renderEmptyStateHtml({
+    const cta = createElement('button', { class: 'btn-create-agent' });
+    setIcon(cta, PLUS_ICON);
+    cta.append(createElement('span', {}, ['Create Agent']));
+    cta.addEventListener('click', () => {
+      onNewAgent();
+    });
+    agentsSection.appendChild(createEmptyState({
       icon: ROBOT_ICON,
       title: 'No agents yet',
       hint: 'Create an agent to automate tasks.',
-      ctaHtml: `<button class="btn-create-agent">${PLUS_ICON}<span>Create Agent</span></button>`,
-    });
-    const emptyState = holder.firstElementChild as HTMLElement;
-    emptyState.querySelector('.btn-create-agent')?.addEventListener('click', () => {
-      onNewAgent();
-    });
-    agentsSection.appendChild(emptyState);
+      cta,
+    }));
     return agentsSection;
   }
 

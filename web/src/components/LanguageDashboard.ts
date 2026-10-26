@@ -20,7 +20,7 @@ import {
 } from '../utils/icons';
 import { escapeHtml, createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
-import { renderEmptyStateHtml } from './EmptyState';
+import { createEmptyState } from './EmptyState';
 
 // ============================================================================
 // Programs List View
@@ -58,16 +58,16 @@ export function createLanguageProgramsElement(
   container.appendChild(header);
 
   if (programs.length === 0) {
-    const empty = document.createElement('div');
-    empty.innerHTML = renderEmptyStateHtml({
+    const cta = createElement('button', { class: 'language-add-btn program-empty-cta' });
+    setIcon(cta, PLUS_ICON);
+    cta.append(createElement('span', {}, ['Create your first program']));
+    container.appendChild(createEmptyState({
       icon: LANGUAGE_ICON,
       title: 'No language programs yet',
       hint: 'Create a program to start learning with your AI tutor.',
-      ctaHtml: `<button class="language-add-btn program-empty-cta">${PLUS_ICON}<span>Create your first program</span></button>`,
+      cta,
       className: 'language-empty-state',
-    });
-    const emptyState = empty.firstElementChild;
-    if (emptyState) container.appendChild(emptyState);
+    }));
   } else {
     const grid = document.createElement('div');
     grid.className = 'language-programs-grid';
