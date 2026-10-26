@@ -225,6 +225,22 @@ function updateLocalBaseline(
   }
 }
 
+/** The list entry for a conversation that joins the list from another device. */
+export function listEntryFromSummary(conv: ConversationSummary, unreadCount: number): Conversation {
+  return {
+    id: conv.id,
+    title: conv.title,
+    model: conv.model,
+    created_at: conv.created_at ?? conv.updated_at,
+    updated_at: conv.updated_at,
+    messageCount: conv.message_count,
+    last_message_preview: conv.last_message_preview,
+    pinned: conv.pinned,
+    unreadCount,
+    hasExternalUpdate: false,
+  };
+}
+
 /**
  * A deferred snapshot's non-count state, applied when this device's own
  * turn ends (see SyncManager.setConversationStreaming): a rename (never

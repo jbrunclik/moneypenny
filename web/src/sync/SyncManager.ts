@@ -27,6 +27,7 @@ import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
 import { applyChanges, applyDeferredState } from './summary-merge';
+import { applyFullSync } from './full-sync-merge';
 
 const log = createLogger('sync');
 
@@ -72,7 +73,7 @@ export class SyncManager {
 
   constructor(callbacks: SyncManagerCallbacks) {
     this.callbacks = callbacks;
-    this.state = new SyncState(callbacks, toast);
+    this.state = new SyncState(callbacks, toast, cancelRecovery);
     this.planner = new PlannerSync(callbacks);
     this.agentConversation = new AgentConversationSync(this.state);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
@@ -222,7 +223,7 @@ export class SyncManager {
         log.debug('Initial load time established', { initialLoadTime: this.state.initialLoadTime });
       }
 
-      this.applyFullSync(result.conversations, knownBefore);
+      applyFullSync(this.state, result.conversations, knownBefore);
       log.info('Full sync completed', {
         conversationCount: result.conversations.length,
         serverTime: result.server_time,
@@ -487,122 +488,6 @@ export class SyncManager {
       hasExternalUpdate: false,
     });
     return true;
-  }
-
-  /**
-   * Apply full sync results - handles deletions, updates, AND new conversations.
-   *
-   * Full sync:
-   * 1. Updates existing conversations (message counts, titles, etc.)
-   * 2. Detects deletions (conversations in store but not on server)
-   * 3. Adds NEW conversations created on other devices (after initialLoadTime)
-   *
-   * Note: Pagination-discovered conversations (older than initialLoadTime) are NOT added,
-   * preserving the pagination behavior. Only genuinely new conversations are added.
-   *
-   * Note: The sync endpoint only returns regular conversations - planner and autonomous
-   * agent conversations are filtered out at the backend (is_planning=0, is_agent=0).
-   * They have separate sync mechanisms (PlannerSync, AgentConversationSync).
-   */
-  private applyFullSync(serverConversations: ConversationSummary[], knownBefore: Set<string>): void {
-    const store = useStore.getState();
-    const serverIds = new Set(serverConversations.map((c) => c.id));
-    const localIds = new Set(store.conversations.map((c) => c.id));
-
-    // Detect deleted conversations (in local but not in server)
-    // Skip temp conversations (not yet persisted)
-    // Skip archived conversations too: sync intentionally excludes them, so
-    // a deep-linked archived conversation would otherwise be "deleted" and
-    // kicked out of view seconds after loading
-    const deletedIds = store.conversations
-      .filter(
-        (c) => !c.id.startsWith('temp-') && !c.archived && knownBefore.has(c.id) && !serverIds.has(c.id)
-      )
-      .map((c) => c.id);
-
-    // Handle deletions
-    for (const id of deletedIds) {
-      log.info('Conversation deleted externally', { conversationId: id });
-      cancelRecovery(id);
-
-      if (store.currentConversation?.id === id) {
-        toast.warning('This conversation was deleted.');
-        this.callbacks.onCurrentConversationDeleted();
-      }
-
-      store.removeConversation(id);
-      this.state.localMessageCounts.delete(id);
-    }
-
-    // Separate existing conversations (for update) from new conversations (for add)
-    const existingServerConvs: ConversationSummary[] = [];
-    const newServerConvs: ConversationSummary[] = [];
-
-    for (const serverConv of serverConversations) {
-      if (localIds.has(serverConv.id)) {
-        existingServerConvs.push(serverConv);
-      } else if (this.state.changedLocallySinceRequest(serverConv.id)) {
-        // Trashed / archived here after this snapshot was read: not back
-        continue;
-      } else {
-        // Belongs in the loaded part of the list (new, continued or restored
-        // elsewhere) or only further down (pagination brings it). By the
-        // list, not initialLoadTime: a conversation created on another
-        // device while this page booted predates that time and was lost.
-        // A pinned one always belongs (the pinned group is never paged)
-        if (serverConv.pinned || inLoadedWindow(serverConv.updated_at)) {
-          newServerConvs.push(serverConv);
-        } else {
-          // Pagination-discovered: just track the message count for when it's loaded via pagination
-          this.state.localMessageCounts.set(serverConv.id, serverConv.message_count);
-          log.debug('Full sync: skipping pagination-discovered conversation', {
-            conversationId: serverConv.id,
-            updated_at: serverConv.updated_at,
-          });
-        }
-      }
-    }
-
-    // Apply updates to existing conversations
-    applyChanges(this.state, existingServerConvs, true);
-
-    // Add genuinely new conversations (created on other devices after initialLoadTime)
-    for (const serverConv of newServerConvs) {
-      log.info('Full sync: adding new conversation from another device', {
-        conversationId: serverConv.id,
-        updated_at: serverConv.updated_at,
-        messageCount: serverConv.message_count,
-      });
-
-      // Unread: the server's read state; without it, all of a conversation
-      // created after this page loaded, or beyond a count we already knew -
-      // an older one (continued, restored) isn't wholly new
-      const knownCount = this.state.localMessageCounts.get(serverConv.id);
-      const createdBeforeLoad = isPaginationDiscovered(this.state.initialLoadTime, serverConv.created_at ?? serverConv.updated_at);
-      const baseline = knownCount ?? (createdBeforeLoad ? serverConv.message_count : 0);
-      this.state.localMessageCounts.set(serverConv.id, baseline);
-      const unreadCount =
-        serverConv.read_count !== undefined
-          ? Math.max(0, serverConv.message_count - serverConv.read_count)
-          : Math.max(0, serverConv.message_count - baseline);
-
-      store.addConversation({
-        id: serverConv.id,
-        title: serverConv.title,
-        model: serverConv.model,
-        created_at: serverConv.created_at ?? serverConv.updated_at,
-        updated_at: serverConv.updated_at,
-        messageCount: serverConv.message_count,
-        last_message_preview: serverConv.last_message_preview,
-        pinned: serverConv.pinned,
-        unreadCount,
-        hasExternalUpdate: false,
-      });
-    }
-
-    if (deletedIds.length > 0 || existingServerConvs.length > 0 || newServerConvs.length > 0) {
-      this.callbacks.onConversationsUpdated();
-    }
   }
 
   /**

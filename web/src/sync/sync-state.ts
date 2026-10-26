@@ -78,9 +78,14 @@ export class SyncState {
   private localChangeAt: Map<string, number> = new Map();
   private syncRequestSeq = 0;
 
+  /**
+   * @param cancelRecovery ends the recovery of an interrupted reply in a
+   *   conversation that is gone (passed in: core imports sync, F1)
+   */
   constructor(
     readonly callbacks: SyncManagerCallbacks,
-    readonly notify: SyncNotifier
+    readonly notify: SyncNotifier,
+    readonly cancelRecovery: (convId: string) => void
   ) {}
 
   /** A local change to a conversation (see localChangeSeq). */
