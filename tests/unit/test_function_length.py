@@ -31,7 +31,6 @@ MAX_LINES = 100
 
 # "path:Qualified.name" -> current length; only shrinks
 BASELINE: dict[str, int] = {
-    "src/agent/executor.py:execute_agent": 125,
     "src/api/routes/planner.py:get_planner_dashboard": 120,
     "src/agent/tools/google_calendar.py:google_calendar": 107,
     "src/api/routes/files.py:get_message_file": 103,

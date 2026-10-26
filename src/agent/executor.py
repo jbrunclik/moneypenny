@@ -354,6 +354,148 @@ def _record_approval_request(
     )
 
 
+def _load_run_conversation(agent: Agent, user: User) -> tuple[Conversation | None, str | None]:
+    """The agent's conversation, after the pre-run checks and compaction; or the error."""
+    # Check if agent has a conversation
+    if not agent.conversation_id:
+        error_msg = f"Agent has no conversation: {agent.id}"
+        logger.error(error_msg, extra={"agent_id": agent.id})
+        return None, error_msg
+
+    # Check budget limit before execution
+    budget_error = _over_budget_error(agent)
+    if budget_error:
+        return None, budget_error
+
+    # Check if conversation needs compaction
+    try:
+        compact_conversation(agent)
+    except Exception as e:  # compaction is best-effort; the run continues
+        logger.warning(
+            "Conversation compaction failed",
+            extra={"agent_id": agent.id, "error": str(e)},
+            exc_info=True,
+        )
+
+    # Get the agent's conversation
+    conv = db.get_conversation(agent.conversation_id, user.id)
+    if not conv:
+        error_msg = f"Agent conversation not found: {agent.conversation_id}"
+        logger.error(error_msg, extra={"agent_id": agent.id})
+        return None, error_msg
+    return conv, None
+
+
+def _run_chat(
+    agent: Agent,
+    user: User,
+    trigger_message: str,
+    history: list[dict[str, str]],
+    agent_context: dict[str, Any],
+    agent_tools: list[Any],
+) -> tuple[str, list[Any], dict[str, Any], list[Any]]:
+    """Run the agent's turn; return chat_batch's (response, tool results, usage, messages)."""
+    # Create agent with autonomous mode and tools
+    chat_agent = ChatAgent(
+        model_name=agent.model,  # Use the agent's configured model
+        anonymous_mode=False,
+        is_planning=False,
+        is_autonomous=True,
+        agent_context=agent_context,
+        tools=agent_tools,
+    )
+
+    # No retry wrapper here: chat_node already retries each LLM call with
+    # backoff (chat_node.py), and replaying the whole turn would re-execute
+    # non-idempotent tools (Todoist/Calendar writes, WhatsApp sends).
+    raw_response, tool_results, usage_info, result_messages = chat_agent.chat_batch(
+        text=trigger_message,
+        files=None,
+        history=history,
+        force_tools=None,
+        user_name=user.name,
+        user_id=user.id,
+        custom_instructions=user.custom_instructions,
+        is_planning=False,
+        conversation_id=agent.conversation_id,
+    )
+    logger.debug(
+        "Agent execution completed",
+        extra={
+            "agent_id": agent.id,
+            "response_length": len(raw_response),
+            "tool_results_count": len(tool_results),
+            "input_tokens": usage_info.get("input_tokens", 0),
+            "output_tokens": usage_info.get("output_tokens", 0),
+        },
+    )
+    return raw_response, tool_results, usage_info, result_messages
+
+
+def _record_run_result(
+    agent: Agent,
+    user: User,
+    conv: Conversation,
+    execution_id: str,
+    request_id: str,
+    raw_response: str,
+    usage_info: dict[str, Any],
+    result_messages: list[Any],
+) -> str:
+    """Save the run's reply and mark the agent as run; return the saved text."""
+    # Get full tool results
+    full_tool_results = get_full_tool_results(request_id)
+
+    logger.debug(
+        "Saving agent response",
+        extra={"agent_id": agent.id, "conversation_id": conv.id},
+    )
+    assistant_msg, clean_response = _save_response(
+        conv, user, raw_response, usage_info, result_messages, full_tool_results
+    )
+
+    # Update agent's last_run_at
+    db.update_agent_last_run(agent.id)
+
+    logger.info(
+        "Agent execution successful",
+        extra={
+            "agent_id": agent.id,
+            "execution_id": execution_id,
+            "message_id": assistant_msg.id,
+            "response_length": len(clean_response),
+        },
+    )
+    return clean_response
+
+
+def _notify_run_finished(
+    agent: Agent, user: User, conv: Conversation, trigger_type: str, clean_response: str
+) -> None:
+    """Push the run's first line to the user's devices (not for manual runs)."""
+    # Notify the user's devices; tag per agent so re-runs replace the
+    # previous notification instead of stacking. Manual runs don't
+    # push - the user is in the app clicking Run and gets the
+    # completion toast there.
+    if trigger_type != "manual":
+        send_push_to_user(
+            user.id,
+            f"{agent.name} finished",
+            clean_response.strip().split("\n", 1)[0][:160],
+            url=f"/#/conversations/{conv.id}",
+            tag=f"agent-{agent.id}",
+        )
+
+
+def _clear_run_context() -> None:
+    """Clear the contextvars _set_run_context set."""
+    set_current_request_id(None)
+    set_current_message_files(None)
+    set_conversation_context(None, None)
+    set_agent_name(None)
+    clear_agent_context()
+
+
 def execute_agent(
     agent: Agent,
     user: User,
@@ -396,32 +538,8 @@ def execute_agent(
         },
     )
 
-    # Check if agent has a conversation
-    if not agent.conversation_id:
-        error_msg = f"Agent has no conversation: {agent.id}"
-        logger.error(error_msg, extra={"agent_id": agent.id})
-        return False, error_msg
-
-    # Check budget limit before execution
-    budget_error = _over_budget_error(agent)
-    if budget_error:
-        return False, budget_error
-
-    # Check if conversation needs compaction
-    try:
-        compact_conversation(agent)
-    except Exception as e:  # compaction is best-effort; the run continues
-        logger.warning(
-            "Conversation compaction failed",
-            extra={"agent_id": agent.id, "error": str(e)},
-            exc_info=True,
-        )
-
-    # Get the agent's conversation
-    conv = db.get_conversation(agent.conversation_id, user.id)
-    if not conv:
-        error_msg = f"Agent conversation not found: {agent.conversation_id}"
-        logger.error(error_msg, extra={"agent_id": agent.id})
+    conv, error_msg = _load_run_conversation(agent, user)
+    if conv is None:
         return False, error_msg
 
     # Build the trigger message based on trigger type (+ any message passed
@@ -447,79 +565,13 @@ def execute_agent(
         request_id = str(uuid.uuid4())
         _set_run_context(agent, user, conv.id, request_id, parent_trigger_chain)
 
-        # Create agent with autonomous mode and tools
-        chat_agent = ChatAgent(
-            model_name=agent.model,  # Use the agent's configured model
-            anonymous_mode=False,
-            is_planning=False,
-            is_autonomous=True,
-            agent_context=agent_context,
-            tools=agent_tools,
+        raw_response, _, usage_info, result_messages = _run_chat(
+            agent, user, trigger_message, history, agent_context, agent_tools
         )
-
-        # No retry wrapper here: chat_node already retries each LLM call with
-        # backoff (chat_node.py), and replaying the whole turn would re-execute
-        # non-idempotent tools (Todoist/Calendar writes, WhatsApp sends).
-        raw_response, tool_results, usage_info, result_messages = chat_agent.chat_batch(
-            text=trigger_message,
-            files=None,
-            history=history,
-            force_tools=None,
-            user_name=user.name,
-            user_id=user.id,
-            custom_instructions=user.custom_instructions,
-            is_planning=False,
-            conversation_id=agent.conversation_id,
+        clean_response = _record_run_result(
+            agent, user, conv, execution_id, request_id, raw_response, usage_info, result_messages
         )
-
-        # Get full tool results
-        full_tool_results = get_full_tool_results(request_id)
-
-        logger.debug(
-            "Agent execution completed",
-            extra={
-                "agent_id": agent.id,
-                "response_length": len(raw_response),
-                "tool_results_count": len(tool_results),
-                "input_tokens": usage_info.get("input_tokens", 0),
-                "output_tokens": usage_info.get("output_tokens", 0),
-            },
-        )
-
-        logger.debug(
-            "Saving agent response",
-            extra={"agent_id": agent.id, "conversation_id": conv.id},
-        )
-        assistant_msg, clean_response = _save_response(
-            conv, user, raw_response, usage_info, result_messages, full_tool_results
-        )
-
-        # Update agent's last_run_at
-        db.update_agent_last_run(agent.id)
-
-        logger.info(
-            "Agent execution successful",
-            extra={
-                "agent_id": agent.id,
-                "execution_id": execution_id,
-                "message_id": assistant_msg.id,
-                "response_length": len(clean_response),
-            },
-        )
-
-        # Notify the user's devices; tag per agent so re-runs replace the
-        # previous notification instead of stacking. Manual runs don't
-        # push - the user is in the app clicking Run and gets the
-        # completion toast there.
-        if trigger_type != "manual":
-            send_push_to_user(
-                user.id,
-                f"{agent.name} finished",
-                clean_response.strip().split("\n", 1)[0][:160],
-                url=f"/#/conversations/{conv.id}",
-                tag=f"agent-{agent.id}",
-            )
-
+        _notify_run_finished(agent, user, conv, trigger_type, clean_response)
         return True, None
 
     except ApprovalRequestedException as e:
@@ -543,8 +595,4 @@ def execute_agent(
 
     finally:
         # Clear execution context on every path (success, approval, failure)
-        set_current_request_id(None)
-        set_current_message_files(None)
-        set_conversation_context(None, None)
-        set_agent_name(None)
-        clear_agent_context()
+        _clear_run_context()
