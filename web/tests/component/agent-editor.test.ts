@@ -198,6 +198,23 @@ describe('AgentEditor', () => {
     expect(api.update.mock.calls[0]?.[1].tool_permissions).not.toContain('todoist');
   });
 
+  // The close animation's cleanup once ran after a reopen and wiped the new
+  // session: the modal hid and Save created a new agent instead of updating
+  it('reopening during the close animation keeps the new session', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent());
+    save();
+    await vi.waitFor(() => expect(api.toastSuccess).toHaveBeenCalled());
+
+    await open(agent({ id: 'agent-2', name: 'Second' }));
+    await new Promise((resolve) => setTimeout(resolve, 200)); // past the 150ms close
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalledTimes(2));
+    expect(api.update.mock.calls[1]?.[0]).toBe('agent-2');
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
   it('re-enables Save after a failed save', async () => {
     api.update.mockRejectedValue(new Error('down'));
     await open(agent());

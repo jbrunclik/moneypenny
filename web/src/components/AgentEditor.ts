@@ -28,6 +28,9 @@ const log = createLogger('agent-editor');
 let modalContainer: HTMLDivElement | null = null;
 let currentResolve: ((result: Agent | null) => void) | null = null;
 let editingAgentId: string | null = null;
+// The close animation's pending cleanup; a reopen runs it at once so it can't
+// fire later and wipe the new session
+let pendingClose: { timer: ReturnType<typeof setTimeout>; finish: () => void } | null = null;
 
 // Available tools that agents can be granted permission for.
 // Only tools that require approval for write operations are shown here.
@@ -134,6 +137,7 @@ export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
     // Continue without settings - WhatsApp will just be hidden
   }
 
+  finishPendingClose();
   return new Promise((resolve) => {
     editingAgentId = agent?.id || null;
     originalPermissionsUnrestricted = !!agent && agent.tool_permissions == null;
@@ -158,14 +162,23 @@ export function closeAgentEditor(result: Agent | null = null): void {
   modalContainer.classList.add('agent-editor-overlay-exit');
 
   // Resolve and cleanup after animation
-  setTimeout(() => {
+  const finish = () => {
+    pendingClose = null;
     hideModalContainer();
     if (currentResolve) {
       currentResolve(result);
       currentResolve = null;
     }
     editingAgentId = null;
-  }, 150);
+  };
+  pendingClose = { timer: setTimeout(finish, 150), finish };
+}
+
+/** Finish a close whose animation is still running (a reopen must not race it). */
+function finishPendingClose(): void {
+  if (!pendingClose) return;
+  clearTimeout(pendingClose.timer);
+  pendingClose.finish();
 }
 
 /** The form's initial text fields: the agent being edited, or empty for a new one. */
