@@ -88,10 +88,20 @@ async function openCostHistoryFromMenu(): Promise<void> {
   }
 }
 
+/** The admin page's Run device checks: the run, then back to the page. */
+function runDeviceChecksFromAdmin(): void {
+  void import('./device-checks/runner')
+    .then(({ runDeviceChecks }) => runDeviceChecks({ onClose: () => void openAdminFromMenu() }))
+    .catch((error: unknown) => {
+      log.error('Failed to run the device checks', { error });
+      toast.error('Failed to run the device checks.');
+    });
+}
+
 async function openAdminFromMenu(): Promise<void> {
   try {
     const { openAdminPage } = await import('../components/AdminPage');
-    await openAdminPage();
+    await openAdminPage({ onRunDeviceChecks: runDeviceChecksFromAdmin });
   } catch (error) {
     // A chunk deleted by a deploy is handled by the stale-chunk reload;
     // anything else surfaces here instead of failing silently

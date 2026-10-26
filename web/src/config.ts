@@ -649,3 +649,28 @@ export const ARTIFACT_SEND_MIN_INTERVAL_MS = 1500;
 export const ARTIFACT_HEIGHT_WIDTH_BUCKET_PX = 80;
 /** Cached heights kept on this device (oldest dropped) */
 export const ARTIFACT_HEIGHT_CACHE_MAX_ENTRIES = 200;
+
+// =============================================================================
+// Device check runner (admin page; docs/ui/mobile-and-pwa.md)
+// =============================================================================
+
+/** A list "at the bottom" is at most this far from it */
+export const DEVICE_CHECK_BOTTOM_TOLERANCE_PX = 2;
+/** An anchored turn sits this close to scroll-padding-top (isAtTurnAnchor uses 3) */
+export const DEVICE_CHECK_ANCHOR_TOLERANCE_PX = 3;
+/** --keyboard-inset vs the unified formula, re-measured after the settle */
+export const DEVICE_CHECK_INSET_TOLERANCE_PX = 2;
+/** Composer-to-keyboard gap vs the expected (accessory pill) allowance */
+export const DEVICE_CHECK_GAP_TOLERANCE_PX = 6;
+/** Window pan (scrollY / visualViewport.offsetTop) counted as none */
+export const DEVICE_CHECK_PAN_TOLERANCE_PX = 1;
+/** How far an anchored turn may move while the keyboard opens */
+export const DEVICE_CHECK_TURN_MOVE_TOLERANCE_PX = 4;
+/** Layout flushness (#app vs viewport, composer vs #app bottom) */
+export const DEVICE_CHECK_LAYOUT_TOLERANCE_PX = 1;
+/** A measure counts as settled once unchanged this long (past the keyboard's 600ms holds) */
+export const DEVICE_CHECK_SETTLE_MS = 700;
+/** Longest a step waits for its measure to settle */
+export const DEVICE_CHECK_SETTLE_TIMEOUT_MS = 5000;
+/** A keyboard that hasn't shrunk the viewport by then never appeared (hardware keyboard) */
+export const DEVICE_CHECK_KEYBOARD_APPEAR_MS = 2500;

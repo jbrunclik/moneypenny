@@ -1,0 +1,277 @@
+/* ============================================
+   Device check runner card and the admin history
+   ============================================ */
+
+/* The card floats over the top of the real chat: fixed, so it moves none of
+   the layout the checks measure */
+.device-check-card {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + var(--space-2));
+    left: 50%;
+    z-index: var(--z-modal);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: min(440px, calc(100% - 2 * var(--space-4)));
+    max-height: calc(100% - env(safe-area-inset-top, 0px) - var(--space-4));
+    overflow-y: auto;
+    padding: var(--space-3) var(--space-4);
+    transform: translateX(-50%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg-dialog);
+    backdrop-filter: blur(var(--glass-blur-dialog));
+    -webkit-backdrop-filter: blur(var(--glass-blur-dialog));
+    box-shadow: var(--shadow-lg);
+    color: var(--text-primary);
+}
+
+.device-check-header,
+.device-check-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.device-check-header h2 {
+    margin: 0;
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-xl);
+}
+
+.device-check-live {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.device-check-has-failures .device-check-live {
+    color: var(--warning-text);
+}
+
+.device-check-done:not(.device-check-has-failures) .device-check-live {
+    color: var(--success);
+}
+
+.device-check-list,
+.device-check-runs,
+.device-check-scenarios,
+.device-check-measurements {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.device-check-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 var(--space-2);
+    padding: var(--space-1-5) 0;
+    border-bottom: 1px solid var(--border-light);
+    font-size: var(--font-size-sm);
+}
+
+.device-check-row:last-child {
+    border-bottom: none;
+}
+
+.device-check-row-detail {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.device-check-row-detail:empty {
+    display: none;
+}
+
+/* Status pills: one look in the runner and in the history */
+.device-check-status {
+    align-self: start;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+[data-status="running"] > .device-check-status {
+    background: var(--accent-muted);
+    color: var(--accent-text);
+}
+
+[data-status="passed"] > .device-check-status,
+[data-status="passed"] > .device-check-scenario-head > .device-check-status {
+    color: var(--success);
+}
+
+[data-status="failed"] > .device-check-status,
+[data-status="error"] > .device-check-status,
+[data-status="failed"] > .device-check-scenario-head > .device-check-status,
+[data-status="error"] > .device-check-scenario-head > .device-check-status {
+    color: var(--warning-text);
+}
+
+.device-check-prompt.hidden {
+    display: none;
+}
+
+/* Big on purpose: iOS opens the keyboard only from a real tap */
+.device-check-tap {
+    width: 100%;
+    min-height: 64px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-text);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.device-check-tap:hover {
+    background: var(--accent-hover);
+}
+
+.device-check-stop,
+.device-check-close,
+.device-check-run-btn {
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.device-check-stop:hover,
+.device-check-close:hover,
+.device-check-run-btn:hover {
+    background: var(--bg-hover);
+}
+
+.device-check-footer:empty {
+    display: none;
+}
+
+.device-check-close {
+    width: 100%;
+}
+
+/* ----------------------------------------
+   Admin page history
+   ---------------------------------------- */
+
+.device-check-section-head h2 {
+    margin: 0;
+}
+
+.device-check-run {
+    border-bottom: 1px solid var(--border-light);
+}
+
+.device-check-run:last-child {
+    border-bottom: none;
+}
+
+.device-check-run summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-2) 0;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.device-check-run-marker {
+    font-family: var(--font-family-mono);
+    font-weight: 600;
+}
+
+[data-status="passed"] .device-check-run-result {
+    color: var(--success);
+}
+
+[data-status="failed"] .device-check-run-result {
+    color: var(--warning-text);
+}
+
+.device-check-run-meta {
+    flex-basis: 100%;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+@media (min-width: 769px) {
+    .device-check-run-meta {
+        flex-basis: auto;
+        margin-left: auto;
+    }
+}
+
+.device-check-scenario {
+    margin-bottom: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+}
+
+.device-check-scenario-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+}
+
+.device-check-scenario-title {
+    flex: 1;
+}
+
+.device-check-duration {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.device-check-note {
+    margin: var(--space-1) 0 0;
+    color: var(--warning-text);
+    font-size: var(--font-size-xs);
+}
+
+/* A skip is information, not a problem */
+.device-check-scenario[data-status="skipped"] .device-check-note {
+    color: var(--text-muted);
+}
+
+.device-check-history {
+    margin-top: var(--space-3);
+}
+
+.device-check-measurements {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-0-5) var(--space-3);
+    margin-top: var(--space-2);
+    font-size: var(--font-size-xs);
+}
+
+.device-check-measurements li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    color: var(--text-muted);
+}
+
+.device-check-measurements code {
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}

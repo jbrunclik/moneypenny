@@ -5,6 +5,7 @@
  * titles or content.
  */
 import { admin } from '../api/admin';
+import { createDeviceChecksSection } from './AdminDeviceChecks';
 import type { AdminOverview } from '../types/api';
 import { createElement, createSvgElement } from '../utils/dom';
 import { getFocusableElements, trapTabKey } from '../utils/focus-trap';
@@ -23,6 +24,11 @@ const MS_PER_SECOND = 1000;
 
 let page: HTMLElement | null = null;
 let returnFocusTo: HTMLElement | null = null;
+
+export interface AdminPageOptions {
+  /** Start the device check runner (core; the page closes first) */
+  onRunDeviceChecks?: () => void;
+}
 
 const FEATURE_LABELS: Record<string, string> = {
   chat: 'Chat',
@@ -335,10 +341,19 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-async function load(body: HTMLElement): Promise<void> {
+async function load(body: HTMLElement, options: AdminPageOptions): Promise<void> {
   body.innerHTML = '<p class="admin-loading">Loading…</p>';
   try {
     body.replaceChildren(...renderAdminOverview(await admin.getOverview()));
+    const { onRunDeviceChecks } = options;
+    if (onRunDeviceChecks) {
+      const runChecks = (): void => {
+        closeAdminPage();
+        onRunDeviceChecks();
+      };
+      // Before the closing "Updated ..." note
+      body.insertBefore(createDeviceChecksSection(runChecks), body.lastElementChild);
+    }
   } catch (error) {
     log.error('Failed to load the admin overview', { error });
     body.innerHTML = '<p class="admin-error">The overview could not be loaded. Try again in a moment.</p>';
@@ -346,7 +361,7 @@ async function load(body: HTMLElement): Promise<void> {
 }
 
 /** Open the admin page over the app; Escape or Back closes it. */
-export async function openAdminPage(): Promise<void> {
+export async function openAdminPage(options: AdminPageOptions = {}): Promise<void> {
   if (page) return;
   // The Admin entry lives in the user menu, which closes as the page opens
   returnFocusTo = document.getElementById('user-menu-btn');
@@ -368,10 +383,10 @@ export async function openAdminPage(): Promise<void> {
   const body = page.querySelector<HTMLElement>('.admin-body');
   page.querySelector('.admin-back')?.addEventListener('click', closeAdminPage);
   page.querySelector('.admin-refresh')?.addEventListener('click', () => {
-    if (body) void load(body);
+    if (body) void load(body, options);
   });
   getFocusableElements(page)[0]?.focus();
-  if (body) await load(body);
+  if (body) await load(body, options);
 }
 
 /** Close the admin page and return focus to where it was. */

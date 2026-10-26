@@ -253,7 +253,7 @@ function setSettlePoller(active: boolean): void {
  *   a permanent dead band at the bottom when trusted.
  * So: standalone reads a 100vh probe; browsers read innerHeight.
  */
-function trueViewportHeight(): number {
+export function trueViewportHeight(): number {
   if (!isStandaloneDisplay()) return window.innerHeight;
   let probe = document.getElementById('vh-probe');
   if (!probe) {
@@ -275,7 +275,7 @@ export function isStandaloneDisplay(): boolean {
 }
 
 /** Resolved env(safe-area-inset-top) in px, via a probe element. */
-function safeAreaTop(): number {
+export function safeAreaTop(): number {
   let probe = document.getElementById('sat-probe');
   if (!probe) {
     probe = document.createElement('div');

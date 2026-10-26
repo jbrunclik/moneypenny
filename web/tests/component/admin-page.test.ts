@@ -218,6 +218,27 @@ describe('openAdminPage', () => {
     expect(document.querySelector('.admin-page')).toBeNull();
   });
 
+  it('offers the device checks: the page closes, then the run starts', async () => {
+    vi.spyOn(admin, 'getOverview').mockResolvedValue(overview());
+    vi.spyOn(admin, 'listDeviceCheckRuns').mockResolvedValue([]);
+    const onRunDeviceChecks = vi.fn(() => {
+      expect(document.querySelector('.admin-page')).toBeNull();
+    });
+    await openAdminPage({ onRunDeviceChecks });
+    const section = document.querySelector('.admin-page .device-check-section');
+    expect(section?.querySelector('h2')?.textContent).toBe('Device checks');
+    // Before the closing "Updated" note
+    expect(section?.nextElementSibling?.textContent).toContain('Updated');
+    section?.querySelector<HTMLButtonElement>('.device-check-run-btn')?.click();
+    expect(onRunDeviceChecks).toHaveBeenCalledOnce();
+  });
+
+  it('has no device checks section without a runner', async () => {
+    vi.spyOn(admin, 'getOverview').mockResolvedValue(overview());
+    await openAdminPage();
+    expect(document.querySelector('.device-check-section')).toBeNull();
+  });
+
   it('shows an error state when the overview fails to load', async () => {
     vi.spyOn(admin, 'getOverview').mockRejectedValue(new Error('403'));
     await openAdminPage();
