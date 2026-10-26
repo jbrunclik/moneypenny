@@ -9,15 +9,14 @@ from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import Any
 
-from src.auth.garmin_auth import create_client_from_tokens
 from src.config import Config
 from src.services.planner.dates import day_name, parse_date, parse_datetime
+from src.services.planner.garmin import fetch_health_summary
 from src.services.planner.google_calendar import fetch_calendar_dashboard_data
 from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
     PlannerEvent,
-    PlannerHealthSummary,
     PlannerWeather,
     dashboard_from_dict,
 )
@@ -165,127 +164,11 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
         finally:
             _close_thread_pool_connections(db)
 
-    def fetch_garmin_if_available() -> tuple[PlannerHealthSummary | None, str | None]:  # noqa: C901, PLR0912, PLR0915
-        """Fetch Garmin health data if token available."""
-        if not garmin_token:
-            return None, None
-        try:
-            garmin = create_client_from_tokens(garmin_token)
-            today_str = datetime.now().strftime("%Y-%m-%d")
-            summary = PlannerHealthSummary()
-
-            # Fetch stats (steps, etc.)
-            try:
-                stats = garmin.get_stats(today_str)
-                if isinstance(stats, dict):
-                    summary.steps_today = stats.get("totalSteps")
-                    summary.resting_hr = stats.get("restingHeartRate")
-                    summary.body_battery = stats.get("bodyBatteryMostRecentValue")
-                    summary.stress_avg = stats.get("averageStressLevel")
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug("Garmin stats fetch failed", extra={"error": str(e)}, exc_info=True)
-
-            # Fetch sleep
-            try:
-                sleep_data = garmin.get_sleep_data(today_str)
-                if isinstance(sleep_data, dict):
-                    daily_sleep = sleep_data.get("dailySleepDTO", {})
-                    # API field is 'sleepTimeSeconds', not 'sleepTimeInSeconds'
-                    duration_secs = daily_sleep.get("sleepTimeSeconds", 0)
-                    # Sleep quality is nested inside 'sleepScores.overall.qualifierKey'
-                    sleep_scores = daily_sleep.get("sleepScores", {})
-                    overall = (
-                        sleep_scores.get("overall", {}) if isinstance(sleep_scores, dict) else {}
-                    )
-                    quality = overall.get("qualifierKey") if isinstance(overall, dict) else None
-                    summary.sleep = {
-                        "duration_hours": round(duration_secs / 3600, 1) if duration_secs else None,
-                        "quality": quality,
-                    }
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug("Garmin sleep fetch failed", extra={"error": str(e)}, exc_info=True)
-
-            # Fetch heart rates
-            try:
-                hr_data = garmin.get_heart_rates(today_str)
-                if isinstance(hr_data, dict):
-                    summary.resting_hr = summary.resting_hr or hr_data.get("restingHeartRate")
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug("Garmin HR fetch failed", extra={"error": str(e)}, exc_info=True)
-
-            # Fetch training readiness
-            # NOTE: get_training_readiness() returns a list of records (one per sync),
-            # not a dict.  We take the most recent record for today if available,
-            # falling back to the most-recent overall record.
-            try:
-                tr = garmin.get_training_readiness(today_str)
-                tr_record: dict[str, Any] | None = None
-                if isinstance(tr, list) and tr:
-                    # Prefer a record whose calendarDate matches today
-                    today_records = [r for r in tr if r.get("calendarDate") == today_str]
-                    tr_record = today_records[0] if today_records else tr[0]
-                elif isinstance(tr, dict):
-                    tr_record = tr
-                if tr_record:
-                    summary.training_readiness = {
-                        "score": tr_record.get("score") or tr_record.get("overallScore"),
-                        "level": tr_record.get("level") or tr_record.get("overallReadiness"),
-                    }
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug(
-                    "Garmin training readiness fetch failed", extra={"error": str(e)}, exc_info=True
-                )
-
-            # Fetch HRV
-            try:
-                hrv = garmin.get_hrv_data(today_str)
-                if isinstance(hrv, dict):
-                    summary.hrv_status = hrv.get("hrvSummary", {}).get("status") or hrv.get(
-                        "status"
-                    )
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug("Garmin HRV fetch failed", extra={"error": str(e)}, exc_info=True)
-
-            # Fetch recent activities (last 3)
-            try:
-                start = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
-                end = today_str
-                activities = garmin.get_activities_by_date(start, end)
-                if isinstance(activities, list):
-                    summary.recent_activities = [
-                        {
-                            "name": a.get("activityName", "Activity"),
-                            "date": a.get("startTimeLocal", "")[:10]
-                            if a.get("startTimeLocal")
-                            else "",
-                            "distance_km": round(a.get("distance", 0) / 1000, 1)
-                            if a.get("distance")
-                            else None,
-                            "duration_min": round(a.get("duration", 0) / 60, 0)
-                            if a.get("duration")
-                            else None,
-                        }
-                        for a in activities[:3]
-                    ]
-            except Exception as e:  # best-effort metric; the dashboard shows the rest
-                logger.debug(
-                    "Garmin activities fetch failed", extra={"error": str(e)}, exc_info=True
-                )
-
-            return summary, None
-
-        except Exception as e:
-            error_str = str(e).lower()
-            if "expired" in error_str or "unauthorized" in error_str:
-                return None, "Garmin session expired. Please reconnect in Settings."
-            logger.exception("Garmin dashboard fetch failed", extra={"error": str(e)})
-            return None, f"Garmin error: {e}"
-
     # Fetch all resources in parallel
     with ThreadPoolExecutor(max_workers=4) as executor:
         todoist_future = executor.submit(fetch_todoist_if_available)
         calendar_future = executor.submit(fetch_calendar_if_available)
-        garmin_future = executor.submit(fetch_garmin_if_available)
+        garmin_future = executor.submit(fetch_health_summary, garmin_token)
         weather_future = executor.submit(fetch_weather_if_available)
 
         # Wait for all results

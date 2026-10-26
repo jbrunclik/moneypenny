@@ -20,7 +20,7 @@ from src.config import Config
 from src.services.planner_data import build_planner_dashboard
 from src.utils.weather import WeatherForecast, WeatherPeriod
 
-GARMIN_SEAM = "src.services.planner_data.create_client_from_tokens"
+GARMIN_SEAM = "src.services.planner.garmin.create_client_from_tokens"
 WEATHER_SEAM = "src.services.planner_data.get_weather_for_location"
 
 TODAY = date.today()
