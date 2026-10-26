@@ -20,9 +20,8 @@ import {
   SYNC_FULL_SYNC_THRESHOLD_MS,
   SYNC_MAX_CHANGE_PAGES,
 } from '../config';
-import { hasPendingRecovery, attemptRecovery, cancelRecovery } from '../core/stream-recovery';
 import type { ConversationSummary } from '../types/api';
-import { SyncState, type SyncManagerCallbacks } from './sync-state';
+import { type StreamRecoveryHooks, SyncState, type SyncManagerCallbacks } from './sync-state';
 import { PlannerSync } from './planner-sync';
 import { AgentConversationSync } from './agent-conversation-sync';
 import { syncCommandCenter } from './command-center-sync';
@@ -51,6 +50,7 @@ export class SyncManager {
   private pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private isVisible: boolean = true;
   private callbacks: SyncManagerCallbacks;
+  private readonly recovery: StreamRecoveryHooks;
   private readonly state: SyncState;
   private readonly planner: PlannerSync;
   private readonly agentConversation: AgentConversationSync;
@@ -70,9 +70,10 @@ export class SyncManager {
   /** Stopped (logout) - a start still awaiting its first sync must not go on. */
   private stopped = false;
 
-  constructor(callbacks: SyncManagerCallbacks) {
+  constructor(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks) {
     this.callbacks = callbacks;
-    this.state = new SyncState(callbacks, toast, cancelRecovery);
+    this.recovery = recovery;
+    this.state = new SyncState(callbacks, toast, recovery.cancel);
     this.planner = new PlannerSync(callbacks);
     this.agentConversation = new AgentConversationSync(this.state);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
@@ -531,7 +532,7 @@ export class SyncManager {
   private async attemptPendingStreamRecovery(hiddenDuration: number): Promise<void> {
     const store = useStore.getState();
     const streamingConvId = store.streamingConversationId;
-    if (!streamingConvId || !hasPendingRecovery(streamingConvId)) return;
+    if (!streamingConvId || !this.recovery.hasPending(streamingConvId)) return;
 
     if (store.getActiveRequest(streamingConvId)) {
       log.debug('Skipping poll recovery - live stream request owns foregrounding', {
@@ -544,7 +545,7 @@ export class SyncManager {
       conversationId: streamingConvId,
       hiddenDuration,
     });
-    await attemptRecovery(streamingConvId);
+    await this.recovery.attempt(streamingConvId);
   }
 
   /**
@@ -579,11 +580,11 @@ let syncManagerInstance: SyncManager | null = null;
 /**
  * Initialize the global SyncManager instance.
  */
-export function initSyncManager(callbacks: SyncManagerCallbacks): SyncManager {
+export function initSyncManager(callbacks: SyncManagerCallbacks, recovery: StreamRecoveryHooks): SyncManager {
   if (syncManagerInstance) {
     syncManagerInstance.stop();
   }
-  syncManagerInstance = new SyncManager(callbacks);
+  syncManagerInstance = new SyncManager(callbacks, recovery);
   return syncManagerInstance;
 }
 

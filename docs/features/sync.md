@@ -99,6 +99,8 @@ The planner and agent views still show the "New messages available - Reload" ban
 
 **Pitfall:** the `initSyncManager` callbacks in core/startup/sync.ts must read `useStore.getState()` live - a state object captured at startup is a snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
 
+`sync/` never imports `core` (F1): stream recovery reaches the sync manager as the `StreamRecoveryHooks` second argument of `initSyncManager`, wired in the same file.
+
 ## Race Condition Audit (Oct 10 2026)
 
 A full data-flow audit found and fixed these (tests in `sync-manager.test.ts`, `sync-other-device.spec.ts`, `test_conversation_read_state.py`, `test_routes_interject.py`):

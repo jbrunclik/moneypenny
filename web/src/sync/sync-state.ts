@@ -35,6 +35,13 @@ export interface SyncNotifier {
   warning: (message: string) => void;
 }
 
+/** Pending stream recovery (core/stream-recovery). Passed in: sync never imports core (F1). */
+export interface StreamRecoveryHooks {
+  hasPending: (convId: string) => boolean;
+  attempt: (convId: string) => Promise<boolean>;
+  cancel: (convId: string) => void;
+}
+
 export class SyncState {
   /**
    * Tracks when SyncManager first started (initial page load time).

@@ -14,6 +14,7 @@ import type { SyncManagerCallbacks } from '../../sync/sync-state';
 import { createLogger } from '../../utils/logger';
 import { navigateToPlanner, leavePlannerView } from '../planner';
 import { mergeExternalChanges } from '../remote-merge';
+import { attemptRecovery, cancelRecovery, hasPendingRecovery } from '../stream-recovery';
 import { updateConversationCost } from '../toolbar';
 import { loadTrashedConversations } from '../trash';
 
@@ -100,7 +101,11 @@ const SYNC_CALLBACKS: SyncManagerCallbacks = {
  * Create the sync manager and start polling.
  */
 export function startSync(): void {
-  initSyncManager(SYNC_CALLBACKS);
+  initSyncManager(SYNC_CALLBACKS, {
+    hasPending: hasPendingRecovery,
+    attempt: attemptRecovery,
+    cancel: cancelRecovery,
+  });
   // Unhandled rejection here would silently disable sync for the session
   getSyncManager()
     ?.start()
