@@ -40,4 +40,12 @@ describe('avatar fallback', () => {
     expect(renderUserAvatarHtml('https://x/p.jpg', 'A')).toContain('referrerpolicy="no-referrer"');
     expect((createUserAvatarElement('https://x/p.jpg', 'A') as HTMLImageElement).referrerPolicy).toBe('no-referrer');
   });
+
+  it('renders initials of a name starting with markup characters as text', () => {
+    document.body.innerHTML = `<div id="host">${renderUserAvatarHtml(undefined, '< bob')}</div><p id="after">after</p>`;
+
+    expect(document.querySelector('#host > div')!.textContent).toBe('<B');
+    expect(document.querySelector('#host b')).toBeNull();
+    expect(document.querySelector('#after')?.textContent).toBe('after');
+  });
 });

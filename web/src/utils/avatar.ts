@@ -23,7 +23,7 @@ export function renderUserAvatarHtml(
     return `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" class="${className}" data-avatar="${escapeHtml(className)}" referrerpolicy="no-referrer">`;
   }
   const initials = getInitials(name);
-  return `<div class="${className} ${className}-initials">${initials}</div>`;
+  return `<div class="${className} ${className}-initials">${escapeHtml(initials)}</div>`;
 }
 
 /**
