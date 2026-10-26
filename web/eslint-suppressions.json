@@ -156,10 +156,5 @@
     "no-unsanitized/property": {
       "count": 1
     }
-  },
-  "src/utils/dom.ts": {
-    "complexity": {
-      "count": 1
-    }
   }
 }
