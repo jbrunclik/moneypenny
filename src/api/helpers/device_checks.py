@@ -1,9 +1,10 @@
 """Device check runner: the fixture conversation's script and run tallies."""
 
-from typing import Any
+from typing import TypedDict
 
 from src.api.schemas.device_checks import DeviceCheckRunRequest, DeviceCheckStatus
 from src.db.models import db
+from src.db.models.device_checks import DeviceCheckRunRow, DeviceCheckScenarioRow
 
 FIXTURE_TITLE = "Device check (temporary)"
 FIXTURE_TURNS = 40
@@ -21,6 +22,11 @@ _ANSWERS = (
 )
 
 
+class FixtureInfo(TypedDict):
+    conversation_id: str
+    message_count: int
+
+
 def fixture_messages() -> list[tuple[str, str]]:
     """The scripted turns: (role, content), oldest first."""
     messages: list[tuple[str, str]] = []
@@ -30,7 +36,7 @@ def fixture_messages() -> list[tuple[str, str]]:
     return messages
 
 
-def create_fixture(user_id: str) -> dict[str, Any]:
+def create_fixture(user_id: str) -> FixtureInfo:
     """Purge any fixture a crashed run left, then write a fresh one."""
     db.purge_device_check_fixtures(user_id)
     messages = fixture_messages()
@@ -38,7 +44,7 @@ def create_fixture(user_id: str) -> dict[str, Any]:
     return {"conversation_id": conversation_id, "message_count": len(messages)}
 
 
-def save_run(user_id: str, data: DeviceCheckRunRequest) -> dict[str, Any]:
+def save_run(user_id: str, data: DeviceCheckRunRequest) -> DeviceCheckRunRow:
     """Store a run with its passed / failed (errors included) / skipped tallies."""
     statuses = [scenario.status for scenario in data.scenarios]
     failed = sum(s in {DeviceCheckStatus.FAILED, DeviceCheckStatus.ERROR} for s in statuses)
@@ -47,6 +53,28 @@ def save_run(user_id: str, data: DeviceCheckRunRequest) -> dict[str, Any]:
         failed,
         statuses.count(DeviceCheckStatus.SKIPPED),
     )
-    run = data.model_dump(mode="python")
-    run["scenarios"] = [scenario.model_dump(mode="json") for scenario in data.scenarios]
-    return db.add_device_check_run(user_id, run, counts)
+    scenarios: list[DeviceCheckScenarioRow] = [
+        {
+            "id": s.id,
+            "title": s.title,
+            "status": s.status.value,
+            "duration_ms": s.duration_ms,
+            "measurements": dict(s.measurements),
+            "notes": list(s.notes),
+        }
+        for s in data.scenarios
+    ]
+    return db.add_device_check_run(
+        user_id,
+        {
+            "build_marker": data.build_marker,
+            "app_version": data.app_version,
+            "standalone": data.standalone,
+            "ua_summary": data.ua_summary,
+            "environment": dict(data.environment),
+            "scenarios": scenarios,
+            "started_at": data.started_at,
+            "finished_at": data.finished_at,
+        },
+        counts,
+    )

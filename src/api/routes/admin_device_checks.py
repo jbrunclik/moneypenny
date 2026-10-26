@@ -3,9 +3,7 @@
 Attached to admin.api (one "Admin" OpenAPI tag).
 """
 
-from typing import Any
-
-from src.api.helpers.device_checks import create_fixture, save_run
+from src.api.helpers.device_checks import FixtureInfo, create_fixture, save_run
 from src.api.routes.admin import api
 from src.api.schemas.device_checks import (
     DeviceCheckFixtureResponse,
@@ -18,6 +16,7 @@ from src.api.validation import validate_query, validate_request
 from src.auth.admin import require_admin
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.db.models.device_checks import DeviceCheckRunRow
 
 
 @api.route("/admin/device-check-runs", methods=["POST"])
@@ -26,7 +25,7 @@ from src.db.models import User, db
 @require_auth
 @require_admin
 @validate_request(DeviceCheckRunRequest)
-def create_device_check_run(user: User, data: DeviceCheckRunRequest) -> dict[str, Any]:
+def create_device_check_run(user: User, data: DeviceCheckRunRequest) -> DeviceCheckRunRow:
     """Store a finished device check run."""
     return save_run(user.id, data)
 
@@ -37,7 +36,9 @@ def create_device_check_run(user: User, data: DeviceCheckRunRequest) -> dict[str
 @require_auth
 @require_admin
 @validate_query(DeviceCheckRunsQuery)
-def list_device_check_runs(user: User, query: DeviceCheckRunsQuery) -> dict[str, Any]:
+def list_device_check_runs(
+    user: User, query: DeviceCheckRunsQuery
+) -> dict[str, list[DeviceCheckRunRow]]:
     """Device check runs, newest first."""
     return {"runs": db.list_device_check_runs(query.limit)}
 
@@ -47,7 +48,7 @@ def list_device_check_runs(user: User, query: DeviceCheckRunsQuery) -> dict[str,
 @api.doc(responses=[401, 403])
 @require_auth
 @require_admin
-def create_device_check_fixture(user: User) -> dict[str, Any]:
+def create_device_check_fixture(user: User) -> FixtureInfo:
     """A fresh archived fixture conversation (any left by a crashed run is purged)."""
     return create_fixture(user.id)
 

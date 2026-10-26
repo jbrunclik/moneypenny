@@ -1,7 +1,7 @@
 """Device check runner schemas: a run's results and the fixture conversation."""
 
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated
 
 from pydantic import AwareDatetime, Field, field_validator
 
@@ -83,7 +83,7 @@ class DeviceCheckRunsQuery(QueryModel):
 
     @field_validator("limit", mode="before")
     @classmethod
-    def _limit(cls, value: Any) -> Any:
+    def _limit(cls, value: object) -> object:
         return parse_int(value, DEVICE_CHECK_RUNS_DEFAULT_LIMIT, 1, DEVICE_CHECK_RUNS_MAX_LIMIT)
 
 

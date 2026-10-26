@@ -14,8 +14,8 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, TypedDict
 
 from src.config import Config
 from src.db.models.timestamps import from_db, to_db
@@ -25,6 +25,49 @@ if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
 
 DEVICE_CHECK_RUNS_KEPT = 200
+
+type Measurements = dict[str, float | bool | str | None]
+
+
+class DeviceCheckScenarioRow(TypedDict):
+    id: str
+    title: str
+    status: str
+    duration_ms: int
+    measurements: Measurements
+    notes: list[str]
+
+
+class NewDeviceCheckRun(TypedDict):
+    """A finished run as the runner reported it (aware datetimes)."""
+
+    build_marker: str | None
+    app_version: str | None
+    standalone: bool
+    ua_summary: str
+    environment: Measurements
+    scenarios: list[DeviceCheckScenarioRow]
+    started_at: datetime
+    finished_at: datetime
+
+
+class DeviceCheckRunRow(TypedDict):
+    """A stored run, timestamps in the API format."""
+
+    id: str
+    build_marker: str | None
+    app_version: str | None
+    standalone: bool
+    ua_summary: str
+    environment: Measurements
+    scenarios: list[DeviceCheckScenarioRow]
+    passed: int
+    failed: int
+    skipped: int
+    started_at: str
+    finished_at: str
+    created_at: str
+
 
 # Fixture messages get distinct, ascending times so the list orders them
 _FIXTURE_MESSAGE_SPACING = timedelta(seconds=1)
@@ -37,7 +80,7 @@ def _api_time(value: str) -> str:
     return to_api(from_db(value, "utc"))
 
 
-def _row_to_run(row: sqlite3.Row) -> dict[str, Any]:
+def _row_to_run(row: sqlite3.Row) -> DeviceCheckRunRow:
     return {
         "id": row["id"],
         "build_marker": row["build_marker"],
@@ -64,7 +107,7 @@ class DeviceChecksMixin:
         self,
         conn: sqlite3.Connection,
         query: str,
-        params: tuple[Any, ...] = (),
+        params: tuple[object, ...] = (),
     ) -> sqlite3.Cursor:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
@@ -76,9 +119,9 @@ class DeviceChecksMixin:
     def add_device_check_run(
         self,
         user_id: str,
-        run: dict[str, Any],
+        run: NewDeviceCheckRun,
         counts: tuple[int, int, int],
-    ) -> dict[str, Any]:
+    ) -> DeviceCheckRunRow:
         """Store a finished run (``run``: the request's fields, datetimes aware)."""
         run_id = str(uuid.uuid4())
         passed, failed, skipped = counts
@@ -118,7 +161,7 @@ class DeviceChecksMixin:
             conn.commit()
         return _row_to_run(row)
 
-    def list_device_check_runs(self, limit: int) -> list[dict[str, Any]]:
+    def list_device_check_runs(self, limit: int) -> list[DeviceCheckRunRow]:
         """The newest runs (every admin's), newest first."""
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
