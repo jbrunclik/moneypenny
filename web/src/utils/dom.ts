@@ -203,6 +203,16 @@ function userTookOver(startTime: number, options: SmoothScrollOptions): boolean 
   return userScrolledSince(options.ignoreMomentum ? startTime : startTime - USER_SCROLL_MOMENTUM_MS);
 }
 
+/** Whether the position moved up against the bottom animation, by the user. */
+function scrolledUpByUser(
+  element: HTMLElement,
+  expectedScrollTop: number,
+  startTime: number,
+  options: SmoothScrollOptions
+): boolean {
+  return element.scrollTop < expectedScrollTop - 5 && userTookOver(startTime, options);
+}
+
 /** Whether one of our smooth scrolls (a glide, the bottom animation) is running. */
 export function isSmoothScrolling(): boolean {
   return currentSmoothScrollAnimationId !== null;
@@ -283,7 +293,7 @@ export function scrollToBottom(
     if (element.scrollHeight !== lastScrollHeight || element.clientHeight !== lastClientHeight) {
       // A scroll-up landing in the same frame as a height change is still
       // the user's - don't overwrite it with the retarget
-      if (element.scrollTop < expectedScrollTop - 5 && userTookOver(startTime, options)) {
+      if (scrolledUpByUser(element, expectedScrollTop, startTime, options)) {
         scrollDebug('bottom-abort-user', { top: Math.round(element.scrollTop), expected: Math.round(expectedScrollTop) });
         finishSmoothScroll();
         return;
@@ -294,7 +304,7 @@ export function scrollToBottom(
       distance = target - start;
       expectedScrollTop = element.scrollTop;
       lastChangeAt = currentTime;
-    } else if (element.scrollTop < expectedScrollTop - 5 && userTookOver(startTime, options)) {
+    } else if (scrolledUpByUser(element, expectedScrollTop, startTime, options)) {
       // The user scrolled up - respect it and stop animating. An upward
       // drift with no input of theirs is iOS momentum from the flick before
       // the tap (the button is outside the list, so the tap doesn't stop
