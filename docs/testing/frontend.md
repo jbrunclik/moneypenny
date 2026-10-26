@@ -146,7 +146,7 @@ The E2E test server ([tests/e2e-server.py](../../tests/e2e-server.py)) is a Flas
 | `db.py` | Template databases, per-test copies (`resolve_db`), cleanup |
 | `request_log.py` | The `SLOW`/`INFLIGHT` phase log |
 | `control_routes.py`, `fixture_routes.py` | `/test/*` endpoints: reset, seed, mock turn behavior; feature fixtures |
-| `intercepts.py` | Fake planner, status, agents, search and KV responses from the mock config |
+| `intercepts.py` | Fake planner, status, agents, search and KV responses from the mock config; `tests/integration/test_e2e_mock_schema.py` validates them against `static/openapi.json` (a new intercept joins its cases) |
 | `app.py` | Assembly: patches, hooks in order, blueprints, `app.run` |
 
 ### Features

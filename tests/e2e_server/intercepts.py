@@ -3,9 +3,16 @@ KV store and memories answer from the per-test mock config when it is set."""
 
 from typing import Any
 
-from flask import Flask, g
+from flask import Flask, g, jsonify
+from pydantic import BaseModel
 
 from tests.e2e_server.context import MOCK_CONFIG
+
+
+def _as_response(model: type[BaseModel], data: dict[str, Any]) -> Any:
+    """Serialize through the route's response model, as the real route does:
+    every field present, defaults included (the spec marks them required)."""
+    return jsonify(model.model_validate(data).model_dump(mode="json"))
 
 
 # Override search endpoint using before_request to intercept /api/search
@@ -33,6 +40,9 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
     from datetime import datetime, timedelta
 
     from flask import jsonify, request
+
+    from src.api.schemas.agents import CommandCenterResponse
+    from src.api.schemas.planner import PlannerConversationResponse, PlannerDashboardResponse
 
     # Intercept /api/planner (dashboard)
     if request.path == "/api/planner" and request.method == "GET":
@@ -88,7 +98,8 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
                 }
             )
 
-        return jsonify(
+        return _as_response(
+            PlannerDashboardResponse,
             {
                 "days": days,
                 "overdue_tasks": [
@@ -113,7 +124,7 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
                 "weather_location": None,
                 "health_summary": None,
                 "server_time": datetime.now().isoformat(),
-            }
+            },
         )
 
     # Intercept /api/planner/conversation
@@ -143,7 +154,8 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
                 )()
             ]
 
-        return jsonify(
+        return _as_response(
+            PlannerConversationResponse,
             {
                 "id": conv.id,
                 "title": conv.title,
@@ -167,7 +179,7 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
                     for m in messages
                 ],
                 "was_reset": False,
-            }
+            },
         )
 
     # Intercept /api/planner/reset
@@ -231,14 +243,16 @@ def intercept_planner() -> Any | None:  # noqa: C901, PLR0912
         if MOCK_CONFIG.get("agents_command_center"):
             return jsonify(MOCK_CONFIG["agents_command_center"])
         # Return default empty command center
-        return jsonify(
+        return _as_response(
+            CommandCenterResponse,
             {
                 "pending_approvals": [],
                 "agents": [],
                 "recent_executions": [],
                 "total_unread": 0,
                 "agents_waiting": 0,
-            }
+                "stats": {},
+            },
         )
 
     # Intercept /api/agents/:id for individual agent testing

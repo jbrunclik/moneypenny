@@ -111,7 +111,7 @@ Details: [testing.md](testing.md).
 | T2 | Coverage floors follow actual coverage, about two points under it (backend 83%; frontend lines 44%, branches 40%) | `fail_under` (pyproject), vitest `coverage.thresholds` |
 | T3 | No placeholder tests (a body of only `pass`, a docstring or comments) | test (`test_test_hygiene.py`) |
 | T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, counted: 74 and 290) |
-| T5 | E2E mock responses validate against the API schema | planned |
+| T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | planned: post-step over the Playwright report |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`, counted: 92 imports) |
 | T8 | A new route module or `core/*.ts` module ships with a test | planned: CI script |
