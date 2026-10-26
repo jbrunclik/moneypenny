@@ -8,8 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agent import graph
-from src.agent.graph import chat_node, other_model_tier
+from src.agent import chat_model, graph
+from src.agent.chat_model import other_model_tier
+from src.agent.graph import chat_node
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
@@ -103,9 +104,9 @@ class TestChatNodeFallback:
 
 def test_chat_model_sdk_retries_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
     llm_cls = MagicMock()
-    monkeypatch.setattr(graph, "ChatGoogleGenerativeAI", llm_cls)
+    monkeypatch.setattr(chat_model, "ChatGoogleGenerativeAI", llm_cls)
 
-    graph.create_chat_model("gemini-fast", with_tools=False)
+    chat_model.create_chat_model("gemini-fast", with_tools=False)
 
     assert llm_cls.call_args.kwargs["max_retries"] == Config.AGENT_MODEL_SDK_MAX_RETRIES
 
@@ -161,10 +162,10 @@ def test_fallback_model_is_built_once_with_the_same_tools(
 ) -> None:
     fast, advanced = list(Config.MODELS)
     built = MagicMock(return_value="backup-model")
-    monkeypatch.setattr(graph, "create_chat_model", built)
+    monkeypatch.setattr(chat_model, "create_chat_model", built)
     tools = [MagicMock(name="tool")]
 
-    factory = graph._fallback_factory(fast, True, False, tools)
+    factory = chat_model.fallback_model_factory(fast, True, False, tools)
     assert factory is not None
     built.assert_not_called()  # built lazily, on the first fallback
 
@@ -174,4 +175,4 @@ def test_fallback_model_is_built_once_with_the_same_tools(
 
 
 def test_unknown_model_gets_no_fallback_factory() -> None:
-    assert graph._fallback_factory("some-other-model", True, False, []) is None
+    assert chat_model.fallback_model_factory("some-other-model", True, False, []) is None

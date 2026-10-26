@@ -540,9 +540,9 @@ class TestGraphStructure:
 class TestThinkingLevel:
     """create_chat_model honors the optional per-model thinking_level knob."""
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_passes_thinking_level_when_configured(self, mock_llm_class: MagicMock) -> None:
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         with patch.dict(
             Config.MODELS,
@@ -553,19 +553,19 @@ class TestThinkingLevel:
         call_kwargs = mock_llm_class.call_args[1]
         assert call_kwargs["thinking_level"] == "high"
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_omits_thinking_level_by_default(self, mock_llm_class: MagicMock) -> None:
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         create_chat_model("gemini-3.8-flash", with_tools=False)
 
         call_kwargs = mock_llm_class.call_args[1]
         assert "thinking_level" not in call_kwargs
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_an_explicit_level_overrides_the_model_default(self, mock_llm_class: MagicMock) -> None:
         """The freshness gate picks a lighter level for easy turns."""
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         with patch.dict(
             Config.MODELS,
@@ -579,10 +579,10 @@ class TestThinkingLevel:
 class TestCachedModelCreation:
     """Tests for create_chat_model with cached_content."""
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_cached_content_passed_to_model(self, mock_llm_class: MagicMock) -> None:
         """cached_content should be passed as kwarg to ChatGoogleGenerativeAI."""
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance
@@ -597,10 +597,10 @@ class TestCachedModelCreation:
         call_kwargs = mock_llm_class.call_args[1]
         assert call_kwargs["cached_content"] == "cachedContents/abc123"
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_cached_mode_does_not_bind_tools(self, mock_llm_class: MagicMock) -> None:
         """When cached_content is provided, bind_tools should NOT be called."""
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance
@@ -617,10 +617,10 @@ class TestCachedModelCreation:
         # Should return the model directly
         assert result == mock_instance
 
-    @patch("src.agent.graph.ChatGoogleGenerativeAI")
+    @patch("src.agent.chat_model.ChatGoogleGenerativeAI")
     def test_uncached_mode_binds_tools(self, mock_llm_class: MagicMock) -> None:
         """Without cached_content, tools should be bound normally."""
-        from src.agent.graph import create_chat_model
+        from src.agent.chat_model import create_chat_model
 
         mock_instance = MagicMock()
         mock_llm_class.return_value = mock_instance

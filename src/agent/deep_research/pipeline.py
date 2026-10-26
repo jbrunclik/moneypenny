@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from src.agent.cancellation import TurnCancelled, token_for
+from src.agent.chat_model import create_chat_model, other_model_tier
 from src.agent.deep_research.offer import build_offer
 from src.agent.deep_research.orchestrator import Orchestrator, merge_pages
 from src.agent.deep_research.plan import DeepResearchPlan
@@ -25,7 +26,6 @@ from src.agent.deep_research.writer import (
     stream_report,
     writer_model,
 )
-from src.agent.graph import create_chat_model, other_model_tier
 from src.agent.grounding_check import GroundingOutcome, check_grounding_pages
 from src.agent.retry import is_model_unavailable
 from src.agent.source_pages import SourcePage
