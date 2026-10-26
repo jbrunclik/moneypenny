@@ -402,8 +402,13 @@ test("a send while another device's reply is running steers that reply (one turn
   await expect(live).toContainText('mock response', { timeout: 20000 });
   await expect(live).not.toHaveClass(/streaming/, { timeout: 20000 });
   await expect(page.locator('.message.assistant')).toHaveCount(2);
-  const order = await texts(page);
-  expect(order.slice(2)).toEqual(['U:Long', 'U:Keep', 'A']);
+  // The other device's question arrives through sync, which can trail the
+  // reply's last chunk under load: wait for the order, don't sample it once
+  await expect.poll(async () => (await texts(page)).slice(2), { timeout: 10000 }).toEqual([
+    'U:Long',
+    'U:Keep',
+    'A',
+  ]);
   await expect(page.locator('.message--send-failed, .message--send-pending')).toHaveCount(0);
 
   // The phone shows the same single turn
