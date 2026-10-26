@@ -11,7 +11,7 @@ from dataclasses import asdict
 from typing import Any
 
 from src.agent.prompt_dashboard import get_dashboard_context_prompt
-from src.services.planner_data import (
+from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
     PlannerEvent,

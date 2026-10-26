@@ -13,11 +13,13 @@ from typing import Any
 
 from src.agent.prompts import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
-from src.services.planner_data import (
+from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
     PlannerEvent,
     PlannerTask,
+)
+from src.services.planner_data import (
     _format_event_for_dashboard,
     _format_task_for_dashboard,
     _get_day_name,
@@ -827,7 +829,7 @@ class TestRefreshPlannerDashboardTool:
 
         from src.agent.tools.planner import refresh_planner_dashboard
         from src.db.models import User
-        from src.services.planner_data import PlannerDashboard, PlannerDay, PlannerTask
+        from src.services.planner.models import PlannerDashboard, PlannerDay, PlannerTask
 
         # Mock get_conversation_context to return a user_id
         mocker.patch(
@@ -927,7 +929,7 @@ class TestRefreshPlannerDashboardTool:
         """
         from src.agent.tools.planner import refresh_planner_dashboard
         from src.db.models import User
-        from src.services.planner_data import PlannerDashboard
+        from src.services.planner.models import PlannerDashboard
 
         # Mock get_conversation_context to return a user_id
         mocker.patch(
