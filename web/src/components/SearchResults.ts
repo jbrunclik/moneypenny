@@ -115,8 +115,8 @@ function renderSearchResultItem(result: SearchResult, index: number, viewedResul
   const isActive = viewedResultIndex === index;
 
   // Build data attributes for navigation (include index for click handler)
-  const dataAttrs = `data-conv-id="${result.conversation_id}" data-result-index="${index}"${
-    result.message_id ? ` data-message-id="${result.message_id}"` : ''
+  const dataAttrs = `data-conv-id="${escapeHtml(result.conversation_id)}" data-result-index="${index}"${
+    result.message_id ? ` data-message-id="${escapeHtml(result.message_id)}"` : ''
   }`;
 
   return `

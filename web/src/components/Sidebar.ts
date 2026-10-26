@@ -379,6 +379,7 @@ function conversationMetaHtml(conv: Conversation): { unreadBadge: string; relati
  */
 function renderConversationItem(conv: Conversation, isActive: boolean): string {
   const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
+  const id = escapeHtml(conv.id);
   const { unreadBadge, relativeTime, preview } = conversationMetaHtml(conv);
 
   // Bulk delete selection mode: a checkbox per row (empty outside it)
@@ -386,7 +387,7 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
   const selected = state.isSelecting && isConversationSelected(state, conv);
 
   return `
-    <div class="conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}" data-conv-id="${conv.id}">
+    <div class="conversation-item-wrapper ${isActive ? 'active' : ''}${selected ? ' selected' : ''}" data-conv-id="${id}">
       <div class="conversation-item" role="button" tabindex="${isActive ? '0' : '-1'}"${isActive ? ' aria-current="true"' : ''}>
         ${renderSelectionCheckbox(conv)}
         <div class="conversation-text">
@@ -396,16 +397,16 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
         ${unreadBadge}
         ${relativeTime}
         <div class="conversation-actions">
-          <button class="conversation-pin" data-pin-id="${conv.id}" aria-label="${conv.pinned ? 'Unpin' : 'Pin'}" title="${conv.pinned ? 'Unpin' : 'Pin'}">
+          <button class="conversation-pin" data-pin-id="${id}" aria-label="${conv.pinned ? 'Unpin' : 'Pin'}" title="${conv.pinned ? 'Unpin' : 'Pin'}">
             ${conv.pinned ? UNPIN_ICON : PIN_ICON}
           </button>
-          <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
+          <button class="conversation-rename" data-rename-id="${id}" aria-label="Rename">
             ${EDIT_ICON}
           </button>
-          <button class="conversation-archive" data-archive-id="${conv.id}" aria-label="Archive">
+          <button class="conversation-archive" data-archive-id="${id}" aria-label="Archive">
             ${ARCHIVE_ICON}
           </button>
-          <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
+          <button class="conversation-delete" data-delete-id="${id}" aria-label="Delete">
             ${DELETE_ICON}
           </button>
         </div>
@@ -422,17 +423,18 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
  * data-delete-id delegation, so the confirm dialog still applies.
  */
 export function renderSwipeActions(convId: string): string {
+  const id = escapeHtml(convId);
   const quickAction =
     getSwipeQuickAction() === 'delete'
-      ? `<button class="conversation-delete-swipe" data-delete-id="${convId}" aria-label="Delete">
+      ? `<button class="conversation-delete-swipe" data-delete-id="${id}" aria-label="Delete">
           ${DELETE_ICON}
         </button>`
-      : `<button class="conversation-archive-swipe" data-archive-id="${convId}" aria-label="Archive">
+      : `<button class="conversation-archive-swipe" data-archive-id="${id}" aria-label="Archive">
           ${ARCHIVE_ICON}
         </button>`;
   return `
       <div class="conversation-actions-swipe">
-        <button class="conversation-more-swipe" data-more-id="${convId}" aria-label="More actions">
+        <button class="conversation-more-swipe" data-more-id="${id}" aria-label="More actions">
           ⋯
         </button>
         ${quickAction}
@@ -444,33 +446,34 @@ export function renderSwipeActions(convId: string): string {
  */
 function renderArchivedConversationItem(conv: Conversation): string {
   const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
+  const id = escapeHtml(conv.id);
 
   const relativeTime = conv.updated_at
     ? `<span class="conversation-time">${escapeHtml(formatRelativeTime(conv.updated_at))}</span>`
     : '';
 
   return `
-    <div class="conversation-item-wrapper" data-conv-id="${conv.id}">
+    <div class="conversation-item-wrapper" data-conv-id="${id}">
       <div class="conversation-item" role="button" tabindex="-1">
         <div class="conversation-title">${title}</div>
         ${relativeTime}
         <div class="conversation-actions">
-          <button class="conversation-rename" data-rename-id="${conv.id}" aria-label="Rename">
+          <button class="conversation-rename" data-rename-id="${id}" aria-label="Rename">
             ${EDIT_ICON}
           </button>
-          <button class="conversation-unarchive" data-unarchive-id="${conv.id}" aria-label="Unarchive">
+          <button class="conversation-unarchive" data-unarchive-id="${id}" aria-label="Unarchive">
             ${UNARCHIVE_ICON}
           </button>
-          <button class="conversation-delete" data-delete-id="${conv.id}" aria-label="Delete">
+          <button class="conversation-delete" data-delete-id="${id}" aria-label="Delete">
             ${DELETE_ICON}
           </button>
         </div>
       </div>
       <div class="conversation-actions-swipe">
-        <button class="conversation-more-swipe" data-more-archived-id="${conv.id}" aria-label="More actions">
+        <button class="conversation-more-swipe" data-more-archived-id="${id}" aria-label="More actions">
           ⋯
         </button>
-        <button class="conversation-unarchive-swipe" data-unarchive-id="${conv.id}" aria-label="Unarchive">
+        <button class="conversation-unarchive-swipe" data-unarchive-id="${id}" aria-label="Unarchive">
           ${UNARCHIVE_ICON}
         </button>
       </div>

@@ -313,6 +313,33 @@ describe('Sidebar', () => {
       expect(archiveBtn?.getAttribute('data-archive-id')).toBe('conv-456');
     });
 
+    it('keeps a conversation id with quotes inside its attributes', () => {
+      const id = 'c1" data-evil="1';
+      useStore.setState({ conversations: [createConversation(id, 'Quoted')] });
+
+      renderConversationsList();
+
+      expect(document.querySelector('[data-evil]')).toBeNull();
+      expect(document.querySelector<HTMLElement>('.conversation-item-wrapper')?.dataset.convId).toBe(id);
+      expect(document.querySelector('.conversation-archive')?.getAttribute('data-archive-id')).toBe(id);
+      expect(document.querySelector('.conversation-more-swipe')?.getAttribute('data-more-id')).toBe(id);
+    });
+
+    it('keeps an archived conversation id with quotes inside its attributes', () => {
+      const id = 'c1" data-evil="1';
+      useStore.setState({
+        isArchiveView: true,
+        archivedConversations: [createConversation(id, 'Quoted')],
+        archivedPagination: { nextCursor: null, hasMore: false, totalCount: 1, isLoadingMore: false },
+      });
+
+      renderConversationsList();
+
+      expect(document.querySelector('[data-evil]')).toBeNull();
+      expect(document.querySelector('.conversation-unarchive')?.getAttribute('data-unarchive-id')).toBe(id);
+      expect(document.querySelector('.conversation-more-swipe')?.getAttribute('data-more-archived-id')).toBe(id);
+    });
+
     it('renders archive button for every conversation item', () => {
       useStore.setState({
         conversations: [
