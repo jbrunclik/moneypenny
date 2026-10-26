@@ -188,7 +188,6 @@ vi.mock('@/core/active-requests', () => ({
   abortAllStreamingRequests: h.rec('abortAllStreamingRequests'),
 }));
 vi.mock('@/core/search', () => ({ handleSearchResultClick: h.recAsync('handleSearchResultClick') }));
-vi.mock('@/core/conversation', () => ({ isTempConversation: () => false }));
 vi.mock('@/core/conversation-deeplink', () => ({
   loadDeepLinkedConversation: h.recAsync('loadDeepLinkedConversation'),
   handleDeepLinkNavigation: h.rec('handleDeepLinkNavigation'),

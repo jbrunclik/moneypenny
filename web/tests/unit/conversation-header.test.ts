@@ -19,9 +19,6 @@ const m = vi.hoisted(() => ({
 }));
 
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: m.renderChatHeader }));
-vi.mock('@/core/conversation', () => ({
-  isTempConversation: (id: string | undefined) => id?.startsWith('temp-') ?? false,
-}));
 vi.mock('@/core/conversation-actions', () => ({
   deleteConversation: m.deleteConversation,
   renameConversationTo: m.renameConversationTo,

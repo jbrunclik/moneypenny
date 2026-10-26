@@ -92,9 +92,6 @@ vi.mock('@/components/AgentConversationHeader', () => ({
   renderAgentConversationHeader: m.renderAgentConversationHeader,
 }));
 vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: m.renderChatHeader }));
-vi.mock('@/core/conversation', () => ({
-  isTempConversation: (id: string | undefined) => id?.startsWith('temp-') ?? false,
-}));
 vi.mock('@/core/conversation-header', () => ({
   renderChatHeaderForConversation: m.renderChatHeaderForConversation,
 }));
