@@ -74,3 +74,24 @@ export async function screenshotReady(page: Page): Promise<void> {
   });
   await nextFrames(page);
 }
+
+/**
+ * Wait until the server has saved the open conversation's reply: its newest
+ * message is a non-empty assistant message. For tests that hide the page
+ * mid-stream and need the turn finished server-side before showing it again.
+ */
+export async function serverReplySaved(page: Page, timeoutMs = 20000): Promise<void> {
+  const convId = page.url().split('/conversations/')[1]?.split(/[?#/]/)[0];
+  if (!convId) throw new Error(`no conversation in ${page.url()}`);
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const response = await page.request.get(`/api/conversations/${convId}/messages?limit=1`);
+    if (response.ok()) {
+      const { messages } = (await response.json()) as { messages: Array<{ role: string; content: string }> };
+      const last = messages[messages.length - 1];
+      if (last?.role === 'assistant' && last.content.trim()) return;
+    }
+    if (Date.now() > deadline) throw new Error(`no saved reply in ${convId} after ${timeoutMs}ms`);
+    await page.waitForTimeout(100); // poll interval
+  }
+}

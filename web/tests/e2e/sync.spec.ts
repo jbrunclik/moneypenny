@@ -7,6 +7,7 @@
  * - Delete detection during sync
  */
 import { test, expect } from '../global-setup';
+import { nextFrames } from './waits';
 
 // Extend Window type for test helpers exposed by the app
 declare global {
@@ -192,8 +193,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // Wait a tiny bit
-    await page.waitForTimeout(50);
+    await nextFrames(page);
 
     // Manually force the hidden time to be > 5 minutes ago
     // We can't easily mock time in E2E, so we'll directly trigger full sync via reload
@@ -378,7 +378,7 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     expect(incrementalData.conversations[0].message_count).toBe(4); // 2 user + 2 assistant
   });
 
-  test('sync endpoint returns server time for next sync', async ({ page, request }) => {
+  test('sync endpoint returns the server time and a cursor', async ({ page, request }) => {
     // Create a conversation
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Test message');
@@ -389,14 +389,12 @@ test.describe('Sync - Sync Endpoint Integration', () => {
     const response = await request.get('/api/conversations/sync');
     const data = await response.json();
 
-    // Server time should be a valid ISO timestamp
+    // Server time should be a valid ISO timestamp (the client's baseline for
+    // what is new; the next sync passes the cursor)
     expect(data.server_time).toBeDefined();
     const serverTimeDate = new Date(data.server_time);
     expect(serverTimeDate.getTime()).not.toBeNaN();
-
-    // Using server_time for next sync should work
-    const nextSync = await request.get(`/api/conversations/sync?since=${data.server_time}`);
-    expect(nextSync.status()).toBe(200);
+    expect(typeof data.cursor).toBe('number');
   });
 });
 
@@ -530,6 +528,7 @@ test.describe('Sync - Visibility Change', () => {
 
     // Simulate visibility change (tab hidden then visible)
     // This tests that the SyncManager handles visibility changes
+    const synced = page.waitForResponse((r) => r.url().includes('/api/conversations/sync'));
     await page.evaluate(() => {
       // Dispatch visibilitychange event for hidden
       Object.defineProperty(document, 'visibilityState', {
@@ -550,8 +549,8 @@ test.describe('Sync - Visibility Change', () => {
       }, 100);
     });
 
-    // Wait for sync to happen (visibility change triggers incremental sync)
-    await page.waitForTimeout(500);
+    // The visibility change triggers a sync
+    await synced;
 
     // The conversation should still be in the sidebar
     const convItem = page.locator('.conversation-item-wrapper');
@@ -588,8 +587,9 @@ test.describe('Sync - Visibility Change', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
+    const synced = page.waitForResponse((r) => r.url().includes('/api/conversations/sync'));
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
         value: 'visible',
@@ -599,8 +599,8 @@ test.describe('Sync - Visibility Change', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // Wait for sync
-    await page.waitForTimeout(500);
+    // Coming back triggers a sync
+    await synced;
 
     // Both conversations should still be there
     const convItemsAfter = page.locator('.conversation-item-wrapper');
@@ -649,8 +649,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     const convItemsBefore = page.locator('.conversation-item-wrapper');
     await expect(convItemsBefore).toHaveCount(1);
 
-    // Wait a moment to ensure timestamps differ
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
 
     // Create a NEW conversation directly via API (simulating another device)
     // This bypasses the UI entirely, as if another device created it
@@ -677,8 +676,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     // Trigger a full sync (simulates tab becoming visible after >5 minutes hidden)
     await page.evaluate(() => window.__testFullSync());
 
-    // Wait for sync to complete and UI to update
-    await page.waitForTimeout(500);
 
     // REGRESSION: Before the fix, this would fail - only 1 conversation would show
     // After the fix, both conversations should appear
@@ -700,7 +697,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
 
     // Create a conversation with multiple messages via API
     const createResponse = await request.post('/api/conversations', {
@@ -718,7 +715,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
 
     // Trigger full sync
     await page.evaluate(() => window.__testFullSync());
-    await page.waitForTimeout(500);
 
     // Should have 2 conversations
     const convItems = page.locator('.conversation-item-wrapper');
@@ -737,7 +733,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
 
     // Create conversation via API
     const createResponse = await request.post('/api/conversations', {
@@ -751,7 +747,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
 
     // Trigger full sync
     await page.evaluate(() => window.__testFullSync());
-    await page.waitForTimeout(500);
 
     // Verify unread badge exists
     const unreadBadge = page.locator('.unread-badge');

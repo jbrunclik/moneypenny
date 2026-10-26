@@ -11,6 +11,7 @@
  */
 import { test, expect } from '../global-setup';
 import { clickStop } from './chat/fixtures';
+import { serverReplySaved } from './waits';
 
 test.describe('Stream Recovery - Visibility Changes', () => {
   test.beforeEach(async ({ page }) => {
@@ -47,8 +48,8 @@ test.describe('Stream Recovery - Visibility Changes', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // Wait for the stream to likely complete on server side
-    await page.waitForTimeout(3000);
+    // The stream completes server-side while the page is hidden
+    await serverReplySaved(page);
 
     // Simulate page becoming visible again
     await page.evaluate(() => {
@@ -89,7 +90,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // hidden for STREAM_RECOVERY_MIN_HIDDEN_MS: long enough that a recovery could start
 
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
@@ -101,7 +102,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     });
 
     // No recovery toast should appear (nothing to recover)
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // a span for a wrong recovery toast to show (none must)
     const recoveryToast = page.locator('.toast-info:has-text("Recovering")');
     await expect(recoveryToast).toHaveCount(0);
 
@@ -144,7 +145,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // hidden for STREAM_RECOVERY_MIN_HIDDEN_MS: long enough that a recovery could start
 
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
@@ -156,7 +157,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
     });
 
     // No recovery toast should appear - user abort clears pending recovery
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // a span for a wrong recovery toast to show (none must)
     const recoveryToast = page.locator('.toast-info:has-text("Recovering")');
     await expect(recoveryToast).toHaveCount(0);
 
@@ -193,8 +194,8 @@ test.describe('Stream Recovery - Visibility Changes', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    // Wait for response to complete on server
-    await page.waitForTimeout(3000);
+    // The response completes server-side
+    await serverReplySaved(page);
 
     // Simulate app coming back to foreground
     await page.evaluate(() => {
@@ -262,7 +263,7 @@ test.describe('Stream Recovery - Quick Return', () => {
     });
 
     // No recovery toast should appear (hidden too briefly)
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for a wrong recovery toast to show (none must)
     const recoveryToast = page.locator('.toast-info:has-text("Recovering")');
     await expect(recoveryToast).toHaveCount(0);
 
@@ -307,7 +308,7 @@ test.describe('Stream Recovery - Edge Cases', () => {
         document.dispatchEvent(new Event('visibilitychange'));
       });
 
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(200); // hidden under STREAM_RECOVERY_MIN_HIDDEN_MS (500): too briefly to recover
 
       await page.evaluate(() => {
         Object.defineProperty(document, 'visibilityState', {
@@ -318,7 +319,7 @@ test.describe('Stream Recovery - Edge Cases', () => {
         document.dispatchEvent(new Event('visibilitychange'));
       });
 
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(200); // visible again for a moment before the next hide
     }
 
     // Wait for stream to complete
@@ -356,7 +357,7 @@ test.describe('Stream Recovery - Edge Cases', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // hidden past STREAM_RECOVERY_MIN_HIDDEN_MS: a recovery starts on show
 
     // Simulate show
     await page.evaluate(() => {
