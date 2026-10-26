@@ -7,7 +7,7 @@ import { agents, aiAssist } from '../api/agents';
 import { settings } from '../api/settings';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
-import { escapeHtml, createElement } from '../utils/dom';
+import { createElement } from '../utils/dom';
 import { trapTabKey } from '../utils/focus-trap';
 import {
   ACTIVITY_ICON,
@@ -17,7 +17,11 @@ import {
   PHONE_ICON,
   ROBOT_ICON,
   SPARKLES_ICON,
+  createIconButton,
+  createIconElement,
+  iconNodes,
   setIcon,
+  type IconHtml,
 } from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import type { Agent, CreateAgentRequest, UpdateAgentRequest, UserSettings } from '../types/api';
@@ -204,120 +208,205 @@ function agentRunValues(agent: Agent | undefined) {
   };
 }
 
+const el = createElement;
+
+/** An input element whose `checked` (a boolean attribute) follows `checked`. */
+function checkbox(attributes: Record<string, string>, checked: boolean): HTMLInputElement {
+  return el('input', { type: 'checkbox', ...attributes, ...(checked ? { checked: '' } : {}) });
+}
+
+/** A textarea holding `text`. */
+function textarea(attributes: Record<string, string>, text: string): HTMLTextAreaElement {
+  const field = el('textarea', attributes);
+  field.textContent = text;
+  return field;
+}
+
+/** An option, selected when `selected`. */
+function option(value: string, label: string, selected: boolean): HTMLOptionElement {
+  return el('option', { value, ...(selected ? { selected: '' } : {}) }, [label]);
+}
+
+/** A small button with an icon and a label (Parse, Enhance). */
+function iconLabelButton(id: string, icon: IconHtml, label: string): HTMLButtonElement {
+  return el('button', { type: 'button', id, class: 'btn btn-secondary btn-sm btn-with-icon' }, [
+    iconNodes(icon),
+    el('span', {}, [label]),
+  ]);
+}
+
+function formGroup(children: (Node | string | false)[], extraClass = ''): HTMLElement {
+  return el('div', { class: `form-group${extraClass}` }, children);
+}
+
+function help(text: string, id?: string): HTMLElement {
+  return el('small', { class: 'form-help', ...(id ? { id } : {}) }, [text]);
+}
+
 /** Schedule field: preset chips, natural-language parsing, the resulting cron. */
-function scheduleFieldHtml(schedule: string): string {
+function scheduleField(schedule: string): HTMLElement {
   // Find matching preset or mark as custom
-  const matchingPreset = SCHEDULE_PRESETS.find(p => p.cron === schedule);
+  const matchingPreset = SCHEDULE_PRESETS.find((p) => p.cron === schedule);
   const isCustomSchedule = schedule && !matchingPreset;
-  return `
-          <div class="form-group">
-            <label>Schedule</label>
-            <div class="schedule-presets">
-              ${SCHEDULE_PRESETS.map(preset => `
-                <button type="button" class="schedule-preset-chip ${!isCustomSchedule && schedule === preset.cron ? 'selected' : ''}" data-cron="${escapeHtml(preset.cron)}">
-                  ${escapeHtml(preset.shortLabel)}
-                </button>
-              `).join('')}
-            </div>
-            <div class="schedule-natural-input">
-              <input type="text" id="agent-schedule-natural" class="form-input" placeholder="e.g., every weekday at 9am">
-              <div class="form-help-row">
-                <small class="form-help">Describe when the agent should run in natural language</small>
-                <button type="button" id="parse-schedule-btn" class="btn btn-secondary btn-sm btn-with-icon">
-                  ${SPARKLES_ICON}
-                  <span>Parse</span>
-                </button>
-              </div>
-            </div>
-            <div id="schedule-result" class="schedule-result ${isCustomSchedule || schedule ? '' : 'hidden'}">
-              <div class="schedule-result-info">
-                <span id="schedule-explanation">${isCustomSchedule ? 'Custom schedule' : matchingPreset?.label || ''}</span>
-                <span class="schedule-cron-badge">
-                  <code id="schedule-cron-display">${escapeHtml(schedule)}</code>
-                  <button type="button" id="edit-cron-btn" class="btn-icon-tiny" title="Edit cron">✎</button>
-                  <button type="button" id="clear-schedule-btn" class="btn-icon-tiny" title="Clear">×</button>
-                </span>
-              </div>
-              <div id="cron-edit-container" class="cron-edit-container hidden">
-                <input type="text" id="agent-cron" class="form-input form-input-sm" value="${escapeHtml(schedule)}" placeholder="0 9 * * *">
-                <small class="form-help" id="cron-help">minute hour day-of-month month day-of-week</small>
-                <small class="form-error form-error--hidden" id="cron-error">Invalid cron expression</small>
-              </div>
-            </div>
-            <input type="hidden" id="agent-schedule-value" value="${escapeHtml(schedule)}">
-          </div>
-  `;
+  const chips = SCHEDULE_PRESETS.map((preset) =>
+    el(
+      'button',
+      {
+        type: 'button',
+        class: `schedule-preset-chip ${!isCustomSchedule && schedule === preset.cron ? 'selected' : ''}`,
+        'data-cron': preset.cron,
+      },
+      [preset.shortLabel]
+    )
+  );
+  return formGroup([
+    el('label', {}, ['Schedule']),
+    el('div', { class: 'schedule-presets' }, chips),
+    el('div', { class: 'schedule-natural-input' }, [
+      el('input', { type: 'text', id: 'agent-schedule-natural', class: 'form-input', placeholder: 'e.g., every weekday at 9am' }),
+      el('div', { class: 'form-help-row' }, [
+        help('Describe when the agent should run in natural language'),
+        iconLabelButton('parse-schedule-btn', SPARKLES_ICON, 'Parse'),
+      ]),
+    ]),
+    el('div', { id: 'schedule-result', class: `schedule-result ${isCustomSchedule || schedule ? '' : 'hidden'}` }, [
+      el('div', { class: 'schedule-result-info' }, [
+        el('span', { id: 'schedule-explanation' }, [isCustomSchedule ? 'Custom schedule' : matchingPreset?.label || '']),
+        el('span', { class: 'schedule-cron-badge' }, [
+          el('code', { id: 'schedule-cron-display' }, [schedule]),
+          el('button', { type: 'button', id: 'edit-cron-btn', class: 'btn-icon-tiny', title: 'Edit cron' }, ['✎']),
+          el('button', { type: 'button', id: 'clear-schedule-btn', class: 'btn-icon-tiny', title: 'Clear' }, ['×']),
+        ]),
+      ]),
+      // Block flow: the spaces between input, help and error show
+      el('div', { id: 'cron-edit-container', class: 'cron-edit-container hidden' }, [
+        el('input', { type: 'text', id: 'agent-cron', class: 'form-input form-input-sm', value: schedule, placeholder: '0 9 * * *' }),
+        ' ',
+        help('minute hour day-of-month month day-of-week', 'cron-help'),
+        ' ',
+        el('small', { class: 'form-error form-error--hidden', id: 'cron-error' }, ['Invalid cron expression']),
+      ]),
+    ]),
+    el('input', { type: 'hidden', id: 'agent-schedule-value', value: schedule }),
+  ]);
 }
 
 /** Model field: the models the agent can run on. */
-function modelFieldHtml(model: string): string {
+function modelField(model: string): HTMLElement {
   const { models } = useStore.getState();
-  return `
-          <div class="form-group">
-            <label for="agent-model">Model</label>
-            <select id="agent-model" class="form-input form-select">
-              ${models.map(m => `
-                <option value="${escapeHtml(m.id)}" ${model === m.id ? 'selected' : ''}>
-                  ${escapeHtml(m.name)} (${escapeHtml(m.short_name)})
-                </option>
-              `).join('')}
-            </select>
-            <small class="form-help">The LLM model used when running this agent.</small>
-          </div>
-  `;
+  return formGroup([
+    el('label', { for: 'agent-model' }, ['Model']),
+    el(
+      'select',
+      { id: 'agent-model', class: 'form-input form-select' },
+      models.map((m) => option(m.id, `${m.name} (${m.short_name})`, model === m.id))
+    ),
+    help('The LLM model used when running this agent.'),
+  ]);
 }
 
 /** Tool permission cards. */
-function toolPermissionsFieldHtml(availableTools: typeof BASE_TOOLS, toolPermissions: string[]): string {
+function toolPermissionsField(availableTools: typeof BASE_TOOLS, toolPermissions: string[]): HTMLElement {
   // null permissions = unrestricted: render every box checked so the UI
   // tells the truth (unchecked boxes would read as "no access")
   const isToolChecked = (toolId: string): boolean =>
     originalPermissionsUnrestricted || toolPermissions.includes(toolId);
-  return `
-          <div class="form-group">
-            <label>Tool Permissions</label>
-            <div class="tool-permissions-grid">
-              ${availableTools.map(tool => `
-                <label class="tool-permission-card">
-                  <input type="checkbox" name="tool-permission" value="${escapeHtml(tool.id)}" ${isToolChecked(tool.id) ? 'checked' : ''}>
-                  <span class="tool-permission-content">
-                    <span class="tool-icon">${tool.icon}</span>
-                    <span class="tool-details">
-                      <span class="tool-name">${escapeHtml(tool.name)}</span>
-                      <span class="tool-description">${escapeHtml(tool.description)}</span>
-                    </span>
-                    <span class="tool-checkbox-indicator"></span>
-                  </span>
-                </label>
-              `).join('')}
-            </div>
-            <small class="form-help">${originalPermissionsUnrestricted
-              ? 'This agent has unrestricted tool access (including tools not listed here). Changing the selection restricts it to the checked integrations.'
-              : 'Select which integrations the agent can use.'}</small>
-          </div>
-  `;
+  const cards = availableTools.map((tool) =>
+    el('label', { class: 'tool-permission-card' }, [
+      checkbox({ name: 'tool-permission', value: tool.id }, isToolChecked(tool.id)),
+      el('span', { class: 'tool-permission-content' }, [
+        createIconElement('tool-icon', tool.icon),
+        el('span', { class: 'tool-details' }, [
+          el('span', { class: 'tool-name' }, [tool.name]),
+          el('span', { class: 'tool-description' }, [tool.description]),
+        ]),
+        el('span', { class: 'tool-checkbox-indicator' }),
+      ]),
+    ])
+  );
+  return formGroup([
+    el('label', {}, ['Tool Permissions']),
+    el('div', { class: 'tool-permissions-grid' }, cards),
+    help(
+      originalPermissionsUnrestricted
+        ? 'This agent has unrestricted tool access (including tools not listed here). Changing the selection restricts it to the checked integrations.'
+        : 'Select which integrations the agent can use.'
+    ),
+  ]);
+}
+
+function toggle(id: string, checked: boolean, text: string): HTMLElement {
+  return el('label', { class: 'toggle-label' }, [
+    checkbox({ id }, checked),
+    el('span', { class: 'toggle-switch' }),
+    el('span', { class: 'toggle-text' }, [text]),
+  ]);
 }
 
 /** Fresh context and Enabled toggles. */
-function togglesHtml(freshContext: boolean, enabled: boolean): string {
-  return `
-          <div class="form-group">
-            <label class="toggle-label">
-              <input type="checkbox" id="agent-fresh-context" ${freshContext ? 'checked' : ''}>
-              <span class="toggle-switch"></span>
-              <span class="toggle-text">Fresh context</span>
-            </label>
-            <small class="form-help">Each run starts from a clean slate - previous runs stay readable in the conversation but aren't sent to the model (cheaper; turn off only if runs should build on each other).</small>
-          </div>
+function toggles(freshContext: boolean, enabled: boolean): HTMLElement[] {
+  return [
+    formGroup([
+      toggle('agent-fresh-context', freshContext, 'Fresh context'),
+      help(
+        "Each run starts from a clean slate - previous runs stay readable in the conversation but aren't sent to the model (cheaper; turn off only if runs should build on each other)."
+      ),
+    ]),
+    formGroup([toggle('agent-enabled', enabled, 'Enabled')], ' form-group-inline'),
+  ];
+}
 
-          <div class="form-group form-group-inline">
-            <label class="toggle-label">
-              <input type="checkbox" id="agent-enabled" ${enabled ? 'checked' : ''}>
-              <span class="toggle-switch"></span>
-              <span class="toggle-text">Enabled</span>
-            </label>
-          </div>
-  `;
+/** The form's fields, top to bottom. */
+function formFields(v: ReturnType<typeof agentTextValues> & ReturnType<typeof agentRunValues>, availableTools: typeof BASE_TOOLS): HTMLElement[] {
+  return [
+    formGroup([
+      el('label', { for: 'agent-name' }, ['Name ', el('span', { class: 'required' }, ['*'])]),
+      el('input', { type: 'text', id: 'agent-name', class: 'form-input', value: v.name, placeholder: 'e.g., Daily Briefing Agent', required: '' }),
+      el('small', { class: 'form-error form-error--hidden', id: 'agent-name-error' }, ['Name is required']),
+    ]),
+    formGroup([
+      el('label', { for: 'agent-description' }, ['Description']),
+      textarea({ id: 'agent-description', class: 'form-input form-textarea', rows: '2', placeholder: 'What does this agent do?' }, v.description),
+    ]),
+    scheduleField(v.schedule),
+    formGroup([
+      el('label', { for: 'agent-timezone' }, ['Timezone']),
+      el('select', { id: 'agent-timezone', class: 'form-input form-select' }, timezoneOptions(v.timezone)),
+    ]),
+    modelField(v.model),
+    formGroup([
+      el('label', { for: 'agent-budget-limit' }, ['Daily Budget Limit (USD)']),
+      el('input', {
+        type: 'number',
+        id: 'agent-budget-limit',
+        class: 'form-input',
+        value: v.budgetLimit != null ? String(v.budgetLimit) : '',
+        placeholder: 'No limit',
+        min: '0',
+        step: '0.01',
+      }),
+      help('Maximum daily spending in USD. Leave empty for no limit.'),
+    ]),
+    formGroup([
+      el('label', { for: 'agent-system-prompt' }, ['System Prompt / Goals']),
+      textarea(
+        {
+          id: 'agent-system-prompt',
+          class: 'form-input form-textarea form-textarea--large',
+          rows: '8',
+          placeholder:
+            'Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...',
+        },
+        v.systemPrompt
+      ),
+      el('div', { class: 'form-help-row' }, [
+        help("Define the agent's purpose, behavior, and any specific instructions."),
+        iconLabelButton('enhance-prompt-btn', SPARKLES_ICON, 'Enhance'),
+      ]),
+    ]),
+    toolPermissionsField(availableTools, v.toolPermissions),
+    ...toggles(v.freshContext, v.enabled),
+  ];
 }
 
 /**
@@ -334,72 +423,25 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
 
   const v = { ...agentTextValues(agent), ...agentRunValues(agent) };
 
-  modalContainer.innerHTML = `
-    <div class="agent-editor" role="dialog" aria-modal="true" aria-labelledby="agent-editor-title">
-      <div class="agent-editor-header">
-        <div class="agent-editor-title-row">
-          <span class="agent-editor-icon">${ROBOT_ICON}</span>
-          <h2 id="agent-editor-title" class="dialog-title">${escapeHtml(title)}</h2>
-        </div>
-        <button class="agent-editor-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
-      </div>
-
-      <div class="agent-editor-body">
-        <div class="agent-editor-form">
-          <div class="form-group">
-            <label for="agent-name">Name <span class="required">*</span></label>
-            <input type="text" id="agent-name" class="form-input" value="${escapeHtml(v.name)}" placeholder="e.g., Daily Briefing Agent" required>
-            <small class="form-error form-error--hidden" id="agent-name-error">Name is required</small>
-          </div>
-
-          <div class="form-group">
-            <label for="agent-description">Description</label>
-            <textarea id="agent-description" class="form-input form-textarea" rows="2" placeholder="What does this agent do?">${escapeHtml(v.description)}</textarea>
-          </div>
-
-          ${scheduleFieldHtml(v.schedule)}
-          <div class="form-group">
-            <label for="agent-timezone">Timezone</label>
-            <select id="agent-timezone" class="form-input form-select">
-              ${getTimezoneOptions(v.timezone)}
-            </select>
-          </div>
-
-          ${modelFieldHtml(v.model)}
-          <div class="form-group">
-            <label for="agent-budget-limit">Daily Budget Limit (USD)</label>
-            <input type="number" id="agent-budget-limit" class="form-input" value="${v.budgetLimit != null ? v.budgetLimit : ''}" placeholder="No limit" min="0" step="0.01">
-            <small class="form-help">Maximum daily spending in USD. Leave empty for no limit.</small>
-          </div>
-
-          <div class="form-group">
-            <label for="agent-system-prompt">System Prompt / Goals</label>
-            <textarea id="agent-system-prompt" class="form-input form-textarea form-textarea--large" rows="8" placeholder="Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...">${escapeHtml(v.systemPrompt)}</textarea>
-            <div class="form-help-row">
-              <small class="form-help">Define the agent's purpose, behavior, and any specific instructions.</small>
-              <button type="button" id="enhance-prompt-btn" class="btn btn-secondary btn-sm btn-with-icon">
-                ${SPARKLES_ICON}
-                <span>Enhance</span>
-              </button>
-            </div>
-          </div>
-
-          ${toolPermissionsFieldHtml(availableTools, v.toolPermissions)}
-          ${togglesHtml(v.freshContext, v.enabled)}
-        </div>
-      </div>
-
-      <div class="agent-editor-footer">
-        ${isEditing ? '<button class="btn btn-danger agent-editor-delete">Delete Agent</button>' : ''}
-        <div class="agent-editor-footer-right">
-          <button class="btn btn-secondary agent-editor-cancel">Cancel</button>
-          <button class="btn btn-primary agent-editor-save">
-            ${isEditing ? 'Save Changes' : 'Create Agent'}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
+  modalContainer.replaceChildren(
+    el('div', { class: 'agent-editor', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'agent-editor-title' }, [
+      el('div', { class: 'agent-editor-header' }, [
+        el('div', { class: 'agent-editor-title-row' }, [
+          createIconElement('agent-editor-icon', ROBOT_ICON),
+          el('h2', { id: 'agent-editor-title', class: 'dialog-title' }, [title]),
+        ]),
+        createIconButton({ class: 'agent-editor-close dialog-close', 'aria-label': 'Close' }, CLOSE_ICON),
+      ]),
+      el('div', { class: 'agent-editor-body' }, [el('div', { class: 'agent-editor-form' }, formFields(v, availableTools))]),
+      el('div', { class: 'agent-editor-footer' }, [
+        isEditing && el('button', { class: 'btn btn-danger agent-editor-delete' }, ['Delete Agent']),
+        el('div', { class: 'agent-editor-footer-right' }, [
+          el('button', { class: 'btn btn-secondary agent-editor-cancel' }, ['Cancel']),
+          el('button', { class: 'btn btn-primary agent-editor-save' }, [isEditing ? 'Save Changes' : 'Create Agent']),
+        ]),
+      ]),
+    ])
+  );
 
   // Setup schedule UI handlers
   setupScheduleHandlers();
@@ -418,9 +460,9 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
 }
 
 /**
- * Get timezone options HTML.
+ * The timezone options (common ones, plus the selected one if it isn't).
  */
-function getTimezoneOptions(selected: string): string {
+function timezoneOptions(selected: string): HTMLOptionElement[] {
   // Common timezones
   const timezones = [
     'UTC',
@@ -443,11 +485,7 @@ function getTimezoneOptions(selected: string): string {
     timezones.push(selected);
   }
 
-  return timezones.map(tz => `
-    <option value="${escapeHtml(tz)}" ${selected === tz ? 'selected' : ''}>
-      ${escapeHtml(tz.replace(/_/g, ' '))}
-    </option>
-  `).join('');
+  return timezones.map((tz) => option(tz, tz.replace(/_/g, ' '), selected === tz));
 }
 
 /**

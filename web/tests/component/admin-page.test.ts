@@ -72,7 +72,7 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
 
 function render(data: AdminOverview): HTMLElement {
   const div = document.createElement('div');
-  div.innerHTML = renderAdminOverview(data);
+  div.append(...renderAdminOverview(data));
   return div;
 }
 

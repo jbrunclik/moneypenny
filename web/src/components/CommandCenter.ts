@@ -4,8 +4,8 @@
  * Agent status (last execution, unreads) is shown inline on each agent card.
  */
 
-import { createElement, escapeHtml } from '../utils/dom';
-import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, createIconElement, setIcon, type IconHtml } from '../utils/icons';
+import { createElement } from '../utils/dom';
+import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, createIconButton, createIconElement, iconNodes, setIcon, type IconHtml } from '../utils/icons';
 import { createEmptyState } from './EmptyState';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
@@ -234,20 +234,14 @@ export function renderCommandCenter(
 }
 
 /** The status dot next to an agent's name (pending approval, disabled, last run outcome). */
-function agentStatusIndicatorHtml(agent: Agent): string {
-  if (agent.has_pending_approval) {
-    return `<span class="status-indicator status-indicator--warning" title="Waiting for approval"></span>`;
-  }
-  if (!agent.enabled) {
-    return `<span class="status-indicator status-indicator--disabled" title="Disabled"></span>`;
-  }
-  if (agent.last_execution_status === 'failed') {
-    return `<span class="status-indicator status-indicator--error" title="Last run failed"></span>`;
-  }
-  if (agent.last_execution_status === 'completed') {
-    return `<span class="status-indicator status-indicator--success" title="Last run completed"></span>`;
-  }
-  return '';
+function agentStatusIndicator(agent: Agent): HTMLElement | null {
+  const dot = (kind: string, title: string): HTMLElement =>
+    createElement('span', { class: `status-indicator status-indicator--${kind}`, title });
+  if (agent.has_pending_approval) return dot('warning', 'Waiting for approval');
+  if (!agent.enabled) return dot('disabled', 'Disabled');
+  if (agent.last_execution_status === 'failed') return dot('error', 'Last run failed');
+  if (agent.last_execution_status === 'completed') return dot('success', 'Last run completed');
+  return null;
 }
 
 /** An agent's schedule, last run and next run as display text ('' when absent). */
@@ -263,22 +257,34 @@ function agentScheduleTexts(agent: Agent): { scheduleText: string; lastRunText: 
  * System-managed agents get a badge so it's clear the app owns their
  * lifecycle; extend the map for future special agent types.
  */
-function agentSystemBadgeHtml(agent: Agent): string {
+function agentSystemBadge(agent: Agent): HTMLElement | null {
   const systemTypeLabels: Record<string, string> = {
     daily_briefing: 'Built-in',
   };
   return agent.system_type
-    ? `<span class="agent-system-badge" title="Built-in agent - schedule and delivery are configured in Settings">${escapeHtml(systemTypeLabels[agent.system_type] ?? 'Built-in')}</span>`
-    : '';
+    ? createElement(
+        'span',
+        { class: 'agent-system-badge', title: 'Built-in agent - schedule and delivery are configured in Settings' },
+        [systemTypeLabels[agent.system_type] ?? 'Built-in']
+      )
+    : null;
 }
 
-/** The agent's runs and cost over the stats window ('' when it did not run). */
-function agentWindowStatsHtml(windowStats: AgentWindowStats | undefined): string {
-  if (!windowStats || windowStats.runs <= 0) return '';
-  const failed = windowStats.failed > 0
-    ? ` · <span class="agent-window-stats--failed">${windowStats.failed} failed</span>`
-    : '';
-  return `<span class="agent-window-stats" title="Runs and cost over the last 7 days">7d: ${windowStats.runs} run${windowStats.runs === 1 ? '' : 's'}${failed} · ${escapeHtml(windowStats.cost_display)}</span>`;
+/** The agent's runs and cost over the stats window (null when it did not run). */
+function agentWindowStats(windowStats: AgentWindowStats | undefined): HTMLElement | null {
+  if (!windowStats || windowStats.runs <= 0) return null;
+  const runs = `7d: ${windowStats.runs} run${windowStats.runs === 1 ? '' : 's'}`;
+  const cost = ` · ${windowStats.cost_display}`;
+  const text =
+    windowStats.failed > 0
+      ? [`${runs} · `, createElement('span', { class: 'agent-window-stats--failed' }, [`${windowStats.failed} failed`]), cost]
+      : [`${runs}${cost}`];
+  return createElement('span', { class: 'agent-window-stats', title: 'Runs and cost over the last 7 days' }, text);
+}
+
+/** A button with an icon and a text label (Run, Approve, Reject). */
+function iconLabelButton(attributes: Record<string, string>, icon: IconHtml, label: Node): HTMLButtonElement {
+  return createElement('button', attributes, [iconNodes(icon), label]);
 }
 
 /**
@@ -295,43 +301,36 @@ function renderAgentCard(
   card.className = `agent-card ${agent.enabled ? '' : 'agent-card--disabled'}`;
   card.dataset.agentId = agent.id;
 
-  const statusIndicator = agentStatusIndicatorHtml(agent);
-
-  // Unread badge
-  const unreadBadge = agent.unread_count > 0
-    ? `<span class="unread-badge">${agent.unread_count > 99 ? '99+' : agent.unread_count}</span>`
-    : '';
-
   const { scheduleText, lastRunText, nextRunText } = agentScheduleTexts(agent);
-  const systemBadge = agentSystemBadgeHtml(agent);
 
-  card.innerHTML = `
-    <div class="agent-card-header">
-      <div class="agent-card-title-row">
-        ${statusIndicator}
-        <span class="agent-name">${escapeHtml(agent.name)}</span>
-        ${systemBadge}
-        ${unreadBadge}
-      </div>
-      <div class="agent-card-actions">
-        ${agent.system_type ? '' : `
-        <button class="btn-icon btn-edit" title="Edit agent" aria-label="Edit agent">
-          ${EDIT_ICON}
-        </button>`}
-        <button class="btn-icon btn-run btn-run-labeled" title="Run now" aria-label="Run agent now">
-          ${PLAY_ICON}
-          <span class="btn-run-label">Run</span>
-        </button>
-      </div>
-    </div>
-    ${agent.description ? `<p class="agent-description">${escapeHtml(agent.description)}</p>` : ''}
-    <div class="agent-card-meta">
-      <span class="agent-schedule">${escapeHtml(scheduleText)}</span>
-      ${lastRunText ? `<span class="agent-last-run">Last: ${escapeHtml(lastRunText)}</span>` : ''}
-      ${nextRunText ? `<span class="agent-next-run">Next: ${escapeHtml(nextRunText)}</span>` : ''}
-      ${agentWindowStatsHtml(windowStats)}
-    </div>
-  `;
+  card.append(
+    createElement('div', { class: 'agent-card-header' }, [
+      createElement('div', { class: 'agent-card-title-row' }, [
+        agentStatusIndicator(agent),
+        createElement('span', { class: 'agent-name' }, [agent.name]),
+        agentSystemBadge(agent),
+        // Unread badge
+        agent.unread_count > 0 &&
+          createElement('span', { class: 'unread-badge' }, [agent.unread_count > 99 ? '99+' : String(agent.unread_count)]),
+      ]),
+      createElement('div', { class: 'agent-card-actions' }, [
+        !agent.system_type &&
+          createIconButton({ class: 'btn-icon btn-edit', title: 'Edit agent', 'aria-label': 'Edit agent' }, EDIT_ICON),
+        iconLabelButton(
+          { class: 'btn-icon btn-run btn-run-labeled', title: 'Run now', 'aria-label': 'Run agent now' },
+          PLAY_ICON,
+          createElement('span', { class: 'btn-run-label' }, ['Run'])
+        ),
+      ]),
+    ]),
+    ...(agent.description ? [createElement('p', { class: 'agent-description' }, [agent.description])] : []),
+    createElement('div', { class: 'agent-card-meta' }, [
+      createElement('span', { class: 'agent-schedule' }, [scheduleText]),
+      !!lastRunText && createElement('span', { class: 'agent-last-run' }, [`Last: ${lastRunText}`]),
+      !!nextRunText && createElement('span', { class: 'agent-next-run' }, [`Next: ${nextRunText}`]),
+      agentWindowStats(windowStats),
+    ])
+  );
 
   // Click on card to select agent
   card.addEventListener('click', (e) => {
@@ -369,54 +368,52 @@ function renderApprovalCard(
   card.className = 'approval-card';
 
   // Format tool args for display if available
-  let toolArgsHtml = '';
+  let toolArgs: HTMLElement | null = null;
   if (approval.tool_args && Object.keys(approval.tool_args).length > 0) {
     const argsPreview = Object.entries(approval.tool_args)
       .slice(0, 3) // Show max 3 args
       .map(([key, value]) => {
         const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
         const truncated = valueStr.length > 50 ? valueStr.slice(0, 50) + '...' : valueStr;
-        return `<span class="tool-arg"><span class="tool-arg-key">${escapeHtml(key)}:</span> ${escapeHtml(truncated)}</span>`;
-      })
-      .join('');
+        return createElement('span', { class: 'tool-arg' }, [
+          createElement('span', { class: 'tool-arg-key' }, [`${key}:`]),
+          ` ${truncated}`,
+        ]);
+      });
     const moreCount = Object.keys(approval.tool_args).length - 3;
-    const moreText = moreCount > 0 ? `<span class="tool-args-more">+${moreCount} more</span>` : '';
-    toolArgsHtml = `<div class="tool-args">${argsPreview}${moreText}</div>`;
+    toolArgs = createElement('div', { class: 'tool-args' }, [
+      ...argsPreview,
+      moreCount > 0 && createElement('span', { class: 'tool-args-more' }, [`+${moreCount} more`]),
+    ]);
   }
 
   // Build schedule context from agent data
-  let scheduleContextHtml = '';
-  if (agent?.schedule) {
-    const scheduleText = formatSchedule(agent.schedule);
-    scheduleContextHtml = `<span class="approval-schedule" title="Agent schedule: ${escapeHtml(scheduleText)}">${CLOCK_ICON} ${escapeHtml(scheduleText)}</span>`;
-  }
+  const scheduleText = agent?.schedule ? formatSchedule(agent.schedule) : '';
+  const scheduleContext =
+    !!scheduleText &&
+    createElement('span', { class: 'approval-schedule', title: `Agent schedule: ${scheduleText}` }, [
+      iconNodes(CLOCK_ICON),
+      ` ${scheduleText}`,
+    ]);
 
-  card.innerHTML = `
-    <div class="approval-card-header">
-      <span class="approval-agent-name">${escapeHtml(approval.agent_name)}</span>
-      <span class="approval-time">${formatRelativeTime(new Date(approval.created_at))}</span>
-    </div>
-    <div class="approval-card-content">
-      <p class="approval-description">${escapeHtml(approval.description)}</p>
-      <div class="approval-meta">
-        <div class="approval-tool">
-          <span class="tool-name">${escapeHtml(approval.tool_name)}</span>
-        </div>
-        ${scheduleContextHtml}
-      </div>
-      ${toolArgsHtml}
-    </div>
-    <div class="approval-card-actions">
-      <button class="btn btn-approve" title="Approve">
-        ${CHECK_ICON}
-        <span>Approve</span>
-      </button>
-      <button class="btn btn-reject" title="Reject">
-        ${CLOSE_ICON}
-        <span>Reject</span>
-      </button>
-    </div>
-  `;
+  card.append(
+    createElement('div', { class: 'approval-card-header' }, [
+      createElement('span', { class: 'approval-agent-name' }, [approval.agent_name]),
+      createElement('span', { class: 'approval-time' }, [formatRelativeTime(new Date(approval.created_at))]),
+    ]),
+    createElement('div', { class: 'approval-card-content' }, [
+      createElement('p', { class: 'approval-description' }, [approval.description]),
+      createElement('div', { class: 'approval-meta' }, [
+        createElement('div', { class: 'approval-tool' }, [createElement('span', { class: 'tool-name' }, [approval.tool_name])]),
+        scheduleContext,
+      ]),
+      toolArgs,
+    ]),
+    createElement('div', { class: 'approval-card-actions' }, [
+      iconLabelButton({ class: 'btn btn-approve', title: 'Approve' }, CHECK_ICON, createElement('span', {}, ['Approve'])),
+      iconLabelButton({ class: 'btn btn-reject', title: 'Reject' }, CLOSE_ICON, createElement('span', {}, ['Reject'])),
+    ])
+  );
 
   // Approve button
   card.querySelector('.btn-approve')?.addEventListener('click', () => {
@@ -587,17 +584,17 @@ function renderExecutionItem(
     }
   }
 
-  item.innerHTML = `
-    <div class="execution-item-main">
-      <span class="execution-status">${statusInfo.icon}</span>
-      <span class="execution-agent-name">${escapeHtml(agentName)}</span>
-      <span class="execution-trigger">${escapeHtml(triggerLabel)}</span>
-    </div>
-    <div class="execution-item-meta">
-      <span class="execution-time">${formatRelativeTime(new Date(execution.started_at))}</span>
-      ${durationText ? `<span class="execution-duration">${durationText}</span>` : ''}
-    </div>
-  `;
+  item.append(
+    createElement('div', { class: 'execution-item-main' }, [
+      createElement('span', { class: 'execution-status' }, [statusInfo.icon]),
+      createElement('span', { class: 'execution-agent-name' }, [agentName]),
+      createElement('span', { class: 'execution-trigger' }, [triggerLabel]),
+    ]),
+    createElement('div', { class: 'execution-item-meta' }, [
+      createElement('span', { class: 'execution-time' }, [formatRelativeTime(new Date(execution.started_at))]),
+      !!durationText && createElement('span', { class: 'execution-duration' }, [durationText]),
+    ])
+  );
 
   return item;
 }

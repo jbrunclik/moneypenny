@@ -6,7 +6,7 @@
  */
 import { admin } from '../api/admin';
 import type { AdminOverview } from '../types/api';
-import { createElement, escapeHtml } from '../utils/dom';
+import { createElement, createSvgElement } from '../utils/dom';
 import { getFocusableElements, trapTabKey } from '../utils/focus-trap';
 import { CHEVRON_LEFT_ICON, REFRESH_ICON, createIconButton } from '../utils/icons';
 import { createLogger } from '../utils/logger';
@@ -45,95 +45,136 @@ function dateTime(iso: string | null | undefined): string {
   return iso ? iso.replace('T', ' ').slice(0, 16) : '-';
 }
 
-function section(title: string, body: string): string {
-  return `<section class="admin-section"><h2>${escapeHtml(title)}</h2>${body}</section>`;
+type Child = Node | string | null | false | undefined;
+
+const el = createElement;
+
+function section(title: string, body: Child[]): HTMLElement {
+  return el('section', { class: 'admin-section' }, [el('h2', {}, [title]), ...body]);
 }
 
-function renderChart(daily: Spend['daily']): string {
+/** A labelled number: <div class="admin-stat"><span>label</span><strong>value</strong></div> */
+function stat(label: string, value: string, extraClass = ''): HTMLElement {
+  return el('div', { class: `admin-stat${extraClass}` }, [el('span', {}, [label]), el('strong', {}, [value])]);
+}
+
+function table(head: (string | [string, string])[], rows: HTMLElement[]): HTMLElement {
+  const th = (h: string | [string, string]): HTMLElement =>
+    typeof h === 'string' ? el('th', {}, [h]) : el('th', { title: h[1] }, [h[0]]);
+  return el('table', { class: 'admin-table' }, [
+    el('thead', {}, [el('tr', {}, head.map(th))]),
+    el('tbody', {}, rows),
+  ]);
+}
+
+function chart(daily: Spend['daily']): SVGSVGElement {
   const max = Math.max(...daily.map((d) => d.amount.usd), 0);
   const barWidth = (CHART_WIDTH - CHART_GAP * (daily.length - 1)) / daily.length;
-  const bars = daily
-    .map((day, i) => {
-      const height = max > 0 ? Math.round((day.amount.usd / max) * CHART_HEIGHT) : 0;
-      const x = (i * (barWidth + CHART_GAP)).toFixed(1);
-      const label = `${day.date}: ${day.amount.formatted}`;
-      return `<rect x="${x}" y="${CHART_HEIGHT - height}" width="${barWidth.toFixed(1)}" height="${height}"><title>${escapeHtml(label)}</title></rect>`;
-    })
-    .join('');
-  return `<svg class="admin-chart" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}" preserveAspectRatio="none" role="img" aria-label="Spend over the last 30 days">${bars}</svg>`;
-}
-
-function renderShares(title: string, shares: Spend['by_feature'], labels: Record<string, string>): string {
-  const rows = shares
-    .map((s) => `<li><span>${escapeHtml(labels[s.name] ?? s.name)}</span><span>${escapeHtml(s.amount.formatted)}</span></li>`)
-    .join('');
-  return `<div class="admin-shares"><h3>${escapeHtml(title)}</h3><ul>${rows}</ul></div>`;
-}
-
-function renderSpend(spend: Spend): string {
-  const users = spend.users
-    .map(
-      (u) => `<tr class="admin-user-row${u.over_threshold ? ' admin-over-threshold' : ''}">
-        <td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.today.formatted)}</td><td>${escapeHtml(u.month.formatted)}</td><td>${u.month_chats}</td><td>${u.month_turns}</td></tr>`
-    )
-    .join('');
-  return section(
-    'Spend',
-    `<div class="admin-stats">
-      <div class="admin-stat admin-spend-today"><span>Today</span><strong>${escapeHtml(spend.today.formatted)}</strong></div>
-      <div class="admin-stat"><span>This month</span><strong>${escapeHtml(spend.month.formatted)}</strong></div>
-    </div>
-    <table class="admin-table"><thead><tr><th>Person</th><th>Today</th><th>This month</th><th title="Chats with an answer this month">Chats</th><th title="Answers this month">Turns</th></tr></thead><tbody>${users}</tbody></table>
-    <p class="admin-note">Highlighted: past ${escapeHtml(spend.threshold.formatted)} today.</p>
-    <h3>Last 30 days</h3>${renderChart(spend.daily)}
-    <div class="admin-columns">${renderShares('By feature this month', spend.by_feature, FEATURE_LABELS)}${renderShares('By model this month', spend.by_model, {})}</div>`
+  const bars = daily.map((day, i) => {
+    const height = max > 0 ? Math.round((day.amount.usd / max) * CHART_HEIGHT) : 0;
+    const x = (i * (barWidth + CHART_GAP)).toFixed(1);
+    const label = `${day.date}: ${day.amount.formatted}`;
+    return createSvgElement(
+      'rect',
+      { x, y: String(CHART_HEIGHT - height), width: barWidth.toFixed(1), height: String(height) },
+      [createSvgElement('title', {}, [label])]
+    );
+  });
+  return createSvgElement(
+    'svg',
+    {
+      class: 'admin-chart',
+      viewBox: `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`,
+      preserveAspectRatio: 'none',
+      role: 'img',
+      'aria-label': 'Spend over the last 30 days',
+    },
+    bars
   );
 }
 
-function renderAgents(agents: AdminOverview['agents']): string {
-  const failures = agents.recent_failures
-    .map(
-      (f) => `<li><strong>${escapeHtml(f.agent_name)}</strong> (${escapeHtml(f.user_name)}), ${escapeHtml(dateTime(f.started_at))}<br><span class="admin-error-text">${escapeHtml(f.error)}</span></li>`
-    )
-    .join('');
-  return section(
-    'Agents',
-    `<div class="admin-stats">
-      <div class="admin-stat"><span>Runs (7 days)</span><strong>${agents.runs_7d}</strong></div>
-      <div class="admin-stat${agents.failed_7d ? ' admin-stat-warn' : ''}"><span>Failed</span><strong>${agents.failed_7d}</strong></div>
-      <div class="admin-stat"><span>Waiting for approval</span><strong>${agents.pending_approvals}</strong></div>
-    </div>
-    ${failures ? `<h3>Latest failures</h3><ul class="admin-failures">${failures}</ul>` : ''}`
-  );
+function shares(title: string, list: Spend['by_feature'], labels: Record<string, string>): HTMLElement {
+  return el('div', { class: 'admin-shares' }, [
+    el('h3', {}, [title]),
+    el(
+      'ul',
+      {},
+      list.map((s) => el('li', {}, [el('span', {}, [labels[s.name] ?? s.name]), el('span', {}, [s.amount.formatted])]))
+    ),
+  ]);
 }
 
-function renderSearch(search: AdminOverview['search']): string {
-  const rows = search.providers
-    .map((p) => {
-      const usage = p.quota === null || p.quota === undefined ? 'unmetered' : `${p.used} / ${p.quota}`;
-      const state = !p.configured ? 'no key' : p.available ? 'available' : 'out of service';
-      return `<tr data-provider="${escapeHtml(p.provider)}"><td>${escapeHtml(p.provider)}</td><td>${escapeHtml(usage)}</td><td>${escapeHtml(state)}</td></tr>`;
-    })
-    .join('');
-  const degraded = search.degraded_today
-    ? '<p class="admin-search-degraded">Search fell back to the free provider today.</p>'
-    : '';
-  return section(
-    'Web search this period',
-    `${degraded}<table class="admin-table"><thead><tr><th>Provider</th><th>Used</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
+function spendSection(spend: Spend): HTMLElement {
+  const users = spend.users.map((u) =>
+    el('tr', { class: `admin-user-row${u.over_threshold ? ' admin-over-threshold' : ''}` }, [
+      el('td', {}, [u.name]),
+      el('td', {}, [u.today.formatted]),
+      el('td', {}, [u.month.formatted]),
+      el('td', {}, [String(u.month_chats)]),
+      el('td', {}, [String(u.month_turns)]),
+    ])
   );
+  return section('Spend', [
+    el('div', { class: 'admin-stats' }, [
+      stat('Today', spend.today.formatted, ' admin-spend-today'),
+      stat('This month', spend.month.formatted),
+    ]),
+    table(
+      ['Person', 'Today', 'This month', ['Chats', 'Chats with an answer this month'], ['Turns', 'Answers this month']],
+      users
+    ),
+    el('p', { class: 'admin-note' }, [`Highlighted: past ${spend.threshold.formatted} today.`]),
+    el('h3', {}, ['Last 30 days']),
+    chart(spend.daily),
+    el('div', { class: 'admin-columns' }, [
+      shares('By feature this month', spend.by_feature, FEATURE_LABELS),
+      shares('By model this month', spend.by_model, {}),
+    ]),
+  ]);
 }
 
-function renderQuality(quality: AdminOverview['quality']): string {
-  return section(
-    'Responses (7 days)',
-    `<div class="admin-stats">
-      <div class="admin-stat"><span>Turns</span><strong>${quality.turns_7d}</strong></div>
-      <div class="admin-stat"><span>Typical time</span><strong>${seconds(quality.median_ms)}</strong></div>
-      <div class="admin-stat"><span>Slowest 5%</span><strong>${seconds(quality.p95_ms)}</strong></div>
-      <div class="admin-stat"><span>With tool errors</span><strong>${(quality.tool_error_rate * 100).toFixed(1)}%</strong></div>
-    </div>`
+function agentsSection(agents: AdminOverview['agents']): HTMLElement {
+  const failures = agents.recent_failures.map((f) =>
+    el('li', {}, [
+      el('strong', {}, [f.agent_name]),
+      ` (${f.user_name}), ${dateTime(f.started_at)}`,
+      el('br'),
+      el('span', { class: 'admin-error-text' }, [f.error]),
+    ])
   );
+  return section('Agents', [
+    el('div', { class: 'admin-stats' }, [
+      stat('Runs (7 days)', String(agents.runs_7d)),
+      stat('Failed', String(agents.failed_7d), agents.failed_7d ? ' admin-stat-warn' : ''),
+      stat('Waiting for approval', String(agents.pending_approvals)),
+    ]),
+    failures.length > 0 && el('h3', {}, ['Latest failures']),
+    failures.length > 0 && el('ul', { class: 'admin-failures' }, failures),
+  ]);
+}
+
+function searchSection(search: AdminOverview['search']): HTMLElement {
+  const rows = search.providers.map((p) => {
+    const usage = p.quota === null || p.quota === undefined ? 'unmetered' : `${p.used} / ${p.quota}`;
+    const state = !p.configured ? 'no key' : p.available ? 'available' : 'out of service';
+    return el('tr', { 'data-provider': p.provider }, [el('td', {}, [p.provider]), el('td', {}, [usage]), el('td', {}, [state])]);
+  });
+  return section('Web search this period', [
+    search.degraded_today &&
+      el('p', { class: 'admin-search-degraded' }, ['Search fell back to the free provider today.']),
+    table(['Provider', 'Used', 'Status'], rows),
+  ]);
+}
+
+function qualitySection(quality: AdminOverview['quality']): HTMLElement {
+  return section('Responses (7 days)', [
+    el('div', { class: 'admin-stats' }, [
+      stat('Turns', String(quality.turns_7d)),
+      stat('Typical time', seconds(quality.median_ms)),
+      stat('Slowest 5%', seconds(quality.p95_ms)),
+      stat('With tool errors', `${(quality.tool_error_rate * 100).toFixed(1)}%`),
+    ]),
+  ]);
 }
 
 const BROWSER_ERROR_KINDS: Record<string, string> = {
@@ -142,7 +183,7 @@ const BROWSER_ERROR_KINDS: Record<string, string> = {
   logged: 'Logged',
 };
 
-function renderBrowserError(e: AdminOverview['browser_errors'][number]): string {
+function browserError(e: AdminOverview['browser_errors'][number]): HTMLElement {
   const people = e.users === 1 ? '1 person' : `${e.users} people`;
   const meta = [
     BROWSER_ERROR_KINDS[e.kind] ?? e.kind,
@@ -152,20 +193,23 @@ function renderBrowserError(e: AdminOverview['browser_errors'][number]): string 
     e.path ?? '',
     e.app_version ? `build ${e.app_version}` : '',
   ].filter(Boolean);
-  const stack = e.stack
-    ? `<details><summary>Stack</summary><pre>${escapeHtml(e.stack)}</pre></details>`
-    : '';
-  return `<li><span class="admin-error-text">${escapeHtml(e.message)}</span><br><span class="admin-browser-error-meta">${escapeHtml(meta.join(' · '))}</span>${stack}</li>`;
+  return el('li', {}, [
+    el('span', { class: 'admin-error-text' }, [e.message]),
+    el('br'),
+    el('span', { class: 'admin-browser-error-meta' }, [meta.join(' · ')]),
+    !!e.stack && el('details', {}, [el('summary', {}, ['Stack']), el('pre', {}, [e.stack])]),
+  ]);
 }
 
-function renderBrowserErrors(errors: AdminOverview['browser_errors']): string {
-  const body = errors.length
-    ? `<ul class="admin-failures admin-browser-errors">${errors.map(renderBrowserError).join('')}</ul>`
-    : '<p class="admin-note">No browser errors in the last 7 days.</p>';
-  return section('Browser errors (7 days)', body);
+function browserErrorsSection(errors: AdminOverview['browser_errors']): HTMLElement {
+  return section('Browser errors (7 days)', [
+    errors.length
+      ? el('ul', { class: 'admin-failures admin-browser-errors' }, errors.map(browserError))
+      : el('p', { class: 'admin-note' }, ['No browser errors in the last 7 days.']),
+  ]);
 }
 
-function renderSystem(system: AdminOverview['system']): string {
+function systemSection(system: AdminOverview['system']): HTMLElement {
   const facts: [string, string][] = [
     ['Version', system.version ?? '-'],
     ['Database', megabytes(system.database_bytes)],
@@ -174,21 +218,22 @@ function renderSystem(system: AdminOverview['system']): string {
     ['Latest migration', system.latest_migration ?? '-'],
     ['Users', String(system.users)],
   ];
-  const rows = facts.map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('');
-  return section('System', `<dl class="admin-facts">${rows}</dl>`);
+  return section('System', [
+    el('dl', { class: 'admin-facts' }, facts.flatMap(([k, v]) => [el('dt', {}, [k]), el('dd', {}, [v])])),
+  ]);
 }
 
 /** The page body for an overview (exported for tests). */
-export function renderAdminOverview(data: AdminOverview): string {
+export function renderAdminOverview(data: AdminOverview): HTMLElement[] {
   return [
-    renderSpend(data.spend),
-    renderAgents(data.agents),
-    renderSearch(data.search),
-    renderQuality(data.quality),
-    renderBrowserErrors(data.browser_errors),
-    renderSystem(data.system),
-    `<p class="admin-note">Updated ${escapeHtml(dateTime(data.generated_at))}</p>`,
-  ].join('');
+    spendSection(data.spend),
+    agentsSection(data.agents),
+    searchSection(data.search),
+    qualitySection(data.quality),
+    browserErrorsSection(data.browser_errors),
+    systemSection(data.system),
+    el('p', { class: 'admin-note' }, [`Updated ${dateTime(data.generated_at)}`]),
+  ];
 }
 
 function onKeydown(e: KeyboardEvent): void {
@@ -207,7 +252,7 @@ function onKeydown(e: KeyboardEvent): void {
 async function load(body: HTMLElement): Promise<void> {
   body.innerHTML = '<p class="admin-loading">Loading…</p>';
   try {
-    body.innerHTML = renderAdminOverview(await admin.getOverview());
+    body.replaceChildren(...renderAdminOverview(await admin.getOverview()));
   } catch (error) {
     log.error('Failed to load the admin overview', { error });
     body.innerHTML = '<p class="admin-error">The overview could not be loaded. Try again in a moment.</p>';

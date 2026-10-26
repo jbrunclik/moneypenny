@@ -111,6 +111,18 @@ export function createElement<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
+/** createElement for SVG markup (an <svg> and its shapes need the SVG namespace). */
+export function createSvgElement<K extends keyof SVGElementTagNameMap>(
+  tag: K,
+  attributes: Record<string, string> = {},
+  children: (Node | string)[] = []
+): SVGElementTagNameMap[K] {
+  const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value);
+  element.append(...children);
+  return element;
+}
+
 /**
  * Add event listener with automatic cleanup
  */
