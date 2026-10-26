@@ -381,12 +381,17 @@ update:
 	@command -v flock >/dev/null || { echo "make update needs flock (util-linux)"; exit 1; }
 	flock --nonblock .deploy.lock $(MAKE) --no-print-directory _update
 
+# Back up before the new code lands: timers run from this checkout, and a deploy
+# that brings migrations can't be undone by `make rollback`. Merging the fetched
+# commit (not a second pull) means nothing newer slips in without a backup.
 _update:
 	@mkdir -p .deploy
 	git rev-parse HEAD > .deploy/previous-sha
+	git fetch -q
+	@if ! git diff --quiet "$$(cat .deploy/previous-sha)" main@{u} -- migrations/; then echo "New migrations - backing up the databases first"; $(PYTHON) scripts/backup_databases.py || { echo "Backup failed - not deploying"; exit 1; }; fi
 	git checkout -q main  # a rollback leaves HEAD detached
 	git checkout -- web/package-lock.json 2>/dev/null || true
-	git pull --ff-only
+	git merge -q --ff-only main@{u}
 	$(PIP) install -r requirements.txt
 	# Keep the agent browser tool's Chromium in lockstep with the playwright
 	# package: a version bump changes the required build, and pip install alone
@@ -394,12 +399,6 @@ _update:
 	# install"). No-op download when already current; no --with-deps (unattended,
 	# no sudo - system libs come from the one-time `make browser-setup`).
 	$(PYTHON) -m playwright install chromium
-	# Migrations apply when the new workers start and can't be rolled back by
-	# `make rollback`: take a backup first when this deploy brings any
-	@if ! git diff --quiet "$$(cat .deploy/previous-sha)" HEAD -- migrations/; then \
-		echo "New migrations - backing up the databases first"; \
-		$(PYTHON) scripts/backup_databases.py; \
-	fi
 	$(MAKE) --no-print-directory _build_and_reload
 
 # Code-only rollback to the commit before the last deploy (S11). A deploy that

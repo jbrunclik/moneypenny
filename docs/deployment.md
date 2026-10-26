@@ -56,16 +56,31 @@ restart. Verify what the live process actually sees with:
 1. Takes a lock (`flock .deploy.lock`): a second deploy while one runs fails
    at once. A quick double deploy once stranded a half-applied migration and
    crash-looped the app (Aug 22 2026).
-2. Records the current commit in `.deploy/previous-sha`, then pulls `main`.
-3. Installs `requirements.txt` (runtime only) and the matching Chromium.
-4. Backs up both databases (`scripts/backup_databases.py`) when the pull brings
-   new migrations - they apply when the new workers start and can't be undone
-   by a rollback.
+2. Records the current commit in `.deploy/previous-sha` and fetches `main`.
+3. Backs up both databases (`scripts/backup_databases.py`) when the fetched
+   commit brings new migrations - **before** any new code reaches the checkout.
+   Timers run from the same checkout, and migrations can't be undone by a
+   rollback. A failed backup stops the deploy before anything changes.
+4. Fast-forwards to the fetched commit (not a fresh pull, so nothing newer
+   arrives without a backup), then installs `requirements.txt` (runtime only)
+   and the matching Chromium.
 5. Builds into `static/assets.new` and copies it over `static/assets` without
    deleting anything, reloads, and waits for the new workers to pass the
    health gate (`scripts/deploy_health_gate.py`, polling `/api/ready`, which
    also fails while something holds the database's write lock). Only then are the chunks
    that just the previous build used removed.
+
+**Only the web app applies migrations** (`create_app` calls `db.migrate()`
+when a new worker starts). The process-wide `db` is opened with
+`apply_migrations=False`, so the timers and scripts never do: while migrations
+are pending (between the deploy's fast-forward and the new workers' start)
+each one logs `Migrations pending, skipping` and exits 0, and runs normally on
+its next tick. Before Oct 26 2026 the per-minute agent-scheduler timer could
+apply a new migration with the freshly pulled code, before the backup existed.
+The first new worker migrates while the others wait for yoyo's lock for up to
+`MIGRATION_LOCK_TIMEOUT_SECONDS` (default 300; yoyo's own 10 s failed their
+boot on a long migration). The health gate waits 120 s, so a migration that
+takes longer needs a larger `--timeout` too.
 
 `make rollback` returns the code to the commit in `.deploy/previous-sha`
 (detached HEAD; the next `make update` goes back to `main`), rebuilds and
