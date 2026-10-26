@@ -1,13 +1,14 @@
 /**
  * SyncManager handles real-time synchronization of conversation state
- * across multiple devices/tabs using timestamp-based polling.
+ * across multiple devices/tabs by polling.
  *
- * Key features:
- * - Incremental sync using server-provided timestamps
- * - Full sync on initial load and after long tab inactivity
- * - Delete detection via ID comparison during full sync
- * - Unread message count tracking per conversation
- * - Visibility-aware polling (pauses when tab hidden)
+ * It owns when to sync: the initial full sync, the poll loop (paused while
+ * the tab is hidden), the sync lock and queue, foregrounding (visibility,
+ * bfcache, back online) and this device's own message counts. What a sync
+ * response changes lives in the modules beside it:
+ * - change-log-merge / full-sync-merge / summary-merge - applying responses
+ * - planner-sync, agent-conversation-sync, command-center-sync - side views
+ * - sync-state - the shared per-conversation state; read-reporting
  */
 
 import { conversations as conversationsApi } from '../api/conversations';
@@ -199,34 +200,7 @@ export class SyncManager {
     log.debug('Performing full sync');
 
     try {
-      // Prune stale entries before syncing
-      this.pruneLocalMessageCounts();
-
-      // Only conversations known BEFORE the request can be "missing" from
-      // its answer: one created, restored or unarchived here while it was
-      // in flight is absent from the server's older snapshot - it was
-      // removed (open: "This conversation was deleted.") until the change
-      // log re-added it a minute later
-      const knownBefore = new Set(useStore.getState().conversations.map((c) => c.id));
-      this.state.markSyncRequest();
-      const result = await conversationsApi.sync(null, true);
-      this.lastSyncTime = result.server_time;
-      // Taken before the server's query: changes during it re-arrive next time
-      if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
-
-      // Set initialLoadTime on first full sync (before applying results)
-      // This allows us to distinguish pagination-discovered vs actually new conversations
-      if (!this.state.initialLoadTime) {
-        this.state.initialLoadTime = result.server_time;
-        log.debug('Initial load time established', { initialLoadTime: this.state.initialLoadTime });
-      }
-
-      applyFullSync(this.state, result.conversations, knownBefore);
-      log.info('Full sync completed', {
-        conversationCount: result.conversations.length,
-        serverTime: result.server_time,
-      });
-
+      await this.fetchFullSync();
       // Also sync command center to show badges immediately
       await syncCommandCenter();
     } catch (error) {
@@ -236,6 +210,37 @@ export class SyncManager {
       this.isSyncing = false;
       this.runQueuedFullSync();
     }
+  }
+
+  /** Fetch every conversation and apply the answer (deletions, updates, additions). */
+  private async fetchFullSync(): Promise<void> {
+    // Prune stale entries before syncing
+    this.pruneLocalMessageCounts();
+
+    // Only conversations known BEFORE the request can be "missing" from
+    // its answer: one created, restored or unarchived here while it was
+    // in flight is absent from the server's older snapshot - it was
+    // removed (open: "This conversation was deleted.") until the change
+    // log re-added it a minute later
+    const knownBefore = new Set(useStore.getState().conversations.map((c) => c.id));
+    this.state.markSyncRequest();
+    const result = await conversationsApi.sync(null, true);
+    this.lastSyncTime = result.server_time;
+    // Taken before the server's query: changes during it re-arrive next time
+    if (typeof result.cursor === 'number') this.changeCursor = result.cursor;
+
+    // Set initialLoadTime on first full sync (before applying results)
+    // This allows us to distinguish pagination-discovered vs actually new conversations
+    if (!this.state.initialLoadTime) {
+      this.state.initialLoadTime = result.server_time;
+      log.debug('Initial load time established', { initialLoadTime: this.state.initialLoadTime });
+    }
+
+    applyFullSync(this.state, result.conversations, knownBefore);
+    log.info('Full sync completed', {
+      conversationCount: result.conversations.length,
+      serverTime: result.server_time,
+    });
   }
 
   private runQueuedFullSync(): void {
@@ -267,31 +272,21 @@ export class SyncManager {
       return;
     }
 
-    if (!this.lastSyncTime) {
+    const since = this.lastSyncTime;
+    if (!since) {
       // No previous sync time, do a full sync instead
       await this.fullSync();
       return;
     }
 
     this.isSyncing = true;
-    log.debug('Performing incremental sync', { since: this.lastSyncTime, cursor: this.changeCursor });
+    log.debug('Performing incremental sync', { since, cursor: this.changeCursor });
 
     try {
       if (this.changeCursor !== null) {
         await this.syncChangeLog();
       } else {
-        const result = await conversationsApi.sync(this.lastSyncTime, false);
-        this.lastSyncTime = result.server_time;
-
-        if (result.conversations.length > 0) {
-          this.applyIncrementalSync(result.conversations);
-          log.info('Incremental sync completed', {
-            updatedCount: result.conversations.length,
-            serverTime: result.server_time,
-          });
-        } else {
-          log.debug('Incremental sync: no changes');
-        }
+        await this.syncSince(since);
       }
 
       // Additionally sync planner if user has integrations
@@ -308,6 +303,22 @@ export class SyncManager {
     } finally {
       this.isSyncing = false;
       this.runQueuedFullSync();
+    }
+  }
+
+  /** Legacy timestamp sync (a server without the change log): what changed since `since`. */
+  private async syncSince(since: string): Promise<void> {
+    const result = await conversationsApi.sync(since, false);
+    this.lastSyncTime = result.server_time;
+
+    if (result.conversations.length > 0) {
+      this.applyIncrementalSync(result.conversations);
+      log.info('Incremental sync completed', {
+        updatedCount: result.conversations.length,
+        serverTime: result.server_time,
+      });
+    } else {
+      log.debug('Incremental sync: no changes');
     }
   }
 
