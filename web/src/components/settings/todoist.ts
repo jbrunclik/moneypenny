@@ -1,11 +1,11 @@
-import { escapeHtml } from '../../utils/dom';
+import { createElement } from '../../utils/dom';
 import { CHECK_ICON, WARNING_ICON, CHECKLIST_ICON } from '../../utils/icons';
 import { todoist } from '../../api/integrations';
 import { toast } from '../Toast';
 import type { TodoistStatus } from '../../types/api';
 import { useStore } from '../../state/store';
 import { renderConversationsList } from '../Sidebar';
-import { log, renderFieldLabel, rerenderField } from './shared';
+import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 export const TODOIST_STATE_KEY = 'todoist-oauth-state';
 
@@ -19,72 +19,51 @@ export function setTodoistStatus(status: TodoistStatus | null): void {
 }
 
 /**
- * Render Todoist connection status
+ * The Todoist connection status
  */
-function renderTodoistBody(status: TodoistStatus | null): string {
+function todoistBody(status: TodoistStatus | null): HTMLElement[] {
   if (status === null) {
-    return `
-      <div class="settings-todoist-loading">Loading Todoist status...</div>
-    `;
+    return [createElement('div', { class: 'settings-todoist-loading' }, ['Loading Todoist status...'])];
   }
 
   // Token is invalid - show reconnection warning
   if (status.connected && status.needs_reconnect) {
-    return `
-      <div class="settings-todoist-needs-reconnect">
-        <span class="settings-todoist-status">
-          <span class="settings-todoist-icon warning">${WARNING_ICON}</span>
-          Todoist access expired
-        </span>
-        <p class="settings-helper">Your Todoist connection has expired. Please reconnect to continue managing tasks.</p>
-        <div class="settings-todoist-actions">
-          <button type="button" class="btn btn-primary btn-sm settings-todoist-connect">
-            Reconnect
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm settings-todoist-disconnect">
-            Disconnect
-          </button>
-        </div>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-todoist-needs-reconnect' }, [
+        statusLine('todoist', 'warning', WARNING_ICON, 'Todoist access expired'),
+        helper('Your Todoist connection has expired. Please reconnect to continue managing tasks.'),
+        createElement('div', { class: 'settings-todoist-actions' }, [
+          textButton('btn btn-primary btn-sm settings-todoist-connect', 'Reconnect'),
+          textButton('btn btn-secondary btn-sm settings-todoist-disconnect', 'Disconnect'),
+        ]),
+      ]),
+    ];
   }
 
   if (status.connected) {
-    return `
-      <div class="settings-todoist-connected">
-        <span class="settings-todoist-status">
-          <span class="settings-todoist-icon connected">${CHECK_ICON}</span>
-          Connected${status.todoist_email ? ` as ${escapeHtml(status.todoist_email)}` : ''}
-        </span>
-        <button type="button" class="btn btn-secondary btn-sm settings-todoist-disconnect">
-          Disconnect
-        </button>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-todoist-connected' }, [
+        statusLine('todoist', 'connected', CHECK_ICON, `Connected${status.todoist_email ? ` as ${status.todoist_email}` : ''}`),
+        textButton('btn btn-secondary btn-sm settings-todoist-disconnect', 'Disconnect'),
+      ]),
+    ];
   }
 
-  return `
-    <div class="settings-todoist-disconnected">
-      <p class="settings-helper">Connect your Todoist account to manage tasks with AI</p>
-      <button type="button" class="btn btn-primary btn-sm settings-todoist-connect">
-        Connect Todoist
-      </button>
-    </div>
-  `;
+  return [
+    createElement('div', { class: 'settings-todoist-disconnected' }, [
+      helper('Connect your Todoist account to manage tasks with AI'),
+      textButton('btn btn-primary btn-sm settings-todoist-connect', 'Connect Todoist'),
+    ]),
+  ];
 }
 
-/** Render the whole Todoist field (label + status body). */
-export function renderTodoistField(): string {
-  return `
-      <div class="settings-field" data-section="todoist">
-        ${renderFieldLabel(CHECKLIST_ICON, LABEL)}
-        ${renderTodoistBody(todoistStatus)}
-      </div>
-  `;
+/** The whole Todoist field (label + status body). */
+export function renderTodoistField(): HTMLElement {
+  return settingsField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus));
 }
 
 function updateTodoistSection(): void {
-  rerenderField('todoist', CHECKLIST_ICON, LABEL, renderTodoistBody(todoistStatus));
+  rerenderField('todoist', CHECKLIST_ICON, LABEL, todoistBody(todoistStatus));
 }
 
 /**

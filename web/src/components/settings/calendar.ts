@@ -1,12 +1,12 @@
-import { escapeHtml } from '../../utils/dom';
-import { CHECK_ICON, WARNING_ICON, CALENDAR_ICON, STAR_ICON } from '../../utils/icons';
+import { createElement } from '../../utils/dom';
+import { CHECK_ICON, WARNING_ICON, CALENDAR_ICON, STAR_ICON, createIconElement } from '../../utils/icons';
 import { calendar } from '../../api/integrations';
 import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { Calendar, CalendarStatus } from '../../types/api';
 import { useStore } from '../../state/store';
 import { renderConversationsList } from '../Sidebar';
-import { log, renderFieldLabel, rerenderField } from './shared';
+import { checkbox, helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 export const CALENDAR_STATE_KEY = 'calendar-oauth-state';
 
@@ -32,164 +32,130 @@ export function setCalendarStatus(status: CalendarStatus | null): void {
 }
 
 /**
- * Render calendar selection UI with checkboxes
+ * The calendar selection: a checkbox per calendar
  */
-function renderCalendarSelection(
+function calendarSelection(
   calendars: Calendar[],
   selected: string[],
   loading: boolean,
   error: string | null = null
-): string {
+): HTMLElement[] {
   if (loading) {
-    return `
-      <div class="settings-calendar-loading">
-        <div class="spinner-small"></div>
-        <span>Loading calendars...</span>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-calendar-loading' }, [
+        createElement('div', { class: 'spinner-small' }),
+        createElement('span', {}, ['Loading calendars...']),
+      ]),
+    ];
   }
 
   // Show error message if present (from backend)
   if (error) {
-    return `
-      <div class="settings-calendar-error">
-        <span class="settings-calendar-icon warning">${WARNING_ICON}</span>
-        <div>
-          <p class="settings-error-message">${escapeHtml(error)}</p>
-          ${error.toLowerCase().includes('expired') || error.toLowerCase().includes('reconnect')
-            ? '<p class="settings-helper">Please disconnect and reconnect your Google Calendar in the section above.</p>'
-            : '<p class="settings-helper">Please try refreshing the page or check your connection.</p>'}
-        </div>
-      </div>
-    `;
+    const reconnect = error.toLowerCase().includes('expired') || error.toLowerCase().includes('reconnect');
+    return [
+      createElement('div', { class: 'settings-calendar-error' }, [
+        createIconElement('settings-calendar-icon warning', WARNING_ICON),
+        createElement('div', {}, [
+          createElement('p', { class: 'settings-error-message' }, [error]),
+          helper(
+            reconnect
+              ? 'Please disconnect and reconnect your Google Calendar in the section above.'
+              : 'Please try refreshing the page or check your connection.'
+          ),
+        ]),
+      ]),
+    ];
   }
 
   if (calendars.length === 0) {
-    return `
-      <div class="settings-empty-state">
-        <p>No calendars available. Create one in Google Calendar first.</p>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-empty-state' }, [
+        createElement('p', {}, ['No calendars available. Create one in Google Calendar first.']),
+      ]),
+    ];
   }
 
-  return `
-    <div class="settings-calendar-list">
-      ${calendars.map((cal) => renderCalendarItem(cal, selected)).join('')}
-    </div>
-    <p class="settings-helper">
-      ${selected.length === 1 ? '1 calendar selected' : `${selected.length} calendars selected`}
-    </p>
-  `;
+  return [
+    createElement('div', { class: 'settings-calendar-list' }, calendars.map((cal) => calendarItem(cal, selected))),
+    helper(selected.length === 1 ? '1 calendar selected' : `${selected.length} calendars selected`),
+  ];
 }
 
-function renderCalendarItem(cal: Calendar, selected: string[]): string {
+function calendarItem(cal: Calendar, selected: string[]): HTMLElement {
   const isPrimary = cal.primary || cal.id === 'primary';
   const isChecked = isPrimary || selected.includes(cal.id); // Primary always checked
   const isDisabled = isPrimary; // Primary calendar cannot be unchecked
 
-  return `
-          <label class="settings-calendar-item${isDisabled ? ' disabled' : ''}" data-calendar-id="${escapeHtml(cal.id)}">
-            <input
-              type="checkbox"
-              class="settings-calendar-checkbox"
-              data-calendar-id="${escapeHtml(cal.id)}"
-              ${isChecked ? 'checked' : ''}
-              ${isDisabled ? 'disabled' : ''}
-            />
-            <div class="settings-calendar-info">
-              ${cal.background_color ? `<span class="calendar-color-dot" style="background-color: ${escapeHtml(cal.background_color)}"></span>` : ''}
-              ${isPrimary ? `<span class="calendar-star-icon">${STAR_ICON}</span>` : ''}
-              <span class="settings-calendar-name">${escapeHtml(cal.summary)}</span>
-              ${cal.access_role !== 'owner' && !isPrimary ? `<span class="settings-calendar-badge">${escapeHtml(cal.access_role)}</span>` : ''}
-            </div>
-          </label>
-        `;
+  return createElement(
+    'label',
+    { class: `settings-calendar-item${isDisabled ? ' disabled' : ''}`, 'data-calendar-id': cal.id },
+    [
+      checkbox(
+        { class: 'settings-calendar-checkbox', 'data-calendar-id': cal.id, ...(isDisabled ? { disabled: '' } : {}) },
+        isChecked
+      ),
+      createElement('div', { class: 'settings-calendar-info' }, [
+        !!cal.background_color &&
+          createElement('span', { class: 'calendar-color-dot', style: `background-color: ${cal.background_color}` }),
+        isPrimary && createIconElement('calendar-star-icon', STAR_ICON),
+        createElement('span', { class: 'settings-calendar-name' }, [cal.summary]),
+        cal.access_role !== 'owner' && !isPrimary && createElement('span', { class: 'settings-calendar-badge' }, [cal.access_role]),
+      ]),
+    ]
+  );
 }
 
-function renderCalendarBody(status: CalendarStatus | null): string {
+function calendarBody(status: CalendarStatus | null): HTMLElement[] {
   if (status === null) {
-    return `
-      <div class="settings-calendar-loading">Loading Google Calendar status...</div>
-    `;
+    return [createElement('div', { class: 'settings-calendar-loading' }, ['Loading Google Calendar status...'])];
   }
 
   if (status.connected && status.needs_reconnect) {
-    return `
-      <div class="settings-calendar-needs-reconnect">
-        <span class="settings-calendar-status">
-          <span class="settings-calendar-icon warning">${WARNING_ICON}</span>
-          Google Calendar access expired
-        </span>
-        <p class="settings-helper">Your Google Calendar connection has expired. Please reconnect to keep scheduling events.</p>
-        <div class="settings-calendar-actions">
-          <button type="button" class="btn btn-primary btn-sm settings-calendar-connect">
-            Reconnect
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
-            Disconnect
-          </button>
-        </div>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-calendar-needs-reconnect' }, [
+        statusLine('calendar', 'warning', WARNING_ICON, 'Google Calendar access expired'),
+        helper('Your Google Calendar connection has expired. Please reconnect to keep scheduling events.'),
+        createElement('div', { class: 'settings-calendar-actions' }, [
+          textButton('btn btn-primary btn-sm settings-calendar-connect', 'Reconnect'),
+          textButton('btn btn-secondary btn-sm settings-calendar-disconnect', 'Disconnect'),
+        ]),
+      ]),
+    ];
   }
 
   if (status.connected) {
-    const calendarSelectionHtml = renderCalendarSelection(
-      availableCalendars || [],
-      selectedCalendarIds,
-      calendarsLoading,
-      calendarsError
-    );
-
-    return `
-      <div class="settings-calendar-connected-wrapper">
-        <div class="settings-calendar-connected">
-          <span class="settings-calendar-status">
-            <span class="settings-calendar-icon connected">${CHECK_ICON}</span>
-            Connected${status.calendar_email ? ` as ${escapeHtml(status.calendar_email)}` : ''}
-          </span>
-          <button type="button" class="btn btn-secondary btn-sm settings-calendar-disconnect">
-            Disconnect
-          </button>
-        </div>
-
-        <div class="settings-calendar-selection">
-          <label class="settings-label">Show events from:</label>
-          ${calendarSelectionHtml}
-          <button
-            type="button"
-            class="btn btn-primary settings-calendar-save-btn"
-            ${selectedCalendarIds.length === 0 || calendarsLoading ? 'disabled' : ''}
-          >
-            Save Selection
-          </button>
-        </div>
-      </div>
-    `;
+    const save = textButton('btn btn-primary settings-calendar-save-btn', 'Save Selection');
+    save.disabled = selectedCalendarIds.length === 0 || calendarsLoading;
+    return [
+      createElement('div', { class: 'settings-calendar-connected-wrapper' }, [
+        createElement('div', { class: 'settings-calendar-connected' }, [
+          statusLine('calendar', 'connected', CHECK_ICON, `Connected${status.calendar_email ? ` as ${status.calendar_email}` : ''}`),
+          textButton('btn btn-secondary btn-sm settings-calendar-disconnect', 'Disconnect'),
+        ]),
+        createElement('div', { class: 'settings-calendar-selection' }, [
+          createElement('label', { class: 'settings-label' }, ['Show events from:']),
+          ...calendarSelection(availableCalendars || [], selectedCalendarIds, calendarsLoading, calendarsError),
+          save,
+        ]),
+      ]),
+    ];
   }
 
-  return `
-    <div class="settings-calendar-disconnected">
-      <p class="settings-helper">Connect Google Calendar to schedule events and focus blocks with AI</p>
-      <button type="button" class="btn btn-primary btn-sm settings-calendar-connect">
-        Connect Google Calendar
-      </button>
-    </div>
-  `;
+  return [
+    createElement('div', { class: 'settings-calendar-disconnected' }, [
+      helper('Connect Google Calendar to schedule events and focus blocks with AI'),
+      textButton('btn btn-primary btn-sm settings-calendar-connect', 'Connect Google Calendar'),
+    ]),
+  ];
 }
 
-/** Render the whole Google Calendar field (label + status body). */
-export function renderCalendarField(): string {
-  return `
-      <div class="settings-field" data-section="calendar">
-        ${renderFieldLabel(CALENDAR_ICON, LABEL)}
-        ${renderCalendarBody(calendarStatus)}
-      </div>
-  `;
+/** The whole Google Calendar field (label + status body). */
+export function renderCalendarField(): HTMLElement {
+  return settingsField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus));
 }
 
 function updateCalendarSection(): void {
-  rerenderField('calendar', CALENDAR_ICON, LABEL, renderCalendarBody(calendarStatus));
+  rerenderField('calendar', CALENDAR_ICON, LABEL, calendarBody(calendarStatus));
 }
 
 /**

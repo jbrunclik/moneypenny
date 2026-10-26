@@ -1,7 +1,8 @@
 import { CHECK_ICON, WARNING_ICON, ACTIVITY_ICON } from '../../utils/icons';
 import { rouvy, type RouvyStatus } from '../../api/integrations';
 import { toast } from '../Toast';
-import { log, renderFieldLabel, rerenderField } from './shared';
+import { createElement } from '../../utils/dom';
+import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 const LABEL = 'Rouvy';
 
@@ -13,87 +14,63 @@ export function setRouvyStatus(status: RouvyStatus | null): void {
 }
 
 /**
- * Render Rouvy section (no MFA — Rouvy's login flow has none)
+ * The Rouvy section (no MFA — Rouvy's login flow has none)
  */
-function renderRouvyBody(status: RouvyStatus | null): string {
+function rouvyBody(status: RouvyStatus | null): HTMLElement[] {
   if (status === null) {
-    return `<div class="settings-rouvy-loading">Loading Rouvy status...</div>`;
+    return [createElement('div', { class: 'settings-rouvy-loading' }, ['Loading Rouvy status...'])];
   }
 
   if (status.connected && status.needs_reconnect) {
-    return `
-      <div class="settings-rouvy-needs-reconnect">
-        <span class="settings-rouvy-status">
-          <span class="settings-rouvy-icon warning">${WARNING_ICON}</span>
-          Rouvy session expired
-        </span>
-        <p class="settings-helper">Your Rouvy session has expired. Please reconnect with your credentials.</p>
-        <div class="settings-rouvy-actions">
-          <button type="button" class="btn btn-primary btn-sm settings-rouvy-show-login">
-            Reconnect
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm settings-rouvy-disconnect">
-            Disconnect
-          </button>
-        </div>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-rouvy-needs-reconnect' }, [
+        statusLine('rouvy', 'warning', WARNING_ICON, 'Rouvy session expired'),
+        helper('Your Rouvy session has expired. Please reconnect with your credentials.'),
+        createElement('div', { class: 'settings-rouvy-actions' }, [
+          textButton('btn btn-primary btn-sm settings-rouvy-show-login', 'Reconnect'),
+          textButton('btn btn-secondary btn-sm settings-rouvy-disconnect', 'Disconnect'),
+        ]),
+      ]),
+    ];
   }
 
   if (status.connected) {
-    return `
-      <div class="settings-rouvy-connected">
-        <span class="settings-rouvy-status">
-          <span class="settings-rouvy-icon connected">${CHECK_ICON}</span>
-          Connected
-        </span>
-        <button type="button" class="btn btn-secondary btn-sm settings-rouvy-disconnect">
-          Disconnect
-        </button>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-rouvy-connected' }, [
+        statusLine('rouvy', 'connected', CHECK_ICON, 'Connected'),
+        textButton('btn btn-secondary btn-sm settings-rouvy-disconnect', 'Disconnect'),
+      ]),
+    ];
   }
 
-  return `
-    <div class="settings-rouvy-disconnected">
-      <p class="settings-helper">Connect your Rouvy account so the coach can upload workouts directly.</p>
-      <div class="settings-rouvy-login-form">
-        <input
-          type="email"
-          class="settings-input settings-rouvy-email"
-          placeholder="Rouvy email"
-          autocomplete="email"
-        />
-        <input
-          type="password"
-          class="settings-input settings-rouvy-password"
-          placeholder="Rouvy password"
-          autocomplete="current-password"
-        />
-        <p class="settings-helper settings-helper-muted">Your password is stored encrypted so the session can be refreshed automatically.</p>
-        <button type="button" class="btn btn-primary settings-rouvy-connect">
-          Connect Rouvy
-        </button>
-      </div>
-    </div>
-  `;
+  return [
+    createElement('div', { class: 'settings-rouvy-disconnected' }, [
+      helper('Connect your Rouvy account so the coach can upload workouts directly.'),
+      createElement('div', { class: 'settings-rouvy-login-form' }, [
+        createElement('input', { type: 'email', class: 'settings-input settings-rouvy-email', placeholder: 'Rouvy email', autocomplete: 'email' }),
+        createElement('input', {
+          type: 'password',
+          class: 'settings-input settings-rouvy-password',
+          placeholder: 'Rouvy password',
+          autocomplete: 'current-password',
+        }),
+        helper('Your password is stored encrypted so the session can be refreshed automatically.', true),
+        textButton('btn btn-primary settings-rouvy-connect', 'Connect Rouvy'),
+      ]),
+    ]),
+  ];
 }
 
-/** Render the whole Rouvy field (label + status body). */
-export function renderRouvyField(): string {
-  return `
-      <div class="settings-field" data-section="rouvy">
-        ${renderFieldLabel(ACTIVITY_ICON, LABEL)}
-        ${renderRouvyBody(rouvyStatus)}
-      </div>
-  `;
+/** The whole Rouvy field (label + status body). */
+export function renderRouvyField(): HTMLElement {
+  return settingsField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus));
 }
 
 /**
  * Update Rouvy section in the popup
  */
 function updateRouvySection(): void {
-  rerenderField('rouvy', ACTIVITY_ICON, LABEL, renderRouvyBody(rouvyStatus));
+  rerenderField('rouvy', ACTIVITY_ICON, LABEL, rouvyBody(rouvyStatus));
 }
 
 /**

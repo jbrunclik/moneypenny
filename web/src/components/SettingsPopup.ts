@@ -48,21 +48,21 @@ import {
   renderInstructionsSection,
 } from './settings/instructions';
 
-function renderContent(): string {
-  return `
-    <div class="settings-body">
-      <div class="settings-tabs" role="tablist">
-        <button class="settings-tab active" role="tab" data-settings-tab="appearance">Appearance</button>
-        <button class="settings-tab" role="tab" data-settings-tab="integrations">Integrations</button>
-        <button class="settings-tab" role="tab" data-settings-tab="notifications">Notifications</button>
-        <button class="settings-tab" role="tab" data-settings-tab="instructions">AI Instructions</button>
-      </div>
-      ${renderAppearanceSection()}
-      ${renderIntegrationsSection()}
-      ${renderNotificationsSection()}
-      ${renderInstructionsSection()}
-    </div>
-  `;
+function settingsBody(): HTMLElement {
+  const tab = (key: string, label: string, active = false): HTMLButtonElement =>
+    createElement('button', { class: `settings-tab${active ? ' active' : ''}`, role: 'tab', 'data-settings-tab': key }, [label]);
+  return createElement('div', { class: 'settings-body' }, [
+    createElement('div', { class: 'settings-tabs', role: 'tablist' }, [
+      tab('appearance', 'Appearance', true),
+      tab('integrations', 'Integrations'),
+      tab('notifications', 'Notifications'),
+      tab('instructions', 'AI Instructions'),
+    ]),
+    renderAppearanceSection(),
+    renderIntegrationsSection(),
+    renderNotificationsSection(),
+    renderInstructionsSection(),
+  ]);
 }
 
 /**
@@ -181,7 +181,7 @@ export async function openSettingsPopup(): Promise<void> {
     // Update popup body
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.outerHTML = `<div class="info-popup-body">${renderContent()}</div>`;
+      body.replaceWith(createElement('div', { class: 'info-popup-body' }, [settingsBody()]));
     }
 
     // If calendar is connected, fetch available calendars and selected calendars
@@ -194,12 +194,12 @@ export async function openSettingsPopup(): Promise<void> {
     log.error('Failed to load settings', { error });
     const body = popup.querySelector('.info-popup-body');
     if (body) {
-      body.innerHTML = `
-        <div class="settings-error">
-          <p>Failed to load settings.</p>
-          <button class="btn btn-secondary settings-retry-btn">Retry</button>
-        </div>
-      `;
+      body.replaceChildren(
+        createElement('div', { class: 'settings-error' }, [
+          createElement('p', {}, ['Failed to load settings.']),
+          createElement('button', { class: 'btn btn-secondary settings-retry-btn' }, ['Retry']),
+        ])
+      );
     }
   }
 }

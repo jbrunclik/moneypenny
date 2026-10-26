@@ -25,7 +25,10 @@ const DISCONNECTED = { connected: false, connected_at: null, needs_reconnect: fa
 
 /** Render the field inside the settings popup (rerenderField looks it up there). */
 function mount(): HTMLElement {
-  document.body.innerHTML = `<div id="${POPUP_ID}">${renderGarminField()}</div>`;
+  const popup = document.createElement('div');
+  popup.id = POPUP_ID;
+  popup.append(renderGarminField());
+  document.body.replaceChildren(popup);
   return document.getElementById(POPUP_ID) as HTMLElement;
 }
 

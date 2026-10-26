@@ -1,5 +1,5 @@
 /**
- * Settings sections are HTML strings: stored text (custom instructions, the
+ * Settings sections build elements: stored text (custom instructions, the
  * connected account's email) must land as text, not markup (F3).
  */
 import { describe, expect, it } from 'vitest';
@@ -10,9 +10,9 @@ import type { CalendarStatus, TodoistStatus, UserSettings } from '@/types/api';
 
 const PAYLOAD = '</textarea><img src=x onerror="alert(1)">';
 
-function mount(html: string): HTMLElement {
+function mount(section: HTMLElement): HTMLElement {
   const host = document.createElement('div');
-  host.innerHTML = html;
+  host.append(section);
   return host;
 }
 

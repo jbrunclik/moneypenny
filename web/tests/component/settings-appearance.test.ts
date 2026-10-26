@@ -37,8 +37,10 @@ import {
 } from '@/components/settings/appearance';
 
 function mount(): HTMLElement {
-  document.body.innerHTML = `<div id="popup">${renderAppearanceSection()}</div>`;
-  const popup = document.getElementById('popup') as HTMLElement;
+  const popup = document.createElement('div');
+  popup.id = 'popup';
+  popup.append(renderAppearanceSection());
+  document.body.replaceChildren(popup);
   bindColorSchemeOptions(popup);
   return popup;
 }

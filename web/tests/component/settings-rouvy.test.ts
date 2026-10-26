@@ -18,7 +18,10 @@ import { handleRouvyClick, renderRouvyField, setRouvyStatus } from '@/components
 import { POPUP_ID } from '@/components/settings/shared';
 
 function mount(): void {
-  document.body.innerHTML = `<div id="${POPUP_ID}">${renderRouvyField()}</div>`;
+  const popup = document.createElement('div');
+  popup.id = POPUP_ID;
+  popup.append(renderRouvyField());
+  document.body.replaceChildren(popup);
 }
 
 function q<T extends HTMLElement>(selector: string): T {

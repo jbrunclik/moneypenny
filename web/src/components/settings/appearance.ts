@@ -1,5 +1,5 @@
-import { escapeHtml } from '../../utils/dom';
-import { SUN_ICON, MOON_ICON, MONITOR_ICON, LANGUAGE_ICON } from '../../utils/icons';
+import { createElement } from '../../utils/dom';
+import { SUN_ICON, MOON_ICON, MONITOR_ICON, LANGUAGE_ICON, createIconElement, type IconHtml } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import {
@@ -16,7 +16,7 @@ import {
   getSwipeQuickAction,
   setSwipeQuickAction,
 } from '../../utils/preferences';
-import { log } from './shared';
+import { fieldLabel, helper, log, toggle } from './shared';
 
 /** Current color scheme value */
 let currentColorScheme: ColorScheme = 'system';
@@ -48,73 +48,49 @@ export function loadAppearanceSettings(data: UserSettings): void {
 }
 
 /**
- * Render color scheme option
+ * A color scheme option button
  */
-function renderColorSchemeOption(
-  value: ColorScheme,
-  icon: string,
-  label: string,
-  selected: boolean
-): string {
-  return `
-    <button
-      type="button"
-      class="settings-color-scheme-option${selected ? ' selected' : ''}"
-      data-color-scheme="${value}"
-    >
-      <span class="settings-color-scheme-icon">${icon}</span>
-      <span class="settings-color-scheme-label">${label}</span>
-    </button>
-  `;
+function colorSchemeOption(value: ColorScheme, icon: IconHtml, label: string, selected: boolean): HTMLButtonElement {
+  return createElement(
+    'button',
+    { type: 'button', class: `settings-color-scheme-option${selected ? ' selected' : ''}`, 'data-color-scheme': value },
+    [
+      createIconElement('settings-color-scheme-icon', icon),
+      createElement('span', { class: 'settings-color-scheme-label' }, [label]),
+    ]
+  );
 }
 
 /**
- * Render the "Appearance & Language" tab section.
+ * The "Appearance & Language" tab section.
  */
-export function renderAppearanceSection(): string {
+export function renderAppearanceSection(): HTMLElement {
   const colorScheme = currentColorScheme;
-  return `
-      <div class="settings-section active" data-settings-section="appearance">
-      <div class="settings-section-title">Appearance &amp; Language</div>
-      <div class="settings-field">
-        <label class="settings-label settings-label-with-icon">
-          <span class="settings-label-icon">${MONITOR_ICON}</span>
-          Appearance
-        </label>
-        <div class="settings-color-scheme">
-          ${renderColorSchemeOption('light', SUN_ICON, 'Light', colorScheme === 'light')}
-          ${renderColorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark')}
-          ${renderColorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system')}
-        </div>
-        <label class="toggle-label settings-toggle-spaced">
-          <input type="checkbox" id="sidebar-previews-enabled" ${isSidebarPreviewsEnabled() ? 'checked' : ''}>
-          <span class="toggle-switch"></span>
-          <span class="toggle-text">Show message previews in the sidebar</span>
-        </label>
-        <label class="toggle-label settings-toggle-spaced">
-          <input type="checkbox" id="swipe-quick-delete" ${getSwipeQuickAction() === 'delete' ? 'checked' : ''}>
-          <span class="toggle-switch"></span>
-          <span class="toggle-text">Swipe to delete instead of archive</span>
-        </label>
-      </div>
-
-      <div class="settings-divider"></div>
-
-      <div class="settings-field" data-section="language-pref">
-        <label class="settings-label settings-label-with-icon" for="preferred-language">
-          <span class="settings-label-icon">${LANGUAGE_ICON}</span>
-          Primary Language
-        </label>
-        <p class="settings-helper">The assistant replies in this language, even to app-generated messages like session starts and agent runs.</p>
-        <select id="preferred-language" class="settings-input settings-language-select">
-          ${LANGUAGE_OPTIONS.map(
-            (opt) =>
-              `<option value="${escapeHtml(opt.value)}" ${opt.value === currentPreferredLanguage ? 'selected' : ''}>${escapeHtml(opt.label)}</option>`
-          ).join('')}
-        </select>
-      </div>
-      </div>
-  `;
+  return createElement('div', { class: 'settings-section active', 'data-settings-section': 'appearance' }, [
+    createElement('div', { class: 'settings-section-title' }, ['Appearance & Language']),
+    createElement('div', { class: 'settings-field' }, [
+      fieldLabel(MONITOR_ICON, 'Appearance'),
+      createElement('div', { class: 'settings-color-scheme' }, [
+        colorSchemeOption('light', SUN_ICON, 'Light', colorScheme === 'light'),
+        colorSchemeOption('dark', MOON_ICON, 'Dark', colorScheme === 'dark'),
+        colorSchemeOption('system', MONITOR_ICON, 'System', colorScheme === 'system'),
+      ]),
+      toggle('sidebar-previews-enabled', isSidebarPreviewsEnabled(), 'Show message previews in the sidebar', ' settings-toggle-spaced'),
+      toggle('swipe-quick-delete', getSwipeQuickAction() === 'delete', 'Swipe to delete instead of archive', ' settings-toggle-spaced'),
+    ]),
+    createElement('div', { class: 'settings-divider' }),
+    createElement('div', { class: 'settings-field', 'data-section': 'language-pref' }, [
+      fieldLabel(LANGUAGE_ICON, 'Primary Language', 'preferred-language'),
+      helper('The assistant replies in this language, even to app-generated messages like session starts and agent runs.'),
+      createElement(
+        'select',
+        { id: 'preferred-language', class: 'settings-input settings-language-select' },
+        LANGUAGE_OPTIONS.map((opt) =>
+          createElement('option', { value: opt.value, ...(opt.value === currentPreferredLanguage ? { selected: '' } : {}) }, [opt.label])
+        )
+      ),
+    ]),
+  ]);
 }
 
 /**

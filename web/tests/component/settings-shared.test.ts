@@ -4,7 +4,8 @@
  * indicator.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { POPUP_ID, renderFieldLabel, rerenderField, showSavedIndicator } from '@/components/settings/shared';
+import { POPUP_ID, fieldLabel, rerenderField, showSavedIndicator } from '@/components/settings/shared';
+import { ACTIVITY_ICON } from '@/utils/icons';
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -14,14 +15,23 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('renderFieldLabel', () => {
-  it('renders the icon and the label', () => {
-    const host = document.createElement('div');
-    host.innerHTML = renderFieldLabel('<svg class="icon"></svg>', 'Garmin');
-    expect(host.querySelector('.settings-label-icon svg.icon')).not.toBeNull();
-    expect(host.querySelector('label')?.textContent).toContain('Garmin');
+describe('fieldLabel', () => {
+  it('renders the icon and the label, as text', () => {
+    const label = fieldLabel(ACTIVITY_ICON, '<b>Garmin</b>', 'garmin-email');
+    expect(label.querySelector('.settings-label-icon svg')).not.toBeNull();
+    expect(label.textContent).toContain('<b>Garmin</b>');
+    expect(label.querySelector('b')).toBeNull();
+    expect(label.htmlFor).toBe('garmin-email');
   });
 });
+
+/** A paragraph of `className` holding `text`. */
+function para(className: string, text: string): HTMLElement {
+  const p = document.createElement('p');
+  p.className = className;
+  p.textContent = text;
+  return p;
+}
 
 describe('rerenderField', () => {
   it('replaces only the matching field in the open popup', () => {
@@ -30,7 +40,7 @@ describe('rerenderField', () => {
         <div class="settings-field" data-section="a"><p class="old">old a</p></div>
         <div class="settings-field" data-section="b"><p class="old">old b</p></div>
       </div>`;
-    rerenderField('a', '', 'Label A', '<p class="new">new a</p>');
+    rerenderField('a', ACTIVITY_ICON, 'Label A', [para('new', 'new a')]);
 
     const a = document.querySelector('[data-section="a"]');
     expect(a?.querySelector('.new')?.textContent).toBe('new a');
@@ -41,13 +51,13 @@ describe('rerenderField', () => {
 
   it('does nothing when the popup is closed', () => {
     document.body.innerHTML = '<div class="settings-field" data-section="a">outside</div>';
-    rerenderField('a', '', 'A', 'new');
+    rerenderField('a', ACTIVITY_ICON, 'A', [para('new', 'new')]);
     expect(document.querySelector('[data-section="a"]')?.textContent).toBe('outside');
   });
 
   it('does nothing when the field is not in the popup', () => {
     document.body.innerHTML = `<div id="${POPUP_ID}"><p>other</p></div>`;
-    expect(() => rerenderField('missing', '', 'A', 'new')).not.toThrow();
+    expect(() => rerenderField('missing', ACTIVITY_ICON, 'A', [para('new', 'new')])).not.toThrow();
     expect(document.getElementById(POPUP_ID)?.textContent).toBe('other');
   });
 });

@@ -1,9 +1,9 @@
-import { escapeHtml } from '../../utils/dom';
+import { createElement } from '../../utils/dom';
 import { BELL_ICON, SUNRISE_ICON, PHONE_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import type { DailyBriefingSettings, PushState, UserSettings } from '../../types/api';
-import { log, showSavedIndicator } from './shared';
+import { fieldLabel, helper, log, showSavedIndicator, toggle } from './shared';
 
 /** This device's push subscription (core/push), passed in at startup (F1). */
 export interface PushControls {
@@ -53,100 +53,90 @@ export function loadNotificationSettings(data: UserSettings, push: PushState): v
 }
 
 /**
- * Render the Notifications (Web Push) section for the current state.
+ * The Notifications (Web Push) section for the current state.
  */
-function renderPushBody(state: PushState): string {
+function pushBody(state: PushState): HTMLElement[] {
+  const actions = (...buttons: HTMLButtonElement[]): HTMLElement =>
+    createElement('div', { class: 'settings-push-actions' }, buttons);
+  const button = (className: string, label: string, action?: string): HTMLButtonElement =>
+    createElement('button', { class: className, ...(action ? { 'data-action': action } : {}) }, [label]);
   switch (state) {
     case 'subscribed':
-      return `
-        <p class="settings-helper">Notifications are enabled on this device.</p>
-        <div class="settings-push-actions">
-          <button class="btn btn-secondary push-toggle-btn" data-action="disable">Disable</button>
-          <button class="btn btn-secondary push-test-btn">Send test</button>
-        </div>
-      `;
+      return [
+        helper('Notifications are enabled on this device.'),
+        actions(
+          button('btn btn-secondary push-toggle-btn', 'Disable', 'disable'),
+          button('btn btn-secondary push-test-btn', 'Send test')
+        ),
+      ];
     case 'not-subscribed':
-      return `
-        <p class="settings-helper">Get notified when agents finish work or wait for your approval.</p>
-        <div class="settings-push-actions">
-          <button class="btn btn-primary push-toggle-btn" data-action="enable">Enable notifications</button>
-        </div>
-      `;
+      return [
+        helper('Get notified when agents finish work or wait for your approval.'),
+        actions(button('btn btn-primary push-toggle-btn', 'Enable notifications', 'enable')),
+      ];
     case 'denied':
-      return `<p class="settings-helper">Notifications are blocked for this site. Allow them in your browser settings, then try again.</p>`;
+      return [helper('Notifications are blocked for this site. Allow them in your browser settings, then try again.')];
     case 'ios-needs-install':
-      return `<p class="settings-helper">On iPhone/iPad, add this app to your Home Screen (Share &rarr; Add to Home Screen) to enable notifications.</p>`;
+      return [helper('On iPhone/iPad, add this app to your Home Screen (Share → Add to Home Screen) to enable notifications.')];
     case 'server-disabled':
-      return `<p class="settings-helper settings-helper-muted">Not configured on the server (VAPID keys missing).</p>`;
+      return [helper('Not configured on the server (VAPID keys missing).', true)];
     case 'unsupported':
-      return `<p class="settings-helper settings-helper-muted">Not supported in this browser.</p>`;
+      return [helper('Not supported in this browser.', true)];
   }
 }
 
-function renderWhatsappField(): string {
-  if (!whatsappAvailable) return '';
-  return `
-      <div class="settings-divider"></div>
-
-      <div class="settings-field">
-        <label class="settings-label settings-label-with-icon" for="whatsapp-phone">
-          <span class="settings-label-icon">${PHONE_ICON}</span>
-          WhatsApp Notifications
-        </label>
-        <p class="settings-helper">Enter your phone number to receive notifications from autonomous agents via WhatsApp</p>
-        <input
-          type="tel"
-          id="whatsapp-phone"
-          class="settings-input"
-          placeholder="+1234567890"
-          maxlength="20"
-          value="${escapeHtml(currentWhatsappPhone)}"
-        />
-        <p class="settings-helper settings-helper-muted">Format: E.164 (e.g., +420123456789)</p>
-        <span class="settings-saved-indicator" data-saved-for="whatsapp-phone">Saved</span>
-      </div>
-      `;
+function whatsappField(): HTMLElement[] {
+  if (!whatsappAvailable) return [];
+  return [
+    createElement('div', { class: 'settings-divider' }),
+    createElement('div', { class: 'settings-field' }, [
+      fieldLabel(PHONE_ICON, 'WhatsApp Notifications', 'whatsapp-phone'),
+      helper('Enter your phone number to receive notifications from autonomous agents via WhatsApp'),
+      createElement('input', {
+        type: 'tel',
+        id: 'whatsapp-phone',
+        class: 'settings-input',
+        placeholder: '+1234567890',
+        maxlength: '20',
+        value: currentWhatsappPhone,
+      }),
+      helper('Format: E.164 (e.g., +420123456789)', true),
+      createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'whatsapp-phone' }, ['Saved']),
+    ]),
+  ];
 }
 
 /**
- * Render the "Notifications" tab section: push, Daily Briefing, WhatsApp.
+ * The "Notifications" tab section: push, Daily Briefing, WhatsApp.
  */
-export function renderNotificationsSection(): string {
-  return `
-      <div class="settings-section" data-settings-section="notifications">
-      <div class="settings-section-title">Notifications</div>
-      <div class="settings-field" data-section="push">
-        <label class="settings-label settings-label-with-icon">
-          <span class="settings-label-icon">${BELL_ICON}</span>
-          Notifications
-        </label>
-        <div class="settings-push-body">${renderPushBody(pushState)}</div>
-      </div>
-
-      <div class="settings-divider"></div>
-
-      <div class="settings-field" data-section="briefing">
-        <label class="settings-label settings-label-with-icon">
-          <span class="settings-label-icon">${SUNRISE_ICON}</span>
-          Daily Briefing
-        </label>
-        <p class="settings-helper">A morning summary of your schedule, tasks and readiness, delivered as a notification. Runs as an agent you can also find in the Command Center.</p>
-        <div class="settings-briefing-controls">
-          <label class="toggle-label">
-            <input type="checkbox" id="briefing-enabled" ${briefingSettings.enabled ? 'checked' : ''}>
-            <span class="toggle-switch"></span>
-            <span class="toggle-text">Enabled</span>
-          </label>
-          <label class="settings-briefing-time-label" for="briefing-time">
-            Deliver at
-            <input type="time" id="briefing-time" class="settings-input settings-briefing-time" value="${escapeHtml(briefingSettings.time)}">
-          </label>
-        </div>
-      </div>
-
-      ${renderWhatsappField()}
-      </div>
-  `;
+export function renderNotificationsSection(): HTMLElement {
+  return createElement('div', { class: 'settings-section', 'data-settings-section': 'notifications' }, [
+    createElement('div', { class: 'settings-section-title' }, ['Notifications']),
+    createElement('div', { class: 'settings-field', 'data-section': 'push' }, [
+      fieldLabel(BELL_ICON, 'Notifications'),
+      createElement('div', { class: 'settings-push-body' }, pushBody(pushState)),
+    ]),
+    createElement('div', { class: 'settings-divider' }),
+    createElement('div', { class: 'settings-field', 'data-section': 'briefing' }, [
+      fieldLabel(SUNRISE_ICON, 'Daily Briefing'),
+      helper(
+        'A morning summary of your schedule, tasks and readiness, delivered as a notification. Runs as an agent you can also find in the Command Center.'
+      ),
+      createElement('div', { class: 'settings-briefing-controls' }, [
+        toggle('briefing-enabled', briefingSettings.enabled, 'Enabled'),
+        createElement('label', { class: 'settings-briefing-time-label', for: 'briefing-time' }, [
+          ' Deliver at ',
+          createElement('input', {
+            type: 'time',
+            id: 'briefing-time',
+            class: 'settings-input settings-briefing-time',
+            value: briefingSettings.time,
+          }),
+        ]),
+      ]),
+    ]),
+    ...whatsappField(),
+  ]);
 }
 
 /**
@@ -155,7 +145,7 @@ export function renderNotificationsSection(): string {
 function updatePushSection(): void {
   const section = document.querySelector('[data-section="push"] .settings-push-body');
   if (section) {
-    section.innerHTML = renderPushBody(pushState);
+    section.replaceChildren(...pushBody(pushState));
   }
 }
 

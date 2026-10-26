@@ -1,9 +1,9 @@
-import { escapeHtml } from '../../utils/dom';
+import { createElement } from '../../utils/dom';
 import { EDIT_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
 import { toast } from '../Toast';
 import type { UserSettings } from '../../types/api';
-import { log, showSavedIndicator } from './shared';
+import { fieldLabel, helper, log, showSavedIndicator } from './shared';
 
 const CHAR_LIMIT = 2000;
 
@@ -20,33 +20,30 @@ export function getInstructionsLength(): number {
 }
 
 /**
- * Render the "AI Instructions" tab section.
+ * The "AI Instructions" tab section.
  */
-export function renderInstructionsSection(): string {
+export function renderInstructionsSection(): HTMLElement {
   const instructions = currentInstructions;
   const charCount = instructions.length;
   const charCountClass = charCount > CHAR_LIMIT ? 'error' : charCount > CHAR_LIMIT * 0.9 ? 'warning' : '';
+  const textarea = createElement('textarea', {
+    id: 'custom-instructions',
+    class: 'settings-textarea',
+    placeholder: 'Enter your custom instructions here...',
+    maxlength: String(CHAR_LIMIT),
+  });
+  textarea.textContent = instructions;
 
-  return `
-      <div class="settings-section" data-settings-section="instructions">
-      <div class="settings-section-title">AI Instructions</div>
-      <div class="settings-field">
-        <label class="settings-label settings-label-with-icon" for="custom-instructions">
-          <span class="settings-label-icon">${EDIT_ICON}</span>
-          Custom Instructions
-        </label>
-        <p class="settings-helper">Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")</p>
-        <textarea
-          id="custom-instructions"
-          class="settings-textarea"
-          placeholder="Enter your custom instructions here..."
-          maxlength="${CHAR_LIMIT}"
-        >${escapeHtml(instructions)}</textarea>
-        <span class="settings-char-count ${charCountClass}">${charCount}/${CHAR_LIMIT}</span>
-        <span class="settings-saved-indicator" data-saved-for="custom-instructions">Saved</span>
-      </div>
-      </div>
-  `;
+  return createElement('div', { class: 'settings-section', 'data-settings-section': 'instructions' }, [
+    createElement('div', { class: 'settings-section-title' }, ['AI Instructions']),
+    createElement('div', { class: 'settings-field' }, [
+      fieldLabel(EDIT_ICON, 'Custom Instructions', 'custom-instructions'),
+      helper('Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")'),
+      textarea,
+      createElement('span', { class: `settings-char-count ${charCountClass}` }, [`${charCount}/${CHAR_LIMIT}`]),
+      createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'custom-instructions' }, ['Saved']),
+    ]),
+  ]);
 }
 
 /**

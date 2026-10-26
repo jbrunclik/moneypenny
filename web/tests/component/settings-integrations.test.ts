@@ -15,17 +15,21 @@ const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
 vi.mock('@/utils/location', () => location);
 vi.mock('@/components/Toast', () => ({ toast: toastMock }));
-vi.mock('@/components/settings/todoist', () => ({ renderTodoistField: () => '<div data-section="todoist"></div>' }));
-vi.mock('@/components/settings/calendar', () => ({
-  renderCalendarField: () => '<div data-section="calendar"></div>',
-}));
-vi.mock('@/components/settings/garmin', () => ({ renderGarminField: () => '<div data-section="garmin"></div>' }));
-vi.mock('@/components/settings/rouvy', () => ({ renderRouvyField: () => '<div data-section="rouvy"></div>' }));
+/** A stand-in field: an empty div of that data-section. */
+const field = vi.hoisted(() => (section: string) => (): HTMLElement => {
+  const el = document.createElement('div');
+  el.dataset.section = section;
+  return el;
+});
+vi.mock('@/components/settings/todoist', () => ({ renderTodoistField: field('todoist') }));
+vi.mock('@/components/settings/calendar', () => ({ renderCalendarField: field('calendar') }));
+vi.mock('@/components/settings/garmin', () => ({ renderGarminField: field('garmin') }));
+vi.mock('@/components/settings/rouvy', () => ({ renderRouvyField: field('rouvy') }));
 
 import { handleIntegrationsChange, renderIntegrationsSection } from '@/components/settings/integrations';
 
 function mount(): HTMLInputElement {
-  document.body.innerHTML = renderIntegrationsSection();
+  document.body.replaceChildren(renderIntegrationsSection());
   const box = document.getElementById('location-sharing-enabled');
   if (!(box instanceof HTMLInputElement)) throw new Error('location toggle not rendered');
   return box;

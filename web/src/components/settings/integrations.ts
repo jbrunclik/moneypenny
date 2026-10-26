@@ -1,3 +1,4 @@
+import { createElement } from '../../utils/dom';
 import { MAP_PIN_ICON } from '../../utils/icons';
 import {
   isLocationSharingEnabled,
@@ -9,42 +10,26 @@ import { renderCalendarField } from './calendar';
 import { renderGarminField } from './garmin';
 import { renderRouvyField } from './rouvy';
 import { renderTodoistField } from './todoist';
+import { fieldLabel, helper, toggle } from './shared';
 
-function renderLocationField(): string {
-  return `
-      <div class="settings-field" data-section="location">
-        <label class="settings-label settings-label-with-icon">
-          <span class="settings-label-icon">${MAP_PIN_ICON}</span>
-          Location
-        </label>
-        <p class="settings-helper">Used for "near me" suggestions and routes. Sent only with your messages, never stored. Applies to this device only.</p>
-        <label class="toggle-label">
-          <input type="checkbox" id="location-sharing-enabled" ${isLocationSharingEnabled() ? 'checked' : ''}>
-          <span class="toggle-switch"></span>
-          <span class="toggle-text">Share device location with the assistant</span>
-        </label>
-      </div>
-  `;
+function locationField(): HTMLElement {
+  return createElement('div', { class: 'settings-field', 'data-section': 'location' }, [
+    fieldLabel(MAP_PIN_ICON, 'Location'),
+    helper('Used for "near me" suggestions and routes. Sent only with your messages, never stored. Applies to this device only.'),
+    toggle('location-sharing-enabled', isLocationSharingEnabled(), 'Share device location with the assistant'),
+  ]);
 }
 
 /**
- * Render the "Integrations" tab section: Todoist, Google Calendar,
- * Garmin, Rouvy and device location sharing.
+ * The "Integrations" tab section: Todoist, Google Calendar, Garmin, Rouvy
+ * and device location sharing, with a divider between them.
  */
-export function renderIntegrationsSection(): string {
-  const divider = '<div class="settings-divider"></div>';
-  return `
-      <div class="settings-section" data-settings-section="integrations">
-      <div class="settings-section-title">Integrations</div>
-      ${[
-        renderTodoistField(),
-        renderCalendarField(),
-        renderGarminField(),
-        renderRouvyField(),
-        renderLocationField(),
-      ].join(divider)}
-      </div>
-  `;
+export function renderIntegrationsSection(): HTMLElement {
+  const fields = [renderTodoistField(), renderCalendarField(), renderGarminField(), renderRouvyField(), locationField()];
+  return createElement('div', { class: 'settings-section', 'data-settings-section': 'integrations' }, [
+    createElement('div', { class: 'settings-section-title' }, ['Integrations']),
+    ...fields.flatMap((field, i) => (i === 0 ? [field] : [createElement('div', { class: 'settings-divider' }), field])),
+  ]);
 }
 
 /**

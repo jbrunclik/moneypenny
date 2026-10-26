@@ -3,7 +3,8 @@ import { garmin } from '../../api/integrations';
 import { ApiError } from '../../api/http';
 import { toast } from '../Toast';
 import type { GarminStatus } from '../../types/api';
-import { log, renderFieldLabel, rerenderField } from './shared';
+import { createElement } from '../../utils/dom';
+import { helper, log, rerenderField, settingsField, statusLine, textButton } from './shared';
 
 const LABEL = 'Garmin Connect';
 
@@ -31,115 +32,87 @@ export function resetGarminState(status: GarminStatus | null): void {
   garminPendingCredentials = null;
 }
 
-const MFA_HTML = `
-      <div class="settings-garmin-mfa">
-        <p class="settings-helper">Garmin requires a verification code. Check your email or authenticator app.</p>
-        <input
-          type="text"
-          class="settings-input settings-garmin-mfa-input"
-          placeholder="Enter MFA code"
-          maxlength="10"
-          autocomplete="one-time-code"
-        />
-        <div class="settings-garmin-actions">
-          <button type="button" class="btn btn-primary settings-garmin-mfa-submit">
-            Submit
-          </button>
-          <button type="button" class="btn btn-secondary settings-garmin-mfa-cancel">
-            Cancel
-          </button>
-        </div>
-      </div>
-    `;
+/** The MFA step: the code input, Submit and Cancel. */
+function mfaForm(): HTMLElement {
+  return createElement('div', { class: 'settings-garmin-mfa' }, [
+    helper('Garmin requires a verification code. Check your email or authenticator app.'),
+    createElement('input', {
+      type: 'text',
+      class: 'settings-input settings-garmin-mfa-input',
+      placeholder: 'Enter MFA code',
+      maxlength: '10',
+      autocomplete: 'one-time-code',
+    }),
+    createElement('div', { class: 'settings-garmin-actions' }, [
+      textButton('btn btn-primary settings-garmin-mfa-submit', 'Submit'),
+      textButton('btn btn-secondary settings-garmin-mfa-cancel', 'Cancel'),
+    ]),
+  ]);
+}
 
-const LOGIN_FORM_HTML = `
-    <div class="settings-garmin-disconnected">
-      <p class="settings-helper">Connect your Garmin account to access health and training data</p>
-      <div class="settings-garmin-login-form">
-        <input
-          type="email"
-          class="settings-input settings-garmin-email"
-          placeholder="Garmin email"
-          autocomplete="email"
-        />
-        <input
-          type="password"
-          class="settings-input settings-garmin-password"
-          placeholder="Garmin password"
-          autocomplete="current-password"
-        />
-        <p class="settings-helper settings-helper-muted">Your password is used to create a session token and is never stored.</p>
-        <button type="button" class="btn btn-primary settings-garmin-connect">
-          Connect Garmin
-        </button>
-      </div>
-    </div>
-  `;
+/** The login form shown while disconnected. */
+function loginForm(): HTMLElement {
+  return createElement('div', { class: 'settings-garmin-disconnected' }, [
+    helper('Connect your Garmin account to access health and training data'),
+    createElement('div', { class: 'settings-garmin-login-form' }, [
+      createElement('input', { type: 'email', class: 'settings-input settings-garmin-email', placeholder: 'Garmin email', autocomplete: 'email' }),
+      createElement('input', {
+        type: 'password',
+        class: 'settings-input settings-garmin-password',
+        placeholder: 'Garmin password',
+        autocomplete: 'current-password',
+      }),
+      helper('Your password is used to create a session token and is never stored.', true),
+      textButton('btn btn-primary settings-garmin-connect', 'Connect Garmin'),
+    ]),
+  ]);
+}
 
 /**
- * Render Garmin Connect section
+ * The Garmin Connect section
  */
-function renderGarminBody(status: GarminStatus | null, mfaRequired: boolean): string {
+function garminBody(status: GarminStatus | null, mfaRequired: boolean): HTMLElement[] {
   if (status === null) {
-    return `
-      <div class="settings-garmin-loading">Loading Garmin status...</div>
-    `;
+    return [createElement('div', { class: 'settings-garmin-loading' }, ['Loading Garmin status...'])];
   }
 
-  if (mfaRequired) return MFA_HTML;
+  if (mfaRequired) return [mfaForm()];
 
   if (status.connected && status.needs_reconnect) {
-    return `
-      <div class="settings-garmin-needs-reconnect">
-        <span class="settings-garmin-status">
-          <span class="settings-garmin-icon warning">${WARNING_ICON}</span>
-          Garmin session expired
-        </span>
-        <p class="settings-helper">Your Garmin session has expired. Please reconnect with your credentials.</p>
-        <div class="settings-garmin-actions">
-          <button type="button" class="btn btn-primary btn-sm settings-garmin-show-login">
-            Reconnect
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
-            Disconnect
-          </button>
-        </div>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-garmin-needs-reconnect' }, [
+        statusLine('garmin', 'warning', WARNING_ICON, 'Garmin session expired'),
+        helper('Your Garmin session has expired. Please reconnect with your credentials.'),
+        createElement('div', { class: 'settings-garmin-actions' }, [
+          textButton('btn btn-primary btn-sm settings-garmin-show-login', 'Reconnect'),
+          textButton('btn btn-secondary btn-sm settings-garmin-disconnect', 'Disconnect'),
+        ]),
+      ]),
+    ];
   }
 
   if (status.connected) {
-    return `
-      <div class="settings-garmin-connected">
-        <span class="settings-garmin-status">
-          <span class="settings-garmin-icon connected">${CHECK_ICON}</span>
-          Connected
-        </span>
-        <button type="button" class="btn btn-secondary btn-sm settings-garmin-disconnect">
-          Disconnect
-        </button>
-      </div>
-    `;
+    return [
+      createElement('div', { class: 'settings-garmin-connected' }, [
+        statusLine('garmin', 'connected', CHECK_ICON, 'Connected'),
+        textButton('btn btn-secondary btn-sm settings-garmin-disconnect', 'Disconnect'),
+      ]),
+    ];
   }
 
-  return LOGIN_FORM_HTML;
+  return [loginForm()];
 }
 
-/** Render the whole Garmin field (label + status body). */
-export function renderGarminField(): string {
-  return `
-      <div class="settings-field" data-section="garmin">
-        ${renderFieldLabel(ACTIVITY_ICON, LABEL)}
-        ${renderGarminBody(garminStatus, garminMfaRequired)}
-      </div>
-  `;
+/** The whole Garmin field (label + status body). */
+export function renderGarminField(): HTMLElement {
+  return settingsField('garmin', ACTIVITY_ICON, LABEL, garminBody(garminStatus, garminMfaRequired));
 }
 
 /**
  * Update Garmin section in the popup
  */
 function updateGarminSection(): void {
-  rerenderField('garmin', ACTIVITY_ICON, LABEL, renderGarminBody(garminStatus, garminMfaRequired));
+  rerenderField('garmin', ACTIVITY_ICON, LABEL, garminBody(garminStatus, garminMfaRequired));
 }
 
 /** Mark the Garmin account connected after a successful login. */

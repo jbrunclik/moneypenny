@@ -42,7 +42,7 @@ function load(data: Partial<UserSettings>, state: PushState = 'not-subscribed'):
 }
 
 function mount(): void {
-  document.body.innerHTML = renderNotificationsSection();
+  document.body.replaceChildren(renderNotificationsSection());
   bindWhatsappField();
 }
 
