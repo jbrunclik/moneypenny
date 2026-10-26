@@ -13,14 +13,14 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.ts'],
       exclude: ['src/types/**', 'src/utils/react-stub.ts'],
-      // Ratchet (T2): about 2 points under actual (Oct 25 2026: lines 46.4,
-      // statements 46.2, functions 50.2, branches 42.4). Raise as coverage
+      // Ratchet (T2): about 2 points under actual (Oct 26 2026: lines 78.0,
+      // statements 76.6, functions 81.1, branches 69.5). Raise as coverage
       // grows; never lower to get a change through.
       thresholds: {
-        lines: 44,
-        statements: 44,
-        functions: 48,
-        branches: 40,
+        lines: 76,
+        statements: 74,
+        functions: 79,
+        branches: 67,
       },
     },
     server: {

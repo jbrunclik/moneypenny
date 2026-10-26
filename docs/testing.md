@@ -200,6 +200,10 @@ CI enforces these; a green test run alone does not guarantee a green build.
   `coverage.thresholds` in `web/vitest.config.ts`, enforced by
   `npm run test:coverage`. Both sit about two points under actual and only go
   up. Adding uncovered code can fail CI even when all tests pass.
+- **API client contract**: `web/tests/unit/api-contract.test.ts` calls every
+  `web/src/api/*` export with placeholder arguments against a recording `fetch`
+  and fails on a method + path that `static/openapi.json` doesn't define. A new
+  client module joins its `MODULES` list; a renamed route needs `make openapi`.
 - **Dependency audit**: the `audit.yml` workflow fails on `pip-audit` findings in both Python locks
   findings and on `npm audit --audit-level=high` in `web/`. Locally, `make audit` runs
   the same scans: findings are reported but don't fail it, while an audit that cannot
