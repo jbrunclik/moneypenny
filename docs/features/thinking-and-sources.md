@@ -94,7 +94,7 @@ Thinking text is rendered with markdown formatting for better readability (lists
 When the chat node retries a transient model error (see
 [Agent Graph](../architecture/agent-graph.md#chat-node-and-transient-error-retries)), the
 stream carries a `retry` event. `updateStreamingRetryStatus()` in
-[messages/streaming.ts](../../web/src/components/messages/streaming.ts) shows "The model is
+[messages/stream-progress.ts](../../web/src/components/messages/stream-progress.ts) shows "The model is
 busy - retrying (attempt N of M)…" in a line next to (not inside) the re-rendered trace,
 and `clearStreamingRetryStatus()` removes it as soon as the model makes progress
 (thinking, tool call, token) or the turn ends. Without it the backoff (up to ~70 s per
@@ -116,7 +116,7 @@ The Gemini API supports a `include_thoughts=True` parameter that returns thinkin
 - [tool_display.py](../../src/agent/tool_display.py) - `TOOL_METADATA`, `extract_tool_detail()`
 - [api.ts](../../web/src/types/api.ts) - `StreamEvent` and `ThinkingState` types
 - [ThinkingIndicator.ts](../../web/src/components/ThinkingIndicator.ts) - UI component
-- [messages/streaming.ts](../../web/src/components/messages/streaming.ts) - Streaming state management
+- [messages/streaming.ts](../../web/src/components/messages/streaming.ts) - The streaming bubble; [stream-progress.ts](../../web/src/components/messages/stream-progress.ts) - thinking, tool and retry updates
 - [stream-events.ts](../../web/src/core/stream-events.ts) - Event handling ([thinking-state.ts](../../web/src/core/thinking-state.ts) keeps the per-stream trace)
 - [thinking.css](../../web/src/styles/components/thinking.css) - Styles and animations
 

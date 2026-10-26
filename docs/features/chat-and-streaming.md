@@ -419,7 +419,7 @@ When switching away from a conversation with an active request and back, the UI 
 
 **State management:**
 - `activeRequests` Map in store tracks content and thinking state per conversation
-- The streaming context in [messages/streaming.ts](../../web/src/components/messages/streaming.ts) (`getStreamingMessageElement`) tracks DOM elements for continued updates
+- The streaming context in [messages/streaming-context.ts](../../web/src/components/messages/streaming-context.ts) (`getStreamingMessageElement`) tracks DOM elements for continued updates
 - The in-session store is authoritative for messages: every completion path (done event, journal resume, poll recovery, batch reply) `appendMessage`s the finished assistant reply, and `appendMessage` is idempotent by id because one reply can complete via more than one path
 - Streaming context includes `conversationId` to determine whether to clean up
 

@@ -341,7 +341,7 @@
     }
 }
 
-/* Transient model error being retried (messages/streaming.ts) - sits next
+/* Transient model error being retried (messages/stream-progress.ts) - sits next
    to the re-rendered trace so updates to the trace do not wipe it */
 .streaming-retry-status {
     margin-top: var(--space-1);

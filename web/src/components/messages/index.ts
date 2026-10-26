@@ -3,7 +3,9 @@
  *
  * This module is split into focused files:
  * - render.ts: Message rendering (HTML generation, markdown)
- * - streaming.ts: Streaming message state and updates
+ * - streaming.ts: The streaming message bubble (add, restore, update, finalize)
+ * - streaming-context.ts, stream-follow.ts, stream-progress.ts: its context, follow scroll, thinking/tool updates
+ * - thumbnail-loader.ts, image-load-scroll.ts: thumbnail lazy loading and the scroll after it
  * - attachments.ts: File attachments display (images, documents)
  * - actions.ts: Message action buttons (copy, delete, speak, cost, sources)
  * - loading.ts: Loading indicators

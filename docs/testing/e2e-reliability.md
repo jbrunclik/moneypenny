@@ -107,7 +107,7 @@ by guessing):
   five-message chat is only ~155px scrollable, below the 200px "near
   bottom" tolerance, so scrollTop 0 still counted as "at bottom" when the
   scheduled scroll fired late. The genuine-scroll-up guard in
-  `thumbnails.ts` now runs before that tolerance.
+  `image-load-scroll.ts` now runs before that tolerance.
 - **Throughput-bound assertions** - the read-from-start test streamed a
   400-line answer (2400 tokens, one DOM re-render each) and asserted
   mid-stream; it now uses a short viewport so 80 lines are "taller than the
