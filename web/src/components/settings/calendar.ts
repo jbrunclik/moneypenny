@@ -81,6 +81,17 @@ function calendarSelection(
   ];
 }
 
+// A plain CSS colour from the server: #rgb, #rrggbb(aa) or rgb()/rgba() of numbers
+const CSS_COLOR_PATTERN = /^(#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\(\s*\d{1,3}(\s*,\s*\d{1,3}){2}(\s*,\s*(0|1|0?\.\d+))?\s*\))$/i;
+
+/** The calendar's colour dot; none when the server's value is not a plain colour. */
+function colorDot(color: string | null | undefined): HTMLElement | null {
+  if (!color || !CSS_COLOR_PATTERN.test(color)) return null;
+  const dot = createElement('span', { class: 'calendar-color-dot' });
+  dot.style.backgroundColor = color;
+  return dot;
+}
+
 function calendarItem(cal: Calendar, selected: string[]): HTMLElement {
   const isPrimary = cal.primary || cal.id === 'primary';
   const isChecked = isPrimary || selected.includes(cal.id); // Primary always checked
@@ -95,8 +106,7 @@ function calendarItem(cal: Calendar, selected: string[]): HTMLElement {
         isChecked
       ),
       createElement('div', { class: 'settings-calendar-info' }, [
-        !!cal.background_color &&
-          createElement('span', { class: 'calendar-color-dot', style: `background-color: ${cal.background_color}` }),
+        colorDot(cal.background_color),
         isPrimary && createIconElement('calendar-star-icon', STAR_ICON),
         createElement('span', { class: 'settings-calendar-name' }, [cal.summary]),
         cal.access_role !== 'owner' && !isPrimary && createElement('span', { class: 'settings-calendar-badge' }, [cal.access_role]),
