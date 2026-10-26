@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any
 from src.agent.tools.request_approval import build_approval_message
 from src.api.helpers.chat_save import save_message_to_db
 from src.api.helpers.stream_producer import (
-    _notify_response_ready,
     defer_final_steering,
+    notify_response_ready,
     push_title,
 )
 from src.api.utils import build_stream_done_event, is_round_capped
@@ -21,12 +21,12 @@ from src.services.push import send_push_to_user
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.api.helpers.chat_streaming import _StreamContext
+    from src.api.helpers.chat_streaming import StreamContext
 
 logger = get_logger(__name__)
 
 
-def _finalize_stream(context: _StreamContext) -> Generator[str]:
+def finalize_stream(context: StreamContext) -> Generator[str]:
     """Save message to DB and yield done event."""
     # Handle approval request if present
     if context.approval_info:
@@ -119,7 +119,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
             },
         )
         if not context.stop_reason:
-            _notify_response_ready(
+            notify_response_ready(
                 context.user_id,
                 context.conv_id,
                 assistant_msg.content or "",
@@ -127,7 +127,7 @@ def _finalize_stream(context: _StreamContext) -> Generator[str]:
             )
 
 
-def _flag_unanswered_steering(done_data: dict[str, Any], context: _StreamContext) -> None:
+def _flag_unanswered_steering(done_data: dict[str, Any], context: StreamContext) -> None:
     """Name steering the turn never read: the client answers it with a
     follow-up turn (not after Stop - the user ended the turn themselves)."""
     steering_id = context.final_results.get("unanswered_steering_id")
@@ -135,7 +135,7 @@ def _flag_unanswered_steering(done_data: dict[str, Any], context: _StreamContext
         done_data["unanswered_steering_id"] = steering_id
 
 
-def _finalize_approval_stream(context: _StreamContext) -> Generator[str]:
+def _finalize_approval_stream(context: StreamContext) -> Generator[str]:
     """Handle finalization when an approval request was raised.
 
     Saves the approval message to the conversation and sends a done event.

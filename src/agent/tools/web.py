@@ -115,7 +115,7 @@ def _html_to_markdown(html: str) -> str:
     return converter.handle(cleaned)
 
 
-def _extract_text_from_html(html: str, max_length: int | None = None) -> str:
+def extract_text_from_html(html: str, max_length: int | None = None) -> str:
     """Extract readable text from HTML, preferring main-content extraction.
 
     trafilatura isolates the article body for denser signal; link hubs and
@@ -263,7 +263,7 @@ def fetch_page_text(url: str, max_chars: int | None = None) -> tuple[str | None,
     mime_type = content_type.split(";")[0].strip().lower()
 
     if category == "html":
-        return _extract_text_from_html(response.text, max_chars), None
+        return extract_text_from_html(response.text, max_chars), None
     if category == "text":
         text = response.text
         limit = max_chars if max_chars is not None else Config.HTML_TEXT_MAX_LENGTH
@@ -321,7 +321,7 @@ def fetch_url(url: str) -> str | list[dict[str, Any]]:
 
     # Handle HTML content - extract text
     if content_category == "html":
-        return _html_result(url, _extract_text_from_html(response.text))
+        return _html_result(url, extract_text_from_html(response.text))
 
     # Handle plain text content
     if content_category == "text":

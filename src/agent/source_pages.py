@@ -49,7 +49,7 @@ def _json_object(content: Any) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _title_from_url(url: str) -> str:
+def title_from_url(url: str) -> str:
     """Readable stand-in title when the tool did not report one."""
     parsed = urlparse(url)
     host = parsed.netloc.removeprefix("www.")
@@ -79,7 +79,7 @@ def _page(item: dict[str, Any], text: str) -> SourcePage | None:
     url = str(item.get("url") or item.get("href") or "")
     if not url:
         return None
-    return SourcePage(str(item.get("title") or _title_from_url(url)), url, text)
+    return SourcePage(str(item.get("title") or title_from_url(url)), url, text)
 
 
 def _research_snippets(data: dict[str, Any]) -> list[SourcePage]:
@@ -125,7 +125,7 @@ def _fetched_page(
     failed = data is not None and bool(data.get("error"))
     if not url or not msg.content or failed:
         return None
-    return SourcePage(_title_from_url(str(url)), str(url), extract_text_content(msg.content))
+    return SourcePage(title_from_url(str(url)), str(url), extract_text_content(msg.content))
 
 
 def _browser_page(data: dict[str, Any] | None) -> SourcePage | None:

@@ -32,7 +32,7 @@ def db(test_database: Database) -> Generator[Database]:
         yield test_database
 
 
-def _save_programs(db: Database, user: User, namespace: str, programs: list[Any]) -> None:
+def save_programs(db: Database, user: User, namespace: str, programs: list[Any]) -> None:
     db.kv_set(user.id, namespace, "programs", json.dumps(programs))
 
 
@@ -41,7 +41,7 @@ class TestProgramContext:
     def test_returns_the_program_name_id_and_its_stored_data(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
+        save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
         db.kv_set(test_user.id, namespace, "marathon:goals", "Sub-4 hours")
         db.kv_set(test_user.id, namespace, "marathon:progress", '{"week": 3}')
 
@@ -54,7 +54,7 @@ class TestProgramContext:
     def test_a_program_with_no_stored_data_has_empty_kv_data(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
+        save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
 
         context = load(test_user.id, "marathon")
 
@@ -64,7 +64,7 @@ class TestProgramContext:
     def test_an_unnamed_program_gets_the_default_name(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(db, test_user, namespace, [{"id": "marathon"}])
+        save_programs(db, test_user, namespace, [{"id": "marathon"}])
 
         context = load(test_user.id, "marathon")
 
@@ -74,7 +74,7 @@ class TestProgramContext:
     def test_only_the_requested_programs_keys_are_loaded(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(
+        save_programs(
             db,
             test_user,
             namespace,
@@ -92,7 +92,7 @@ class TestProgramContext:
     def test_keys_keep_everything_after_the_first_colon(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(db, test_user, namespace, [{"id": "run", "name": "Run"}])
+        save_programs(db, test_user, namespace, [{"id": "run", "name": "Run"}])
         db.kv_set(test_user.id, namespace, "run:session:2026-10-25", "done")
 
         context = load(test_user.id, "run")
@@ -108,7 +108,7 @@ class TestProgramContext:
     def test_an_unknown_program_returns_none(
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
-        _save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
+        save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Marathon"}])
         db.kv_set(test_user.id, namespace, "other:goals", "orphaned data")
 
         assert load(test_user.id, "other") is None
@@ -117,7 +117,7 @@ class TestProgramContext:
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
         other = db.get_or_create_user(email="other@example.com", name="Other")
-        _save_programs(db, other, namespace, [{"id": "marathon", "name": "Marathon"}])
+        save_programs(db, other, namespace, [{"id": "marathon", "name": "Marathon"}])
         db.kv_set(other.id, namespace, "marathon:goals", "private")
 
         assert load(test_user.id, "marathon") is None
@@ -126,8 +126,8 @@ class TestProgramContext:
         self, db: Database, test_user: User, namespace: str, load: Loader, default_name: str
     ) -> None:
         other = db.get_or_create_user(email="other@example.com", name="Other")
-        _save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Mine"}])
-        _save_programs(db, other, namespace, [{"id": "marathon", "name": "Theirs"}])
+        save_programs(db, test_user, namespace, [{"id": "marathon", "name": "Mine"}])
+        save_programs(db, other, namespace, [{"id": "marathon", "name": "Theirs"}])
         db.kv_set(other.id, namespace, "marathon:goals", "private")
 
         context = load(test_user.id, "marathon")
@@ -146,7 +146,7 @@ class TestProgramContext:
 def test_sports_and_language_programs_live_in_separate_namespaces(
     db: Database, test_user: User
 ) -> None:
-    _save_programs(db, test_user, "sports", [{"id": "marathon", "name": "Marathon"}])
+    save_programs(db, test_user, "sports", [{"id": "marathon", "name": "Marathon"}])
 
     assert load_sports_context(test_user.id, "marathon") is not None
     assert load_language_context(test_user.id, "marathon") is None

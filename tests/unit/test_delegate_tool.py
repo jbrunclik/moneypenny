@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage, ToolMessage
 
-from src.agent.tools.delegate import _in_delegate, delegate_task
+from src.agent.tools.delegate import delegate_task, in_delegate
 
 
 def _mock_chat_agent(mock_agent_class: MagicMock) -> MagicMock:
@@ -72,11 +72,11 @@ class TestDelegateTask:
 
     @patch("src.agent.agent.ChatAgent")
     def test_nested_delegation_refused(self, mock_agent_class: MagicMock) -> None:
-        token = _in_delegate.set(True)
+        token = in_delegate.set(True)
         try:
             parsed = json.loads(delegate_task.invoke({"task": "Find X"}))
         finally:
-            _in_delegate.reset(token)
+            in_delegate.reset(token)
 
         assert "error" in parsed
         assert parsed["retriable"] is False
@@ -95,4 +95,4 @@ class TestDelegateTask:
         parsed = json.loads(delegate_task.invoke({"task": "Find X"}))
 
         assert "error" in parsed
-        assert _in_delegate.get() is False  # flag must reset on failure
+        assert in_delegate.get() is False  # flag must reset on failure

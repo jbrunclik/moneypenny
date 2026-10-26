@@ -101,9 +101,9 @@ def resolve_quick_actions(program: dict[str, Any], namespace: str) -> list[dict[
 def register_quick_action_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:
     """Register PUT /{ns}/programs/<program_id>/quick-actions."""
     from src.api.routes.programs import (  # noqa: PLC0415 - cycle: programs imports this module
-        _get_programs,
-        _save_programs,
+        get_programs,
         program_to_item,
+        save_programs,
     )
 
     ns = cfg.namespace
@@ -116,13 +116,13 @@ def register_quick_action_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) ->
     @validate_request(UpdateQuickActionsRequest)
     def update_quick_actions(user: User, data: Any, program_id: str) -> dict[str, Any]:
         """Replace the program's quick actions (create/edit/reorder/delete)."""
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
         program = next((p for p in programs if p["id"] == program_id), None)
         if program is None:
             raise_not_found_error("Program")
 
         program["quick_actions"] = [a.model_dump() for a in data.quick_actions]
-        _save_programs(user.id, ns, programs)
+        save_programs(user.id, ns, programs)
 
         logger.info(
             "Quick actions updated",

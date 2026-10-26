@@ -168,7 +168,7 @@ pages). Subagents get no `propose_deep_research` and no write tools.
 
 ## Progress and the report message
 
-**SSE events** (all in `_JOURNALED_EVENT_TYPES`, so a reload resumes them):
+**SSE events** (all in `JOURNALED_EVENT_TYPES`, so a reload resumes them):
 `research_plan` (items), `research_item` (index, started / done / failed /
 skipped, pages read), `research_finding` (agent, text), `research_sources`
 (count), `research_writing`. Then tokens, `grounding_started`, `done`.

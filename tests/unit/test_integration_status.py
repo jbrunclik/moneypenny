@@ -76,7 +76,7 @@ class TestToolsUseIt:
         from src.agent.tools.garmin import garmin_connect
 
         user(garmin_token="stale", garmin_connected_at=datetime(2026, 8, 1))
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=None):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=None):
             parsed = json.loads(garmin_connect.invoke({"action": "get_readiness_snapshot"}))
 
         assert parsed["error"] == "Garmin disconnected"

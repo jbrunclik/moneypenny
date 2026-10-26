@@ -30,7 +30,7 @@ from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
 )
-from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES, _StreamJournal
+from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES, StreamJournal
 from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
 from src.db.blob_store import get_blob_store
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _notify_response_ready(
+def notify_response_ready(
     user_id: str, conv_id: str, content: str, title: str = "Your answer is ready"
 ) -> None:
     """Web-push "answer ready" for a finished turn no connected client saw.
@@ -131,7 +131,7 @@ def _poll_stop_flag(
 
 def _watch_for_stop(
     token: CancelToken,
-    journal: _StreamJournal | None,
+    journal: StreamJournal | None,
     event_queue: queue.Queue[dict[str, Any] | Exception | None],
     turn: TurnContext,
     stop_key: str,
@@ -173,7 +173,7 @@ def _pump_events(
     stop_key: str,
     event_queue: queue.Queue[dict[str, Any] | Exception | None],
     final_results: dict[str, Any],
-    journal: _StreamJournal | None,
+    journal: StreamJournal | None,
 ) -> tuple[int, bool]:
     """Move the turn's events into the queue (and journal); return (count, timed out)."""
     event_count = 0
@@ -184,7 +184,7 @@ def _pump_events(
             event_count += 1
             if event.get("type") == "final":
                 _store_final_results(final_results, event)
-            if journal and event.get("type") in _JOURNALED_EVENT_TYPES:
+            if journal and event.get("type") in JOURNALED_EVENT_TYPES:
                 journal.record(event)
             event_queue.put(event)
             if not final_results["ready"] and time.monotonic() > deadline:
@@ -211,7 +211,7 @@ def _report_approval_request(
     final_results: dict[str, Any],
     turn: TurnContext,
     journal_message_id: str | None,
-    journal: _StreamJournal | None,
+    journal: StreamJournal | None,
 ) -> None:
     """Send the approval event (saving its message first) and end the stream."""
     logger.info(
@@ -273,9 +273,9 @@ def stream_events(
             journal (None disables journaling)
     """
     user_id, conv_id = turn.user_id, turn.conv_id
-    journal: _StreamJournal | None = None
+    journal: StreamJournal | None = None
     if journal_message_id and Config.STREAM_JOURNAL_ENABLED:
-        journal = _StreamJournal(journal_message_id)
+        journal = StreamJournal(journal_message_id)
     # Contextvars don't cross threads: re-set the turn's (agent context for
     # kv_store and permission checks, request id for tool results, ...)
     turn.apply()
@@ -389,7 +389,7 @@ def cleanup_and_save(
         # Use lock to prevent race condition with generator's save
         # NOTE: We must check saved status even if generator_finished is True, because
         # GeneratorExit (raised when client disconnects) can kill the generator before
-        # it reaches _finalize_stream. The finally block sets generator_done_event, but
+        # it reaches finalize_stream. The finally block sets generator_done_event, but
         # the save never happened. This commonly occurs on mobile when the screen locks.
         with save_lock:
             # Only save if:
@@ -416,7 +416,7 @@ def cleanup_and_save(
                 # (typically mobile screen lock) - nudge the user's devices.
                 # Not after Stop: the user was there and ended it themselves
                 if not final_results.get("stop_reason"):
-                    _notify_response_ready(
+                    notify_response_ready(
                         user_id,
                         conv_id,
                         str(final_results.get("clean_content") or ""),

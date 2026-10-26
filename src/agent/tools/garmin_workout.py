@@ -28,8 +28,8 @@ from langchain_core.tools import tool
 
 from src.agent.tools.errors import tool_error
 from src.agent.tools.garmin import (
-    _get_garmin_client,
-    _safe_api_call,
+    get_garmin_client,
+    safe_api_call,
 )
 
 # Reuse the client/token plumbing that already backs the read-only tool.
@@ -504,7 +504,7 @@ def _parse_edits(edits: Any) -> list[dict[str, Any]]:
 
 def _list_workouts(garmin: Any) -> str:
     """The user's saved workouts (id, name, sport)."""
-    result = _safe_api_call(garmin, "get_workouts", 0, 100)
+    result = safe_api_call(garmin, "get_workouts", 0, 100)
     workouts = [
         {
             "workout_id": w.get("workoutId"),
@@ -530,11 +530,11 @@ def _update_workout(garmin: Any, workout_id: str | None, edits: str | None) -> s
     if not parsed:
         return tool_error("edits must contain at least one edit")
 
-    raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
+    raw = safe_api_call(garmin, "get_workout_by_id", workout_id)
     raw, applied, warnings = _apply_edits(raw, parsed)
-    _safe_api_call(garmin, "update_workout", workout_id, raw)
+    safe_api_call(garmin, "update_workout", workout_id, raw)
     # Re-fetch so the returned view is Garmin's persisted ground truth.
-    refreshed = _safe_api_call(garmin, "get_workout_by_id", workout_id)
+    refreshed = safe_api_call(garmin, "get_workout_by_id", workout_id)
     return json.dumps(
         {
             "action": "update",
@@ -615,7 +615,7 @@ def garmin_workout(
     if action == "search_exercises":
         return _search_exercises(query)
 
-    garmin = _get_garmin_client()
+    garmin = get_garmin_client()
     if not garmin:
         return not_connected_result("garmin")
 
@@ -626,7 +626,7 @@ def garmin_workout(
         if action == "get":
             if not workout_id:
                 return tool_error("workout_id is required for get")
-            raw = _safe_api_call(garmin, "get_workout_by_id", workout_id)
+            raw = safe_api_call(garmin, "get_workout_by_id", workout_id)
             return json.dumps({"action": "get", "workout": _slim_workout(raw)})
 
         if action == "update":

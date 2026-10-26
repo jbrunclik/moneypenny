@@ -25,7 +25,7 @@ Where the code and the spec differ, the code wins; the differences are noted bel
    [stream_events.py](../../src/agent/stream_events.py) turns a successful
    create/update result into `{"type": "artifact", id, version, title}` via
    `artifact_ref_from_tool_content()` ([artifact_refs.py](../../src/agent/artifact_refs.py)).
-   It is in `FORWARDED_EVENT_TYPES` and `_JOURNALED_EVENT_TYPES`, so a resumed
+   It is in `FORWARDED_EVENT_TYPES` and `JOURNALED_EVENT_TYPES`, so a resumed
    stream shows it.
 4. **`messages.artifacts`.** `save_message_to_db()` (stream and batch) calls
    `extract_artifact_refs()` on the turn's `ToolMessage`s (an artifact changed
@@ -384,7 +384,7 @@ Client constants in [config.ts](../../web/src/config.ts):
   message without a click").
 - **`mp.send` during an active reply is refused**: `sendUiMessage()` shows
   "Please wait for the current response to finish." and returns false.
-- **A new SSE event joins `_JOURNALED_EVENT_TYPES` and `FORWARDED_EVENT_TYPES`,
+- **A new SSE event joins `JOURNALED_EVENT_TYPES` and `FORWARDED_EVENT_TYPES`,
   and the resume `done` calls `add_artifacts()`**, or frames vanish on resume
   (see [Chat and Streaming](chat-and-streaming.md#resumable-streams)).
 

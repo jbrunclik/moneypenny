@@ -1,7 +1,7 @@
 """Stream journal + resume-after-disconnect generator.
 
 The producer journals every client-facing SSE event with a monotonic seq
-(_StreamJournal); the resume endpoint replays rows after the client's last
+(StreamJournal); the resume endpoint replays rows after the client's last
 seen seq and continues live (stream_resume_events). Persistence is
 best-effort - journal failures never break the live stream.
 """
@@ -27,7 +27,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-_JOURNALED_EVENT_TYPES = {
+JOURNALED_EVENT_TYPES = {
     "token",
     "thinking",
     "tool_start",
@@ -49,7 +49,7 @@ _JOURNALED_EVENT_TYPES = {
 }
 
 
-class _StreamJournal:
+class StreamJournal:
     """Batched journal of stream events, keyed by assistant message id.
 
     Enables resume-after-disconnect: the producer journals every client-facing

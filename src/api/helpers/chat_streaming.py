@@ -17,7 +17,7 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 from src.api.helpers.chat_save import save_message_to_db
-from src.api.helpers.stream_finalize import _finalize_stream
+from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
 from src.config import Config
 from src.db.models import db
@@ -46,7 +46,7 @@ STREAM_ERROR_MARKER = "\n\n_…(response interrupted by an error)_"
 # Agent events forwarded to the client as-is. "retry" (a transient model error
 # being retried) and "stopping" (server-side Stop acknowledged) are momentary;
 # "grounding_started" and the research_* events are journaled for resume
-# (stream_resume._JOURNALED_EVENT_TYPES).
+# (stream_resume.JOURNALED_EVENT_TYPES).
 FORWARDED_EVENT_TYPES = (
     "thinking",
     "tool_start",
@@ -77,7 +77,7 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
     def generate() -> Generator[str]:
         """Generator that streams tokens as SSE events with keepalive support."""
         # Initialize context
-        context = _StreamContext(user=user, conv=turn.conv, user_msg=turn.user_msg, turn=ctx)
+        context = StreamContext(user=user, conv=turn.conv, user_msg=turn.user_msg, turn=ctx)
         ctx.apply()
 
         # Start background threads
@@ -95,7 +95,7 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
             # got the error), the chat ended on it and Regenerate was refused.
             # A failure with partial text is "ready" and is kept.
             if not (context.producer_failed and not context.final_results["ready"]):
-                yield from _finalize_stream(context)
+                yield from finalize_stream(context)
 
         except Exception as e:  # noqa: BLE001 - reaches the client as an error event; logged there
             yield from _handle_generator_error(context, e)
@@ -143,7 +143,7 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
 _PRODUCER_EXIT_WAIT_SECONDS = 2.0
 
 
-class _StreamContext:
+class StreamContext:
     """Encapsulates all state for a streaming request."""
 
     def __init__(
@@ -254,7 +254,7 @@ class _StreamContext:
             self.client_connected = False
 
 
-def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
+def _yield_user_message_saved(context: StreamContext) -> Generator[str]:
     """Yield the user_message_saved event.
 
     Saves an empty placeholder assistant message to DB first so that
@@ -293,7 +293,7 @@ def _yield_user_message_saved(context: _StreamContext) -> Generator[str]:
         pass
 
 
-def _handle_stream_timeout(context: _StreamContext) -> Generator[str]:
+def _handle_stream_timeout(context: StreamContext) -> Generator[str]:
     """Persist partial streamed content and emit a timeout event to the client.
 
     Populates both the generator-side (context.*) and cleanup-thread-side
@@ -322,7 +322,7 @@ def _handle_stream_timeout(context: _StreamContext) -> Generator[str]:
         context.mark_disconnected(e, "streaming (timeout)")
 
 
-def _process_event_queue(context: _StreamContext) -> Generator[str]:
+def _process_event_queue(context: StreamContext) -> Generator[str]:
     """Process events from the queue and yield SSE data.
 
     Enforces a backstop deadline (CHAT_TIMEOUT + one keepalive interval of grace
@@ -353,7 +353,7 @@ def _process_event_queue(context: _StreamContext) -> Generator[str]:
             yield from _send_keepalive(context)
 
 
-def _handle_queue_error(context: _StreamContext, error: Exception) -> Generator[str]:
+def _handle_queue_error(context: StreamContext, error: Exception) -> Generator[str]:
     """Handle an error from the event queue.
 
     Persists any partial streamed content first (X1): a crash after most of
@@ -405,7 +405,7 @@ def _build_error_data(error: Exception) -> dict[str, Any]:
     }
 
 
-def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Generator[str]:
+def _handle_queue_event(context: StreamContext, item: dict[str, Any]) -> Generator[str]:
     """Handle a single event from the queue."""
     event_type = item.get("type")
 
@@ -437,7 +437,7 @@ def _handle_queue_event(context: _StreamContext, item: dict[str, Any]) -> Genera
             context.mark_disconnected(e, f"streaming ({event_type})")
 
 
-def _send_keepalive(context: _StreamContext) -> Generator[str]:
+def _send_keepalive(context: StreamContext) -> Generator[str]:
     """Send a keepalive comment to prevent proxy timeout."""
     try:
         yield ": keepalive\n\n"
@@ -445,7 +445,7 @@ def _send_keepalive(context: _StreamContext) -> Generator[str]:
         context.mark_disconnected(e, "keepalive")
 
 
-def _handle_generator_error(context: _StreamContext, error: Exception) -> Generator[str]:
+def _handle_generator_error(context: StreamContext, error: Exception) -> Generator[str]:
     """Handle an error in the generator."""
     logger.error(
         "Error in stream generator",

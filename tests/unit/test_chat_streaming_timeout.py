@@ -127,7 +127,7 @@ def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
 
 
 def _make_ctx(items=()) -> types.SimpleNamespace:
-    """Minimal stand-in for _StreamContext for consumer-path tests."""
+    """Minimal stand-in for StreamContext for consumer-path tests."""
     q: queue.Queue = queue.Queue()
     for it in items:
         q.put(it)
@@ -158,12 +158,12 @@ def test_handle_queue_event_accumulates_token_text() -> None:
 
 def test_handle_queue_event_forwards_retry_status() -> None:
     """Transient-error retries reach the client as an SSE event (not journaled)."""
-    from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+    from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES
 
     ctx = _make_ctx()
     out = list(_handle_queue_event(ctx, {"type": "retry", "attempt": 2, "max_retries": 3}))
     assert out == ['data: {"type": "retry", "attempt": 2, "max_retries": 3}\n\n']
-    assert "retry" not in _JOURNALED_EVENT_TYPES
+    assert "retry" not in JOURNALED_EVENT_TYPES
 
 
 def test_consumer_handles_producer_timeout_marker() -> None:
@@ -278,7 +278,7 @@ def test_generator_error_does_not_delete_saved_message(monkeypatch) -> None:
     """A post-save exception must not delete the just-saved message.
 
     Regression test: _handle_generator_error checked only placeholder_saved and
-    empty clean_content; when _finalize_stream saved successfully but raised
+    empty clean_content; when finalize_stream saved successfully but raised
     afterwards, the saved message was deleted.
     """
     ctx = _make_ctx()

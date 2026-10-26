@@ -153,7 +153,7 @@ tool declarations for tokens.
 - While a tool runs, the existing tool-status line shows "Building an artifact".
 - On completion `stream_events` turns the tool's result into a new SSE event
   `artifact {id, version, title}` that places the frame. It
-  joins `_JOURNALED_EVENT_TYPES`, so a resumed stream shows it; the streaming data
+  joins `JOURNALED_EVENT_TYPES`, so a resumed stream shows it; the streaming data
   flow's components are updated together (see docs/features/chat-and-streaming.md).
 - Batch responses and message payloads carry `artifacts: [{id, version, title}]`.
 

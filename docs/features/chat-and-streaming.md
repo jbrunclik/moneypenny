@@ -72,8 +72,8 @@ generator. The work is split three ways:
 | Module | Role |
 |--------|------|
 | [stream_producer.py](../../src/api/helpers/stream_producer.py) | `stream_events()` runs the agent in a background thread (`turn.apply()`, then `stream_chat_events()`), journals and queues events; `cleanup_and_save()` saves the turn when the client-facing generator could not |
-| [chat_streaming.py](../../src/api/helpers/chat_streaming.py) | Consumer: `_StreamContext`, the `user_message_saved` event + placeholder, queue relay with keepalives, timeout and error handling |
-| [stream_finalize.py](../../src/api/helpers/stream_finalize.py) | `_finalize_stream()` saves the turn and sends `done`; `_finalize_approval_stream()` for agent turns paused for approval |
+| [chat_streaming.py](../../src/api/helpers/chat_streaming.py) | Consumer: `StreamContext`, the `user_message_saved` event + placeholder, queue relay with keepalives, timeout and error handling |
+| [stream_finalize.py](../../src/api/helpers/stream_finalize.py) | `finalize_stream()` saves the turn and sends `done`; `_finalize_approval_stream()` for agent turns paused for approval |
 
 Both paths put `stopped_early` on the reply when the turn hit the tool-round cap
 ([Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
@@ -125,7 +125,7 @@ Clicking the stop button ends the turn **on the server** within about a second, 
 
 1. **Button transformation**: When streaming starts for the current conversation, the send button transforms to a stop button (red square icon with `.btn-stop` class)
 2. **Stop request**: once `user_message_saved` has arrived (the server has the turn), Stop sends `POST /api/conversations/<id>/chat/stop` with `{message_id}` (the turn's assistant message id) and **keeps reading the stream** (`requestServerStop()` in [stream-session.ts](../../web/src/core/stream-session.ts), registered on the live stream and on the reload-resume reader via `setStopHandler()`). Before that ack there is nothing server-side to stop, so Stop aborts the reader as a failed send
-3. **Cross-worker signal**: the route writes a kv flag (namespace `cancel`, key = conversation id, **value = the turn's message id**) - it may land on a different gunicorn worker than the one running the turn. The producer thread owns a `CancelToken` registered by request id; a poller thread checks every `CANCEL_POLL_INTERVAL_SECONDS` (0.5) whether the flag names *this* turn and cancels the token ([cancellation.py](../../src/agent/cancellation.py)). The value scoping means a Stop sent after a turn ended never matches the next one, and an older turn still running server-side (its client aborted before the ack) neither reacts to nor clears the current turn's Stop; each turn clears only its own flag at the end. On cancel the producer emits a `stopping` event at once - no events flow while a tool runs, and the client's grace timer must not cut off the done that follows at the next checkpoint. The event is journaled (recorded from the poller thread; `_StreamJournal` is locked), so a reader resumed after a reload gets it too
+3. **Cross-worker signal**: the route writes a kv flag (namespace `cancel`, key = conversation id, **value = the turn's message id**) - it may land on a different gunicorn worker than the one running the turn. The producer thread owns a `CancelToken` registered by request id; a poller thread checks every `CANCEL_POLL_INTERVAL_SECONDS` (0.5) whether the flag names *this* turn and cancels the token ([cancellation.py](../../src/agent/cancellation.py)). The value scoping means a Stop sent after a turn ended never matches the next one, and an older turn still running server-side (its client aborted before the ack) neither reacts to nor clears the current turn's Stop; each turn clears only its own flag at the end. On cancel the producer emits a `stopping` event at once - no events flow while a tool runs, and the client's grace timer must not cut off the done that follows at the next checkpoint. The event is journaled (recorded from the poller thread; `StreamJournal` is locked), so a reader resumed after a reload gets it too
 4. **Checkpoints** end the turn - the token stream, `chat_node`, `check_tool_results`, `execute_code`, browser batches; see [Agent Graph - Stop Checkpoints](../architecture/agent-graph.md#stop-checkpoints)
 5. **Save**: the `final` event carries `stop_reason: "user"`; the normal save path stores the partial reply (or "Stopped before answering." when nothing streamed yet) with `messages.stop_reason` in the same write. Cost covers the tokens actually used. The placeholder text stays in model history (the model should know the turn was cut off) but is not title material: first-turn title generation sees only the user's message. Files from a tool that finished after Stop (e.g. an image) are attached to the stopped reply - intended: the work was done and paid for. No "Your answer is ready" push for a stopped reply - the user was there
 6. **UI**: once Stop is accepted, the conversation's `activeRequests` entry gets `stopping: true`: the button stays a Stop button but disabled and still, labelled "Stopping…", and sending is blocked with a toast (steering a turn that is ending would save a message nobody answers) until the done event clears the entry. The `done` event (and the resume endpoint's done, and loaded message lists) carries `stop_reason: "user"`; the reply shows the stopped-early note labelled "Stopped." with **Continue** (the existing `rerun_mode: "continue"`). A "Response stopped." toast confirms
@@ -163,7 +163,7 @@ When streaming responses, the connection can drop mid-stream (network issues, pr
 
 **How it works:**
 
-1. **Pre-generate ID on server**: When a stream starts, `_StreamContext` generates a UUID (`expected_assistant_msg_id`) for the assistant message
+1. **Pre-generate ID on server**: When a stream starts, `StreamContext` generates a UUID (`expected_assistant_msg_id`) for the assistant message
 2. **Save placeholder to DB**: `_yield_user_message_saved()` saves an empty assistant message with this ID to the database immediately, so `GET /api/messages/{id}` returns 200 from the start
 3. **Send ID early**: The ID is included in the `user_message_saved` SSE event, sent at the very start of streaming
 4. **Frontend stores ID**: The frontend captures this ID in `StreamingState.expectedAssistantMessageId`
@@ -230,8 +230,8 @@ Message displays correctly despite lost token events
 This belt-and-suspenders approach ensures the message content is always available, even if individual token events were lost during streaming.
 
 **Key files:**
-- [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `_StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`, placeholder lifecycle
-- [stream_finalize.py](../../src/api/helpers/stream_finalize.py) - `_finalize_stream()` fills the placeholder and builds `done`
+- [chat_streaming.py](../../src/api/helpers/chat_streaming.py) - `StreamContext.expected_assistant_msg_id`, `_yield_user_message_saved()`, placeholder lifecycle
+- [stream_finalize.py](../../src/api/helpers/stream_finalize.py) - `finalize_stream()` fills the placeholder and builds `done`
 - [message.py](../../src/db/models/message.py) - `update_message_content()`, `delete_message_by_id()`
 - [stream-recovery.ts](../../web/src/core/stream-recovery.ts) - Two-phase `fetchMessageWithRetry()` (Phase 1: find, Phase 2: content poll)
 - [stream-resume.ts](../../web/src/core/stream-resume.ts) - `handleMissingDoneEvent()`; [stream-session.ts](../../web/src/core/stream-session.ts) - `StreamingState.expectedAssistantMessageId`
@@ -239,13 +239,13 @@ This belt-and-suspenders approach ensures the message content is always availabl
 
 **Other uses for pre-generated IDs:**
 - **Idempotent saves**: The cleanup thread and main generator both use the same ID, preventing duplicates
-- **Reliable done event**: `_finalize_stream` fetches by known ID instead of "last message"
+- **Reliable done event**: `finalize_stream` fetches by known ID instead of "last message"
 - **Audit trails**: Message lifecycle can be tracked from stream start to completion
 
 ### Generator vs Cleanup Thread Synchronization
 
 The streaming architecture has two paths that can save the assistant message:
-1. **Generator path**: The main streaming generator calls `_finalize_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) when complete
+1. **Generator path**: The main streaming generator calls `finalize_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) when complete
 2. **Cleanup thread path**: `cleanup_and_save()` ([stream_producer.py](../../src/api/helpers/stream_producer.py)) waits for the producer thread and saves if needed
 
 This dual-path design ensures messages are saved even if the client disconnects, but creates a race
@@ -254,7 +254,7 @@ condition where both paths might try to save the same message simultaneously.
 **Synchronization mechanism:**
 
 ```python
-# In _StreamContext
+# In StreamContext
 save_lock = threading.Lock()           # Atomic check-then-save
 generator_done_event = threading.Event() # Signal from generator to cleanup
 final_results["saved"] = False         # Track if message was saved
@@ -285,22 +285,22 @@ Generator thread                    Cleanup thread
 If the generator hangs or crashes, the cleanup thread has a timeout
 (`STREAM_CLEANUP_WAIT_DELAY`) after which it will acquire the lock and save if `saved=False`.
 
-**Key files:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py) (`_StreamContext`), [stream_producer.py](../../src/api/helpers/stream_producer.py) (`cleanup_and_save()`)
+**Key files:** [chat_streaming.py](../../src/api/helpers/chat_streaming.py) (`StreamContext`), [stream_producer.py](../../src/api/helpers/stream_producer.py) (`cleanup_and_save()`)
 
 ### Streaming Data Flow (components that change together)
 
 The producer/consumer pipeline (see [Chat Turn Lifecycle](#chat-turn-lifecycle)) has several parts that are tightly coupled — changing the shape of streamed events or the accumulated state means updating **all** of them in lockstep, or the stream silently loses data:
 
 ```
-stream_events()        → event_queue → _process_event_queue() → _handle_queue_event() → _finalize_stream()   → save_message_to_db()
+stream_events()        → event_queue → _process_event_queue() → _handle_queue_event() → finalize_stream()   → save_message_to_db()
 (stream_producer.py)                   (chat_streaming.py)                               (stream_finalize.py)   (chat_save.py)
 ```
 
-1. `_StreamContext` class ([chat_streaming.py](../../src/api/helpers/chat_streaming.py)) — holds the accumulated state (content, thinking, IDs, journal) for the stream
+1. `StreamContext` class ([chat_streaming.py](../../src/api/helpers/chat_streaming.py)) — holds the accumulated state (content, thinking, IDs, journal) for the stream
 2. `stream_events()` ([stream_producer.py](../../src/api/helpers/stream_producer.py)) — the producer thread: `turn.apply()`, runs `stream_chat_events()`, journals and pushes events onto `event_queue`
 3. `_handle_queue_event()` — translates each queued event into the client-facing SSE payload
-4. `_finalize_stream()` / `_finalize_approval_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) — final processing / `done` event after the queue drains
-5. `_StreamContext.start_threads()` — starts the producer and the `cleanup_and_save()` thread
+4. `finalize_stream()` / `_finalize_approval_stream()` ([stream_finalize.py](../../src/api/helpers/stream_finalize.py)) — final processing / `done` event after the queue drains
+5. `StreamContext.start_threads()` — starts the producer and the `cleanup_and_save()` thread
 6. `save_message_to_db()` in [chat_save.py](../../src/api/helpers/chat_save.py) — persists the assistant message (`result_messages: list[Any]` of LangChain `BaseMessage` objects)
 7. All mock return values in the integration tests (they stub these return types)
 
@@ -308,7 +308,7 @@ stream_events()        → event_queue → _process_event_queue() → _handle_qu
 
 Generation always survived a client disconnect (the producer thread plus the cleanup-thread save complete the turn regardless). Resumable streams add the ability for a reconnecting client to **replay what it missed** and keep tailing the same in-flight turn.
 
-**Stream journal.** The producer journals every client-facing SSE event to the `stream_journal` table (migration [0035_add_stream_journal.py](../../migrations/0035_add_stream_journal.py)) via `_StreamJournal` in [stream_resume.py](../../src/api/helpers/stream_resume.py), keyed by assistant `message_id` with a monotonic `seq`. Writes are batch-flushed (by count or interval) and old rows are TTL-swept at journal start. Journaling is **best-effort** — a journal failure logs a warning and never breaks the live stream.
+**Stream journal.** The producer journals every client-facing SSE event to the `stream_journal` table (migration [0035_add_stream_journal.py](../../migrations/0035_add_stream_journal.py)) via `StreamJournal` in [stream_resume.py](../../src/api/helpers/stream_resume.py), keyed by assistant `message_id` with a monotonic `seq`. Writes are batch-flushed (by count or interval) and old rows are TTL-swept at journal start. Journaling is **best-effort** — a journal failure logs a warning and never breaks the live stream.
 
 **Why DB-backed?** A resume request may land on a **different gunicorn worker** than the one still generating, so an in-memory buffer would be invisible to it. Persisting to SQLite makes the journal cross-worker.
 
@@ -320,7 +320,7 @@ Generation always survived a client disconnect (the producer thread plus the cle
 
 **Invariants (violating these re-introduces fixed bugs):**
 
-- **Any NEW SSE event type must be added to `_JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`, the `research_*` events and `artifact`.) A forwarded agent event must also be in `FORWARDED_EVENT_TYPES` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py), or the consumer drops it live. The synthesized `done` must carry the same decorations as the live one (`add_grounding()`, `add_research()`, `add_artifacts()`), or a reload loses the claims, the research chip and the artifact cards. The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
+- **Any NEW SSE event type must be added to `JOURNALED_EVENT_TYPES`** in [stream_resume.py](../../src/api/helpers/stream_resume.py), or it will not be journaled and therefore won't replay on resume. (Current set: `token`, `thinking`, `tool_start`, `tool_end`, `approval_required`, `timeout`, `stopping`, `grounding_started`, the `research_*` events and `artifact`.) A forwarded agent event must also be in `FORWARDED_EVENT_TYPES` in [chat_streaming.py](../../src/api/helpers/chat_streaming.py), or the consumer drops it live. The synthesized `done` must carry the same decorations as the live one (`add_grounding()`, `add_research()`, `add_artifacts()`), or a reload loses the claims, the research chip and the artifact cards. The one deliberate exception is `retry`: a momentary status that a resumed client has no reason to replay. The `done`/`final` result is intentionally **not** journaled — it isn't reliably JSON-serializable and is instead rebuilt from the saved message.
 - **A 404 from the resume endpoint must fall back to poll-based recovery immediately, with no retries.** A 404 means there is no journal for this message (expired, or a server build without the endpoint — e.g. the E2E mock server). The instant fallback in `tryResumeStream` is what keeps the existing E2E suite green.
 - The client-side resume invariants (ordering vs. the active-request restore in `switchToConversation`, clearing `inflight-streams` only on terminal outcome, `swapAbortController`, removing the empty placeholder row by `data-message-id`) are tightly coupled — see the resume flow in [stream-resume.ts](../../web/src/core/stream-resume.ts) (entries persisted by [inflight-streams.ts](../../web/src/core/inflight-streams.ts)) / [conversation-switch.ts](../../web/src/core/conversation-switch.ts).
 
@@ -408,7 +408,7 @@ The app supports multiple active requests across different conversations simulta
 - **A stalled read throws, it doesn't emit `error`.** [sse.ts](../../web/src/api/sse.ts) used to turn the 60s read timeout into a synthetic `error` event, which removed the reply bubble before the journal resume ran - the resumed reply filled a detached element and stayed invisible until reload (or kept a false "incomplete" mark). Now the timeout propagates and the resume/recovery path decides the bubble's fate.
 - **One send at a time while preparing.** `sendMessage` reads the composer, then awaits conversation creation / unarchive / history load before clearing it; a second Enter in that window sent the same text again (a duplicate, or a second conversation). A module flag ignores re-entry until the composer is consumed (or the interject returns). Test: [double-send.test.ts](../../web/tests/unit/double-send.test.ts)
 - **A leftover incomplete bubble is replaced by the saved reply.** A stop whose `done` never came, or a recovery that gave up with partial text, leaves a `.message-incomplete` bubble with the reply's id that is not in the store; the in-place merge ([remote-merge.ts](../../web/src/core/remote-merge.ts)) drops it when the server has that message with content, so the saved version renders in its place. Test: [remote-merge-incomplete.test.ts](../../web/tests/unit/remote-merge-incomplete.test.ts)
-- **A model failure before any text fails fast, with Retry.** The server no longer saves an empty reply after the producer reported an error (`_finalize_stream` is skipped unless partial text made the turn "ready"), and waits for the failed producer thread before deleting the placeholder - the chat used to end on an empty assistant row and Regenerate was refused (400). The client skips the network-drop resume/recovery when the server reported the error and nothing streamed (`state.serverError`) and toasts the error with **Retry** (a `regenerate` re-run via the `message:retry-reply` event). E2E: `failNextStream()` makes the mock's next stream fail the real route's way. Tests: [stream-server-error.spec.ts](../../web/tests/e2e/chat/stream-server-error.spec.ts), `TestStreamModelErrorLeavesNoPlaceholder`.
+- **A model failure before any text fails fast, with Retry.** The server no longer saves an empty reply after the producer reported an error (`finalize_stream` is skipped unless partial text made the turn "ready"), and waits for the failed producer thread before deleting the placeholder - the chat used to end on an empty assistant row and Regenerate was refused (400). The client skips the network-drop resume/recovery when the server reported the error and nothing streamed (`state.serverError`) and toasts the error with **Retry** (a `regenerate` re-run via the `message:retry-reply` event). E2E: `failNextStream()` makes the mock's next stream fail the real route's way. Tests: [stream-server-error.spec.ts](../../web/tests/e2e/chat/stream-server-error.spec.ts), `TestStreamModelErrorLeavesNoPlaceholder`.
 - **The auto-retry stays in its conversation.** After the 2s wait it dispatches only if the user is still in that conversation; otherwise the send is left failed (Retry on return) - it rendered its streaming bubble into the conversation on screen. Test: [auto-retry-switch.test.ts](../../web/tests/unit/auto-retry-switch.test.ts)
 - **Edit-and-resend leaves the composer alone** (it is sent with `sendUiMessage`, not by writing into the composer - that overwrote the draft and took its attachments), and a message with attachments can't be edited yet (only the text was resent; the truncation deleted the files). Test: [message-edit.test.ts](../../web/tests/unit/message-edit.test.ts)
 - **Text typed while a conversation loads belongs to it.** `selectConversation` calls `beginDraftForLoadingConversation` before the fetch: the outgoing draft is saved, the target's draft is shown, and the debounced save writes to the loading conversation instead of the one still current. The switch-in restore keeps what was typed, and the Send button is re-evaluated once `isLoading` clears. The text used to be saved to the previous conversation and wiped on switch-in, with Send left disabled. Test: [composer-draft.spec.ts](../../web/tests/e2e/chat/composer-draft.spec.ts)

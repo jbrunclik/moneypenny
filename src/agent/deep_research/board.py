@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 from langchain_core.tools import BaseTool, StructuredTool
 
-from src.agent.source_pages import SourcePage, _title_from_url
+from src.agent.source_pages import SourcePage, title_from_url
 from src.config import Config
 
 Kind = Literal["finding", "lead"]
@@ -186,7 +186,7 @@ def _fetch(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str, A
         return f"[Already read by agent {hit[0] + 1}]\n{hit[1].text}"
     result = tool.invoke(kwargs)
     if isinstance(result, str) and url and not _is_error(result):
-        board.record_page(agent, SourcePage(_title_from_url(url), url, result))
+        board.record_page(agent, SourcePage(title_from_url(url), url, result))
     return result
 
 
@@ -222,7 +222,7 @@ def _research(tool: BaseTool, board: ResearchBoard, agent: int, kwargs: dict[str
         data = None
     for source in (data or {}).get("sources") or []:
         if isinstance(source, dict) and source.get("url") and "content" in source:
-            title = str(source.get("title") or _title_from_url(source["url"]))
+            title = str(source.get("title") or title_from_url(source["url"]))
             board.record_page(agent, SourcePage(title, source["url"], str(source["content"])))
     return result
 

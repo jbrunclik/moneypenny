@@ -278,7 +278,7 @@ def fake_integrations(spec: dict[str, Any]) -> Iterator[dict[str, Any]]:
             client = FakeGarmin(g.get("data") or {}) if state == "connected" else None
             fakes["garmin"] = client
             for module in ("src.agent.tools.garmin", "src.agent.tools.garmin_workout"):
-                stack.enter_context(patch(f"{module}._get_garmin_client", lambda c=client: c))
+                stack.enter_context(patch(f"{module}.get_garmin_client", lambda c=client: c))
             stack.enter_context(
                 patch("src.agent.tools.garmin._persist_refreshed_tokens", lambda g: None)
             )

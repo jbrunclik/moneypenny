@@ -12,8 +12,8 @@ from bs4.element import NavigableString, Tag
 from src.agent.tools.product_data import product_data_line
 from src.agent.tools.web import (
     _extract_main_content,
-    _extract_text_from_html,
     _html_to_markdown,
+    extract_text_from_html,
 )
 
 
@@ -37,7 +37,7 @@ class TestHtmlExtraction:
 
     def test_main_content_drops_boilerplate(self) -> None:
         """trafilatura keeps the article body and drops nav/aside/footer."""
-        text = _extract_text_from_html(self._ARTICLE)
+        text = extract_text_from_html(self._ARTICLE)
         assert "Sourdough Guide" in text
         assert "twenty-four hours" in text
         assert "Unrelated Menu Link" not in text
@@ -46,7 +46,7 @@ class TestHtmlExtraction:
     def test_falls_back_when_main_content_too_short(self) -> None:
         """A link hub with no article body falls back to html2text."""
         with patch("src.agent.tools.web._extract_main_content", return_value="") as mock_main:
-            text = _extract_text_from_html(
+            text = extract_text_from_html(
                 "<html><body><ul><li>Headline A</li><li>Headline B</li></ul></body></html>"
             )
         mock_main.assert_called_once()
@@ -56,21 +56,21 @@ class TestHtmlExtraction:
         """A sufficiently long main-content extract is used verbatim (no fallback)."""
         long_text = "Real article body. " * 30  # > _MIN_MAIN_CONTENT_CHARS
         with patch("src.agent.tools.web._extract_main_content", return_value=long_text):
-            text = _extract_text_from_html("<html><body><nav>NAVNOISE</nav></body></html>")
+            text = extract_text_from_html("<html><body><nav>NAVNOISE</nav></body></html>")
         assert "Real article body." in text
         assert "NAVNOISE" not in text  # fallback (which would keep nav) not used
 
     def test_trafilatura_failure_falls_back(self) -> None:
         """An exception inside trafilatura degrades to html2text, not a crash."""
         with patch("src.agent.tools.web.trafilatura.extract", side_effect=RuntimeError("boom")):
-            text = _extract_text_from_html("<html><body><p>Fallback content here</p></body></html>")
+            text = extract_text_from_html("<html><body><p>Fallback content here</p></body></html>")
         assert "Fallback content here" in text
 
     def test_truncates_at_limit(self) -> None:
         """Extracted text is capped at max_length with a truncation marker."""
         big = "word " * 500
         with patch("src.agent.tools.web._extract_main_content", return_value=big):
-            text = _extract_text_from_html("<html></html>", max_length=100)
+            text = extract_text_from_html("<html></html>", max_length=100)
         assert len(text) <= 100 + len("\n\n[Content truncated...]")
         assert "[Content truncated...]" in text
 
@@ -119,7 +119,7 @@ class TestProductData:
             '"name":"Bellroy Note Sleeve RFID","offers":{"@type":"Offer","price":"2490",'
             '"priceCurrency":"CZK","availability":"https://schema.org/InStock"}}</script>'
         )
-        text = _extract_text_from_html(self._page(head))
+        text = extract_text_from_html(self._page(head))
         assert text.startswith("Product data (page markup): Bellroy Note Sleeve RFID")
         assert "2490 CZK" in text and "InStock" in text
 
@@ -129,22 +129,22 @@ class TestProductData:
             '"name":"Secrid Twinwallet","offers":{"@type":"AggregateOffer","lowPrice":2290,'
             '"highPrice":2499,"priceCurrency":"CZK"}}]}</script>'
         )
-        assert "2290–2499 CZK" in _extract_text_from_html(self._page(head))
+        assert "2290–2499 CZK" in extract_text_from_html(self._page(head))
 
     def test_price_meta_tags(self) -> None:
         head = '<meta itemprop="price" content="2499"><meta itemprop="priceCurrency" content="CZK">'
-        assert "2499 CZK" in _extract_text_from_html(self._page(head))
+        assert "2499 CZK" in extract_text_from_html(self._page(head))
 
     def test_no_markup_and_bad_json_change_nothing(self) -> None:
-        plain = _extract_text_from_html(self._page(""))
-        broken = _extract_text_from_html(
+        plain = extract_text_from_html(self._page(""))
+        broken = extract_text_from_html(
             self._page('<script type="application/ld+json">{not json</script>')
         )
         assert "Product data" not in plain and broken == plain
 
     def test_the_line_survives_truncation(self) -> None:
         head = '<meta property="product:price:amount" content="650"><meta property="product:price:currency" content="CZK">'
-        text = _extract_text_from_html(self._page(head), max_length=50)
+        text = extract_text_from_html(self._page(head), max_length=50)
         assert "650 CZK" in text
 
 
@@ -168,7 +168,7 @@ class TestPublishedDate:
             '<meta property="og:type" content="article">'
             '<meta property="article:published_time" content="2025-10-06T08:00:00+02:00">'
         )
-        assert _extract_text_from_html(self._page(head)).startswith("Published: 2025-10-06")
+        assert extract_text_from_html(self._page(head)).startswith("Published: 2025-10-06")
 
     def test_a_page_that_is_not_an_article_gets_no_date(self) -> None:
         # Wikipedia and hub pages: their only dates are creation or copyright
@@ -177,18 +177,18 @@ class TestPublishedDate:
             '<meta property="og:type" content="website">'
             '<meta property="article:published_time" content="2009-06-11">'
         )
-        assert "Published:" not in _extract_text_from_html(self._page(head))
+        assert "Published:" not in extract_text_from_html(self._page(head))
 
     def test_an_undated_article_gets_no_line(self) -> None:
         head = '<meta property="og:type" content="article">'
-        assert "Published:" not in _extract_text_from_html(self._page(head))
+        assert "Published:" not in extract_text_from_html(self._page(head))
 
     def test_the_date_survives_truncation(self) -> None:
         head = (
             '<meta property="og:type" content="article">'
             '<meta property="article:published_time" content="2025-10-06">'
         )
-        assert "Published: 2025-10-06" in _extract_text_from_html(self._page(head), max_length=50)
+        assert "Published: 2025-10-06" in extract_text_from_html(self._page(head), max_length=50)
 
     def test_dates_in_prose_are_not_parsed(self) -> None:
         # htmldate's prose search runs dateparser over all its ~200 languages,
@@ -197,7 +197,7 @@ class TestPublishedDate:
         head = '<meta property="og:type" content="article">'
         page = self._page(head).replace("<article>", "<article><p>Vydáno 6. října 2025 v 8:00</p>")
         with patch.object(dateparser.DateDataParser, "get_date_data") as dateparser_call:
-            _extract_text_from_html(page)
+            extract_text_from_html(page)
         dateparser_call.assert_not_called()
 
 

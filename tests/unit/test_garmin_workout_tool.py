@@ -4,7 +4,7 @@ Covers the pure projection/patch helpers (_slim_workout, _apply_edits) against
 a fixture that mirrors the real Garmin strength structure — repeat groups
 (supersets), interval/rest child steps, a lap.button carry, and a bodyweight
 (null-weight) move — plus the tool's action dispatch and guards. The garth API
-is never hit; the client and _safe_api_call are patched.
+is never hit; the client and safe_api_call are patched.
 """
 
 import copy
@@ -376,7 +376,7 @@ class TestSearchExercises:
 
 
 def _mock_client_calls(fixture):
-    """Return a _safe_api_call side_effect over a mutable stored workout."""
+    """Return a safe_api_call side_effect over a mutable stored workout."""
     store = {"raw": copy.deepcopy(fixture)}
 
     def side_effect(garmin, method_name, *args, **kwargs):
@@ -394,35 +394,35 @@ def _mock_client_calls(fixture):
 
 class TestToolDispatch:
     def test_not_connected(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=None):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=None):
             result = json.loads(garmin_workout.invoke({"action": "list"}))
         assert result["error"] == "Garmin not connected"
 
     def test_unknown_action(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_workout.invoke({"action": "fly"}))
         assert "Unknown action" in result["error"]
 
     def test_list(self):
         side_effect, _ = _mock_client_calls(_fixture())
         with (
-            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin_workout._safe_api_call", side_effect=side_effect),
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=side_effect),
         ):
             result = json.loads(garmin_workout.invoke({"action": "list"}))
         assert result["count"] == 1
         assert result["workouts"][0]["name"] == "Man Cave - Monday"
 
     def test_get_requires_workout_id(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_workout.invoke({"action": "get"}))
         assert "workout_id is required" in result["error"]
 
     def test_get_returns_slim_view(self):
         side_effect, _ = _mock_client_calls(_fixture())
         with (
-            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin_workout._safe_api_call", side_effect=side_effect),
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=side_effect),
         ):
             result = json.loads(
                 garmin_workout.invoke({"action": "get", "workout_id": "1647614440"})
@@ -433,8 +433,8 @@ class TestToolDispatch:
     def test_update_persists_and_returns_refreshed(self):
         side_effect, _store = _mock_client_calls(_fixture())
         with (
-            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin_workout._safe_api_call", side_effect=side_effect),
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=side_effect),
         ):
             result = json.loads(
                 garmin_workout.invoke(
@@ -459,8 +459,8 @@ class TestToolDispatch:
     def test_update_accepts_json_string_edits(self):
         side_effect, _ = _mock_client_calls(_fixture())
         with (
-            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin_workout._safe_api_call", side_effect=side_effect),
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=side_effect),
         ):
             result = json.loads(
                 garmin_workout.invoke(
@@ -481,19 +481,19 @@ class TestToolDispatch:
         ]
 
     def test_update_requires_edits(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
             result = json.loads(
                 garmin_workout.invoke({"action": "update", "workout_id": "1647614440"})
             )
         assert "edits is required" in result["error"]
 
     def test_update_requires_workout_id(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_workout.invoke({"action": "update", "edits": "[]"}))
         assert "workout_id is required for update" in result["error"]
 
     def test_update_rejects_malformed_or_empty_edits(self):
-        with patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()):
             bad = json.loads(
                 garmin_workout.invoke({"action": "update", "workout_id": "1", "edits": "{oops"})
             )
@@ -505,10 +505,8 @@ class TestToolDispatch:
 
     def test_api_failure_is_contained(self):
         with (
-            patch("src.agent.tools.garmin_workout._get_garmin_client", return_value=MagicMock()),
-            patch(
-                "src.agent.tools.garmin_workout._safe_api_call", side_effect=Exception("expired")
-            ),
+            patch("src.agent.tools.garmin_workout.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin_workout.safe_api_call", side_effect=Exception("expired")),
         ):
             result = json.loads(garmin_workout.invoke({"action": "list"}))
         assert result["error"] == "expired"

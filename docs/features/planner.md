@@ -30,7 +30,7 @@ In planner mode, the LLM has access to an additional tool that ensures it always
 **Implementation details**:
 - Only available in planner mode (not in regular conversations)
 - Requires at least one integration to be connected (Todoist or Calendar)
-- Uses the `_planner_dashboard_context` contextvar (in [agent.py](../../src/agent/agent.py)) to update the dashboard mid-conversation
+- Uses the `planner_dashboard_context` contextvar (in [agent.py](../../src/agent/agent.py)) to update the dashboard mid-conversation
 - System prompt checks contextvar for updated data before using the initial dashboard_data
 
 ## Dashboard Data Structure

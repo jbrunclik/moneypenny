@@ -14,11 +14,11 @@ from src.agent.tools.garmin import (
     _GARMIN_ACTIONS,
     _detect_climbs,
     _profile_samples,
-    _safe_api_call,
     _slim_course_detail,
     _slim_course_summary,
     _strip_bulky_fields,
     garmin_connect,
+    safe_api_call,
 )
 
 
@@ -139,8 +139,8 @@ class TestCourseDispatch:
             },
         ]
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin._safe_api_call", return_value=raw),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.safe_api_call", return_value=raw),
         ):
             out = json.loads(
                 garmin_connect.invoke({"action": "get_courses", "activity_type": "cycling"})
@@ -149,7 +149,7 @@ class TestCourseDispatch:
         assert out["courses"][0]["name"] == "Ride"
 
     def test_get_course_details_requires_course_id(self):
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             out = json.loads(garmin_connect.invoke({"action": "get_course_details"}))
         assert "course_id is required" in out["error"]
 
@@ -159,27 +159,27 @@ class TestCourseDispatch:
 
 class TestGarminGuards:
     def test_not_connected(self) -> None:
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=None):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=None):
             result = json.loads(garmin_connect.invoke({"action": "get_stats"}))
         assert result["error"] == "Garmin not connected"
         assert result["retriable"] is False
 
     def test_unknown_action_lists_available(self) -> None:
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_connect.invoke({"action": "fly_to_moon"}))
         assert "Unknown action" in result["error"]
         assert result["available_actions"] == sorted(_GARMIN_ACTIONS)
 
     def test_activity_details_requires_id(self) -> None:
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_connect.invoke({"action": "get_activity_details"}))
         assert "activity_id is required" in result["error"]
 
     def test_get_stats_happy_path(self) -> None:
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
             patch(
-                "src.agent.tools.garmin._safe_api_call",
+                "src.agent.tools.garmin.safe_api_call",
                 return_value={"totalSteps": 12000},
             ),
         ):
@@ -209,23 +209,23 @@ class TestGarminGuards:
     ) -> None:
         garmin = MagicMock()
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=garmin),
-            patch("src.agent.tools.garmin._safe_api_call", return_value={"v": 1}) as call,
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=garmin),
+            patch("src.agent.tools.garmin.safe_api_call", return_value={"v": 1}) as call,
         ):
             result = json.loads(garmin_connect.invoke({"action": action, "date_str": "2026-06-10"}))
         call.assert_called_once_with(garmin, api_method, "2026-06-10")
         assert result == {"action": action, "date": "2026-06-10", result_key: {"v": 1}}
 
     def test_course_details_requires_id(self) -> None:
-        with patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()):
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             result = json.loads(garmin_connect.invoke({"action": "get_course_details"}))
         assert "course_id is required" in result["error"]
 
     def test_get_activities_applies_limit(self) -> None:
         activities = [{"activityId": i} for i in range(30)]
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin._safe_api_call", return_value=activities),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.safe_api_call", return_value=activities),
         ):
             result = json.loads(garmin_connect.invoke({"action": "get_activities", "limit": 5}))
         assert result["count"] == 5
@@ -233,9 +233,9 @@ class TestGarminGuards:
     def test_api_error_is_contained(self) -> None:
         """Errors surface as JSON error envelopes, never as raised exceptions."""
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
             patch(
-                "src.agent.tools.garmin._safe_api_call",
+                "src.agent.tools.garmin.safe_api_call",
                 side_effect=Exception("Garmin session has expired."),
             ),
         ):
@@ -251,25 +251,25 @@ class TestSafeApiCall:
 
     def test_expired_session_mapped(self) -> None:
         with pytest.raises(Exception, match=r"expired\. Please reconnect"):
-            _safe_api_call(self._garmin_raising("401 unauthorized"), "get_stats")
+            safe_api_call(self._garmin_raising("401 unauthorized"), "get_stats")
 
     def test_rate_limit_mapped(self) -> None:
         with pytest.raises(Exception, match="rate limited"):
-            _safe_api_call(self._garmin_raising("429 too many requests"), "get_stats")
+            safe_api_call(self._garmin_raising("429 too many requests"), "get_stats")
 
     def test_forbidden_mapped(self) -> None:
         with pytest.raises(Exception, match="access denied"):
-            _safe_api_call(self._garmin_raising("403 forbidden"), "get_stats")
+            safe_api_call(self._garmin_raising("403 forbidden"), "get_stats")
 
     def test_other_errors_re_raise(self) -> None:
         with pytest.raises(Exception, match="weird failure"):
-            _safe_api_call(self._garmin_raising("weird failure"), "get_stats")
+            safe_api_call(self._garmin_raising("weird failure"), "get_stats")
 
     def test_success_persists_refreshed_tokens(self) -> None:
         garmin = MagicMock()
         garmin.get_stats.return_value = {"ok": True}
         with patch("src.agent.tools.garmin._persist_refreshed_tokens") as mock_persist:
-            result = _safe_api_call(garmin, "get_stats")
+            result = safe_api_call(garmin, "get_stats")
         assert result == {"ok": True}
         mock_persist.assert_called_once_with(garmin)
 
@@ -351,7 +351,7 @@ class TestActivityBreakdowns:
 
     @staticmethod
     def _dispatch(mapping: dict) -> object:
-        """Build a _safe_api_call side_effect dispatching on method name.
+        """Build a safe_api_call side_effect dispatching on method name.
 
         A mapped Exception is raised; an unmapped method returns {}.
         """
@@ -366,8 +366,8 @@ class TestActivityBreakdowns:
 
     def _invoke(self, mapping: dict) -> dict:
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin._safe_api_call", side_effect=self._dispatch(mapping)),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.safe_api_call", side_effect=self._dispatch(mapping)),
         ):
             return json.loads(
                 garmin_connect.invoke({"action": "get_activity_details", "activity_id": "a1"})

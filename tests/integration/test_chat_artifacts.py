@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from src.agent.history import enrich_history
 from src.agent.message_content import format_message_with_metadata
 from src.api.helpers.chat_streaming import FORWARDED_EVENT_TYPES
-from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES
 from src.db.models.dataclasses import Message
 from src.enums import MessageRole
 
@@ -44,7 +44,7 @@ def _turn(db: Database, conv: Conversation) -> tuple[dict[str, Any], list[Any]]:
 
 def test_artifact_events_are_forwarded_and_journaled() -> None:
     assert "artifact" in FORWARDED_EVENT_TYPES
-    assert "artifact" in _JOURNALED_EVENT_TYPES
+    assert "artifact" in JOURNALED_EVENT_TYPES
 
 
 def test_stream_turn_saves_and_streams_the_artifact(

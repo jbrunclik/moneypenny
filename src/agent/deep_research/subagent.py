@@ -10,7 +10,7 @@ from src.agent.round_cap import round_cap_override
 from src.agent.source_pages import SourcePage, turn_pages
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import fetch_url, research, web_search
-from src.agent.tools.delegate import _in_delegate
+from src.agent.tools.delegate import in_delegate
 from src.config import Config
 
 Status = Literal["done", "failed", "skipped", "timed_out"]
@@ -32,7 +32,7 @@ def run_subagent(brief: str, board: ResearchBoard, index: int, request_id: str) 
         share_finding_tool(board, index),
     ]
     set_current_request_id(request_id)
-    nested = _in_delegate.set(True)  # no delegate_task / propose_deep_research inside
+    nested = in_delegate.set(True)  # no delegate_task / propose_deep_research inside
     try:
         with round_cap_override(Config.DEEP_RESEARCH_SUBAGENT_MAX_ROUNDS):
             agent = ChatAgent(
@@ -47,7 +47,7 @@ def run_subagent(brief: str, board: ResearchBoard, index: int, request_id: str) 
             )
             text, _tools, usage, messages = agent.chat_batch(text=brief)
     finally:
-        _in_delegate.reset(nested)
+        in_delegate.reset(nested)
         get_full_tool_results(request_id)  # pops this subagent's tool results
         set_current_request_id(None)
     pages = {p.url: p for p in [*turn_pages(messages), *board.pages_of(index)]}

@@ -403,6 +403,6 @@ class TestProducerSideApprovalSave:
 
 def test_grounding_started_is_journaled() -> None:
     # The footer's "checking" state must survive a reload mid-check
-    from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+    from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES
 
-    assert "grounding_started" in _JOURNALED_EVENT_TYPES
+    assert "grounding_started" in JOURNALED_EVENT_TYPES

@@ -176,7 +176,7 @@ class TestAgentConversationTagCoalescing:
     def test_agent_conversation_uses_agent_tag(self) -> None:
         """Turn-finished pushes about an agent conversation share the
         executor's tag so the two notification kinds replace each other."""
-        from src.api.helpers.stream_producer import _notify_response_ready
+        from src.api.helpers.stream_producer import notify_response_ready
 
         mock_db = MagicMock()
         mock_db.count_messages.return_value = 2
@@ -185,12 +185,12 @@ class TestAgentConversationTagCoalescing:
             patch("src.api.helpers.stream_producer.db", mock_db),
             patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,
         ):
-            _notify_response_ready("user-1", "conv-1", "Briefing text")
+            notify_response_ready("user-1", "conv-1", "Briefing text")
 
         assert mock_push.call_args.kwargs["tag"] == "agent-agent-9"
 
     def test_regular_conversation_keeps_turn_tag(self) -> None:
-        from src.api.helpers.stream_producer import _notify_response_ready
+        from src.api.helpers.stream_producer import notify_response_ready
 
         mock_db = MagicMock()
         mock_db.count_messages.return_value = 2
@@ -199,6 +199,6 @@ class TestAgentConversationTagCoalescing:
             patch("src.api.helpers.stream_producer.db", mock_db),
             patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,
         ):
-            _notify_response_ready("user-1", "conv-1", "Answer")
+            notify_response_ready("user-1", "conv-1", "Answer")
 
         assert mock_push.call_args.kwargs["tag"] == "turn-conv-1"

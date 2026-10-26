@@ -27,12 +27,12 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-_in_delegate: contextvars.ContextVar[bool] = contextvars.ContextVar("_in_delegate", default=False)
+in_delegate: contextvars.ContextVar[bool] = contextvars.ContextVar("in_delegate", default=False)
 
 
 def in_delegate_run() -> bool:
     """Whether the current turn is a delegate_task subagent's."""
-    return _in_delegate.get()
+    return in_delegate.get()
 
 
 @tool
@@ -55,7 +55,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
     """
     check_autonomous_permission("delegate_task", {"task": task[:200]})
 
-    if _in_delegate.get():
+    if in_delegate.get():
         return tool_error("Nested delegation is not allowed.", retriable=False)
     if not task or not task.strip():
         return tool_error("task must not be empty.", retriable=False)
@@ -72,7 +72,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
         extra={"task_preview": task[:120], "model": Config.DELEGATE_MODEL},
     )
 
-    token = _in_delegate.set(True)
+    token = in_delegate.set(True)
     try:
         subagent = ChatAgent(
             model_name=Config.DELEGATE_MODEL,
@@ -88,7 +88,7 @@ def delegate_task(task: str, expected_output: str = "") -> str:
         logger.exception("delegate_task failed", extra={"error": str(e)})
         return tool_error(f"Delegated task failed: {e}")
     finally:
-        _in_delegate.reset(token)
+        in_delegate.reset(token)
 
     sources = extract_read_sources(result_messages)
     logger.info(

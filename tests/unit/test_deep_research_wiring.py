@@ -6,7 +6,7 @@ from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.history import enrich_history
 from src.agent.message_content import format_message_with_metadata
 from src.api.helpers.chat_streaming import FORWARDED_EVENT_TYPES
-from src.api.helpers.stream_resume import _JOURNALED_EVENT_TYPES
+from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES
 from src.db.models.dataclasses import Message
 from src.enums import MessageRole
 from src.services.costs import calculate_deep_research_cost
@@ -25,7 +25,7 @@ _RESEARCH_EVENTS = {
 
 def test_research_events_are_forwarded_and_journaled() -> None:
     assert set(FORWARDED_EVENT_TYPES) >= _RESEARCH_EVENTS
-    assert _RESEARCH_EVENTS <= _JOURNALED_EVENT_TYPES
+    assert _RESEARCH_EVENTS <= JOURNALED_EVENT_TYPES
 
 
 def test_subagent_usage_is_priced_at_its_model() -> None:

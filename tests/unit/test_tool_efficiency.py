@@ -279,8 +279,8 @@ class TestReadinessSnapshot:
             return val
 
         with (
-            patch("src.agent.tools.garmin._get_garmin_client", return_value=MagicMock()),
-            patch("src.agent.tools.garmin._safe_api_call", side_effect=fake),
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.safe_api_call", side_effect=fake),
         ):
             from src.agent.tools.garmin import garmin_connect
 

@@ -40,7 +40,7 @@ agent loop:
    `web_search` and `fetch_url` plus `share_finding`, no context cache, and
    `round_cap_override(DEEP_RESEARCH_SUBAGENT_MAX_ROUNDS)`
    ([round_cap.py](../../src/agent/round_cap.py), read by the graph through
-   `tool_round_cap()`). `_in_delegate` is set, so no `delegate_task` or
+   `tool_round_cap()`). `in_delegate` is set, so no `delegate_task` or
    `propose_deep_research` inside. Each subagent has its own request id
    (`<run>-<index>`) and cancel token. It returns an `ItemResult`: status
    (`done`, `failed`, `skipped`, `timed_out`), the digest, its pages and usage.

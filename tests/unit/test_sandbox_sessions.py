@@ -125,9 +125,9 @@ class TestOrphanReaping:
     containers; the next pool start removes those whose owner is gone."""
 
     def test_containers_are_labelled_with_owner_pid(self) -> None:
-        from src.agent.tools.code_execution import _sandbox_runtime_configs
+        from src.agent.tools.code_execution import sandbox_runtime_configs
 
-        labels = _sandbox_runtime_configs()["labels"]
+        labels = sandbox_runtime_configs()["labels"]
         assert labels[OWNER_PID_LABEL] == str(os.getpid())
 
     def test_removes_containers_whose_owner_died(self) -> None:

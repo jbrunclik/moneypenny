@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 from src.agent.tools.browser_steps import PAGE_STATE_JS
 from src.agent.tools.url_safety import check_host
-from src.agent.tools.web import _extract_text_from_html
+from src.agent.tools.web import extract_text_from_html
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -375,7 +375,7 @@ class BrowserWorker:
         session = self._get_or_create_session(conversation_id)
         page = session.page
         html = page.content()
-        text = _extract_text_from_html(html)
+        text = extract_text_from_html(html)
         return {"success": True, "title": page.title(), "url": page.url, "content": text}
 
     def _do_scroll(self, conversation_id: str, selector: str | None) -> dict[str, Any]:

@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from src.agent.agent import ChatAgent, _planner_dashboard_context
+from src.agent.agent import ChatAgent, planner_dashboard_context
 from src.agent.conversation_compaction import build_compacted_history
 from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.deep_research.offer import PlanError
@@ -328,7 +328,7 @@ class TurnContext:
         set_location_context(self.client_location)
         if self.dashboard_data is not None:
             # Initial dashboard for potential refresh_planner_dashboard calls
-            _planner_dashboard_context.set(self.dashboard_data)
+            planner_dashboard_context.set(self.dashboard_data)
         if self.agent_execution_context is not None:
             set_agent_context(self.agent_execution_context)
         if self.sports_program:
@@ -343,7 +343,7 @@ class TurnContext:
         set_conversation_context(None, None)
         set_location_context(None)
         if self.dashboard_data is not None:
-            _planner_dashboard_context.set(None)
+            planner_dashboard_context.set(None)
         if self.agent_execution_context is not None:
             clear_agent_context()
         if self.sports_program:

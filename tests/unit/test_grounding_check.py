@@ -208,13 +208,13 @@ class TestCheckGrounding:
     def test_skips_inside_a_delegate_subagent(self, fake_verifier: MagicMock) -> None:
         # The parent turn's answer is what the user sees; checking the
         # subagent's digest cost an unrecorded call
-        from src.agent.tools.delegate import _in_delegate
+        from src.agent.tools.delegate import in_delegate
 
-        token = _in_delegate.set(True)
+        token = in_delegate.set(True)
         try:
             outcome = check_grounding(_ANSWER, _WEB_TURN)
         finally:
-            _in_delegate.reset(token)
+            in_delegate.reset(token)
 
         assert outcome.annotations == []
         fake_verifier.assert_not_called()

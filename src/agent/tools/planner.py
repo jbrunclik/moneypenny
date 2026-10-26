@@ -104,10 +104,10 @@ def refresh_planner_dashboard() -> str:
 
         # Update the contextvar with the refreshed dashboard data
         # Convert dataclass to dict for injection into system prompt
-        from src.agent.agent import _planner_dashboard_context  # noqa: PLC0415 - cycle: agent -> tools -> planner
+        from src.agent.agent import planner_dashboard_context  # noqa: PLC0415 - cycle: agent -> tools -> planner
 
         dashboard_dict = asdict(dashboard)
-        _planner_dashboard_context.set(dashboard_dict)
+        planner_dashboard_context.set(dashboard_dict)
 
         # Build summary response
         total_events = sum(len(day.events) for day in dashboard.days)

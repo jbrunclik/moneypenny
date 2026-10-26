@@ -13,7 +13,7 @@ class TestCleanupAndSave:
 
         Bug: When a mobile client locks the screen, the browser disconnects and
         Flask/Gunicorn calls generator.close(), raising GeneratorExit. This exception
-        bypasses _finalize_stream (which does the save). The generator's finally block
+        bypasses finalize_stream (which does the save). The generator's finally block
         sets generator_done_event, but no save happened.
 
         The old code returned early when generator_done_event was set, assuming
@@ -33,7 +33,7 @@ class TestCleanupAndSave:
 
         # Simulate the scenario: generator was killed by GeneratorExit
         # - ready=True (stream thread finished and produced results)
-        # - saved=False (GeneratorExit killed generator before _finalize_stream)
+        # - saved=False (GeneratorExit killed generator before finalize_stream)
         final_results = {
             "ready": True,
             "saved": False,
@@ -191,7 +191,7 @@ class TestCleanupSavePassesStopReason:
 
         from src.api.helpers import chat_streaming
 
-        context = chat_streaming._StreamContext(
+        context = chat_streaming.StreamContext(
             user=MagicMock(id="u1"),
             conv=MagicMock(id="c1", model="m"),
             user_msg=MagicMock(id="um1"),

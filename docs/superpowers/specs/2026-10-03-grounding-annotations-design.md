@@ -124,7 +124,7 @@ per verdict.
 - **Saved** with the assistant message (`save_message_to_db`), both modes.
 - **Streaming:** tokens are the final text (nothing is inserted any more). Right
   before the verifier call the server emits a new `grounding_started` SSE event; it
-  joins `_JOURNALED_EVENT_TYPES` so a resumed stream replays it. `done` carries
+  joins `JOURNALED_EVENT_TYPES` so a resumed stream replays it. `done` carries
   `annotations` and `grounding`. The client's "done text differs" re-render no
   longer fires for grounding.
 - **Batch:** the response carries both fields; the existing spinner covers the check.

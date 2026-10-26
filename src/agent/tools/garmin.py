@@ -21,7 +21,7 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _get_garmin_client() -> Any | None:
+def get_garmin_client() -> Any | None:
     """Get an authenticated Garmin client for the current user.
 
     Sessions are cached per user (see garmin_session) so a turn that reads
@@ -42,7 +42,7 @@ def _persist_refreshed_tokens(garmin: Any) -> None:
     persist_tokens_if_changed(user_id, garmin)
 
 
-def _safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
+def safe_api_call(garmin: Any, method_name: str, *args: Any, **kwargs: Any) -> Any:
     """Safely call a Garmin API method with error handling and token refresh."""
     try:
         method = getattr(garmin, method_name)
@@ -214,7 +214,7 @@ def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str
     """
 
     def _sets() -> None:
-        sets_result = _safe_api_call(garmin, "get_activity_exercise_sets", activity_id)
+        sets_result = safe_api_call(garmin, "get_activity_exercise_sets", activity_id)
         raw_sets = sets_result.get("exerciseSets") if isinstance(sets_result, dict) else sets_result
         if isinstance(raw_sets, list) and raw_sets:
             payload["exercise_sets"] = [
@@ -222,14 +222,14 @@ def _attach_activity_breakdowns(garmin: Any, activity_id: str, payload: dict[str
             ]
 
     def _zones() -> None:
-        zones = _safe_api_call(garmin, "get_activity_hr_in_timezones", activity_id)
+        zones = safe_api_call(garmin, "get_activity_hr_in_timezones", activity_id)
         if isinstance(zones, list) and zones:
             payload["hr_zones"] = _slim_hr_zones(zones)
 
     def _laps() -> None:
         # A single lap == the whole activity, already covered by the summary,
         # so only expose 2+ laps.
-        splits = _safe_api_call(garmin, "get_activity_splits", activity_id)
+        splits = safe_api_call(garmin, "get_activity_splits", activity_id)
         laps = splits.get("lapDTOs") if isinstance(splits, dict) else None
         if isinstance(laps, list) and len(laps) >= 2:
             payload["laps"] = [_slim_lap(lap, i) for i, lap in enumerate(laps[:_MAX_LAPS], start=1)]
@@ -425,7 +425,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
     def _section(key: str, method: str, *args: Any) -> Any:
         def run() -> None:
             try:
-                payload[key] = _strip_bulky_fields(_safe_api_call(garmin, method, *args))
+                payload[key] = _strip_bulky_fields(safe_api_call(garmin, method, *args))
             except Exception as e:  # best-effort section; the error goes to the model
                 logger.debug(
                     "Garmin readiness section failed", extra={"section": key}, exc_info=True
@@ -439,7 +439,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
 
     def _activities() -> None:
         try:
-            result = _safe_api_call(garmin, "get_activities_by_date", start, end, None)
+            result = safe_api_call(garmin, "get_activities_by_date", start, end, None)
             if isinstance(result, list):
                 result = result[: limit or 5]
             payload["recent_activities"] = _strip_bulky_fields(result, max_list_items=50)
@@ -567,7 +567,7 @@ def garmin_connect(
     """
     logger.info("garmin_connect called", extra={"action": action})
 
-    garmin = _get_garmin_client()
+    garmin = get_garmin_client()
     if not garmin:
         return not_connected_result("garmin")
 
@@ -579,7 +579,7 @@ def garmin_connect(
 
         if action in _DAILY_ACTIONS:
             api_method, result_key = _DAILY_ACTIONS[action]
-            result = _safe_api_call(garmin, api_method, target_date)
+            result = safe_api_call(garmin, api_method, target_date)
             return json.dumps(
                 {"action": action, "date": target_date, result_key: _strip_bulky_fields(result)}
             )
@@ -622,7 +622,7 @@ def _activities_result(garmin: Any, limit: int | None, activity_type: str | None
     """The last 90 days of activities, newest `limit` (default 10)."""
     start = (date.today() - timedelta(days=90)).isoformat()
     end = date.today().isoformat()
-    result = _safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
+    result = safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
     if isinstance(result, list):
         result = result[:limit] if limit else result[:10]
     return json.dumps(
@@ -637,7 +637,7 @@ def _activities_result(garmin: Any, limit: int | None, activity_type: str | None
 def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
     if not activity_id:
         return tool_error("activity_id is required for get_activity_details")
-    result = _safe_api_call(garmin, "get_activity", activity_id)
+    result = safe_api_call(garmin, "get_activity", activity_id)
     payload: dict[str, Any] = {
         "action": "get_activity_details",
         "activity_id": activity_id,
@@ -651,7 +651,7 @@ def _activity_details_result(garmin: Any, activity_id: str | None) -> str:
 
 
 def _courses_result(garmin: Any, activity_type: str | None) -> str:
-    result = _safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
+    result = safe_api_call(garmin, "connectapi", _COURSE_LIST_URL)
     courses = (
         [_slim_course_summary(c) for c in result if isinstance(c, dict)]
         if isinstance(result, list)
@@ -665,7 +665,7 @@ def _courses_result(garmin: Any, activity_type: str | None) -> str:
 def _course_details_result(garmin: Any, course_id: str | None) -> str:
     if not course_id:
         return tool_error("course_id is required for get_course_details")
-    result = _safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
+    result = safe_api_call(garmin, "connectapi", _COURSE_DETAIL_URL.format(course_id))
     return json.dumps({"action": "get_course_details", "course": _slim_course_detail(result)})
 
 

@@ -35,14 +35,14 @@ _docker_available_lock = threading.Lock()
 # - skip_environment_setup: every library is pre-installed in the custom image
 #   (make sandbox-image); the default setup runs an in-container pip upgrade,
 #   which needs the network we just disabled
-_SANDBOX_SESSION_KWARGS: dict[str, Any] = {
+SANDBOX_SESSION_KWARGS: dict[str, Any] = {
     "lang": "python",
     "verbose": False,
     "skip_environment_setup": True,
 }
 
 
-def _sandbox_runtime_configs() -> dict[str, Any]:
+def sandbox_runtime_configs() -> dict[str, Any]:
     return {
         "network_disabled": True,
         "mem_limit": Config.CODE_SANDBOX_MEMORY_LIMIT,
@@ -110,8 +110,8 @@ def _probe_docker_available() -> bool:
 
         with SandboxSession(
             image=Config.CODE_SANDBOX_IMAGE,
-            runtime_configs=_sandbox_runtime_configs(),
-            **_SANDBOX_SESSION_KWARGS,
+            runtime_configs=sandbox_runtime_configs(),
+            **SANDBOX_SESSION_KWARGS,
         ) as session:
             result = session.run("print('ok')")
             _docker_available = result.exit_code == 0
@@ -588,7 +588,7 @@ def execute_code(code: str) -> str:
 
         # Sessions come from the per-conversation pool (security constraints
         # unchanged: networking disabled + resource limits, shared settings
-        # with the availability probe - see _SANDBOX_SESSION_KWARGS). Without
+        # with the availability probe - see SANDBOX_SESSION_KWARGS). Without
         # a conversation context the session is ephemeral, as before.
         conversation_id, _user_id = get_conversation_context()
         with get_sandbox_pool().session(conversation_id) as session:

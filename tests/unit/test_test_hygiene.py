@@ -15,7 +15,7 @@ _TS_TESTS = sorted((_ROOT / "web" / "tests").rglob("*.ts"))
 
 SLEEP_BASELINE = 72
 WAIT_FOR_TIMEOUT_BASELINE = 285
-PRIVATE_IMPORT_BASELINE = 77
+PRIVATE_IMPORT_BASELINE = 66
 
 
 def _trees() -> list[tuple[Path, ast.Module]]:

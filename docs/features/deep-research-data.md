@@ -42,7 +42,7 @@ plus a `research` key in its `MSG_CONTEXT` ("deep research round N: q1; q2",
 
 Then `token`s, `grounding_started` and `done`. All six are in
 `FORWARDED_EVENT_TYPES` ([chat_streaming.py](../../src/api/helpers/chat_streaming.py))
-and `_JOURNALED_EVENT_TYPES` ([stream_resume.py](../../src/api/helpers/stream_resume.py)),
+and `JOURNALED_EVENT_TYPES` ([stream_resume.py](../../src/api/helpers/stream_resume.py)),
 so a reload mid-run replays the panel. `minutes` and `started_at` were added
 to `research_plan` (not in the spec) so the elapsed clock survives a journal
 replay.

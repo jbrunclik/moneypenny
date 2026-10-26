@@ -59,7 +59,7 @@ def _slugify(name: str) -> str:
     return slug or "program"
 
 
-def _get_programs(user_id: str, namespace: str) -> list[dict[str, Any]]:
+def get_programs(user_id: str, namespace: str) -> list[dict[str, Any]]:
     """Read programs list from KV store."""
     raw = db.kv_get(user_id, namespace, "programs")
     if not raw:
@@ -71,7 +71,7 @@ def _get_programs(user_id: str, namespace: str) -> list[dict[str, Any]]:
         return []
 
 
-def _save_programs(user_id: str, namespace: str, programs: list[dict[str, Any]]) -> None:
+def save_programs(user_id: str, namespace: str, programs: list[dict[str, Any]]) -> None:
     """Write programs list to KV store."""
     db.kv_set(user_id, namespace, "programs", json.dumps(programs))
 
@@ -139,7 +139,7 @@ def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -
     @require_auth
     def list_programs(user: User) -> dict[str, Any]:
         """List user's programs."""
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
 
         # Check which programs have conversations
         convs = db.list_program_conversations(ns, user.id)
@@ -158,7 +158,7 @@ def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -
     def create_program(user: User, data: Any) -> dict[str, Any]:
         """Create a new program."""
 
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
 
         program_id = _unique_program_id(_slugify(data.name), programs)
         new_program = {
@@ -169,7 +169,7 @@ def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -
             "quick_actions": [dict(a) for a in QUICK_ACTION_DEFAULTS.get(ns, [])],
         }
         programs.append(new_program)
-        _save_programs(user.id, ns, programs)
+        save_programs(user.id, ns, programs)
 
         logger.info(
             "Program created",
@@ -185,12 +185,12 @@ def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -
     @require_auth
     def delete_program(user: User, program_id: str) -> dict[str, Any]:
         """Delete a program and its conversation."""
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
         new_programs = [p for p in programs if p["id"] != program_id]
         if len(new_programs) == len(programs):
             raise_not_found_error("Program")
 
-        _save_programs(user.id, ns, new_programs)
+        save_programs(user.id, ns, new_programs)
 
         _delete_program_data(user.id, ns, program_id, cfg.kv_suffixes)
 
@@ -215,7 +215,7 @@ def _register_program_conversation_routes(api: APIBlueprint, cfg: ProgramRoutesC
         """Get or create the program conversation."""
 
         # Verify program exists
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
         program_data = next((p for p in programs if p["id"] == program), None)
         if not program_data:
             raise_not_found_error("Program")
@@ -245,7 +245,7 @@ def _register_program_conversation_routes(api: APIBlueprint, cfg: ProgramRoutesC
     def reset_conversation(user: User, program: str) -> dict[str, Any]:
         """Reset the program conversation (delete messages)."""
         # Verify program exists
-        programs = _get_programs(user.id, ns)
+        programs = get_programs(user.id, ns)
         if not any(p["id"] == program for p in programs):
             raise_not_found_error("Program")
 

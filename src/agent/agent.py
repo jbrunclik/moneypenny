@@ -31,8 +31,8 @@ logger = get_logger(__name__)
 
 # Contextvar to hold the current planner dashboard data
 # This allows the refresh_planner_dashboard tool to update the context mid-conversation
-_planner_dashboard_context: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
-    "_planner_dashboard_context", default=None
+planner_dashboard_context: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "planner_dashboard_context", default=None
 )
 
 
@@ -251,7 +251,7 @@ class ChatAgent:
         messages: list[BaseMessage] = []
 
         # Check for updated dashboard context from refresh_planner_dashboard tool
-        refreshed_dashboard = _planner_dashboard_context.get()
+        refreshed_dashboard = planner_dashboard_context.get()
 
         # In cached mode the static system prompt + tools live in the Gemini
         # cache, so the per-request dynamic context goes as a HumanMessage. We

@@ -124,7 +124,7 @@ recall 4/6, end-to-end failing (see TODO).
   meta tags; [product_data.py](../../src/agent/tools/product_data.py)) so the
   price survives extraction and every length cap.
 
-- **A new SSE event type must join `_JOURNALED_EVENT_TYPES` and the consumer's
+- **A new SSE event type must join `JOURNALED_EVENT_TYPES` and the consumer's
   `FORWARDED_EVENT_TYPES`**, or it is dropped live or missing after a reload.
 - **The resume `done` must carry the same decorations as the live one**:
   `stream_resume_events()` calls `add_grounding()` and `add_research()`. Before
