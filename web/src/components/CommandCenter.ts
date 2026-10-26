@@ -5,7 +5,7 @@
  */
 
 import { createElement, escapeHtml } from '../utils/dom';
-import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, setIcon } from '../utils/icons';
+import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, createIconElement, setIcon, type IconHtml } from '../utils/icons';
 import { createEmptyState } from './EmptyState';
 import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
 
@@ -25,21 +25,30 @@ export function renderCommandCenterLoading(): HTMLDivElement {
   // page doesn't jump from a centred text line to the dashboard
   el.className = 'command-center command-center--loading';
   el.setAttribute('aria-busy', 'true');
-  const card = `
-    <div class="command-center-skeleton-card">
-      <div class="command-center-skeleton-line command-center-skeleton-line--title"></div>
-      <div class="command-center-skeleton-line"></div>
-      <div class="command-center-skeleton-line command-center-skeleton-line--short"></div>
-    </div>`;
-  el.innerHTML = `
-    <div class="command-center-loading">
-      <span class="visually-hidden">Loading agents…</span>
-      <div class="command-center-skeleton-line command-center-skeleton-line--heading"></div>
-      <div class="command-center-skeleton-line command-center-skeleton-line--section"></div>
-      <div class="agents-list">${card.repeat(3)}</div>
-    </div>
-  `;
+  const line = (modifier?: string): HTMLDivElement =>
+    createElement('div', {
+      class: modifier ? `command-center-skeleton-line command-center-skeleton-line--${modifier}` : 'command-center-skeleton-line',
+    });
+  const card = (): HTMLDivElement =>
+    createElement('div', { class: 'command-center-skeleton-card' }, [line('title'), line(), line('short')]);
+  el.appendChild(
+    createElement('div', { class: 'command-center-loading' }, [
+      createElement('span', { class: 'visually-hidden' }, ['Loading agents…']),
+      line('heading'),
+      line('section'),
+      createElement('div', { class: 'agents-list' }, [card(), card(), card()]),
+    ])
+  );
   return el;
+}
+
+/** A section heading: icon, title and an optional count badge. */
+function sectionTitle(icon: IconHtml, title: string, badge?: { count: number; className?: string }): HTMLHeadingElement {
+  const heading = createElement('h3', { class: 'section-title' }, [createIconElement('section-icon', icon), ` ${title} `]);
+  if (badge) {
+    heading.appendChild(createElement('span', { class: badge.className ? `badge ${badge.className}` : 'badge' }, [String(badge.count)]));
+  }
+  return heading;
 }
 
 /** Observability strip: runs + cost over the trailing week (null without runs). */
@@ -48,13 +57,19 @@ function renderStatsStrip(stats: CommandCenterResponse['stats']): HTMLDivElement
   const successRate = Math.round((stats.total_completed / stats.total_runs) * 100);
   const strip = document.createElement('div');
   strip.className = 'command-center-stats';
-  strip.innerHTML = `
-    <span class="stats-window">Last ${stats.days} days</span>
-    <span class="stats-item">${stats.total_runs} run${stats.total_runs === 1 ? '' : 's'}</span>
-    <span class="stats-item">${successRate}% success</span>
-    ${stats.total_failed > 0 ? `<span class="stats-item stats-item--failed">${stats.total_failed} failed</span>` : ''}
-    <span class="stats-item stats-item--cost" title="Total agent cost over the window">${escapeHtml(stats.total_cost_display)}</span>
-  `;
+  strip.append(
+    createElement('span', { class: 'stats-window' }, [`Last ${stats.days} days`]),
+    createElement('span', { class: 'stats-item' }, [`${stats.total_runs} run${stats.total_runs === 1 ? '' : 's'}`]),
+    createElement('span', { class: 'stats-item' }, [`${successRate}% success`])
+  );
+  if (stats.total_failed > 0) {
+    strip.appendChild(createElement('span', { class: 'stats-item stats-item--failed' }, [`${stats.total_failed} failed`]));
+  }
+  strip.appendChild(
+    createElement('span', { class: 'stats-item stats-item--cost', title: 'Total agent cost over the window' }, [
+      stats.total_cost_display,
+    ])
+  );
   return strip;
 }
 
@@ -64,23 +79,16 @@ function renderApprovalsSection(data: CommandCenterResponse, onApproval: Approva
   approvalsSection.className = `command-center-section command-center-section--approvals ${data.pending_approvals.length > 0 ? 'has-approvals' : ''}`;
 
   if (data.pending_approvals.length === 0) {
-    approvalsSection.innerHTML = `
-      <h3 class="section-title">
-        <span class="section-icon">${CHECK_ICON}</span>
-        Approvals
-      </h3>
-      <p class="section-empty-note">No pending approvals.</p>
-    `;
+    approvalsSection.append(
+      sectionTitle(CHECK_ICON, 'Approvals'),
+      createElement('p', { class: 'section-empty-note' }, ['No pending approvals.'])
+    );
     return approvalsSection;
   }
 
-  approvalsSection.innerHTML = `
-    <h3 class="section-title">
-      <span class="section-icon">${WARNING_ICON}</span>
-      Pending Approvals
-      <span class="badge badge--warning">${data.pending_approvals.length}</span>
-    </h3>
-  `;
+  approvalsSection.appendChild(
+    sectionTitle(WARNING_ICON, 'Pending Approvals', { count: data.pending_approvals.length, className: 'badge--warning' })
+  );
   const approvalsList = document.createElement('div');
   approvalsList.className = 'approvals-list';
   data.pending_approvals.forEach(approval => {
@@ -103,13 +111,7 @@ function renderAgentsSection(
 ): HTMLDivElement {
   const agentsSection = document.createElement('div');
   agentsSection.className = 'command-center-section command-center-section--agents';
-  agentsSection.innerHTML = `
-    <h3 class="section-title">
-      <span class="section-icon">${ROBOT_ICON}</span>
-      Agents
-      <span class="badge">${data.agents.length}</span>
-    </h3>
-  `;
+  agentsSection.appendChild(sectionTitle(ROBOT_ICON, 'Agents', { count: data.agents.length }));
 
   if (data.agents.length === 0) {
     const cta = createElement('button', { class: 'btn-create-agent' });
@@ -143,14 +145,11 @@ function renderExecutionsSection(data: CommandCenterResponse): HTMLDivElement | 
   if (!data.recent_executions || data.recent_executions.length === 0) return null;
   const executionsSection = document.createElement('div');
   executionsSection.className = 'command-center-section command-center-section--executions';
-  executionsSection.innerHTML = `
-    <h3 class="section-title section-title--collapsible" data-collapsed="false">
-      <span class="section-icon">${HISTORY_ICON}</span>
-      Recent Activity
-      <span class="badge">${data.recent_executions.length}</span>
-      <span class="section-toggle">${CHEVRON_DOWN_ICON}</span>
-    </h3>
-  `;
+  const executionsTitle = sectionTitle(HISTORY_ICON, 'Recent Activity', { count: data.recent_executions.length });
+  executionsTitle.classList.add('section-title--collapsible');
+  executionsTitle.dataset.collapsed = 'false';
+  executionsTitle.appendChild(createIconElement('section-toggle', CHEVRON_DOWN_ICON));
+  executionsSection.appendChild(executionsTitle);
 
   // Show the latest 3 by default; "Show all" reveals the rest
   const executions = data.recent_executions.slice(0, 10);
@@ -201,27 +200,24 @@ export function renderCommandCenter(
   // Header
   const header = document.createElement('div');
   header.className = 'command-center-header';
-  header.innerHTML = `
-    <div class="command-center-title">
-      <span class="command-center-icon">${COMMAND_CENTER_ICON}</span>
-      <h2>Command Center</h2>
-    </div>
-    <div class="command-center-header-actions">
-      <button class="btn-new-agent" title="Create new agent">
-        ${PLUS_ICON}
-        <span>New Agent</span>
-      </button>
-      <button class="btn-refresh" title="Refresh">
-        ${REFRESH_ICON}
-      </button>
-    </div>
-  `;
-  header.querySelector('.btn-refresh')?.addEventListener('click', () => {
-    void onRefresh();
-  });
-  header.querySelector('.btn-new-agent')?.addEventListener('click', () => {
+  const newAgentBtn = createElement('button', { class: 'btn-new-agent', title: 'Create new agent' });
+  setIcon(newAgentBtn, PLUS_ICON);
+  newAgentBtn.appendChild(createElement('span', {}, ['New Agent']));
+  newAgentBtn.addEventListener('click', () => {
     onNewAgent();
   });
+  const refreshBtn = createElement('button', { class: 'btn-refresh', title: 'Refresh' });
+  setIcon(refreshBtn, REFRESH_ICON);
+  refreshBtn.addEventListener('click', () => {
+    void onRefresh();
+  });
+  header.append(
+    createElement('div', { class: 'command-center-title' }, [
+      createIconElement('command-center-icon', COMMAND_CENTER_ICON),
+      createElement('h2', {}, ['Command Center']),
+    ]),
+    createElement('div', { class: 'command-center-header-actions' }, [newAgentBtn, refreshBtn])
+  );
   el.appendChild(header);
 
   const stats = data.stats;

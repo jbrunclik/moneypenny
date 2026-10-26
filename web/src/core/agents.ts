@@ -20,8 +20,8 @@ import {
   cleanupNewerMessagesScrollListener,
 } from '../components/messages';
 import { renderModelDropdown } from '../components/ModelSelector';
-import { getElementById, clearElement } from '../utils/dom';
-import { WARNING_ICON } from '../utils/icons';
+import { getElementById, clearElement, createElement } from '../utils/dom';
+import { WARNING_ICON, createIconElement } from '../utils/icons';
 import {
   clearConversationHash,
   setAgentsHash,
@@ -201,14 +201,13 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
 
   // Add stale data warning banner if fetch failed but we have cached data
   if (fetchFailed) {
-    const warningBanner = document.createElement('div');
-    warningBanner.className = 'command-center-stale-warning';
-    warningBanner.innerHTML = `
-      <span class="warning-icon">${WARNING_ICON}</span>
-      <span>Unable to refresh. Showing cached data.</span>
-      <button class="btn-retry">Retry</button>
-    `;
-    warningBanner.querySelector('.btn-retry')?.addEventListener('click', () => {
+    const retryBtn = createElement('button', { class: 'btn-retry' }, ['Retry']);
+    const warningBanner = createElement('div', { class: 'command-center-stale-warning' }, [
+      createIconElement('warning-icon', WARNING_ICON),
+      createElement('span', {}, ['Unable to refresh. Showing cached data.']),
+      retryBtn,
+    ]);
+    retryBtn.addEventListener('click', () => {
       void navigateToAgents(true).catch((error: unknown) => log.error('Failed to open agents', { error }));
     });
     // Insert warning at the beginning of the command center

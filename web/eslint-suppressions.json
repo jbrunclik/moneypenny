@@ -29,7 +29,7 @@
   },
   "src/components/CommandCenter.ts": {
     "no-unsanitized/property": {
-      "count": 10
+      "count": 3
     }
   },
   "src/components/CompactionIndicator.ts": {
@@ -237,11 +237,6 @@
     }
   },
   "src/components/settings/shared.ts": {
-    "no-unsanitized/property": {
-      "count": 1
-    }
-  },
-  "src/core/agents.ts": {
     "no-unsanitized/property": {
       "count": 1
     }
