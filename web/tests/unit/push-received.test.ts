@@ -11,7 +11,7 @@ vi.mock('@/sync/SyncManager', () => ({
   getSyncManager: () => ({ incrementalSync }),
 }));
 
-vi.mock('@/core/sync-banner', () => ({
+vi.mock('@/core/conversation', () => ({
   reloadCurrentConversation: vi.fn(),
 }));
 

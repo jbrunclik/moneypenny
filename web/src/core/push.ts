@@ -15,7 +15,7 @@ import { push as pushApi } from '../api/push';
 import { createLogger } from '../utils/logger';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';
-import { reloadCurrentConversation } from './sync-banner';
+import { reloadCurrentConversation } from './conversation';
 
 const log = createLogger('push');
 

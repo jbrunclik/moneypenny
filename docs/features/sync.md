@@ -95,8 +95,6 @@ When the open chat changes on another device ([core/remote-merge.ts](../../web/s
 - Skipped while this tab runs its own turn there (the deferred summary re-triggers it) or shows an older window (`hasNewer`).
 - Triggered on ANY change-log change to the open chat, not just a higher count (a delete, a regenerate or a finished remote stream leave it equal); diffing makes our own changes a no-op.
 
-The planner and agent views still show the "New messages available - Reload" banner.
-
 **Pitfall:** the `initSyncManager` callbacks in core/startup/sync.ts must read `useStore.getState()` live - a state object captured at startup is a snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
 
 `sync/` never imports `core` (F1): stream recovery reaches the sync manager as the `StreamRecoveryHooks` second argument of `initSyncManager`, wired in the same file.

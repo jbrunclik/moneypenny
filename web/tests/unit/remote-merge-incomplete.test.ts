@@ -34,14 +34,13 @@ vi.mock('@/components/messages', () => ({
 }));
 vi.mock('@/components/ScrollToBottom', () => ({ showNewMessagesPill: vi.fn() }));
 vi.mock('@/sync/SyncManager', () => ({ getSyncManager: () => ({ markConversationRead: vi.fn() }) }));
-vi.mock('@/core/conversation', () => ({ isTempConversation: () => false, markAgentViewedAndRefresh: vi.fn() }));
+vi.mock('@/core/conversation', () => ({ markAgentViewedAndRefresh: vi.fn(), reloadCurrentConversation: vi.fn() }));
 vi.mock('@/core/stream-resume', () => ({ followRemoteStream: vi.fn() }));
-vi.mock('@/core/sync-banner', () => ({ reloadCurrentConversation: vi.fn() }));
 vi.mock('@/utils/programmatic-scroll', () => ({ programmaticScrollToBottom: vi.fn() }));
 
 import { useStore } from '@/state/store';
 import { mergeExternalChanges, serverRewroteHistory } from '@/core/remote-merge';
-import { reloadCurrentConversation } from '@/core/sync-banner';
+import { reloadCurrentConversation } from '@/core/conversation';
 
 const PAGE = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 1 };
 const user: Message = { id: 'u1', role: 'user', content: 'Question', created_at: '2026-10-10T20:00:00' };

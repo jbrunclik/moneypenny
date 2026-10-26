@@ -334,6 +334,44 @@ function addTempConversation(): { conv: Conversation; pendingAnonymous: boolean 
 }
 
 /**
+ * Re-fetch the currently open conversation and re-render it.
+ * Used by the remote merge (history rewritten elsewhere) and by notification taps
+ * that target the already-open conversation.
+ */
+export async function reloadCurrentConversation(conversationId: string): Promise<void> {
+  if (isTempConversation(conversationId)) return;
+
+  try {
+    const response = await conversations.get(conversationId);
+
+    // Check if user switched away during API call
+    const currentConv = useStore.getState().currentConversation;
+    if (currentConv?.id !== conversationId) {
+      log.debug('Reload cancelled - user switched away', {
+        requestedId: conversationId,
+        currentId: currentConv?.id,
+      });
+      return;
+    }
+
+    // The same path as opening it: merges unconfirmed outbox sends (a
+    // separate copy here dropped pending/failed bubbles), adopts anonymous
+    // mode, and keeps archived / agent context and the id of a reply still
+    // streaming elsewhere (followed live)
+    showLoadedConversation(conversationId, response);
+
+    // The newly arrived messages are now on screen - mark them viewed so
+    // the unread badge clears (daily briefing reuses one conversation)
+    if (response.is_agent && response.agent_id) {
+      markAgentViewedAndRefresh(response.agent_id);
+    }
+  } catch (error) {
+    log.error('Failed to reload conversation', { error, conversationId });
+    toast.error('Failed to reload conversation.');
+  }
+}
+
+/**
  * Create a new conversation (local only - saved to DB on first message).
  */
 export function createConversation(): void {

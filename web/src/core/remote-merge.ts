@@ -20,12 +20,11 @@ import type { Conversation, Message } from '../types/api';
 import { getElementById, isScrolledToBottom } from '../utils/dom';
 import { createLogger } from '../utils/logger';
 import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
-import { markAgentViewedAndRefresh } from './conversation';
+import { markAgentViewedAndRefresh, reloadCurrentConversation } from './conversation';
 import { isTempConversation } from '../utils/conversation-id';
 import { readInflightStream } from './inflight-streams';
 import { followRemoteStream } from './stream-resume';
 import { confirmDelivery } from './send-delivery';
-import { reloadCurrentConversation } from './sync-banner';
 
 const log = createLogger('remote-merge');
 
