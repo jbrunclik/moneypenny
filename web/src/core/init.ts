@@ -5,34 +5,24 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { models, config } from '../api/app';
-import { conversations } from '../api/conversations';
-import { todoist, calendar } from '../api/integrations';
 import { initToast, toast } from '../components/Toast';
 import { initModal } from '../components/Modal';
 import { initGoogleSignIn, renderGoogleButton, checkAuth } from '../auth/google';
-import {
-  renderConversationsList,
-  renderUserInfo,
-  cleanupInfiniteScroll,
-  loadArchivedConversations,
-  initSidebarTimeRefresh,
-} from '../components/Sidebar';
-import { refreshSpendWarning } from '../components/SpendBanner';
+import { renderConversationsList, cleanupInfiniteScroll } from '../components/Sidebar';
 import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
 import {
   renderMessages,
   initOrientationChangeHandler,
 } from '../components/messages';
-import { initMessageInput, updateSendButtonState } from '../components/MessageInput';
+import { initMessageInput } from '../components/MessageInput';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
-import { registerServiceWorker, resyncPushSubscription } from './push';
-import { initModelSelector, renderModelDropdown } from '../components/ModelSelector';
+import { registerServiceWorker } from './push';
+import { initModelSelector } from '../components/ModelSelector';
 import { initFileUpload } from '../components/FileUpload';
 import { initLightbox } from '../components/Lightbox';
 import { initSourcesPopup } from '../components/SourcesPopup';
@@ -59,7 +49,6 @@ import {
   cleanupDeepLinking,
   clearConversationHash,
 } from '../router/deeplink';
-import type { InitialRoute } from '../router/deeplink';
 import { stopSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
@@ -76,15 +65,13 @@ import { initSidebarSelection } from '../components/SidebarSelection';
 import { setupTouchGestures } from './gestures';
 import { initTTSVoices, speakMessageInternal as speakMessage } from './tts';
 import { initToolbarButtons } from './toolbar';
-import { isTempConversation } from './conversation';
 import { handleDeepLinkNavigation } from './conversation-deeplink';
 import { deleteMessage } from './conversation-actions';
-import { loadTrashedConversations } from './trash';
 import { initAgents } from './agents';
 import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
-import { startSync } from './startup/sync';
-import { initialRouteFromHash, openInitialRoute } from './startup/initial-route';
+import { initialRouteFromHash } from './startup/initial-route';
+import { loadInitialData } from './startup/initial-data';
 
 const log = createLogger('init');
 
@@ -100,100 +87,6 @@ export function showLoginOverlay(): void {
  */
 export function hideLoginOverlay(): void {
   getElementById('login-overlay')?.classList.add('hidden');
-}
-
-/**
- * Load initial data after authentication.
- * If initialRoute is provided (from URL hash), handle it BEFORE starting sync.
- */
-export async function loadInitialData(initialRoute?: InitialRoute | null): Promise<void> {
-  log.debug('Loading initial data', { initialRoute });
-  const store = useStore.getState();
-  store.setLoading(true);
-
-  // Heal silently-rotated push endpoints (idempotent upsert; needs auth,
-  // which this post-login path guarantees)
-  void resyncPushSubscription();
-
-  try {
-    // Load data in parallel (including integration status for planner visibility)
-    const [convResult, modelsData, uploadConfig, todoistStatus, calendarStatus] = await Promise.all([
-      conversations.list(),
-      models.list(),
-      config.getUploadConfig(),
-      todoist.getStatus().catch(() => ({ connected: false })),
-      calendar.getStatus().catch(() => ({ connected: false })),
-    ]);
-
-    store.setConversations(convResult.conversations, convResult.pagination);
-    // "New Chat" clicked while this fetch was in flight created a local-only
-    // conversation the server list can't know about - don't drop it from the
-    // sidebar (it persists on the first message)
-    const current = useStore.getState().currentConversation;
-    if (current && isTempConversation(current.id)) {
-      store.addConversation(current);
-    }
-    store.setModels(modelsData.models, modelsData.default);
-    store.setUploadConfig(uploadConfig);
-
-    // Update user with integration status for planner visibility
-    const currentUser = store.user;
-    if (currentUser) {
-      store.setUser({
-        ...currentUser,
-        todoist_connected: todoistStatus.connected,
-        calendar_connected: calendarStatus.connected,
-      });
-    }
-
-    log.info('Initial data loaded', {
-      conversationCount: convResult.conversations.length,
-      modelCount: modelsData.models.length,
-      todoistConnected: todoistStatus.connected,
-      calendarConnected: calendarStatus.connected,
-    });
-    renderConversationsList();
-    renderUserInfo();
-    void refreshSpendWarning();
-    renderModelDropdown();
-
-    // Keep relative-time labels and date-group headers fresh even when no
-    // sync poll returns changed data
-    initSidebarTimeRefresh();
-
-    // Load archive count in background (non-blocking) to show archive section
-    loadArchivedConversations().catch(() => {
-      // Ignore errors - archive section is optional
-    });
-    // Trash count for the user-menu badge (skipped when the trash view
-    // itself is the initial route - navigateToTrash loads it)
-    if (!initialRoute?.isTrash) {
-      void loadTrashedConversations();
-    }
-
-    await openInitialRoute(initialRoute);
-
-    // Only after data is loaded AND the initial route is handled: sync
-    // starting earlier showed false "new messages available" banners for
-    // the deep-linked conversation
-    startSync();
-  } catch (error) {
-    log.error('Failed to load initial data', { error });
-    toast.error('Failed to load data. Please refresh the page.', {
-      action: { label: 'Refresh', onClick: () => window.location.reload() },
-    });
-  } finally {
-    store.setLoading(false);
-    // Text typed (or a file attached) during boot evaluated the send button
-    // while isLoading was true and nothing re-runs the check afterwards -
-    // the button stayed disabled until the next keystroke
-    updateSendButtonState();
-    // The sidebar may have last rendered during loading (skeletons). With
-    // zero conversations nothing else re-renders it afterwards, leaving the
-    // skeletons up forever on slow boots (caught by CI's container runners
-    // on the #/agents route). Idempotent: the renderer dedups identical HTML.
-    renderConversationsList();
-  }
 }
 
 /**
