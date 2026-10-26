@@ -97,7 +97,7 @@ When the open chat changes on another device ([core/remote-merge.ts](../../web/s
 
 The planner and agent views still show the "New messages available - Reload" banner.
 
-**Pitfall:** the `initSyncManager` callbacks in core/init.ts must read `useStore.getState()` live - the `store` const there is a startup snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
+**Pitfall:** the `initSyncManager` callbacks in core/startup/sync.ts must read `useStore.getState()` live - a state object captured at startup is a snapshot (Zustand replaces the state object on every update). Reading `store.isPlannerView` / `store.currentConversation` from it meant the planner deleted/reset/new-messages and agent handlers never fired.
 
 ## Race Condition Audit (Oct 10 2026)
 
@@ -243,7 +243,7 @@ SYNC_FULL_SYNC_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 - [planner-sync.ts](../../web/src/sync/planner-sync.ts) / [agent-conversation-sync.ts](../../web/src/sync/agent-conversation-sync.ts) / [command-center-sync.ts](../../web/src/sync/command-center-sync.ts) - The views outside the regular sync
 - [read-reporting.ts](../../web/src/sync/read-reporting.ts) - Server read-state reports
 - [api/conversations.ts](../../web/src/api/conversations.ts) - `conversations.sync()` method
-- [init.ts](../../web/src/core/init.ts) - SyncManager initialization
+- [startup/sync.ts](../../web/src/core/startup/sync.ts) - SyncManager initialization and callbacks
 - [sync-banner.ts](../../web/src/core/sync-banner.ts) - New messages banner
 - [Sidebar.ts](../../web/src/components/Sidebar.ts) - Unread badge rendering
 - [config.ts](../../web/src/config.ts) - Configuration constants

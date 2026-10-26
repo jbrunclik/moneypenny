@@ -3,8 +3,6 @@
  * Handles app shell rendering, login overlay, and initial data loading.
  */
 
-import { renderChatHeader } from '../components/ChatHeader';
-import { updateConversationCost } from './toolbar';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { models, config } from '../api/app';
@@ -25,11 +23,9 @@ import { initSearchInput } from '../components/SearchInput';
 import { subscribeToSearchChanges } from '../components/SearchResults';
 import {
   renderMessages,
-  updateChatTitle,
   initOrientationChangeHandler,
 } from '../components/messages';
 import { initMessageInput, updateSendButtonState } from '../components/MessageInput';
-import { APP_NAME } from '../config';
 import { initKbDebugToggle, initKeyboardViewportPinning } from './keyboard-viewport';
 import { initComposerHeight } from './composer-height';
 import { initQuickActions } from './quick-actions';
@@ -62,14 +58,13 @@ import {
   initDeepLinking,
   cleanupDeepLinking,
   clearConversationHash,
-  pushEmptyHash,
   isValidConversationId,
   parseHash,
   getSportsProgramFromHash,
   getLanguageProgramFromHash,
 } from '../router/deeplink';
 import type { InitialRoute } from '../router/deeplink';
-import { initSyncManager, stopSyncManager, getSyncManager } from '../sync/SyncManager';
+import { stopSyncManager } from '../sync/SyncManager';
 import {
   cleanupOlderMessagesScrollListener,
   cleanupNewerMessagesScrollListener,
@@ -90,14 +85,14 @@ import { loadDeepLinkedConversation, handleDeepLinkNavigation } from './conversa
 import { deleteMessage } from './conversation-actions';
 import { navigateToArchive } from './archive';
 import { navigateToTrash, loadTrashedConversations } from './trash';
-import { navigateToPlanner, leavePlannerView } from './planner';
+import { navigateToPlanner } from './planner';
 import { navigateToSports, navigateToSportsProgram } from './sports';
 import { navigateToLanguage, navigateToLanguageProgram } from './language';
 import { navigateToAgents, initAgents } from './agents';
 import { navigateToStorage } from './kv-store';
-import { mergeExternalChanges } from './remote-merge';
 import { installAvatarFallback } from '../utils/avatar';
 import { mountAppShell } from './startup/app-shell';
+import { startSync } from './startup/sync';
 
 const log = createLogger('init');
 
@@ -214,76 +209,10 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
       await loadDeepLinkedConversation(initialRoute.conversationId);
     }
 
-    // Initialize sync manager after data is loaded AND initial conversation is handled
-    initSyncManager({
-      onConversationsUpdated: () => {
-        renderConversationsList();
-      },
-      onCurrentConversationDeleted: () => {
-        store.setCurrentConversation(null);
-        renderMessages([]);
-        updateChatTitle(APP_NAME);
-        // The deleted chat's header controls and cost chip go too (as for a
-        // delete on this device - removeConversationFromUI)
-        renderChatHeader(null);
-        void updateConversationCost(null);
-        // Clear the hash since conversation no longer exists
-        clearConversationHash();
-      },
-      onCurrentConversationExternalUpdate: () => {
-        // Merge the other device's changes in place (no reload banner).
-        // Read LIVE state in these callbacks: `store` is a snapshot from
-        // startup (Zustand replaces the state object on every update), and
-        // reading isPlannerView / currentConversation from it meant the
-        // planner and agent handlers below never fired.
-        const convId = useStore.getState().currentConversation?.id;
-        if (convId) void mergeExternalChanges(convId);
-      },
-      onCurrentConversationRenamed: (title: string) => {
-        updateChatTitle(title);
-      },
-      onArchiveOrTrashChanged: ({ archive, trash }) => {
-        // Rows and counts come from the server (a trash row needs its purge date)
-        if (archive) void loadArchivedConversations();
-        if (trash) void loadTrashedConversations();
-      },
-      onPlannerDeleted: () => {
-        // Planner was deleted in another tab
-        if (useStore.getState().isPlannerView) {
-          toast.info('Planning session was deleted.');
-          leavePlannerView();
-          pushEmptyHash();
-        }
-      },
-      onPlannerReset: () => {
-        // Planner was reset in another tab
-        if (useStore.getState().isPlannerView) {
-          toast.info('Planning session was reset. Reloading...');
-          void navigateToPlanner();
-        }
-      },
-      onPlannerExternalUpdate: () => {
-        // New messages added to planner in another tab/device: merge in place
-        const live = useStore.getState();
-        if (live.isPlannerView && live.currentConversation) {
-          void mergeExternalChanges(live.currentConversation.id);
-        }
-      },
-      onAgentConversationExternalUpdate: () => {
-        // New messages added to agent conversation in another tab/device:
-        // merge in place
-        const currentConv = useStore.getState().currentConversation;
-        if (currentConv?.is_agent) {
-          void mergeExternalChanges(currentConv.id);
-        }
-      },
-    });
-    // Unhandled rejection here would silently disable sync for the session
-    getSyncManager()
-      ?.start()
-      .catch((error) => {
-        log.error('SyncManager failed to start', { error });
-      });
+    // Only after data is loaded AND the initial route is handled: sync
+    // starting earlier showed false "new messages available" banners for
+    // the deep-linked conversation
+    startSync();
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {
@@ -511,22 +440,3 @@ export async function init(): Promise<void> {
     speakMessage(messageId, language);
   });
 }
-
-// Test helper: Trigger a full sync (for E2E tests)
-// Usage in browser console: await window.__testFullSync()
-declare global {
-  interface Window {
-    __testFullSync: () => Promise<void>;
-    __testIncrementalSync: () => Promise<void>;
-  }
-}
-window.__testFullSync = async () => {
-  const syncManager = getSyncManager();
-  if (syncManager) {
-    await syncManager.fullSync();
-  }
-};
-// The regular poll tick (E2E: what a visible tab sees without a full sync)
-window.__testIncrementalSync = async () => {
-  await getSyncManager()?.incrementalSync();
-};
