@@ -16,7 +16,7 @@ def artifact_id(test_database: Database, test_conversation: Conversation) -> str
     art, _ = test_database.create_artifact(
         test_conversation.id, test_conversation.user_id, "Tips", "<p>1</p>"
     )
-    test_database.add_artifact_version(art.id, "<p>2</p>")
+    test_database.revise_artifact(art.id, lambda _: "<p>2</p>")
     return art.id
 
 

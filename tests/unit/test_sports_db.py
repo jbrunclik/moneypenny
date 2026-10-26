@@ -1,7 +1,6 @@
 """Unit tests for sports tracking database operations.
 
 Tests cover:
-- get_sports_conversation
 - get_or_create_sports_conversation
 - reset_sports_conversation
 - list_sports_conversations
@@ -12,35 +11,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
-
-
-class TestGetSportsConversation:
-    """Tests for get_sports_conversation."""
-
-    def test_returns_none_when_no_conversation(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Should return None if no sports conversation exists."""
-        result = test_database.get_program_conversation("sports", test_user.id, "pushups")
-        assert result is None
-
-    def test_returns_conversation_when_exists(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Should return the conversation when it exists."""
-        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
-        result = test_database.get_program_conversation("sports", test_user.id, "pushups")
-        assert result is not None
-        assert result.is_sports is True
-        assert result.sports_program == "pushups"
-
-    def test_different_programs_are_independent(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Different programs should have separate conversations."""
-        test_database.get_or_create_program_conversation("sports", test_user.id, "pushups")
-        result = test_database.get_program_conversation("sports", test_user.id, "running")
-        assert result is None
 
 
 class TestGetOrCreateSportsConversation:
@@ -118,9 +88,8 @@ class TestResetSportsConversation:
         assert len(messages_after) == 0
 
         # Conversation should still exist
-        conv_after = test_database.get_program_conversation("sports", test_user.id, "pushups")
-        assert conv_after is not None
-        assert conv_after.id == conv.id
+        listed = test_database.list_program_conversations("sports", test_user.id)
+        assert [c.id for c in listed] == [conv.id]
 
 
 class TestListSportsConversations:
@@ -177,8 +146,7 @@ class TestDeleteSportsConversation:
         assert result is True
 
         # Conversation should be gone
-        conv_after = test_database.get_program_conversation("sports", test_user.id, "pushups")
-        assert conv_after is None
+        assert test_database.list_program_conversations("sports", test_user.id) == []
 
         # Messages should be gone
         messages = test_database.get_messages(conv.id)

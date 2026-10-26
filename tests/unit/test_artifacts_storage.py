@@ -10,7 +10,7 @@ def test_create_then_add_version(test_database: Any, test_conversation: Any) -> 
         test_conversation.id, test_conversation.user_id, "Tip calculator", "<p>1</p>"
     )
     assert (v1.version, art.latest_version) == (1, 1)
-    v2 = test_database.add_artifact_version(art.id, "<p>2</p>", title="Tips")
+    v2 = test_database.revise_artifact(art.id, lambda _: "<p>2</p>", title="Tips")
     assert v2.version == 2
     stored = test_database.get_artifact(art.id)
     assert stored is not None and (stored.latest_version, stored.title) == (2, "Tips")
@@ -49,7 +49,7 @@ def test_deleting_the_message_removes_its_versions(
     art, _ = test_database.create_artifact(conv_id, user_id, "T", "v1")
     m1 = test_database.add_message(conv_id, MessageRole.ASSISTANT, "made it")
     test_database.link_artifact_versions(m1.id, [(art.id, 1)])
-    test_database.add_artifact_version(art.id, "v2")
+    test_database.revise_artifact(art.id, lambda _: "v2")
     m2 = test_database.add_message(conv_id, MessageRole.ASSISTANT, "revised")
     test_database.link_artifact_versions(m2.id, [(art.id, 2)])
 
@@ -79,7 +79,7 @@ def test_linking_a_turns_last_version_adopts_its_earlier_ones(
     # One turn: create (v1) then update (v2); only v2 reaches the message refs
     conv_id, user_id = test_conversation.id, test_conversation.user_id
     art, _ = test_database.create_artifact(conv_id, user_id, "T", "v1")
-    test_database.add_artifact_version(art.id, "v2")
+    test_database.revise_artifact(art.id, lambda _: "v2")
     msg = test_database.add_message(conv_id, MessageRole.ASSISTANT, "made it")
     test_database.link_artifact_versions(msg.id, [(art.id, 2)])
 
@@ -95,8 +95,8 @@ def test_regenerating_a_two_update_turn_restores_the_earlier_version(
     art, _ = test_database.create_artifact(conv_id, user_id, "T", "v1")
     m1 = test_database.add_message(conv_id, MessageRole.ASSISTANT, "made it")
     test_database.link_artifact_versions(m1.id, [(art.id, 1)])
-    test_database.add_artifact_version(art.id, "v2")
-    test_database.add_artifact_version(art.id, "v3")
+    test_database.revise_artifact(art.id, lambda _: "v2")
+    test_database.revise_artifact(art.id, lambda _: "v3")
     m2 = test_database.add_message(conv_id, MessageRole.ASSISTANT, "revised twice")
     test_database.link_artifact_versions(m2.id, [(art.id, 3)])
 
@@ -117,7 +117,7 @@ def test_concurrent_versions_never_collide(test_database: Any, test_conversation
     def add_many() -> None:
         try:
             for _ in range(10):
-                test_database.add_artifact_version(art.id, "x")
+                test_database.revise_artifact(art.id, lambda _: "x")
         except BaseException as e:  # noqa: BLE001 - collected for the assertion
             errors.append(e)
 

@@ -91,12 +91,6 @@ class ArtifactMixin:
             (art_id, version, html, now.isoformat()),
         )
 
-    def add_artifact_version(
-        self, artifact_id: str, html: str, title: str | None = None
-    ) -> ArtifactVersion:
-        """Add the next version; also renames the artifact when `title` is given."""
-        return self.revise_artifact(artifact_id, lambda _latest: html, title)
-
     def revise_artifact(
         self,
         artifact_id: str,

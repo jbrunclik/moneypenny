@@ -1,7 +1,6 @@
 """Unit tests for language learning database operations.
 
 Tests cover:
-- get_language_conversation
 - get_or_create_language_conversation
 - reset_language_conversation
 - list_language_conversations
@@ -12,35 +11,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
-
-
-class TestGetLanguageConversation:
-    """Tests for get_language_conversation."""
-
-    def test_returns_none_when_no_conversation(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Should return None if no language conversation exists."""
-        result = test_database.get_program_conversation("language", test_user.id, "spanish")
-        assert result is None
-
-    def test_returns_conversation_when_exists(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Should return the conversation when it exists."""
-        test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
-        result = test_database.get_program_conversation("language", test_user.id, "spanish")
-        assert result is not None
-        assert result.is_language is True
-        assert result.language_program == "spanish"
-
-    def test_different_programs_are_independent(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """Different programs should have separate conversations."""
-        test_database.get_or_create_program_conversation("language", test_user.id, "spanish")
-        result = test_database.get_program_conversation("language", test_user.id, "french")
-        assert result is None
 
 
 class TestGetOrCreateLanguageConversation:
@@ -122,9 +92,8 @@ class TestResetLanguageConversation:
         assert len(messages_after) == 0
 
         # Conversation should still exist
-        conv_after = test_database.get_program_conversation("language", test_user.id, "spanish")
-        assert conv_after is not None
-        assert conv_after.id == conv.id
+        listed = test_database.list_program_conversations("language", test_user.id)
+        assert [c.id for c in listed] == [conv.id]
 
 
 class TestListLanguageConversations:
@@ -181,8 +150,7 @@ class TestDeleteLanguageConversation:
         assert result is True
 
         # Conversation should be gone
-        conv_after = test_database.get_program_conversation("language", test_user.id, "spanish")
-        assert conv_after is None
+        assert test_database.list_program_conversations("language", test_user.id) == []
 
         # Messages should be gone
         messages = test_database.get_messages(conv.id)

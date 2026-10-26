@@ -90,44 +90,6 @@ class ConversationMixin:
 
             return self._row_to_conversation(row)
 
-    def list_conversations(
-        self, user_id: str, include_planning: bool = False
-    ) -> list[Conversation]:
-        """List conversations for a user.
-
-        Args:
-            user_id: The user ID
-            include_planning: If True, includes planning conversations.
-                             Default False since planner is fetched separately.
-
-        Returns:
-            List of Conversation objects ordered by updated_at DESC
-        """
-        with self._pool.get_connection() as conn:
-            if include_planning:
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT * FROM conversations WHERE user_id = ?
-                       AND deleted_at IS NULL
-                       ORDER BY updated_at DESC""",
-                    (user_id,),
-                ).fetchall()
-            else:
-                rows = self._execute_with_timing(
-                    conn,
-                    """SELECT * FROM conversations WHERE user_id = ?
-                       AND (is_planning = 0 OR is_planning IS NULL)
-                       AND (is_agent = 0 OR is_agent IS NULL)
-                       AND (archived = 0 OR archived IS NULL)
-                       AND deleted_at IS NULL
-                       AND (is_sports = 0 OR is_sports IS NULL)
-                       AND (is_language = 0 OR is_language IS NULL)
-                       ORDER BY updated_at DESC""",
-                    (user_id,),
-                ).fetchall()
-
-            return [self._row_to_conversation(row) for row in rows]
-
     def set_conversation_anonymous_mode(
         self, conv_id: str, user_id: str, anonymous_mode: bool
     ) -> bool:

@@ -169,7 +169,7 @@ The following indexes are defined to optimize common query patterns:
 ### Conversations Table
 
 - `idx_conversations_user_id` - For filtering by user
-- `idx_conversations_user_id_updated_at` - Composite index for `list_conversations()` (filter + sort)
+- `idx_conversations_user_id_updated_at` - Composite index for the conversation listings (filter + sort)
 - `idx_conversations_user_archived` - Composite index for archive filtering `(user_id, archived)`
 - `idx_conversations_user_deleted` - Composite index for trash filtering `(user_id, deleted_at)`
 
@@ -358,12 +358,12 @@ When adding or modifying database code, follow these guidelines:
 
 ```python
 # BAD - N+1 pattern (1 query + N queries)
-conversations = db.list_conversations(user_id)
+conversations = db.list_program_conversations("sports", user_id)
 for conv in conversations:
     count = db.get_message_count(conv.id)  # N queries!
 
 # GOOD - Single query with JOIN or subquery
-conversations = db.list_conversations_with_counts(user_id)  # 1 query
+conversations = db.list_conversations_with_message_count(user_id)  # 1 query
 ```
 
 ### When to Add Indexes

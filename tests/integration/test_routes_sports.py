@@ -183,8 +183,7 @@ class TestDeleteProgram:
         assert len(programs) == 0
 
         # Verify conversation deleted
-        conv = test_database.get_program_conversation("sports", test_user.id, "pushups")
-        assert conv is None
+        assert test_database.list_program_conversations("sports", test_user.id) == []
 
         # Verify KV data cleaned up
         assert test_database.kv_get(test_user.id, "sports", "pushups:goals") is None

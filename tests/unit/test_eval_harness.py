@@ -678,7 +678,9 @@ class TestRunCase:
         assert calls["memories_during_turn"] == ["Likes tea"]
         assert "Recalls the fact" in calls["judge_prompt"]
         assert "set_conversation_title, web_search" in calls["judge_prompt"]
-        titles = {c.title for c in test_database.list_conversations(test_user.id)}
+        titles = {
+            c.title for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        }
         assert {"Old chat", "eval-c1"} <= titles
         # Seeded memories don't leak into later cases
         assert test_database.list_memories(test_user.id) == []

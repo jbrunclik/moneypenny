@@ -69,21 +69,6 @@ class ProgramConversationMixin:
         """Convert row to Conversation (defined in ConversationMixin)."""
         raise NotImplementedError
 
-    def get_program_conversation(
-        self, namespace: str, user_id: str, program: str
-    ) -> Conversation | None:
-        """Get the program conversation for a user and program, or None."""
-        f = _feature(namespace)
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                f"SELECT * FROM conversations WHERE user_id = ? AND {f.flag_column} = 1 "
-                f"AND {f.program_column} = ?",
-                (user_id, program),
-            ).fetchone()
-
-            return self._row_to_conversation(row) if row else None
-
     def get_or_create_program_conversation(
         self, namespace: str, user_id: str, program: str, model: str | None = None
     ) -> Conversation:

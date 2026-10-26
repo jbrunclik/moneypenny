@@ -3,8 +3,7 @@
 """Names vulture (C2, `make lint`) can't see being used. Only parsed, never run.
 
 A new finding is either dead (delete it) or belongs to one of these sections,
-each with its reason. The "Baseline" section is dead code not removed yet: it
-only shrinks.
+each with its reason. There is no baseline: dead code is deleted.
 """
 
 # --- API wire format: Pydantic fields and StrEnum members, read by the client
@@ -157,9 +156,3 @@ _.connection_count  # src/utils/connection_pool.py
 _.peek  # src/utils/lazy.py (tests/conftest.py)
 _._validated_body  # src/api/validation.py: the OpenAPI/query tests find views by it
 _._validated_query
-
-# --- Baseline: dead code not removed yet (only shrinks) -----------------------
-# Used only by tests (as fixtures or state probes): delete with their tests
-_.add_artifact_version  # src/db/models/artifacts.py
-_.list_conversations  # src/db/models/conversation.py
-_.get_program_conversation  # src/db/models/programs.py

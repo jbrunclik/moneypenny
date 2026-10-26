@@ -29,10 +29,16 @@ class TestTrashOperations:
         conv = test_database.create_conversation(test_user.id, "Doomed")
 
         assert test_database.trash_conversation(conv.id, test_user.id) is True
-        assert all(c.id != conv.id for c in test_database.list_conversations(test_user.id))
+        assert all(
+            c.id != conv.id
+            for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        )
 
         assert test_database.restore_conversation(conv.id, test_user.id) is True
-        assert any(c.id == conv.id for c in test_database.list_conversations(test_user.id))
+        assert any(
+            c.id == conv.id
+            for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        )
 
     def test_trash_is_idempotent_and_keeps_deleted_at(
         self, test_database: Database, test_user: User
@@ -124,7 +130,9 @@ class TestTrashOperations:
             test_database.trash_conversation(conv.id, test_user.id)
 
         assert test_database.empty_trash(test_user.id) == 2
-        assert [c.id for c in test_database.list_conversations(test_user.id)] == [live.id]
+        assert [
+            c.id for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ] == [live.id]
 
     def test_purge_respects_cutoff_and_deletes_blobs(
         self, test_database: Database, test_user: User, test_blob_store: BlobStore
@@ -169,8 +177,6 @@ class TestTrashedHiddenEverywhere:
         assert total == 0
         with_counts = test_database.list_conversations_with_message_count(test_user.id)
         assert conv_id not in [c.id for c, _, _ in with_counts]
-        everything = test_database.list_conversations(test_user.id, include_planning=True)
-        assert conv_id not in [c.id for c in everything]
 
     def test_sync_excludes_trashed(self, test_database: Database, test_user: User) -> None:
         conv_id = self._trashed(test_database, test_user)
@@ -363,7 +369,9 @@ class TestRestoreKeepsListPosition:
         test_database.restore_conversations(test_user.id, ids)
 
         assert {i: self._updated_at(test_database, i) for i in ids} == before
-        listed = [c.id for c in test_database.list_conversations(test_user.id)]
+        listed = [
+            c.id for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ]
         assert listed == list(reversed(ids))
 
     def test_single_restore_puts_back_original_updated_at(

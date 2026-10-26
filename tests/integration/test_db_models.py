@@ -193,14 +193,18 @@ class TestConversationOperations:
         # Update conv1 to make it more recent
         test_database.update_conversation(conv1.id, test_user.id, title="Conv 1 Updated")
 
-        conversations = test_database.list_conversations(test_user.id)
+        conversations = [
+            c for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ]
 
         assert len(conversations) == 2
         assert conversations[0].id == conv1.id  # Most recently updated first
 
     def test_list_conversations_empty(self, test_database: Database, test_user: User) -> None:
         """Should return empty list when user has no conversations."""
-        conversations = test_database.list_conversations(test_user.id)
+        conversations = [
+            c for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ]
         assert conversations == []
 
     def test_update_conversation_title(self, test_database: Database, test_user: User) -> None:
@@ -804,7 +808,9 @@ class TestArchiveOperations:
 
         assert result is True
         # Archived conversation should not appear in regular listing
-        active_conversations = test_database.list_conversations(test_user.id)
+        active_conversations = [
+            c for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ]
         assert not any(c.id == conv.id for c in active_conversations)
 
     def test_unarchive_conversation(self, test_database: Database, test_user: User) -> None:
@@ -816,7 +822,9 @@ class TestArchiveOperations:
 
         assert result is True
         # Unarchived conversation should appear in regular listing again
-        active_conversations = test_database.list_conversations(test_user.id)
+        active_conversations = [
+            c for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
+        ]
         assert any(c.id == conv.id for c in active_conversations)
 
     def test_archive_excluded_from_paginated_list(
