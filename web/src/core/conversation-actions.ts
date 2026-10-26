@@ -233,6 +233,31 @@ export async function renameConversation(convId: string): Promise<void> {
 }
 
 /**
+ * The trimmed new title, or null when there is nothing to rename: empty, no
+ * change, or too long (backend accepts 1-200 chars; that one is reported).
+ */
+function validRenameTitle(currentTitle: string, newTitle: string): string | null {
+  const trimmedTitle = newTitle.trim();
+  if (!trimmedTitle || trimmedTitle === currentTitle) {
+    return null;
+  }
+  if (trimmedTitle.length > 200) {
+    toast.error('Conversation name is too long (max 200 characters).');
+    return null;
+  }
+  return trimmedTitle;
+}
+
+/** Show a stored rename: the open chat's title, the sidebar, a toast. */
+function showRenamedTitle(isCurrent: boolean, title: string): void {
+  if (isCurrent) {
+    updateChatTitle(title);
+  }
+  renderConversationsList();
+  toast.success('Conversation renamed.');
+}
+
+/**
  * Rename a conversation to a specific title (no prompt).
  * Used by the prompt flow above and the chat header inline rename.
  */
@@ -247,28 +272,15 @@ export async function renameConversationTo(convId: string, newTitle: string): Pr
   }
 
   const isArchived = store.archivedConversations.some(c => c.id === convId);
-  const currentTitle = conv.title || DEFAULT_CONVERSATION_TITLE;
-  const trimmedTitle = newTitle.trim();
-
-  // Empty or no change
-  if (!trimmedTitle || trimmedTitle === currentTitle) {
-    return;
-  }
-
-  // Validate length (backend accepts 1-200 chars)
-  if (trimmedTitle.length > 200) {
-    toast.error('Conversation name is too long (max 200 characters).');
+  const trimmedTitle = validRenameTitle(conv.title || DEFAULT_CONVERSATION_TITLE, newTitle);
+  if (trimmedTitle === null) {
     return;
   }
 
   // For temp conversations, just update locally (no API call needed)
   if (isTempConversation(convId)) {
     store.updateConversation(convId, { title: trimmedTitle });
-    if (store.currentConversation?.id === convId) {
-      updateChatTitle(trimmedTitle);
-    }
-    renderConversationsList();
-    toast.success('Conversation renamed.');
+    showRenamedTitle(store.currentConversation?.id === convId, trimmedTitle);
     return;
   }
 
@@ -286,15 +298,7 @@ export async function renameConversationTo(convId: string, newTitle: string): Pr
       store.updateConversation(convId, { title: trimmedTitle });
     }
 
-    // Update chat title if this is the current conversation
-    if (store.currentConversation?.id === convId) {
-      updateChatTitle(trimmedTitle);
-    }
-
-    // Update sidebar
-    renderConversationsList();
-
-    toast.success('Conversation renamed.');
+    showRenamedTitle(store.currentConversation?.id === convId, trimmedTitle);
   } catch (error) {
     log.error('Failed to rename conversation', { error, conversationId: convId });
     toast.error('Failed to rename conversation. Please try again.');

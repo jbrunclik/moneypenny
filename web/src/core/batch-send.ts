@@ -178,6 +178,46 @@ async function completeBatchTurn(
 }
 
 /**
+ * A failed batch send: rethrows when the caller must act (409 reconciliation,
+ * auto-retry or the failed state); returns when the user has switched away
+ * and the failure is only recorded.
+ */
+function handleBatchSendError(error: unknown, convId: string, tempUserMessageId: string): void {
+  hideBatchProgress();
+  // A dropped connection may be the page going away (reload, iOS killing
+  // the PWA) - the fetch rejects before unload. Keep the entry for the next
+  // load; it reconciles against the server either way.
+  const dropped = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
+  if (!dropped) clearInflightBatch(convId, tempUserMessageId);
+
+  // 409 = delivered by a previous attempt; propagate for reconciliation
+  if (error instanceof ApiError && error.status === 409) {
+    throw error;
+  }
+
+  // Check if conversation is still current before showing errors
+  if (useStore.getState().currentConversation?.id !== convId) {
+    // User switched conversations - swallow the error but record the
+    // failure so the outbox doesn't lose track of it
+    markSendFailed(convId, tempUserMessageId);
+    return;
+  }
+
+  // Propagate: handleSendFailure decides between auto-retry and failed state
+  throw error;
+}
+
+/** Release the conversation's per-turn state; a failed turn ends here too (no-op after completeBatchTurn). */
+function endBatchTurn(convId: string): void {
+  getSyncManager()?.setConversationStreaming(convId, false);
+  settleTurnFor(convId);
+  useStore.getState().removeActiveRequest(convId);
+  // Ensure upload progress is hidden (safety net)
+  hideUploadProgress();
+  useStore.getState().setUploadProgress(null);
+}
+
+/**
  * Send message with batch response.
  */
 export async function sendBatchMessage(
@@ -222,40 +262,13 @@ export async function sendBatchMessage(
     await completeBatchTurn(convId, tempUserMessageId, response);
     if (response.unanswered_steering_id) answerUnreadSteering(convId, response.unanswered_steering_id);
   } catch (error) {
-    hideBatchProgress();
-    // A dropped connection may be the page going away (reload, iOS killing
-    // the PWA) - the fetch rejects before unload. Keep the entry for the next
-    // load; it reconciles against the server either way.
-    const dropped = error instanceof ApiError && (error.isNetworkError || error.isTimeout);
-    if (!dropped) clearInflightBatch(convId, tempUserMessageId);
-
-    // 409 = delivered by a previous attempt; propagate for reconciliation
-    if (error instanceof ApiError && error.status === 409) {
-      throw error;
-    }
-
-    // Check if conversation is still current before showing errors
-    if (useStore.getState().currentConversation?.id !== convId) {
-      // User switched conversations - swallow the error but record the
-      // failure so the outbox doesn't lose track of it
-      markSendFailed(convId, tempUserMessageId);
-      return;
-    }
-
-    // Propagate: handleSendFailure decides between auto-retry and failed state
-    throw error;
+    handleBatchSendError(error, convId, tempUserMessageId);
   } finally {
     untrackRequest(requestId);
     // A newer turn already started in this conversation (a follow-up sent
     // during the cost fetch above): the per-conversation state is its now
     if (!hasTrackedRequestFor(convId)) {
-      // A failed turn ends here too (no-op after completeBatchTurn)
-      getSyncManager()?.setConversationStreaming(convId, false);
-      settleTurnFor(convId);
-      useStore.getState().removeActiveRequest(convId);
-      // Ensure upload progress is hidden (safety net)
-      hideUploadProgress();
-      useStore.getState().setUploadProgress(null);
+      endBatchTurn(convId);
     }
   }
 }

@@ -458,13 +458,116 @@ async function fetchMessageWithRetry(
   return null;
 }
 
+/** A message fetched from the server while recovering a stream. */
+type RecoveredMessage = {
+  id: string;
+  content: string | null;
+  created_at: string;
+  sources?: unknown[];
+  generated_images?: unknown[];
+  files?: unknown[];
+  language?: string;
+};
+
+/** The store entry for a recovered message, or null while it has no text. */
+function recoveredStoreMessage(message: RecoveredMessage): Message | null {
+  if (!message.content) return null;
+  return {
+    id: message.id,
+    role: 'assistant',
+    content: message.content,
+    created_at: message.created_at,
+    ...(message.sources && { sources: message.sources as Source[] }),
+    ...(message.generated_images && { generated_images: message.generated_images as GeneratedImage[] }),
+    ...(message.files && { files: message.files as FileMetadata[] }),
+    ...(message.language !== undefined && { language: message.language }),
+  };
+}
+
+/** Fill a streaming (or orphaned) bubble with the recovered content and finalize it. */
+function finalizeRecoveredElement(el: HTMLElement, message: RecoveredMessage, content: string): void {
+  // A successful recovery supersedes any earlier error styling (R15)
+  el.classList.remove('message-incomplete');
+  updateStreamingMessage(el, content);
+  finalizeStreamingMessage(
+    el,
+    message.id,
+    message.created_at,
+    message.sources as Parameters<typeof finalizeStreamingMessage>[3],
+    message.generated_images as Parameters<typeof finalizeStreamingMessage>[4],
+    message.files as Parameters<typeof finalizeStreamingMessage>[5],
+    'assistant',
+    message.language
+  );
+}
+
+/** Update the conversation title if it's still "New Conversation". */
+async function refreshPlaceholderTitle(convId: string): Promise<void> {
+  const conv = useStore.getState().currentConversation;
+  if (!conv || conv.title !== 'New Conversation') return;
+  try {
+    const updatedConv = await conversationsApi.get(convId);
+    if (updatedConv.title && updatedConv.title !== 'New Conversation') {
+      updateConversationTitle(convId, updatedConv.title);
+    }
+  } catch (error) {
+    log.warn('Failed to fetch updated conversation title', { error });
+  }
+}
+
+/** The recovered turn is over: clean up streaming state, then refresh the title and cost. */
+async function endRecoveredTurn(convId: string): Promise<void> {
+  settleTurnFor(convId);
+  cleanupStreamingContext(convId);
+  const store = useStore.getState();
+  if (store.streamingConversationId === convId) store.setStreamingConversation(null);
+  store.removeActiveRequest(convId);
+  getSyncManager()?.setConversationStreaming(convId, false);
+
+  await refreshPlaceholderTitle(convId);
+  await updateConversationCost(convId);
+}
+
+/**
+ * No live streaming context: update a streaming/incomplete element left in
+ * the DOM in place (the context was cleaned up but the element remains), or
+ * add the recovered message.
+ */
+function renderRecoveredInDom(
+  convId: string,
+  container: HTMLDivElement,
+  message: RecoveredMessage,
+  content: string,
+  recovered: Message | null
+): void {
+  // Measured before the recovered content changes the height
+  const wasAtBottom = isScrolledToBottom(container);
+  // Try to find the element by ID first (most reliable), then fall back to class selectors
+  // The ID is set on the streaming element when we receive expected_assistant_message_id
+  const existingEl =
+    container.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`) ||
+    container.querySelector<HTMLElement>('.message.assistant.streaming, .message.assistant.message-incomplete');
+
+  if (existingEl) {
+    // Found existing element - update it in place
+    log.info('Found orphaned streaming element, updating in place', { conversationId: convId });
+    finalizeRecoveredElement(existingEl, message, content);
+  } else if (recovered) {
+    // No existing element found - add new message
+    log.info('No streaming element in DOM, adding recovered message', { conversationId: convId });
+    addMessageToUI(recovered, container);
+    lockOlderQuizBlocks(container);
+  }
+
+  // Keep a reader who was at the bottom there; never yank one who
+  // scrolled up (the anchored send-to-top view included)
+  if (wasAtBottom) programmaticScrollToBottom(container);
+}
+
 /**
  * Update the UI with the recovered message.
  */
-async function updateUIWithRecoveredMessage(
-  convId: string,
-  message: { id: string; content: string | null; created_at: string; sources?: unknown[]; generated_images?: unknown[]; files?: unknown[]; language?: string }
-): Promise<void> {
+async function updateUIWithRecoveredMessage(convId: string, message: RecoveredMessage): Promise<void> {
   // Get the streaming message element. After a conversation-switch
   // round-trip the context element can be DETACHED (renderMessages cleared
   // the container) - finalizing it would leave the recovered message
@@ -474,133 +577,21 @@ async function updateUIWithRecoveredMessage(
 
   // Keep the store authoritative whichever DOM branch renders it below
   // (appendMessage is idempotent by id, so a late done event can't duplicate)
-  const recovered: Message | null = message.content
-    ? {
-      id: message.id,
-      role: 'assistant',
-      content: message.content,
-      created_at: message.created_at,
-      ...(message.sources && { sources: message.sources as Source[] }),
-      ...(message.generated_images && { generated_images: message.generated_images as GeneratedImage[] }),
-      ...(message.files && { files: message.files as FileMetadata[] }),
-      ...(message.language !== undefined && { language: message.language }),
-    }
-    : null;
+  const recovered = recoveredStoreMessage(message);
   if (recovered) {
     useStore.getState().appendMessage(convId, recovered);
   }
 
-  if (messageEl && message.content) {
-    // A successful recovery supersedes any earlier error styling (R15)
-    messageEl.classList.remove('message-incomplete');
-    // Update content
-    updateStreamingMessage(messageEl, message.content);
-
-    // Finalize the message
-    finalizeStreamingMessage(
-      messageEl,
-      message.id,
-      message.created_at,
-      message.sources as Parameters<typeof finalizeStreamingMessage>[3],
-      message.generated_images as Parameters<typeof finalizeStreamingMessage>[4],
-      message.files as Parameters<typeof finalizeStreamingMessage>[5],
-      'assistant',
-      message.language
-    );
-
-    // Clean up streaming context
-    settleTurnFor(convId);
-    cleanupStreamingContext(convId);
-
-    // Update streaming state
-    const store = useStore.getState();
-    if (store.streamingConversationId === convId) store.setStreamingConversation(null);
-    store.removeActiveRequest(convId);
-    getSyncManager()?.setConversationStreaming(convId, false);
-
-    // Update conversation title if it's still "New Conversation"
-    const conv = store.currentConversation;
-    if (conv && conv.title === 'New Conversation') {
-      try {
-        const updatedConv = await conversationsApi.get(convId);
-        if (updatedConv.title && updatedConv.title !== 'New Conversation') {
-          updateConversationTitle(convId, updatedConv.title);
-        }
-      } catch (error) {
-        log.warn('Failed to fetch updated conversation title', { error });
-      }
-    }
-
-    // Update cost
-    await updateConversationCost(convId);
-  } else if (!messageEl && message.content) {
-    // No streaming context, but there might still be a streaming/incomplete element in the DOM
-    // This happens when the context was cleaned up but the DOM element remains
-    const container = getElementById<HTMLDivElement>('messages');
-    if (container) {
-      // Measured before the recovered content changes the height
-      const wasAtBottom = isScrolledToBottom(container);
-      // Try to find the element by ID first (most reliable), then fall back to class selectors
-      // The ID is set on the streaming element when we receive expected_assistant_message_id
-      const existingEl =
-        container.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`) ||
-        container.querySelector<HTMLElement>('.message.assistant.streaming, .message.assistant.message-incomplete');
-
-      if (existingEl) {
-        // Found existing element - update it in place
-        log.info('Found orphaned streaming element, updating in place', { conversationId: convId });
-
-        // A successful recovery supersedes any earlier error styling (R15)
-        existingEl.classList.remove('message-incomplete');
-        // Update the content
-        updateStreamingMessage(existingEl, message.content);
-
-        // Finalize it properly
-        finalizeStreamingMessage(
-          existingEl,
-          message.id,
-          message.created_at,
-          message.sources as Parameters<typeof finalizeStreamingMessage>[3],
-          message.generated_images as Parameters<typeof finalizeStreamingMessage>[4],
-          message.files as Parameters<typeof finalizeStreamingMessage>[5],
-          'assistant',
-          message.language
-        );
-      } else if (recovered) {
-        // No existing element found - add new message
-        log.info('No streaming element in DOM, adding recovered message', { conversationId: convId });
-        addMessageToUI(recovered, container);
-        lockOlderQuizBlocks(container);
-      }
-
-      // Keep a reader who was at the bottom there; never yank one who
-      // scrolled up (the anchored send-to-top view included)
-      if (wasAtBottom) programmaticScrollToBottom(container);
-
-      // Clean up streaming state
-      settleTurnFor(convId);
-    cleanupStreamingContext(convId);
-      const store = useStore.getState();
-      if (store.streamingConversationId === convId) store.setStreamingConversation(null);
-      store.removeActiveRequest(convId);
-      getSyncManager()?.setConversationStreaming(convId, false);
-
-      // Update conversation title if it's still "New Conversation"
-      const conv = store.currentConversation;
-      if (conv && conv.title === 'New Conversation') {
-        try {
-          const updatedConv = await conversationsApi.get(convId);
-          if (updatedConv.title && updatedConv.title !== 'New Conversation') {
-            updateConversationTitle(convId, updatedConv.title);
-          }
-        } catch (error) {
-          log.warn('Failed to fetch updated conversation title', { error });
-        }
-      }
-
-      // Update cost
-      await updateConversationCost(convId);
-    }
+  if (!message.content) return;
+  if (messageEl) {
+    finalizeRecoveredElement(messageEl, message, message.content);
+    await endRecoveredTurn(convId);
+    return;
+  }
+  const container = getElementById<HTMLDivElement>('messages');
+  if (container) {
+    renderRecoveredInDom(convId, container, message, message.content, recovered);
+    await endRecoveredTurn(convId);
   }
 }
 

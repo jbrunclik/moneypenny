@@ -67,9 +67,24 @@ export function initAgents(): void {
 }
 
 /**
- * Navigate to the agents command center.
- * The command center is rendered in the messages container.
+ * Reset the chat-only controls: the anonymous toggle goes off and the input
+ * area and scroll button hide (the agents view is not a chat).
  */
+function hideChatChrome(): void {
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, false);
+  }
+  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
+  if (inputArea) {
+    inputArea.classList.add('hidden');
+  }
+  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
+  if (scrollToBottomBtn) {
+    scrollToBottomBtn.classList.add('hidden');
+  }
+}
+
 /**
  * Navigate to the agents command center.
  * The command center is rendered in the messages container.
@@ -110,21 +125,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   void updateConversationCost(null); // Clear cost display
   renderChatHeader(null);
 
-  // Update anonymous button state (agents view doesn't use anonymous mode)
-  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
-  if (anonymousBtn) {
-    updateAnonymousButtonState(anonymousBtn, false);
-  }
-
-  // Hide input area and scroll button (agents view is not a chat)
-  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
-  if (inputArea) {
-    inputArea.classList.add('hidden');
-  }
-  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
-  if (scrollToBottomBtn) {
-    scrollToBottomBtn.classList.add('hidden');
-  }
+  hideChatChrome();
 
   // Get messages container
   const messagesContainer = getElementById<HTMLDivElement>('messages');

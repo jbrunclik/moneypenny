@@ -24,7 +24,7 @@ import { WARNING_ICON } from '../utils/icons';
 import { clearConversationHash, setStorageHash } from '../router/deeplink';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
 import type { KVStoreCallbacks } from '../components/KVStorePage';
-import type { Memory } from '../types/api';
+import type { KVNamespacesResponse, Memory } from '../types/api';
 import {
   ensureInputAreaVisible,
   focusMessageInput,
@@ -41,6 +41,117 @@ const log = createLogger('kv-store');
 
 /** Flag to prevent concurrent refresh operations. */
 let isRefreshing = false;
+
+/**
+ * Reset the chat-only controls: the anonymous toggle goes off and the input
+ * area and scroll button hide (the storage view is not a chat).
+ */
+function hideChatChrome(): void {
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, false);
+  }
+  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
+  if (inputArea) {
+    inputArea.classList.add('hidden');
+  }
+  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
+  if (scrollToBottomBtn) {
+    scrollToBottomBtn.classList.add('hidden');
+  }
+}
+
+/** What the storage page shows: K/V namespaces (null when unavailable) and memories. */
+interface StorageLoad {
+  storageData: KVNamespacesResponse | null;
+  memoriesData: Memory[];
+  deletedMemories: Memory[];
+  memoryLimit: number;
+  fetchFailed: boolean;
+}
+
+/**
+ * Fetch the storage page data. K/V namespaces are refetched only when stale
+ * (falling back to the cache on failure); memories always are.
+ */
+async function loadStorageData(
+  needsRefresh: boolean,
+  cached: KVNamespacesResponse | null
+): Promise<StorageLoad> {
+  const result: StorageLoad = {
+    storageData: cached,
+    memoriesData: [],
+    deletedMemories: [],
+    memoryLimit: 0,
+    fetchFailed: false,
+  };
+  if (needsRefresh) {
+    try {
+      const [kvData, memData, deletedData] = await Promise.all([
+        kvStore.getNamespaces(),
+        memories.listWithLimit(),
+        memories.listDeleted(),
+      ]);
+      result.storageData = kvData;
+      result.memoriesData = memData.memories;
+      result.memoryLimit = memData.limit;
+      result.deletedMemories = deletedData;
+      useStore.getState().setStorageData(kvData);
+    } catch (error) {
+      log.error('Failed to fetch storage data', { error });
+      result.fetchFailed = true;
+    }
+    return result;
+  }
+  // Still need to fetch memories even if KV data is cached
+  try {
+    const [memData, deletedData] = await Promise.all([
+      memories.listWithLimit(),
+      memories.listDeleted(),
+    ]);
+    result.memoriesData = memData.memories;
+    result.memoryLimit = memData.limit;
+    result.deletedMemories = deletedData;
+  } catch (error) {
+    log.error('Failed to fetch memories', { error });
+  }
+  return result;
+}
+
+/** The storage page's actions (refresh, K/V deletes, memory management). */
+function buildStorageCallbacks(): KVStoreCallbacks {
+  const store = useStore.getState();
+  return {
+    onRefresh: () => {
+      void handleStorageRefresh().catch((error: unknown) => log.error('Failed to refresh storage', { error }));
+    },
+    onNamespaceExpand: async (namespace: string) => {
+      return await kvStore.getKeys(namespace);
+    },
+    onDeleteKey: async (namespace: string, key: string) => {
+      await kvStore.deleteKey(namespace, key);
+      toast.success('Key deleted.');
+      store.invalidateStorageCache();
+    },
+    onClearNamespace: async (namespace: string) => {
+      await kvStore.clearNamespace(namespace);
+      toast.success('Namespace cleared.');
+      store.invalidateStorageCache();
+    },
+    onDeleteMemory: async (memoryId: string) => {
+      await memories.delete(memoryId);
+      toast.success('Memory deleted.');
+    },
+    onSetMemoryProtected: async (memoryId: string, isProtected: boolean) => {
+      await memories.setProtected(memoryId, isProtected);
+      toast.success(isProtected ? 'Memory protected.' : 'Protection removed.');
+    },
+    onRestoreMemory: async (memoryId: string) => {
+      await memories.restore(memoryId);
+      toast.success('Memory restored.');
+    },
+  };
+}
 
 /**
  * Navigate to the storage management page.
@@ -74,21 +185,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   void updateConversationCost(null);
   renderChatHeader(null);
 
-  // Update anonymous button state
-  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
-  if (anonymousBtn) {
-    updateAnonymousButtonState(anonymousBtn, false);
-  }
-
-  // Hide input area and scroll button (storage view is not a chat)
-  const inputArea = document.querySelector<HTMLDivElement>('.input-area');
-  if (inputArea) {
-    inputArea.classList.add('hidden');
-  }
-  const scrollToBottomBtn = document.querySelector<HTMLButtonElement>('.scroll-to-bottom');
-  if (scrollToBottomBtn) {
-    scrollToBottomBtn.classList.add('hidden');
-  }
+  hideChatChrome();
 
   // Get messages container
   const messagesContainer = getElementById<HTMLDivElement>('messages');
@@ -110,42 +207,10 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
   const cacheAge = Date.now() - (store.storageLastFetch || 0);
   const needsRefresh = !store.storageData || cacheAge > STORAGE_CACHE_MS || forceRefresh;
 
-  let storageData = store.storageData;
-  let memoriesData: Memory[] = [];
-  let deletedMemories: Memory[] = [];
-  let memoryLimit = 0;
-  let fetchFailed = false;
-
-  if (needsRefresh) {
-    try {
-      const [kvData, memData, deletedData] = await Promise.all([
-        kvStore.getNamespaces(),
-        memories.listWithLimit(),
-        memories.listDeleted(),
-      ]);
-      storageData = kvData;
-      memoriesData = memData.memories;
-      memoryLimit = memData.limit;
-      deletedMemories = deletedData;
-      store.setStorageData(storageData);
-    } catch (error) {
-      log.error('Failed to fetch storage data', { error });
-      fetchFailed = true;
-    }
-  } else {
-    // Still need to fetch memories even if KV data is cached
-    try {
-      const [memData, deletedData] = await Promise.all([
-        memories.listWithLimit(),
-        memories.listDeleted(),
-      ]);
-      memoriesData = memData.memories;
-      memoryLimit = memData.limit;
-      deletedMemories = deletedData;
-    } catch (error) {
-      log.error('Failed to fetch memories', { error });
-    }
-  }
+  const { storageData, memoriesData, deletedMemories, memoryLimit, fetchFailed } = await loadStorageData(
+    needsRefresh,
+    store.storageData
+  );
 
   // Check if user navigated away during the async fetch
   if (!useStore.getState().isNavigationValid(navToken)) {
@@ -169,37 +234,7 @@ export async function navigateToStorage(forceRefresh: boolean = false): Promise<
     return;
   }
 
-  // Build callbacks
-  const callbacks: KVStoreCallbacks = {
-    onRefresh: () => {
-      void handleStorageRefresh().catch((error: unknown) => log.error('Failed to refresh storage', { error }));
-    },
-    onNamespaceExpand: async (namespace: string) => {
-      return await kvStore.getKeys(namespace);
-    },
-    onDeleteKey: async (namespace: string, key: string) => {
-      await kvStore.deleteKey(namespace, key);
-      toast.success('Key deleted.');
-      store.invalidateStorageCache();
-    },
-    onClearNamespace: async (namespace: string) => {
-      await kvStore.clearNamespace(namespace);
-      toast.success('Namespace cleared.');
-      store.invalidateStorageCache();
-    },
-    onDeleteMemory: async (memoryId: string) => {
-      await memories.delete(memoryId);
-      toast.success('Memory deleted.');
-    },
-    onSetMemoryProtected: async (memoryId: string, isProtected: boolean) => {
-      await memories.setProtected(memoryId, isProtected);
-      toast.success(isProtected ? 'Memory protected.' : 'Protection removed.');
-    },
-    onRestoreMemory: async (memoryId: string) => {
-      await memories.restore(memoryId);
-      toast.success('Memory restored.');
-    },
-  };
+  const callbacks = buildStorageCallbacks();
 
   // Render storage page
   const storageEl = renderKVStorePage(storageData, memoriesData, callbacks, {

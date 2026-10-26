@@ -79,6 +79,17 @@ async function navigateToSearchResult(convId: string, messageId: string | null):
   }
 }
 
+/** Tell the user why loading the page around a search result failed. */
+function reportAroundLoadError(error: unknown, messageId: string): void {
+  if (error instanceof ApiError && error.status === 404) {
+    log.warn('Message not found via around_message_id', { messageId });
+    toast.info('Message not found in this conversation.');
+    return;
+  }
+  log.error('Failed to load messages around search result', { error, messageId });
+  toast.error('Failed to navigate to message.');
+}
+
 /**
  * Scroll to a message and apply highlight animation.
  * If the message isn't in the current DOM (due to pagination), loads messages
@@ -187,13 +198,7 @@ async function scrollToAndHighlightMessage(messageId: string): Promise<void> {
       // Try to find the message element again after rendering
       messageEl = messagesContainer.querySelector<HTMLDivElement>(`.message[data-message-id="${messageId}"]`);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 404) {
-        log.warn('Message not found via around_message_id', { messageId });
-        toast.info('Message not found in this conversation.');
-        return;
-      }
-      log.error('Failed to load messages around search result', { error, messageId });
-      toast.error('Failed to navigate to message.');
+      reportAroundLoadError(error, messageId);
       return;
     }
   }

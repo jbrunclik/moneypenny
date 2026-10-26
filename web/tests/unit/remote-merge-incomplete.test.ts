@@ -40,7 +40,7 @@ vi.mock('@/core/sync-banner', () => ({ reloadCurrentConversation: vi.fn() }));
 vi.mock('@/utils/thumbnails', () => ({ programmaticScrollToBottom: vi.fn() }));
 
 import { useStore } from '@/state/store';
-import { mergeExternalChanges } from '@/core/remote-merge';
+import { mergeExternalChanges, serverRewroteHistory } from '@/core/remote-merge';
 import { reloadCurrentConversation } from '@/core/sync-banner';
 
 const PAGE = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 1 };
@@ -70,5 +70,33 @@ describe('merging over an incomplete reply bubble', () => {
     expect(bubbles[0]?.classList.contains('message-incomplete')).toBe(false);
     expect(useStore.getState().getMessages('c1').map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(reloadCurrentConversation).not.toHaveBeenCalled();
+  });
+});
+
+describe('serverRewroteHistory', () => {
+  const later: Message = { id: 'u2', role: 'user', content: 'Follow-up', created_at: '2026-10-10T20:01:00' };
+
+  it('is false when the server only adds messages', () => {
+    expect(serverRewroteHistory([user], [user, reply])).toBe(false);
+  });
+
+  it('detects a message deleted elsewhere within the server window', () => {
+    expect(serverRewroteHistory([user, reply, later], [user, later])).toBe(true);
+  });
+
+  it('ignores messages older than the server window and local-only sends', () => {
+    expect(serverRewroteHistory([user, reply, later], [reply, later])).toBe(false);
+    const pending: Message = { ...later, id: 'p1', status: 'pending' };
+    expect(serverRewroteHistory([user, pending], [user])).toBe(false);
+  });
+
+  it('detects content edited elsewhere, but not an empty placeholder', () => {
+    expect(serverRewroteHistory([user], [{ ...user, content: 'Edited' }])).toBe(true);
+    expect(serverRewroteHistory([{ ...user, content: '' }], [user])).toBe(false);
+    expect(serverRewroteHistory([user], [{ ...user, content: '' }])).toBe(false);
+  });
+
+  it('treats an empty server window as no change', () => {
+    expect(serverRewroteHistory([user], [])).toBe(false);
   });
 });

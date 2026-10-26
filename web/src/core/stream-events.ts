@@ -146,6 +146,80 @@ function handleToken(
   }
 }
 
+/** Thinking-trace events (persisted with the reply) */
+const TRACE_EVENT_TYPES: ReadonlySet<string> = new Set(['thinking', 'tool_start', 'tool_detail', 'tool_end']);
+
+/** Deep-research progress events */
+const RESEARCH_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'research_plan',
+  'research_item',
+  'research_finding',
+  'research_sources',
+  'research_writing',
+]);
+
+/**
+ * Status notices about the turn (fallback model, grounding check, server
+ * stop, retries, approval). Returns false when the event is not one.
+ */
+function handleNoticeEvent(
+  event: StreamEventPayload,
+  state: StreamingState,
+  convId: string,
+  isCurrentConversation: boolean
+): boolean {
+  switch (event.type) {
+    case 'model_fallback':
+      if (isCurrentConversation && typeof event.to === 'string') notifyModelFallback(event.to);
+      return true;
+
+    case 'grounding_started':
+      // The verifier runs between the last token and done (~1 s)
+      if (isCurrentConversation) showGroundingChecking(state.messageEl);
+      return true;
+
+    case 'stopping':
+      // Server-side Stop acknowledged: the done event follows at the next checkpoint
+      acknowledgeServerStop(state);
+      return true;
+
+    case 'retry':
+      // Transient Gemini error being retried server-side: show it instead
+      // of a silent stall (not part of the persisted thinking trace)
+      if (isCurrentConversation) {
+        updateStreamingRetryStatus(event.attempt as number, event.max_retries as number | undefined);
+      }
+      return true;
+
+    case 'approval_required':
+      // Agent requested approval - update UI state
+      // The done event will follow with the full message
+      log.info('Approval requested', {
+        approvalId: event.approval_id,
+        description: event.description,
+        conversationId: convId,
+      });
+      return true;
+
+    default:
+      return false;
+  }
+}
+
+/** A version of an artifact is ready: its frame loads while the reply keeps streaming. */
+function handleArtifactEvent(
+  event: StreamEventPayload,
+  state: StreamingState,
+  convId: string,
+  isCurrentConversation: boolean
+): void {
+  if (!isArtifactRef(event)) return;
+  const ref = { id: event.id, version: event.version, title: event.title };
+  // Kept with the turn, so switching away and back restores the card
+  useStore.getState().addActiveRequestArtifact(convId, ref);
+  if (isCurrentConversation && state.messageEl) addLiveArtifact(state.messageEl, ref);
+}
+
 /**
  * Process a single streaming event and update state/UI.
  */
@@ -163,76 +237,29 @@ export function processStreamEvent(
     state.messageEl = currentMessageEl;
   }
 
-  switch (event.type) {
-    case 'user_message_saved':
-      handleUserMessageSaved(event, state, convId, tempUserMessageId);
-      // (a followed stream's replayed event is the other device's message)
-      if (!state.remoteFollow) getSyncManager()?.noteOwnMessageSaved(convId);
-      break;
+  if (TRACE_EVENT_TYPES.has(event.type)) {
+    handleTraceEvent(event, state, convId, isCurrentConversation);
+  } else if (RESEARCH_EVENT_TYPES.has(event.type)) {
+    handleResearchEvent(event, state, convId, isCurrentConversation);
+  } else if (!handleNoticeEvent(event, state, convId, isCurrentConversation)) {
+    switch (event.type) {
+      case 'user_message_saved':
+        handleUserMessageSaved(event, state, convId, tempUserMessageId);
+        // (a followed stream's replayed event is the other device's message)
+        if (!state.remoteFollow) getSyncManager()?.noteOwnMessageSaved(convId);
+        break;
 
-    case 'thinking':
-    case 'tool_start':
-    case 'tool_detail':
-    case 'tool_end':
-      handleTraceEvent(event, state, convId, isCurrentConversation);
-      break;
+      case 'artifact':
+        handleArtifactEvent(event, state, convId, isCurrentConversation);
+        break;
 
-    case 'model_fallback':
-      if (isCurrentConversation && typeof event.to === 'string') notifyModelFallback(event.to);
-      break;
+      case 'token':
+        handleToken(event, state, convId, isCurrentConversation);
+        break;
 
-    case 'grounding_started':
-      // The verifier runs between the last token and done (~1 s)
-      if (isCurrentConversation) showGroundingChecking(state.messageEl);
-      break;
-
-    case 'research_plan':
-    case 'research_item':
-    case 'research_finding':
-    case 'research_sources':
-    case 'research_writing':
-      handleResearchEvent(event, state, convId, isCurrentConversation);
-      break;
-
-    case 'artifact':
-      // A version is ready: its frame loads while the reply keeps streaming
-      if (isArtifactRef(event)) {
-        const ref = { id: event.id, version: event.version, title: event.title };
-        // Kept with the turn, so switching away and back restores the card
-        useStore.getState().addActiveRequestArtifact(convId, ref);
-        if (isCurrentConversation && state.messageEl) addLiveArtifact(state.messageEl, ref);
-      }
-      break;
-
-    case 'stopping':
-      // Server-side Stop acknowledged: the done event follows at the next checkpoint
-      acknowledgeServerStop(state);
-      break;
-
-    case 'retry':
-      // Transient Gemini error being retried server-side: show it instead
-      // of a silent stall (not part of the persisted thinking trace)
-      if (isCurrentConversation) {
-        updateStreamingRetryStatus(event.attempt as number, event.max_retries as number | undefined);
-      }
-      break;
-
-    case 'token':
-      handleToken(event, state, convId, isCurrentConversation);
-      break;
-
-    case 'approval_required':
-      // Agent requested approval - update UI state
-      // The done event will follow with the full message
-      log.info('Approval requested', {
-        approvalId: event.approval_id,
-        description: event.description,
-        conversationId: convId,
-      });
-      break;
-
-    case 'error':
-      return handleStreamError(event, state);
+      case 'error':
+        return handleStreamError(event, state);
+    }
   }
 
   return {};

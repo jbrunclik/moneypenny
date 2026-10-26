@@ -75,6 +75,35 @@ async function readResumeStream(
 }
 
 /**
+ * What a failed resume attempt leads to: retry now from the journal offset
+ * (a proactive foreground abort), fall back to poll recovery (no journal),
+ * or back off and retry. Rethrows a user-initiated stop.
+ */
+function resumeErrorOutcome(
+  error: unknown,
+  state: StreamingState,
+  convId: string,
+  attempt: number
+): 'retry-now' | 'fallback' | 'backoff' {
+  if (error instanceof Error && error.name === 'AbortError') {
+    if (state.resumeViaAbort) {
+      // Foregrounded mid-resume: this reader is presumed dead - retry
+      // immediately from the journal offset (flag reset at loop top)
+      return 'retry-now';
+    }
+    throw error; // User-initiated stop - propagate to the caller
+  }
+  // 404 = no journal for this message (expired, or server without the
+  // endpoint) - fall back to poll-based recovery immediately
+  if (error instanceof ApiError && error.status === 404) {
+    log.info('Resume endpoint has no journal, falling back', { conversationId: convId });
+    return 'fallback';
+  }
+  log.warn('Stream resume attempt failed', { error, conversationId: convId, attempt });
+  return 'backoff';
+}
+
+/**
  * Handle stream ending without a done event.
  * This can happen if the connection drops mid-stream but the server still saves the message.
  * Uses the stream recovery module which handles retries for race conditions.
@@ -119,21 +148,9 @@ export async function tryResumeStream(
       if (outcome !== null) return outcome;
       // Stream ended without done - retry (the save may still be in flight)
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (state.resumeViaAbort) {
-          // Foregrounded mid-resume: this reader is presumed dead - retry
-          // immediately from the journal offset (flag reset at loop top)
-          continue;
-        }
-        throw error; // User-initiated stop - propagate to the caller
-      }
-      // 404 = no journal for this message (expired, or server without the
-      // endpoint) - fall back to poll-based recovery immediately
-      if (error instanceof ApiError && error.status === 404) {
-        log.info('Resume endpoint has no journal, falling back', { conversationId: convId });
-        return false;
-      }
-      log.warn('Stream resume attempt failed', { error, conversationId: convId, attempt });
+      const next = resumeErrorOutcome(error, state, convId, attempt);
+      if (next === 'retry-now') continue;
+      if (next === 'fallback') return false;
     }
     if (attempt < MAX_RESUME_ATTEMPTS - 1) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));

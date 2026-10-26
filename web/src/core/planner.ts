@@ -27,7 +27,7 @@ import {
   clearConversationHash,
   setPlannerHash,
 } from '../router/deeplink';
-import type { Conversation } from '../types/api';
+import type { Conversation, Message, PlannerConversation, PlannerDashboard } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
 import { APP_NAME, PLANNER_DASHBOARD_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnails';
@@ -48,11 +48,72 @@ import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('planner');
 
-/**
- * Navigate to the planner view.
- * The planner reuses the existing messages container and input area.
- * Dashboard is rendered as a special element at the top that scrolls with messages.
- */
+/** The conversation shown while the planner loads. */
+function plannerPlaceholderConversation(): Conversation {
+  return {
+    id: 'planner-loading',
+    title: 'Planner',
+    model: 'gemini-3.8-flash',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    messages: [],
+  };
+}
+
+/** The current-conversation entry for the loaded planner conversation (messages render separately). */
+function plannerConversationOf(convResponse: PlannerConversation): Conversation {
+  return {
+    id: convResponse.id,
+    title: 'Planner',
+    model: convResponse.model,
+    created_at: convResponse.created_at || new Date().toISOString(),
+    updated_at: convResponse.updated_at || new Date().toISOString(),
+    messages: [],
+  };
+}
+
+/** Replace the loading state with the dashboard and the planner messages, scrolled to the top. */
+function renderPlannerContent(
+  messagesContainer: HTMLDivElement,
+  dashboard: PlannerDashboard,
+  messages: Message[]
+): void {
+  clearElement(messagesContainer);
+
+  // Create dashboard element with refresh and reset callbacks
+  const dashboardEl = createDashboardElement(
+    dashboard,
+    () => void handlePlannerRefresh(),
+    () => void handlePlannerReset(),
+  );
+  messagesContainer.appendChild(dashboardEl);
+
+  // Render messages after dashboard
+  if (messages.length > 0) {
+    messages.forEach((msg) => {
+      addMessageToUI(msg, messagesContainer);
+    });
+    lockOlderQuizBlocks(messagesContainer);
+  }
+
+  // For planner, scroll to top to show dashboard (different from normal chat)
+  messagesContainer.scrollTop = 0;
+}
+
+/** Show the load failure in the dashboard area. */
+function showPlannerLoadError(messagesContainer: HTMLDivElement): void {
+  clearElement(messagesContainer);
+  const errorEl = document.createElement('div');
+  errorEl.className = 'planner-dashboard-message';
+  errorEl.innerHTML = `
+    <div class="dashboard-error">
+      <strong>Error:</strong> Failed to load your schedule. Please try again.
+    </div>
+  `;
+  messagesContainer.appendChild(errorEl);
+  toast.error('Failed to load planner.');
+}
+
 /**
  * Navigate to the planner view.
  * The planner reuses the existing messages container and input area.
@@ -93,15 +154,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
 
   // Set a placeholder conversation immediately to prevent race condition
   // This will be replaced with the real conversation once loaded
-  const placeholderConv: Conversation = {
-    id: 'planner-loading',
-    title: 'Planner',
-    model: 'gemini-3.8-flash',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    messages: [],
-  };
-  store.setCurrentConversation(placeholderConv);
+  store.setCurrentConversation(plannerPlaceholderConversation());
 
   // Update header title and clear stale UI state
   updateChatTitle('Planner');
@@ -155,40 +208,13 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
     getSyncManager()?.setPlannerBaseline(convResponse.messages.length);
 
     // Replace placeholder with real planner conversation
-    const plannerConv: Conversation = {
-      id: convResponse.id,
-      title: 'Planner',
-      model: convResponse.model,
-      created_at: convResponse.created_at || new Date().toISOString(),
-      updated_at: convResponse.updated_at || new Date().toISOString(),
-      messages: [],
-    };
-    store.setCurrentConversation(plannerConv);
+    store.setCurrentConversation(plannerConversationOf(convResponse));
 
     // Update model selector with the actual planner model (may differ from placeholder)
     renderModelDropdown();
 
     // Clear loading state and render dashboard + messages
-    clearElement(messagesContainer);
-
-    // Create dashboard element with refresh and reset callbacks
-    const dashboardEl = createDashboardElement(
-      dashboard,
-      () => void handlePlannerRefresh(),
-      () => void handlePlannerReset(),
-    );
-    messagesContainer.appendChild(dashboardEl);
-
-    // Render messages after dashboard
-    if (convResponse.messages.length > 0) {
-      convResponse.messages.forEach((msg) => {
-        addMessageToUI(msg, messagesContainer);
-      });
-      lockOlderQuizBlocks(messagesContainer);
-    }
-
-    // For planner, scroll to top to show dashboard (different from normal chat)
-    messagesContainer.scrollTop = 0;
+    renderPlannerContent(messagesContainer, dashboard, convResponse.messages);
 
     // Check scroll button visibility after rendering planner
     checkScrollButtonVisibility();
@@ -209,17 +235,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
     }
   } catch (error) {
     log.error('Failed to load planner', { error });
-    // Show error in the dashboard area
-    clearElement(messagesContainer);
-    const errorEl = document.createElement('div');
-    errorEl.className = 'planner-dashboard-message';
-    errorEl.innerHTML = `
-      <div class="dashboard-error">
-        <strong>Error:</strong> Failed to load your schedule. Please try again.
-      </div>
-    `;
-    messagesContainer.appendChild(errorEl);
-    toast.error('Failed to load planner.');
+    showPlannerLoadError(messagesContainer);
   }
 }
 

@@ -31,9 +31,6 @@ import { handleQuizOptionClick, handleQuizContinue, handleQuizInputChange } from
 const log = createLogger('events');
 
 /**
- * Setup event listeners.
- */
-/**
  * Bottom sheet with all conversation actions - replaces the crammed
  * multi-button swipe row on touch devices.
  */
@@ -74,6 +71,256 @@ function openConversationActionSheet(convId: string, archived: boolean): void {
   showActionSheet(title, actions);
 }
 
+/** Close the user footer menu. */
+function closeUserMenu(): void {
+  const menu = document.querySelector('.user-menu');
+  menu?.classList.add('hidden');
+  getElementById('user-menu-btn')?.setAttribute('aria-expanded', 'false');
+}
+
+async function openCostHistoryFromMenu(): Promise<void> {
+  try {
+    const history = await costs.getCostHistory(12);
+    openCostHistory(history);
+  } catch (error) {
+    log.error('Failed to load cost history', { error });
+    toast.error('Failed to load cost history.');
+  }
+}
+
+async function openAdminFromMenu(): Promise<void> {
+  try {
+    const { openAdminPage } = await import('../components/AdminPage');
+    await openAdminPage();
+  } catch (error) {
+    // A chunk deleted by a deploy is handled by the stale-chunk reload;
+    // anything else surfaces here instead of failing silently
+    log.error('Failed to open the admin page', { error });
+    toast.error('Failed to open the admin page.');
+  }
+}
+
+/** User menu items: each closes the menu, then runs its action. */
+const USER_MENU_ACTIONS: ReadonlyArray<readonly [selector: string, run: () => void | Promise<void>]> = [
+  ['#logout-btn', () => logout()],
+  ['#cost-history-btn', openCostHistoryFromMenu],
+  [
+    '#memories-btn',
+    () => void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error })),
+  ],
+  ['#admin-btn', openAdminFromMenu],
+  ['.user-menu-archive', () => navigateToArchive()],
+  ['.user-menu-trash', () => navigateToTrash()],
+  ['#select-chats-btn', () => enterSelectionMode()],
+  ['#settings-btn', () => void import('../components/SettingsPopup').then((m) => m.openSettingsPopup())],
+];
+
+async function handleUserInfoClick(e: MouseEvent): Promise<void> {
+  const target = e.target as HTMLElement;
+
+  if (target.closest('#user-menu-btn')) {
+    const menu = document.querySelector('.user-menu');
+    if (menu) {
+      const open = !menu.classList.toggle('hidden');
+      getElementById('user-menu-btn')?.setAttribute('aria-expanded', String(open));
+    }
+    return;
+  }
+
+  const action = USER_MENU_ACTIONS.find(([selector]) => target.closest(selector));
+  if (action) {
+    closeUserMenu();
+    await action[1]();
+  }
+}
+
+/**
+ * The row a roving-tabindex key moves to in a list of `count` rows, or null
+ * to stay (no wrap past either end). `current` is -1 when focus is not on a row.
+ */
+export function nextRovingIndex(key: string, current: number, count: number): number | null {
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  if (current === -1) return key === 'ArrowDown' ? 0 : count - 1;
+  const next = current + (key === 'ArrowDown' ? 1 : -1);
+  return next < 0 || next >= count ? null : next;
+}
+
+const ROVING_KEYS: ReadonlySet<string> = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
+
+/**
+ * Conversation list keyboard navigation: Enter/Space activate the focused
+ * row or nav entry; arrows move a roving tabindex through rows.
+ */
+function handleConversationListKeydown(e: KeyboardEvent): void {
+  const target = e.target as HTMLElement;
+
+  if (e.key === 'Enter' || e.key === ' ') {
+    const actionable = target.closest<HTMLElement>(
+      '.conversation-item, .planner-entry, .agents-entry, .sports-entry, .language-entry'
+    );
+    if (actionable) {
+      e.preventDefault();
+      actionable.click();
+    }
+    return;
+  }
+
+  if (!ROVING_KEYS.has(e.key)) return;
+
+  const items = Array.from(
+    document.querySelectorAll<HTMLElement>('#conversations-list .conversation-item')
+  );
+  if (items.length === 0) return;
+
+  const current = items.indexOf(target.closest('.conversation-item') as HTMLElement);
+  const next = nextRovingIndex(e.key, current, items.length);
+  const nextItem = next === null ? undefined : items[next];
+  if (!nextItem) return;
+  e.preventDefault();
+  items.forEach((item) => item.setAttribute('tabindex', '-1'));
+  nextItem.setAttribute('tabindex', '0');
+  nextItem.focus();
+}
+
+/** A delegated click target: the first action whose selector matches runs. */
+interface ClickAction {
+  selector: string;
+  /** Keep the click from reaching the row underneath (row buttons) */
+  stop?: boolean;
+  run: (el: HTMLElement, e: MouseEvent) => void;
+}
+
+/** Run the first matching action for a delegated click; true when one ran. */
+function runClickAction(actions: readonly ClickAction[], e: MouseEvent): boolean {
+  const target = e.target as HTMLElement;
+  for (const action of actions) {
+    const el = target.closest<HTMLElement>(action.selector);
+    if (!el) continue;
+    if (action.stop) e.stopPropagation();
+    action.run(el, e);
+    return true;
+  }
+  return false;
+}
+
+/** A row button acting on the conversation id in `data-*`: closes open swipes first. */
+function onRowId(key: string, act: (id: string) => unknown): ClickAction['run'] {
+  return (el) => {
+    const id = el.dataset[key];
+    if (id) {
+      resetSwipeStates();
+      void act(id);
+    }
+  };
+}
+
+/** A sidebar entry (planner, agents, programs): closes open swipes first. */
+function onEntry(open: () => unknown): ClickAction['run'] {
+  return () => {
+    resetSwipeStates();
+    void open();
+  };
+}
+
+const CONVERSATION_LIST_ACTIONS: readonly ClickAction[] = [
+  { selector: '[data-rename-id]', stop: true, run: onRowId('renameId', renameConversation) },
+  {
+    // The "more" button: all actions in a sheet
+    selector: '[data-more-id], [data-more-archived-id]',
+    stop: true,
+    run: (el) => {
+      if (el.dataset.moreId) {
+        openConversationActionSheet(el.dataset.moreId, false);
+      } else if (el.dataset.moreArchivedId) {
+        openConversationActionSheet(el.dataset.moreArchivedId, true);
+      }
+    },
+  },
+  {
+    selector: '[data-pin-id]',
+    stop: true,
+    run: (el) => {
+      const id = el.dataset.pinId;
+      if (id) void togglePinConversation(id);
+    },
+  },
+  { selector: '[data-archive-id]', stop: true, run: onRowId('archiveId', archiveConversation) },
+  { selector: '[data-unarchive-id]', stop: true, run: onRowId('unarchiveId', unarchiveConversation) },
+  // Trash view: restore, delete forever, empty, back
+  { selector: '[data-restore-id]', stop: true, run: onRowId('restoreId', restoreConversation) },
+  { selector: '[data-delete-forever-id]', stop: true, run: onRowId('deleteForeverId', deleteConversationForever) },
+  { selector: '[data-empty-trash]', stop: true, run: () => void emptyTrash() },
+  { selector: '[data-trash-back]', stop: true, run: () => leaveTrashView() },
+  { selector: '[data-delete-id]', stop: true, run: onRowId('deleteId', deleteConversation) },
+  { selector: '[data-archive-back]', stop: true, run: () => leaveArchiveView() },
+  { selector: '.planner-entry', run: onEntry(navigateToPlanner) },
+  {
+    selector: '.agents-entry',
+    run: onEntry(() => navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }))),
+  },
+  { selector: '.sports-entry', run: onEntry(navigateToSports) },
+  { selector: '.language-entry', run: onEntry(navigateToLanguage) },
+  {
+    // Conversation selection
+    selector: '.conversation-item',
+    run: (el) => {
+      const wrapper = el.closest<HTMLElement>('[data-conv-id]');
+      if (wrapper) {
+        resetSwipeStates();
+        const id = wrapper.dataset.convId;
+        if (id) void selectConversation(id);
+      }
+    },
+  },
+];
+
+/** Document preview: PDFs open in the inline viewer, other documents in a new tab. */
+function openDocumentPreview(el: HTMLElement, e: MouseEvent): void {
+  e.preventDefault();
+  const { messageId, fileIndex, fileName, fileType } = el.dataset;
+  if (!messageId || !fileIndex) return;
+  // PDFs open in the inline viewer (window.open is pop-up-blocked and
+  // broken in the installed PWA); other documents keep the new tab
+  if (fileType === 'application/pdf') {
+    void import('../components/PdfViewer').then(({ openPdfViewer }) =>
+      openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
+    );
+  } else {
+    void openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
+  }
+}
+
+function downloadDocument(el: HTMLElement): void {
+  const { messageId, fileIndex, fileName } = el.dataset;
+  if (messageId && fileIndex) {
+    void downloadFile(messageId, parseInt(fileIndex, 10), fileName || `file-${fileIndex}`);
+  }
+}
+
+/** Message actions overflow toggle (touch devices). */
+function toggleMessageActionsOverflow(overflowBtn: HTMLElement): void {
+  const actionsEl = overflowBtn.closest('.message-actions');
+  if (actionsEl) {
+    const expanded = actionsEl.classList.toggle('expanded');
+    overflowBtn.setAttribute('aria-expanded', String(expanded));
+  }
+}
+
+/** Clicks in the messages list: documents, copy buttons, actions overflow, quizzes. */
+const MESSAGE_ACTIONS: readonly ClickAction[] = [
+  { selector: '.document-preview', run: openDocumentPreview },
+  { selector: '.document-download', run: downloadDocument },
+  { selector: '.message-copy-btn', run: (el) => void copyMessageContent(el as HTMLButtonElement) },
+  { selector: '.message-actions-overflow', run: toggleMessageActionsOverflow },
+  // Inline copy button (code blocks, tables)
+  { selector: '.inline-copy-btn', run: (el) => void copyInlineContent(el as HTMLButtonElement) },
+  // Quiz option click (multiple-choice)
+  { selector: '.quiz-option', run: (el) => handleQuizOptionClick(el as HTMLButtonElement) },
+  // Quiz continue / send answers click
+  { selector: '.quiz-continue', run: (el) => handleQuizContinue(el as HTMLButtonElement) },
+];
+
 export function setupEventListeners(): void {
   // New chat button
   getElementById('new-chat-btn')?.addEventListener('click', createConversation);
@@ -82,78 +329,6 @@ export function setupEventListeners(): void {
   getElementById('menu-btn')?.addEventListener('click', toggleSidebar);
 
   // User footer: menu toggle + menu item actions
-  const closeUserMenu = (): void => {
-    const menu = document.querySelector('.user-menu');
-    menu?.classList.add('hidden');
-    getElementById('user-menu-btn')?.setAttribute('aria-expanded', 'false');
-  };
-
-  const handleUserInfoClick = async (e: MouseEvent): Promise<void> => {
-    const target = e.target as HTMLElement;
-
-    if (target.closest('#user-menu-btn')) {
-      const menu = document.querySelector('.user-menu');
-      if (menu) {
-        const open = !menu.classList.toggle('hidden');
-        getElementById('user-menu-btn')?.setAttribute('aria-expanded', String(open));
-      }
-      return;
-    }
-
-    if (target.closest('#logout-btn')) {
-      closeUserMenu();
-      logout();
-      return;
-    }
-    if (target.closest('#cost-history-btn')) {
-      closeUserMenu();
-      try {
-        const history = await costs.getCostHistory(12);
-        openCostHistory(history);
-      } catch (error) {
-        log.error('Failed to load cost history', { error });
-        toast.error('Failed to load cost history.');
-      }
-      return;
-    }
-    if (target.closest('#memories-btn')) {
-      closeUserMenu();
-      void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error }));
-      return;
-    }
-    if (target.closest('#admin-btn')) {
-      closeUserMenu();
-      try {
-        const { openAdminPage } = await import('../components/AdminPage');
-        await openAdminPage();
-      } catch (error) {
-        // A chunk deleted by a deploy is handled by the stale-chunk reload;
-        // anything else surfaces here instead of failing silently
-        log.error('Failed to open the admin page', { error });
-        toast.error('Failed to open the admin page.');
-      }
-      return;
-    }
-    if (target.closest('.user-menu-archive')) {
-      closeUserMenu();
-      navigateToArchive();
-      return;
-    }
-    if (target.closest('.user-menu-trash')) {
-      closeUserMenu();
-      navigateToTrash();
-      return;
-    }
-    if (target.closest('#select-chats-btn')) {
-      closeUserMenu();
-      enterSelectionMode();
-      return;
-    }
-    if (target.closest('#settings-btn')) {
-      closeUserMenu();
-      void import('../components/SettingsPopup').then((m) => m.openSettingsPopup());
-    }
-  };
   getElementById('user-info')?.addEventListener('click', (e) => {
     void handleUserInfoClick(e).catch((error: unknown) => log.error('User menu action failed', { error }));
   });
@@ -167,283 +342,16 @@ export function setupEventListeners(): void {
     }
   });
 
-  // Conversation list keyboard navigation: Enter/Space activate the
-  // focused row or nav entry; arrows move a roving tabindex through rows
-  getElementById('conversations-list')?.addEventListener('keydown', (e) => {
-    const target = e.target as HTMLElement;
-
-    if (e.key === 'Enter' || e.key === ' ') {
-      const actionable = target.closest<HTMLElement>(
-        '.conversation-item, .planner-entry, .agents-entry, .sports-entry, .language-entry'
-      );
-      if (actionable) {
-        e.preventDefault();
-        actionable.click();
-      }
-      return;
-    }
-
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') {
-      return;
-    }
-
-    const items = Array.from(
-      document.querySelectorAll<HTMLElement>('#conversations-list .conversation-item')
-    );
-    if (items.length === 0) return;
-
-    const current = items.indexOf(target.closest('.conversation-item') as HTMLElement);
-    let next: number;
-    if (e.key === 'Home') {
-      next = 0;
-    } else if (e.key === 'End') {
-      next = items.length - 1;
-    } else if (current === -1) {
-      next = e.key === 'ArrowDown' ? 0 : items.length - 1;
-    } else {
-      next = current + (e.key === 'ArrowDown' ? 1 : -1);
-      if (next < 0 || next >= items.length) return; // no wrap
-    }
-
-    const nextItem = items[next];
-    if (!nextItem) return;
-    e.preventDefault();
-    items.forEach((item) => item.setAttribute('tabindex', '-1'));
-    nextItem.setAttribute('tabindex', '0');
-    nextItem.focus();
-  });
+  getElementById('conversations-list')?.addEventListener('keydown', handleConversationListKeydown);
 
   // Conversation list clicks
   getElementById('conversations-list')?.addEventListener('click', (e) => {
-    // Handle rename button clicks
-    const renameBtn = (e.target as HTMLElement).closest('[data-rename-id]');
-    if (renameBtn) {
-      e.stopPropagation();
-      const id = (renameBtn as HTMLElement).dataset.renameId;
-      if (id) {
-        resetSwipeStates();
-        void renameConversation(id);
-      }
-      return;
-    }
-
-    // Handle archive button clicks
-    const moreBtn = (e.target as HTMLElement).closest('[data-more-id], [data-more-archived-id]');
-    if (moreBtn) {
-      e.stopPropagation();
-      const el = moreBtn as HTMLElement;
-      if (el.dataset.moreId) {
-        openConversationActionSheet(el.dataset.moreId, false);
-      } else if (el.dataset.moreArchivedId) {
-        openConversationActionSheet(el.dataset.moreArchivedId, true);
-      }
-      return;
-    }
-
-    const pinBtn = (e.target as HTMLElement).closest('[data-pin-id]');
-    if (pinBtn) {
-      e.stopPropagation();
-      const id = (pinBtn as HTMLElement).dataset.pinId;
-      if (id) {
-        void togglePinConversation(id);
-      }
-      return;
-    }
-
-    const archiveBtn = (e.target as HTMLElement).closest('[data-archive-id]');
-    if (archiveBtn) {
-      e.stopPropagation();
-      const id = (archiveBtn as HTMLElement).dataset.archiveId;
-      if (id) {
-        resetSwipeStates();
-        void archiveConversation(id);
-      }
-      return;
-    }
-
-    // Handle unarchive button clicks
-    const unarchiveBtn = (e.target as HTMLElement).closest('[data-unarchive-id]');
-    if (unarchiveBtn) {
-      e.stopPropagation();
-      const id = (unarchiveBtn as HTMLElement).dataset.unarchiveId;
-      if (id) {
-        resetSwipeStates();
-        void unarchiveConversation(id);
-      }
-      return;
-    }
-
-    // Trash view: restore, delete forever, empty, back
-    const restoreBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-restore-id]');
-    if (restoreBtn) {
-      e.stopPropagation();
-      const id = restoreBtn.dataset.restoreId;
-      if (id) {
-        resetSwipeStates();
-        void restoreConversation(id);
-      }
-      return;
-    }
-
-    const deleteForeverBtn = (e.target as HTMLElement).closest<HTMLElement>('[data-delete-forever-id]');
-    if (deleteForeverBtn) {
-      e.stopPropagation();
-      const id = deleteForeverBtn.dataset.deleteForeverId;
-      if (id) {
-        resetSwipeStates();
-        void deleteConversationForever(id);
-      }
-      return;
-    }
-
-    if ((e.target as HTMLElement).closest('[data-empty-trash]')) {
-      e.stopPropagation();
-      void emptyTrash();
-      return;
-    }
-
-    if ((e.target as HTMLElement).closest('[data-trash-back]')) {
-      e.stopPropagation();
-      leaveTrashView();
-      return;
-    }
-
-    // Handle delete button clicks
-    const deleteBtn = (e.target as HTMLElement).closest('[data-delete-id]');
-    if (deleteBtn) {
-      e.stopPropagation();
-      const id = (deleteBtn as HTMLElement).dataset.deleteId;
-      if (id) {
-        resetSwipeStates();
-        void deleteConversation(id);
-      }
-      return;
-    }
-
-    // Handle archive back button click (leave archive view)
-    const archiveBack = (e.target as HTMLElement).closest('[data-archive-back]');
-    if (archiveBack) {
-      e.stopPropagation();
-      leaveArchiveView();
-      return;
-    }
-
-    // Handle planner entry click
-    const plannerEntry = (e.target as HTMLElement).closest('.planner-entry');
-    if (plannerEntry) {
-      resetSwipeStates();
-      void navigateToPlanner();
-      return;
-    }
-
-    // Handle agents entry click
-    const agentsEntry = (e.target as HTMLElement).closest('.agents-entry');
-    if (agentsEntry) {
-      resetSwipeStates();
-      void navigateToAgents().catch((error: unknown) => log.error('Failed to open agents', { error }));
-      return;
-    }
-
-    // Handle sports entry click
-    const sportsEntry = (e.target as HTMLElement).closest('.sports-entry');
-    if (sportsEntry) {
-      resetSwipeStates();
-      void navigateToSports();
-      return;
-    }
-
-    // Handle language entry click
-    const languageEntry = (e.target as HTMLElement).closest('.language-entry');
-    if (languageEntry) {
-      resetSwipeStates();
-      void navigateToLanguage();
-      return;
-    }
-
-    // Handle conversation selection
-    const convItem = (e.target as HTMLElement).closest('.conversation-item');
-    if (convItem) {
-      const wrapper = convItem.closest('[data-conv-id]');
-      if (wrapper) {
-        resetSwipeStates();
-        const id = (wrapper as HTMLElement).dataset.convId;
-        if (id) void selectConversation(id);
-      }
-    }
+    runClickAction(CONVERSATION_LIST_ACTIONS, e);
   });
 
   // Document preview (open in new tab), download buttons, and message copy buttons
   getElementById('messages')?.addEventListener('click', (e) => {
-    // Document preview (click on filename to open in new tab)
-    const previewLink = (e.target as HTMLElement).closest('.document-preview');
-    if (previewLink) {
-      e.preventDefault();
-      const messageId = (previewLink as HTMLElement).dataset.messageId;
-      const fileIndex = (previewLink as HTMLElement).dataset.fileIndex;
-      const fileName = (previewLink as HTMLElement).dataset.fileName;
-      const fileType = (previewLink as HTMLElement).dataset.fileType;
-      if (messageId && fileIndex) {
-        // PDFs open in the inline viewer (window.open is pop-up-blocked and
-        // broken in the installed PWA); other documents keep the new tab
-        if (fileType === 'application/pdf') {
-          void import('../components/PdfViewer').then(({ openPdfViewer }) =>
-            openPdfViewer(messageId, parseInt(fileIndex, 10), fileName || 'file.pdf')
-          );
-        } else {
-          void openFileInNewTab(messageId, parseInt(fileIndex, 10), fileName || 'file', fileType || '');
-        }
-      }
-      return;
-    }
-
-    // Document download button
-    const downloadBtn = (e.target as HTMLElement).closest('.document-download');
-    if (downloadBtn) {
-      const messageId = (downloadBtn as HTMLElement).dataset.messageId;
-      const fileIndex = (downloadBtn as HTMLElement).dataset.fileIndex;
-      const fileName = (downloadBtn as HTMLElement).dataset.fileName;
-      if (messageId && fileIndex) {
-        void downloadFile(messageId, parseInt(fileIndex, 10), fileName || `file-${fileIndex}`);
-      }
-      return;
-    }
-
-    const copyBtn = (e.target as HTMLElement).closest('.message-copy-btn');
-    if (copyBtn) {
-      void copyMessageContent(copyBtn as HTMLButtonElement);
-      return;
-    }
-
-    // Message actions overflow toggle (touch devices)
-    const overflowBtn = (e.target as HTMLElement).closest<HTMLElement>('.message-actions-overflow');
-    if (overflowBtn) {
-      const actionsEl = overflowBtn.closest('.message-actions');
-      if (actionsEl) {
-        const expanded = actionsEl.classList.toggle('expanded');
-        overflowBtn.setAttribute('aria-expanded', String(expanded));
-      }
-      return;
-    }
-
-    // Inline copy button (code blocks, tables)
-    const inlineCopyBtn = (e.target as HTMLElement).closest('.inline-copy-btn');
-    if (inlineCopyBtn) {
-      void copyInlineContent(inlineCopyBtn as HTMLButtonElement);
-      return;
-    }
-
-    // Quiz option click (multiple-choice)
-    const quizOption = (e.target as HTMLElement).closest('.quiz-option');
-    if (quizOption) {
-      handleQuizOptionClick(quizOption as HTMLButtonElement);
-      return;
-    }
-
-    // Quiz continue / send answers click
-    const quizContinue = (e.target as HTMLElement).closest('.quiz-continue');
-    if (quizContinue) {
-      handleQuizContinue(quizContinue as HTMLButtonElement);
-    }
+    runClickAction(MESSAGE_ACTIONS, e);
   });
 
   // Quiz text inputs gate the Send button on having an answer
