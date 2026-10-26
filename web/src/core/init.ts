@@ -14,17 +14,6 @@ import { initQuickActions } from './quick-actions';
 import { initAttention } from './attention';
 import { initConnectivity } from './connectivity';
 import { registerServiceWorker } from './push';
-import { initLightbox } from '../components/Lightbox';
-import { initSourcesPopup } from '../components/SourcesPopup';
-import { initClaimCard } from '../components/ClaimCard';
-import { initResearchOffers } from '../components/messages/research-offer';
-import { initResearchProgress } from '../components/messages/research-progress';
-import { initActionRows } from '../components/messages/action-row';
-import { initClaimsSheet } from '../components/ClaimsSheet';
-import { initImageGenPopup } from '../components/ImageGenPopup';
-import { initMessageCostPopup } from '../components/MessageCostPopup';
-import { costHistoryPopup } from '../components/CostHistoryPopup';
-import { initCompactionIndicator } from '../components/CompactionIndicator';
 import { initVersionBanner } from '../components/VersionBanner';
 import { initErrorReporting } from './error-reporting';
 import { getElementById } from '../utils/dom';
@@ -46,6 +35,7 @@ import { initAuthEvents, startSession } from './startup/auth';
 import { initMessageEvents } from './startup/message-events';
 import { initMessageScrolling } from './startup/message-scrolling';
 import { initComposer } from './startup/composer';
+import { initMessageUi } from './startup/message-ui';
 
 const log = createLogger('init');
 
@@ -76,17 +66,7 @@ export async function init(): Promise<void> {
   initModal();
   initPopupEscapeListener(); // Single Escape key listener for all popups
   initComposer();
-  initLightbox();
-  initSourcesPopup();
-  initClaimCard();
-  initClaimsSheet();
-  initResearchOffers();
-  initResearchProgress();
-  initActionRows();
-  initImageGenPopup();
-  initMessageCostPopup();
-  costHistoryPopup.init();
-  initCompactionIndicator();
+  initMessageUi();
   initAgents();
   initMessageScrolling();
   initKeyboardViewportPinning();
