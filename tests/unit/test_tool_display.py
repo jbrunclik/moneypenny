@@ -52,7 +52,8 @@ class TestMetadataCoverage:
     def test_every_icon_key_is_mapped_in_the_frontend(self) -> None:
         """An unmapped icon key silently degrades to the generic brain icon."""
         source = Path("web/src/components/ThinkingIndicator.ts").read_text()
-        block = source.split("const ICON_MAP: Record<string, string> = {")[1].split("};")[0]
+        # The value type (IconHtml, string) doesn't matter - only the keys do
+        block = re.split(r"const ICON_MAP: Record<string, \w+> = \{", source)[1].split("};")[0]
         mapped = set(re.findall(r"^\s*'?([a-z-]+)'?:", block, re.M))
         used = {meta["icon"] for meta in TOOL_METADATA.values()}
         assert not (used - mapped), f"icons missing from ICON_MAP: {sorted(used - mapped)}"
