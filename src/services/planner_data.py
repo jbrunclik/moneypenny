@@ -17,12 +17,11 @@ from src.services.planner.models import (
     PlannerDashboard,
     PlannerDay,
     PlannerEvent,
-    PlannerWeather,
     dashboard_from_dict,
 )
 from src.services.planner.todoist import fetch_todoist_dashboard_data
+from src.services.planner.weather import daily_weather, fetch_forecast
 from src.utils.logging import get_logger
-from src.utils.weather import get_weather_for_location
 
 logger = get_logger(__name__)
 
@@ -146,21 +145,7 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
     def fetch_weather_if_available() -> tuple[Any | None, str | None]:
         """Fetch weather data if location configured."""
         try:
-            if Config.WEATHER_LOCATION:
-                try:
-                    forecast = get_weather_for_location(
-                        Config.WEATHER_LOCATION,
-                        db=db,
-                        force_refresh=force_refresh,
-                    )
-                    return forecast, None
-                except Exception as e:
-                    logger.exception(
-                        "Failed to fetch weather for planner",
-                        extra={"error": str(e), "location": Config.WEATHER_LOCATION},
-                    )
-                    return None, f"Weather error: {e}"
-            return None, None
+            return fetch_forecast(db, force_refresh)
         finally:
             _close_thread_pool_connections(db)
 
@@ -231,45 +216,9 @@ def build_planner_dashboard(  # noqa: C901, PLR0912, PLR0915
     # Process Weather data
     if forecast:
         dashboard.weather_location = forecast.location
-
-        # Group weather periods by date and calculate daily stats
-        weather_by_date: dict[str, list[Any]] = {}
-        for period in forecast.periods:
-            # Parse period time to get date
-            period_time = parse_datetime(period.time)
-            if period_time:
-                date_key = period_time.strftime("%Y-%m-%d")
-                if date_key not in weather_by_date:
-                    weather_by_date[date_key] = []
-                weather_by_date[date_key].append(period)
-
-        # Calculate daily weather summaries
-        for date_key, periods in weather_by_date.items():
+        for date_key, weather in daily_weather(forecast).items():
             if date_key in date_to_day:
-                temps = [p.temperature for p in periods]
-                precips = [p.precipitation for p in periods]
-                # Find the most common symbol for the day (noon period preferred)
-                symbols = [p.symbol_code for p in periods if p.symbol_code]
-                symbol = symbols[len(symbols) // 2] if symbols else None
-
-                temp_high = max(temps) if temps else None
-                temp_low = min(temps) if temps else None
-                total_precip = sum(precips)
-
-                # Build summary
-                summary_parts = []
-                if temp_high and temp_low:
-                    summary_parts.append(f"{temp_low:.1f}-{temp_high:.1f}°C")
-                if total_precip > 0:
-                    summary_parts.append(f"{total_precip:.1f}mm rain")
-
-                date_to_day[date_key].weather = PlannerWeather(
-                    temperature_high=temp_high,
-                    temperature_low=temp_low,
-                    precipitation=total_precip,
-                    symbol_code=symbol,
-                    summary=", ".join(summary_parts) if summary_parts else "No data",
-                )
+                date_to_day[date_key].weather = weather
     elif weather_error:
         dashboard.weather_error = weather_error
     elif Config.WEATHER_LOCATION:

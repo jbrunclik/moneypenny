@@ -21,7 +21,7 @@ from src.services.planner_data import build_planner_dashboard
 from src.utils.weather import WeatherForecast, WeatherPeriod
 
 GARMIN_SEAM = "src.services.planner.garmin.create_client_from_tokens"
-WEATHER_SEAM = "src.services.planner_data.get_weather_for_location"
+WEATHER_SEAM = "src.services.planner.weather.get_weather_for_location"
 
 TODAY = date.today()
 D = [(TODAY + timedelta(days=i)).isoformat() for i in range(11)]
