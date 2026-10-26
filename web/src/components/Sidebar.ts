@@ -5,7 +5,7 @@ import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferen
 import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import type { Conversation, User } from '../types/api';
+import type { CommandCenterResponse, Conversation, User } from '../types/api';
 import { conversations as conversationsApi } from '../api/conversations';
 import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
@@ -165,6 +165,105 @@ let lastRenderedListHtml = '';
 let lastRenderedFirstChild: Element | null = null;
 
 /**
+ * Search results, the archive or the trash take the list's place when
+ * active. Returns whether one of them rendered.
+ */
+function renderAlternateList(container: HTMLDivElement): boolean {
+  if (isSearchResultsVisible()) {
+    renderSearchResults();
+    return true;
+  }
+  if (isArchiveViewVisible()) {
+    renderArchiveView(container);
+    return true;
+  }
+  if (useStore.getState().isTrashView) {
+    renderTrashView(container);
+    return true;
+  }
+  return false;
+}
+
+/** The agents entry with the command center's unread, waiting and error counts. */
+function renderAgentsEntryWithCounts(
+  isAgentsView: boolean,
+  commandCenterData: CommandCenterResponse | null
+): string {
+  return renderAgentsEntryWithoutDivider(
+    isAgentsView,
+    commandCenterData?.total_unread ?? 0,
+    commandCenterData?.agents_waiting ?? 0,
+    commandCenterData?.agents_with_errors ?? 0
+  );
+}
+
+/** Navigation entries row (planner + agents + sports + language side by side), '' when none show. */
+function renderNavEntriesHtml(): string {
+  const { user, isPlannerView, isAgentsView, isSportsView, isLanguageView, commandCenterData } = useStore.getState();
+  const showPlanner = shouldShowPlanner(user);
+  const showAgents = shouldShowAgents(user);
+  const showSports = shouldShowSports(user);
+  const showLanguage = shouldShowLanguage(user);
+  if (!showPlanner && !showAgents && !showSports && !showLanguage) return '';
+
+  const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
+  const agentsHtml = showAgents ? renderAgentsEntryWithCounts(isAgentsView, commandCenterData) : '';
+  const sportsHtml = showSports ? renderSportsEntry(isSportsView) : '';
+  const languageHtml = showLanguage ? renderLanguageEntry(isLanguageView) : '';
+  // Count visible entries for layout
+  const visibleCount = [showPlanner, showAgents, showSports, showLanguage].filter(Boolean).length;
+  const rowClass = visibleCount === 1 ? ' single' : '';
+  return `
+      <div class="sidebar-nav-row${rowClass}">
+        ${plannerHtml}${agentsHtml}${sportsHtml}${languageHtml}
+      </div>
+      <div class="sidebar-divider"></div>
+    `;
+}
+
+/** The conversation rows: a Pinned group, then recency groups with labels. */
+function renderConversationGroupsHtml(conversations: Conversation[]): string {
+  const { currentConversation, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView } = useStore.getState();
+  // A conversation row is highlighted only in the plain chat view - special
+  // views (planner, agents, sports, language, storage) set currentConversation
+  // to their own conversation, which must not re-highlight a list row on
+  // re-render
+  const inSpecialView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView;
+  const activeId = inSpecialView ? undefined : currentConversation?.id;
+
+  // Pinned conversations get their own group at the top; the rest are
+  // grouped by recency (list arrives sorted by updated_at desc, so a label
+  // is emitted whenever the group changes)
+  const pinnedConversations = conversations.filter((c) => c.pinned);
+  const regularConversations = conversations.filter((c) => !c.pinned);
+
+  const pinnedHtml = pinnedConversations.length
+    ? `<div class="conversation-group-label">Pinned</div>` +
+      pinnedConversations
+        .map((conv) =>
+          renderConversationItem(conv, conv.id === activeId)
+        )
+        .join('')
+    : '';
+
+  let lastGroup: string | null = null;
+  return pinnedHtml + regularConversations
+    .map((conv) => {
+      const group = groupForDate(conv.updated_at);
+      const label =
+        group !== lastGroup
+          ? `<div class="conversation-group-label">${escapeHtml(group)}</div>`
+          : '';
+      lastGroup = group;
+      return (
+        label +
+        renderConversationItem(conv, conv.id === activeId)
+      );
+    })
+    .join('');
+}
+
+/**
  * Render the conversations list in the sidebar
  * If search is active, renders search results instead
  * If archive view is active, renders archive view instead
@@ -173,24 +272,8 @@ export function renderConversationsList(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
   if (!container) return;
 
-  // If search is active, render search results instead
-  if (isSearchResultsVisible()) {
+  if (renderAlternateList(container)) {
     lastRenderedListHtml = '';
-    renderSearchResults();
-    return;
-  }
-
-  // If archive view is active, render archive view instead
-  if (isArchiveViewVisible()) {
-    lastRenderedListHtml = '';
-    renderArchiveView(container);
-    return;
-  }
-
-  // If trash view is active, render trash view instead
-  if (useStore.getState().isTrashView) {
-    lastRenderedListHtml = '';
-    renderTrashView(container);
     return;
   }
 
@@ -199,39 +282,8 @@ export function renderConversationsList(): void {
   renderArchiveEntry();
   renderTrashEntry();
 
-  const { conversations, currentConversation, isLoading, conversationsPagination, user, isPlannerView, isAgentsView, isSportsView, isLanguageView, isStorageView, commandCenterData } = useStore.getState();
-
-  // A conversation row is highlighted only in the plain chat view - special
-  // views (planner, agents, sports, language, storage) set currentConversation
-  // to their own conversation, which must not re-highlight a list row on
-  // re-render
-  const inSpecialView = isPlannerView || isAgentsView || isSportsView || isLanguageView || isStorageView;
-
-  // Build navigation entries row (planner + agents + sports + language side by side)
-  const showPlanner = shouldShowPlanner(user);
-  const showAgents = shouldShowAgents(user);
-  const showSports = shouldShowSports(user);
-  const showLanguage = shouldShowLanguage(user);
-  const agentUnreadCount = commandCenterData?.total_unread ?? 0;
-  const agentWaitingCount = commandCenterData?.agents_waiting ?? 0;
-  const agentErrorsCount = commandCenterData?.agents_with_errors ?? 0;
-
-  let navEntriesHtml = '';
-  if (showPlanner || showAgents || showSports || showLanguage) {
-    const plannerHtml = showPlanner ? renderPlannerEntry(isPlannerView) : '';
-    const agentsHtml = showAgents ? renderAgentsEntryWithoutDivider(isAgentsView, agentUnreadCount, agentWaitingCount, agentErrorsCount) : '';
-    const sportsHtml = showSports ? renderSportsEntry(isSportsView) : '';
-    const languageHtml = showLanguage ? renderLanguageEntry(isLanguageView) : '';
-    // Count visible entries for layout
-    const visibleCount = [showPlanner, showAgents, showSports, showLanguage].filter(Boolean).length;
-    const rowClass = visibleCount === 1 ? ' single' : '';
-    navEntriesHtml = `
-      <div class="sidebar-nav-row${rowClass}">
-        ${plannerHtml}${agentsHtml}${sportsHtml}${languageHtml}
-      </div>
-      <div class="sidebar-divider"></div>
-    `;
-  }
+  const { conversations, isLoading, conversationsPagination } = useStore.getState();
+  const navEntriesHtml = renderNavEntriesHtml();
 
   if (isLoading && conversations.length === 0) {
     lastRenderedListHtml = '';
@@ -256,36 +308,7 @@ export function renderConversationsList(): void {
     return;
   }
 
-  // Pinned conversations get their own group at the top; the rest are
-  // grouped by recency (list arrives sorted by updated_at desc, so a label
-  // is emitted whenever the group changes)
-  const pinnedConversations = conversations.filter((c) => c.pinned);
-  const regularConversations = conversations.filter((c) => !c.pinned);
-
-  const pinnedHtml = pinnedConversations.length
-    ? `<div class="conversation-group-label">Pinned</div>` +
-      pinnedConversations
-        .map((conv) =>
-          renderConversationItem(conv, conv.id === currentConversation?.id && !inSpecialView)
-        )
-        .join('')
-    : '';
-
-  let lastGroup: string | null = null;
-  const conversationsHtml = pinnedHtml + regularConversations
-    .map((conv) => {
-      const group = groupForDate(conv.updated_at);
-      const label =
-        group !== lastGroup
-          ? `<div class="conversation-group-label">${escapeHtml(group)}</div>`
-          : '';
-      lastGroup = group;
-      return (
-        label +
-        renderConversationItem(conv, conv.id === currentConversation?.id && !inSpecialView)
-      );
-    })
-    .join('');
+  const conversationsHtml = renderConversationGroupsHtml(conversations);
 
   // Render loading indicator for "load more" if there are more pages
   const loadMoreHtml = conversationsPagination.hasMore
@@ -331,12 +354,8 @@ function ensureListTabStop(container: HTMLElement): void {
   }
 }
 
-/**
- * Render a single conversation item
- */
-function renderConversationItem(conv: Conversation, isActive: boolean): string {
-  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
-
+/** A row's unread badge, relative time and message preview ('' when absent). */
+function conversationMetaHtml(conv: Conversation): { unreadBadge: string; relativeTime: string; preview: string } {
   // Render unread badge if there are unread messages
   const unreadBadge = conv.unreadCount && conv.unreadCount > 0
     ? `<span class="unread-badge">${conv.unreadCount > 99 ? '99+' : conv.unreadCount}</span>`
@@ -352,6 +371,15 @@ function renderConversationItem(conv: Conversation, isActive: boolean): string {
     conv.last_message_preview && isSidebarPreviewsEnabled()
       ? `<div class="conversation-preview">${escapeHtml(conv.last_message_preview)}</div>`
       : '';
+  return { unreadBadge, relativeTime, preview };
+}
+
+/**
+ * Render a single conversation item
+ */
+function renderConversationItem(conv: Conversation, isActive: boolean): string {
+  const title = escapeHtml(conv.title || DEFAULT_CONVERSATION_TITLE);
+  const { unreadBadge, relativeTime, preview } = conversationMetaHtml(conv);
 
   // Bulk delete selection mode: a checkbox per row (empty outside it)
   const state = useStore.getState();
@@ -980,6 +1008,17 @@ export function cleanupInfiniteScroll(): void {
   }
 }
 
+/** Seed the sync manager's message counts for conversations it has not seen. */
+function initializeLocalMessageCounts(conversations: Conversation[]): void {
+  const syncManager = getSyncManager();
+  if (!syncManager) return;
+  for (const conv of conversations) {
+    if (conv.messageCount !== undefined) {
+      syncManager.initializeLocalMessageCount(conv.id, conv.messageCount);
+    }
+  }
+}
+
 /**
  * Load more conversations from the API.
  */
@@ -1009,14 +1048,7 @@ async function loadMoreConversations(container: HTMLDivElement): Promise<void> {
 
     // Initialize local message counts for newly paginated conversations
     // This prevents false unread badges when sync runs
-    const syncManager = getSyncManager();
-    if (syncManager) {
-      for (const conv of result.conversations) {
-        if (conv.messageCount !== undefined) {
-          syncManager.initializeLocalMessageCount(conv.id, conv.messageCount);
-        }
-      }
-    }
+    initializeLocalMessageCounts(result.conversations);
 
     log.info('Loaded more conversations', {
       count: result.conversations.length,

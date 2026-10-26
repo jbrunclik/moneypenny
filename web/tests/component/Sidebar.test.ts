@@ -845,3 +845,79 @@ describe('sidebar message previews toggle', () => {
     expect(document.querySelector('.conversation-preview')).toBeNull();
   });
 });
+
+describe('Sidebar list layout', () => {
+  const conv = (id: string, extra: Partial<Conversation> = {}): Conversation => ({
+    id,
+    title: id,
+    model: 'm',
+    created_at: '2026-08-22T10:00:00Z',
+    updated_at: '2026-08-22T10:00:00Z',
+    ...extra,
+  });
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="conversations-list"></div>';
+    resetStore();
+  });
+
+  it('shows the navigation row only to a signed-in user, with the planner once connected', () => {
+    useStore.setState({ conversations: [conv('a')] });
+    renderConversationsList();
+    expect(document.querySelector('.sidebar-nav-row')).toBeNull();
+
+    useStore.setState({ user: createUser() });
+    renderConversationsList();
+    const row = document.querySelector('.sidebar-nav-row') as HTMLElement;
+    expect(row.querySelector('.planner-entry')).toBeNull();
+    expect(row.querySelector('.agents-entry')).not.toBeNull();
+    expect(row.querySelector('.sports-entry')).not.toBeNull();
+    expect(row.querySelector('.language-entry')).not.toBeNull();
+
+    useStore.setState({ user: { ...createUser(), todoist_connected: true } });
+    renderConversationsList();
+    expect(document.querySelector('.sidebar-nav-row .planner-entry')).not.toBeNull();
+  });
+
+  it('puts pinned conversations in their own group first', () => {
+    useStore.setState({ conversations: [conv('a'), conv('b', { pinned: true })] });
+    renderConversationsList();
+
+    const list = document.getElementById('conversations-list') as HTMLElement;
+    const labels = [...list.querySelectorAll('.conversation-group-label')].map((l) => l.textContent);
+    expect(labels[0]).toBe('Pinned');
+    const ids = [...list.querySelectorAll<HTMLElement>('[data-conv-id]')].map((el) => el.dataset.convId);
+    expect(ids).toEqual(['b', 'a']);
+    expect(list.querySelector('[data-pin-id="b"]')?.getAttribute('aria-label')).toBe('Unpin');
+  });
+
+  it('does not highlight the special view conversation as a row', () => {
+    useStore.setState({ conversations: [conv('a')], currentConversation: conv('a'), isPlannerView: true });
+    renderConversationsList();
+    expect(document.querySelector('.conversation-item-wrapper.active')).toBeNull();
+
+    useStore.setState({ isPlannerView: false });
+    renderConversationsList();
+    expect(document.querySelector('.conversation-item-wrapper.active')).not.toBeNull();
+  });
+
+  it('caps the unread badge at 99+', () => {
+    useStore.setState({ conversations: [conv('a', { unreadCount: 150 }), conv('b', { unreadCount: 0 })] });
+    renderConversationsList();
+    expect(document.querySelector('[data-conv-id="a"] .unread-badge')?.textContent).toBe('99+');
+    expect(document.querySelector('[data-conv-id="b"] .unread-badge')).toBeNull();
+  });
+
+  it('leaves the DOM alone when nothing changed', () => {
+    useStore.setState({ conversations: [conv('a')] });
+    renderConversationsList();
+    const row = document.querySelector('[data-conv-id="a"]');
+    renderConversationsList();
+    expect(document.querySelector('[data-conv-id="a"]')).toBe(row);
+
+    useStore.setState({ conversations: [conv('a', { title: 'Renamed' })] });
+    renderConversationsList();
+    expect(document.querySelector('[data-conv-id="a"]')).not.toBe(row);
+    expect(document.querySelector('.conversation-title')?.textContent).toBe('Renamed');
+  });
+});

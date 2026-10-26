@@ -177,3 +177,91 @@ describe('QuickActionsEditor', () => {
     expect(document.querySelectorAll('.qa-editor-row').length).toBe(1);
   });
 });
+
+describe('QuickActionsEditor detail form', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+  afterEach(() => closeQuickActionsEditor());
+
+  it('Edit + Done replaces the action in place, keeping its id', async () => {
+    const onChange = vi.fn().mockResolvedValue(undefined);
+    showQuickActionsEditor({ actions: [a, b], onChange });
+    (document.querySelectorAll('.qa-editor-edit')[1] as HTMLButtonElement).click();
+    expect(q<HTMLInputElement>('.qa-detail-label').value).toBe('Log');
+    q<HTMLInputElement>('.qa-detail-label').value = 'Log workout';
+    q<HTMLButtonElement>('.qa-detail-done').click();
+
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+    const saved = onChange.mock.calls[0]?.[0] as QuickAction[];
+    expect(saved.map((x) => [x.id, x.label])).toEqual([['a', 'Plan today'], ['b', 'Log workout']]);
+  });
+
+  it('Cancel returns to the list without saving', () => {
+    const onChange = vi.fn().mockResolvedValue(undefined);
+    showQuickActionsEditor({ actions: [a], onChange });
+    (document.querySelector('.qa-editor-edit') as HTMLButtonElement).click();
+    q<HTMLInputElement>('.qa-detail-label').value = 'Changed';
+    q<HTMLButtonElement>('.qa-detail-back').click();
+
+    expect(q('.qa-editor-row-label').textContent).toBe('Plan today');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('picks an emoji from the suggestions', async () => {
+    const onChange = vi.fn().mockResolvedValue(undefined);
+    showQuickActionsEditor({ actions: [], onChange });
+    q<HTMLButtonElement>('.qa-editor-add').click();
+    q<HTMLInputElement>('.qa-detail-emoji-input').focus();
+    expect(q('.qa-detail-emoji-popover').classList.contains('open')).toBe(true);
+    const option = at(document.querySelectorAll<HTMLButtonElement>('.qa-detail-emoji-option'), 2);
+    const picked = option.dataset.emoji;
+    option.click();
+    expect(q<HTMLInputElement>('.qa-detail-emoji-input').value).toBe(picked);
+    expect(q('.qa-detail-emoji-popover').classList.contains('open')).toBe(false);
+
+    q<HTMLInputElement>('.qa-detail-label').value = 'Stretch';
+    q<HTMLTextAreaElement>('.qa-detail-body').value = 'Stretch with me.';
+    q<HTMLButtonElement>('.qa-detail-done').click();
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect((onChange.mock.calls[0]?.[0] as QuickAction[])[0]?.emoji).toBe(picked);
+  });
+
+  it('keeps a typed but unadded question on Done', async () => {
+    const onChange = vi.fn().mockResolvedValue(undefined);
+    showQuickActionsEditor({ actions: [], onChange });
+    q<HTMLButtonElement>('.qa-editor-add').click();
+    q<HTMLInputElement>('.qa-detail-label').value = 'Check in';
+    q<HTMLTextAreaElement>('.qa-detail-body').value = 'How was it?';
+    q<HTMLInputElement>('.qa-detail-field-input').value = 'Mood';
+    q<HTMLButtonElement>('.qa-detail-done').click();
+
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect((onChange.mock.calls[0]?.[0] as QuickAction[])[0]?.fields).toEqual(['Mood']);
+  });
+
+  it('adds a question on Enter and stops at the question cap', () => {
+    showQuickActionsEditor({ actions: [], onChange: vi.fn() });
+    q<HTMLButtonElement>('.qa-editor-add').click();
+    const input = q<HTMLInputElement>('.qa-detail-field-input');
+    for (let i = 0; i < 6; i++) {
+      input.value = `Q${i}`;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    }
+    expect(document.querySelectorAll('.qa-detail-field-row')).toHaveLength(6);
+    expect(input.disabled).toBe(true);
+    expect(q<HTMLButtonElement>('.qa-detail-field-add').disabled).toBe(true);
+    expect(input.placeholder).toBe('Max 6');
+    expect(q('.qa-detail-preview').textContent).toContain('Q5: …');
+  });
+
+  it('closes on Escape and on a backdrop click', () => {
+    showQuickActionsEditor({ actions: [a], onChange: vi.fn() });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(document.querySelector('.qa-editor')).toBeNull();
+
+    showQuickActionsEditor({ actions: [a], onChange: vi.fn() });
+    q<HTMLElement>('.qa-editor-overlay').click();
+    expect(document.querySelector('.qa-editor')).toBeNull();
+  });
+});

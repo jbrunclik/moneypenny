@@ -269,6 +269,97 @@ function selectLanguage(lang: string): void {
 // whose handlers kept writing into the input
 let initAbort: AbortController | null = null;
 
+/** Tell the user why recognition stopped; quiet for a silent timeout or an abort. */
+function reportRecognitionError(error: string): void {
+  switch (error) {
+    case 'not-allowed':
+      toast.error('Microphone access denied. Please allow microphone access in your browser settings.');
+      break;
+    case 'network':
+      toast.error('Speech recognition requires an internet connection. Please check your connection.');
+      break;
+    case 'service-not-allowed':
+      toast.error('Speech recognition service is not available. This may require HTTPS.');
+      break;
+    case 'no-speech':
+      // Silent timeout, just stop quietly
+      break;
+    case 'aborted':
+      // User or system aborted, no message needed
+      break;
+    default:
+      log.error('Unexpected speech recognition error', { error });
+      toast.error('Speech recognition failed. Please try again.');
+  }
+}
+
+/**
+ * Recognition events: recording state on the button, and the transcript
+ * written into the composer after the text typed before recording.
+ */
+function attachRecognitionHandlers(
+  rec: SpeechRecognition,
+  voiceBtn: HTMLButtonElement,
+  input: HTMLTextAreaElement
+): void {
+  // Track the position where we started inserting text
+  let insertPosition = 0;
+  let finalTranscript = '';
+
+  rec.onstart = () => {
+    isRecording = true;
+    hapticTick();
+    voiceBtn.classList.add('recording');
+    setIcon(voiceBtn, STOP_ICON);
+    voiceBtn.setAttribute('aria-pressed', 'true');
+    voiceBtn.title = 'Stop recording';
+    // Remember where to insert text
+    insertPosition = input.value.length;
+    if (insertPosition > 0 && !input.value.endsWith(' ')) {
+      input.value += ' ';
+      insertPosition = input.value.length;
+    }
+    finalTranscript = '';
+  };
+
+  rec.onresult = (event: SpeechRecognitionEvent) => {
+    let interimTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      const alternative = result?.[0];
+      if (!result || !alternative) continue;
+      if (result.isFinal) {
+        finalTranscript += alternative.transcript;
+      } else {
+        interimTranscript += alternative.transcript;
+      }
+    }
+
+    // Update textarea with current transcript
+    const beforeInsert = input.value.substring(0, insertPosition);
+    input.value = beforeInsert + finalTranscript + interimTranscript;
+
+    // Trigger input event for auto-resize and send button state
+    autoResizeTextarea(input);
+    updateSendButtonState();
+  };
+
+  rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+    log.error('Speech recognition error', { error: event.error, message: event.message });
+
+    reportRecognitionError(event.error);
+
+    resetRecordingState(voiceBtn);
+  };
+
+  rec.onend = () => {
+    resetRecordingState(voiceBtn);
+    // Focus the input after recording
+    input.focus();
+  };
+}
+
 /**
  * Initialize voice input component (idempotent - safe to call on re-mount).
  */
@@ -301,82 +392,7 @@ export function initVoiceInput(): void {
   voiceBtn.title = `Voice input (${getLanguageDisplayName(currentLang)})`;
   log.info('Voice input initialized', { language: currentLang });
 
-  // Track the position where we started inserting text
-  let insertPosition = 0;
-  let finalTranscript = '';
-
-  recognition.onstart = () => {
-    isRecording = true;
-    hapticTick();
-    voiceBtn.classList.add('recording');
-    setIcon(voiceBtn, STOP_ICON);
-    voiceBtn.setAttribute('aria-pressed', 'true');
-    voiceBtn.title = 'Stop recording';
-    // Remember where to insert text
-    insertPosition = input.value.length;
-    if (insertPosition > 0 && !input.value.endsWith(' ')) {
-      input.value += ' ';
-      insertPosition = input.value.length;
-    }
-    finalTranscript = '';
-  };
-
-  recognition.onresult = (event: SpeechRecognitionEvent) => {
-    let interimTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const result = event.results[i];
-      const alternative = result?.[0];
-      if (!result || !alternative) continue;
-      if (result.isFinal) {
-        finalTranscript += alternative.transcript;
-      } else {
-        interimTranscript += alternative.transcript;
-      }
-    }
-
-    // Update textarea with current transcript
-    const beforeInsert = input.value.substring(0, insertPosition);
-    input.value = beforeInsert + finalTranscript + interimTranscript;
-
-    // Trigger input event for auto-resize and send button state
-    autoResizeTextarea(input);
-    updateSendButtonState();
-  };
-
-  recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-    log.error('Speech recognition error', { error: event.error, message: event.message });
-
-    // Handle specific errors
-    switch (event.error) {
-      case 'not-allowed':
-        toast.error('Microphone access denied. Please allow microphone access in your browser settings.');
-        break;
-      case 'network':
-        toast.error('Speech recognition requires an internet connection. Please check your connection.');
-        break;
-      case 'service-not-allowed':
-        toast.error('Speech recognition service is not available. This may require HTTPS.');
-        break;
-      case 'no-speech':
-        // Silent timeout, just stop quietly
-        break;
-      case 'aborted':
-        // User or system aborted, no message needed
-        break;
-      default:
-        log.error('Unexpected speech recognition error', { error: event.error });
-        toast.error('Speech recognition failed. Please try again.');
-    }
-
-    resetRecordingState(voiceBtn);
-  };
-
-  recognition.onend = () => {
-    resetRecordingState(voiceBtn);
-    // Focus the input after recording
-    input.focus();
-  };
+  attachRecognitionHandlers(recognition, voiceBtn, input);
 
   // Long-press handling for language selector
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;

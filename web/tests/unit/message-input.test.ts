@@ -632,6 +632,21 @@ describe('handlePaste', () => {
   });
 
   describe('edge cases', () => {
+    it('falls back to clipboard files when no item is an image', () => {
+      const image = createMockFile('drop.png', 'image/png');
+      const event = createPasteEvent({ files: [image] });
+      const data = event.clipboardData as unknown as { items: unknown };
+      data.items = { length: 0, [Symbol.iterator]: function* () {} };
+
+      handlePaste(event);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(mockedAddFilesToPending).toHaveBeenCalledTimes(1);
+      const added = mockedAddFilesToPending.mock.calls[0]?.[0] as File[];
+      expect(added).toHaveLength(1);
+      expect(added[0]?.type).toBe('image/png');
+    });
+
     it('handles null clipboardData', () => {
       const event = {
         clipboardData: null,

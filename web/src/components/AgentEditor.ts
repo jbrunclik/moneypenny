@@ -168,63 +168,35 @@ export function closeAgentEditor(result: Agent | null = null): void {
   }, 150);
 }
 
-/**
- * Render the modal content.
- */
-function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
-  if (!modalContainer) return;
+/** The form's initial text fields: the agent being edited, or empty for a new one. */
+function agentTextValues(agent: Agent | undefined) {
+  return {
+    name: agent?.name || '',
+    description: agent?.description || '',
+    systemPrompt: agent?.system_prompt || '',
+    schedule: agent?.schedule || '',
+  };
+}
 
-  const isEditing = !!agent;
-  const title = isEditing ? 'Edit Agent' : 'Create Agent';
+/** The form's initial run settings: the agent being edited, or a new agent's defaults. */
+function agentRunValues(agent: Agent | undefined) {
+  return {
+    timezone: agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    enabled: agent?.enabled ?? true,
+    // Default ON for new agents; most agents' runs are independent
+    freshContext: agent?.fresh_context ?? true,
+    toolPermissions: agent?.tool_permissions || [],
+    model: agent?.model || useStore.getState().defaultModel,
+    budgetLimit: agent?.budget_limit,
+  };
+}
 
-  // Get available tools filtered by user settings
-  const availableTools = getAvailableTools(userSettings ?? null);
-
-  // Get initial values
-  const name = agent?.name || '';
-  const description = agent?.description || '';
-  const systemPrompt = agent?.system_prompt || '';
-  const schedule = agent?.schedule || '';
-  const timezone = agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const enabled = agent?.enabled ?? true;
-  // Default ON for new agents; most agents' runs are independent
-  const freshContext = agent?.fresh_context ?? true;
-  const toolPermissions = agent?.tool_permissions || [];
-  // null permissions = unrestricted: render every box checked so the UI
-  // tells the truth (unchecked boxes would read as "no access")
-  const isToolChecked = (toolId: string): boolean =>
-    originalPermissionsUnrestricted || toolPermissions.includes(toolId);
-  const { models, defaultModel } = useStore.getState();
-  const model = agent?.model || defaultModel;
-  const budgetLimit = agent?.budget_limit;
-
+/** Schedule field: preset chips, natural-language parsing, the resulting cron. */
+function scheduleFieldHtml(schedule: string): string {
   // Find matching preset or mark as custom
   const matchingPreset = SCHEDULE_PRESETS.find(p => p.cron === schedule);
   const isCustomSchedule = schedule && !matchingPreset;
-
-  modalContainer.innerHTML = `
-    <div class="agent-editor" role="dialog" aria-modal="true" aria-labelledby="agent-editor-title">
-      <div class="agent-editor-header">
-        <div class="agent-editor-title-row">
-          <span class="agent-editor-icon">${ROBOT_ICON}</span>
-          <h2 id="agent-editor-title" class="dialog-title">${escapeHtml(title)}</h2>
-        </div>
-        <button class="agent-editor-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
-      </div>
-
-      <div class="agent-editor-body">
-        <div class="agent-editor-form">
-          <div class="form-group">
-            <label for="agent-name">Name <span class="required">*</span></label>
-            <input type="text" id="agent-name" class="form-input" value="${escapeHtml(name)}" placeholder="e.g., Daily Briefing Agent" required>
-            <small class="form-error form-error--hidden" id="agent-name-error">Name is required</small>
-          </div>
-
-          <div class="form-group">
-            <label for="agent-description">Description</label>
-            <textarea id="agent-description" class="form-input form-textarea" rows="2" placeholder="What does this agent do?">${escapeHtml(description)}</textarea>
-          </div>
-
+  return `
           <div class="form-group">
             <label>Schedule</label>
             <div class="schedule-presets">
@@ -261,14 +233,13 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
             </div>
             <input type="hidden" id="agent-schedule-value" value="${escapeHtml(schedule)}">
           </div>
+  `;
+}
 
-          <div class="form-group">
-            <label for="agent-timezone">Timezone</label>
-            <select id="agent-timezone" class="form-input form-select">
-              ${getTimezoneOptions(timezone)}
-            </select>
-          </div>
-
+/** Model field: the models the agent can run on. */
+function modelFieldHtml(model: string): string {
+  const { models } = useStore.getState();
+  return `
           <div class="form-group">
             <label for="agent-model">Model</label>
             <select id="agent-model" class="form-input form-select">
@@ -280,25 +251,16 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
             </select>
             <small class="form-help">The LLM model used when running this agent.</small>
           </div>
+  `;
+}
 
-          <div class="form-group">
-            <label for="agent-budget-limit">Daily Budget Limit (USD)</label>
-            <input type="number" id="agent-budget-limit" class="form-input" value="${budgetLimit != null ? budgetLimit : ''}" placeholder="No limit" min="0" step="0.01">
-            <small class="form-help">Maximum daily spending in USD. Leave empty for no limit.</small>
-          </div>
-
-          <div class="form-group">
-            <label for="agent-system-prompt">System Prompt / Goals</label>
-            <textarea id="agent-system-prompt" class="form-input form-textarea form-textarea--large" rows="8" placeholder="Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...">${escapeHtml(systemPrompt)}</textarea>
-            <div class="form-help-row">
-              <small class="form-help">Define the agent's purpose, behavior, and any specific instructions.</small>
-              <button type="button" id="enhance-prompt-btn" class="btn btn-secondary btn-sm btn-with-icon">
-                ${SPARKLES_ICON}
-                <span>Enhance</span>
-              </button>
-            </div>
-          </div>
-
+/** Tool permission cards. */
+function toolPermissionsFieldHtml(availableTools: typeof BASE_TOOLS, toolPermissions: string[]): string {
+  // null permissions = unrestricted: render every box checked so the UI
+  // tells the truth (unchecked boxes would read as "no access")
+  const isToolChecked = (toolId: string): boolean =>
+    originalPermissionsUnrestricted || toolPermissions.includes(toolId);
+  return `
           <div class="form-group">
             <label>Tool Permissions</label>
             <div class="tool-permissions-grid">
@@ -320,7 +282,12 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
               ? 'This agent has unrestricted tool access (including tools not listed here). Changing the selection restricts it to the checked integrations.'
               : 'Select which integrations the agent can use.'}</small>
           </div>
+  `;
+}
 
+/** Fresh context and Enabled toggles. */
+function togglesHtml(freshContext: boolean, enabled: boolean): string {
+  return `
           <div class="form-group">
             <label class="toggle-label">
               <input type="checkbox" id="agent-fresh-context" ${freshContext ? 'checked' : ''}>
@@ -337,6 +304,75 @@ function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
               <span class="toggle-text">Enabled</span>
             </label>
           </div>
+  `;
+}
+
+/**
+ * Render the modal content.
+ */
+function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
+  if (!modalContainer) return;
+
+  const isEditing = !!agent;
+  const title = isEditing ? 'Edit Agent' : 'Create Agent';
+
+  // Get available tools filtered by user settings
+  const availableTools = getAvailableTools(userSettings ?? null);
+
+  const v = { ...agentTextValues(agent), ...agentRunValues(agent) };
+
+  modalContainer.innerHTML = `
+    <div class="agent-editor" role="dialog" aria-modal="true" aria-labelledby="agent-editor-title">
+      <div class="agent-editor-header">
+        <div class="agent-editor-title-row">
+          <span class="agent-editor-icon">${ROBOT_ICON}</span>
+          <h2 id="agent-editor-title" class="dialog-title">${escapeHtml(title)}</h2>
+        </div>
+        <button class="agent-editor-close dialog-close" aria-label="Close">${CLOSE_ICON}</button>
+      </div>
+
+      <div class="agent-editor-body">
+        <div class="agent-editor-form">
+          <div class="form-group">
+            <label for="agent-name">Name <span class="required">*</span></label>
+            <input type="text" id="agent-name" class="form-input" value="${escapeHtml(v.name)}" placeholder="e.g., Daily Briefing Agent" required>
+            <small class="form-error form-error--hidden" id="agent-name-error">Name is required</small>
+          </div>
+
+          <div class="form-group">
+            <label for="agent-description">Description</label>
+            <textarea id="agent-description" class="form-input form-textarea" rows="2" placeholder="What does this agent do?">${escapeHtml(v.description)}</textarea>
+          </div>
+
+          ${scheduleFieldHtml(v.schedule)}
+          <div class="form-group">
+            <label for="agent-timezone">Timezone</label>
+            <select id="agent-timezone" class="form-input form-select">
+              ${getTimezoneOptions(v.timezone)}
+            </select>
+          </div>
+
+          ${modelFieldHtml(v.model)}
+          <div class="form-group">
+            <label for="agent-budget-limit">Daily Budget Limit (USD)</label>
+            <input type="number" id="agent-budget-limit" class="form-input" value="${v.budgetLimit != null ? v.budgetLimit : ''}" placeholder="No limit" min="0" step="0.01">
+            <small class="form-help">Maximum daily spending in USD. Leave empty for no limit.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="agent-system-prompt">System Prompt / Goals</label>
+            <textarea id="agent-system-prompt" class="form-input form-textarea form-textarea--large" rows="8" placeholder="Describe what this agent should do and how it should behave. Be specific about tasks, constraints, and expected outputs...">${escapeHtml(v.systemPrompt)}</textarea>
+            <div class="form-help-row">
+              <small class="form-help">Define the agent's purpose, behavior, and any specific instructions.</small>
+              <button type="button" id="enhance-prompt-btn" class="btn btn-secondary btn-sm btn-with-icon">
+                ${SPARKLES_ICON}
+                <span>Enhance</span>
+              </button>
+            </div>
+          </div>
+
+          ${toolPermissionsFieldHtml(availableTools, v.toolPermissions)}
+          ${togglesHtml(v.freshContext, v.enabled)}
         </div>
       </div>
 
@@ -687,23 +723,12 @@ function handleModalKeydown(e: KeyboardEvent): void {
 }
 
 /**
- * Handle save button click.
+ * The trimmed agent name, or null (with the field marked) when it is empty.
  */
-async function handleSave(): Promise<void> {
-  if (!modalContainer) return;
-
-  // Get form values
-  const nameInput = modalContainer.querySelector('#agent-name') as HTMLInputElement;
-  const descriptionInput = modalContainer.querySelector('#agent-description') as HTMLTextAreaElement;
-  const systemPromptInput = modalContainer.querySelector('#agent-system-prompt') as HTMLTextAreaElement;
-  const scheduleValueInput = modalContainer.querySelector('#agent-schedule-value') as HTMLInputElement;
-  const timezoneSelect = modalContainer.querySelector('#agent-timezone') as HTMLSelectElement;
-  const modelSelect = modalContainer.querySelector('#agent-model') as HTMLSelectElement;
-  const budgetLimitInput = modalContainer.querySelector('#agent-budget-limit') as HTMLInputElement;
-  const enabledInput = modalContainer.querySelector('#agent-enabled') as HTMLInputElement;
-
+function validateNameField(modal: HTMLElement): string | null {
+  const nameInput = modal.querySelector('#agent-name') as HTMLInputElement;
+  const nameError = modal.querySelector('#agent-name-error') as HTMLElement;
   const name = nameInput?.value?.trim();
-  const nameError = modalContainer.querySelector('#agent-name-error') as HTMLElement;
 
   // Clear previous errors
   nameInput?.classList.remove('form-input--error');
@@ -713,15 +738,22 @@ async function handleSave(): Promise<void> {
     nameInput?.classList.add('form-input--error');
     nameError?.classList.remove('form-error--hidden');
     nameInput?.focus();
-    return;
+    return null;
   }
+  return name;
+}
 
+/**
+ * The schedule ('' for manual only), or null (with the cron editor opened
+ * on the error) when it is not a valid cron expression.
+ */
+function validateScheduleField(modal: HTMLElement): string | null {
   // Get schedule value from hidden input
+  const scheduleValueInput = modal.querySelector('#agent-schedule-value') as HTMLInputElement;
   const schedule = scheduleValueInput?.value?.trim() || '';
 
-  // Validate cron expression
-  const cronInput = modalContainer.querySelector('#agent-cron') as HTMLInputElement;
-  const cronError = modalContainer.querySelector('#cron-error') as HTMLElement;
+  const cronInput = modal.querySelector('#agent-cron') as HTMLInputElement;
+  const cronError = modal.querySelector('#cron-error') as HTMLElement;
 
   // Clear previous cron errors
   cronInput?.classList.remove('form-input--error');
@@ -731,34 +763,37 @@ async function handleSave(): Promise<void> {
     cronInput?.classList.add('form-input--error');
     cronError?.classList.remove('form-error--hidden');
     // Show the cron edit container if hidden
-    const cronEditContainer = modalContainer.querySelector('#cron-edit-container') as HTMLElement;
+    const cronEditContainer = modal.querySelector('#cron-edit-container') as HTMLElement;
     cronEditContainer?.classList.remove('hidden');
     cronInput?.focus();
-    return;
+    return null;
   }
+  return schedule;
+}
 
-  // Get tool permissions
-  const toolPermissions = getSelectedToolPermissions();
+/** The request body from a validated form; empty optional fields are left out (same JSON as undefined). */
+function readAgentForm(modal: HTMLElement, name: string, schedule: string): CreateAgentRequest | UpdateAgentRequest {
+  const trimmed = (selector: string): string | undefined =>
+    modal.querySelector<HTMLInputElement>(selector)?.value?.trim();
+  const checked = (selector: string): boolean => modal.querySelector<HTMLInputElement>(selector)?.checked ?? true;
 
+  const description = trimmed('#agent-description');
+  const systemPrompt = trimmed('#agent-system-prompt');
+  const model = modal.querySelector<HTMLSelectElement>('#agent-model')?.value;
   // Parse budget limit - empty means no limit (undefined)
-  const budgetLimitValue = budgetLimitInput?.value?.trim();
+  const budgetLimitValue = trimmed('#agent-budget-limit');
   const budgetLimit = budgetLimitValue ? parseFloat(budgetLimitValue) : undefined;
-
-  // Empty optional fields are left out of the request (same JSON as undefined)
-  const description = descriptionInput?.value?.trim();
-  const systemPrompt = systemPromptInput?.value?.trim();
-  const model = modelSelect?.value;
   const data: CreateAgentRequest | UpdateAgentRequest = {
     name,
     ...(description && { description }),
     ...(systemPrompt && { system_prompt: systemPrompt }),
     ...(schedule && { schedule }),
-    timezone: timezoneSelect?.value || 'UTC',
+    timezone: modal.querySelector<HTMLSelectElement>('#agent-timezone')?.value || 'UTC',
     ...(model && { model }),
     ...(budgetLimit !== undefined && { budget_limit: budgetLimit }),
-    enabled: enabledInput?.checked ?? true,
-    fresh_context: modalContainer.querySelector<HTMLInputElement>('#agent-fresh-context')?.checked ?? true,
-    tool_permissions: toolPermissions,
+    enabled: checked('#agent-enabled'),
+    fresh_context: checked('#agent-fresh-context'),
+    tool_permissions: getSelectedToolPermissions(),
   };
 
   // An agent with unrestricted (null) permissions whose selection was
@@ -768,7 +803,20 @@ async function handleSave(): Promise<void> {
   if (originalPermissionsUnrestricted && !permissionsTouched) {
     delete data.tool_permissions;
   }
+  return data;
+}
 
+/**
+ * Handle save button click.
+ */
+async function handleSave(): Promise<void> {
+  if (!modalContainer) return;
+
+  const name = validateNameField(modalContainer);
+  if (name === null) return;
+  const schedule = validateScheduleField(modalContainer);
+  if (schedule === null) return;
+  const data = readAgentForm(modalContainer, name, schedule);
 
   // Disable save button during request
   const saveBtn = modalContainer.querySelector('.agent-editor-save') as HTMLButtonElement;

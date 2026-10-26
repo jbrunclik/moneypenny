@@ -117,13 +117,27 @@ function reconcileUnfinished(
   }
 }
 
+/**
+ * The messages list to merge into, or null when the conversation is no
+ * longer open or our own turn started there while the fetch was in flight.
+ */
+function mergeContainerFor(convId: string): HTMLDivElement | null {
+  const container = getElementById<HTMLDivElement>('messages');
+  if (!container || useStore.getState().currentConversation?.id !== convId) return null;
+  if (useStore.getState().getActiveRequest(convId)) return null;
+  return container;
+}
+
+function markAgentConversationViewed(response: { is_agent?: boolean | null; agent_id?: string | null }): void {
+  if (response.is_agent && response.agent_id) markAgentViewedAndRefresh(response.agent_id);
+}
+
 async function mergeOnce(convId: string): Promise<void> {
   if (shouldSkipMerge(convId)) return;
 
   const response = await conversations.get(convId);
-  const container = getElementById<HTMLDivElement>('messages');
-  if (!container || useStore.getState().currentConversation?.id !== convId) return;
-  if (useStore.getState().getActiveRequest(convId)) return;
+  const container = mergeContainerFor(convId);
+  if (!container) return;
 
   const server = response.messages;
   const local = useStore.getState().getMessages(convId);
@@ -161,9 +175,7 @@ async function mergeOnce(convId: string): Promise<void> {
   getSyncManager()?.markConversationRead(convId, response.message_pagination.total_count);
   // An agent conversation's new messages are now on screen: viewed (the
   // command-center unread badge stuck otherwise)
-  if (toRender.length > 0 && response.is_agent && response.agent_id) {
-    markAgentViewedAndRefresh(response.agent_id);
-  }
+  if (toRender.length > 0) markAgentConversationViewed(response);
 
   if (live && !rendered.has(live)) void followRemoteStream(convId, live);
 }

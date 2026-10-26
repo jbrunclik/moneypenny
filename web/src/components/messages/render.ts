@@ -589,6 +589,21 @@ function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: stri
     : { icon: CLOSE_ICON, title: 'Action rejected' };
 }
 
+/** The tool line of an approval request; '' for generic placeholder names. */
+function approvalToolHtml(toolName: string): string {
+  const generic = !toolName || toolName === 'custom_action' || toolName === 'unknown' || toolName === 'Unknown tool';
+  return generic ? '' : `<p class="approval-tool">Tool: <code>${escapeHtml(toolName)}</code></p>`;
+}
+
+function wireApprovalButtons(messageEl: HTMLElement, approvalId: string): void {
+  messageEl.querySelector('.btn-approve')?.addEventListener('click', () => {
+    void handleApprovalAction(approvalId, true, messageEl);
+  });
+  messageEl.querySelector('.btn-reject')?.addEventListener('click', () => {
+    void handleApprovalAction(approvalId, false, messageEl);
+  });
+}
+
 /**
  * Add an approval request message to the UI.
  * These show the action requiring approval with approve/reject buttons.
@@ -615,13 +630,7 @@ function addApprovalRequestMessageToUI(
   }
 
   const description = parsed?.description || 'Unknown action';
-  const toolName = parsed?.toolName || '';
-
-  // Only show tool name if it's a meaningful value (not generic placeholders)
-  const showTool = toolName && toolName !== 'custom_action' && toolName !== 'unknown' && toolName !== 'Unknown tool';
-  const toolHtml = showTool
-    ? `<p class="approval-tool">Tool: <code>${escapeHtml(toolName)}</code></p>`
-    : '';
+  const toolHtml = approvalToolHtml(parsed?.toolName || '');
 
   // Show buttons if pending, show result if resolved
   const actionsHtml = isResolved ? approvalResultHtml(wasApproved) : approvalButtonsHtml(parsed?.approvalId || '');
@@ -645,13 +654,7 @@ function addApprovalRequestMessageToUI(
 
   // Only add event listeners if not resolved
   if (!isResolved && parsed?.approvalId) {
-    const { approvalId } = parsed;
-    messageEl.querySelector('.btn-approve')?.addEventListener('click', () => {
-      void handleApprovalAction(approvalId, true, messageEl);
-    });
-    messageEl.querySelector('.btn-reject')?.addEventListener('click', () => {
-      void handleApprovalAction(approvalId, false, messageEl);
-    });
+    wireApprovalButtons(messageEl, parsed.approvalId);
   }
 
   container.appendChild(messageEl);

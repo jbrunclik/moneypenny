@@ -681,6 +681,22 @@ function pasteRichTextAsMarkdown(e: ClipboardEvent, clipboardData: DataTransfer)
 }
 
 /**
+ * The images on the clipboard. Screenshots are typically provided via
+ * clipboardData.items (as DataTransferItems), not clipboardData.files, so
+ * items come first; files are the fallback (drag-drop, some browsers).
+ */
+function clipboardImageFiles(clipboardData: DataTransfer): File[] {
+  const imageFiles: File[] = [];
+  for (const item of clipboardData.items ?? []) {
+    if (item.kind !== 'file' || !item.type.startsWith('image/')) continue;
+    const file = item.getAsFile();
+    if (file) imageFiles.push(file);
+  }
+  if (imageFiles.length > 0) return imageFiles;
+  return Array.from(clipboardData.files).filter((file) => file.type.startsWith('image/'));
+}
+
+/**
  * Handle paste event on the message input.
  * Extracts image files from clipboard and adds them to pending files; rich
  * text becomes markdown; plain text is handled normally by the browser.
@@ -690,31 +706,7 @@ export function handlePaste(e: ClipboardEvent): void {
   const clipboardData = e.clipboardData;
   if (!clipboardData) return;
 
-  // Extract image files from clipboard
-  // Screenshots are typically provided via clipboardData.items (as DataTransferItems),
-  // not clipboardData.files. We need to check items and convert them to Files.
-  const imageFiles: File[] = [];
-
-  // First, check clipboardData.items (this is where screenshots usually appear)
-  if (clipboardData.items) {
-    for (const item of clipboardData.items) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          imageFiles.push(file);
-        }
-      }
-    }
-  }
-
-  // Also check clipboardData.files as fallback (for drag-drop or some browsers)
-  if (imageFiles.length === 0 && clipboardData.files.length > 0) {
-    for (const file of clipboardData.files) {
-      if (file.type.startsWith('image/')) {
-        imageFiles.push(file);
-      }
-    }
-  }
+  const imageFiles = clipboardImageFiles(clipboardData);
 
   if (imageFiles.length === 0) {
     // No images: rich text as markdown, anything else the browser's text paste

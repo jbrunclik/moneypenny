@@ -48,6 +48,30 @@ import { hideNewMessagesAvailableBanner } from './sync-banner';
 
 const log = createLogger('planner');
 
+/** Drop the previous conversation's blob scope, scroll listener, stream context and banner. */
+function cleanUpPreviousConversation(): void {
+  setCurrentConversationForBlobs('planner-loading');
+  cleanupNewerMessagesScrollListener();
+  if (hasActiveStreamingContext()) {
+    cleanupStreamingContext();
+  }
+  hideNewMessagesAvailableBanner();
+}
+
+/** Header title, model selector, cost and anonymous toggle for the planner. */
+function resetChatHeaderForPlanner(): void {
+  updateChatTitle('Planner');
+  renderModelDropdown(); // Update model selector to show planner's model
+  void updateConversationCost(null); // Clear cost display (planner has no cost yet)
+  renderChatHeader(null);
+
+  // Update anonymous button state (planner doesn't use anonymous mode)
+  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
+  if (anonymousBtn) {
+    updateAnonymousButtonState(anonymousBtn, false);
+  }
+}
+
 /** The conversation shown while the planner loads. */
 function plannerPlaceholderConversation(): Conversation {
   return {
@@ -134,12 +158,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
 
   // Clean up UI state from previous conversation (mirrors switchToConversation behavior)
   // This prevents stale state when switching to planner while another conversation is active
-  setCurrentConversationForBlobs('planner-loading');
-  cleanupNewerMessagesScrollListener();
-  if (hasActiveStreamingContext()) {
-    cleanupStreamingContext();
-  }
-  hideNewMessagesAvailableBanner();
+  cleanUpPreviousConversation();
 
   // If coming from agents or storage view, unhide the input area (they hide it)
   if (store.isAgentsView || store.isStorageView) {
@@ -156,17 +175,7 @@ export async function navigateToPlanner(forceRefresh: boolean = false): Promise<
   // This will be replaced with the real conversation once loaded
   store.setCurrentConversation(plannerPlaceholderConversation());
 
-  // Update header title and clear stale UI state
-  updateChatTitle('Planner');
-  renderModelDropdown(); // Update model selector to show planner's model
-  void updateConversationCost(null); // Clear cost display (planner has no cost yet)
-  renderChatHeader(null);
-
-  // Update anonymous button state (planner doesn't use anonymous mode)
-  const anonymousBtn = getElementById<HTMLButtonElement>('anonymous-btn');
-  if (anonymousBtn) {
-    updateAnonymousButtonState(anonymousBtn, false);
-  }
+  resetChatHeaderForPlanner();
 
   // Get messages container
   const messagesContainer = getElementById<HTMLDivElement>('messages');
