@@ -1387,7 +1387,7 @@ test.describe('Send-to-top - the iOS keyboard opening mid-stream', () => {
         return gap >= 0 && gap < 40;
       }, { timeout: 5000 })
       .toBe(true);
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(700); // the glide's last frames, before measuring where it rests
     const anchored = await turnTopBelowHeader(page, '.mobile-header');
 
     // The keyboard opens while the reply streams: 874 - 540 = 334 + 50 pill
