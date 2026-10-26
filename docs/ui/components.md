@@ -43,7 +43,7 @@ element.addEventListener('click', (e) => {
 Use helpers from [web/src/utils/dom.ts](../../web/src/utils/dom.ts):
 
 ```typescript
-import { createElement, clearElement, escapeHtml } from './utils/dom';
+import { createElement, clearElement } from './utils/dom';
 
 // Create elements programmatically
 const button = createElement('button', {
@@ -54,31 +54,23 @@ const button = createElement('button', {
 // Clear element content
 clearElement(container);
 
-// Plain text: textContent needs no escaping
+// Plain text: textContent needs no escaping (createElement's string children are text)
 element.textContent = userInput;
-
-// Inside an HTML string: escape every interpolated value (F3)
-container.innerHTML = `<span class="name">${escapeHtml(userInput)}</span>`;
 ```
 
-### innerHTML Usage Guidelines
+### No HTML strings (F3)
 
-**When innerHTML is ACCEPTABLE**:
-- Interpolating icon constants from [web/src/utils/icons.ts](../../web/src/utils/icons.ts) into a larger template
-- Rendering markdown content from `renderMarkdown()` (returns sanitized HTML)
-- Complex HTML structures that would be cumbersome to build with createElement
-- Any content that legitimately needs HTML markup (line breaks as `<br>`, styled elements)
+Build markup with `createElement` (children may be `null`/`false` for conditional parts;
+`createSvgElement` for SVG shapes), icons with `setIcon`, `createIconElement`,
+`createIconButton` or `iconNodes` (an icon among other children). Text never becomes markup.
+Where text flows inline (not inside a flex/grid box), keep the spaces a template had between
+elements as `' '` text children.
 
-**When to AVOID innerHTML**:
-- Clearing element content → Use `clearElement(element)` from dom.ts
-- Setting an element's content to an icon → Use `setIcon(element, ICON)` from icons.ts
-- Setting plain text → Use `element.textContent = text`
-- Building simple lists → Consider `createElement` with loops
-
-**Security requirements**:
-- ALWAYS use `escapeHtml()` for any user-controlled content before interpolating into innerHTML
-- SVG icons from icons.ts are safe (static constants, not user input)
-- Markdown is parsed by marked.js and sanitized by DOMPurify (`renderMarkdown` in `utils/markdown.ts`); external images become links (S6)
+The one HTML write is `setSanitizedHtml(el, html)` in `utils/dom.ts`: its `SanitizedHtml`
+type is minted only by the sanitizers - `renderMarkdown` (marked + DOMPurify; external images
+become links, S6), `highlightCode`/`highlightLanguage` (highlight.js escapes the code) and
+mermaid's DOMPurify'd SVG - so a plain string or template is a type error, and ESLint's
+`no-unsanitized` trusts nothing else.
 
 ### Icon Management
 
@@ -216,11 +208,7 @@ export function initMyComponent() {
   if (!container) return;
 
   function render() {
-    container.innerHTML = `
-      <div class="my-component">
-        <h2>Title</h2>
-      </div>
-    `;
+    container.replaceChildren(createElement('div', { class: 'my-component' }, [createElement('h2', {}, ['Title'])]));
   }
 
   render();

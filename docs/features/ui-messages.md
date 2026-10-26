@@ -33,7 +33,7 @@ All links include security attributes:
 
 **User messages:**
 - Plain text URLs are detected using regex pattern in [linkify.ts](../../web/src/utils/linkify.ts)
-- `linkifyText()` converts URLs to anchor tags after HTML escaping
+- `linkify()` turns the raw text into text and anchor nodes (a URL ends at whitespace, a quote or an angle bracket); the bubble adds a `<br>` per newline
 - Applied in [messages/render.ts](../../web/src/components/messages/render.ts) when rendering user messages
 
 **Assistant messages:**
