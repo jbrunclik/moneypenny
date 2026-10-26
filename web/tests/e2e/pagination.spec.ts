@@ -2,6 +2,7 @@
  * E2E tests for pagination (conversations and messages)
  */
 import { test, expect } from '../global-setup';
+import { nextFrames, scrollSettled } from './waits';
 
 test.describe('Conversations Pagination', () => {
   test.beforeEach(async ({ page }) => {
@@ -204,7 +205,7 @@ test.describe('Conversations Pagination - Load More', () => {
     });
 
     // Wait a moment for scroll to settle
-    await page.waitForTimeout(100);
+    await nextFrames(page);
 
     // Record scroll position
     const scrollBefore = await convList.evaluate((el) => el.scrollTop);
@@ -465,7 +466,7 @@ test.describe('Messages Pagination', () => {
 
     // Let the open's bottom pin settle, then wheel to the top like a user
     // (the older page loads from the scroll handler)
-    await page.waitForTimeout(800);
+    await scrollSettled(page);
     // Record where the topmost message sits on every scroll until the older
     // page's loader goes in (it pushes the content down while the page loads,
     // and under load that can happen before the test reads the position)
@@ -493,7 +494,7 @@ test.describe('Messages Pagination', () => {
       () => (window as unknown as { __anchor: { text: string; top: number } }).__anchor
     );
     await expect(page.locator('.older-messages-loader')).toHaveCount(0);
-    await page.waitForTimeout(300);
+    await scrollSettled(page);
 
     const topNow = await page.evaluate((text) => {
       const el = [...document.querySelectorAll<HTMLElement>('.message')].find((m) =>
@@ -644,9 +645,6 @@ test.describe('Pagination with Sync - Edge Cases', () => {
     // Trigger a full sync (simulates sync returning same conversations)
     await page.evaluate(() => window.__testFullSync());
 
-    // Wait for sync to complete
-    await page.waitForTimeout(500);
-
     // Should still have the same number of conversations (no duplicates)
     await expect(convItems).toHaveCount(numConversations);
 
@@ -680,11 +678,7 @@ test.describe('Pagination with Sync - Edge Cases', () => {
     // Trigger multiple syncs rapidly (stress test for race conditions)
     for (let i = 0; i < 3; i++) {
       await page.evaluate(() => window.__testFullSync());
-      await page.waitForTimeout(100);
     }
-
-    // Wait for all syncs to complete
-    await page.waitForTimeout(500);
 
     // Verify no duplicates
     const count = await convItems.count();

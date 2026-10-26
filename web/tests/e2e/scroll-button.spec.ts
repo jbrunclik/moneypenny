@@ -6,6 +6,7 @@
  * list short and the button still showing - "needs multiple taps".
  */
 import { test, expect } from '../global-setup';
+import { scrollSettled } from './waits';
 
 test.use({ viewport: { width: 390, height: 664 }, hasTouch: true });
 
@@ -18,21 +19,22 @@ test('one tap reaches the bottom even when content grows during the scroll', asy
   await page.goto('/');
   await page.click('#menu-btn');
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
-  await page.waitForTimeout(800);
+  await expect(page.locator('#messages .message').last()).toBeVisible();
+  await scrollSettled(page);
   await page.locator('#messages').hover();
   await page.mouse.wheel(0, -3000);
   await expect(page.locator('.scroll-to-bottom')).toBeVisible();
 
   await page.locator('.scroll-to-bottom').tap();
   // Late content at the end, as the animation finishes
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(250); // the late content lands as the scroll animation finishes - the timing under test
   await page.evaluate(() => {
     const last = [...document.querySelectorAll<HTMLElement>('#messages .message')].pop()!;
     const block = document.createElement('div');
     block.style.height = '400px';
     last.querySelector('.message-content')!.appendChild(block);
   });
-  await page.waitForTimeout(1200);
+  await expect.poll(() => page.evaluate(() => { const c = document.getElementById('messages')!; return c.scrollHeight - c.scrollTop - c.clientHeight; }), { timeout: 5000 }).toBeLessThan(2);
 
   const distance = await page.evaluate(() => {
     const c = document.getElementById('messages')!;
@@ -51,7 +53,8 @@ test('a tap while the list still coasts from a flick reaches the bottom', async 
   await page.goto('/');
   await page.click('#menu-btn');
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
-  await page.waitForTimeout(800);
+  await expect(page.locator('#messages .message').last()).toBeVisible();
+  await scrollSettled(page);
   await page.locator('#messages').hover();
   await page.mouse.wheel(0, -3000);
   await expect(page.locator('.scroll-to-bottom')).toBeVisible();
@@ -68,7 +71,7 @@ test('a tap while the list still coasts from a flick reaches the bottom', async 
     requestAnimationFrame(coast);
   });
   await page.locator('.scroll-to-bottom').tap();
-  await page.waitForTimeout(1500);
+  await expect.poll(() => page.evaluate(() => { const c = document.getElementById('messages')!; return c.scrollHeight - c.scrollTop - c.clientHeight; }), { timeout: 5000 }).toBeLessThan(2);
 
   const distance = await page.evaluate(() => {
     const c = document.getElementById('messages')!;
@@ -87,7 +90,8 @@ test('the button appears when content grows below without a scroll', async ({ pa
   await page.goto('/');
   await page.click('#menu-btn');
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
-  await page.waitForTimeout(800);
+  await expect(page.locator('#messages .message').last()).toBeVisible();
+  await scrollSettled(page);
   await expect(page.locator('.scroll-to-bottom')).toBeHidden();
 
   // A reply's late content (a diagram, the actions row) lands below: the
@@ -115,7 +119,8 @@ test('the button does not blink just above the bottom threshold', async ({ page,
   await page.goto('/');
   await page.click('#menu-btn');
   await page.locator('.conversation-item-wrapper', { hasText: 'Long' }).click();
-  await page.waitForTimeout(800);
+  await expect(page.locator('#messages .message').last()).toBeVisible();
+  await scrollSettled(page);
   await expect(page.locator('.scroll-to-bottom')).toBeHidden();
 
   const toggles = await page.evaluate(async () => {

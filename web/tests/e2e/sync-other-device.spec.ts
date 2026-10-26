@@ -221,11 +221,10 @@ test("a poll during this device's own first turn doesn't revert the new title", 
   await page.click('#send-btn');
   await expect(page.locator('.message.assistant.streaming')).toBeVisible();
   // The regular poll tick lands mid-turn and sees the untitled conversation
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(800); // 800ms into the turn: the poll lands mid-turn, before the title
   await poll(page);
 
   await expect(page.locator('.message.assistant')).not.toHaveClass(/streaming/, { timeout: 20000 });
-  await page.waitForTimeout(500);
   await expect(page.locator('.conversation-item-wrapper.active')).not.toContainText('New Conversation');
   await expect(page.locator('#current-chat-title').first()).not.toHaveText('New Conversation');
   await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
@@ -252,7 +251,7 @@ test.describe("this device's own changes echoing back", () => {
     await request.post('/test/set-stream-delay', { data: { delay_ms: 10 } });
 
     await poll(page);
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(800); // a span for a wrong removal by the sync to show (the kept message must stay)
     await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
   });
 
@@ -267,7 +266,7 @@ test.describe("this device's own changes echoing back", () => {
     await expect(page.locator(`.message[data-message-id="${id}"]`)).toHaveCount(0);
 
     await poll(page);
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(800); // a span for a wrong removal by the sync to show (the kept message must stay)
     await expect(page.locator('.message.user[data-kept="1"]')).toHaveCount(1);
   });
 

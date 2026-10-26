@@ -636,9 +636,6 @@ test.describe('Agents - Pending Approval Input Blocking', () => {
     // Wait for messages container to be present
     await page.waitForSelector('#messages', { timeout: 10000 });
 
-    // Wait a bit for messages to render
-    await page.waitForTimeout(1000);
-
     // Check if messages loaded
     const messageCount = await page.locator('.message').count();
     console.log('Message count:', messageCount);
@@ -712,7 +709,7 @@ test.describe('Agents - Pending Approval Input Blocking', () => {
     await page.keyboard.press('Enter');
 
     // Wait a bit to ensure no message is sent
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for a wrong send to show (none must)
 
     // Verify message count hasn't changed (no new message sent)
     const finalMessageCount = await page.locator('.message').count();
@@ -743,7 +740,7 @@ test.describe('Agents - Pending Approval Input Blocking', () => {
     await sendBtn.click({ force: true }); // Force click even if disabled
 
     // Wait a bit to ensure no message is sent
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(500); // a span for a wrong send to show (none must)
 
     // Verify message count hasn't changed
     const finalMessageCount = await page.locator('.message').count();

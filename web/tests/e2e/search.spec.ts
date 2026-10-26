@@ -2,6 +2,7 @@
  * E2E tests for full-text search functionality
  */
 import { test, expect } from '../global-setup';
+import { scrollSettled } from './waits';
 
 test.describe('Search - Input', () => {
   test.beforeEach(async ({ page }) => {
@@ -510,7 +511,8 @@ test.describe('Search - Navigation with Pagination', () => {
     });
 
     // Wait for older messages to load (scroll listener has 100ms debounce + API time)
-    await page.waitForTimeout(2000);
+    await expect(page.locator('.older-messages-loader')).toHaveCount(0, { timeout: 10000 });
+    await scrollSettled(page);
 
     // Check that we now have more messages than before (older messages were loaded)
     const afterOlderCount = await page.locator('.message.user').count();
@@ -519,20 +521,17 @@ test.describe('Search - Navigation with Pagination', () => {
     // Now scroll to the bottom to trigger loading newer messages
     // Use a loop to keep scrolling until we reach the end or timeout
     // This handles the case where scrollHeight changes as more messages load
-    for (let attempt = 0; attempt < 5; attempt++) {
-      await messagesContainer.evaluate((el) => {
-        el.scrollTop = el.scrollHeight;
-      });
-
-      // Wait for potential API call
-      await page.waitForTimeout(1500);
-
-      // Check if Message 99 is now visible
-      const isMessage99Visible = await page.locator('.message.user:has-text("Message 99:")').isVisible();
-      if (isMessage99Visible) {
-        break;
-      }
-    }
+    await expect
+      .poll(
+        async () => {
+          await messagesContainer.evaluate((el) => {
+            el.scrollTop = el.scrollHeight;
+          });
+          return page.locator('.message.user:has-text("Message 99:")').isVisible();
+        },
+        { timeout: 15000, intervals: [500] }
+      )
+      .toBe(true);
 
     // Should see newer messages (Message 99 should now be visible)
     const newerMessage = page.locator('.message.user:has-text("Message 99:")');
@@ -615,7 +614,7 @@ test.describe('Search - Navigation with Pagination', () => {
     await resultItem.dblclick();
 
     // Wait for navigation to complete
-    await page.waitForTimeout(1000);
+    await scrollSettled(page);
 
     // Should have navigated successfully - search query persists
     await expect(searchInput).toHaveValue('RAPID_CLICK_TEST');
@@ -661,9 +660,6 @@ test.describe('Search - Navigation with Pagination', () => {
     // Immediately click New Chat to switch away
     await page.click('#new-chat-btn');
 
-    // Wait a moment
-    await page.waitForTimeout(500);
-
     // Should be in new conversation (no messages, empty state)
     const messagesContainer = page.locator('#messages');
     const messages = messagesContainer.locator('.message');
@@ -705,9 +701,8 @@ test.describe('Search - Navigation with Pagination', () => {
     await expect(targetMessage).toBeVisible({ timeout: 10000 });
     await expect(targetMessage).toHaveClass(/search-highlight/);
 
-    // After 2 seconds, highlight should be removed
-    await page.waitForTimeout(2500);
-    await expect(targetMessage).not.toHaveClass(/search-highlight/);
+    // The highlight fades after about 2 seconds
+    await expect(targetMessage).not.toHaveClass(/search-highlight/, { timeout: 5000 });
   });
 
   test('shows toast when message not found', async ({ page }) => {
@@ -793,7 +788,8 @@ test.describe('Search - Navigation with Pagination', () => {
     await scrollButton.click();
 
     // Wait for all messages to load and scroll to complete
-    await page.waitForTimeout(2000);
+    await expect(page.locator('.message.user:has-text("Message 99:")')).toBeVisible({ timeout: 10000 });
+    await scrollSettled(page);
 
     // The newest message (Message 99) should now be visible
     const newestMessage = page.locator('.message.user:has-text("Message 99:")');

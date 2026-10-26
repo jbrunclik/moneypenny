@@ -12,6 +12,7 @@ import {
   resetBatchDelay,
   setEmitThinking,
 } from './fixtures';
+import { serverReplySaved } from '../waits';
 
 test.describe('Chat - Request Continuation on Conversation Switch', () => {
   test.beforeEach(async ({ page }) => {
@@ -77,7 +78,7 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
         break;
       }
 
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(300); // retry interval between attempts
     }
 
     expect(messagesFound).toBe(true);
@@ -138,7 +139,7 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
         break;
       }
 
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(300); // retry interval between attempts
     }
 
     expect(messagesFound).toBe(true);
@@ -157,7 +158,7 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
     // Wait for streaming to complete (message appears in UI)
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
     // Wait for cleanup thread to save to DB
-    await page.waitForTimeout(500);
+    await serverReplySaved(page);
 
     // Create second conversation and send message
     await page.click('#new-chat-btn');
@@ -166,7 +167,7 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
     // Wait for streaming to complete
     await page.waitForSelector('.message.assistant', { timeout: 10000 });
     // Wait for cleanup thread to save to DB
-    await page.waitForTimeout(500);
+    await serverReplySaved(page);
 
     // Both conversations should have responses
     const convItems = page.locator('.conversation-item-wrapper');
@@ -306,13 +307,13 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     await expect(streamingMessage).toBeVisible({ timeout: 5000 });
 
     // Wait a moment to accumulate some content
-    await page.waitForTimeout(500);
+    await expect(streamingMessage).toContainText('This', { timeout: 5000 });
 
     // Create second conversation
     await page.click('#new-chat-btn');
 
     // Wait and switch back
-    await page.waitForTimeout(300);
+    await expect(page.locator('.message.assistant')).toHaveCount(0);
     const convItems = page.locator('.conversation-item-wrapper');
     await convItems.last().click();
 
@@ -349,11 +350,11 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 
     // Switch back to first
     await convItems.last().click();
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(200); // rapid switching, 200ms apart, is the scenario
 
     // Switch to second
     await convItems.first().click();
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(200); // rapid switching, 200ms apart, is the scenario
 
     // Switch back to first again
     await convItems.last().click();
@@ -434,7 +435,6 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
     await expect(streamingMessage).toBeVisible({ timeout: 5000 });
 
     // Wait for some content to accumulate (at 30ms/token, should have ~5-6 tokens after 200ms)
-    await page.waitForTimeout(200);
 
     // Verify some content has accumulated (the mock response starts with "This is a mock response")
     const messageContent = page.locator('.message.assistant .message-content');
