@@ -1,0 +1,12 @@
+# deptry (C2, `make lint`): every import is a declared dependency and every
+# declared runtime dependency is imported. Its own file, not pyproject.toml:
+# deptry reads dependencies from a pyproject [project] table when there is one,
+# and ours lives in requirements.in / requirements-dev.in.
+[tool.deptry]
+requirements_files = ["requirements.in"]
+requirements_files_dev = ["requirements-dev.in"]
+known_first_party = ["src", "evals", "tests", "scripts"]
+
+[tool.deptry.per_rule_ignores]
+# Run by the systemd unit (gunicorn src.app:...), never imported
+DEP002 = ["gunicorn"]

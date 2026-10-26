@@ -185,7 +185,9 @@ langgraph-sdk==0.4.9
 langsmith==0.14.12
     # via langchain-core
 limits==5.8.0
-    # via flask-limiter
+    # via
+    #   -r requirements.in
+    #   flask-limiter
 llm-sandbox==0.3.46
     # via -r requirements.in
 lxml==6.1.3
@@ -377,7 +379,9 @@ websockets==17.3
     #   langgraph-sdk
     #   langsmith
 werkzeug==3.1.9
-    # via flask
+    # via
+    #   -r requirements.in
+    #   flask
 wrapt==2.5.1
     # via deprecated
 xxhash==4.0.2
