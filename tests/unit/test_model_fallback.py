@@ -154,3 +154,24 @@ def test_cost_is_priced_at_the_model_that_answered(monkeypatch: pytest.MonkeyPat
     )
 
     assert priced.call_args.args[3] == "gemini-pro"
+
+
+def test_fallback_model_is_built_once_with_the_same_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fast, advanced = list(Config.MODELS)
+    built = MagicMock(return_value="backup-model")
+    monkeypatch.setattr(graph, "create_chat_model", built)
+    tools = [MagicMock(name="tool")]
+
+    factory = graph._fallback_factory(fast, True, False, tools)
+    assert factory is not None
+    built.assert_not_called()  # built lazily, on the first fallback
+
+    assert factory() == (advanced, "backup-model")
+    assert factory() == (advanced, "backup-model")
+    built.assert_called_once_with(advanced, with_tools=True, include_thoughts=False, tools=tools)
+
+
+def test_unknown_model_gets_no_fallback_factory() -> None:
+    assert graph._fallback_factory("some-other-model", True, False, []) is None

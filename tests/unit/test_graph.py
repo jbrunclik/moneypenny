@@ -967,6 +967,25 @@ class TestApprovalSiblingResults:
             )
         assert exc_info.value.sibling_results == []
 
+    def test_approval_that_returns_is_merged_after_its_siblings(self) -> None:
+        """Outside an agent context request_approval returns instead of pausing."""
+        side_effect, _, executed = self._tools()
+
+        @tool
+        def request_approval(description: str) -> str:
+            """Request approval."""
+            return '{"error": "no agent context", "_full_result": "x"}'
+
+        compiled = _compile_tool_graph([side_effect, request_approval], is_autonomous=True)
+        result = compiled.invoke(self._states())
+
+        tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+        assert [(m.tool_call_id, m.content) for m in tool_messages] == [
+            ("c1", "done: create task 42"),
+            ("c2", '{"error": "no agent context"}'),
+        ]
+        assert executed == ["create task 42"]
+
 
 # ============ Autonomous Permission Filtering Tests ============
 
