@@ -42,97 +42,22 @@ export function setupStreamingScrollListener(container: HTMLElement): void {
     context.scrollListenerCleanup();
   }
 
-  // Debounce timeout is ONLY used for re-enabling auto-scroll (when user scrolls back to bottom)
-  // This prevents rapid re-enabling when user is scrolling around near the bottom
-  let resumeDebounceTimeout: number | undefined;
+  const state: FollowListenerState = {
+    container,
+    resumeDebounceTimeout: undefined,
+    lastScrollTop: container.scrollTop,
+  };
 
   // Handle user scroll interaction (wheel or touch)
   // This immediately pauses auto-scroll since it's definitely user-initiated
   const handleUserScroll = (): void => {
-    const current = getStreamingContext();
-    if (!current?.shouldAutoScroll) return;
-
-    current.shouldAutoScroll = false;
-    log.debug('Streaming auto-scroll paused (user interaction detected)');
-
-    // Show visual indicator on scroll button - once there is answer text
-    // (a growing thinking trace isn't "new messages")
-    if (current.hasReplyText) setStreamingPausedIndicator(true);
-
-    // Clear any pending resume timeout
-    if (resumeDebounceTimeout) {
-      clearTimeout(resumeDebounceTimeout);
-      resumeDebounceTimeout = undefined;
-    }
+    pauseFollowing(state);
   };
-
-  // Track scroll position to detect upward user scrolls that produce no
-  // wheel/touchmove event (scrollbar drag, PageUp/Home/arrow keys)
-  let lastScrollTop = container.scrollTop;
 
   // Handle scroll events: pause on a real upward scroll while following,
   // re-enable when the user scrolls back to the bottom
   const scrollHandler = (): void => {
-    const current = getStreamingContext();
-    if (!current) return;
-
-    const scrollTop = container.scrollTop;
-    const previousScrollTop = lastScrollTop;
-    // Ignore iOS rubber-band out-of-bounds values
-    if (scrollTop >= 0) {
-      lastScrollTop = scrollTop;
-    }
-
-    if (current.shouldAutoScroll) {
-      // Direction-based pause, complementing the wheel/touchmove listeners.
-      // Content growth and our own follow scrolls only move scrollTop DOWN
-      // (or clamp it while staying at the bottom), so an upward move that
-      // isn't programmatic and lands away from the bottom is user intent.
-      const movedUp = scrollTop >= 0 && previousScrollTop >= 0 && scrollTop < previousScrollTop;
-      if (
-        movedUp &&
-        !isProgrammaticScrollActive() &&
-        !isScrolledToBottom(container, STREAMING_SCROLL_THRESHOLD_PX)
-      ) {
-        handleUserScroll();
-      }
-      return;
-    }
-
-    // Re-arm following only when the USER scrolls DOWN to the real bottom:
-    // our own scrolls (the send-to-top glide ends at the reserved bottom), a
-    // small scroll near it, and iOS's rubber-band bounce there (overscrolled
-    // positions, then a move back up) must not start chasing the reply
-    const atBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
-    const maxScrollTop = container.scrollHeight - container.clientHeight;
-    const movedDown = scrollTop > previousScrollTop && scrollTop <= maxScrollTop + 1;
-
-    // ...and only the user: a move with no input of theirs (layout, a
-    // re-fit, a clamp next to the anchor - an anchored short reply sits
-    // within the threshold of the bottom) re-armed chasing the reply
-    if (atBottom && movedDown && !isProgrammaticScrollActive() && userScrolledRecently()) {
-      // User scrolled back to bottom - use debounce to re-enable auto-scroll
-      // This prevents rapid toggling when user is scrolling around near the bottom
-      if (resumeDebounceTimeout) {
-        clearTimeout(resumeDebounceTimeout);
-      }
-
-      resumeDebounceTimeout = window.setTimeout(() => {
-        const resumed = getStreamingContext();
-        if (!resumed) return;
-
-        // Re-check position after debounce (user might have scrolled away again)
-        const stillAtBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
-        if (stillAtBottom && !resumed.shouldAutoScroll) {
-          resumed.shouldAutoScroll = true;
-          log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
-
-          // Clear the visual indicator
-          setStreamingPausedIndicator(false);
-        }
-        resumeDebounceTimeout = undefined;
-      }, STREAMING_SCROLL_RESUME_DEBOUNCE_MS);
-    }
+    handleFollowScroll(state);
   };
 
   // Listen for user scroll interactions (wheel/touchmove are interaction
@@ -147,27 +72,142 @@ export function setupStreamingScrollListener(container: HTMLElement): void {
   // scrollHeight during the smooth animation, so "bottom" is a moving target
   // and the debounced re-attach could miss.
   setOnJumpToBottom(() => {
-    const current = getStreamingContext();
-    if (!current || current.shouldAutoScroll) return;
-    if (resumeDebounceTimeout) {
-      clearTimeout(resumeDebounceTimeout);
-      resumeDebounceTimeout = undefined;
-    }
-    current.shouldAutoScroll = true;
-    setStreamingPausedIndicator(false);
-    log.debug('Streaming auto-scroll resumed (scroll button tapped)');
+    resumeFromScrollButton(state);
   });
 
   // Store cleanup function
   context.scrollListenerCleanup = () => {
-    if (resumeDebounceTimeout) {
-      clearTimeout(resumeDebounceTimeout);
+    if (state.resumeDebounceTimeout) {
+      clearTimeout(state.resumeDebounceTimeout);
     }
     container.removeEventListener('wheel', handleUserScroll);
     container.removeEventListener('touchmove', handleUserScroll);
     offMessagesScroll('streaming-autoscroll-resume');
     setOnJumpToBottom(null);
   };
+}
+
+/** What one streaming scroll listener remembers between events. */
+interface FollowListenerState {
+  container: HTMLElement;
+  // Debounce timeout is ONLY used for re-enabling auto-scroll (when user scrolls back to bottom)
+  // This prevents rapid re-enabling when user is scrolling around near the bottom
+  resumeDebounceTimeout: number | undefined;
+  // Track scroll position to detect upward user scrolls that produce no
+  // wheel/touchmove event (scrollbar drag, PageUp/Home/arrow keys)
+  lastScrollTop: number;
+}
+
+/** The user took over: stop following the reply. */
+function pauseFollowing(state: FollowListenerState): void {
+  const current = getStreamingContext();
+  if (!current?.shouldAutoScroll) return;
+
+  current.shouldAutoScroll = false;
+  log.debug('Streaming auto-scroll paused (user interaction detected)');
+
+  // Show visual indicator on scroll button - once there is answer text
+  // (a growing thinking trace isn't "new messages")
+  if (current.hasReplyText) setStreamingPausedIndicator(true);
+
+  // Clear any pending resume timeout
+  if (state.resumeDebounceTimeout) {
+    clearTimeout(state.resumeDebounceTimeout);
+    state.resumeDebounceTimeout = undefined;
+  }
+}
+
+/** One scroll event of #messages while a reply streams. */
+function handleFollowScroll(state: FollowListenerState): void {
+  const current = getStreamingContext();
+  if (!current) return;
+
+  const { container } = state;
+  const scrollTop = container.scrollTop;
+  const previousScrollTop = state.lastScrollTop;
+  // Ignore iOS rubber-band out-of-bounds values
+  if (scrollTop >= 0) {
+    state.lastScrollTop = scrollTop;
+  }
+
+  if (current.shouldAutoScroll) {
+    pauseIfUserScrolledUp(state, scrollTop, previousScrollTop);
+    return;
+  }
+  resumeIfUserReachedBottom(state, scrollTop, previousScrollTop);
+}
+
+/** While following: an upward move away from the bottom that isn't ours pauses. */
+function pauseIfUserScrolledUp(state: FollowListenerState, scrollTop: number, previousScrollTop: number): void {
+  // Direction-based pause, complementing the wheel/touchmove listeners.
+  // Content growth and our own follow scrolls only move scrollTop DOWN
+  // (or clamp it while staying at the bottom), so an upward move that
+  // isn't programmatic and lands away from the bottom is user intent.
+  const movedUp = scrollTop >= 0 && previousScrollTop >= 0 && scrollTop < previousScrollTop;
+  if (
+    movedUp &&
+    !isProgrammaticScrollActive() &&
+    !isScrolledToBottom(state.container, STREAMING_SCROLL_THRESHOLD_PX)
+  ) {
+    pauseFollowing(state);
+  }
+}
+
+/** While paused: the user scrolling down to the real bottom re-arms (debounced). */
+function resumeIfUserReachedBottom(state: FollowListenerState, scrollTop: number, previousScrollTop: number): void {
+  const { container } = state;
+  // Re-arm following only when the USER scrolls DOWN to the real bottom:
+  // our own scrolls (the send-to-top glide ends at the reserved bottom), a
+  // small scroll near it, and iOS's rubber-band bounce there (overscrolled
+  // positions, then a move back up) must not start chasing the reply
+  const atBottom = isScrolledToBottom(container, STREAMING_RESUME_THRESHOLD_PX);
+  const maxScrollTop = container.scrollHeight - container.clientHeight;
+  const movedDown = scrollTop > previousScrollTop && scrollTop <= maxScrollTop + 1;
+
+  // ...and only the user: a move with no input of theirs (layout, a
+  // re-fit, a clamp next to the anchor - an anchored short reply sits
+  // within the threshold of the bottom) re-armed chasing the reply
+  if (atBottom && movedDown && !isProgrammaticScrollActive() && userScrolledRecently()) {
+    // User scrolled back to bottom - use debounce to re-enable auto-scroll
+    // This prevents rapid toggling when user is scrolling around near the bottom
+    if (state.resumeDebounceTimeout) {
+      clearTimeout(state.resumeDebounceTimeout);
+    }
+
+    state.resumeDebounceTimeout = window.setTimeout(() => {
+      resumeIfStillAtBottom(state);
+    }, STREAMING_SCROLL_RESUME_DEBOUNCE_MS);
+  }
+}
+
+/** The re-arm debounce elapsed: follow again if the user stayed at the bottom. */
+function resumeIfStillAtBottom(state: FollowListenerState): void {
+  const resumed = getStreamingContext();
+  if (!resumed) return;
+
+  // Re-check position after debounce (user might have scrolled away again)
+  const stillAtBottom = isScrolledToBottom(state.container, STREAMING_RESUME_THRESHOLD_PX);
+  if (stillAtBottom && !resumed.shouldAutoScroll) {
+    resumed.shouldAutoScroll = true;
+    log.debug('Streaming auto-scroll resumed (user scrolled to bottom)');
+
+    // Clear the visual indicator
+    setStreamingPausedIndicator(false);
+  }
+  state.resumeDebounceTimeout = undefined;
+}
+
+/** The scroll button was tapped: follow again right away. */
+function resumeFromScrollButton(state: FollowListenerState): void {
+  const current = getStreamingContext();
+  if (!current || current.shouldAutoScroll) return;
+  if (state.resumeDebounceTimeout) {
+    clearTimeout(state.resumeDebounceTimeout);
+    state.resumeDebounceTimeout = undefined;
+  }
+  current.shouldAutoScroll = true;
+  setStreamingPausedIndicator(false);
+  log.debug('Streaming auto-scroll resumed (scroll button tapped)');
 }
 
 /**

@@ -40,16 +40,6 @@ const log = createLogger('messages');
  * @param conversationId - The ID of the conversation this streaming message belongs to
  * @returns Object with element and methods to update thinking state
  */
-/** The streaming bubble's avatar and content (an empty reply with the cursor). */
-function appendStreamingBubble(messageEl: HTMLElement): void {
-  messageEl.append(
-    createIconElement('message-avatar', AI_AVATAR, 'div'),
-    createElement('div', { class: 'message-content-wrapper' }, [
-      createElement('div', { class: 'message-content' }, [createElement('span', { class: 'streaming-cursor' })]),
-    ])
-  );
-}
-
 export function addStreamingMessage(
   conversationId: string,
   { anchor = true }: { anchor?: boolean } = {}
@@ -65,30 +55,11 @@ export function addStreamingMessage(
     cleanupStreamingContext();
   }
 
-  const messageEl = document.createElement('div');
-  messageEl.className = 'message assistant streaming';
-  // Announce streamed content to screen readers without interrupting
-  messageEl.setAttribute('role', 'log');
-  messageEl.setAttribute('aria-live', 'polite');
-
   // Create thinking indicator
   const thinkingIndicator = createThinkingIndicator();
   const thinkingState = createThinkingState();
-
-  appendStreamingBubble(messageEl);
-
-  // Insert thinking indicator at the start of message-content
-  const contentEl = messageEl.querySelector('.message-content');
-  if (contentEl) {
-    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
-  }
-
-  // The turn this reply answers: the user's message just sent (or being
-  // regenerated) or a program's auto-start trigger chip, else the reply
-  // itself (Continue appends a new bubble after the previous reply)
-  const previous = container.lastElementChild;
-  const turnEl =
-    previous instanceof HTMLElement && previous.matches('.message:not(.assistant)') ? previous : messageEl;
+  const messageEl = createStreamingBubble(thinkingIndicator);
+  const turnEl = turnAnsweredBy(container, messageEl);
 
   // Send-to-top: the view stays on the turn instead of following the reply
   // down; scrolling to the bottom (or the pill) re-arms following
@@ -118,6 +89,44 @@ export function addStreamingMessage(
   });
 
   return messageEl;
+}
+
+/** A streaming reply bubble, `thinkingIndicator` at the top of its content. */
+function createStreamingBubble(thinkingIndicator: HTMLElement): HTMLElement {
+  const messageEl = document.createElement('div');
+  messageEl.className = 'message assistant streaming';
+  // Announce streamed content to screen readers without interrupting
+  messageEl.setAttribute('role', 'log');
+  messageEl.setAttribute('aria-live', 'polite');
+
+  appendStreamingBubble(messageEl);
+
+  // Insert thinking indicator at the start of message-content
+  const contentEl = messageEl.querySelector('.message-content');
+  if (contentEl) {
+    contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
+  }
+  return messageEl;
+}
+
+/** The streaming bubble's avatar and content (an empty reply with the cursor). */
+function appendStreamingBubble(messageEl: HTMLElement): void {
+  messageEl.append(
+    createIconElement('message-avatar', AI_AVATAR, 'div'),
+    createElement('div', { class: 'message-content-wrapper' }, [
+      createElement('div', { class: 'message-content' }, [createElement('span', { class: 'streaming-cursor' })]),
+    ])
+  );
+}
+
+/**
+ * The turn this reply answers: the user's message just sent (or being
+ * regenerated) or a program's auto-start trigger chip, else the reply
+ * itself (Continue appends a new bubble after the previous reply)
+ */
+function turnAnsweredBy(container: HTMLElement, messageEl: HTMLElement): HTMLElement {
+  const previous = container.lastElementChild;
+  return previous instanceof HTMLElement && previous.matches('.message:not(.assistant)') ? previous : messageEl;
 }
 
 /**
@@ -157,29 +166,17 @@ export function restoreStreamingMessage(conversationId: string, content: string,
   // since switchToConversation should only clean up when switching to a different conversation)
   cleanupStreamingContext();
 
-  const messageEl = document.createElement('div');
-  messageEl.className = 'message assistant streaming';
-  // Announce streamed content to screen readers without interrupting
-  messageEl.setAttribute('role', 'log');
-  messageEl.setAttribute('aria-live', 'polite');
-
   // Create thinking indicator with the restored state
   const thinkingIndicator = createThinkingIndicator();
   const restoredThinkingState = thinkingState ?? createThinkingState();
+  const messageEl = createStreamingBubble(thinkingIndicator);
 
-  appendStreamingBubble(messageEl);
-
-  // Insert thinking indicator at the start of message-content
+  // Render existing content if any
   const contentEl = messageEl.querySelector('.message-content');
-  if (contentEl) {
+  if (contentEl && content) {
+    contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
+    // Re-insert thinking indicator at the top
     contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
-
-    // Render existing content if any
-    if (content) {
-      contentEl.innerHTML = renderMarkdown(content) + '<span class="streaming-cursor"></span>';
-      // Re-insert thinking indicator at the top
-      contentEl.insertBefore(thinkingIndicator, contentEl.firstChild);
-    }
   }
 
   // Check if user is at bottom BEFORE adding the message
@@ -284,45 +281,12 @@ export function finalizeStreamingMessage(
   const cursor = messageEl.querySelector('.streaming-cursor');
   cursor?.remove();
 
-  // Capture whether user was following before cleaning up context
-  let wasFollowing = false;
-
   clearStreamingRetryStatus();
 
-  // Finalize thinking indicator and clean up streaming context
-  const context = getStreamingContext();
-  if (context && context.element === messageEl) {
-    // Capture auto-scroll state before cleanup
-    wasFollowing = context.shouldAutoScroll;
+  // Capture whether user was following before cleaning up context
+  const wasFollowing = endStreamingContext(messageEl);
 
-    finalizeThinkingIndicator(
-      context.thinkingIndicator,
-      context.thinkingState
-    );
-    // Clean up scroll listener
-    if (context.scrollListenerCleanup) {
-      context.scrollListenerCleanup();
-    }
-
-    // Ensure the streaming paused indicator is cleared
-    setStreamingPausedIndicator(false);
-
-    // Clear the context
-    setStreamingContext(null);
-  }
-
-  // Apply syntax highlighting to code blocks
-  const content = messageEl.querySelector('.message-content');
-  if (content) {
-    highlightAllCodeBlocks(content as HTMLElement);
-    void renderMermaidIn(content as HTMLElement); // diagrams once the text is final
-
-    // Add files (generated images) inside the content bubble
-    if (files && files.length > 0) {
-      const filesContainer = renderMessageFiles(files, messageId);
-      content.appendChild(filesContainer);
-    }
-  }
+  finishContent(messageEl, messageId, files);
 
   // Add message actions (timestamp + sources/imagegen buttons + copy button)
   const contentWrapper = messageEl.querySelector('.message-content-wrapper');
@@ -351,4 +315,50 @@ export function finalizeStreamingMessage(
   });
 
   return wasFollowing;
+}
+
+/**
+ * Finalize the thinking indicator and clean up the streaming context, if it
+ * is this message's. Returns whether the user was following.
+ */
+function endStreamingContext(messageEl: HTMLElement): boolean {
+  let wasFollowing = false;
+  // Finalize thinking indicator and clean up streaming context
+  const context = getStreamingContext();
+  if (context && context.element === messageEl) {
+    // Capture auto-scroll state before cleanup
+    wasFollowing = context.shouldAutoScroll;
+
+    finalizeThinkingIndicator(
+      context.thinkingIndicator,
+      context.thinkingState
+    );
+    // Clean up scroll listener
+    if (context.scrollListenerCleanup) {
+      context.scrollListenerCleanup();
+    }
+
+    // Ensure the streaming paused indicator is cleared
+    setStreamingPausedIndicator(false);
+
+    // Clear the context
+    setStreamingContext(null);
+  }
+  return wasFollowing;
+}
+
+/** The final text: highlighted code, diagrams and the generated files. */
+function finishContent(messageEl: HTMLElement, messageId: string, files?: FileMetadata[]): void {
+  // Apply syntax highlighting to code blocks
+  const content = messageEl.querySelector('.message-content');
+  if (content) {
+    highlightAllCodeBlocks(content as HTMLElement);
+    void renderMermaidIn(content as HTMLElement); // diagrams once the text is final
+
+    // Add files (generated images) inside the content bubble
+    if (files && files.length > 0) {
+      const filesContainer = renderMessageFiles(files, messageId);
+      content.appendChild(filesContainer);
+    }
+  }
 }
