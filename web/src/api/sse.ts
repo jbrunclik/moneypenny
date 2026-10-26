@@ -12,6 +12,20 @@ import { ApiError } from './http';
 
 const log = createLogger('api');
 
+/** The events of complete SSE lines (`data: {json}`); other lines and invalid JSON are skipped. */
+function parseSseDataLines(lines: readonly string[]): StreamEvent[] {
+  const events: StreamEvent[] = [];
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    try {
+      events.push(JSON.parse(line.slice(6)) as StreamEvent);
+    } catch {
+      // Ignore invalid JSON
+    }
+  }
+  return events;
+}
+
 export async function* readSseEvents(
   response: Response,
   conversationId: string
@@ -80,16 +94,7 @@ export async function* readSseEvents(
         // Keep the last incomplete line in the buffer (unless stream is done)
         buffer = done ? '' : (lines.pop() || '');
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            try {
-              yield JSON.parse(data) as StreamEvent;
-            } catch {
-              // Ignore invalid JSON
-            }
-          }
-        }
+        yield* parseSseDataLines(lines);
 
         if (done) break;
       }

@@ -82,6 +82,24 @@ function tableMarkdown(table: HTMLElement): string {
   return [line(header), line(Array(width).fill('---')), ...body.map(line)].join('\n');
 }
 
+/** Markdown of a block-level element, or null when it is inline content. */
+function blockElementMarkdown(el: HTMLElement): string[] | null {
+  const tag = el.tagName;
+  if (/^H[1-6]$/.test(tag)) {
+    return [`${'#'.repeat(Number(tag[1]))} ${cleanLines(inline(el)).replace(/\n/g, ' ')}`];
+  }
+  if (tag === 'UL' || tag === 'OL') return [listMarkdown(el, 0)];
+  if (tag === 'TABLE') return [tableMarkdown(el)];
+  if (tag === 'PRE') return [`\`\`\`\n${(el.textContent ?? '').replace(/\n$/, '')}\n\`\`\``];
+  if (tag === 'BLOCKQUOTE') {
+    return [blocks(el).join('\n\n').split('\n').map((l) => `> ${l}`.trimEnd()).join('\n')];
+  }
+  if (tag === 'HR') return ['---'];
+  // A bold/italic wrapper around blocks (Google Docs' <b style="font-weight:normal">)
+  if (BLOCKS.has(tag) || hasBlockChild(el)) return blocks(el);
+  return null;
+}
+
 /** Markdown blocks of an element's children, separated by blank lines. */
 function blocks(parent: Node): string[] {
   const out: string[] = [];
@@ -93,30 +111,11 @@ function blocks(parent: Node): string[] {
   };
   for (const node of parent.childNodes) {
     const el = node instanceof HTMLElement ? node : null;
-    const tag = el?.tagName ?? '';
-    if (el && SKIP.has(tag)) continue;
-    if (el && /^H[1-6]$/.test(tag)) {
+    if (el && SKIP.has(el.tagName)) continue;
+    const block = el ? blockElementMarkdown(el) : null;
+    if (block) {
       flush();
-      out.push(`${'#'.repeat(Number(tag[1]))} ${cleanLines(inline(el)).replace(/\n/g, ' ')}`);
-    } else if (el && (tag === 'UL' || tag === 'OL')) {
-      flush();
-      out.push(listMarkdown(el, 0));
-    } else if (el && tag === 'TABLE') {
-      flush();
-      out.push(tableMarkdown(el));
-    } else if (el && tag === 'PRE') {
-      flush();
-      out.push(`\`\`\`\n${(el.textContent ?? '').replace(/\n$/, '')}\n\`\`\``);
-    } else if (el && tag === 'BLOCKQUOTE') {
-      flush();
-      out.push(blocks(el).join('\n\n').split('\n').map((l) => `> ${l}`.trimEnd()).join('\n'));
-    } else if (el && tag === 'HR') {
-      flush();
-      out.push('---');
-    } else if (el && (BLOCKS.has(tag) || hasBlockChild(el))) {
-      flush();
-      // A bold/italic wrapper around blocks (Google Docs' <b style="font-weight:normal">)
-      out.push(...blocks(el));
+      out.push(...block);
     } else {
       run += inline(node);
     }

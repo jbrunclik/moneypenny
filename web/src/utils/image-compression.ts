@@ -66,6 +66,38 @@ function canvasToBlob(
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
+/** Draw the bitmap at the target size and re-encode; the original when it doesn't pay. */
+async function encodeCompressed(file: File, bitmap: ImageBitmap): Promise<File> {
+  const target = computeTargetSize(bitmap.width, bitmap.height, IMAGE_COMPRESSION_MAX_EDGE_PX);
+  const width = target?.width ?? bitmap.width;
+  const height = target?.height ?? bitmap.height;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  const keepAlpha = file.type === 'image/png' && hasTransparency(ctx, width, height);
+  const blob = keepAlpha
+    ? await canvasToBlob(canvas, 'image/png')
+    : await canvasToBlob(canvas, 'image/jpeg', IMAGE_COMPRESSION_JPEG_QUALITY);
+
+  if (!blob || !shouldUseCompressed(file.size, blob.size)) return file;
+
+  const name = blob.type === 'image/jpeg' ? renameForJpeg(file.name) : file.name;
+  log.info('Compressed image', {
+    fileName: file.name,
+    from: file.size,
+    to: blob.size,
+    width,
+    height,
+    type: blob.type,
+  });
+  return new File([blob], name, { type: blob.type });
+}
+
 /**
  * Downscale to IMAGE_COMPRESSION_MAX_EDGE_PX and re-encode (JPEG for opaque
  * images, PNG when transparency must survive). Returns the original file
@@ -86,34 +118,7 @@ export async function compressImageFile(file: File): Promise<File> {
   }
 
   try {
-    const target = computeTargetSize(bitmap.width, bitmap.height, IMAGE_COMPRESSION_MAX_EDGE_PX);
-    const width = target?.width ?? bitmap.width;
-    const height = target?.height ?? bitmap.height;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, width, height);
-
-    const keepAlpha = file.type === 'image/png' && hasTransparency(ctx, width, height);
-    const blob = keepAlpha
-      ? await canvasToBlob(canvas, 'image/png')
-      : await canvasToBlob(canvas, 'image/jpeg', IMAGE_COMPRESSION_JPEG_QUALITY);
-
-    if (!blob || !shouldUseCompressed(file.size, blob.size)) return file;
-
-    const name = blob.type === 'image/jpeg' ? renameForJpeg(file.name) : file.name;
-    log.info('Compressed image', {
-      fileName: file.name,
-      from: file.size,
-      to: blob.size,
-      width,
-      height,
-      type: blob.type,
-    });
-    return new File([blob], name, { type: blob.type });
+    return await encodeCompressed(file, bitmap);
   } catch (error) {
     log.warn('Image compression failed, sending original', { error, fileName: file.name });
     return file;

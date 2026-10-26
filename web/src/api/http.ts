@@ -136,6 +136,42 @@ interface RequestOptions extends RequestInit {
   maxRetries?: number;
 }
 
+/** The response body as JSON, or null when it is not valid JSON. */
+async function readJsonBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Classify a failed request attempt: timeout, network error, API error or unknown. */
+function toApiError(error: unknown): ApiError {
+  // AbortError: the timeout signal fired
+  if (error instanceof Error && error.name === 'AbortError') {
+    return new ApiError(
+      'Request timed out. Please try again.',
+      0,
+      { code: 'TIMEOUT', retryable: true, isTimeout: true }
+    );
+  }
+  // Network errors (no response). fetch rejects with a TypeError whose
+  // message is engine-specific ("Failed to fetch" in Chromium, "Load
+  // failed" in WebKit) - never match on the message text.
+  if (error instanceof TypeError) {
+    return new ApiError(
+      'Network error. Please check your connection.',
+      0,
+      { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
+    );
+  }
+  // ApiError from response parsing
+  if (error instanceof ApiError) {
+    return error;
+  }
+  return new ApiError(error instanceof Error ? error.message : 'Request failed', 0);
+}
+
 /**
  * Make a request with timeout and optional retry support.
  */
@@ -182,13 +218,7 @@ async function request<T>(
         signal,
       });
 
-      let data: unknown;
-      try {
-        data = await response.json();
-      } catch {
-        // Response body was not valid JSON
-        data = null;
-      }
+      const data = await readJsonBody(response);
 
       if (!response.ok) {
         throw parseErrorResponse(data, response.status);
@@ -199,35 +229,7 @@ async function request<T>(
 
       return data as T;
     } catch (error) {
-      // Handle AbortError (timeout)
-      if (error instanceof Error && error.name === 'AbortError') {
-        lastError = new ApiError(
-          'Request timed out. Please try again.',
-          0,
-          { code: 'TIMEOUT', retryable: true, isTimeout: true }
-        );
-      }
-      // Handle network errors (no response). fetch rejects with a TypeError
-      // whose message is engine-specific ("Failed to fetch" in Chromium,
-      // "Load failed" in WebKit) - never match on the message text.
-      else if (error instanceof TypeError) {
-        lastError = new ApiError(
-          'Network error. Please check your connection.',
-          0,
-          { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
-        );
-      }
-      // Handle ApiError from response parsing
-      else if (error instanceof ApiError) {
-        lastError = error;
-      }
-      // Handle unknown errors
-      else {
-        lastError = new ApiError(
-          error instanceof Error ? error.message : 'Request failed',
-          0
-        );
-      }
+      lastError = toApiError(error);
 
       // Only retry if the error is retryable and we have attempts left
       if (isRetryable && lastError.retryable && attempt < maxRetries) {

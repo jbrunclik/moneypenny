@@ -837,3 +837,78 @@ describe('network error classification', () => {
     });
   });
 });
+
+describe('error classification (characterization)', () => {
+  const abortError = (): Error => Object.assign(new Error('aborted'), { name: 'AbortError' });
+
+  it('stream() rethrows a user abort through the provided controller as is', async () => {
+    global.fetch = vi.fn(() => Promise.reject(abortError())) as unknown as typeof fetch;
+    const generator = chat.stream('conv-1', 'hello', undefined, undefined, new AbortController());
+    await expect(generator.next()).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('stream() passes an unclassified fetch rejection through', async () => {
+    const boom = new RangeError('boom');
+    global.fetch = vi.fn(() => Promise.reject(boom)) as unknown as typeof fetch;
+    await expect(chat.stream('conv-1', 'hello').next()).rejects.toBe(boom);
+  });
+
+  it('stream() surfaces the message of a structured error body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: { message: 'Slow down' } }),
+    });
+    await expect(chat.stream('conv-1', 'hello').next()).rejects.toMatchObject({
+      message: 'Slow down',
+      status: 429,
+    });
+  });
+
+  it('stream() falls back to a generic message for an empty error body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    await expect(chat.stream('conv-1', 'hello').next()).rejects.toMatchObject({
+      message: 'Stream request failed',
+    });
+  });
+
+  it('request() turns an abort into a TIMEOUT error', async () => {
+    global.fetch = vi.fn(() => Promise.reject(abortError())) as unknown as typeof fetch;
+    await expect(chat.sendBatch('conv-1', 'hello')).rejects.toMatchObject({
+      code: 'TIMEOUT',
+      isTimeout: true,
+      retryable: true,
+    });
+  });
+
+  it('request() wraps an unknown error with its message', async () => {
+    global.fetch = vi.fn(() => Promise.reject(new RangeError('boom'))) as unknown as typeof fetch;
+    await expect(chat.sendBatch('conv-1', 'hello')).rejects.toMatchObject({ message: 'boom', status: 0 });
+  });
+
+  it('request() parses a structured error and tolerates a non-JSON body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: { code: 'TIMEOUT', message: 'Upstream slow', retryable: true } }),
+    });
+    await expect(chat.sendBatch('conv-1', 'hello')).rejects.toMatchObject({
+      message: 'Upstream slow',
+      status: 503,
+      code: 'TIMEOUT',
+      isTimeout: true,
+    });
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError('not json');
+      },
+    });
+    await expect(chat.sendBatch('conv-1', 'hello')).rejects.toMatchObject({
+      message: 'Request failed',
+      status: 502,
+    });
+  });
+});

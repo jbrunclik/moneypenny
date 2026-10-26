@@ -63,6 +63,22 @@ describe('parseHash', () => {
   it('returns unknown for planner with extra path', () => {
     expect(parseHash('#/planner/extra')).toEqual({ type: 'unknown' });
   });
+
+  it('parses the exact-match view routes', () => {
+    expect(parseHash('#/agents')).toEqual({ type: 'agents' });
+    expect(parseHash('#/archive')).toEqual({ type: 'archive' });
+    expect(parseHash('#/trash')).toEqual({ type: 'trash' });
+    expect(parseHash('#/storage')).toEqual({ type: 'storage' });
+    expect(parseHash('#/storage/extra')).toEqual({ type: 'unknown' });
+  });
+
+  it('parses program routes with or without a program segment', () => {
+    expect(parseHash('#/sports')).toEqual({ type: 'sports' });
+    expect(parseHash('#/sports/running')).toEqual({ type: 'sports' });
+    expect(parseHash('#/language')).toEqual({ type: 'language' });
+    expect(parseHash('#/language/czech/extra')).toEqual({ type: 'language' });
+    expect(parseHash('#/sportsx')).toEqual({ type: 'unknown' });
+  });
 });
 
 describe('getConversationIdFromHash', () => {

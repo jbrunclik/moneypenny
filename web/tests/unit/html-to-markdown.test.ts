@@ -36,6 +36,10 @@ describe('htmlToMarkdown', () => {
     expect(htmlToMarkdown(html)).toBe('Spusť `make test`:\n\n```\nmake lint\nmake test\n```');
   });
 
+  it('turns a horizontal rule into a thematic break', () => {
+    expect(htmlToMarkdown('<p><b>Nad</b></p><hr><p>Pod</p>')).toBe('**Nad**\n\n---\n\nPod');
+  });
+
   it('a bare link stays a bare URL', () => {
     expect(htmlToMarkdown('<p><a href="https://a.cz">https://a.cz</a> <strong>x</strong></p>')).toBe('https://a.cz **x**');
   });

@@ -1,19 +1,4 @@
 {
-  "src/api/chat.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/api/http.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/api/sse.ts": {
-    "max-depth": {
-      "count": 2
-    }
-  },
   "src/components/ActionSheet.ts": {
     "no-unsanitized/property": {
       "count": 1
@@ -429,27 +414,12 @@
       "count": 1
     }
   },
-  "src/router/deeplink.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/sync/SyncManager.ts": {
     "no-restricted-imports": {
       "count": 1
     }
   },
   "src/utils/dom.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/utils/html-to-markdown.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/utils/image-compression.ts": {
     "complexity": {
       "count": 1
     }

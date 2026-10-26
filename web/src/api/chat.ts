@@ -16,6 +16,66 @@ import { readSseEvents } from './sse';
 
 const log = createLogger('api');
 
+/** JSON body of the streaming chat POST. */
+function streamRequestBody(
+  message: string,
+  files: FileUpload[] | undefined,
+  forceTools: string[] | undefined,
+  anonymousMode: boolean | undefined,
+  clientLocation: ClientLocation | null | undefined,
+  clientMessageId: string | undefined,
+  rerunMode: 'regenerate' | 'continue' | undefined,
+  extras: SendExtras
+): Record<string, unknown> {
+  return {
+    message,
+    files,
+    force_tools: forceTools?.length ? forceTools : undefined,
+    anonymous_mode: anonymousMode ?? false,
+    client_location: clientLocation ?? undefined,
+    client_message_id: clientMessageId,
+    rerun_mode: rerunMode,
+    deep_research: extras.deepResearch,
+    action: extras.action,
+  };
+}
+
+/**
+ * The error to throw when the streaming POST fails before a response:
+ * a user abort as is, the connect timer as a timeout, a connection
+ * failure as a network error.
+ */
+function classifyStreamConnectError(error: unknown, userAborted: boolean): unknown {
+  if (error instanceof Error && error.name === 'AbortError') {
+    if (userAborted) {
+      return error;
+    }
+    // Otherwise the connect timer fired
+    return new ApiError(
+      'Request timed out before streaming started.',
+      0,
+      { code: 'TIMEOUT', retryable: true, isTimeout: true }
+    );
+  }
+  // Classify connection failures like request() does so callers can
+  // distinguish network errors from application errors. fetch rejects
+  // with a TypeError whose message is engine-specific ("Failed to fetch"
+  // in Chromium, "Load failed" in WebKit) - never match on the message.
+  if (error instanceof TypeError) {
+    return new ApiError(
+      'Network error. Please check your connection.',
+      0,
+      { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
+    );
+  }
+  return error;
+}
+
+/** The message of an error response body (string or structured error). */
+function errorResponseMessage(data: ErrorResponse, fallback: string): string {
+  return typeof data.error === 'string' ? data.error : data.error?.message || fallback;
+}
+
 // Chat endpoints
 export const chat = {
   async sendBatch(
@@ -98,53 +158,22 @@ export const chat = {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            message,
-            files,
-            force_tools: forceTools?.length ? forceTools : undefined,
-            anonymous_mode: anonymousMode ?? false,
-            client_location: clientLocation ?? undefined,
-            client_message_id: clientMessageId,
-            rerun_mode: rerunMode,
-            deep_research: extras.deepResearch,
-            action: extras.action,
-          }),
+          body: JSON.stringify(
+            streamRequestBody(message, files, forceTools, anonymousMode, clientLocation, clientMessageId, rerunMode, extras)
+          ),
           signal: controller.signal,
         }
       );
       clearTimeout(fetchTimeoutId);
     } catch (error) {
       clearTimeout(fetchTimeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        // User-initiated abort (via the provided controller) - re-throw as AbortError
-        if (abortController && !connectTimedOut) {
-          throw error;
-        }
-        // Otherwise the connect timer fired
-        throw new ApiError(
-          'Request timed out before streaming started.',
-          0,
-          { code: 'TIMEOUT', retryable: true, isTimeout: true }
-        );
-      }
-      // Classify connection failures like request() does so callers can
-      // distinguish network errors from application errors. fetch rejects
-      // with a TypeError whose message is engine-specific ("Failed to fetch"
-      // in Chromium, "Load failed" in WebKit) - never match on the message.
-      if (error instanceof TypeError) {
-        throw new ApiError(
-          'Network error. Please check your connection.',
-          0,
-          { code: 'NETWORK_ERROR', retryable: true, isNetworkError: true }
-        );
-      }
-      throw error;
+      // A user-initiated abort (via the provided controller) re-throws as is
+      throw classifyStreamConnectError(error, abortController !== undefined && !connectTimedOut);
     }
 
     if (!response.ok) {
       const data = (await response.json()) as ErrorResponse;
-      const errorMsg = typeof data.error === 'string' ? data.error : data.error?.message || 'Stream request failed';
-      throw new ApiError(errorMsg, response.status);
+      throw new ApiError(errorResponseMessage(data, 'Stream request failed'), response.status);
     }
 
     yield* readSseEvents(response, conversationId);

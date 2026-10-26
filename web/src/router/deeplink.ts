@@ -34,6 +34,32 @@ type HashChangeCallback = (conversationId: string | null, isPlanner?: boolean, i
 let hashChangeCallback: HashChangeCallback | null = null;
 let isIgnoringHashChange = false;
 
+/** Routes matched by exact hash (no parameters) */
+const EXACT_ROUTES: ReadonlyMap<string, RouteType> = new Map<string, RouteType>([
+  ['/planner', 'planner'],
+  ['/agents', 'agents'],
+  ['/archive', 'archive'], // archived conversations view
+  ['/trash', 'trash'], // deleted conversations view
+  ['/storage', 'storage'],
+]);
+
+/** Program routes: /{prefix} (program list) and /{prefix}/{program} (program chat) */
+const PROGRAM_ROUTES: readonly RouteType[] = ['sports', 'language'];
+
+/** Match a parameterless view route (planner, agents, programs, ...), or null. */
+function matchViewRoute(cleanHash: string): RouteType | null {
+  const exact = EXACT_ROUTES.get(cleanHash);
+  if (exact) {
+    return exact;
+  }
+  for (const route of PROGRAM_ROUTES) {
+    if (cleanHash === `/${route}` || cleanHash.startsWith(`/${route}/`)) {
+      return route;
+    }
+  }
+  return null;
+}
+
 /**
  * Parse the current URL hash into a route.
  */
@@ -46,39 +72,9 @@ export function parseHash(hash: string = window.location.hash): ParsedRoute {
     return { type: 'home' };
   }
 
-  // Match /planner route
-  if (cleanHash === '/planner') {
-    return { type: 'planner' };
-  }
-
-  // Match /agents route
-  if (cleanHash === '/agents') {
-    return { type: 'agents' };
-  }
-
-  // Match /archive route (archived conversations view)
-  if (cleanHash === '/archive') {
-    return { type: 'archive' };
-  }
-
-  // Match /trash route (deleted conversations view)
-  if (cleanHash === '/trash') {
-    return { type: 'trash' };
-  }
-
-  // Match /storage route
-  if (cleanHash === '/storage') {
-    return { type: 'storage' };
-  }
-
-  // Match /sports route (program list) and /sports/{program} (program chat)
-  if (cleanHash === '/sports' || cleanHash.startsWith('/sports/')) {
-    return { type: 'sports' };
-  }
-
-  // Match /language route (program list) and /language/{program} (program chat)
-  if (cleanHash === '/language' || cleanHash.startsWith('/language/')) {
-    return { type: 'language' };
+  const viewRoute = matchViewRoute(cleanHash);
+  if (viewRoute) {
+    return { type: viewRoute };
   }
 
   // Match /conversations/{id}
