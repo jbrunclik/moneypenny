@@ -20,9 +20,9 @@ from src.services.planner.models import (
     PlannerEvent,
     PlannerTask,
 )
+from src.services.planner.todoist import format_task
 from src.services.planner_data import (
     _format_event_for_dashboard,
-    _format_task_for_dashboard,
 )
 
 
@@ -190,7 +190,7 @@ class TestParseDatetime:
 
 
 class TestFormatTaskForDashboard:
-    """Tests for _format_task_for_dashboard helper function."""
+    """Tests for the format_task helper."""
 
     def test_basic_task(self) -> None:
         """Test formatting a basic task."""
@@ -201,7 +201,7 @@ class TestFormatTaskForDashboard:
             "priority": 2,
             "labels": ["shopping"],
         }
-        result = _format_task_for_dashboard(task_data)
+        result = format_task(task_data)
         assert result.id == "task-123"
         assert result.content == "Buy groceries"
         assert result.description == "Get milk and eggs"
@@ -219,7 +219,7 @@ class TestFormatTaskForDashboard:
                 "is_recurring": False,
             },
         }
-        result = _format_task_for_dashboard(task_data)
+        result = format_task(task_data)
         assert result.due_date == "2024-12-25"
         assert result.due_string == "Dec 25"
         assert result.is_recurring is False
@@ -234,7 +234,7 @@ class TestFormatTaskForDashboard:
         }
         project_map = {"proj-1": "Work"}
         section_map = {"sect-1": "Code Review"}
-        result = _format_task_for_dashboard(task_data, section_map, project_map)
+        result = format_task(task_data, section_map, project_map)
         assert result.project_name == "Work"
         assert result.section_name == "Code Review"
 

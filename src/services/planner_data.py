@@ -21,10 +21,10 @@ from src.services.planner.models import (
     PlannerDay,
     PlannerEvent,
     PlannerHealthSummary,
-    PlannerTask,
     PlannerWeather,
     dashboard_from_dict,
 )
+from src.services.planner.todoist import fetch_todoist_dashboard_data
 from src.utils.logging import get_logger
 from src.utils.weather import get_weather_for_location
 
@@ -43,45 +43,6 @@ def _close_thread_pool_connections(db: Any = None) -> None:
             db._pool.close_thread_connection()
         except Exception:
             logger.debug("Thread-local db connection close failed", exc_info=True)
-
-
-def _format_task_for_dashboard(
-    task: dict[str, Any],
-    section_map: dict[str, str] | None = None,
-    project_map: dict[str, str] | None = None,
-) -> PlannerTask:
-    """Convert a raw Todoist task to a PlannerTask."""
-    due_date = None
-    due_string = None
-    is_recurring = False
-
-    if task.get("due"):
-        due = task["due"]
-        due_date = due.get("date")
-        due_string = due.get("string")
-        is_recurring = due.get("is_recurring", False)
-
-    project_name = None
-    if task.get("project_id") and project_map:
-        project_name = project_map.get(task["project_id"])
-
-    section_name = None
-    if task.get("section_id") and section_map:
-        section_name = section_map.get(task["section_id"])
-
-    return PlannerTask(
-        id=task["id"],
-        content=task["content"],
-        description=task.get("description", ""),
-        due_date=due_date,
-        due_string=due_string,
-        priority=task.get("priority", 1),
-        project_name=project_name,
-        section_name=section_name,
-        labels=task.get("labels", []),
-        is_recurring=is_recurring,
-        url=task.get("url"),
-    )
 
 
 def _format_event_for_dashboard(event: dict[str, Any]) -> PlannerEvent:
@@ -122,151 +83,6 @@ def _format_event_for_dashboard(event: dict[str, Any]) -> PlannerEvent:
         ],
         organizer=organizer,
     )
-
-
-def fetch_todoist_dashboard_data(  # noqa: C901, PLR0912, PLR0915
-    access_token: str,
-) -> tuple[list[PlannerTask], list[PlannerTask], str | None]:
-    """Fetch Todoist tasks for the next 7 days and overdue tasks.
-
-    Args:
-        access_token: The user's Todoist access token
-
-    Returns:
-        Tuple of (tasks_by_due_date, overdue_tasks, error_message)
-        tasks_by_due_date: Tasks due in the next 7 days
-        overdue_tasks: Tasks that are overdue
-        error_message: Error message if any, None otherwise
-    """
-    logger.debug("Fetching Todoist dashboard data")
-
-    tasks_7_days: list[PlannerTask] = []
-    overdue_tasks: list[PlannerTask] = []
-
-    try:
-        headers = {"Authorization": f"Bearer {access_token}"}
-
-        # Fetch tasks with filter: "7 days | overdue"
-        # This gets both next 7 days and overdue in one request
-        response = httpx.get(
-            f"{Config.TODOIST_API_BASE_URL}/tasks",
-            headers=headers,
-            params={"filter": "7 days | overdue"},
-            timeout=Config.TODOIST_API_TIMEOUT,
-            follow_redirects=True,
-        )
-
-        if response.status_code in (401, 403, 410):
-            return [], [], "Todoist access has expired. Please reconnect in Settings."
-
-        if response.status_code >= 400:
-            logger.warning(
-                "Todoist API error",
-                extra={"status_code": response.status_code, "error": response.text},
-            )
-            return [], [], f"Todoist API error ({response.status_code})"
-
-        tasks_data = response.json()
-        # API v1 wraps list responses in {"results": [...]}
-        if isinstance(tasks_data, dict) and "results" in tasks_data:
-            tasks = tasks_data["results"]
-        elif isinstance(tasks_data, list):
-            tasks = tasks_data
-        else:
-            tasks = []
-
-        # Build section and project maps for enrichment
-        section_ids = {t.get("section_id") for t in tasks if t.get("section_id")}
-        project_ids = {t.get("project_id") for t in tasks if t.get("project_id")}
-
-        section_map: dict[str, str] = {}
-        project_map: dict[str, str] = {}
-
-        # Fetch sections for enrichment
-        if section_ids:
-            try:
-                sections_response = httpx.get(
-                    f"{Config.TODOIST_API_BASE_URL}/sections",
-                    headers=headers,
-                    timeout=Config.TODOIST_API_TIMEOUT,
-                    follow_redirects=True,
-                )
-                if sections_response.status_code == 200:
-                    sections_data = sections_response.json()
-                    # API v1 wraps in {"results": [...]}
-                    sections = (
-                        sections_data.get("results", [])
-                        if isinstance(sections_data, dict)
-                        else sections_data
-                    )
-                    if isinstance(sections, list):
-                        section_map = {s["id"]: s["name"] for s in sections if s.get("id")}
-            except Exception as e:  # section names are optional enrichment
-                logger.warning(
-                    "Failed to fetch sections for dashboard",
-                    extra={"error": str(e)},
-                    exc_info=True,
-                )
-
-        # Fetch projects for enrichment
-        if project_ids:
-            try:
-                projects_response = httpx.get(
-                    f"{Config.TODOIST_API_BASE_URL}/projects",
-                    headers=headers,
-                    timeout=Config.TODOIST_API_TIMEOUT,
-                    follow_redirects=True,
-                )
-                if projects_response.status_code == 200:
-                    projects_data = projects_response.json()
-                    # API v1 wraps in {"results": [...]}
-                    projects = (
-                        projects_data.get("results", [])
-                        if isinstance(projects_data, dict)
-                        else projects_data
-                    )
-                    if isinstance(projects, list):
-                        project_map = {p["id"]: p["name"] for p in projects if p.get("id")}
-            except Exception as e:  # project names are optional enrichment
-                logger.warning(
-                    "Failed to fetch projects for dashboard",
-                    extra={"error": str(e)},
-                    exc_info=True,
-                )
-
-        # Convert and categorize tasks
-        today = datetime.now().date()
-
-        for task in tasks:
-            planner_task = _format_task_for_dashboard(task, section_map, project_map)
-
-            # Determine if task is overdue or upcoming
-            if planner_task.due_date:
-                task_date = parse_date(planner_task.due_date)
-                if task_date and task_date.date() < today:
-                    overdue_tasks.append(planner_task)
-                else:
-                    tasks_7_days.append(planner_task)
-            else:
-                # Tasks without due dates from "7 days" filter go to upcoming
-                tasks_7_days.append(planner_task)
-
-        logger.debug(
-            "Todoist dashboard data fetched",
-            extra={
-                "tasks_7_days": len(tasks_7_days),
-                "overdue": len(overdue_tasks),
-            },
-        )
-
-        return tasks_7_days, overdue_tasks, None
-
-    except (httpx.HTTPError, json.JSONDecodeError) as e:
-        logger.error("Todoist API request failed", extra={"error": str(e)})  # noqa: TRY400 - network or JSON error; shown on the dashboard
-        return [], [], f"Failed to connect to Todoist: {e}"
-    except Exception as e:
-        logger.exception("Error fetching Todoist data", extra={"error": str(e)})
-        return [], [], f"Error fetching Todoist data: {e}"
 
 
 def fetch_calendar_dashboard_data(  # noqa: C901, PLR0912, PLR0915
