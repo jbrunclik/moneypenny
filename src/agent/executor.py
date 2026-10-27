@@ -9,7 +9,6 @@ from __future__ import annotations
 import contextvars
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent
@@ -36,6 +35,7 @@ from src.db.models import db
 from src.enums import MessageRole
 from src.services.costs import calculate_and_save_message_cost
 from src.services.push import send_push_to_user
+from src.utils.clock import utc_now
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
@@ -172,7 +172,7 @@ def _build_trigger_message(trigger_type: str, extra_message: str | None = None) 
     extra_message carries instructions from a triggering agent (trigger_agent's
     `message` arg). "Continue" is the legacy default and means "no message".
     """
-    now = datetime.now(UTC)
+    now = utc_now()
     templates = {
         "scheduled": f"[Scheduled run at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
         "manual": f"[Manual trigger at {now.strftime('%Y-%m-%d %H:%M UTC')}]",

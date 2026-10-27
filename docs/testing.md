@@ -43,6 +43,10 @@ make test-integration
 
 # Run with coverage report
 make test-cov
+
+# The suite under TZ=Pacific/Chatham and TZ=UTC: nothing may read the
+# process timezone (rule B12); tests/conftest.py pins the household zone
+make test-tz
 ```
 
 ### Frontend Tests

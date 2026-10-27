@@ -12,12 +12,13 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -87,7 +88,7 @@ class ProgramConversationMixin:
 
             conv_id = str(uuid.uuid4())
             model = model or Config.DEFAULT_MODEL
-            now = datetime.now()
+            now = utc_now()
             title = f"{f.title_prefix}: {program}"
 
             self._execute_with_timing(
@@ -96,7 +97,15 @@ class ProgramConversationMixin:
                    (id, user_id, title, model, {f.flag_column}, {f.program_column},
                     created_at, updated_at)
                    VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
-                (conv_id, user_id, title, model, program, now.isoformat(), now.isoformat()),
+                (
+                    conv_id,
+                    user_id,
+                    title,
+                    model,
+                    program,
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
+                ),
             )
             conn.commit()
 
@@ -160,11 +169,11 @@ class ProgramConversationMixin:
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
 
-            now = datetime.now()
+            now = utc_now()
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (now.isoformat(), conv_id),
+                (to_db(now, "local", conn), conv_id),
             )
 
             conn.commit()

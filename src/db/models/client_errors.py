@@ -13,9 +13,16 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from src.config import Config
+from src.db.models.timestamps import from_db, to_db
+from src.utils.clock import to_api, utc_now
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
+
+
+def _api_time(stored: str) -> str:
+    """A stored last_seen as the API sends instants."""
+    return to_api(from_db(stored, "local"))
 
 
 class LayoutCheckRow(TypedDict):
@@ -63,8 +70,9 @@ class ClientErrorsMixin:
 
         `detail` is a layout check's measurements as JSON (kind "layout").
         """
-        seen = (now or datetime.now()).isoformat()
+        now = now or utc_now()
         with self._pool.get_connection() as conn:
+            seen = to_db(now, "local", conn)
             self._execute_with_timing(
                 conn,
                 """INSERT INTO client_errors
@@ -95,11 +103,11 @@ class ClientErrorsMixin:
                     seen,
                 ),
             )
-            self._prune_client_errors(conn, user_id, now or datetime.now())
+            self._prune_client_errors(conn, user_id, now)
             conn.commit()
 
     def _prune_client_errors(self, conn: sqlite3.Connection, user_id: str, now: datetime) -> None:
-        cutoff = (now - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS)).isoformat()
+        cutoff = to_db(now - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS), "local", conn)
         self._execute_with_timing(conn, "DELETE FROM client_errors WHERE last_seen < ?", (cutoff,))
         self._execute_with_timing(
             conn,
@@ -125,9 +133,9 @@ class ClientErrorsMixin:
                    GROUP BY fingerprint
                    ORDER BY count DESC, last_seen DESC
                    LIMIT ?""",
-                (since.isoformat(), limit),
+                (to_db(since, "local", conn), limit),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [{**dict(row), "last_seen": _api_time(row["last_seen"])} for row in rows]
 
     def top_layout_checks(self, since: datetime, limit: int) -> list[LayoutCheckRow]:
         """Failed layout checks seen since `since`, one row per build and check.
@@ -152,7 +160,7 @@ class ClientErrorsMixin:
                    GROUP BY app_version, build_marker, invariant, shape
                    ORDER BY last_seen DESC
                    LIMIT ?""",
-                (since.isoformat(), limit),
+                (to_db(since, "local", conn), limit),
             ).fetchall()
         return [
             LayoutCheckRow(
@@ -163,7 +171,7 @@ class ClientErrorsMixin:
                 count=row["count"],
                 users=row["users"],
                 standalone_count=row["standalone_count"],
-                last_seen=row["last_seen"],
+                last_seen=_api_time(row["last_seen"]),
                 detail=row["detail"],
             )
             for row in rows

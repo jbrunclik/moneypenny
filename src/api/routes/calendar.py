@@ -49,6 +49,7 @@ from src.auth.jwt_auth import require_auth
 from src.auth.oauth_state import consume_state, issue_state
 from src.config import Config
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -181,7 +182,7 @@ def get_google_calendar_status(user: User) -> dict[str, Any]:
     connected = bool(current_user.google_calendar_access_token)
     calendar_email = current_user.google_calendar_email
     connected_at = (
-        current_user.google_calendar_connected_at.isoformat()
+        to_api(current_user.google_calendar_connected_at)
         if current_user.google_calendar_connected_at
         else None
     )

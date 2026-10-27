@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any
 from src.db.models.dataclasses import Message, MessagePagination
 from src.db.models.helpers import build_cursor, parse_cursor
 from src.db.models.message_rows import row_to_message
+from src.db.models.timestamps import normalize_cursor
 from src.enums import PaginationDirection
+from src.utils.clock import to_api
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
@@ -21,11 +23,11 @@ def _build_pagination(
     if messages:
         # The oldest message in results becomes the "older_cursor"
         first_msg = messages[0]
-        older_cursor = build_cursor(first_msg.created_at.isoformat(), first_msg.id)
+        older_cursor = build_cursor(to_api(first_msg.created_at), first_msg.id)
 
         # The newest message in results becomes the "newer_cursor"
         last_msg = messages[-1]
-        newer_cursor = build_cursor(last_msg.created_at.isoformat(), last_msg.id)
+        newer_cursor = build_cursor(to_api(last_msg.created_at), last_msg.id)
     else:
         older_cursor = None
         newer_cursor = None
@@ -84,6 +86,7 @@ class MessagePaginationMixin:
             ).fetchall()
 
         cursor_timestamp, cursor_id = parse_cursor(cursor)
+        cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
         if direction == PaginationDirection.OLDER:
             # Fetch messages OLDER than cursor (created_at < cursor_timestamp)
             # Order by created_at DESC to get the ones just before cursor

@@ -8,12 +8,13 @@ Tests for:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from src.agent.prompts import get_dashboard_context_prompt, get_system_prompt
 from src.db.models import User, should_reset_planner
-from src.services.planner.dates import day_name, parse_date, parse_datetime
+from src.services.planner.dates import day_name, local_date_of, parse_date
 from src.services.planner.google_calendar import format_event
 from src.services.planner.models import (
     PlannerDashboard,
@@ -24,100 +25,72 @@ from src.services.planner.models import (
 from src.services.planner.todoist import format_task
 
 
+def _planner_user(last_reset: datetime | None) -> User:
+    return User(
+        id="test-user",
+        email="test@example.com",
+        name="Test User",
+        picture=None,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        planner_last_reset_at=last_reset,
+    )
+
+
+def _prague(year: int, month: int, day: int, hour: int, minute: int) -> datetime:
+    return datetime(year, month, day, hour, minute, tzinfo=ZoneInfo("Europe/Prague"))
+
+
 class TestShouldResetPlanner:
-    """Tests for the should_reset_planner function."""
+    """Tests for the should_reset_planner function (4am in APP_TIMEZONE)."""
 
     def test_first_use_no_reset(self) -> None:
         """No reset should happen on first use (planner_last_reset_at is None)."""
-        user = User(
-            id="test-user",
-            email="test@example.com",
-            name="Test User",
-            picture=None,
-            created_at=datetime.now(),
-            planner_last_reset_at=None,
-        )
-        assert should_reset_planner(user) is False
+        assert should_reset_planner(_planner_user(None)) is False
 
     def test_same_day_after_4am_no_reset(self) -> None:
         """No reset if last reset was today after 4am and it's still today."""
-        # Simulate: last reset was today at 10:00 AM, now is today at 3:00 PM
-        now = datetime.now().replace(hour=15, minute=0, second=0, microsecond=0)
-        last_reset = now.replace(hour=10, minute=0)
-
-        user = User(
-            id="test-user",
-            email="test@example.com",
-            name="Test User",
-            picture=None,
-            created_at=datetime.now(),
-            planner_last_reset_at=last_reset,
-        )
-        # This test depends on current time, so we can't test it directly
-        # But we can test the logic by checking recent reset times
-        # If reset happened today after 4am, and current hour >= 4, no reset
-        if now.hour >= 4:
-            assert should_reset_planner(user) is False
+        user = _planner_user(_prague(2026, 10, 20, 10, 0))
+        assert should_reset_planner(user, now=_prague(2026, 10, 20, 15, 0)) is False
 
     def test_yesterday_after_4am_needs_reset(self) -> None:
         """Reset should trigger if last reset was yesterday and it's now after 4am today."""
-        now = datetime.now()
-        # Ensure we're testing after 4am
-        if now.hour < 4:
-            # If before 4am, adjust the test to work correctly
-            # Last reset was 2 days ago (before yesterday's 4am)
-            last_reset = now - timedelta(days=2)
-        else:
-            # Normal case: last reset was yesterday morning
-            last_reset = (now - timedelta(days=1)).replace(hour=10, minute=0)
-
-        user = User(
-            id="test-user",
-            email="test@example.com",
-            name="Test User",
-            picture=None,
-            created_at=datetime.now(),
-            planner_last_reset_at=last_reset,
-        )
-        assert should_reset_planner(user) is True
+        user = _planner_user(_prague(2026, 10, 19, 10, 0))
+        assert should_reset_planner(user, now=_prague(2026, 10, 20, 4, 30)) is True
 
     def test_old_reset_needs_update(self) -> None:
         """Reset should trigger if last reset was several days ago."""
-        now = datetime.now()
-        # Last reset was 5 days ago
-        last_reset = now - timedelta(days=5)
-
-        user = User(
-            id="test-user",
-            email="test@example.com",
-            name="Test User",
-            picture=None,
-            created_at=datetime.now(),
-            planner_last_reset_at=last_reset,
-        )
-        assert should_reset_planner(user) is True
+        user = _planner_user(_prague(2026, 10, 15, 10, 0))
+        assert should_reset_planner(user, now=_prague(2026, 10, 20, 15, 0)) is True
 
     def test_before_4am_uses_previous_day_cutoff(self) -> None:
         """Before 4am, the 4am cutoff should be from the previous day."""
-        two_am = datetime(2026, 10, 25, 2, 0)
-        reset_yesterday_5am = User(
-            id="u",
-            email="u@x",
-            name="U",
-            picture=None,
-            created_at=two_am,
-            planner_last_reset_at=datetime(2026, 10, 24, 5, 0),
+        two_am = _prague(2026, 10, 25, 2, 0)
+        assert should_reset_planner(_planner_user(_prague(2026, 10, 24, 5, 0)), now=two_am) is False
+        assert should_reset_planner(_planner_user(_prague(2026, 10, 23, 5, 0)), now=two_am) is True
+
+    def test_cutoff_is_local_4am_whatever_the_utc_offset(self) -> None:
+        """The day after the clocks went back (UTC+1) the cutoff is 03:00 UTC, in
+        summer (UTC+2) 02:00 UTC - never a fixed UTC hour."""
+        winter_now = datetime(2026, 10, 26, 3, 30, tzinfo=UTC)  # 04:30 in Prague
+        assert (
+            should_reset_planner(
+                _planner_user(datetime(2026, 10, 26, 2, 30, tzinfo=UTC)), now=winter_now
+            )
+            is True
         )
-        reset_two_days_ago = User(
-            id="u",
-            email="u@x",
-            name="U",
-            picture=None,
-            created_at=two_am,
-            planner_last_reset_at=datetime(2026, 10, 23, 5, 0),
+        summer_now = datetime(2026, 7, 1, 2, 30, tzinfo=UTC)  # 04:30 in Prague
+        assert (
+            should_reset_planner(
+                _planner_user(datetime(2026, 7, 1, 1, 30, tzinfo=UTC)), now=summer_now
+            )
+            is True
         )
-        assert should_reset_planner(reset_yesterday_5am, now=two_am) is False
-        assert should_reset_planner(reset_two_days_ago, now=two_am) is True
+        assert (
+            should_reset_planner(
+                _planner_user(datetime(2026, 7, 1, 2, 15, tzinfo=UTC)), now=summer_now
+            )
+            is False
+        )
 
 
 class TestGetDayName:
@@ -125,21 +98,17 @@ class TestGetDayName:
 
     def test_today(self) -> None:
         """Test that today returns 'Today'."""
-        now = datetime.now()
-        assert day_name(now, now) == "Today"
+        today = date(2026, 10, 27)
+        assert day_name(today, today) == "Today"
 
     def test_tomorrow(self) -> None:
         """Test that tomorrow returns 'Tomorrow'."""
-        now = datetime.now()
-        tomorrow = now + timedelta(days=1)
-        assert day_name(tomorrow, now) == "Tomorrow"
+        today = date(2026, 10, 27)
+        assert day_name(today + timedelta(days=1), today) == "Tomorrow"
 
     def test_weekday(self) -> None:
         """Test that other days return weekday name."""
-        now = datetime.now()
-        future = now + timedelta(days=3)
-        result = day_name(future, now)
-        assert result == future.strftime("%A")
+        assert day_name(date(2026, 10, 30), date(2026, 10, 27)) == "Friday"
 
 
 class TestParseDate:
@@ -147,11 +116,7 @@ class TestParseDate:
 
     def test_valid_date(self) -> None:
         """Test parsing a valid date string."""
-        result = parse_date("2024-12-25")
-        assert result is not None
-        assert result.year == 2024
-        assert result.month == 12
-        assert result.day == 25
+        assert parse_date("2024-12-25") == date(2024, 12, 25)
 
     def test_none_returns_none(self) -> None:
         """Test that None input returns None."""
@@ -163,28 +128,21 @@ class TestParseDate:
         assert parse_date("invalid") is None
 
 
-class TestParseDatetime:
-    """Tests for the parse_datetime helper."""
+class TestLocalDateOf:
+    """Tests for the local_date_of helper (the APP_TIMEZONE date of a datetime)."""
 
-    def test_iso_format(self) -> None:
-        """Test parsing ISO datetime string."""
-        result = parse_datetime("2024-12-25T10:30:00")
-        assert result is not None
-        assert result.year == 2024
-        assert result.month == 12
-        assert result.day == 25
-        assert result.hour == 10
-        assert result.minute == 30
+    def test_offset_values_land_on_their_local_date(self) -> None:
+        # yr.no forecast periods are UTC: 23:00Z is already the next day in Prague
+        assert local_date_of("2024-12-25T23:00:00Z") == date(2024, 12, 26)
+        assert local_date_of("2024-12-25T22:59:00+00:00") == date(2024, 12, 25)
+        assert local_date_of("2024-12-25T00:30:00+01:00") == date(2024, 12, 25)
 
-    def test_z_suffix(self) -> None:
-        """Test parsing datetime with Z suffix (UTC)."""
-        result = parse_datetime("2024-12-25T10:30:00Z")
-        assert result is not None
-        assert result.year == 2024
+    def test_value_without_offset_keeps_its_date(self) -> None:
+        assert local_date_of("2024-12-25T23:30:00") == date(2024, 12, 25)
 
-    def test_none_returns_none(self) -> None:
-        """Test that None input returns None."""
-        assert parse_datetime(None) is None
+    def test_none_and_garbage_return_none(self) -> None:
+        assert local_date_of(None) is None
+        assert local_date_of("not a date") is None
 
 
 class TestFormatTaskForDashboard:
@@ -609,15 +567,10 @@ class TestMultiDayEventHandling:
             src.services.planner.dashboard.fetch_calendar_dashboard_data = mock_fetch_calendar  # type: ignore[assignment]
             src.services.planner.dashboard.fetch_todoist_dashboard_data = mock_fetch_todoist  # type: ignore[assignment]
 
-            # Mock datetime.now() to return a fixed date (2024-12-23)
+            # Monday 2024-12-23, 10:00 in Prague
             from unittest.mock import patch
 
-            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
-                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
-                mock_datetime.strptime = datetime.strptime
-                mock_datetime.fromisoformat = datetime.fromisoformat
-                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
-
+            with patch("src.utils.clock._now", return_value=datetime(2024, 12, 23, 9, tzinfo=UTC)):
                 dashboard = build_planner_dashboard(
                     todoist_token=None,
                     calendar_token="fake-token",
@@ -685,12 +638,7 @@ class TestMultiDayEventHandling:
 
             from unittest.mock import patch
 
-            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
-                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
-                mock_datetime.strptime = datetime.strptime
-                mock_datetime.fromisoformat = datetime.fromisoformat
-                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
-
+            with patch("src.utils.clock._now", return_value=datetime(2024, 12, 23, 9, tzinfo=UTC)):
                 dashboard = build_planner_dashboard(
                     todoist_token=None,
                     calendar_token="fake-token",
@@ -741,12 +689,7 @@ class TestMultiDayEventHandling:
 
             from unittest.mock import patch
 
-            with patch("src.services.planner.dashboard.datetime") as mock_datetime:
-                mock_datetime.now.return_value = datetime(2024, 12, 23, 10, 0, 0)
-                mock_datetime.strptime = datetime.strptime
-                mock_datetime.fromisoformat = datetime.fromisoformat
-                mock_datetime.utcnow.return_value = datetime(2024, 12, 23, 10, 0, 0)
-
+            with patch("src.utils.clock._now", return_value=datetime(2024, 12, 23, 9, tzinfo=UTC)):
                 dashboard = build_planner_dashboard(
                     todoist_token=None,
                     calendar_token="fake-token",

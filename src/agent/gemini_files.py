@@ -18,8 +18,9 @@ from google.genai import types as genai_types
 
 from src.agent.gemini_clients import shared_genai_client
 from src.db.models import db
+from src.db.models.timestamps import from_db
 from src.services.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
-from src.utils.datetime_utils import utcnow_naive
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -43,9 +44,9 @@ def _get_cached_uri(message_id: str, file_index: int) -> str | None:
         return None
     try:
         entry = json.loads(raw)
-        if utcnow_naive().isoformat() < entry["expires_at"]:
+        if utc_now() < from_db(entry["expires_at"], "utc"):
             return str(entry["uri"])
-    except json.JSONDecodeError, KeyError, TypeError:
+    except json.JSONDecodeError, KeyError, TypeError, ValueError:
         pass
     return None
 
@@ -99,7 +100,7 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
     if _state_name(gfile) != "ACTIVE":
         raise GeminiFileError(f"Gemini file processing failed (state: {_state_name(gfile)})")
 
-    expires_at = (utcnow_naive() + timedelta(hours=CACHE_TTL_HOURS)).isoformat()
+    expires_at = to_api(utc_now() + timedelta(hours=CACHE_TTL_HOURS))
     if not gfile.uri:
         raise GeminiFileError("Gemini returned an ACTIVE file without a URI")
 

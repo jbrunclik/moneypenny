@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import Memory, User
+from src.db.models.timestamps import from_db, from_db_or_none, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -57,7 +59,7 @@ class MemoryMixin:
             The created Memory
         """
         memory_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = utc_now()
         logger.debug(
             "Adding memory",
             extra={"user_id": user_id, "memory_id": memory_id, "category": category},
@@ -75,8 +77,8 @@ class MemoryMixin:
                     user_id,
                     content,
                     category,
-                    now.isoformat(),
-                    now.isoformat(),
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
                     source_conversation_id,
                     int(protected),
                 ),
@@ -109,13 +111,13 @@ class MemoryMixin:
         Returns:
             True if memory was updated, False if not found
         """
-        now = datetime.now().isoformat()
         logger.debug(
             "Updating memory",
             extra={"user_id": user_id, "memory_id": memory_id},
         )
 
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             if category is not None:
                 cursor = self._execute_with_timing(
                     conn,
@@ -200,7 +202,7 @@ class MemoryMixin:
             cursor = self._execute_with_timing(
                 conn,
                 query,
-                (datetime.now().isoformat(), memory_id, user_id),
+                (to_db(utc_now(), "local", conn), memory_id, user_id),
             )
             conn.commit()
             deleted = cursor.rowcount > 0
@@ -247,9 +249,8 @@ class MemoryMixin:
         Returns:
             Number of rows purged
         """
-        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
-
         with self._pool.get_connection() as conn:
+            cutoff = to_db(utc_now() - timedelta(days=retention_days), "local", conn)
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM user_memories WHERE deleted_at IS NOT NULL AND deleted_at < ?",
@@ -272,11 +273,11 @@ class MemoryMixin:
             user_id=row["user_id"],
             content=row["content"],
             category=row["category"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            updated_at=datetime.fromisoformat(row["updated_at"]),
+            created_at=from_db(row["created_at"], "local"),
+            updated_at=from_db(row["updated_at"], "local"),
             protected=bool(row["protected"]),
             source_conversation_id=row["source_conversation_id"],
-            deleted_at=(datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None),
+            deleted_at=from_db_or_none(row["deleted_at"], "local"),
         )
 
     def get_memory(self, memory_id: str, user_id: str) -> Memory | None:
@@ -389,7 +390,7 @@ class MemoryMixin:
                         email=row["email"],
                         name=row["name"],
                         picture=row["picture"],
-                        created_at=datetime.fromisoformat(row["created_at"]),
+                        created_at=from_db(row["created_at"], "local"),
                         custom_instructions=row["custom_instructions"],
                     ),
                     int(row["memory_count"]),
@@ -419,13 +420,10 @@ class MemoryMixin:
         Returns:
             Dict with counts: {"deleted": N, "updated": N, "added": N}
         """
-        # Local-naive, matching add_memory/update_memory and the user-facing
-        # convention in src/utils/datetime_utils.py. Using utcnow() here stamped
-        # defragged memories behind their own created_at by the UTC offset.
-        now = datetime.now().isoformat()
         result = {"deleted": 0, "updated": 0, "added": 0}
 
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             # Soft-delete memories, skipping protected ones
             for memory_id in to_delete:
                 cursor = self._execute_with_timing(

@@ -6,13 +6,14 @@ offer is stored on that assistant message (messages.research = {"offer": ...}).
 """
 
 import re
-from datetime import datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
 
 from src.agent.deep_research.estimate import estimate, estimate_rates
 from src.config import Config
+from src.db.models.timestamps import from_db
+from src.utils.clock import to_api, utc_now
 
 TOOL_NAME = "propose_deep_research"
 
@@ -56,17 +57,18 @@ def build_offer(args: dict[str, Any], kind: str = "initial", round_: int = 1) ->
         "autostart": bool(args.get("run_now")),
         "kind": kind,
         "round": round_,
-        "created_at": datetime.now().isoformat(),
+        "created_at": to_api(utc_now()),
     }
 
 
 def seconds_open(offer: dict[str, Any]) -> int | None:
     """Seconds since the offer was made (time to decision, for telemetry)."""
     try:
-        created = datetime.fromisoformat(str(offer["created_at"]))
+        # Offers made before Oct 27 2026 hold local-naive times
+        created = from_db(str(offer["created_at"]), "local")
     except KeyError, ValueError:
         return None
-    return round((datetime.now() - created).total_seconds())
+    return round((utc_now() - created).total_seconds())
 
 
 # The user's own words that ask for a run now (cs/en). run_now from the model

@@ -6,12 +6,13 @@ Command center aggregation, per-agent run/cost stats and budget spend.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.agent_rows import row_to_agent, row_to_approval_request
 from src.db.models.dataclasses import AgentExecution
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db
+from src.utils.clock import local_day_start, utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -46,7 +47,7 @@ class AgentStatsMixin:
         get_last_execution_status loop (3 queries per agent) in the listing
         route (Q1).
         """
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             agent_rows = self._execute_with_timing(
                 conn,
@@ -70,7 +71,7 @@ class AgentStatsMixin:
                    FROM autonomous_agents a
                    WHERE a.user_id = ?
                    ORDER BY a.created_at DESC""",
-                (now.isoformat(), user_id),
+                (to_db(now, "utc", conn), user_id),
             ).fetchall()
 
             result: list[dict[str, Any]] = []
@@ -92,13 +93,8 @@ class AgentStatsMixin:
 
         Returns {"days", "per_agent": {agent_id: {runs, completed, failed,
         waiting_approval, cost_usd, input_tokens, output_tokens}}}.
-
-        Clock note: executions use UTC-naive timestamps while
-        message_costs are local-naive - each filter uses its table's
-        clock; the up-to-2h skew is irrelevant for day-scale windows.
         """
-        exec_since = (utcnow_naive() - timedelta(days=days)).isoformat()
-        cost_since = (datetime.now() - timedelta(days=days)).isoformat()
+        since = utc_now() - timedelta(days=days)
 
         per_agent: dict[str, dict[str, Any]] = {}
 
@@ -124,7 +120,7 @@ class AgentStatsMixin:
                    JOIN autonomous_agents a ON e.agent_id = a.id
                    WHERE a.user_id = ? AND e.started_at >= ?
                    GROUP BY e.agent_id, e.status""",
-                (user_id, exec_since),
+                (user_id, to_db(since, "utc", conn)),
             ).fetchall()
             cost_rows = self._execute_with_timing(
                 conn,
@@ -137,7 +133,7 @@ class AgentStatsMixin:
                    WHERE c.user_id = ? AND c.agent_id IS NOT NULL
                      AND mc.created_at >= ?
                    GROUP BY c.agent_id""",
-                (user_id, cost_since),
+                (user_id, to_db(since, "local", conn)),
             ).fetchall()
 
         for row in exec_rows:
@@ -161,9 +157,7 @@ class AgentStatsMixin:
 
         Same local-midnight window as get_agent_daily_spending.
         """
-        # LOCAL-naive on purpose: message_costs.created_at is stored local-naive
-        today = datetime.now().date()
-        today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
+        today_start = local_day_start(utc_now())
 
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
@@ -175,7 +169,7 @@ class AgentStatsMixin:
                    WHERE c.user_id = ? AND c.agent_id IS NOT NULL
                    AND mc.created_at >= ?
                    GROUP BY c.agent_id""",
-                (user_id, today_start.isoformat()),
+                (user_id, to_db(today_start, "local", conn)),
             ).fetchall()
             return {row["agent_id"]: float(row["total"]) for row in rows}
 
@@ -195,7 +189,7 @@ class AgentStatsMixin:
         agents_waiting = sum(1 for a in agents if a["has_pending_approval"])
         agents_with_errors = sum(1 for a in agents if a["has_error"])
 
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             # Get pending (non-expired) approvals with agent names
             approval_rows = self._execute_with_timing(
@@ -206,7 +200,7 @@ class AgentStatsMixin:
                    WHERE r.user_id = ? AND r.status = 'pending'
                    AND (r.expires_at IS NULL OR r.expires_at > ?)
                    ORDER BY r.created_at DESC""",
-                (user_id, now.isoformat()),
+                (user_id, to_db(now, "utc", conn)),
             ).fetchall()
 
         pending_approvals = [
@@ -236,10 +230,8 @@ class AgentStatsMixin:
         Returns:
             Total spending in USD for today.
         """
-        # LOCAL-naive on purpose: message_costs.created_at is stored local-naive,
-        # so the daily window must use the same clock (resets at local midnight)
-        today = datetime.now().date()
-        today_start = datetime(today.year, today.month, today.day, 0, 0, 0)
+        # The daily budget resets at local midnight (APP_TIMEZONE)
+        today_start = local_day_start(utc_now())
 
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
@@ -250,7 +242,7 @@ class AgentStatsMixin:
                    JOIN conversations c ON m.conversation_id = c.id
                    WHERE c.agent_id = ?
                    AND mc.created_at >= ?""",
-                (agent_id, today_start.isoformat()),
+                (agent_id, to_db(today_start, "local", conn)),
             ).fetchone()
 
             return float(row["total"]) if row else 0.0

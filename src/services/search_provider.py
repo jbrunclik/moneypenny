@@ -27,6 +27,7 @@ from src.db.models import db
 from src.services import search_adapters
 from src.services.push import send_push_to_user
 from src.services.search_adapters import SearchProviderError
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -70,7 +71,7 @@ def _billing_anchor(provider: str) -> int:
 
 def usage_key(provider: str) -> str:
     """kv_store key for a provider's current billing-period usage counter."""
-    return f"{provider}:{period_start(_billing_anchor(provider), date.today())}"
+    return f"{provider}:{period_start(_billing_anchor(provider), local_today())}"
 
 
 def get_monthly_usage(provider: str) -> int:
@@ -99,7 +100,7 @@ def breaker_key(provider: str) -> str:
     Shares the usage counter's period suffix, so a trip clears exactly when
     the provider's quota resets.
     """
-    return f"breaker:{provider}:{period_start(_billing_anchor(provider), date.today())}"
+    return f"breaker:{provider}:{period_start(_billing_anchor(provider), local_today())}"
 
 
 def breaker_last_key(provider: str) -> str:
@@ -324,7 +325,7 @@ def _notify_if_degraded(served_by: str) -> None:
             # available and this was just a blip on the way through.
             return
 
-        dedupe_key = f"degraded-alert:{date.today().isoformat()}"
+        dedupe_key = f"degraded-alert:{local_today().isoformat()}"
         if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key):
             return
         db.kv_set(_SYSTEM_USER_ID, USAGE_NAMESPACE, dedupe_key, "1")
@@ -435,5 +436,5 @@ def quota_status() -> list[dict[str, Any]]:
 
 def degraded_today() -> bool:
     """Whether search fell back to the free provider at some point today."""
-    key = f"degraded-alert:{date.today().isoformat()}"
+    key = f"degraded-alert:{local_today().isoformat()}"
     return bool(db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, key))

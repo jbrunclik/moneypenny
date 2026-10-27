@@ -87,7 +87,7 @@ class TestGetPlannerDashboard:
         data = json.loads(response.data)
 
         assert data["days"][0]["day_name"] == "Today"
-        assert data["days"][0]["date"] == datetime.now().strftime("%Y-%m-%d")
+        assert data["days"][0]["date"] == datetime.now(UTC).strftime("%Y-%m-%d")
 
     def test_second_day_is_tomorrow(
         self,
@@ -100,7 +100,7 @@ class TestGetPlannerDashboard:
         assert response.status_code == 200
         data = json.loads(response.data)
 
-        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = datetime.now(UTC) + timedelta(days=1)
         assert data["days"][1]["day_name"] == "Tomorrow"
         assert data["days"][1]["date"] == tomorrow.strftime("%Y-%m-%d")
 
@@ -145,7 +145,7 @@ class TestGetPlannerDashboard:
         assert server_time is not None
 
         # Should be close to now (within 5 seconds)
-        now = datetime.now()
+        now = datetime.now(UTC)
         diff = abs((now - server_time).total_seconds())
         assert diff < 5
 
@@ -429,7 +429,7 @@ class TestGetPlannerConversation:
         test_database.add_message(conv_id, "user", "Old message")
 
         # Manually set the reset timestamp to yesterday using direct SQL
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = datetime.now(UTC) - timedelta(days=1)
         with test_database._pool.get_connection() as conn:
             conn.execute(
                 "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
@@ -441,7 +441,7 @@ class TestGetPlannerConversation:
         response2 = client.get("/api/planner/conversation", headers=auth_headers)
         data2 = json.loads(response2.data)
 
-        now = datetime.now()
+        now = datetime.now(UTC)
         if now.hour >= 4:
             # Should have reset
             assert data2["was_reset"] is True
@@ -576,7 +576,7 @@ class TestResetPlannerConversation:
         # Create planner conversation
         client.get("/api/planner/conversation", headers=auth_headers)
 
-        before_reset = datetime.now()
+        before_reset = datetime.now(UTC)
         time.sleep(0.01)
 
         # Reset
@@ -875,7 +875,7 @@ class TestPlannerSync:
         assert user.planner_last_reset_at is not None
 
         # Verify it's recent (within last 5 seconds)
-        now = datetime.now()
+        now = datetime.now(UTC)
         diff = abs((now - user.planner_last_reset_at).total_seconds())
         assert diff < 5
 

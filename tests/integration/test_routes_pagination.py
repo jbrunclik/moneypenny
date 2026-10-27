@@ -3,6 +3,7 @@
 import json
 import time
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from flask.testing import FlaskClient
 
@@ -56,7 +57,9 @@ class TestConversationsPagination:
         cursor = data1["pagination"]["next_cursor"]
 
         # Get second page using cursor
-        response2 = client.get(f"/api/conversations?limit=2&cursor={cursor}", headers=auth_headers)
+        response2 = client.get(
+            f"/api/conversations?limit=2&cursor={quote(cursor)}", headers=auth_headers
+        )
         data2 = json.loads(response2.data)
 
         assert response2.status_code == 200
@@ -115,7 +118,7 @@ class TestConversationsPagination:
         for _ in range(3):  # Should take 2 iterations + 1 empty
             url = "/api/conversations?limit=2"
             if cursor:
-                url += f"&cursor={cursor}"
+                url += f"&cursor={quote(cursor)}"
             response = client.get(url, headers=auth_headers)
             data = json.loads(response.data)
 
@@ -148,7 +151,9 @@ class TestConversationsPagination:
 
         # Check total on subsequent page (should be same)
         cursor = data1["pagination"]["next_cursor"]
-        response2 = client.get(f"/api/conversations?limit=3&cursor={cursor}", headers=auth_headers)
+        response2 = client.get(
+            f"/api/conversations?limit=3&cursor={quote(cursor)}", headers=auth_headers
+        )
         data2 = json.loads(response2.data)
         assert data2["pagination"]["total_count"] == 7
 
@@ -291,7 +296,7 @@ class TestMessagesPagination:
 
         # Get older messages
         response2 = client.get(
-            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={older_cursor}&direction=older",
+            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={quote(older_cursor)}&direction=older",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)
@@ -328,7 +333,7 @@ class TestMessagesPagination:
         # Navigate to older
         older_cursor = data1["pagination"]["older_cursor"]
         response2 = client.get(
-            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={older_cursor}&direction=older",
+            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={quote(older_cursor)}&direction=older",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)
@@ -336,7 +341,7 @@ class TestMessagesPagination:
         # Navigate back to newer
         newer_cursor = data2["pagination"]["newer_cursor"]
         response3 = client.get(
-            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={newer_cursor}&direction=newer",
+            f"/api/conversations/{test_conversation.id}/messages?limit=3&cursor={quote(newer_cursor)}&direction=newer",
             headers=auth_headers,
         )
         data3 = json.loads(response3.data)
@@ -368,7 +373,7 @@ class TestMessagesPagination:
         for _ in range(10):  # Safety limit
             url = f"/api/conversations/{test_conversation.id}/messages?limit=3"
             if cursor:
-                url += f"&cursor={cursor}&direction=older"
+                url += f"&cursor={quote(cursor)}&direction=older"
 
             response = client.get(url, headers=auth_headers)
             data = json.loads(response.data)
@@ -550,7 +555,7 @@ class TestConversationDetailPagination:
 
         # Get older messages
         response2 = client.get(
-            f"/api/conversations/{test_conversation.id}?message_limit=3&message_cursor={older_cursor}&direction=older",
+            f"/api/conversations/{test_conversation.id}?message_limit=3&message_cursor={quote(older_cursor)}&direction=older",
             headers=auth_headers,
         )
         data2 = json.loads(response2.data)

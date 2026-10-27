@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from datetime import datetime
 
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import build_cursor
+from src.db.models.timestamps import from_db, from_db_or_none
 
 _PREVIEW_MAX_CHARS = 120
 
@@ -41,7 +41,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
     # Check if optional columns exist (added in migrations)
     last_reset = None
     if "last_reset" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        last_reset = datetime.fromisoformat(row["last_reset"]) if row["last_reset"] else None
+        last_reset = from_db_or_none(row["last_reset"], "local")
 
     is_agent = False
     agent_id = None
@@ -79,15 +79,15 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
 
     deleted_at = None
     if "deleted_at" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        deleted_at = datetime.fromisoformat(row["deleted_at"]) if row["deleted_at"] else None
+        deleted_at = from_db_or_none(row["deleted_at"], "local")
 
     return Conversation(
         id=row["id"],
         user_id=row["user_id"],
         title=row["title"],
         model=row["model"],
-        created_at=datetime.fromisoformat(row["created_at"]),
-        updated_at=datetime.fromisoformat(row["updated_at"]),
+        created_at=from_db(row["created_at"], "local"),
+        updated_at=from_db(row["updated_at"], "local"),
         is_planning=bool(row["is_planning"]) if row["is_planning"] else False,
         last_reset=last_reset,
         is_agent=is_agent,

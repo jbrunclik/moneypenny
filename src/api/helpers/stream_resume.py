@@ -22,6 +22,7 @@ from src.api.utils import (
 )
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -111,7 +112,7 @@ def _done_event_from_message(msg: Any) -> dict[str, Any]:
     done: dict[str, Any] = {
         "type": "done",
         "id": msg.id,
-        "created_at": msg.created_at.isoformat(),
+        "created_at": to_api(msg.created_at),
         "content": msg.content or "",
     }
     if msg.files:

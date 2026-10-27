@@ -6813,6 +6813,7 @@
           "created_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -6979,6 +6980,7 @@
           "last_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -6991,6 +6993,7 @@
           "next_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -7001,10 +7004,12 @@
             "title": "Next Run At"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -7226,6 +7231,7 @@
           "last_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -7238,6 +7244,7 @@
           "next_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -7248,10 +7255,12 @@
             "title": "Next Run At"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -8283,6 +8292,7 @@
           },
           "server_time": {
             "description": "Server timestamp for cache validation",
+            "format": "date-time",
             "title": "Server Time",
             "type": "string"
           }
@@ -8344,10 +8354,12 @@
             "title": "Category"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -8371,6 +8383,7 @@
           "deleted_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8521,6 +8534,7 @@
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -8531,6 +8545,7 @@
           "last_reset": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8568,6 +8583,7 @@
           },
           "server_time": {
             "description": "Server timestamp in ISO format",
+            "format": "date-time",
             "title": "Server Time",
             "type": "string"
           }
@@ -8590,6 +8606,7 @@
           "connected_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8667,10 +8684,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -8738,6 +8757,7 @@
           "deleted_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8750,6 +8770,7 @@
           "purge_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8857,10 +8878,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -8928,6 +8951,7 @@
           "deleted_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8940,6 +8964,7 @@
           "purge_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -9179,6 +9204,7 @@
           "connected_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -9253,6 +9279,7 @@
             "type": "string"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
@@ -9362,6 +9389,7 @@
             "type": "integer"
           },
           "last_seen": {
+            "format": "date-time",
             "title": "Last Seen",
             "type": "string"
           }
@@ -9449,6 +9477,7 @@
             "type": "integer"
           },
           "last_seen": {
+            "format": "date-time",
             "title": "Last Seen",
             "type": "string"
           },
@@ -9716,6 +9745,7 @@
           "last_backup_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -9796,6 +9826,7 @@
         "description": "Everything the admin page shows - names and numbers, no conversation content.",
         "properties": {
           "generated_at": {
+            "format": "date-time",
             "title": "Generated At",
             "type": "string"
           },
@@ -9873,6 +9904,7 @@
           "connected_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -9975,6 +10007,7 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
@@ -10118,6 +10151,7 @@
           "connected_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -10185,12 +10219,14 @@
             "$ref": "#/components/schemas/PendingApprovalsResponse.ApprovalStatus"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "resolved_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -10635,6 +10671,7 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
@@ -10776,10 +10813,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -10864,6 +10903,7 @@
           },
           "server_time": {
             "description": "Server time of this sync (ISO); the client's baseline for what is new",
+            "format": "date-time",
             "title": "Server Time",
             "type": "string"
           },
@@ -11535,6 +11575,7 @@
             "title": "Action"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -11640,10 +11681,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -12178,6 +12221,7 @@
             "title": "Action"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -12232,12 +12276,14 @@
             "title": "Triggered By Agent Id"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
           "completed_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -12344,12 +12390,14 @@
             "title": "Triggered By Agent Id"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
           "completed_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -12475,6 +12523,7 @@
           "last_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -12487,6 +12536,7 @@
           "next_run_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -12497,10 +12547,12 @@
             "title": "Next Run At"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -12793,12 +12845,14 @@
             "$ref": "#/components/schemas/CommandCenterResponse.ApprovalStatus"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "resolved_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -13585,6 +13639,7 @@
             "title": "Action"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -13745,10 +13800,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -14011,14 +14068,17 @@
             "type": "integer"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
           "finished_at": {
+            "format": "date-time",
             "title": "Finished At",
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -14274,14 +14334,17 @@
             "type": "integer"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
           "finished_at": {
+            "format": "date-time",
             "title": "Finished At",
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -14888,12 +14951,14 @@
             "title": "Triggered By Agent Id"
           },
           "started_at": {
+            "format": "date-time",
             "title": "Started At",
             "type": "string"
           },
           "completed_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -15036,10 +15101,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -15099,10 +15166,12 @@
             "type": "string"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "updated_at": {
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           },
@@ -15610,6 +15679,7 @@
             "title": "Action"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           }
@@ -16202,6 +16272,7 @@
             "title": "Artifacts"
           },
           "created_at": {
+            "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
@@ -16654,6 +16725,7 @@
           },
           "updated_at": {
             "description": "Conversation updated_at timestamp in ISO format",
+            "format": "date-time",
             "title": "Updated At",
             "type": "string"
           }
@@ -16682,6 +16754,7 @@
           },
           "server_time": {
             "description": "Server timestamp in ISO format",
+            "format": "date-time",
             "title": "Server Time",
             "type": "string"
           }

@@ -15,7 +15,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import Artifact, ArtifactVersion
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import from_db, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -34,8 +35,8 @@ def _row_to_artifact(row: sqlite3.Row) -> Artifact:
         title=row["title"],
         latest_version=row["latest_version"],
         state=json.loads(row["state"]) if row["state"] else None,
-        created_at=datetime.fromisoformat(row["created_at"]),
-        updated_at=datetime.fromisoformat(row["updated_at"]),
+        created_at=from_db(row["created_at"], "utc"),
+        updated_at=from_db(row["updated_at"], "utc"),
     )
 
 
@@ -45,7 +46,7 @@ def _row_to_version(row: sqlite3.Row) -> ArtifactVersion:
         version=row["version"],
         html=row["html"],
         created_by_message_id=row["created_by_message_id"],
-        created_at=datetime.fromisoformat(row["created_at"]),
+        created_at=from_db(row["created_at"], "utc"),
     )
 
 
@@ -68,13 +69,20 @@ class ArtifactMixin:
     ) -> tuple[Artifact, ArtifactVersion]:
         """Create an artifact and its version 1 in one write."""
         art_id = secrets.token_urlsafe(_ARTIFACT_ID_BYTES)
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
                 """INSERT INTO artifacts (id, conversation_id, user_id, title, latest_version,
                    created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)""",
-                (art_id, conversation_id, user_id, title, now.isoformat(), now.isoformat()),
+                (
+                    art_id,
+                    conversation_id,
+                    user_id,
+                    title,
+                    to_db(now, "utc", conn),
+                    to_db(now, "utc", conn),
+                ),
             )
             self._insert_version(conn, art_id, 1, html, now)
             conn.commit()
@@ -88,7 +96,7 @@ class ArtifactMixin:
             conn,
             """INSERT INTO artifact_versions (artifact_id, version, html, created_at)
                VALUES (?, ?, ?, ?)""",
-            (art_id, version, html, now.isoformat()),
+            (art_id, version, html, to_db(now, "utc", conn)),
         )
 
     def revise_artifact(
@@ -104,7 +112,7 @@ class ArtifactMixin:
         version number (UNIQUE failure) or both edit the same base (the first
         edit is lost). An exception from `revise` writes nothing.
         """
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
@@ -114,7 +122,7 @@ class ArtifactMixin:
                     conn,
                     """UPDATE artifacts SET latest_version = ?, updated_at = ?,
                        title = COALESCE(?, title) WHERE id = ?""",
-                    (version, now.isoformat(), title, artifact_id),
+                    (version, to_db(now, "utc", conn), title, artifact_id),
                 )
             except BaseException:
                 conn.rollback()
@@ -180,7 +188,7 @@ class ArtifactMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE artifacts SET state = ?, updated_at = ? WHERE id = ?",
-                (payload, utcnow_naive().isoformat(), artifact_id),
+                (payload, to_db(utc_now(), "utc", conn), artifact_id),
             )
             conn.commit()
 

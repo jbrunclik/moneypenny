@@ -6,7 +6,6 @@ endpoints in conversation_messages.py; those attach their routes to this
 blueprint.
 """
 
-from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -33,6 +32,7 @@ from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
@@ -84,8 +84,8 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
             "id": c.id,
             "title": c.title,
             "model": c.model,
-            "created_at": c.created_at.isoformat(),
-            "updated_at": c.updated_at.isoformat(),
+            "created_at": to_api(c.created_at),
+            "updated_at": to_api(c.updated_at),
             "message_count": message_count,
             "read_count": c.read_message_count,
             "archived": c.archived or None,
@@ -131,8 +131,8 @@ def create_conversation(user: User, data: CreateConversationRequest) -> tuple[di
         "id": conv.id,
         "title": conv.title,
         "model": conv.model,
-        "created_at": conv.created_at.isoformat(),
-        "updated_at": conv.updated_at.isoformat(),
+        "created_at": to_api(conv.created_at),
+        "updated_at": to_api(conv.updated_at),
     }, 201
 
 
@@ -207,8 +207,8 @@ def get_conversation(
         "id": conv.id,
         "title": conv.title,
         "model": conv.model,
-        "created_at": conv.created_at.isoformat(),
-        "updated_at": conv.updated_at.isoformat(),
+        "created_at": to_api(conv.created_at),
+        "updated_at": to_api(conv.updated_at),
         "is_agent": conv.is_agent,
         "agent_id": conv.agent_id,
         "has_pending_approval": has_pending_approval,
@@ -355,7 +355,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
     # to prevent race conditions. If we capture it after, a conversation
     # created/updated between the query and the capture would be missed and
     # never fetched again (since the client moves past it).
-    server_time = datetime.now()
+    server_time = to_api(utc_now())
     cursor = db.get_sync_cursor()
 
     if cursor_param is not None and not full_param:
@@ -366,7 +366,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
             raise_validation_error(
                 "Invalid cursor. Use the cursor from the last sync.", field="cursor"
             )
-        return {**cursor_sync(user.id, after), "server_time": server_time.isoformat()}
+        return {**cursor_sync(user.id, after), "server_time": server_time}
 
     # Full sync: every conversation with its message count (a client without
     # a cursor yet, or one checking for deletions)
@@ -385,7 +385,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
             sync_summary(conv, message_count, preview)
             for conv, message_count, preview in conv_with_counts
         ],
-        "server_time": server_time.isoformat(),
+        "server_time": server_time,
         "cursor": cursor,
         "removed_ids": [],
         "has_more": False,

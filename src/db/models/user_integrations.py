@@ -11,6 +11,8 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from src.db.models.timestamps import to_db, to_db_or_none
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.token_crypto import decrypt_token, encrypt_token
 
@@ -49,13 +51,13 @@ class UserIntegrationsMixin:
             extra={"user_id": user_id, "connecting": bool(access_token)},
         )
 
-        connected_at = datetime.now().isoformat() if access_token else None
+        connected_at = utc_now() if access_token else None
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET todoist_access_token = ?, todoist_connected_at = ? WHERE id = ?",
-                (encrypt_token(access_token), connected_at, user_id),
+                (encrypt_token(access_token), to_db_or_none(connected_at, "local", conn), user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -91,16 +93,13 @@ class UserIntegrationsMixin:
             },
         )
 
-        connected_at_iso = None
         if access_token:
-            connected_at_iso = (connected_at or datetime.now()).isoformat()
-        expires_at_str = expires_at.isoformat() if expires_at else None
-
-        if not access_token:
+            connected_at = connected_at or utc_now()
+        else:
             refresh_token = None
             email = None
-            expires_at_str = None
-            connected_at_iso = None
+            expires_at = None
+            connected_at = None
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
@@ -118,8 +117,8 @@ class UserIntegrationsMixin:
                 (
                     encrypt_token(access_token),
                     encrypt_token(refresh_token),
-                    expires_at_str,
-                    connected_at_iso,
+                    to_db_or_none(expires_at, "local", conn),
+                    to_db_or_none(connected_at, "local", conn),
                     email,
                     user_id,
                 ),
@@ -193,7 +192,7 @@ class UserIntegrationsMixin:
                 (
                     encrypt_token(access_token),
                     encrypt_token(refresh_token),
-                    expires_at.isoformat(),
+                    to_db(expires_at, "local", conn),
                     user_id,
                     stored_value,
                 ),
@@ -263,13 +262,13 @@ class UserIntegrationsMixin:
             extra={"user_id": user_id, "connecting": bool(token)},
         )
 
-        connected_at = datetime.now().isoformat() if token else None
+        connected_at = utc_now() if token else None
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET garmin_token = ?, garmin_connected_at = ? WHERE id = ?",
-                (encrypt_token(token), connected_at, user_id),
+                (encrypt_token(token), to_db_or_none(connected_at, "local", conn), user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -302,7 +301,7 @@ class UserIntegrationsMixin:
         Unlike Garmin, the password IS persisted (encrypted): Rouvy sessions are
         short-lived and re-login (headless) needs the credentials to refresh.
         """
-        connected_at = datetime.now().isoformat() if session else None
+        connected_at = utc_now() if session else None
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
@@ -312,7 +311,7 @@ class UserIntegrationsMixin:
                     encrypt_token(email),
                     encrypt_token(password),
                     encrypt_token(session),
-                    connected_at,
+                    to_db_or_none(connected_at, "local", conn),
                     user_id,
                 ),
             )
@@ -328,12 +327,12 @@ class UserIntegrationsMixin:
 
     def update_user_rouvy_session(self, user_id: str, session: str | None) -> bool:
         """Update only the stored Rouvy session cookie blob (used on refresh)."""
-        connected_at = datetime.now().isoformat() if session else None
+        connected_at = utc_now() if session else None
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET rouvy_session = ?, rouvy_connected_at = ? WHERE id = ?",
-                (encrypt_token(session), connected_at, user_id),
+                (encrypt_token(session), to_db_or_none(connected_at, "local", conn), user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

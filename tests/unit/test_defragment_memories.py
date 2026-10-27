@@ -1,6 +1,6 @@
 """Unit tests for memory defragmentation script."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,7 +20,7 @@ def _memory(
     content: str = "Some content",
     category: str | None = "fact",
     protected: bool = False,
-    updated_at: datetime = datetime(2024, 1, 1),
+    updated_at: datetime = datetime(2024, 1, 1, tzinfo=UTC),
 ) -> Memory:
     """Build a Memory for validation tests."""
     return Memory(
@@ -28,7 +28,7 @@ def _memory(
         user_id="user-123",
         content=content,
         category=category,
-        created_at=datetime(2024, 1, 1),
+        created_at=datetime(2024, 1, 1, tzinfo=UTC),
         updated_at=updated_at,
         protected=protected,
     )
@@ -36,7 +36,7 @@ def _memory(
 
 def _recent() -> datetime:
     """A write inside the defrag grace period."""
-    return datetime.now() - timedelta(days=1)
+    return datetime.now(UTC) - timedelta(days=1)
 
 
 def _existing(*memories: Memory) -> dict[str, Memory]:
@@ -156,7 +156,7 @@ class TestValidateChanges:
         assert to_update == []
 
     def test_memory_past_grace_period_can_be_deleted(self):
-        old = datetime.now() - timedelta(days=Config.MEMORY_DEFRAG_GRACE_DAYS + 1)
+        old = datetime.now(UTC) - timedelta(days=Config.MEMORY_DEFRAG_GRACE_DAYS + 1)
         existing = _existing(_memory("mem-1", updated_at=old))
 
         to_delete, _to_update, _to_add = validate_changes({"delete": ["mem-1"]}, existing)
@@ -333,7 +333,7 @@ class TestDefragmentUserMemories:
             email="test@example.com",
             name="Test User",
             picture=None,
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             custom_instructions=None,
         )
 

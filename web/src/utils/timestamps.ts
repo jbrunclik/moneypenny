@@ -1,15 +1,15 @@
 /**
  * Compare ISO timestamps as instants, never as strings.
  *
- * Two formats meet in the client: the server sends conversation data
- * (messages, conversations) as LOCAL-naive ISO strings without an offset
- * ("2026-10-26T12:34:56.123456", Python's datetime.now().isoformat()), while
- * optimistic entries created here use toISOString() ("...Z", UTC). As text
- * they line up only in UTC, so a string comparison is off by the UTC offset.
+ * The server sends instants in UTC with an offset ("...+00:00", since Oct 27
+ * 2026) and optimistic entries created here use toISOString() ("...Z"). Data
+ * cached before then can still hold the old LOCAL-naive strings without an
+ * offset ("2026-10-26T12:34:56.123456"); as text those line up with the
+ * others only in UTC, so a string comparison is off by the UTC offset.
  *
- * Assumption: a string WITHOUT an offset is the server's legacy local-naive
- * value, read as browser-local time - browser and server share the household
- * timezone. Once the server sends offsets, that branch goes unused.
+ * Assumption: a string WITHOUT an offset is such a legacy local-naive value,
+ * read as browser-local time - browser and server share the household
+ * timezone.
  */
 
 // date, optional time (T or space), optional fraction, optional Z/±hh:mm

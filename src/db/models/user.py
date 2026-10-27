@@ -11,10 +11,11 @@ import json
 import sqlite3
 import uuid
 from dataclasses import replace
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import User
+from src.db.models.timestamps import from_db, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.token_crypto import decrypt_token
 
@@ -42,19 +43,19 @@ class UserMixin:
         """Convert a database row to a User object."""
         todoist_connected_at = None
         if row["todoist_connected_at"]:
-            todoist_connected_at = datetime.fromisoformat(row["todoist_connected_at"])
+            todoist_connected_at = from_db(row["todoist_connected_at"], "local")
 
         calendar_connected_at = None
         if row["google_calendar_connected_at"]:
-            calendar_connected_at = datetime.fromisoformat(row["google_calendar_connected_at"])
+            calendar_connected_at = from_db(row["google_calendar_connected_at"], "local")
 
         calendar_expires_at = None
         if row["google_calendar_token_expires_at"]:
-            calendar_expires_at = datetime.fromisoformat(row["google_calendar_token_expires_at"])
+            calendar_expires_at = from_db(row["google_calendar_token_expires_at"], "local")
 
         planner_last_reset = None
         if row["planner_last_reset_at"]:
-            planner_last_reset = datetime.fromisoformat(row["planner_last_reset_at"])
+            planner_last_reset = from_db(row["planner_last_reset_at"], "local")
 
         # Parse selected calendar IDs (JSON array)
         calendar_selected_ids = None
@@ -76,7 +77,7 @@ class UserMixin:
             email=row["email"],
             name=row["name"],
             picture=row["picture"],
-            created_at=datetime.fromisoformat(row["created_at"]),
+            created_at=from_db(row["created_at"], "local"),
             custom_instructions=row["custom_instructions"],
             # Tokens decrypt here so every reader of the User object gets
             # plaintext; legacy plaintext rows pass through unchanged
@@ -94,7 +95,7 @@ class UserMixin:
                 decrypt_token(row["garmin_token"]) if "garmin_token" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             garmin_connected_at=(
-                datetime.fromisoformat(row["garmin_connected_at"])
+                from_db(row["garmin_connected_at"], "local")
                 if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
                 else None
             ),
@@ -108,7 +109,7 @@ class UserMixin:
                 decrypt_token(row["rouvy_session"]) if "rouvy_session" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
             ),
             rouvy_connected_at=(
-                datetime.fromisoformat(row["rouvy_connected_at"])
+                from_db(row["rouvy_connected_at"], "local")
                 if "rouvy_connected_at" in row.keys() and row["rouvy_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
                 else None
             ),
@@ -127,11 +128,11 @@ class UserMixin:
             # Use INSERT OR IGNORE to handle race conditions when multiple
             # concurrent requests try to create the same user
             user_id = str(uuid.uuid4())
-            now = datetime.now()
+            now = utc_now()
             cursor = self._execute_with_timing(
                 conn,
                 "INSERT OR IGNORE INTO users (id, email, name, picture, created_at) VALUES (?, ?, ?, ?, ?)",
-                (user_id, email, name, picture, now.isoformat()),
+                (user_id, email, name, picture, to_db(now, "local", conn)),
             )
             conn.commit()
 
@@ -253,7 +254,7 @@ class UserMixin:
         Returns:
             True if user was updated, False if not found
         """
-        now = datetime.now()
+        now = utc_now()
         logger.debug(
             "Updating planner last reset timestamp",
             extra={"user_id": user_id, "timestamp": now.isoformat()},
@@ -263,7 +264,7 @@ class UserMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
-                (now.isoformat(), user_id),
+                (to_db(now, "local", conn), user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

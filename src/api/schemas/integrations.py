@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
 
 
 class TodoistConnectRequest(RequestModel):
@@ -74,7 +74,7 @@ class TodoistStatusResponse(ResponseModel):
 
     connected: bool = Field(..., description="Whether Todoist is connected")
     todoist_email: str | None = Field(None, description="Email of connected Todoist account")
-    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    connected_at: Timestamp | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(
         False, description="True if token is invalid and user needs to reconnect"
     )
@@ -92,7 +92,7 @@ class GarminStatusResponse(ResponseModel):
     """Response containing Garmin connection status."""
 
     connected: bool = Field(..., description="Whether Garmin is connected")
-    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    connected_at: Timestamp | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(
         False, description="True if session has expired and user must reconnect"
     )
@@ -108,7 +108,7 @@ class RouvyStatusResponse(ResponseModel):
     """Response containing Rouvy connection status."""
 
     connected: bool = Field(..., description="Whether Rouvy is connected")
-    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    connected_at: Timestamp | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(False, description="True if the stored session looks unusable")
 
 
@@ -133,7 +133,7 @@ class GoogleCalendarStatusResponse(ResponseModel):
 
     connected: bool = Field(..., description="Whether Google Calendar is connected")
     calendar_email: str | None = Field(None, description="Email of connected Google account")
-    connected_at: str | None = Field(None, description="ISO timestamp when connected")
+    connected_at: Timestamp | None = Field(None, description="ISO timestamp when connected")
     needs_reconnect: bool = Field(
         False, description="True if tokens are invalid/expired and user must reconnect"
     )

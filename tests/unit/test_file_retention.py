@@ -1,7 +1,7 @@
 """Tests for media retention helpers."""
 
 import base64
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -14,7 +14,7 @@ from src.services.file_retention import (
     retention_note,
     run_file_cleanup_if_due,
 )
-from src.utils.datetime_utils import utcnow_naive
+from src.utils.clock import to_api, utc_now
 
 
 class TestRetentionDays:
@@ -32,28 +32,28 @@ class TestRetentionDays:
 
 class TestIsMediaExpired:
     def test_fresh_video_not_expired(self) -> None:
-        now = datetime(2026, 7, 19, 12, 0)
+        now = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
         created = now - timedelta(days=6)
         assert not is_file_expired("video/mp4", created, now=now)
 
     def test_old_video_expired(self) -> None:
-        now = datetime(2026, 7, 19, 12, 0)
+        now = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
         created = now - timedelta(days=8)
         assert is_file_expired("video/mp4", created, now=now)
 
     def test_image_expires_after_30_days(self) -> None:
-        now = datetime(2026, 7, 19, 12, 0)
+        now = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
         assert not is_file_expired("image/png", now - timedelta(days=29), now=now)
         assert is_file_expired("image/png", now - timedelta(days=31), now=now)
 
     def test_pdf_expires_after_file_retention(self) -> None:
-        now = datetime(2026, 7, 19, 12, 0)
+        now = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
         assert not is_file_expired("application/pdf", now - timedelta(days=29), now=now)
         assert is_file_expired("application/pdf", now - timedelta(days=31), now=now)
 
     def test_defaults_to_current_time(self) -> None:
-        assert is_file_expired("video/mp4", datetime.now() - timedelta(days=8))
-        assert not is_file_expired("video/mp4", datetime.now())
+        assert is_file_expired("video/mp4", datetime.now(UTC) - timedelta(days=8))
+        assert not is_file_expired("video/mp4", datetime.now(UTC))
 
 
 class TestRetentionNote:
@@ -99,7 +99,7 @@ def _seed(db, blob_store, conversation_id, mime, days_old, data=b"blob-data"):
             }
         ],
     )
-    backdated = (datetime.now() - timedelta(days=days_old)).isoformat()
+    backdated = (datetime.now(UTC) - timedelta(days=days_old)).isoformat()
     with db._pool.get_connection() as conn:
         conn.execute("UPDATE messages SET created_at = ? WHERE id = ?", (backdated, msg.id))
         conn.commit()
@@ -168,7 +168,13 @@ class TestCleanupExpiredMedia:
 class TestRunIfDue:
     def test_skips_when_ran_recently(self, seeded_env) -> None:
         db, _, _ = seeded_env
-        db.kv_set("_system", "file_cleanup", "last_run", utcnow_naive().isoformat())
+        db.kv_set("_system", "file_cleanup", "last_run", to_api(utc_now()))
+        assert run_file_cleanup_if_due() is False
+
+    def test_reads_a_utc_naive_stamp_from_before_oct_2026(self, seeded_env) -> None:
+        db, _, _ = seeded_env
+        stamp = utc_now().replace(tzinfo=None).isoformat()
+        db.kv_set("_system", "file_cleanup", "last_run", stamp)
         assert run_file_cleanup_if_due() is False
 
     def test_runs_and_stamps_when_due(self, seeded_env) -> None:
@@ -185,7 +191,7 @@ class TestTrashPurge:
         with db._pool.get_connection() as conn:
             conn.execute(
                 "UPDATE conversations SET deleted_at = ? WHERE id = ?",
-                ((datetime.now() - timedelta(days=15)).isoformat(), conv_id),
+                ((datetime.now(UTC) - timedelta(days=15)).isoformat(), conv_id),
             )
             conn.commit()
 

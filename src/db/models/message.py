@@ -20,7 +20,9 @@ from src.db.models.helpers import (
     save_file_to_blob_store,
 )
 from src.db.models.message_rows import row_to_message
+from src.db.models.timestamps import to_db
 from src.enums import MessageRole
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -231,7 +233,7 @@ class MessageMixin:
         if isinstance(role, str) and not isinstance(role, MessageRole):
             role = MessageRole(role)
         msg_id = message_id or str(uuid.uuid4())
-        now = datetime.now()
+        now = utc_now()
         files = files or []
 
         files_metadata, files_json, sources_json, generated_images_json, tool_outputs_json = (
@@ -264,7 +266,7 @@ class MessageMixin:
                     sources_json,
                     generated_images_json,
                     language,
-                    now.isoformat(),
+                    to_db(now, "local", conn),
                     tool_outputs_json,
                     stop_reason,
                     _json_or_none(annotations),
@@ -278,7 +280,7 @@ class MessageMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (now.isoformat(), conversation_id),
+                (to_db(now, "local", conn), conversation_id),
             )
             conn.commit()
 
@@ -319,7 +321,7 @@ class MessageMixin:
                      AND (generated_images IS NULL OR generated_images = '' OR generated_images = '[]')
                      AND created_at >= ?
                    ORDER BY created_at DESC, rowid DESC LIMIT 1""",
-                (conversation_id, newer_than.isoformat()),
+                (conversation_id, to_db(newer_than, "local", conn)),
             ).fetchone()
             return row[0] if row else None
 
@@ -329,7 +331,7 @@ class MessageMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE messages SET created_at = ? WHERE id = ?",
-                (created_at.isoformat(), message_id),
+                (to_db(created_at, "local", conn), message_id),
             )
             conn.commit()
 
@@ -471,7 +473,7 @@ class MessageMixin:
         _, files_json, sources_json, generated_images_json, tool_outputs_json = (
             _store_message_payload(message_id, files, sources, generated_images, tool_outputs)
         )
-        now = datetime.now()
+        now = utc_now()
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
@@ -507,7 +509,7 @@ class MessageMixin:
                 conn,
                 """UPDATE conversations SET updated_at = ?
                    WHERE id = (SELECT conversation_id FROM messages WHERE id = ?)""",
-                (now.isoformat(), message_id),
+                (to_db(now, "local", conn), message_id),
             )
             conn.commit()
 

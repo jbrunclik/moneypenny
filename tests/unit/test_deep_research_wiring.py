@@ -1,6 +1,6 @@
 """Deep research in the stream, cost and history layers."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.history import enrich_history
@@ -58,7 +58,7 @@ def test_history_carries_the_research_entry() -> None:
         conversation_id="c1",
         role=MessageRole.ASSISTANT,
         content="Report.",
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC),
         research={"run": {"round": 2, "sub_questions": ["prices", "speed"]}},
     )
 

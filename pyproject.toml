@@ -39,6 +39,7 @@ select = [
     "PLR0912",  # too many branches (C1)
     "PLR0915",  # too many statements (C1)
     "PLC0415",  # import inside a function: say why (B10; src only)
+    "DTZ",      # aware datetimes only (B12; not tests, which build legacy naive values)
 ]
 
 ignore = [
@@ -58,7 +59,7 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 # Tests assert constantly and use fake tokens/credentials by design; their
 # output and the scripts' and evals' is meant for a terminal
-"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "PLC0415"]
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607", "S608", "T20", "TID251", "PLC0415", "DTZ"]
 "scripts/**" = ["S101", "S603", "S607", "T20", "PLC0415"]
 "evals/**" = ["T20", "PLC0415"]
 # The E2E server's entry point keeps the hyphenated name every caller launches

@@ -2,6 +2,7 @@
 
 import json
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import pytest
 from flask.testing import FlaskClient
@@ -575,7 +576,7 @@ class TestStreamingMessageIdLookup:
         older = json.loads(
             client.get(
                 f"/api/conversations/{test_conversation.id}?message_limit=5"
-                f"&message_cursor={newest['message_pagination']['older_cursor']}&direction=older",
+                f"&message_cursor={quote(newest['message_pagination']['older_cursor'])}&direction=older",
                 headers=auth_headers,
             ).data
         )

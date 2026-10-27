@@ -1,13 +1,15 @@
 """Integration tests for thumbnail routes with background generation."""
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
 
+from src.db.models.timestamps import to_db
 from src.enums import ThumbnailStatus
+from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
     from src.db.models import Conversation, Database, User
@@ -140,13 +142,11 @@ class TestGetMessageThumbnail:
         )
 
         # Manually set the message created_at to be older than the threshold
-        stale_time = datetime.now() - timedelta(
-            seconds=Config.THUMBNAIL_STALE_THRESHOLD_SECONDS + 10
-        )
+        stale_time = utc_now() - timedelta(seconds=Config.THUMBNAIL_STALE_THRESHOLD_SECONDS + 10)
         with test_database._pool.get_connection() as conn:
             conn.execute(
                 "UPDATE messages SET created_at = ? WHERE id = ?",
-                (stale_time.isoformat(), message.id),
+                (to_db(stale_time, "local", conn), message.id),
             )
             conn.commit()
 

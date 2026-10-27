@@ -2,7 +2,7 @@
 
 import json
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from urllib.parse import quote
 
@@ -10,6 +10,7 @@ import httpx
 
 from src.config import Config
 from src.services.planner.models import PlannerEvent
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -89,10 +90,10 @@ def _fetch_calendar_names(headers: dict[str, str]) -> dict[str, str]:
 
 def _event_window_params() -> dict[str, Any]:
     """Query parameters for the next 7 days of events."""
-    now = datetime.utcnow()
+    now = utc_now()
     return {
-        "timeMin": now.isoformat() + "Z",
-        "timeMax": (now + timedelta(days=7)).isoformat() + "Z",
+        "timeMin": to_api(now),
+        "timeMax": to_api(now + timedelta(days=7)),
         "singleEvents": True,
         "orderBy": "startTime",
         "maxResults": 30,  # whole dashboard JSON lands in the LLM prompt each turn

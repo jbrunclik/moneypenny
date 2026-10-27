@@ -5,9 +5,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import AwareDatetime, Field, ValidationInfo, field_validator, model_validator
 
-from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, parse_flag, parse_int
+from src.api.schemas.base import (
+    QueryModel,
+    RequestModel,
+    ResponseModel,
+    Timestamp,
+    parse_flag,
+    parse_int,
+)
 from src.api.schemas.chat import MessageResponse
 from src.config import Config
 from src.enums import PaginationDirection
@@ -65,8 +72,8 @@ class ConversationResponse(ResponseModel):
     id: str
     title: str
     model: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     message_count: int | None = None
     read_count: int | None = Field(
         default=None, description="Messages already shown on any device (unread badge)"
@@ -74,8 +81,8 @@ class ConversationResponse(ResponseModel):
     archived: bool | None = None
     pinned: bool | None = None
     last_message_preview: str | None = None
-    deleted_at: str | None = None  # Set for conversations in the trash
-    purge_at: str | None = None  # When a trashed conversation is deleted for good
+    deleted_at: Timestamp | None = None  # Set for conversations in the trash
+    purge_at: Timestamp | None = None  # When a trashed conversation is deleted for good
 
 
 class EmptyTrashResponse(ResponseModel):
@@ -99,7 +106,7 @@ class BulkTrashRequest(RequestModel):
         max_length=Config.CONVERSATIONS_BULK_MAX_IDS,
         description="With all: chats to keep",
     )
-    created_before: datetime | None = Field(
+    created_before: AwareDatetime | None = Field(
         default=None, description="With all: only chats created before this moment"
     )
 
@@ -155,8 +162,8 @@ class SyncConversationResponse(ResponseModel):
     id: str
     title: str
     model: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     message_count: int
     read_count: int = Field(..., description="Messages already shown on any device")
     last_message_preview: str | None
@@ -173,7 +180,7 @@ class SyncResponse(ResponseModel):
     """Response from sync endpoint."""
 
     conversations: list[SyncConversationResponse]
-    server_time: str = Field(
+    server_time: Timestamp = Field(
         ..., description="Server time of this sync (ISO); the client's baseline for what is new"
     )
     cursor: int = Field(..., description="Change-log position to pass as ?cursor= on the next sync")
@@ -226,8 +233,8 @@ class ConversationDetailPaginatedResponse(ResponseModel):
     id: str
     title: str
     model: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     is_agent: bool = False
     agent_id: str | None = None
     has_pending_approval: bool = False  # True if agent has pending approval request
@@ -267,7 +274,7 @@ class SearchResultResponse(ResponseModel):
     match_type: Literal["conversation", "message"] = Field(
         ..., description="Whether the match is in conversation title or message content"
     )
-    created_at: str | None = Field(
+    created_at: Timestamp | None = Field(
         default=None, description="Message timestamp (null for title matches)"
     )
 
@@ -294,8 +301,14 @@ def _parse_direction(value: Any) -> Any:
 
 def _check_cursor(value: str | None) -> str | None:
     """A page cursor is '{timestamp}:{id}' (src/db/models/helpers.py build_cursor)."""
-    if value and ":" not in value:
-        raise ValueError("Invalid cursor. Use the cursor from the previous page.")
+    if not value:
+        return value
+    timestamp, _, _ = value.rpartition(":")
+    try:
+        # tz-naive: only checks the shape; a cursor from before Oct 27 2026 has no offset
+        datetime.fromisoformat(timestamp)
+    except ValueError:
+        raise ValueError("Invalid cursor. Use the cursor from the previous page.") from None
     return value
 
 

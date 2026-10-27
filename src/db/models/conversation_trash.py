@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 from src.db.models.conversation_rows import page_rows, row_to_conversation_summary
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs, parse_cursor
+from src.db.models.timestamps import normalize_cursor, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -64,6 +66,11 @@ def _placeholders(values: list[str]) -> str:
     return ",".join("?" * len(values))
 
 
+def _stored(params: tuple[object, ...], conn: sqlite3.Connection) -> tuple[object, ...]:
+    """params with each datetime in the conversations columns' stored format."""
+    return tuple(to_db(p, "local", conn) if isinstance(p, datetime) else p for p in params)
+
+
 class ConversationTrashMixin:
     """Mixin providing conversation trash, restore and purge operations."""
 
@@ -90,8 +97,8 @@ class ConversationTrashMixin:
         extends the retention window. updated_at is bumped (the trash list
         sorts by it); the old value is kept in trashed_updated_at for restore.
         """
-        now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             cursor = self._execute_with_timing(
                 conn,
                 f"""UPDATE conversations SET {_TRASH_SET}
@@ -140,7 +147,7 @@ class ConversationTrashMixin:
         all_set = f"""(pinned = 0 OR pinned IS NULL) AND (archived = 0 OR archived IS NULL)
             AND created_at < ? AND id NOT IN ({_placeholders(exclude_ids)})"""
         where = f"{_TRASHABLE_WHERE} AND (({all_set}) OR id IN ({_placeholders(extra_ids)}))"
-        params = (user_id, created_before.isoformat(), *exclude_ids, *extra_ids)
+        params = (user_id, created_before, *exclude_ids, *extra_ids)
         return self._trash_where(where, params)
 
     def restore_conversations(self, user_id: str, ids: list[str]) -> list[str]:
@@ -151,7 +158,7 @@ class ConversationTrashMixin:
         return self._update_where(where, (user_id, *ids), _RESTORE_SET, ())
 
     def _trash_where(self, where: str, params: tuple[Any, ...]) -> list[str]:
-        now = datetime.now().isoformat()
+        now = utc_now()
         return self._update_where(where, params, _TRASH_SET, (now, now))
 
     def _update_where(
@@ -162,8 +169,12 @@ class ConversationTrashMixin:
         set_params: tuple[Any, ...],
     ) -> list[str]:
         """SELECT the matching ids, then UPDATE the same rows, under one write
-        lock (BEGIN IMMEDIATE) so a concurrent change cannot slip between."""
+        lock (BEGIN IMMEDIATE) so a concurrent change cannot slip between.
+
+        Datetime params are stored in the columns' format (all local here)."""
         with self._pool.get_connection() as conn:
+            params = _stored(params, conn)
+            set_params = _stored(set_params, conn)
             self._execute_with_timing(conn, "BEGIN IMMEDIATE")
             try:
                 rows = self._execute_with_timing(
@@ -205,6 +216,7 @@ class ConversationTrashMixin:
             params: tuple[Any, ...] = (user_id,)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
+                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
                 query += " AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))"
                 params += (cursor_timestamp, cursor_timestamp, cursor_id)
             rows = self._execute_with_timing(
@@ -242,8 +254,8 @@ class ConversationTrashMixin:
 
     def purge_trashed_conversations(self, retention_days: int) -> int:
         """Permanently delete conversations trashed over retention_days ago (all users)."""
-        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
         with self._pool.get_connection() as conn:
+            cutoff = to_db(utc_now() - timedelta(days=retention_days), "local", conn)
             rows = self._execute_with_timing(
                 conn,
                 """SELECT id, user_id FROM conversations

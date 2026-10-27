@@ -13,9 +13,13 @@ say the same but breaks on a nested model referenced twice - pydantic 2.14.)
 Every schema inherits one of the two; a test checks it.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+# An instant the server sends: ISO 8601 with an explicit UTC offset, always
+# YYYY-MM-DDTHH:MM:SS.ffffff+00:00 (src/utils/clock.py to_api)
+Timestamp = Annotated[str, Field(json_schema_extra={"format": "date-time"})]
 
 
 def _all_properties_required(schema: dict[str, Any]) -> None:

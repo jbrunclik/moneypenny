@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
@@ -11,7 +11,8 @@ from croniter import croniter
 
 from src.db.models.agent_rows import row_to_agent
 from src.db.models.dataclasses import Agent
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db, to_db_or_none
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -42,15 +43,13 @@ class AgentScheduleMixin:
             timezone: Timezone for interpretation
 
         Returns:
-            Next run datetime in UTC (naive), or None if invalid
+            Next run as an aware UTC datetime, or None if invalid
         """
         try:
             tz = ZoneInfo(timezone)
-            now = datetime.now(tz)
-            cron = croniter(schedule, now)
+            cron = croniter(schedule, utc_now().astimezone(tz))
             next_run: datetime = cron.get_next(datetime)
-            # Convert to UTC for storage (naive datetime)
-            return next_run.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+            return next_run.astimezone(UTC)
         except Exception as e:  # a bad stored schedule must not break the scheduler
             logger.warning(
                 "Failed to calculate next run",
@@ -63,15 +62,13 @@ class AgentScheduleMixin:
         """Get agents that are due for execution.
 
         Args:
-            now: Current time in UTC (naive datetime). If None, uses current UTC time.
+            now: The current instant (aware). If None, uses the current time.
 
         Returns:
             Enabled agents where next_run_at <= now.
         """
         if now is None:
-            # Use UTC to match how next_run_at is stored
-
-            now = utcnow_naive()
+            now = utc_now()
 
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
@@ -81,7 +78,7 @@ class AgentScheduleMixin:
                    AND next_run_at IS NOT NULL
                    AND next_run_at <= ?
                    ORDER BY next_run_at ASC""",
-                (now.isoformat(),),
+                (to_db(now, "utc", conn),),
             ).fetchall()
 
             return [row_to_agent(row) for row in rows]
@@ -91,7 +88,7 @@ class AgentScheduleMixin:
 
         Only schedules the next run if the agent is still enabled.
         """
-        now = utcnow_naive()
+        now = utc_now()
 
         with self._pool.get_connection() as conn:
             # Get the agent's schedule, timezone, and enabled status
@@ -115,9 +112,9 @@ class AgentScheduleMixin:
                    SET last_run_at = ?, next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
                 (
-                    now.isoformat(),
-                    next_run_at.isoformat() if next_run_at else None,
-                    now.isoformat(),
+                    to_db(now, "utc", conn),
+                    to_db_or_none(next_run_at, "utc", conn),
+                    to_db(now, "utc", conn),
                     agent_id,
                 ),
             )
@@ -128,7 +125,7 @@ class AgentScheduleMixin:
 
         Used by the scheduler when manually setting the next run time.
         """
-        now = utcnow_naive()
+        now = utc_now()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -137,8 +134,8 @@ class AgentScheduleMixin:
                    SET next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
                 (
-                    next_run_at.isoformat(),
-                    now.isoformat(),
+                    to_db(next_run_at, "utc", conn),
+                    to_db(now, "utc", conn),
                     agent_id,
                 ),
             )

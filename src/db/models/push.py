@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import PushSubscription
+from src.db.models.timestamps import from_db, from_db_or_none, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -29,8 +30,8 @@ def _row_to_subscription(row: sqlite3.Row) -> PushSubscription:
         p256dh=row["p256dh"],
         auth=row["auth"],
         user_agent=row["user_agent"],
-        created_at=datetime.fromisoformat(row["created_at"]),
-        last_used_at=(datetime.fromisoformat(row["last_used_at"]) if row["last_used_at"] else None),
+        created_at=from_db(row["created_at"], "local"),
+        last_used_at=from_db_or_none(row["last_used_at"], "local"),
     )
 
 
@@ -58,8 +59,8 @@ class PushSubscriptionMixin:
     ) -> PushSubscription:
         """Create or update a subscription (upsert by endpoint)."""
         sub_id = str(uuid.uuid4())
-        now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             self._execute_with_timing(
                 conn,
                 """INSERT INTO push_subscriptions
@@ -127,6 +128,6 @@ class PushSubscriptionMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE push_subscriptions SET last_used_at = ? WHERE id = ?",
-                (datetime.now().isoformat(), subscription_id),
+                (to_db(utc_now(), "local", conn), subscription_id),
             )
             conn.commit()

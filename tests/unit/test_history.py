@@ -7,6 +7,8 @@ session gap detection, file metadata extraction, and tool usage summaries.
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import pytest
+
 from src.agent.history import (
     detect_session_gap,
     enrich_history,
@@ -22,34 +24,19 @@ from src.enums import MessageRole
 
 
 class TestFormatTimestamp:
-    """Tests for format_timestamp function."""
+    """Tests for format_timestamp function (APP_TIMEZONE wall time)."""
 
-    def test_formats_datetime_with_timezone(self) -> None:
-        """Should format datetime with timezone abbreviation."""
-        dt = datetime(2024, 6, 15, 14, 30, 0)
-        result = format_timestamp(dt)
+    def test_formats_in_the_household_timezone(self) -> None:
+        """A UTC instant shows as Prague time with the zone's abbreviation."""
+        assert (
+            format_timestamp(datetime(2024, 6, 15, 12, 30, tzinfo=UTC)) == "2024-06-15 14:30 CEST"
+        )
+        assert format_timestamp(datetime(2024, 1, 15, 12, 30, tzinfo=UTC)) == "2024-01-15 13:30 CET"
 
-        # Should include date and time
-        assert "2024-06-15" in result
-        assert "14:30" in result
-        # Should have some timezone identifier
-        assert len(result.split()) == 3
-
-    def test_utc_datetime_converted_to_local(self) -> None:
-        """UTC datetime should be converted to local time."""
-        dt = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
-        result = format_timestamp(dt)
-
-        # Should still have proper format
-        assert "2024-06-" in result
-
-    def test_handles_naive_datetime(self) -> None:
-        """Naive datetime should be treated as local time."""
-        dt = datetime(2024, 1, 1, 9, 0, 0)
-        result = format_timestamp(dt)
-
-        assert "2024-01-01" in result
-        assert "09:00" in result
+    def test_naive_datetime_is_refused(self) -> None:
+        """A naive datetime has no instant to show."""
+        with pytest.raises(ValueError, match="naive"):
+            format_timestamp(datetime(2024, 1, 1, 9, 0, 0))
 
 
 class TestDetectSessionGap:
@@ -67,8 +54,8 @@ class TestDetectSessionGap:
 
     def test_no_gap_for_close_messages(self) -> None:
         """Messages within threshold should not show gap."""
-        prev = self._make_message(datetime(2024, 6, 15, 14, 0, 0))
-        curr = self._make_message(datetime(2024, 6, 15, 15, 0, 0))
+        prev = self._make_message(datetime(2024, 6, 15, 14, 0, 0, tzinfo=UTC))
+        curr = self._make_message(datetime(2024, 6, 15, 15, 0, 0, tzinfo=UTC))
 
         with patch("src.agent.history.Config") as mock_config:
             mock_config.HISTORY_SESSION_GAP_HOURS = 4
@@ -78,8 +65,8 @@ class TestDetectSessionGap:
 
     def test_gap_detected_at_threshold(self) -> None:
         """Messages exactly at threshold should show gap."""
-        prev = self._make_message(datetime(2024, 6, 15, 10, 0, 0))
-        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0))
+        prev = self._make_message(datetime(2024, 6, 15, 10, 0, 0, tzinfo=UTC))
+        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0, tzinfo=UTC))
 
         with patch("src.agent.history.Config") as mock_config:
             mock_config.HISTORY_SESSION_GAP_HOURS = 4
@@ -90,8 +77,8 @@ class TestDetectSessionGap:
 
     def test_gap_detected_above_threshold(self) -> None:
         """Messages above threshold should show gap."""
-        prev = self._make_message(datetime(2024, 6, 14, 10, 0, 0))
-        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0))
+        prev = self._make_message(datetime(2024, 6, 14, 10, 0, 0, tzinfo=UTC))
+        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0, tzinfo=UTC))
 
         with patch("src.agent.history.Config") as mock_config:
             mock_config.HISTORY_SESSION_GAP_HOURS = 4
@@ -102,8 +89,8 @@ class TestDetectSessionGap:
 
     def test_gap_just_below_threshold(self) -> None:
         """Messages just below threshold should not show gap."""
-        prev = self._make_message(datetime(2024, 6, 15, 10, 1, 0))
-        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0))
+        prev = self._make_message(datetime(2024, 6, 15, 10, 1, 0, tzinfo=UTC))
+        curr = self._make_message(datetime(2024, 6, 15, 14, 0, 0, tzinfo=UTC))
 
         with patch("src.agent.history.Config") as mock_config:
             mock_config.HISTORY_SESSION_GAP_HOURS = 4
@@ -177,7 +164,7 @@ class TestFormatFileMetadata:
             conversation_id="conv-1",
             role=MessageRole.USER,
             content="Test",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             files=files,
         )
 
@@ -346,7 +333,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.USER,
             "Hello",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         result = enrich_history([msg])
 
@@ -367,7 +354,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.ASSISTANT,
             "Here is what I found.",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         msg.sources = [
             {"title": "Alpine Route Guide", "url": "https://example.com/alpine"},
@@ -385,7 +372,10 @@ class TestEnrichHistory:
         """Non-web tool results (Garmin, Todoist...) survive into later turns
         as a digest, so follow-ups need not re-call the tool."""
         msg = self._make_message(
-            "msg-1", MessageRole.ASSISTANT, "Your HRV is 62.", datetime(2024, 6, 15, 14, 30, 0)
+            "msg-1",
+            MessageRole.ASSISTANT,
+            "Your HRV is 62.",
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         msg.tool_outputs = [
             {"tool": "garmin_connect", "args": '{"action":"hrv"}', "result": '{"hrv":62}'}
@@ -402,7 +392,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.ASSISTANT,
             "Answer",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         msg.sources = [
             {
@@ -422,7 +412,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.ASSISTANT,
             "Plain answer",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         result = enrich_history([msg])
         assert result[0]["metadata"].get("tool_digest") is None
@@ -433,13 +423,13 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.USER,
             "Hello",
-            datetime(2024, 6, 15, 10, 0, 0),
+            datetime(2024, 6, 15, 10, 0, 0, tzinfo=UTC),
         )
         msg2 = self._make_message(
             "msg-2",
             MessageRole.ASSISTANT,
             "Hi there!",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
 
         with patch("src.agent.history.Config") as mock_config:
@@ -458,7 +448,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.USER,
             "Check this file",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
             files=[{"name": "doc.pdf", "type": "application/pdf", "data": "..."}],
         )
         result = enrich_history([msg])
@@ -474,7 +464,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.ASSISTANT,
             "Here is the result",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
             files=[{"name": "output.png", "type": "image/png", "data": "..."}],
         )
         result = enrich_history([msg])
@@ -488,7 +478,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.ASSISTANT,
             "I found some info",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
             sources=[{"title": "Wikipedia", "url": "https://wiki.org"}],
             generated_images=[{"prompt": "A sunset"}],
         )
@@ -507,7 +497,7 @@ class TestEnrichHistory:
             "msg-1",
             MessageRole.USER,
             "Search for cats",
-            datetime(2024, 6, 15, 14, 30, 0),
+            datetime(2024, 6, 15, 14, 30, 0, tzinfo=UTC),
         )
         result = enrich_history([msg])
 
@@ -521,26 +511,26 @@ class TestEnrichHistory:
                 "msg-1",
                 MessageRole.USER,
                 "Analyze this",
-                datetime(2024, 6, 15, 10, 0, 0),
+                datetime(2024, 6, 15, 10, 0, 0, tzinfo=UTC),
                 files=[{"name": "data.csv", "type": "text/csv", "data": "..."}],
             ),
             self._make_message(
                 "msg-2",
                 MessageRole.ASSISTANT,
                 "I've analyzed the data",
-                datetime(2024, 6, 15, 10, 1, 0),
+                datetime(2024, 6, 15, 10, 1, 0, tzinfo=UTC),
             ),
             self._make_message(
                 "msg-3",
                 MessageRole.USER,
                 "Now search for more info",
-                datetime(2024, 6, 15, 16, 0, 0),  # 6 hour gap (from 10:01 to 16:00)
+                datetime(2024, 6, 15, 16, 0, 0, tzinfo=UTC),  # 6 hour gap (from 10:01 to 16:00)
             ),
             self._make_message(
                 "msg-4",
                 MessageRole.ASSISTANT,
                 "Here's what I found",
-                datetime(2024, 6, 15, 16, 2, 0),
+                datetime(2024, 6, 15, 16, 2, 0, tzinfo=UTC),
                 sources=[{"title": "Article", "url": "https://example.com"}],
             ),
         ]
@@ -581,7 +571,7 @@ class TestFileIdIntegration:
             conversation_id="conv-1",
             role=MessageRole.USER,
             content="Check this",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             files=[
                 {"name": "doc.pdf", "type": "application/pdf", "data": "..."},
                 {"name": "img.png", "type": "image/png", "data": "..."},
@@ -610,7 +600,7 @@ class TestPartialDataBackwardCompatibility:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="Hello",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             sources=None,
             generated_images=None,
         )
@@ -628,7 +618,7 @@ class TestPartialDataBackwardCompatibility:
             conversation_id="conv-1",
             role=MessageRole.USER,
             content="Hello",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             files=[],
         )
         result = enrich_history([msg])
@@ -644,7 +634,7 @@ class TestPartialDataBackwardCompatibility:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="Old response",
-            created_at=datetime(2024, 1, 1, 10, 0, 0),
+            created_at=datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC),
             sources=None,  # Old message without sources
         )
         new_msg = Message(
@@ -652,7 +642,7 @@ class TestPartialDataBackwardCompatibility:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="New response",
-            created_at=datetime(2024, 6, 15, 14, 0, 0),
+            created_at=datetime(2024, 6, 15, 14, 0, 0, tzinfo=UTC),
             sources=[{"title": "Source", "url": "https://example.com"}],
         )
 
@@ -692,7 +682,7 @@ class TestVideoHistoryMetadata:
     def test_fresh_video_not_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.mp4", "type": "video/mp4"}],
-            created_at=datetime.now() - timedelta(days=1),
+            created_at=datetime.now(UTC) - timedelta(days=1),
         )
         files = format_file_metadata(msg)
         assert files is not None
@@ -701,7 +691,7 @@ class TestVideoHistoryMetadata:
     def test_old_video_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.mp4", "type": "video/mp4"}],
-            created_at=datetime.now() - timedelta(days=8),
+            created_at=datetime.now(UTC) - timedelta(days=8),
         )
         files = format_file_metadata(msg)
         assert files is not None
@@ -710,7 +700,7 @@ class TestVideoHistoryMetadata:
     def test_old_image_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.png", "type": "image/png"}],
-            created_at=datetime.now() - timedelta(days=31),
+            created_at=datetime.now(UTC) - timedelta(days=31),
         )
         files = format_file_metadata(msg)
         assert files is not None
@@ -719,7 +709,7 @@ class TestVideoHistoryMetadata:
     def test_old_pdf_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.pdf", "type": "application/pdf"}],
-            created_at=datetime.now() - timedelta(days=999),
+            created_at=datetime.now(UTC) - timedelta(days=999),
         )
         files = format_file_metadata(msg)
         assert files is not None
@@ -728,7 +718,7 @@ class TestVideoHistoryMetadata:
     def test_fresh_pdf_not_marked_expired(self) -> None:
         msg = self._make_message(
             [{"name": "a.pdf", "type": "application/pdf"}],
-            created_at=datetime.now() - timedelta(days=1),
+            created_at=datetime.now(UTC) - timedelta(days=1),
         )
         files = format_file_metadata(msg)
         assert files is not None
@@ -746,7 +736,7 @@ class TestGroundingContext:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="PřepiServis vyřídí přepis za 24–48 hodin.",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             annotations=[
                 {
                     "type": "claim",
@@ -769,7 +759,7 @@ class TestGroundingContext:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="A",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             annotations=[{"type": "claim", "verdict": "supported", "quote": "A"}],
         )
 
@@ -785,7 +775,7 @@ class TestVerifiedClaims:
             conversation_id="conv-1",
             role=MessageRole.ASSISTANT,
             content="Grolich vyhrál Senát v 1. kole.",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             sources=[{"title": "ČT24", "url": "https://ct24.cz/grolich"}],
             annotations=[
                 {

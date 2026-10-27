@@ -38,6 +38,7 @@ from src.agent.tool_display import TOOL_METADATA
 from src.agent.tools.research import research
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -79,8 +80,8 @@ class FreshnessDecision:
 
 
 def _today() -> date:
-    """Seam for tests (patching time would shift date.today() everywhere)."""
-    return date.today()
+    """Seam for tests: today's date in APP_TIMEZONE."""
+    return local_today()
 
 
 def _text(content: Any) -> str:

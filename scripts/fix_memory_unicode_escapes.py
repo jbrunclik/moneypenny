@@ -16,7 +16,6 @@ import re
 import sqlite3
 import sys
 import uuid
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -42,6 +41,7 @@ def main() -> int:
     # for the yoyo migration lock against the live app. Raw SQL only.
 
     from src.config import Config
+    from src.utils.clock import to_api, utc_now
     from src.utils.embeddings import embed_text, pack_vector
 
     conn = sqlite3.connect(Config.DATABASE_PATH, timeout=30)
@@ -74,7 +74,7 @@ def main() -> int:
                         Config.EMBEDDING_MODEL,
                         len(vec),
                         pack_vector(vec),
-                        datetime.now().isoformat(),
+                        to_api(utc_now()),  # write-only column
                     ),
                 )
 

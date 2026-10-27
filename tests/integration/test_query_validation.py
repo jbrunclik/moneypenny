@@ -10,6 +10,7 @@ routes always had.
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 from apiflask import APIFlask
@@ -137,7 +138,11 @@ class TestValidateQuery:
         ("limit=-5", 1, None),
         ("limit=abc", 30, None),  # unparsable -> default
         ("limit=", 30, None),
-        ("limit=7&cursor=t:c1", 7, "t:c1"),
+        (
+            "limit=7&cursor=" + quote("2026-10-27T06:00:00.000000+00:00:c1"),
+            7,
+            "2026-10-27T06:00:00.000000+00:00:c1",
+        ),
     ],
 )
 def test_conversation_list_paging(
@@ -164,7 +169,12 @@ def test_conversation_list_paging(
     ("query", "limit", "cursor", "direction"),
     [
         ("", 50, None, PaginationDirection.OLDER),
-        ("limit=1000&direction=newer&cursor=t:c1", 200, "t:c1", PaginationDirection.NEWER),
+        (
+            "limit=1000&direction=newer&cursor=" + quote("2026-10-27T06:00:00.000000+00:00:c1"),
+            200,
+            "2026-10-27T06:00:00.000000+00:00:c1",
+            PaginationDirection.NEWER,
+        ),
         ("limit=0&direction=sideways", 1, None, PaginationDirection.OLDER),
         ("limit=abc&direction=", 50, None, PaginationDirection.OLDER),
         ("around_message_id=", 50, None, PaginationDirection.OLDER),  # blank: plain paging
@@ -195,9 +205,11 @@ def test_messages_paging(
     [
         ("", 50, None, PaginationDirection.OLDER),
         (
-            "message_limit=500&message_cursor=t:c1&direction=newer",
+            "message_limit=500&message_cursor="
+            + quote("2026-10-27T06:00:00.000000+00:00:c1")
+            + "&direction=newer",
             200,
-            "t:c1",
+            "2026-10-27T06:00:00.000000+00:00:c1",
             PaginationDirection.NEWER,
         ),
         ("message_limit=x&direction=bogus", 50, None, PaginationDirection.OLDER),
@@ -231,6 +243,9 @@ def test_conversation_detail_paging(
         ("/api/conversations/trash", "cursor=abc", "cursor"),
         ("/api/conversations/{id}/messages", "cursor=abc", "cursor"),
         ("/api/conversations/{id}", "message_cursor=abc", "message_cursor"),
+        # A separator but no timestamp before it
+        ("/api/conversations", "cursor=t:c1", "cursor"),
+        ("/api/conversations/{id}/messages", "cursor=t:c1", "cursor"),
     ],
 )
 def test_malformed_page_cursor_is_a_400(
@@ -241,7 +256,8 @@ def test_malformed_page_cursor_is_a_400(
     query: str,
     field: str,
 ) -> None:
-    """A cursor without its ':' separator was a 500 (ValueError in parse_cursor)."""
+    """A cursor without its ':' separator was a 500 (ValueError in parse_cursor),
+    and one whose timestamp does not parse cannot be compared with stored ones."""
     url = path.format(id=test_conversation.id)
     response = client.get(f"{url}?{query}", headers=auth_headers)
     assert response.status_code == 400
@@ -408,9 +424,9 @@ class TestCostQueries:
     def test_monthly_defaults_to_this_month(
         self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
     ) -> None:
-        from datetime import datetime
+        from datetime import UTC, datetime
 
-        now = datetime.now()
+        now = datetime.now(UTC)
         for query in ("", "year=abc&month=", "year=0&month=0"):
             data = client.get(
                 f"/api/users/me/costs/monthly?{query}", headers=auth_headers

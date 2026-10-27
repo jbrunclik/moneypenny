@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
 
 from src.config import Config
 from src.db.models.dataclasses import Agent, AgentExecution, ApprovalRequest
+from src.db.models.timestamps import from_db, from_db_or_none
 
 
 def row_to_agent(row: sqlite3.Row) -> Agent:
@@ -33,13 +33,11 @@ def row_to_agent(row: sqlite3.Row) -> Agent:
         enabled=bool(row["enabled"]),
         tool_permissions=tool_permissions,
         model=row["model"] or Config.DEFAULT_MODEL,
-        created_at=datetime.fromisoformat(row["created_at"]),
-        updated_at=datetime.fromisoformat(row["updated_at"]),
-        last_run_at=(datetime.fromisoformat(row["last_run_at"]) if row["last_run_at"] else None),
-        next_run_at=(datetime.fromisoformat(row["next_run_at"]) if row["next_run_at"] else None),
-        last_viewed_at=(
-            datetime.fromisoformat(row["last_viewed_at"]) if row["last_viewed_at"] else None
-        ),
+        created_at=from_db(row["created_at"], "utc"),
+        updated_at=from_db(row["updated_at"], "utc"),
+        last_run_at=from_db_or_none(row["last_run_at"], "utc"),
+        next_run_at=from_db_or_none(row["next_run_at"], "utc"),
+        last_viewed_at=(from_db_or_none(row["last_viewed_at"], "local")),
         budget_limit=budget_limit,
         fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
         system_type=(row["system_type"] if "system_type" in row.keys() else None),  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
@@ -60,9 +58,9 @@ def row_to_approval_request(row: sqlite3.Row) -> ApprovalRequest:
         tool_args=tool_args,
         description=row["description"],
         status=row["status"],
-        created_at=datetime.fromisoformat(row["created_at"]),
-        resolved_at=(datetime.fromisoformat(row["resolved_at"]) if row["resolved_at"] else None),
-        expires_at=(datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None),
+        created_at=from_db(row["created_at"], "utc"),
+        resolved_at=from_db_or_none(row["resolved_at"], "utc"),
+        expires_at=from_db_or_none(row["expires_at"], "utc"),
     )
 
 
@@ -74,7 +72,7 @@ def row_to_execution(row: sqlite3.Row) -> AgentExecution:
         status=row["status"],
         trigger_type=row["trigger_type"],
         triggered_by_agent_id=row["triggered_by_agent_id"],
-        started_at=datetime.fromisoformat(row["started_at"]),
-        completed_at=(datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None),
+        started_at=from_db(row["started_at"], "utc"),
+        completed_at=from_db_or_none(row["completed_at"], "utc"),
         error_message=row["error_message"],
     )

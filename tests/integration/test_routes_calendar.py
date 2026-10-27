@@ -1,6 +1,6 @@
 """Integration tests for Google Calendar API endpoints."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -231,7 +231,7 @@ class TestDisconnectGoogleCalendar:
             test_user.id,
             access_token="test-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
             email="user@example.com",
         )
         test_database.update_user_calendar_selected_ids(
@@ -281,7 +281,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="test-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
             email="user@example.com",
         )
 
@@ -307,7 +307,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="expired-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() - timedelta(hours=1),  # Expired
+            expires_at=datetime.now(UTC) - timedelta(hours=1),  # Expired
             email="user@example.com",
         )
 
@@ -337,7 +337,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="expiring-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() + timedelta(minutes=3),
+            expires_at=datetime.now(UTC) + timedelta(minutes=3),
             email="user@example.com",
         )
 
@@ -375,7 +375,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="expired-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() - timedelta(hours=1),
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
             email="user@example.com",
         )
 
@@ -406,7 +406,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="expired-token",
             refresh_token="refresh-token",
-            expires_at=datetime.now() - timedelta(hours=1),
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
             email="user@example.com",
         )
 
@@ -435,7 +435,7 @@ class TestGetCalendarStatus:
             test_user.id,
             access_token="test-token",
             refresh_token=None,
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
             email="user@example.com",
         )
 

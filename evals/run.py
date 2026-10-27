@@ -40,6 +40,8 @@ from typing import Any
 
 import yaml
 
+from src.utils.clock import local_today, to_local, utc_now
+
 _REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
@@ -141,7 +143,7 @@ def _resolve_dates(value: Any) -> Any:
         return [_resolve_dates(v) for v in value]
     if not isinstance(value, str):
         return value
-    today = date.today()
+    today = local_today()
 
     def sub(match: re.Match[str]) -> str:
         placeholder = match.group(1)
@@ -886,9 +888,8 @@ def main() -> int:
 
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
-    from datetime import datetime
 
-    out_path = results_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+    out_path = results_dir / f"{to_local(utc_now()).strftime('%Y%m%d-%H%M%S')}.json"
     print(f"{len(cases)} cases on {min(workers, len(cases))} workers", flush=True)
     started = time.monotonic()
 

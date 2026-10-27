@@ -1,7 +1,6 @@
 """Todoist tasks for the planner dashboard: the next 7 days and overdue."""
 
 import json
-from datetime import datetime
 from typing import Any
 
 import httpx
@@ -9,6 +8,7 @@ import httpx
 from src.config import Config
 from src.services.planner.dates import parse_date
 from src.services.planner.models import PlannerTask
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -124,13 +124,13 @@ def _split_overdue(
     project_map: dict[str, str],
 ) -> tuple[list[PlannerTask], list[PlannerTask]]:
     """Split tasks into (upcoming, overdue); tasks without a due date are upcoming."""
-    today = datetime.now().date()
+    today = local_today()
     upcoming: list[PlannerTask] = []
     overdue: list[PlannerTask] = []
     for task in tasks:
         planner_task = format_task(task, section_map, project_map)
         task_date = parse_date(planner_task.due_date) if planner_task.due_date else None
-        if task_date and task_date.date() < today:
+        if task_date and task_date < today:
             overdue.append(planner_task)
         else:
             upcoming.append(planner_task)

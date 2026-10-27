@@ -12,12 +12,12 @@ The only difference between environments is how the scheduler is triggered:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from src.agent.executor import AgentBlockedError, execute_agent
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -45,7 +45,7 @@ def run_scheduled_agents() -> SchedulerResult:
     Returns:
         SchedulerResult with counts of executed, skipped, and failed agents.
     """
-    now = datetime.now(UTC).replace(tzinfo=None)  # Naive UTC for DB comparison
+    now = utc_now()
     logger.info("Scheduler: evaluating agent schedules", extra={"now": now.isoformat()})
 
     # Clean up zombie executions (stuck in running/waiting_approval for too long)

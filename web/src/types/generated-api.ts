@@ -7495,9 +7495,15 @@ export interface components {
              * @default null
              */
             next_run_at: string | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Budget Limit
@@ -7615,9 +7621,15 @@ export interface components {
              * @default null
              */
             next_run_at: string | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Budget Limit
@@ -8139,6 +8151,7 @@ export interface components {
             health_summary: components["schemas"]["PlannerDashboardResponse.PlannerHealthSummaryResponse"] | null;
             /**
              * Server Time
+             * Format: date-time
              * @description Server timestamp for cache validation
              */
             server_time: string;
@@ -8168,9 +8181,15 @@ export interface components {
              * @default null
              */
             category: string | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Protected
@@ -8277,7 +8296,10 @@ export interface components {
         "PlannerSyncResponse.PlannerConversationSyncData": {
             /** Id */
             id: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /** Message Count */
             message_count: number;
@@ -8300,6 +8322,7 @@ export interface components {
             conversation: components["schemas"]["PlannerSyncResponse.PlannerConversationSyncData"] | null;
             /**
              * Server Time
+             * Format: date-time
              * @description Server timestamp in ISO format
              */
             server_time: string;
@@ -8364,9 +8387,15 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Message Count
@@ -8453,9 +8482,15 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Message Count
@@ -8656,7 +8691,10 @@ export interface components {
             agent_name: string;
             /** User Name */
             user_name: string;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
             /**
              * Error
@@ -8711,7 +8749,10 @@ export interface components {
             count: number;
             /** Users */
             users: number;
-            /** Last Seen */
+            /**
+             * Last Seen
+             * Format: date-time
+             */
             last_seen: string;
         };
         /** DailySpend */
@@ -8758,7 +8799,10 @@ export interface components {
              * @description Of count, how many in the home-screen app
              */
             standalone_count: number;
-            /** Last Seen */
+            /**
+             * Last Seen
+             * Format: date-time
+             */
             last_seen: string;
             /**
              * Ios Version
@@ -8917,7 +8961,10 @@ export interface components {
          * @description Everything the admin page shows - names and numbers, no conversation content.
          */
         AdminOverviewResponse: {
-            /** Generated At */
+            /**
+             * Generated At
+             * Format: date-time
+             */
             generated_at: string;
             /** Currency */
             currency: string;
@@ -9009,7 +9056,10 @@ export interface components {
             name: string;
             /** Emoji */
             emoji: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
             /**
              * Has Conversation
@@ -9125,7 +9175,10 @@ export interface components {
             /** Description */
             description: string;
             status: components["schemas"]["PendingApprovalsResponse.ApprovalStatus"];
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
             /**
              * Resolved At
@@ -9358,7 +9411,10 @@ export interface components {
             name: string;
             /** Emoji */
             emoji: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
             /**
              * Has Conversation
@@ -9429,9 +9485,15 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /** Message Count */
             message_count: number;
@@ -9471,6 +9533,7 @@ export interface components {
             conversations: components["schemas"]["SyncResponse.SyncConversationResponse"][];
             /**
              * Server Time
+             * Format: date-time
              * @description Server time of this sync (ISO); the client's baseline for what is new
              */
             server_time: string;
@@ -9815,7 +9878,10 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["PlannerConversationResponse.VerifyClaimActionResponse"] | components["schemas"]["PlannerConversationResponse.DeepResearchActionResponse"]) | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /**
@@ -9862,9 +9928,15 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /** Messages */
             messages: components["schemas"]["PlannerConversationResponse.MessageResponse"][];
@@ -10122,7 +10194,10 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["MessageResponse.VerifyClaimActionResponse"] | components["schemas"]["MessageResponse.DeepResearchActionResponse"]) | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /**
@@ -10141,7 +10216,10 @@ export interface components {
              * @default null
              */
             triggered_by_agent_id: string | null;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
             /**
              * Completed At
@@ -10195,7 +10273,10 @@ export interface components {
              * @default null
              */
             triggered_by_agent_id: string | null;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
             /**
              * Completed At
@@ -10261,9 +10342,15 @@ export interface components {
              * @default null
              */
             next_run_at: string | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Budget Limit
@@ -10445,7 +10532,10 @@ export interface components {
             /** Description */
             description: string;
             status: components["schemas"]["CommandCenterResponse.ApprovalStatus"];
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
             /**
              * Resolved At
@@ -10839,7 +10929,10 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["ConversationDetailPaginatedResponse.VerifyClaimActionResponse"] | components["schemas"]["ConversationDetailPaginatedResponse.DeepResearchActionResponse"]) | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /**
@@ -10919,9 +11012,15 @@ export interface components {
             title: string;
             /** Model */
             model: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /**
              * Is Agent
@@ -11032,11 +11131,20 @@ export interface components {
             failed: number;
             /** Skipped */
             skipped: number;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
-            /** Finished At */
+            /**
+             * Finished At
+             * Format: date-time
+             */
             finished_at: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /**
@@ -11135,11 +11243,20 @@ export interface components {
             failed: number;
             /** Skipped */
             skipped: number;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
-            /** Finished At */
+            /**
+             * Finished At
+             * Format: date-time
+             */
             finished_at: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /** DeviceCheckScenario */
@@ -11441,7 +11558,10 @@ export interface components {
              * @default null
              */
             triggered_by_agent_id: string | null;
-            /** Started At */
+            /**
+             * Started At
+             * Format: date-time
+             */
             started_at: string;
             /**
              * Completed At
@@ -11517,9 +11637,15 @@ export interface components {
             model: string;
             /** Program */
             program: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /** Messages */
             messages: {
@@ -11550,9 +11676,15 @@ export interface components {
             model: string;
             /** Program */
             program: string;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Updated At */
+            /**
+             * Updated At
+             * Format: date-time
+             */
             updated_at: string;
             /** Messages */
             messages: {
@@ -11802,7 +11934,10 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["MessagesListResponse.VerifyClaimActionResponse"] | components["schemas"]["MessagesListResponse.DeepResearchActionResponse"]) | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
         };
         /**
@@ -12093,7 +12228,10 @@ export interface components {
              * @default null
              */
             artifacts: components["schemas"]["ChatBatchResponse.ArtifactRef"][] | null;
-            /** Created At */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
             /**
              * Title
@@ -12319,6 +12457,7 @@ export interface components {
             message_count: number;
             /**
              * Updated At
+             * Format: date-time
              * @description Conversation updated_at timestamp in ISO format
              */
             updated_at: string;
@@ -12335,6 +12474,7 @@ export interface components {
             conversation: components["schemas"]["AgentConversationSyncResponse.AgentConversationSyncData"] | null;
             /**
              * Server Time
+             * Format: date-time
              * @description Server timestamp in ISO format
              */
             server_time: string;

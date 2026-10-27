@@ -8,6 +8,7 @@ import json
 from src.agent.prompt_texts.memory import MEMORY_SYSTEM_PROMPT
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import to_local
 
 
 def get_memory_instructions_prompt() -> str:
@@ -86,9 +87,9 @@ def get_user_memories_list_prompt(user_id: str) -> str:
                 "id": mem.id,
                 "category": mem.category or "",
                 "content": mem.content,
-                "created": mem.created_at.strftime("%Y-%m-%d"),
+                "created": to_local(mem.created_at).strftime("%Y-%m-%d"),
             }
-            updated_date = mem.updated_at.strftime("%Y-%m-%d")
+            updated_date = to_local(mem.updated_at).strftime("%Y-%m-%d")
             if updated_date != entry["created"]:
                 entry["updated"] = updated_date
             if mem.protected:

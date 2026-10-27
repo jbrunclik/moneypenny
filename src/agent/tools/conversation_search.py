@@ -11,7 +11,6 @@ This tool separates the two concerns. "Remember that I am vegetarian" is a
 memory; "what did we decide about the bathroom tiles" is a search.
 """
 
-from datetime import datetime
 from typing import Any
 
 from langchain_core.tools import tool
@@ -21,6 +20,8 @@ from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.db.models import db
+from src.db.models.timestamps import from_db
+from src.utils.clock import to_local
 from src.utils.embeddings import embed_text, top_k_similar
 from src.utils.logging import get_logger
 
@@ -60,7 +61,11 @@ def _format_results(
     ]
 
     for result in results:
-        date = result.created_at.strftime("%Y-%m-%d") if result.created_at else "unknown date"
+        date = (
+            to_local(result.created_at).strftime("%Y-%m-%d")
+            if result.created_at
+            else "unknown date"
+        )
         title = result.conversation_title or "Untitled"
         where = (
             _CURRENT_CONVERSATION_LABEL
@@ -76,7 +81,7 @@ def _format_results(
 
     for _message_id, conv_id, content, created_at, title in semantic_rows:
         try:
-            date = datetime.fromisoformat(created_at).strftime("%Y-%m-%d")
+            date = to_local(from_db(created_at, "local")).strftime("%Y-%m-%d")
         except ValueError, TypeError:
             date = "unknown date"
         where = (
@@ -248,7 +253,7 @@ def read_conversation(conversation_id: str, max_messages: int = 30) -> str:
 
     lines = [header]
     for message in messages:
-        date = message.created_at.strftime("%Y-%m-%d %H:%M")
+        date = to_local(message.created_at).strftime("%Y-%m-%d %H:%M")
         content = message.content or ""
         if len(content) > Config.CONVERSATION_READ_MAX_CHARS_PER_MESSAGE:
             content = content[: Config.CONVERSATION_READ_MAX_CHARS_PER_MESSAGE] + "... (truncated)"

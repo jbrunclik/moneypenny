@@ -69,18 +69,3 @@ export function appendSortedByUpdatedAt(
   }
   return result;
 }
-
-/**
- * Current time in the backend's timestamp format: datetime.now().isoformat()
- * - LOCAL time, no timezone suffix (e.g. "2026-08-24T12:34:56.789").
- * Ordering compares instants (utils/timestamps), so a "...Z" string would
- * sort correctly too; this keeps optimistic bumps in the server's format.
- */
-export function localIsoNow(): string {
-  const d = new Date();
-  const pad = (n: number, w = 2) => String(n).padStart(w, '0');
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`
-  );
-}

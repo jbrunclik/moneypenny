@@ -9,7 +9,7 @@ path and the approval finalize path.
 from __future__ import annotations
 
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -161,7 +161,7 @@ class TestApprovalFinalizeNotifies:
         mock_db.count_messages.return_value = 2
         message = MagicMock()
         message.id = "msg-1"
-        message.created_at = datetime(2026, 6, 12, 10, 0, 0)
+        message.created_at = datetime(2026, 6, 12, 10, 0, 0, tzinfo=UTC)
         mock_db.add_message.return_value = message
         with (
             patch("src.api.helpers.stream_finalize.db", mock_db),

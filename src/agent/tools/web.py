@@ -27,6 +27,7 @@ from src.services.search_provider import (
     has_metered_providers,
     search_web_detailed,
 )
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 from src.utils.tls import shared_ssl_context
 
@@ -293,8 +294,8 @@ RECENCY_NOTE = (
 
 
 def _today() -> date:
-    """Seam for tests (patching time would shift date.today() everywhere)."""
-    return date.today()
+    """Seam for tests: today's date in APP_TIMEZONE."""
+    return local_today()
 
 
 def _recency_note(searches: list[dict[str, Any]]) -> str | None:

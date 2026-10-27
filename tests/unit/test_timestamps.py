@@ -23,11 +23,13 @@ from src.db.models.timestamps import (
     TIMESTAMP_STORAGE_SETTING,
     LegacyFormat,
     from_db,
+    from_db_or_none,
     legacy_local_zone,
     normalize_cursor,
     register_sql_functions,
     stores_utc,
     to_db,
+    to_db_or_none,
 )
 
 if TYPE_CHECKING:
@@ -113,6 +115,17 @@ class TestFromDb:
         assert (winter.hour, summer.hour) == (11, 10)
 
 
+class TestNullable:
+    def test_from_db_or_none(self) -> None:
+        assert from_db_or_none(None, "utc") is None
+        assert from_db_or_none("", "utc") is None
+        assert from_db_or_none("2026-01-15T09:00:00", "utc") == _z(2026, 1, 15, 9)
+
+    def test_to_db_or_none(self, conn: sqlite3.Connection) -> None:
+        assert to_db_or_none(None, "utc", conn) is None
+        assert to_db_or_none(_z(2026, 1, 15, 9), "utc", conn) == "2026-01-15T09:00:00"
+
+
 class TestLegacyLocalZone:
     def test_config_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "America/New_York")
@@ -174,12 +187,6 @@ class TestToDbLegacy:
         self, conn: sqlite3.Connection, dt: datetime, legacy: LegacyFormat, expected: str
     ) -> None:
         assert to_db(dt, legacy, conn) == expected
-
-    def test_utc_matches_the_current_writer(self, conn: sqlite3.Connection) -> None:
-        from src.utils.datetime_utils import utcnow_naive
-
-        naive = utcnow_naive()
-        assert to_db(naive.replace(tzinfo=UTC), "utc", conn) == naive.isoformat()
 
     @pytest.mark.parametrize("legacy", ["local", "utc"])
     @pytest.mark.parametrize(

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
 from typing import Any
 
 from src.db.models.dataclasses import Message
+from src.db.models.timestamps import from_db
 from src.enums import MessageRole
 
 
@@ -18,7 +18,7 @@ def row_to_message(row: sqlite3.Row) -> Message:
         conversation_id=row["conversation_id"],
         role=MessageRole(row["role"]),
         content=row["content"],
-        created_at=datetime.fromisoformat(row["created_at"]),
+        created_at=from_db(row["created_at"], "local"),
         files=json.loads(row["files"]) if row["files"] else [],
         sources=json.loads(row["sources"]) if row["sources"] else None,
         tool_outputs=json.loads(row["tool_outputs"]) if row["tool_outputs"] else None,

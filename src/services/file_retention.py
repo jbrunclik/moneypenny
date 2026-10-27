@@ -12,8 +12,6 @@ ago.
 The sweep itself runs via systemd timer in production
 (moneypenny-file-cleanup.timer -> scripts/cleanup_files.py) and via the dev
 scheduler loop in development.
-
-Message timestamps are naive local datetimes; compare with datetime.now().
 """
 
 from datetime import datetime, timedelta
@@ -22,8 +20,9 @@ from src.config import Config
 from src.db import models
 from src.db.blob_store import get_blob_store
 from src.db.models import make_blob_key
+from src.db.models.timestamps import from_db
 from src.services.gemini_file_cache import delete_cached_file_uri
-from src.utils.datetime_utils import utcnow_naive
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -43,7 +42,7 @@ def retention_days_for_mime(mime_type: str) -> int:
 def is_file_expired(mime_type: str, created_at: datetime, now: datetime | None = None) -> bool:
     """Whether an attachment has passed its retention window."""
     days = retention_days_for_mime(mime_type)
-    now = now or datetime.now()
+    now = now or utc_now()
     return created_at < now - timedelta(days=days)
 
 
@@ -67,7 +66,7 @@ def cleanup_expired_files() -> dict[str, int]:
     """
     counts = {"videos_deleted": 0, "images_deleted": 0, "files_deleted": 0}
     blob_store = get_blob_store()
-    now = datetime.now()
+    now = utc_now()
     # The shortest retention window bounds the scan
     min_days = min(
         Config.VIDEO_RETENTION_DAYS,
@@ -112,12 +111,10 @@ def run_file_cleanup_if_due() -> bool:
     last_run = models.db.kv_get("_system", "file_cleanup", "last_run")
     if last_run:
         try:
-            if datetime.fromisoformat(last_run) > utcnow_naive() - timedelta(
-                hours=CLEANUP_MIN_PERIOD_HOURS
-            ):
+            if from_db(last_run, "utc") > utc_now() - timedelta(hours=CLEANUP_MIN_PERIOD_HOURS):
                 return False
         except ValueError:
             pass
-    models.db.kv_set("_system", "file_cleanup", "last_run", utcnow_naive().isoformat())
+    models.db.kv_set("_system", "file_cleanup", "last_run", to_api(utc_now()))
     cleanup_expired_files()
     return True

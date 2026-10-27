@@ -9,7 +9,8 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -60,8 +61,8 @@ class KVStoreMixin:
             key: The key
             value: The value (string, use JSON for complex data)
         """
-        now = utcnow_naive().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "utc", conn)
             self._execute_with_timing(
                 conn,
                 """
@@ -83,8 +84,8 @@ class KVStoreMixin:
         Returns:
             The value after the increment.
         """
-        now = utcnow_naive().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "utc", conn)
             self._execute_with_timing(
                 conn,
                 """

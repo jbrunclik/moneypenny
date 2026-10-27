@@ -1,7 +1,7 @@
 """Artifacts made during a turn reach the reply, the stream, the journal and history."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
@@ -118,7 +118,7 @@ def test_history_names_the_artifacts() -> None:
         conversation_id="c1",
         role=MessageRole.ASSISTANT,
         content="Here it is.",
-        created_at=datetime.now(),
+        created_at=datetime.now(UTC),
         artifacts=[{"id": "a1", "version": 2, "title": "Tips"}],
     )
 

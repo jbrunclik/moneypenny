@@ -1,6 +1,6 @@
 """Tests for conversation trash database operations."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from src.db.blob_store import BlobStore
 from src.db.models import Database, User, make_blob_key
@@ -44,7 +44,7 @@ class TestTrashOperations:
         self, test_database: Database, test_user: User
     ) -> None:
         conv = test_database.create_conversation(test_user.id, "Retried")
-        earlier = datetime.now() - timedelta(days=3)
+        earlier = datetime.now(UTC) - timedelta(days=3)
         test_database.trash_conversation(conv.id, test_user.id)
         _set_deleted_at(test_database, conv.id, earlier)
 
@@ -148,8 +148,8 @@ class TestTrashOperations:
         assert test_blob_store.get(make_blob_key(msg.id, 0)) is not None
         for conv in (old, recent):
             test_database.trash_conversation(conv.id, test_user.id)
-        _set_deleted_at(test_database, old.id, datetime.now() - timedelta(days=15))
-        _set_deleted_at(test_database, recent.id, datetime.now() - timedelta(days=13))
+        _set_deleted_at(test_database, old.id, datetime.now(UTC) - timedelta(days=15))
+        _set_deleted_at(test_database, recent.id, datetime.now(UTC) - timedelta(days=13))
 
         assert test_database.purge_trashed_conversations(14) == 1
 
@@ -247,7 +247,7 @@ class TestBulkTrash:
         self, test_database: Database, test_user: User
     ) -> None:
         conv = test_database.create_conversation(test_user.id, "Once")
-        earlier = datetime.now() - timedelta(days=3)
+        earlier = datetime.now(UTC) - timedelta(days=3)
         test_database.trash_conversation(conv.id, test_user.id)
         _set_deleted_at(test_database, conv.id, earlier)
 
@@ -263,7 +263,7 @@ class TestBulkTrash:
     def test_trash_all_skips_pinned_archived_excluded_special_and_new(
         self, test_database: Database, test_user: User
     ) -> None:
-        cutoff = datetime.now()
+        cutoff = datetime.now(UTC)
         plain = test_database.create_conversation(test_user.id, "Plain")
         excluded = test_database.create_conversation(test_user.id, "Excluded")
         pinned = test_database.create_conversation(test_user.id, "Pinned")
@@ -290,7 +290,7 @@ class TestBulkTrash:
     def test_trash_all_includes_hand_picked_pinned(
         self, test_database: Database, test_user: User
     ) -> None:
-        cutoff = datetime.now() + timedelta(seconds=1)
+        cutoff = datetime.now(UTC) + timedelta(seconds=1)
         pinned = test_database.create_conversation(test_user.id, "Pinned")
         test_database.set_conversation_pinned(pinned.id, test_user.id, True)
 
@@ -303,7 +303,7 @@ class TestBulkTrash:
     def test_trash_all_is_scoped_to_user(self, test_database: Database, test_user: User) -> None:
         other = test_database.get_or_create_user("other@example.com", "Other")
         foreign = test_database.create_conversation(other.id, "Foreign")
-        cutoff = datetime.now() + timedelta(seconds=1)
+        cutoff = datetime.now(UTC) + timedelta(seconds=1)
 
         assert (
             test_database.trash_all_conversations(
@@ -340,7 +340,7 @@ class TestRestoreKeepsListPosition:
         ids = []
         for days_ago, title in ((3, "Old"), (2, "Mid"), (1, "New")):
             conv = db.create_conversation(user.id, title)
-            when = (datetime.now() - timedelta(days=days_ago)).isoformat()
+            when = (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
             _set_column(db, conv.id, "updated_at", when)
             ids.append(conv.id)
         return ids

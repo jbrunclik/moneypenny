@@ -3,7 +3,7 @@
 from typing import Any
 
 from src.config import Config
-from src.services.planner.dates import parse_datetime
+from src.services.planner.dates import local_date_of
 from src.services.planner.models import PlannerWeather
 from src.utils.logging import get_logger
 from src.utils.weather import WeatherForecast, WeatherPeriod, get_weather_for_location
@@ -33,9 +33,9 @@ def fetch_forecast(db: Any, force_refresh: bool) -> tuple[WeatherForecast | None
 def _periods_by_date(periods: list[WeatherPeriod]) -> dict[str, list[WeatherPeriod]]:
     by_date: dict[str, list[WeatherPeriod]] = {}
     for period in periods:
-        period_time = parse_datetime(period.time)
-        if period_time:
-            by_date.setdefault(period_time.strftime("%Y-%m-%d"), []).append(period)
+        period_date = local_date_of(period.time)
+        if period_date:
+            by_date.setdefault(period_date.isoformat(), []).append(period)
     return by_date
 
 

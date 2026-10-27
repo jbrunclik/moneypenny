@@ -5,7 +5,7 @@ single OpenAPI tag). DELETE /conversations/<id> itself (move to trash) lives
 in conversations.py.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from src.api.errors import raise_not_found_error
@@ -25,6 +25,7 @@ from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Conversation, User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -37,14 +38,14 @@ def _trashed_item(c: Conversation, message_count: int, preview: str | None) -> d
         "id": c.id,
         "title": c.title,
         "model": c.model,
-        "created_at": c.created_at.isoformat(),
-        "updated_at": c.updated_at.isoformat(),
+        "created_at": to_api(c.created_at),
+        "updated_at": to_api(c.updated_at),
         "message_count": message_count,
         "archived": c.archived,
         "pinned": c.pinned,
         "last_message_preview": preview,
-        "deleted_at": c.deleted_at.isoformat() if c.deleted_at else None,
-        "purge_at": (c.deleted_at + retention).isoformat() if c.deleted_at else None,
+        "deleted_at": to_api(c.deleted_at) if c.deleted_at else None,
+        "purge_at": to_api(c.deleted_at + retention) if c.deleted_at else None,
     }
 
 
@@ -110,14 +111,6 @@ def delete_conversation_permanently(user: User, conv_id: str) -> tuple[dict[str,
     return {"status": "deleted"}, 200
 
 
-def _naive_local(moment: datetime) -> datetime:
-    """Conversation timestamps are stored as naive local time (datetime.now());
-    the browser sends UTC. Compare like with like."""
-    if moment.tzinfo is None:
-        return moment
-    return moment.astimezone().replace(tzinfo=None)
-
-
 @api.route("/conversations/bulk-trash", methods=["POST"])
 @api.output(BulkTrashResponse)
 @api.doc(responses=[400, 429])
@@ -131,7 +124,7 @@ def bulk_trash_conversations(user: User, data: BulkTrashRequest) -> dict[str, li
         trashed = db.trash_all_conversations(
             user.id,
             exclude_ids=data.exclude_ids,
-            created_before=_naive_local(data.created_before),
+            created_before=data.created_before,
             extra_ids=data.ids,
         )
     else:

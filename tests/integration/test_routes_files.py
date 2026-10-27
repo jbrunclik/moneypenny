@@ -94,11 +94,11 @@ class TestFullFileSources:
         file: dict,
         blobs: dict[str, tuple[bytes, str]],
     ):
-        from datetime import datetime
+        from datetime import UTC, datetime
         from unittest.mock import MagicMock, patch
 
         message = MagicMock(id="m1", conversation_id="c1", files=[file])
-        message.created_at = datetime.now()
+        message.created_at = datetime.now(UTC)
         store = MagicMock()
         store.get.side_effect = blobs.get
         with (
@@ -218,11 +218,11 @@ class TestThumbnailSources:
         blobs: dict[str, tuple[bytes, str]],
         age_seconds: float = 0,
     ):
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
         from unittest.mock import MagicMock, patch
 
         message = MagicMock(id="m1", conversation_id="c1", files=[file])
-        message.created_at = datetime.now() - timedelta(seconds=age_seconds)
+        message.created_at = datetime.now(UTC) - timedelta(seconds=age_seconds)
         store = MagicMock()
         store.get.side_effect = blobs.get
         with (
@@ -311,9 +311,9 @@ class TestThumbnailSources:
 
 
 def _backdate_message(test_database: Database, message_id: str, days_old: int) -> None:
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
-    backdated = (datetime.now() - timedelta(days=days_old)).isoformat()
+    backdated = (datetime.now(UTC) - timedelta(days=days_old)).isoformat()
     with test_database._pool.get_connection() as conn:
         conn.execute("UPDATE messages SET created_at = ? WHERE id = ?", (backdated, message_id))
         conn.commit()

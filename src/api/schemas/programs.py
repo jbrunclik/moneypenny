@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import Field, field_validator
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
 
 QUICK_ACTIONS_MAX_PER_PROGRAM = 12
 
@@ -56,7 +56,7 @@ class SportsProgramItem(ResponseModel):
     id: str
     name: str
     emoji: str
-    created_at: str
+    created_at: Timestamp
     has_conversation: bool = False
     quick_actions: list[QuickActionResponse] = Field(default_factory=list)
 
@@ -81,8 +81,8 @@ class SportsConversationResponse(ResponseModel):
     title: str
     model: str
     program: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     messages: list[dict[str, Any]]
 
 
@@ -99,7 +99,7 @@ class LanguageProgramItem(ResponseModel):
     id: str
     name: str
     emoji: str
-    created_at: str
+    created_at: Timestamp
     has_conversation: bool = False
     quick_actions: list[QuickActionResponse] = Field(default_factory=list)
 
@@ -124,8 +124,8 @@ class LanguageConversationResponse(ResponseModel):
     title: str
     model: str
     program: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     messages: list[dict[str, Any]]
 
 

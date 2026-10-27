@@ -11,6 +11,7 @@ import { createElement, createSvgElement } from '../utils/dom';
 import { getFocusableElements, trapTabKey } from '../utils/focus-trap';
 import { CHEVRON_LEFT_ICON, REFRESH_ICON, createIconButton } from '../utils/icons';
 import { createLogger } from '../utils/logger';
+import { toMillis } from '../utils/timestamps';
 
 const log = createLogger('components/AdminPage');
 
@@ -47,8 +48,13 @@ function megabytes(bytes: number): string {
   return `${Math.round(bytes / BYTES_PER_MB)} MB`;
 }
 
+/** A server instant as local "YYYY-MM-DD HH:MM" (the browser's timezone). */
 function dateTime(iso: string | null | undefined): string {
-  return iso ? iso.replace('T', ' ').slice(0, 16) : '-';
+  const ms = iso ? toMillis(iso) : NaN;
+  if (Number.isNaN(ms)) return '-';
+  const d = new Date(ms);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 type Child = Node | string | null | false | undefined;

@@ -1,6 +1,6 @@
 """Tests for tiered memory injection in get_user_memories_list_prompt."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from src.agent.prompt_memory import get_user_memories_list_prompt
@@ -14,7 +14,7 @@ def _memory(
     protected: bool = False,
     updated_days_ago: int = 0,
 ) -> Memory:
-    now = datetime.now()
+    now = datetime.now(UTC)
     return Memory(
         id=f"mem-{idx}",
         user_id="user-1",

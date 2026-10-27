@@ -1,12 +1,12 @@
 """The plan a deep-research run executes: the accepted (and maybe edited) offer."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 from src.agent.deep_research.estimate import estimate
 from src.agent.deep_research.offer import seconds_open, validate_plan
 from src.db.models import db
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -79,7 +79,7 @@ def start_plan(
         "final_sub_questions": items,
         "final_context": context,
         "final_estimate": final_estimate,
-        "decided_at": datetime.now().isoformat(),
+        "decided_at": to_api(utc_now()),
     }
     _decide(message, started, is_followup)
     offered = list(offer.get("sub_questions") or [])
@@ -112,7 +112,7 @@ def start_plan(
 def decline_offer(message: Any) -> None:
     """Mark an open offer (or follow-up offer) declined."""
     offer, is_followup = _open_offer(message)
-    declined = {**offer, "status": "declined", "decided_at": datetime.now().isoformat()}
+    declined = {**offer, "status": "declined", "decided_at": to_api(utc_now())}
     _decide(message, declined, is_followup)
     logger.info(
         "Deep research declined",

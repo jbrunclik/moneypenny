@@ -6,7 +6,7 @@ writer's (possibly rotated) refresh token - that would permanently break
 future refreshes.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from src.auth.google_calendar import get_valid_access_token
@@ -16,7 +16,9 @@ def _make_user(expires_in_minutes: int) -> MagicMock:
     user = MagicMock()
     user.google_calendar_access_token = "old-access"
     user.google_calendar_refresh_token = "old-refresh"
-    user.google_calendar_token_expires_at = datetime.now() + timedelta(minutes=expires_in_minutes)
+    user.google_calendar_token_expires_at = datetime.now(UTC) + timedelta(
+        minutes=expires_in_minutes
+    )
     return user
 
 
@@ -75,7 +77,7 @@ class TestRefreshTokensCompareAndSwap:
             test_user.id,
             access_token="a1",
             refresh_token="r1",
-            expires_at=datetime.now(),
+            expires_at=datetime.now(UTC),
             email="u@example.com",
         )
 
@@ -85,7 +87,7 @@ class TestRefreshTokensCompareAndSwap:
             used_refresh_token="r1",
             access_token="a2",
             refresh_token="r2",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
 
         # Loser: used the now-replaced refresh token - write must be rejected
@@ -94,7 +96,7 @@ class TestRefreshTokensCompareAndSwap:
             used_refresh_token="r1",
             access_token="a3",
             refresh_token="r3",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
 
         user = test_database.get_user_by_id(test_user.id)

@@ -104,7 +104,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "photo.jpg", "type": "image/jpeg", "size": 1000}]
-        mock_message.created_at = _dt.datetime.now()
+        mock_message.created_at = _dt.datetime.now(_dt.UTC)
         mock_db.get_message_by_id.return_value = mock_message
 
         # Mock blob store
@@ -137,7 +137,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "data.txt", "type": "text/plain", "size": 100}]
-        mock_message.created_at = _dt.datetime.now()
+        mock_message.created_at = _dt.datetime.now(_dt.UTC)
         mock_db.get_message_by_id.return_value = mock_message
 
         # Mock blob store
@@ -168,7 +168,7 @@ class TestRetrieveFile:
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": "old_photo.jpg", "type": "image/jpeg", "data": legacy_data}]
-        mock_message.created_at = _dt.datetime.now()
+        mock_message.created_at = _dt.datetime.now(_dt.UTC)
         mock_db.get_message_by_id.return_value = mock_message
 
         # Blob store returns None
@@ -197,7 +197,7 @@ class TestRetrieveFile:
         mock_message.files = [
             {"name": "missing.jpg", "type": "image/jpeg"}  # No "data" key
         ]
-        mock_message.created_at = _dt.datetime.now()
+        mock_message.created_at = _dt.datetime.now(_dt.UTC)
         mock_db.get_message_by_id.return_value = mock_message
 
         # Blob store returns None
@@ -219,12 +219,12 @@ class TestRetrieveFileVideo:
 
     @staticmethod
     def _video_message(days_old: int = 0, mime: str = "video/mp4", name: str = "clip.mp4"):
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         mock_message = MagicMock()
         mock_message.conversation_id = "conv-123"
         mock_message.files = [{"name": name, "type": mime, "size": 1000}]
-        mock_message.created_at = datetime.now() - timedelta(days=days_old)
+        mock_message.created_at = datetime.now(UTC) - timedelta(days=days_old)
         return mock_message
 
     @patch("src.agent.tools.file_retrieval.ensure_gemini_file_uri")

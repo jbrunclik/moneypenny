@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models.dataclasses import Conversation, User
 from src.db.models.helpers import delete_messages_blobs, should_reset_planner
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -99,7 +100,7 @@ class PlannerMixin:
             # Create new planner conversation
             conv_id = str(uuid.uuid4())
             model = model or Config.DEFAULT_MODEL
-            now = datetime.now()
+            now = utc_now()
 
             # A concurrent first open (another device or tab) may have created
             # it since the SELECT: the one-planner-per-user index turns this
@@ -114,9 +115,9 @@ class PlannerMixin:
                     user_id,
                     "Planner",
                     model,
-                    now.isoformat(),
-                    now.isoformat(),
-                    now.isoformat(),
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
                 ),
             ).rowcount
             conn.commit()
@@ -194,18 +195,18 @@ class PlannerMixin:
             )
 
             # Update planner_last_reset_at on user
-            now = datetime.now()
+            now = utc_now()
             self._execute_with_timing(
                 conn,
                 "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
-                (now.isoformat(), user_id),
+                (to_db(now, "local", conn), user_id),
             )
 
             # Update conversation updated_at and last_reset
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ?, last_reset = ? WHERE id = ?",
-                (now.isoformat(), now.isoformat(), conv_id),
+                (to_db(now, "local", conn), to_db(now, "local", conn), conv_id),
             )
 
             conn.commit()

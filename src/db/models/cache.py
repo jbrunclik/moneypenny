@@ -11,10 +11,11 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import from_db, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -65,8 +66,8 @@ class CacheMixin:
                 return None
 
             # Check if expired
-            expires_at = datetime.fromisoformat(row[1])
-            if utcnow_naive() >= expires_at:
+            expires_at = from_db(row[1], "utc")
+            if utc_now() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_dashboard(user_id)
                 return None
@@ -88,7 +89,7 @@ class CacheMixin:
             dashboard_data: Dashboard data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 300 = 5 minutes)
         """
-        now = utcnow_naive()
+        now = utc_now()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         # Serialize dashboard
@@ -102,7 +103,7 @@ class CacheMixin:
                 (user_id, dashboard_data, cached_at, expires_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user_id, dashboard_json, now.isoformat(), expires_at.isoformat()),
+                (user_id, dashboard_json, to_db(now, "utc", conn), to_db(expires_at, "utc", conn)),
             )
             conn.commit()
 
@@ -155,7 +156,7 @@ class CacheMixin:
                 SELECT calendars_data FROM calendar_cache
                 WHERE user_id = ? AND expires_at > ?
                 """,
-                (user_id, utcnow_naive().isoformat()),
+                (user_id, to_db(utc_now(), "utc", conn)),
             )
             row = cursor.fetchone()
 
@@ -177,7 +178,7 @@ class CacheMixin:
             calendars_data: Calendar list data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 3600 = 1 hour)
         """
-        cached_at = utcnow_naive()
+        cached_at = utc_now()
         expires_at = cached_at + timedelta(seconds=ttl_seconds)
         calendars_json = json.dumps(calendars_data)
 
@@ -192,7 +193,12 @@ class CacheMixin:
                     cached_at = excluded.cached_at,
                     expires_at = excluded.expires_at
                 """,
-                (user_id, calendars_json, cached_at.isoformat(), expires_at.isoformat()),
+                (
+                    user_id,
+                    calendars_json,
+                    to_db(cached_at, "utc", conn),
+                    to_db(expires_at, "utc", conn),
+                ),
             )
             conn.commit()
 
@@ -306,8 +312,8 @@ class CacheMixin:
                 return None
 
             # Check if expired
-            expires_at = datetime.fromisoformat(row[1])
-            if utcnow_naive() >= expires_at:
+            expires_at = from_db(row[1], "utc")
+            if utc_now() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_weather(location)
                 return None
@@ -329,7 +335,7 @@ class CacheMixin:
             forecast_data: Weather forecast data dict to cache
             ttl_seconds: Time-to-live in seconds (default: 21600 = 6 hours)
         """
-        now = utcnow_naive()
+        now = utc_now()
         expires_at = now + timedelta(seconds=ttl_seconds)
 
         # Serialize forecast
@@ -343,7 +349,7 @@ class CacheMixin:
                 (location, forecast_data, cached_at, expires_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (location, forecast_json, now.isoformat(), expires_at.isoformat()),
+                (location, forecast_json, to_db(now, "utc", conn), to_db(expires_at, "utc", conn)),
             )
             conn.commit()
 

@@ -1,15 +1,16 @@
 """Admin page queries (src/db/models/admin.py) against a real test database."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
 from src.db.models import Database, User
+from src.db.models.timestamps import to_db
 
-NOW = datetime(2026, 10, 25, 15, 0)
-TODAY = datetime(2026, 10, 25)
-MONTH = datetime(2026, 10, 1)
+NOW = datetime(2026, 10, 25, 15, 0, tzinfo=UTC)
+TODAY = datetime(2026, 10, 25, tzinfo=UTC)
+MONTH = datetime(2026, 10, 1, tzinfo=UTC)
 
 
 def _cost(db: Database, user: User, usd: float, at: datetime, **kwargs: Any) -> str:
@@ -28,7 +29,7 @@ def _cost(db: Database, user: User, usd: float, at: datetime, **kwargs: Any) -> 
     with db._pool.get_connection() as conn:
         conn.execute(
             "UPDATE message_costs SET created_at = ? WHERE message_id = ?",
-            (at.isoformat(), message.id),
+            (to_db(at, "local", conn), message.id),
         )
         conn.commit()
     return conversation.id
@@ -44,8 +45,8 @@ class TestSpend:
         self, test_database: Database, test_user: User, other_user: User
     ) -> None:
         _cost(test_database, test_user, 2.0, NOW)
-        _cost(test_database, test_user, 3.0, datetime(2026, 10, 3, 9, 0))
-        _cost(test_database, test_user, 50.0, datetime(2026, 9, 30, 9, 0))  # last month
+        _cost(test_database, test_user, 3.0, datetime(2026, 10, 3, 9, 0, tzinfo=UTC))
+        _cost(test_database, test_user, 50.0, datetime(2026, 9, 30, 9, 0, tzinfo=UTC))  # last month
         rows = {r["user_id"]: r for r in test_database.admin_spend_per_user(TODAY, MONTH)}
         assert rows[test_user.id]["today_usd"] == pytest.approx(2.0)
         assert rows[test_user.id]["month_usd"] == pytest.approx(5.0)
@@ -58,26 +59,40 @@ class TestSpend:
     ) -> None:
         chat = test_database.create_conversation(test_user.id, "Chat")
         _cost(test_database, test_user, 1.0, NOW, conversation=chat)
-        _cost(test_database, test_user, 1.0, datetime(2026, 10, 3, 9, 0), conversation=chat)
+        _cost(
+            test_database,
+            test_user,
+            1.0,
+            datetime(2026, 10, 3, 9, 0, tzinfo=UTC),
+            conversation=chat,
+        )
         _cost(test_database, test_user, 1.0, NOW)  # a second chat
-        _cost(test_database, test_user, 1.0, datetime(2026, 9, 30, 9, 0))  # last month
+        _cost(test_database, test_user, 1.0, datetime(2026, 9, 30, 9, 0, tzinfo=UTC))  # last month
         rows = {r["user_id"]: r for r in test_database.admin_spend_per_user(TODAY, MONTH)}
         assert (rows[test_user.id]["month_chats"], rows[test_user.id]["month_turns"]) == (2, 3)
         assert (rows[other_user.id]["month_chats"], rows[other_user.id]["month_turns"]) == (0, 0)
 
     def test_user_spend_since(self, test_database: Database, test_user: User) -> None:
         _cost(test_database, test_user, 4.0, NOW)
-        _cost(test_database, test_user, 7.0, datetime(2026, 10, 24, 23, 0))
+        _cost(test_database, test_user, 7.0, datetime(2026, 10, 24, 23, 0, tzinfo=UTC))
         assert test_database.user_spend_since(test_user.id, TODAY) == pytest.approx(4.0)
 
     def test_by_day_fills_only_days_with_spend(
         self, test_database: Database, test_user: User
     ) -> None:
-        _cost(test_database, test_user, 1.0, datetime(2026, 10, 24, 10, 0))
-        _cost(test_database, test_user, 2.0, datetime(2026, 10, 24, 20, 0))
+        _cost(test_database, test_user, 1.0, datetime(2026, 10, 24, 10, 0, tzinfo=UTC))
+        _cost(test_database, test_user, 2.0, datetime(2026, 10, 24, 20, 0, tzinfo=UTC))
         _cost(test_database, test_user, 3.0, NOW)
-        days = dict(test_database.admin_spend_by_day(datetime(2026, 10, 20)))
+        days = dict(test_database.admin_spend_by_day(datetime(2026, 10, 20, tzinfo=UTC)))
         assert days == {"2026-10-24": pytest.approx(3.0), "2026-10-25": pytest.approx(3.0)}
+
+    def test_by_day_is_the_local_calendar_day(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        # 22:30Z on Oct 23 is 00:30 on Oct 24 in Prague (CEST)
+        _cost(test_database, test_user, 4.0, datetime(2026, 10, 23, 22, 30, tzinfo=UTC))
+        days = dict(test_database.admin_spend_by_day(datetime(2026, 10, 20, tzinfo=UTC)))
+        assert days == {"2026-10-24": pytest.approx(4.0)}
 
     def test_by_feature_and_model(self, test_database: Database, test_user: User) -> None:
         planner = test_database.get_or_create_planner_conversation(test_user.id)
@@ -104,8 +119,8 @@ class TestTurnsAndAgents:
     def test_turn_stats(self, test_database: Database, test_user: User) -> None:
         _cost(test_database, test_user, 0.1, NOW, duration_ms=1000)
         _cost(test_database, test_user, 0.1, NOW, duration_ms=3000, tool_errors=2)
-        _cost(test_database, test_user, 0.1, datetime(2026, 9, 1), duration_ms=99999)
-        stats = test_database.admin_turn_stats(datetime(2026, 10, 18))
+        _cost(test_database, test_user, 0.1, datetime(2026, 9, 1, tzinfo=UTC), duration_ms=99999)
+        stats = test_database.admin_turn_stats(datetime(2026, 10, 18, tzinfo=UTC))
         assert stats["turns"] == 2
         assert sorted(stats["durations_ms"]) == [1000, 3000]
         assert stats["turns_with_tool_errors"] == 1
@@ -118,7 +133,7 @@ class TestTurnsAndAgents:
         test_database.update_execution(
             bad.id, status="failed", error_message="x" * 500 + "\nquoted page text"
         )
-        stats = test_database.admin_agent_runs(datetime(2000, 1, 1))
+        stats = test_database.admin_agent_runs(datetime(2000, 1, 1, tzinfo=UTC))
         assert (stats["runs"], stats["failed"]) == (2, 1)
         failure = test_database.admin_recent_agent_failures(limit=5)[0]
         assert failure["agent_name"] == "Briefing"

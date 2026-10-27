@@ -13,12 +13,12 @@ The API requires:
 """
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from typing import Any
 
 import httpx
 
 from src.config import Config
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -131,7 +131,7 @@ def fetch_weather_forecast(
 
     # Parse forecast periods (limit to next 7 days for planner)
     periods: list[WeatherPeriod] = []
-    now = datetime.utcnow()
+    now = utc_now()
 
     for entry in timeseries[:168]:  # 168 hours = 7 days
         time_str = entry.get("time")
@@ -178,7 +178,7 @@ def fetch_weather_forecast(
         latitude=latitude,
         longitude=longitude,
         periods=periods,
-        fetched_at=now.isoformat(),
+        fetched_at=to_api(now),
     )
 
 

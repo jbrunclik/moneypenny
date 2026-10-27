@@ -7,7 +7,7 @@ offer Continue instead of presenting a partial answer as complete.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -75,7 +75,7 @@ class TestSerializedMessages:
             conversation_id="c",
             role=MessageRole.ASSISTANT,
             content="",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
         )
         assert serialize_messages_for_response([placeholder]) == []
 
@@ -87,7 +87,7 @@ class TestDoneEvent:
             conversation_id="c",
             role=MessageRole.ASSISTANT,
             content="x",
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
         )
         assert build_stream_done_event(msg, [], [], [], stopped_early=True)["stopped_early"] is True
         assert "stopped_early" not in build_stream_done_event(msg, [], [], [])

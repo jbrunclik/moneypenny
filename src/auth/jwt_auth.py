@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from enum import Enum
 from functools import wraps
 from typing import Any
@@ -17,6 +17,7 @@ from src.api.errors import (
 from src.auth.google_auth import is_email_allowed
 from src.config import Config
 from src.db.models import User, db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -46,8 +47,8 @@ def create_token(user: User) -> str:
         "sub": user.id,
         "email": user.email,
         "name": user.name,
-        "exp": datetime.now(UTC) + timedelta(seconds=Config.JWT_EXPIRATION_SECONDS),
-        "iat": datetime.now(UTC),
+        "exp": utc_now() + timedelta(seconds=Config.JWT_EXPIRATION_SECONDS),
+        "iat": utc_now(),
     }
     token = jwt.encode(payload, Config.JWT_SECRET_KEY, algorithm=Config.JWT_ALGORITHM)
     logger.debug("JWT token created", extra={"user_id": user.id})

@@ -3,7 +3,6 @@
 This module handles cost tracking and reporting for API usage.
 """
 
-from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -25,6 +24,7 @@ from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
 from src.services.costs import convert_currency, format_cost
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -218,9 +218,9 @@ def get_message_cost(user: User, message_id: str) -> tuple[dict[str, Any], int]:
 def get_user_monthly_cost(user: User, query: MonthlyCostQuery) -> tuple[dict[str, Any], int]:
     """Get cost for the current user in a specific month."""
     # Get year and month from query params (default to current month)
-    now = datetime.now()
-    year = query.year or now.year
-    month = query.month or now.month
+    today = local_today()
+    year = query.year or today.year
+    month = query.month or today.month
 
     # Validate month range
     if not (1 <= month <= 12):
@@ -291,9 +291,9 @@ def get_user_cost_history(user: User, query: CostHistoryQuery) -> tuple[dict[str
     history = db.get_user_cost_history(user.id, limit)
 
     # Get current month
-    now = datetime.now()
-    current_year = now.year
-    current_month = now.month
+    today = local_today()
+    current_year = today.year
+    current_month = today.month
 
     # Convert to display format
     history_display = []

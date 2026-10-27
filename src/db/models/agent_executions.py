@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 from src.config import Config
 from src.db.models.agent_rows import row_to_execution
 from src.db.models.dataclasses import AgentExecution
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -58,7 +59,7 @@ class AgentExecutionMixin:
     ) -> AgentExecution:
         """Create a new execution record."""
         execution_id = str(uuid.uuid4())
-        now = utcnow_naive()
+        now = utc_now()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -66,7 +67,13 @@ class AgentExecutionMixin:
                 """INSERT INTO agent_executions
                    (id, agent_id, status, trigger_type, triggered_by_agent_id, started_at)
                    VALUES (?, ?, 'running', ?, ?, ?)""",
-                (execution_id, agent_id, trigger_type, triggered_by_agent_id, now.isoformat()),
+                (
+                    execution_id,
+                    agent_id,
+                    trigger_type,
+                    triggered_by_agent_id,
+                    to_db(now, "utc", conn),
+                ),
             )
             conn.commit()
 
@@ -88,7 +95,7 @@ class AgentExecutionMixin:
         error_message: str | None = None,
     ) -> None:
         """Update an execution's status."""
-        now = utcnow_naive()
+        now = utc_now()
 
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
@@ -96,7 +103,7 @@ class AgentExecutionMixin:
                 """UPDATE agent_executions
                    SET status = ?, completed_at = ?, error_message = ?
                    WHERE id = ?""",
-                (status, now.isoformat(), error_message, execution_id),
+                (status, to_db(now, "utc", conn), error_message, execution_id),
             )
             conn.commit()
 
@@ -122,7 +129,7 @@ class AgentExecutionMixin:
         permanently locked agents due to stuck executions.
         """
         # Calculate the cutoff time (executions older than this are considered stuck)
-        cutoff = utcnow_naive() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        cutoff = utc_now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
 
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
@@ -131,7 +138,7 @@ class AgentExecutionMixin:
                    WHERE agent_id = ? AND status = 'running'
                    AND started_at > ?
                    LIMIT 1""",
-                (agent_id, cutoff.isoformat()),
+                (agent_id, to_db(cutoff, "utc", conn)),
             ).fetchone()
 
             return row is not None
@@ -143,7 +150,7 @@ class AgentExecutionMixin:
         completed an execution within AGENT_EXECUTION_COOLDOWN_SECONDS.
         """
         # Calculate the cooldown cutoff time
-        now = utcnow_naive()
+        now = utc_now()
         cutoff = now - timedelta(seconds=Config.AGENT_EXECUTION_COOLDOWN_SECONDS)
 
         with self._pool.get_connection() as conn:
@@ -156,7 +163,7 @@ class AgentExecutionMixin:
                    WHERE agent_id = ? AND completed_at IS NOT NULL
                    AND completed_at > ? AND completed_at <= ?
                    LIMIT 1""",
-                (agent_id, cutoff.isoformat(), now.isoformat()),
+                (agent_id, to_db(cutoff, "utc", conn), to_db(now, "utc", conn)),
             ).fetchone()
 
             return row is not None
@@ -186,7 +193,7 @@ class AgentExecutionMixin:
         Returns:
             Number of zombie executions cleaned up.
         """
-        cutoff = utcnow_naive() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
+        cutoff = utc_now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
@@ -197,7 +204,7 @@ class AgentExecutionMixin:
                        error_message = 'Execution timed out (zombie cleanup)'
                    WHERE status IN ('running', 'waiting_approval')
                    AND started_at < ?""",
-                (utcnow_naive().isoformat(), cutoff.isoformat()),
+                (to_db(utc_now(), "utc", conn), to_db(cutoff, "utc", conn)),
             )
             conn.commit()
 

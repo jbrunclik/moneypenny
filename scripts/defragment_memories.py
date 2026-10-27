@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from src.agent.tools.memory import VALID_CATEGORIES
 from src.config import Config
 from src.db.models import Memory, User, db, skip_if_migrations_pending
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -115,8 +116,8 @@ class DefragPlan(BaseModel):
 
 
 def _now() -> datetime:
-    """Seam for tests; memory timestamps are naive local time."""
-    return datetime.now()
+    """Seam for tests: the current instant."""
+    return utc_now()
 
 
 def is_recent(memory: Memory) -> bool:

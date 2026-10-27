@@ -163,9 +163,9 @@ def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
     )
 
     # Add trigger message
-    from datetime import datetime
+    from src.utils.clock import utc_now
 
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+    now = utc_now().strftime("%Y-%m-%d %H:%M")
     g.db.add_message(
         conversation_id=agent.conversation_id,
         role="user",

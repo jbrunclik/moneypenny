@@ -73,6 +73,7 @@ session and points here for the rest.
 | B9 | One HTTP client library: `httpx` | ruff `TID251` |
 | B10 | An import inside a function says why: `# noqa: PLC0415 - <reason>` (a cycle, a heavy optional dependency) | ruff `PLC0415` in `src/` (none baselined) |
 | B11 | Env vars are read only in `src/config.py`; time and size settings carry their unit (`_SECONDS`, `_MS`, `_BYTES`); true constants live in `constants.py` | `tests/unit/test_config_reads.py` (env reads outside `config.py`; duration and byte-size `Config` names without a unit, 20 baselined Oct 26 2026 - each is set in the real `.env` files, so a rename lands there in the same deploy); judgment (constants) |
+| B12 | Datetimes are aware: instants are UTC (`src/utils/clock.py`: `utc_now`, `to_api` for the API, `to_local` for display and prompts), the household's days and months are drawn in `APP_TIMEZONE` (`local_today`, `local_day_start`, `planner_cutoff`, the SQL `app_local_date`), stored values go through `timestamps.from_db` / `to_db` ([Timestamps](architecture/database.md#timestamps)); the API sends every instant as `YYYY-MM-DDTHH:MM:SS.ffffff+00:00` | ruff `DTZ` (src, scripts, evals; no baseline); `tests/unit/test_naive_datetimes.py` (naive parsing, host-zone conversion, `replace(tzinfo=None)`; a deliberate one says `# tz-naive: <why>`); `tests/integration/test_api_timestamps.py` (spec `format: date-time` and live responses); `make test-tz` (the suite under two far-off process timezones) |
 
 ### Frontend architecture (F)
 
@@ -96,7 +97,7 @@ session and points here for the rest.
 |----|------|-------------|
 | C1 | Functions under 50 lines (100 max), nesting at most 3, bounded complexity - see [Size and structure](#size-and-structure) | ruff `C901` (complexity 10), `PLR0912`, `PLR0915`; `tests/unit/test_function_length.py` (Python 100-line maximum, docstrings excluded; baseline only shrinks); ESLint `max-lines-per-function` (100), `max-depth` (3), `complexity` (15) - the ESLint ones baselined |
 | C2 | No dead code or unused dependencies | knip (frontend files, exports, npm deps; no baseline); vulture (`src/`, `evals/`, `scripts/`, the E2E server; config in `pyproject.toml`, what it can't see in `vulture_whitelist.py` with reasons; no baseline); deptry (`deptry.toml`: imports vs `requirements.in` / `requirements-dev.in`) |
-| C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90` (`RUF100` flags dead `noqa`s). `PLC0415` in `src/`. Not yet: `DTZ` (needs the timezone migration in TODO first - partial adoption mixes aware and naive datetimes), `PT` | ruff; a deliberate exception carries `# noqa: CODE - <why>` |
+| C3 | Lint rule sets: ruff `E W F I B C4 UP S BLE TRY400 G LOG T20 RUF SIM RET PERF N PGH TID C90 DTZ` (`RUF100` flags dead `noqa`s). `PLC0415` in `src/`. `DTZ` (B12) outside `tests/`. Not yet: `PT` | ruff; a deliberate exception carries `# noqa: CODE - <why>` |
 | C4 | Formatting: ruff format (Python), ESLint (TS), Prettier (CSS, YAML, JSON; not Markdown); `.editorconfig` | ruff, ESLint, Prettier `format:check` in `make lint`; the PostToolUse hook formats on edit |
 | C5 | Type hints everywhere (mypy strict), TypeScript strict | mypy, tsc |
 | C6 | No backward-compatibility re-exports when moving code; update the imports | judgment |

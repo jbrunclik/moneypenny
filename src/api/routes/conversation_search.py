@@ -12,6 +12,7 @@ from src.api.schemas.conversations import SearchQuery, SearchResultsResponse
 from src.api.validation import validate_query
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -61,7 +62,7 @@ def search_conversations(user: User, search: SearchQuery) -> dict[str, Any]:
                 "message_id": r.message_id,
                 "message_snippet": r.message_content,
                 "match_type": r.match_type,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "created_at": to_api(r.created_at) if r.created_at else None,
             }
             for r in results
         ],

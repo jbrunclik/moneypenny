@@ -19,12 +19,14 @@ import json
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from src.agent.compaction_segments import Segment, extend_segments, max_passes, render_segments
 from src.config import Config
 from src.db.models import db
+from src.db.models.timestamps import from_db
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -110,7 +112,7 @@ class CompactionStatus:
 
 def _now() -> datetime:
     """Current UTC time (seam for tests - patching time.time also shifts date.today)."""
-    return datetime.now(UTC)
+    return utc_now()
 
 
 def _estimate_generation(covered_count: int) -> int:
@@ -198,7 +200,7 @@ def _in_backoff(state: _State) -> bool:
     if not state.retry_after:
         return False
     try:
-        return _now() < datetime.fromisoformat(state.retry_after)
+        return _now() < from_db(state.retry_after, "utc")
     except ValueError:
         return False
 
@@ -207,7 +209,7 @@ def _with_failure(state: _State) -> _State:
     """State after one more failed refresh: exponential backoff, capped."""
     failures = state.failures + 1
     delay = min(_FAILURE_BACKOFF_MAX_SECONDS, _FAILURE_BACKOFF_BASE_SECONDS * 2 ** (failures - 1))
-    retry_after = (_now() + timedelta(seconds=delay)).isoformat()
+    retry_after = to_api(_now() + timedelta(seconds=delay))
     return replace(state, failures=failures, retry_after=retry_after)
 
 

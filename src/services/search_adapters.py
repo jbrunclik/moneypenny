@@ -99,6 +99,7 @@ def normalize_published(value: Any) -> str | None:
         return None
     text = value.strip()
     try:
+        # tz-naive: the article's own calendar date, in whatever offset it was published
         return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
     except ValueError:
         pass

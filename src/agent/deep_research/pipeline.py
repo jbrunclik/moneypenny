@@ -11,7 +11,6 @@ import queue
 import threading
 import time
 from collections.abc import Callable, Generator, Iterator
-from datetime import datetime
 from typing import Any
 
 from src.agent.cancellation import TurnCancelled, token_for
@@ -31,6 +30,7 @@ from src.agent.retry import is_model_unavailable
 from src.agent.source_pages import SourcePage
 from src.agent.turn_usage import TokenTotals
 from src.config import Config
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -54,7 +54,7 @@ def run_deep_research(
 ) -> Generator[dict[str, Any]]:
     """Events of one run, ending with the `final` event."""
     started = time.monotonic()
-    today = datetime.now().astimezone().strftime("%A %Y-%m-%d")
+    today = local_today().strftime("%A %Y-%m-%d")
     events: queue.Queue[Any] = queue.Queue()
     orchestrator = Orchestrator(plan, events.put, request_id, today, recent_turns)
     parent = token_for(request_id)

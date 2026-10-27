@@ -10,10 +10,10 @@ Key format:
 """
 
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 
 from src.config import Config
+from src.utils.clock import to_api, utc_now
 from src.utils.connection_pool import ConnectionPool
 from src.utils.db_helpers import execute_with_timing, init_query_logging
 from src.utils.lazy import Lazy
@@ -97,7 +97,9 @@ class BlobStore:
                 conn,
                 """INSERT OR REPLACE INTO blobs (key, data, mime_type, size, created_at)
                    VALUES (?, ?, ?, ?, ?)""",
-                (key, data, mime_type, len(data), datetime.now().isoformat()),
+                # Write-only (nothing reads it), so new rows carry their offset
+                # and older local-naive ones stay as they are
+                (key, data, mime_type, len(data), to_api(utc_now())),
             )
             conn.commit()
 

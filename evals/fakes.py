@@ -31,6 +31,8 @@ from datetime import date, timedelta
 from typing import Any
 from unittest.mock import patch
 
+from src.utils.clock import local_today
+
 # Mirrors the real API's rejection of a malformed filter (error_code 55)
 _INVALID_FILTER_ERROR = (
     'Todoist API error (400): {"error":"The search query is incorrect",'
@@ -89,7 +91,7 @@ class FakeTodoist:
         negate = atom.startswith("!")
         atom = atom.lstrip("!").strip()
         due = (task.get("due") or {}).get("date")
-        today = date.today()
+        today = local_today()
         due_d = date.fromisoformat(due[:10]) if due else None
         result: bool
         if atom == "today":

@@ -17,7 +17,7 @@ from src.agent.executor import AgentBlockedError
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import Database, User
 from src.db.models.dataclasses import Agent
-from src.utils.datetime_utils import utcnow_naive
+from src.utils.clock import utc_now
 
 EVERY_HOUR = "0 * * * *"
 
@@ -38,7 +38,7 @@ def run(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 def _due_agent(db: Database, user: User, name: str = "Briefing", **kwargs: Any) -> Agent:
     agent = db.create_agent(user.id, name, schedule=EVERY_HOUR, **kwargs)
-    db.update_agent_next_run(agent.id, utcnow_naive() - timedelta(minutes=1))
+    db.update_agent_next_run(agent.id, utc_now() - timedelta(minutes=1))
     return db.get_agent(agent.id, user.id)  # type: ignore[return-value]
 
 
@@ -61,7 +61,7 @@ def test_agents_not_due_or_disabled_do_not_run(
     db: Database, test_user: User, run: MagicMock
 ) -> None:
     later = db.create_agent(test_user.id, "Later", schedule=EVERY_HOUR)
-    db.update_agent_next_run(later.id, utcnow_naive() + timedelta(hours=1))
+    db.update_agent_next_run(later.id, utc_now() + timedelta(hours=1))
     _due_agent(db, test_user, "Off", enabled=False)
     scheduler.run_scheduled_agents()
     run.assert_not_called()
@@ -99,7 +99,7 @@ def test_a_failed_run_is_recorded_and_the_schedule_moves_on(
     assert (execution.status, execution.error_message) == ("failed", "Calendar token expired")
     refreshed = db.get_agent(agent.id, test_user.id)
     assert refreshed is not None and refreshed.next_run_at is not None
-    assert refreshed.next_run_at > utcnow_naive()
+    assert refreshed.next_run_at > utc_now()
 
 
 def test_a_crash_is_recorded_and_the_schedule_moves_on(
@@ -113,7 +113,7 @@ def test_a_crash_is_recorded_and_the_schedule_moves_on(
     assert (execution.status, execution.error_message) == ("failed", "model unavailable")
     refreshed = db.get_agent(agent.id, test_user.id)
     assert refreshed is not None and refreshed.next_run_at is not None
-    assert refreshed.next_run_at > utcnow_naive()
+    assert refreshed.next_run_at > utc_now()
 
 
 @pytest.mark.parametrize(

@@ -8,6 +8,7 @@ import httpx
 
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -197,7 +198,7 @@ def compute_token_expiry(expires_in: Any) -> datetime:
         seconds = 3600
     # Subtract one minute to refresh proactively
     seconds = max(60, seconds - 60)
-    return datetime.now() + timedelta(seconds=seconds)
+    return utc_now() + timedelta(seconds=seconds)
 
 
 def get_valid_access_token(user_id: str) -> str | None:
@@ -223,7 +224,7 @@ def get_valid_access_token(user_id: str) -> str | None:
 
     # Token still comfortably valid (refresh within 10 minutes of expiry)
     expires_at = user.google_calendar_token_expires_at
-    if expires_at and expires_at > datetime.now() + timedelta(minutes=10):
+    if expires_at and expires_at > utc_now() + timedelta(minutes=10):
         return str(user.google_calendar_access_token)
 
     refresh_token = user.google_calendar_refresh_token

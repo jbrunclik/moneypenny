@@ -4,7 +4,7 @@ and a send from another device while the conversation's turn is running."""
 import json
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -285,7 +285,7 @@ class TestSendDuringAnotherDevicesTurn:
         test_conversation: Conversation,
     ) -> None:
         reply_id = self._running_turn(test_database, test_conversation.id)
-        test_database.set_message_created_at(reply_id, datetime.now() - timedelta(seconds=400))
+        test_database.set_message_created_at(reply_id, datetime.now(UTC) - timedelta(seconds=400))
 
         _, new_turn = self._stream(client, auth_headers, test_conversation.id)
 
@@ -299,7 +299,7 @@ class TestSendDuringAnotherDevicesTurn:
         test_conversation: Conversation,
     ) -> None:
         reply_id = self._running_turn(test_database, test_conversation.id)
-        test_database.set_message_created_at(reply_id, datetime.now() - timedelta(seconds=400))
+        test_database.set_message_created_at(reply_id, datetime.now(UTC) - timedelta(seconds=400))
         test_database.journal_append_events(reply_id, [(1, json.dumps({"type": "token"}))])
 
         _, new_turn = self._stream(client, auth_headers, test_conversation.id)

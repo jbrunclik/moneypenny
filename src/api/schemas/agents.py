@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import Field, field_validator
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
 from src.config import Config
 
 
@@ -105,10 +105,10 @@ class AgentResponse(ResponseModel):
     tool_permissions: list[str] | None = None
     model: str = Field(..., description="LLM model for the agent")
     conversation_id: str | None = None
-    last_run_at: str | None = None
-    next_run_at: str | None = None
-    created_at: str
-    updated_at: str
+    last_run_at: Timestamp | None = None
+    next_run_at: Timestamp | None = None
+    created_at: Timestamp
+    updated_at: Timestamp
     budget_limit: float | None = Field(
         None, description="Daily budget limit in USD (null = unlimited)"
     )
@@ -153,8 +153,8 @@ class ApprovalRequestResponse(ResponseModel):
     tool_args: dict[str, Any] | None = None
     description: str
     status: ApprovalStatus
-    created_at: str
-    resolved_at: str | None = None
+    created_at: Timestamp
+    resolved_at: Timestamp | None = None
 
 
 class AgentExecutionResponse(ResponseModel):
@@ -165,8 +165,8 @@ class AgentExecutionResponse(ResponseModel):
     status: AgentStatus
     trigger_type: AgentTriggerType
     triggered_by_agent_id: str | None = None
-    started_at: str
-    completed_at: str | None = None
+    started_at: Timestamp
+    completed_at: Timestamp | None = None
     error_message: str | None = None
 
 
@@ -244,7 +244,9 @@ class AgentConversationSyncData(ResponseModel):
     """Sync data for an agent's conversation."""
 
     message_count: int = Field(..., description="Total number of messages in conversation")
-    updated_at: str = Field(..., description="Conversation updated_at timestamp in ISO format")
+    updated_at: Timestamp = Field(
+        ..., description="Conversation updated_at timestamp in ISO format"
+    )
 
 
 class AgentConversationSyncResponse(ResponseModel):
@@ -253,7 +255,7 @@ class AgentConversationSyncResponse(ResponseModel):
     conversation: AgentConversationSyncData | None = Field(
         default=None, description="Agent conversation state, or null if no conversation exists"
     )
-    server_time: str = Field(..., description="Server timestamp in ISO format")
+    server_time: Timestamp = Field(..., description="Server timestamp in ISO format")
 
 
 class ParseScheduleRequest(RequestModel):

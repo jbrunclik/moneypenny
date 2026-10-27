@@ -9,7 +9,7 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -54,10 +54,10 @@ def sample_agent():
         enabled=True,
         tool_permissions=["web_search", "todoist"],
         model="gemini-3-flash-preview",
-        created_at=datetime(2024, 1, 1, 12, 0, 0),
-        updated_at=datetime(2024, 1, 1, 12, 0, 0),
+        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+        updated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         last_run_at=None,
-        next_run_at=datetime(2024, 1, 2, 9, 0, 0),
+        next_run_at=datetime(2024, 1, 2, 9, 0, 0, tzinfo=UTC),
     )
 
 
@@ -70,8 +70,8 @@ def sample_execution():
         status="completed",
         trigger_type="manual",
         triggered_by_agent_id=None,
-        started_at=datetime(2024, 1, 1, 12, 0, 0),
-        completed_at=datetime(2024, 1, 1, 12, 1, 0),
+        started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+        completed_at=datetime(2024, 1, 1, 12, 1, 0, tzinfo=UTC),
         error_message=None,
     )
 
@@ -87,7 +87,7 @@ def sample_approval():
         tool_args={"operation": "add_task", "content": "Test task"},
         description='Create Todoist task "Test task"',
         status="pending",
-        created_at=datetime(2024, 1, 1, 12, 0, 0),
+        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         resolved_at=None,
     )
 
@@ -457,52 +457,6 @@ class TestAgentDatabaseOperations:
 class TestDevScheduler:
     """Tests for dev scheduler functionality."""
 
-    def test_scheduler_handles_naive_datetime_from_database(self, sample_agent):
-        """Test that scheduler correctly handles naive datetimes from database.
-
-        This is a regression test for the TypeError:
-        "can't compare offset-naive and offset-aware datetimes"
-
-        The database stores datetimes without timezone info (naive UTC),
-        but the scheduler uses timezone-aware datetimes for comparison.
-        """
-        from datetime import UTC, datetime
-
-        # Simulate what the database returns: naive datetime (no tzinfo)
-        naive_next_run = datetime(2024, 1, 2, 9, 0, 0)  # No tzinfo
-        assert naive_next_run.tzinfo is None, "Test requires naive datetime"
-
-        # Create agent with naive datetime (as from DB)
-        agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Test Agent",
-            description=None,
-            system_prompt=None,
-            schedule="0 9 * * *",
-            timezone="UTC",
-            enabled=True,
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
-            last_run_at=None,
-            next_run_at=naive_next_run,  # Naive datetime
-        )
-
-        # Simulate scheduler comparison logic
-        now = datetime.now(UTC)  # Aware datetime
-
-        # The fix: convert naive to aware before comparison
-        next_run = agent.next_run_at
-        if next_run and next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=UTC)
-
-        # This should not raise TypeError
-        is_due = next_run <= now
-        assert isinstance(is_due, bool)
-
     def test_scheduler_handles_aware_datetime(self, sample_agent):
         """Test that scheduler handles already-aware datetimes correctly."""
         from datetime import UTC, datetime
@@ -523,8 +477,8 @@ class TestDevScheduler:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=aware_next_run,  # Aware datetime
         )
@@ -556,8 +510,8 @@ class TestDevScheduler:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,  # No next run
         )
@@ -597,8 +551,8 @@ class TestDevScheduler:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=naive_past,
         )
@@ -633,8 +587,8 @@ class TestDevScheduler:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=naive_future,
         )
@@ -747,15 +701,15 @@ class TestUnreadCount:
         from datetime import datetime
 
         # Scenario: Agent ran at 9:00, user viewed at 10:00, new message at 11:00
-        last_run_at = datetime(2024, 1, 1, 9, 0, 0)
-        last_viewed_at = datetime(2024, 1, 1, 10, 0, 0)
-        message_created_at = datetime(2024, 1, 1, 11, 0, 0)
+        last_run_at = datetime(2024, 1, 1, 9, 0, 0, tzinfo=UTC)
+        last_viewed_at = datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC)
+        message_created_at = datetime(2024, 1, 1, 11, 0, 0, tzinfo=UTC)
 
         # Message at 11:00 should be unread (created after last_viewed_at)
         assert message_created_at > last_viewed_at
 
         # Message at 9:30 should be read (created before last_viewed_at)
-        message_read = datetime(2024, 1, 1, 9, 30, 0)
+        message_read = datetime(2024, 1, 1, 9, 30, 0, tzinfo=UTC)
         assert message_read <= last_viewed_at
 
         # Using last_run_at would incorrectly mark 9:30 message as unread
@@ -773,12 +727,12 @@ class TestUnreadCount:
         from datetime import datetime
 
         # Before viewing: last_viewed_at is old, messages are unread
-        last_viewed_at_before = datetime(2024, 1, 1, 9, 0, 0)
-        message_time = datetime(2024, 1, 1, 10, 0, 0)
+        last_viewed_at_before = datetime(2024, 1, 1, 9, 0, 0, tzinfo=UTC)
+        message_time = datetime(2024, 1, 1, 10, 0, 0, tzinfo=UTC)
         assert message_time > last_viewed_at_before  # Message is unread
 
         # After viewing: last_viewed_at is updated to current time
-        last_viewed_at_after = datetime(2024, 1, 1, 11, 0, 0)
+        last_viewed_at_after = datetime(2024, 1, 1, 11, 0, 0, tzinfo=UTC)
         assert message_time <= last_viewed_at_after  # Message is now read
 
     def test_unread_count_only_includes_assistant_messages(self):
@@ -858,10 +812,10 @@ class TestSchedulerLogic:
             enabled=False,  # Disabled
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
-            next_run_at=datetime(2024, 1, 1, 9, 0, 0),  # Past due
+            next_run_at=datetime(2024, 1, 1, 9, 0, 0, tzinfo=UTC),  # Past due
         )
 
         # The agent should not be included in due agents because enabled=False
@@ -953,8 +907,8 @@ class TestExecutorRun:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1000,8 +954,8 @@ class TestExecutorRun:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1047,8 +1001,8 @@ class TestExecutorRun:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1093,8 +1047,8 @@ class TestExecutorRun:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1338,8 +1292,8 @@ class TestCompactionLogic:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1367,8 +1321,8 @@ class TestCompactionLogic:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )
@@ -1395,8 +1349,8 @@ class TestCompactionLogic:
             enabled=True,
             tool_permissions=None,
             model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1),
-            updated_at=datetime(2024, 1, 1),
+            created_at=datetime(2024, 1, 1, tzinfo=UTC),
+            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
             last_run_at=None,
             next_run_at=None,
         )

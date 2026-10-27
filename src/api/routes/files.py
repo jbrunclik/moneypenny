@@ -5,7 +5,6 @@ This module handles serving image files (thumbnails and full-size) from messages
 
 import base64
 import binascii
-from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -25,6 +24,7 @@ from src.db.models import Message, User, db, make_blob_key, make_thumbnail_key
 from src.enums import ThumbnailStatus
 from src.services.background_thumbnails import generate_and_save_thumbnail
 from src.services.file_retention import is_file_expired, retention_note
+from src.utils.clock import utc_now
 from src.utils.images import transcode_image_for_browser
 from src.utils.logging import get_logger
 
@@ -154,7 +154,7 @@ def _pending_thumbnail(
     """
     # Check if message is old enough that generation should have completed
     # If pending for more than threshold, assume the worker died and regenerate synchronously
-    message_age = (datetime.now() - message.created_at).total_seconds()
+    message_age = (utc_now() - message.created_at).total_seconds()
     if message_age <= Config.THUMBNAIL_STALE_THRESHOLD_SECONDS:
         # Not stale yet - return 202 to signal frontend to poll
         logger.debug(

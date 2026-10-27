@@ -41,6 +41,18 @@ Decided Oct 26 2026: all of the planner's recommended defaults accepted - one `A
 - 4 (S-M, a day later): re-run converter for stragglers, assert zero naive, drop tolerance and the flag
   branch, remove utcnow_naive/to_utc_iso, docs (database.md, conventions C3 + new rule, planner, costs).
 
+## Found while shipping 2b (Oct 27 2026) - for step 3
+- `create_agent` wrote the agent conversation's `conversations.created_at`/`updated_at` UTC-naive (a local
+  column) since ce810114. `updated_at` is rewritten local by every message; `created_at` of `is_agent = 1`
+  rows created after the cutoff is UTC. Convert those as `utc`, not `local`.
+- `device_check_runs` and `device_check_fixtures` (2a, Oct 26) are `utc`; messages they seed are `local`.
+- Write-only columns now take offset values: `blobs.created_at` (files.db, which has no app_settings flag)
+  and `embeddings.created_at` from the repair script; the app's own embeddings writes stay legacy `local`.
+- JSON-embedded timestamps (kv_store values: gemini file cache `expires_at`, file cleanup `last_run`,
+  compaction `retry_after`; message `research` offers `created_at`/`decided_at`) are written with offsets
+  since 2b and read with `from_db`, which accepts the older naive ones; the migration leaves them alone.
+- Cost month history and admin day buckets group by `app_local_date`, so they stay right across the switch.
+
 ## Biggest risks
 - A missed naive datetime raises TypeError at runtime (DTZ misses fromisoformat/combine -> AST guard).
 - Wrong source timezone shifts all history 1-2 h (verify from paired UTC/local rows before migrating).

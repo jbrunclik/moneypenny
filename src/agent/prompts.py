@@ -6,7 +6,6 @@ and memory-related prompt functions.
 
 import functools
 import json
-from datetime import datetime
 from typing import Any
 
 from src.agent.prompt_agents import get_autonomous_agent_prompt
@@ -40,6 +39,7 @@ from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_location_context
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import to_local, utc_now
 from src.utils.logging import get_logger
 from src.utils.mapy import MapyError, is_mapy_configured, mapy_rgeocode
 
@@ -294,7 +294,7 @@ def get_dynamic_prompt_parts(
     Returns:
         Dynamic prompt string
     """
-    now = datetime.now().astimezone()
+    now = to_local(utc_now())
     parts: list[str] = [f"Current date and time: {now.strftime('%A %Y-%m-%d %H:%M %Z')}"]
 
     user_context = get_user_context(user_name, user_id)
@@ -408,8 +408,8 @@ def get_system_prompt(
         is_language: If True, include language tutor system prompt
         language_context: Language context dict with keys: program_name, program_id
     """
-    # Include timezone info using astimezone() to get local timezone
-    now = datetime.now().astimezone()
+    # The household's local time, with its zone abbreviation
+    now = to_local(utc_now())
     date_context = f"\n\nCurrent date and time: {now.strftime('%A %Y-%m-%d %H:%M %Z')}"
 
     prompt = BASE_SYSTEM_PROMPT

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.helpers import delete_messages_blobs
+from src.db.models.timestamps import from_db, to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -63,9 +65,9 @@ class AgentConversationMixin:
             True if updated, False if agent not found
         """
         with self._pool.get_connection() as conn:
-            # LOCAL-naive on purpose: compared against messages.created_at
-            # (local-naive) in the unread-count subqueries
-            now = datetime.now().isoformat()
+            # messages.created_at's format: the unread-count subqueries
+            # compare the two as strings
+            now = to_db(utc_now(), "local", conn)
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE autonomous_agents
@@ -105,11 +107,10 @@ class AgentConversationMixin:
         the END of the context window (after the most recent real messages).
         """
         if keep_rows:
-            earliest_kept = min(datetime.fromisoformat(row["created_at"]) for row in keep_rows)
+            earliest_kept = min(from_db(row["created_at"], "local") for row in keep_rows)
             summary_ts = earliest_kept - timedelta(microseconds=1)
         else:
-            # LOCAL-naive: messages.created_at uses the local convention
-            summary_ts = datetime.now()
+            summary_ts = utc_now()
         self._execute_with_timing(
             conn,
             """INSERT INTO messages (id, conversation_id, role, content, created_at)
@@ -118,7 +119,7 @@ class AgentConversationMixin:
                 str(uuid.uuid4()),
                 conv_id,
                 f"[Previous conversation summary]\n\n{summary}",
-                summary_ts.isoformat(),
+                to_db(summary_ts, "local", conn),
             ),
         )
 

@@ -22,6 +22,7 @@ from src.api.utils import normalize_generated_images, serialize_messages_for_res
 from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import Message, MessagePagination, User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -62,7 +63,7 @@ def get_message(user: User, message_id: str) -> tuple[dict[str, Any], int]:
         "id": message.id,
         "role": message.role,
         "content": message.content,
-        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "created_at": to_api(message.created_at) if message.created_at else None,
         "files": message.files,
         "sources": message.sources,
         "generated_images": normalize_generated_images(message.generated_images),

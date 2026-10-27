@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
 
 
 class MemoryResponse(ResponseModel):
@@ -13,11 +13,11 @@ class MemoryResponse(ResponseModel):
     id: str
     content: str
     category: str | None = None
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     protected: bool = False
     source_conversation_id: str | None = None
-    deleted_at: str | None = None
+    deleted_at: Timestamp | None = None
 
 
 class MemoriesListResponse(ResponseModel):

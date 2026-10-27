@@ -11,6 +11,7 @@ from src.db.models.conversation_rows import (
 )
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import parse_cursor
+from src.db.models.timestamps import normalize_cursor
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
@@ -73,6 +74,7 @@ class ConversationListingMixin:
             # Build the query with JOIN for message counts (excluding planning, agent, and archived)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
+                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,

@@ -333,35 +333,30 @@ describe('Store - Conversations', () => {
       oldest.last_message_preview = 'old preview';
       useStore.setState({ conversations: [newest, oldest] });
 
-      // Fake timers: comparing against toISOString() would mix UTC "Z"
-      // format with the bump's local-naive format and break in UTC CI
       vi.useFakeTimers();
-      vi.setSystemTime(new Date(2024, 5, 15, 10, 0, 0));
+      vi.setSystemTime(new Date('2024-06-15T10:00:00Z'));
       useStore.getState().bumpConversationActivity('2', 'hello there');
       vi.useRealTimers();
 
       const convs = useStore.getState().conversations;
       expect(convs.map((c) => c.id)).toEqual(['2', '1']);
-      expect(convs[0]?.updated_at.startsWith('2024-06-15T10:00:00')).toBe(true);
+      expect(convs[0]?.updated_at).toBe('2024-06-15T10:00:00.000Z');
       expect(convs[0]?.last_message_preview).toBe('hello there');
     });
 
-    it('bumpConversationActivity writes server-format timestamps (local-naive, no Z)', () => {
-      // The backend stores datetime.now().isoformat() - LOCAL time with no
-      // timezone suffix. Ordering now compares instants (utils/timestamps);
-      // when it compared strings, a UTC "Z" timestamp from the client sorted
-      // ~tz-offset hours behind server timestamps and the bump undid itself
-      // on the next sync (observed: E2E conversation-switch failure in UTC+2)
+    it('bumpConversationActivity sorts with server timestamps by instant', () => {
+      // The server sends UTC with "+00:00", the bump writes toISOString()
+      // ("Z"); ordering compares instants (utils/timestamps), so the two mix
       vi.useFakeTimers();
-      vi.setSystemTime(new Date(2024, 5, 15, 14, 30, 45, 123)); // local time
+      vi.setSystemTime(new Date('2024-06-15T14:30:45.123Z'));
 
-      useStore.setState({ conversations: [createConversation('1', 'Test')] });
-      useStore.getState().bumpConversationActivity('1');
-
-      const stamp = at(useStore.getState().conversations, 0).updated_at;
-      expect(stamp.startsWith('2024-06-15T14:30:45')).toBe(true);
-      expect(stamp.includes('Z')).toBe(false);
+      const server = createConversation('1', 'Server');
+      server.updated_at = '2024-06-15T14:30:45.000000+00:00';
+      useStore.setState({ conversations: [server, createConversation('2', 'Bumped')] });
+      useStore.getState().bumpConversationActivity('2');
       vi.useRealTimers();
+
+      expect(useStore.getState().conversations.map((c) => c.id)).toEqual(['2', '1']);
     });
 
     it('bumpConversationActivity keeps existing preview when none is given', () => {

@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from src.api.schemas.base import ResponseModel
+from src.api.schemas.base import ResponseModel, Timestamp
 
 
 class Money(ResponseModel):
@@ -44,7 +44,7 @@ class SpendSection(ResponseModel):
 class AgentFailure(ResponseModel):
     agent_name: str
     user_name: str
-    started_at: str
+    started_at: Timestamp
     error: str = Field(..., description="The first line of the error, cut to 120 characters")
 
 
@@ -79,7 +79,7 @@ class SystemSection(ResponseModel):
     version: str | None = None
     database_bytes: int
     files_bytes: int
-    last_backup_at: str | None = None
+    last_backup_at: Timestamp | None = None
     latest_migration: str | None = None
     users: int
 
@@ -92,7 +92,7 @@ class BrowserError(ResponseModel):
     app_version: str | None = None
     count: int = Field(..., description="Occurrences across users")
     users: int
-    last_seen: str
+    last_seen: Timestamp
 
 
 class LayoutCheck(ResponseModel):
@@ -105,7 +105,7 @@ class LayoutCheck(ResponseModel):
     count: int
     users: int
     standalone_count: int = Field(..., description="Of count, how many in the home-screen app")
-    last_seen: str
+    last_seen: Timestamp
     ios_version: str | None = Field(None, description="Of the latest report")
     measurements: dict[str, float] = Field(..., description="Of the latest report, CSS px")
 
@@ -113,7 +113,7 @@ class LayoutCheck(ResponseModel):
 class AdminOverviewResponse(ResponseModel):
     """Everything the admin page shows - names and numbers, no conversation content."""
 
-    generated_at: str
+    generated_at: Timestamp
     currency: str
     spend: SpendSection
     agents: AgentsSection

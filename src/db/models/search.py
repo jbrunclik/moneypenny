@@ -6,10 +6,10 @@ Contains full-text search functionality using FTS5.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import SearchResult
+from src.db.models.timestamps import from_db_or_none
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -159,11 +159,7 @@ def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:
                 message_content=row["message_snippet"],
                 match_type=row["match_type"],
                 rank=float(row["rank"]),
-                created_at=(
-                    datetime.fromisoformat(row["message_created_at"])
-                    if row["message_created_at"]
-                    else None
-                ),
+                created_at=from_db_or_none(row["message_created_at"], "local"),
             )
         )
 

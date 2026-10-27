@@ -4,11 +4,11 @@ out over the next 7 days, and cache the dashboard in SQLite.
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from src.config import Config
-from src.services.planner.dates import day_name, parse_date, parse_datetime
+from src.services.planner.dates import day_name, local_date_of, parse_date
 from src.services.planner.garmin import fetch_health_summary
 from src.services.planner.google_calendar import fetch_calendar_dashboard_data
 from src.services.planner.models import (
@@ -21,6 +21,7 @@ from src.services.planner.models import (
 )
 from src.services.planner.todoist import fetch_todoist_dashboard_data
 from src.services.planner.weather import daily_weather, fetch_forecast
+from src.utils.clock import local_today, to_api, utc_now
 from src.utils.logging import get_logger
 from src.utils.weather import WeatherForecast
 
@@ -131,14 +132,12 @@ def _fetch_sources(
     )
 
 
-def _empty_days(now: datetime) -> list[PlannerDay]:
+def _empty_days(today: date) -> list[PlannerDay]:
     """Seven days starting today."""
     days = []
     for i in range(7):
-        day_date = now + timedelta(days=i)
-        days.append(
-            PlannerDay(date=day_date.strftime("%Y-%m-%d"), day_name=day_name(day_date, now))
-        )
+        day_date = today + timedelta(days=i)
+        days.append(PlannerDay(date=day_date.isoformat(), day_name=day_name(day_date, today)))
     return days
 
 
@@ -155,17 +154,17 @@ def _place_tasks(days: list[PlannerDay], tasks: list[PlannerTask]) -> None:
 def _event_dates(event: PlannerEvent) -> list[str]:
     """The dates an event falls on; an all-day event covers every day it spans."""
     if event.is_all_day and event.start_date and event.end_date:
-        start_dt = parse_date(event.start_date)
+        start_day = parse_date(event.start_date)
         # Google Calendar's end_date is exclusive (the day after the event ends)
-        end_dt = parse_date(event.end_date)
-        if start_dt and end_dt:
-            span = (end_dt - start_dt).days
-            return [(start_dt + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(span)]
+        end_day = parse_date(event.end_date)
+        if start_day and end_day:
+            span = (end_day - start_day).days
+            return [(start_day + timedelta(days=i)).isoformat() for i in range(span)]
 
     if event.start_date:
         return [event.start_date]
-    parsed = parse_datetime(event.start)
-    return [parsed.strftime("%Y-%m-%d")] if parsed else []
+    start = local_date_of(event.start)
+    return [start.isoformat()] if start else []
 
 
 def _place_events(days: list[PlannerDay], events: list[PlannerEvent]) -> None:
@@ -261,14 +260,14 @@ def build_planner_dashboard(
             "force_refresh": force_refresh,
         },
     )
-    now = datetime.now()
+    now = utc_now()
     dashboard = PlannerDashboard(
-        days=_empty_days(now),
+        days=_empty_days(local_today(now)),
         todoist_connected=bool(todoist_token),
         calendar_connected=bool(calendar_token),
         garmin_connected=bool(garmin_token),
         weather_connected=bool(Config.WEATHER_LOCATION),
-        server_time=now.isoformat(),
+        server_time=to_api(now),
     )
     sources = _fetch_sources(
         todoist_token, calendar_token, garmin_token, user_id, force_refresh, db

@@ -33,6 +33,7 @@ from src.auth.garmin_auth import (
 )
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -151,7 +152,7 @@ def get_garmin_status(user: User) -> dict[str, Any]:
             needs_reconnect = True
 
         if current_user.garmin_connected_at:
-            connected_at = current_user.garmin_connected_at.isoformat()
+            connected_at = to_api(current_user.garmin_connected_at)
 
     return {
         "connected": connected,

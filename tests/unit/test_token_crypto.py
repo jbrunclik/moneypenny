@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from cryptography.fernet import Fernet
@@ -96,7 +96,7 @@ class TestEncryptedStorage:
             test_user.id,
             access_token="at-1",
             refresh_token="rt-1",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
             email="g@example.com",
         )
 
@@ -106,7 +106,7 @@ class TestEncryptedStorage:
             used_refresh_token="rt-1",
             access_token="at-2",
             refresh_token="rt-2",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
         assert won is True
         user = test_database.get_user_by_id(test_user.id)
@@ -119,7 +119,7 @@ class TestEncryptedStorage:
             used_refresh_token="rt-1",
             access_token="at-3",
             refresh_token="rt-3",
-            expires_at=datetime.now() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
         )
         assert lost is False
         assert test_database.get_user_by_id(test_user.id).google_calendar_refresh_token == "rt-2"

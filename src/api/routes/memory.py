@@ -20,6 +20,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import Memory, User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -38,11 +39,11 @@ def _serialize(memory: Memory) -> dict[str, Any]:
         "id": memory.id,
         "content": memory.content,
         "category": memory.category,
-        "created_at": memory.created_at.isoformat(),
-        "updated_at": memory.updated_at.isoformat(),
+        "created_at": to_api(memory.created_at),
+        "updated_at": to_api(memory.updated_at),
         "protected": memory.protected,
         "source_conversation_id": memory.source_conversation_id,
-        "deleted_at": memory.deleted_at.isoformat() if memory.deleted_at else None,
+        "deleted_at": to_api(memory.deleted_at) if memory.deleted_at else None,
     }
 
 

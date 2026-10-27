@@ -10,6 +10,9 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from src.db.models.timestamps import LegacyFormat, from_db, to_db
+from src.utils.clock import to_api
+
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
 
@@ -45,9 +48,13 @@ class AdminMixin:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
 
-    def _rows(self, query: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
+    def _rows(
+        self, query: str, params: tuple[Any, ...] = (), legacy: LegacyFormat = "local"
+    ) -> list[sqlite3.Row]:
+        """Run a read; datetime params are stored in the ``legacy`` columns' format."""
         with self._pool.get_connection() as conn:
-            return list(self._execute_with_timing(conn, query, params).fetchall())
+            stored = tuple(to_db(p, legacy, conn) if isinstance(p, datetime) else p for p in params)
+            return list(self._execute_with_timing(conn, query, stored).fetchall())
 
     def admin_spend_per_user(
         self, day_start: datetime, month_start: datetime
@@ -62,7 +69,7 @@ class AdminMixin:
                FROM users u
                LEFT JOIN message_costs mc ON mc.user_id = u.id AND mc.created_at >= ?
                GROUP BY u.id ORDER BY u.name""",
-            (day_start.isoformat(), month_start.isoformat()),
+            (day_start, month_start),
         )
         return [
             {
@@ -81,17 +88,17 @@ class AdminMixin:
         rows = self._rows(
             "SELECT COALESCE(SUM(cost_usd), 0) FROM message_costs"
             " WHERE user_id = ? AND created_at >= ?",
-            (user_id, since.isoformat()),
+            (user_id, since),
         )
         return float(rows[0][0])
 
     def admin_spend_by_day(self, since: datetime) -> list[tuple[str, float]]:
-        """Family spend per calendar day since a moment (days with spend only)."""
+        """Family spend per local calendar day since a moment (days with spend only)."""
         rows = self._rows(
-            """SELECT substr(created_at, 1, 10) AS day, SUM(cost_usd)
+            """SELECT app_local_date(created_at, 'local') AS day, SUM(cost_usd)
                FROM message_costs WHERE created_at >= ?
                GROUP BY day ORDER BY day""",
-            (since.isoformat(),),
+            (since,),
         )
         return [(r[0], float(r[1])) for r in rows]
 
@@ -101,7 +108,7 @@ class AdminMixin:
             f"""SELECT {_FEATURE_SQL} AS feature, SUM(mc.cost_usd)
                 FROM message_costs mc LEFT JOIN conversations c ON c.id = mc.conversation_id
                 WHERE mc.created_at >= ? GROUP BY feature""",
-            (since.isoformat(),),
+            (since,),
         )
         return {r[0]: float(r[1]) for r in rows}
 
@@ -109,7 +116,7 @@ class AdminMixin:
         """Family spend since a moment by model."""
         rows = self._rows(
             "SELECT model, SUM(cost_usd) FROM message_costs WHERE created_at >= ? GROUP BY model",
-            (since.isoformat(),),
+            (since,),
         )
         return {r[0]: float(r[1]) for r in rows}
 
@@ -117,7 +124,7 @@ class AdminMixin:
         """Turn count, durations and tool-error turns since a moment."""
         rows = self._rows(
             "SELECT duration_ms, tool_errors FROM message_costs WHERE created_at >= ?",
-            (since.isoformat(),),
+            (since,),
         )
         return {
             "turns": len(rows),
@@ -130,7 +137,8 @@ class AdminMixin:
         runs = self._rows(
             """SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 END), 0)
                FROM agent_executions WHERE started_at >= ?""",
-            (since.isoformat(),),
+            (since,),
+            legacy="utc",
         )[0]
         pending = self._rows(
             "SELECT COUNT(*) FROM agent_approval_requests WHERE status = 'pending'"
@@ -152,7 +160,7 @@ class AdminMixin:
             {
                 "agent_name": r[0],
                 "user_name": r[1],
-                "started_at": r[2],
+                "started_at": to_api(from_db(r[2], "utc")),
                 "error": (r[3] or "").strip().split("\n", 1)[0][:AGENT_ERROR_MAX_CHARS],
             }
             for r in rows

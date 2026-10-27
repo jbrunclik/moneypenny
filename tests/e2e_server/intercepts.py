@@ -11,6 +11,7 @@ from typing import Any
 from flask import Flask, g, jsonify, request
 from pydantic import BaseModel
 
+from src.utils.clock import local_today, to_api, utc_now
 from tests.e2e_server.context import MOCK_CONFIG
 
 
@@ -107,7 +108,7 @@ def _planner_dashboard() -> Any:
     if MOCK_CONFIG.get("planner_dashboard"):
         return jsonify(MOCK_CONFIG["planner_dashboard"])
 
-    today = datetime.now().date()
+    today = local_today()
     days = [_mock_planner_day(i, today, calendar_connected, todoist_connected) for i in range(7)]
     return _as_response(
         PlannerDashboardResponse,
@@ -134,13 +135,13 @@ def _planner_dashboard() -> Any:
             "weather_error": None,
             "weather_location": None,
             "health_summary": None,
-            "server_time": datetime.now().isoformat(),
+            "server_time": to_api(utc_now()),
         },
     )
 
 
 def _iso(value: Any) -> Any:
-    return value.isoformat() if hasattr(value, "isoformat") else value
+    return to_api(value) if isinstance(value, datetime) else value
 
 
 def _planner_conversation() -> Any:
@@ -165,7 +166,7 @@ def _planner_conversation() -> Any:
                     "id": "dummy-msg-1",
                     "role": "assistant",
                     "content": "Ready to help with your planning!",
-                    "created_at": datetime.now(),
+                    "created_at": utc_now(),
                     "files": [],
                 },
             )()
@@ -210,7 +211,7 @@ def _todoist_status() -> Any:
         {
             "connected": connected,
             "todoist_email": "test@todoist.com" if connected else None,
-            "connected_at": datetime.now().isoformat() if connected else None,
+            "connected_at": to_api(utc_now()) if connected else None,
             "needs_reconnect": False,
         }
     )
@@ -223,7 +224,7 @@ def _calendar_status() -> Any:
         {
             "connected": connected,
             "calendar_email": "test@gmail.com" if connected else None,
-            "connected_at": datetime.now().isoformat() if connected else None,
+            "connected_at": to_api(utc_now()) if connected else None,
             "needs_reconnect": False,
         }
     )
@@ -235,7 +236,7 @@ def _garmin_status() -> Any:
     return jsonify(
         {
             "connected": garmin_connected,
-            "connected_at": datetime.now().isoformat() if garmin_connected else None,
+            "connected_at": to_api(utc_now()) if garmin_connected else None,
             "needs_reconnect": garmin_needs_reconnect,
         }
     )
@@ -247,7 +248,7 @@ def _rouvy_status() -> Any:
     return jsonify(
         {
             "connected": rouvy_connected,
-            "connected_at": datetime.now().isoformat() if rouvy_connected else None,
+            "connected_at": to_api(utc_now()) if rouvy_connected else None,
             "needs_reconnect": MOCK_CONFIG.get("rouvy_needs_reconnect", False),
         }
     )

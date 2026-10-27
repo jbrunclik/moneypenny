@@ -59,6 +59,12 @@ def _local_instant(day: date, wall: time) -> datetime:
     return datetime.combine(day, wall, tzinfo=app_tz()).astimezone(UTC)
 
 
+def to_local(dt: datetime) -> datetime:
+    """An instant as wall-clock time in APP_TIMEZONE (for display and prompts)."""
+    _require_aware(dt)
+    return dt.astimezone(app_tz())
+
+
 def local_today(now: datetime | None = None) -> date:
     """Today's calendar date in APP_TIMEZONE (at ``now``, default: now)."""
     moment = now if now is not None else utc_now()
@@ -66,10 +72,15 @@ def local_today(now: datetime | None = None) -> date:
     return moment.astimezone(app_tz()).date()
 
 
+def local_date_start(day: date) -> datetime:
+    """Local midnight (APP_TIMEZONE) at the start of a calendar day, in UTC."""
+    return _local_instant(day, time.min)
+
+
 def local_day_start(dt: datetime) -> datetime:
     """The start of ``dt``'s local day in APP_TIMEZONE, as an aware UTC instant."""
     _require_aware(dt)
-    return _local_instant(dt.astimezone(app_tz()).date(), time.min)
+    return local_date_start(dt.astimezone(app_tz()).date())
 
 
 def local_month_bounds(year: int, month: int) -> tuple[datetime, datetime]:

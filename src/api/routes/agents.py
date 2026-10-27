@@ -8,7 +8,6 @@ their routes to this module's blueprint (one "Agents" OpenAPI tag).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -32,6 +31,7 @@ from src.api.schemas.common import StatusResponse
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -173,12 +173,12 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
     if not agent:
         raise_not_found_error("Agent")
 
-    server_time = datetime.now(UTC)
+    server_time = to_api(utc_now())
 
     if not agent.conversation_id:
         return {
             "conversation": None,
-            "server_time": server_time.isoformat(),
+            "server_time": server_time,
         }
 
     # Get conversation with message count
@@ -186,7 +186,7 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
     if not conv_data:
         return {
             "conversation": None,
-            "server_time": server_time.isoformat(),
+            "server_time": server_time,
         }
 
     conv, message_count = conv_data
@@ -194,9 +194,9 @@ def sync_agent_conversation(user: User, agent_id: str) -> dict[str, Any]:
     return {
         "conversation": {
             "message_count": message_count,
-            "updated_at": conv.updated_at.isoformat(),
+            "updated_at": to_api(conv.updated_at),
         },
-        "server_time": server_time.isoformat(),
+        "server_time": server_time,
     }
 
 

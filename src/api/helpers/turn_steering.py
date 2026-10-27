@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from src.agent.interjection import save_interjection
 from src.api.schemas.chat import ChatRequest
@@ -20,6 +20,7 @@ from src.api.utils import is_empty_placeholder, streaming_message_id
 from src.config import Config
 from src.db.models import Message, db
 from src.enums import MessageRole
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -47,7 +48,7 @@ def running_turn_id(conv_id: str) -> str | None:
             return None
         return placeholder_id if time.time() - recorded_at < stall else None
     placeholder = db.get_message_by_id(placeholder_id)
-    if placeholder is None or datetime.now() - placeholder.created_at >= timedelta(seconds=stall):
+    if placeholder is None or utc_now() - placeholder.created_at >= timedelta(seconds=stall):
         return None
     return placeholder_id
 
@@ -93,7 +94,7 @@ def _is_dead_placeholder(message: Message) -> bool:
     journal - a batch turn's - may still be running past the stall window.
     """
     longest = max(Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS) + 60
-    if datetime.now() - message.created_at > timedelta(seconds=longest):
+    if utc_now() - message.created_at > timedelta(seconds=longest):
         return True
     last = db.journal_last_event(message.id)
     if last is None:

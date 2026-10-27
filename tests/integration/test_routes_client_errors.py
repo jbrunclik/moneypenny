@@ -5,7 +5,7 @@ per user and fingerprint, so a recurring error counts up instead of piling up.
 """
 
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import patch
 
@@ -35,7 +35,7 @@ def _report(**overrides: Any) -> dict[str, Any]:
 
 
 def _rows(db: Database) -> list[dict[str, Any]]:
-    return db.top_client_errors(datetime.now() - timedelta(days=1), limit=50)
+    return db.top_client_errors(datetime.now(UTC) - timedelta(days=1), limit=50)
 
 
 class TestReport:
@@ -112,7 +112,7 @@ class TestRetention:
     def test_rows_unseen_past_retention_are_pruned(
         self, test_database: Database, test_user: User
     ) -> None:
-        old = datetime.now() - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS + 1)
+        old = datetime.now(UTC) - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS + 1)
         test_database.record_client_error(
             test_user.id, "fp-old", "error", "old", None, None, None, None, now=old
         )
@@ -127,7 +127,7 @@ class TestRetention:
     def test_each_user_keeps_at_most_the_cap(
         self, test_database: Database, test_user: User
     ) -> None:
-        start = datetime.now() - timedelta(hours=1)
+        start = datetime.now(UTC) - timedelta(hours=1)
         with patch.object(Config, "CLIENT_ERROR_MAX_ROWS_PER_USER", 3):
             for i in range(5):
                 test_database.record_client_error(

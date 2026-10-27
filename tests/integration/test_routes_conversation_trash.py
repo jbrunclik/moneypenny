@@ -159,7 +159,7 @@ class TestBulkTrashRoutes:
         body = {
             "all": True,
             "exclude_ids": [keep.id],
-            "created_before": (datetime.now() + timedelta(seconds=5)).isoformat(),
+            "created_before": (datetime.now(UTC) + timedelta(seconds=5)).isoformat(),
         }
 
         response = client.post("/api/conversations/bulk-trash", json=body, headers=auth_headers)

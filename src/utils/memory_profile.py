@@ -11,12 +11,12 @@ fragmentation) and tracemalloc will not show it.
 import os
 import signal
 import threading
-import time
 import tracemalloc
 from pathlib import Path
 from types import FrameType
 
 from src.config import Config
+from src.utils.clock import to_local, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -61,7 +61,8 @@ def write_snapshot(directory: Path) -> Path:
     """
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     directory.chmod(0o700)  # also tightens a directory that already existed
-    path = directory / f"{os.getpid()}-{time.strftime('%Y%m%d-%H%M%S')}{SNAPSHOT_SUFFIX}"
+    stamp = to_local(utc_now()).strftime("%Y%m%d-%H%M%S")
+    path = directory / f"{os.getpid()}-{stamp}{SNAPSHOT_SUFFIX}"
     tracemalloc.take_snapshot().dump(str(path))
     path.chmod(0o600)
     traced_bytes, peak_bytes = tracemalloc.get_traced_memory()

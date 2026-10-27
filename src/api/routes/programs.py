@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -30,6 +29,7 @@ from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
 from src.db.models.programs import PROGRAM_FEATURES
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -165,7 +165,7 @@ def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -
             "id": program_id,
             "name": data.name,
             "emoji": data.emoji,
-            "created_at": datetime.now().isoformat(),
+            "created_at": to_api(utc_now()),
             "quick_actions": [dict(a) for a in QUICK_ACTION_DEFAULTS.get(ns, [])],
         }
         programs.append(new_program)
@@ -232,8 +232,8 @@ def _register_program_conversation_routes(api: APIBlueprint, cfg: ProgramRoutesC
             "title": conv.title,
             "model": conv.model,
             "program": program,
-            "created_at": conv.created_at.isoformat(),
-            "updated_at": conv.updated_at.isoformat(),
+            "created_at": to_api(conv.created_at),
+            "updated_at": to_api(conv.updated_at),
             "messages": optimized_messages,
         }
 

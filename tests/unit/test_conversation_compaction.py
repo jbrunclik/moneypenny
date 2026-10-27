@@ -25,6 +25,7 @@ from src.agent.conversation_compaction import (
     get_compaction_status,
 )
 from src.config import Config
+from src.utils.clock import to_api
 
 NOW = datetime(2026, 9, 29, 3, 0, tzinfo=UTC)
 
@@ -182,7 +183,7 @@ class TestFirstCompaction:
         saved = _saved(mock_db)
         assert saved["segments"] == []
         assert saved["failures"] == 1
-        assert saved["retry_after"] == (NOW + timedelta(minutes=30)).isoformat()
+        assert saved["retry_after"] == to_api(NOW + timedelta(minutes=30))
 
 
 class TestTokenTrigger:
@@ -413,7 +414,7 @@ class TestBackoff:
 
         saved = _saved(mock_db)
         assert saved["failures"] == 3
-        assert saved["retry_after"] == (NOW + timedelta(hours=2)).isoformat()
+        assert saved["retry_after"] == to_api(NOW + timedelta(hours=2))
 
     def test_success_clears_failures(
         self, compaction_config: None, mock_db: MagicMock, fake_extend: FakeExtend
@@ -427,7 +428,7 @@ class TestBackoff:
 
     def test_backoff_is_capped_at_a_day(self, compaction_config: None) -> None:
         state = cc._with_failure(cc._State(failures=20))
-        assert state.retry_after == (NOW + timedelta(days=1)).isoformat()
+        assert state.retry_after == to_api(NOW + timedelta(days=1))
 
 
 class TestBackgroundRefresh:

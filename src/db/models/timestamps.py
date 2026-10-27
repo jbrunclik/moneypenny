@@ -94,6 +94,11 @@ def from_db(value: str, legacy: LegacyFormat) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def from_db_or_none(value: str | None, legacy: LegacyFormat) -> datetime | None:
+    """``from_db`` for a nullable column (NULL and '' read as None)."""
+    return from_db(value, legacy) if value else None
+
+
 def _database_file(conn: sqlite3.Connection) -> str:
     """The main database's file path ('' for in-memory and temp databases)."""
     for row in conn.execute("PRAGMA database_list").fetchall():
@@ -138,6 +143,13 @@ def to_db(dt: datetime, legacy: LegacyFormat, conn: sqlite3.Connection) -> str:
     if stores_utc(conn):
         return to_api(dt)
     return dt.astimezone(_legacy_zone(legacy)).replace(tzinfo=None).isoformat()
+
+
+def to_db_or_none(
+    dt: datetime | None, legacy: LegacyFormat, conn: sqlite3.Connection
+) -> str | None:
+    """``to_db`` for a nullable column."""
+    return to_db(dt, legacy, conn) if dt is not None else None
 
 
 def normalize_cursor(timestamp: str, legacy: LegacyFormat, conn: sqlite3.Connection) -> str:

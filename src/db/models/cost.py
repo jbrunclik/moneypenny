@@ -12,9 +12,10 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from src.db.models.timestamps import to_db
+from src.utils.clock import local_month_bounds, utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -73,8 +74,6 @@ class CostMixin:
             tools_used: Unique tool names executed in the turn (stored as JSON)
         """
         cost_id = str(uuid.uuid4())
-        now = datetime.now().isoformat()
-
         logger.debug(
             "Saving message cost",
             extra={
@@ -114,7 +113,7 @@ class CostMixin:
                     tool_call_count,
                     cost_usd,
                     image_generation_cost_usd,
-                    now,
+                    to_db(utc_now(), "local", conn),
                     duration_ms,
                     tool_errors,
                     json.dumps(tools_used) if tools_used else None,
@@ -218,14 +217,12 @@ class CostMixin:
         if not (1 <= month <= 12):
             raise ValueError(f"Month must be between 1 and 12, got {month}")
 
-        # Build date range for the month
-        start_date = datetime(year, month, 1).isoformat()
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1).isoformat()
-        else:
-            end_date = datetime(year, month + 1, 1).isoformat()
+        # The month's range in APP_TIMEZONE
+        month_start, month_end = local_month_bounds(year, month)
 
         with self._pool.get_connection() as conn:
+            start_date = to_db(month_start, "local", conn)
+            end_date = to_db(month_end, "local", conn)
             # Get total cost and message count
             total_row = self._execute_with_timing(
                 conn,
@@ -276,8 +273,8 @@ class CostMixin:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT
-                    strftime('%Y', created_at) as year,
-                    strftime('%m', created_at) as month,
+                    strftime('%Y', app_local_date(created_at, 'local')) as year,
+                    strftime('%m', app_local_date(created_at, 'local')) as month,
                     SUM(cost_usd) as total,
                     COUNT(*) as count
                    FROM message_costs

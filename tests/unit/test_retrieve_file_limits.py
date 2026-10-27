@@ -40,7 +40,7 @@ def _retrieve(
     message = MagicMock()
     message.conversation_id = "conv-123"
     message.files = [{"name": name, "type": mime_type, "size": len(data)}]
-    message.created_at = _dt.datetime.now()
+    message.created_at = _dt.datetime.now(_dt.UTC)
     mock_db.get_message_by_id.return_value = message
     blob_store = MagicMock()
     blob_store.get.return_value = (data, mime_type)

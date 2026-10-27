@@ -4,7 +4,7 @@ This module enriches conversation history before passing to the LLM,
 adding timestamps, session gap indicators, file metadata, and tool summaries.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, NotRequired, TypedDict
 
 from src.agent.grounding_annotations import format_grounding_context, verified_claims
@@ -12,6 +12,7 @@ from src.agent.tool_outputs import format_tool_outputs
 from src.config import Config
 from src.db.models.dataclasses import Message
 from src.services.file_retention import is_file_expired
+from src.utils.clock import to_local
 
 
 class FileMetadata(TypedDict):
@@ -51,18 +52,8 @@ def format_timestamp(dt: datetime) -> str:
     Returns:
         Formatted string like "2024-06-15 14:30 CET"
     """
-    # Get timezone abbreviation from the local timezone
-    local_tz = datetime.now().astimezone().tzinfo
-    if dt.tzinfo is None:
-        # Assume naive datetimes are in local time
-        dt = dt.replace(tzinfo=local_tz)
-    elif dt.tzinfo == UTC:
-        # Convert UTC to local time
-        dt = dt.astimezone(local_tz)
-
-    # Format: "2024-06-15 14:30 CET"
-    tz_name = dt.strftime("%Z") or "UTC"
-    return dt.strftime(f"%Y-%m-%d %H:%M {tz_name}")
+    # In the household's timezone, with its abbreviation: "2024-06-15 14:30 CET"
+    return to_local(dt).strftime("%Y-%m-%d %H:%M %Z")
 
 
 def detect_session_gap(prev_msg: Message, curr_msg: Message) -> timedelta | None:

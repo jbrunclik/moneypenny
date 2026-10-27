@@ -45,6 +45,8 @@ def my_endpoint(user: User, item_id: str) -> tuple[dict, int]:
     return {"id": item.id, "name": item.name}, 200
 ```
 
+**Timestamps**: a field holding an instant is typed `Timestamp` (from `src/api/schemas/base.py`, a string with `format: date-time`) and filled with `to_api(dt)` from `src/utils/clock.py`, which writes UTC with an explicit offset, `YYYY-MM-DDTHH:MM:SS.ffffff+00:00`. A value without an offset would be read as browser-local time. `tests/integration/test_api_timestamps.py` checks both the spec and live responses (rule B12).
+
 **Note**: Error responses use `raise_xxx_error()` functions from [errors.py](../../src/api/errors.py), which raise `APIError` exceptions. These are handled by the custom error processor in [app.py](../../src/app.py) and return our standardized error format.
 
 ### Response Validation

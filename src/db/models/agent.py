@@ -19,7 +19,8 @@ from src.config import Config
 from src.db.models.agent_rows import row_to_agent
 from src.db.models.dataclasses import Agent
 from src.db.models.helpers import delete_messages_blobs
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db, to_db_or_none
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -86,7 +87,7 @@ class AgentMixin:
         agent_model = model or Config.DEFAULT_MODEL
         agent_id = str(uuid.uuid4())
         conv_id = str(uuid.uuid4())
-        now = utcnow_naive()
+        now = utc_now()
 
         logger.debug(
             "Creating agent",
@@ -112,8 +113,8 @@ class AgentMixin:
                     user_id,
                     f"Agent: {name}",
                     agent_model,
-                    now.isoformat(),
-                    now.isoformat(),
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
                     agent_id,
                 ),
             )
@@ -138,9 +139,9 @@ class AgentMixin:
                     1 if enabled else 0,
                     tool_permissions_json,
                     agent_model,
-                    now.isoformat(),
-                    now.isoformat(),
-                    next_run_at.isoformat() if next_run_at else None,
+                    to_db(now, "utc", conn),
+                    to_db(now, "utc", conn),
+                    to_db_or_none(next_run_at, "utc", conn),
                     budget_limit,
                     1 if fresh_context else 0,
                     system_type,
@@ -235,7 +236,8 @@ class AgentMixin:
             return None
 
         updates: list[str] = ["updated_at = ?"]
-        params: list[Any] = [utcnow_naive().isoformat()]
+        # datetimes are stored in the column's format once a connection is open
+        params: list[Any] = [utc_now()]
 
         # (column, new value or Ellipsis, value as stored)
         fields: list[tuple[str, Any, Any]] = [
@@ -270,7 +272,7 @@ class AgentMixin:
             cursor = self._execute_with_timing(
                 conn,
                 f"UPDATE autonomous_agents SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
-                tuple(params),
+                tuple(to_db(p, "utc", conn) if isinstance(p, datetime) else p for p in params),
             )
 
             if cursor.rowcount == 0:
@@ -290,8 +292,8 @@ class AgentMixin:
         schedule: str | EllipsisType | None,
         timezone: str | EllipsisType | None,
         enabled: bool | EllipsisType | None,
-    ) -> str | EllipsisType | None:
-        """The stored next_run_at after an update (Ellipsis = leave it as is).
+    ) -> datetime | EllipsisType | None:
+        """The next_run_at after an update (Ellipsis = leave it as is).
 
         Recalculated when schedule, timezone or enabled changes: cleared if
         disabled or unscheduled, else computed from the effective values.
@@ -320,8 +322,7 @@ class AgentMixin:
             # Clear next_run_at if disabled or no schedule
             return None
         # Recalculate next_run_at
-        next_run = self.calculate_next_run(effective_schedule, effective_timezone or "UTC")
-        return next_run.isoformat() if next_run else None
+        return self.calculate_next_run(effective_schedule, effective_timezone or "UTC")
 
     def _sync_agent_conversation(
         self,

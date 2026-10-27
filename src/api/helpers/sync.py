@@ -4,6 +4,7 @@ from typing import Any
 
 from src.config import Config
 from src.db.models import Conversation, db
+from src.utils.clock import to_api
 
 
 def is_chat_conversation(conv: Conversation) -> bool:
@@ -22,8 +23,8 @@ def sync_summary(
         "id": conv.id,
         "title": conv.title,
         "model": conv.model,
-        "created_at": conv.created_at.isoformat(),
-        "updated_at": conv.updated_at.isoformat(),
+        "created_at": to_api(conv.created_at),
+        "updated_at": to_api(conv.updated_at),
         "message_count": message_count,
         "read_count": conv.read_message_count,
         "last_message_preview": preview,

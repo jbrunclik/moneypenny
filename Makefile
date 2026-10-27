@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-tz test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -185,6 +185,12 @@ test-cov:
 
 test-unit:
 	$(PYTHON) -m pytest tests/unit/ -v
+
+# The backend suite under two process timezones far from the household's:
+# nothing may read the process zone (rule B12; APP_TIMEZONE draws the days)
+test-tz:
+	TZ=Pacific/Chatham $(PYTHON) -m pytest tests/ -q -n auto
+	TZ=UTC $(PYTHON) -m pytest tests/ -q -n auto
 
 test-integration:
 	$(PYTHON) -m pytest tests/integration/ -v

@@ -27,6 +27,7 @@ from src.auth.todoist_auth import (
     get_user_info as get_todoist_user_info,
 )
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -157,7 +158,7 @@ def get_todoist_status(user: User) -> dict[str, Any]:
             needs_reconnect = True
 
         if current_user.todoist_connected_at:
-            connected_at = current_user.todoist_connected_at.isoformat()
+            connected_at = to_api(current_user.todoist_connected_at)
 
     return {
         "connected": connected,

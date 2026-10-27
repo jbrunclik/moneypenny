@@ -1,6 +1,6 @@
 """API response building utilities."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from flask import Request
@@ -9,6 +9,7 @@ from werkzeug.exceptions import HTTPException
 from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -157,7 +158,7 @@ def build_chat_response(
         "id": assistant_msg.id,
         "role": "assistant",
         "content": content,
-        "created_at": assistant_msg.created_at.isoformat(),
+        "created_at": to_api(assistant_msg.created_at),
     }
 
     if gen_image_files:
@@ -231,7 +232,7 @@ def streaming_message_id(conversation_id: str) -> str | None:
     """
     # A deep-research run outlasts a chat turn
     longest = max(Config.CHAT_TIMEOUT_SECONDS, Config.DEEP_RESEARCH_RUN_TIMEOUT_SECONDS)
-    cutoff = datetime.now() - timedelta(seconds=longest + 60)
+    cutoff = utc_now() - timedelta(seconds=longest + 60)
     return db.get_streaming_placeholder_id(conversation_id, cutoff)
 
 
@@ -270,7 +271,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
             "role": m.role,
             "content": m.content,
             "files": optimized_files,
-            "created_at": m.created_at.isoformat(),
+            "created_at": to_api(m.created_at),
         }
         if m.sources:
             msg_data["sources"] = m.sources
@@ -321,7 +322,7 @@ def build_stream_done_event(
     done_data: dict[str, Any] = {
         "type": "done",
         "id": assistant_msg.id,
-        "created_at": assistant_msg.created_at.isoformat(),
+        "created_at": to_api(assistant_msg.created_at),
         # Always include content for recovery if token events were lost
         "content": assistant_msg.content or "",
     }

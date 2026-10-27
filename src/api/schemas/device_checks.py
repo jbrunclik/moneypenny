@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import AwareDatetime, Field, field_validator
 
-from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, parse_int
+from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, Timestamp, parse_int
 
 DEVICE_CHECK_RUNS_DEFAULT_LIMIT = 20
 DEVICE_CHECK_RUNS_MAX_LIMIT = 100
@@ -70,9 +70,9 @@ class DeviceCheckRun(ResponseModel):
     passed: int
     failed: int = Field(..., description="Failed or errored scenarios")
     skipped: int
-    started_at: str
-    finished_at: str
-    created_at: str
+    started_at: Timestamp
+    finished_at: Timestamp
+    created_at: Timestamp
 
 
 class DeviceCheckRunsQuery(QueryModel):

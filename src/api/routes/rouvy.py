@@ -20,6 +20,7 @@ from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.auth.rouvy_auth import RouvyAuthError, cookies_to_jar, login
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -68,7 +69,7 @@ def get_rouvy_status(user: User) -> dict[str, Any]:
     connected = bool(current.rouvy_session)
     needs_reconnect = connected and not cookies_to_jar(current.rouvy_session or "")
     connected_at = (
-        current.rouvy_connected_at.isoformat() if connected and current.rouvy_connected_at else None
+        to_api(current.rouvy_connected_at) if connected and current.rouvy_connected_at else None
     )
     return {
         "connected": connected,

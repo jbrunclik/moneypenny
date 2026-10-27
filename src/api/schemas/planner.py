@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import Field, field_validator
 
-from src.api.schemas.base import QueryModel, ResponseModel, parse_flag
+from src.api.schemas.base import QueryModel, ResponseModel, Timestamp, parse_flag
 from src.api.schemas.chat import MessageResponse
 
 
@@ -140,7 +140,7 @@ class PlannerDashboardResponse(ResponseModel):
     health_summary: PlannerHealthSummaryResponse | None = Field(
         default=None, description="Health data from Garmin"
     )
-    server_time: str = Field(..., description="Server timestamp for cache validation")
+    server_time: Timestamp = Field(..., description="Server timestamp for cache validation")
 
 
 class PlannerConversationResponse(ResponseModel):
@@ -149,8 +149,8 @@ class PlannerConversationResponse(ResponseModel):
     id: str
     title: str
     model: str
-    created_at: str
-    updated_at: str
+    created_at: Timestamp
+    updated_at: Timestamp
     messages: list[MessageResponse]
     was_reset: bool = Field(
         default=False, description="True if the conversation was auto-reset due to 4am cutoff"
@@ -168,9 +168,9 @@ class PlannerConversationSyncData(ResponseModel):
     """Planner conversation data for sync."""
 
     id: str
-    updated_at: str
+    updated_at: Timestamp
     message_count: int
-    last_reset: str | None = Field(default=None, description="Timestamp of last reset")
+    last_reset: Timestamp | None = Field(default=None, description="Timestamp of last reset")
 
 
 class PlannerSyncResponse(ResponseModel):
@@ -179,7 +179,7 @@ class PlannerSyncResponse(ResponseModel):
     conversation: PlannerConversationSyncData | None = Field(
         default=None, description="Planner conversation state, or null if no planner exists"
     )
-    server_time: str = Field(..., description="Server timestamp in ISO format")
+    server_time: Timestamp = Field(..., description="Server timestamp in ISO format")
 
 
 class PlannerDashboardQuery(QueryModel):

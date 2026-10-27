@@ -4,7 +4,6 @@ import {
   appendSortedByUpdatedAt,
   emptyConversationsPagination,
   insertSortedByUpdatedAt,
-  localIsoNow,
   toConversationsPaginationState,
   type ConversationsPaginationState,
 } from './conversationOrder';
@@ -158,7 +157,7 @@ export const createConversationsSlice: AppSlice<ConversationsSlice> = (set, get)
   // to a full sync-poll interval for the server's updated_at
   bumpConversationActivity: (id, preview) => {
     const updates: Partial<Conversation> = {
-      updated_at: localIsoNow(),
+      updated_at: new Date().toISOString(),
     };
     if (preview) {
       updates.last_message_preview = preview;

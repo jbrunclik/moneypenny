@@ -11,7 +11,8 @@ from typing import TYPE_CHECKING, Any
 from src.config import Config
 from src.db.models.agent_rows import row_to_approval_request
 from src.db.models.dataclasses import ApprovalRequest
-from src.utils.datetime_utils import utcnow_naive
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ class AgentApprovalMixin:
         The request will expire after AGENT_APPROVAL_TTL_HOURS (default: 24 hours).
         """
         request_id = str(uuid.uuid4())
-        now = utcnow_naive()
+        now = utc_now()
         expires_at = now + timedelta(hours=Config.AGENT_APPROVAL_TTL_HOURS)
 
         with self._pool.get_connection() as conn:
@@ -63,8 +64,8 @@ class AgentApprovalMixin:
                     tool_name,
                     json.dumps(tool_args) if tool_args else None,
                     description,
-                    now.isoformat(),
-                    expires_at.isoformat(),
+                    to_db(now, "utc", conn),
+                    to_db(expires_at, "utc", conn),
                 ),
             )
             conn.commit()
@@ -108,7 +109,7 @@ class AgentApprovalMixin:
 
     def get_pending_approvals(self, user_id: str) -> list[ApprovalRequest]:
         """Get all pending (non-expired) approval requests for a user."""
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
@@ -116,14 +117,14 @@ class AgentApprovalMixin:
                    WHERE user_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    ORDER BY created_at DESC""",
-                (user_id, now.isoformat()),
+                (user_id, to_db(now, "utc", conn)),
             ).fetchall()
 
             return [row_to_approval_request(row) for row in rows]
 
     def has_pending_approval(self, agent_id: str) -> bool:
         """Check if an agent has a pending (non-expired) approval request."""
-        now = utcnow_naive()
+        now = utc_now()
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
@@ -131,7 +132,7 @@ class AgentApprovalMixin:
                    WHERE agent_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    LIMIT 1""",
-                (agent_id, now.isoformat()),
+                (agent_id, to_db(now, "utc", conn)),
             ).fetchone()
 
             return row is not None
@@ -153,8 +154,8 @@ class AgentApprovalMixin:
         Approvals without a target_id authorize any one call (matching
         approvals are preferred over generic ones).
         """
-        now = utcnow_naive().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "utc", conn)
             rows = self._execute_with_timing(
                 conn,
                 """SELECT id, tool_args FROM agent_approval_requests
@@ -216,7 +217,7 @@ class AgentApprovalMixin:
         Returns:
             Updated ApprovalRequest or None if not found
         """
-        now = utcnow_naive()
+        now = utc_now()
         status = "approved" if approved else "rejected"
 
         with self._pool.get_connection() as conn:
@@ -225,7 +226,7 @@ class AgentApprovalMixin:
                 """UPDATE agent_approval_requests
                    SET status = ?, resolved_at = ?
                    WHERE id = ? AND user_id = ? AND status = 'pending'""",
-                (status, now.isoformat(), request_id, user_id),
+                (status, to_db(now, "utc", conn), request_id, user_id),
             )
 
             if cursor.rowcount == 0:

@@ -18,6 +18,7 @@ from src.api.schemas.conversations import (
 from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -41,8 +42,8 @@ def list_archived_conversations(user: User, query: ConversationsPageQuery) -> di
                 "id": c.id,
                 "title": c.title,
                 "model": c.model,
-                "created_at": c.created_at.isoformat(),
-                "updated_at": c.updated_at.isoformat(),
+                "created_at": to_api(c.created_at),
+                "updated_at": to_api(c.updated_at),
                 "message_count": message_count,
                 "archived": True,
                 "last_message_preview": preview,

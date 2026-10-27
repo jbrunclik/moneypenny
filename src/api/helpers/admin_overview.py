@@ -15,6 +15,14 @@ from src.config import Config
 from src.db.models import db
 from src.services.costs import convert_currency, format_cost
 from src.services.search_provider import degraded_today, quota_status
+from src.utils.clock import (
+    local_date_start,
+    local_day_start,
+    local_month_bounds,
+    local_today,
+    to_api,
+    utc_now,
+)
 
 SPEND_CHART_DAYS = 30
 RECENT_WINDOW = timedelta(days=7)
@@ -35,22 +43,19 @@ def money(usd: float) -> dict[str, Any]:
     }
 
 
-def _day_start(now: datetime) -> datetime:
-    return now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
 def _shares(amounts: dict[str, float]) -> list[dict[str, Any]]:
     ordered = sorted(amounts.items(), key=lambda item: item[1], reverse=True)
     return [{"name": name, "amount": money(usd)} for name, usd in ordered]
 
 
 def _spend(now: datetime) -> dict[str, Any]:
-    today = _day_start(now)
-    month = today.replace(day=1)
-    users = db.admin_spend_per_user(today, month)
-    chart_start = today - timedelta(days=SPEND_CHART_DAYS - 1)
-    by_day = dict(db.admin_spend_by_day(chart_start))
-    days = [(chart_start + timedelta(days=i)).date().isoformat() for i in range(SPEND_CHART_DAYS)]
+    """Spend by local (APP_TIMEZONE) day and month."""
+    today = local_today(now)
+    month, _ = local_month_bounds(today.year, today.month)
+    users = db.admin_spend_per_user(local_day_start(now), month)
+    chart_days = [today - timedelta(days=i) for i in reversed(range(SPEND_CHART_DAYS))]
+    by_day = dict(db.admin_spend_by_day(local_date_start(chart_days[0])))
+    days = [day.isoformat() for day in chart_days]
     return {
         "today": money(sum(u["today_usd"] for u in users)),
         "month": money(sum(u["month_usd"] for u in users)),
@@ -78,10 +83,7 @@ def _agents(now: datetime) -> dict[str, Any]:
         "runs_7d": runs["runs"],
         "failed_7d": runs["failed"],
         "pending_approvals": runs["pending_approvals"],
-        "recent_failures": [
-            {**failure, "started_at": local_time(failure["started_at"]) or ""}
-            for failure in db.admin_recent_agent_failures(RECENT_FAILURES_SHOWN)
-        ],
+        "recent_failures": db.admin_recent_agent_failures(RECENT_FAILURES_SHOWN),
     }
 
 
@@ -91,14 +93,6 @@ def percentile(sorted_values: list[int], fraction: float) -> int | None:
         return None
     rank = max(1, math.ceil(len(sorted_values) * fraction))
     return sorted_values[rank - 1]
-
-
-def local_time(stored_utc: str | None) -> str | None:
-    """A UTC-naive stored timestamp (agent runs) as local ISO time."""
-    if not stored_utc:
-        return None
-    moment = datetime.fromisoformat(stored_utc).replace(tzinfo=UTC).astimezone()
-    return moment.replace(tzinfo=None).isoformat(timespec="seconds")
 
 
 def _quality(now: datetime) -> dict[str, Any]:
@@ -123,7 +117,7 @@ def _last_backup_at(database: Path) -> str | None:
     if not files:
         return None
     newest = max(file.stat().st_mtime for file in files)
-    return datetime.fromtimestamp(newest).isoformat(timespec="seconds")
+    return to_api(datetime.fromtimestamp(newest, UTC))
 
 
 def _system() -> dict[str, Any]:
@@ -164,9 +158,9 @@ def _layout_checks(now: datetime) -> list[dict[str, object]]:
 
 def build_overview(now: datetime | None = None) -> dict[str, Any]:
     """The whole admin page payload. `now` is a test seam."""
-    now = now or datetime.now()
+    now = now or utc_now()
     return {
-        "generated_at": now.isoformat(timespec="seconds"),
+        "generated_at": to_api(now),
         "currency": Config.COST_CURRENCY,
         "spend": _spend(now),
         "agents": _agents(now),
@@ -180,7 +174,7 @@ def build_overview(now: datetime | None = None) -> dict[str, Any]:
 
 def spend_status(user_id: str, now: datetime | None = None) -> dict[str, Any]:
     """One user's spend today against the warning threshold (the banner)."""
-    today = db.user_spend_since(user_id, _day_start(now or datetime.now()))
+    today = db.user_spend_since(user_id, local_day_start(now or utc_now()))
     return {
         "today": money(today),
         "threshold_usd": Config.SPEND_WARNING_DAILY_USD,

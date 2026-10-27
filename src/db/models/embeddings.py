@@ -10,10 +10,11 @@ from __future__ import annotations
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.embeddings import embed_text, pack_vector
 from src.utils.logging import get_logger
 
@@ -66,7 +67,7 @@ class EmbeddingsMixin:
                     model,
                     dim,
                     vector,
-                    datetime.now().isoformat(),
+                    to_db(utc_now(), "local", conn),
                 ),
             )
             conn.commit()

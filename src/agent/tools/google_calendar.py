@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 import httpx
@@ -18,6 +18,7 @@ from src.auth.google_calendar import (
 )
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -64,9 +65,9 @@ def _calendar_time_range(
 ) -> tuple[str, str]:
     if time_min and time_max:
         return time_min, time_max
-    start = datetime.utcnow().replace(microsecond=0)
+    start = utc_now()
     end = start + timedelta(days=default_days)
-    return f"{start.isoformat()}Z", f"{end.isoformat()}Z"
+    return to_api(start), to_api(end)
 
 
 def _send_calendar_request(

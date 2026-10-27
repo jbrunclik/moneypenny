@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models.conversation_rows import row_to_conversation
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import delete_messages_blobs
+from src.db.models.timestamps import to_db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class ConversationMixin:
         """Create a new conversation for a user."""
         conv_id = str(uuid.uuid4())
         model = model or Config.DEFAULT_MODEL
-        now = datetime.now()
+        now = utc_now()
         logger.debug(
             "Creating conversation",
             extra={"user_id": user_id, "conversation_id": conv_id, "model": model},
@@ -62,7 +63,14 @@ class ConversationMixin:
                 conn,
                 """INSERT INTO conversations (id, user_id, title, model, created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?)""",
-                (conv_id, user_id, title, model, now.isoformat(), now.isoformat()),
+                (
+                    conv_id,
+                    user_id,
+                    title,
+                    model,
+                    to_db(now, "local", conn),
+                    to_db(now, "local", conn),
+                ),
             )
             conn.commit()
 
@@ -123,7 +131,7 @@ class ConversationMixin:
     ) -> bool:
         """Update a conversation's title or model."""
         updates: list[str] = ["updated_at = ?"]
-        params: list[Any] = [datetime.now().isoformat()]
+        params: list[Any] = []
 
         # Map parameter names to their values (only include non-None values)
         column_values = {"title": title, "model": model}
@@ -142,7 +150,7 @@ class ConversationMixin:
                 conn,
                 f"UPDATE conversations SET {', '.join(updates)} WHERE id = ? AND user_id = ?"
                 " AND deleted_at IS NULL",
-                tuple(params),
+                (to_db(utc_now(), "local", conn), *params),
             )
             conn.commit()
             return cursor.rowcount > 0

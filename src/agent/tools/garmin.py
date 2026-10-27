@@ -7,7 +7,7 @@ from Garmin Connect. No write operations.
 import json
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 from langchain_core.tools import tool
@@ -23,6 +23,7 @@ from src.agent.tools.garmin_payloads import (
 )
 from src.agent.tools.garmin_session import get_client, persist_tokens_if_changed
 from src.agent.tools.integration_status import not_connected_result
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -166,8 +167,8 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
 
         return run
 
-    start = (date.today() - timedelta(days=90)).isoformat()
-    end = date.today().isoformat()
+    start = (local_today() - timedelta(days=90)).isoformat()
+    end = local_today().isoformat()
 
     def _activities() -> None:
         try:
@@ -303,7 +304,7 @@ def garmin_connect(
     if not garmin:
         return not_connected_result("garmin")
 
-    target_date = date_str or date.today().isoformat()
+    target_date = date_str or local_today().isoformat()
 
     try:
         if action == "get_readiness_snapshot":
@@ -352,8 +353,8 @@ _DAILY_ACTIONS = {
 
 def _activities_result(garmin: Any, limit: int | None, activity_type: str | None) -> str:
     """The last 90 days of activities, newest `limit` (default 10)."""
-    start = (date.today() - timedelta(days=90)).isoformat()
-    end = date.today().isoformat()
+    start = (local_today() - timedelta(days=90)).isoformat()
+    end = local_today().isoformat()
     result = safe_api_call(garmin, "get_activities_by_date", start, end, activity_type)
     if isinstance(result, list):
         result = result[:limit] if limit else result[:10]

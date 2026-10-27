@@ -6,7 +6,7 @@ from typing import Any
 
 from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.db.models import Agent, AgentExecution, ApprovalRequest, db
-from src.utils.datetime_utils import to_utc_iso
+from src.utils.clock import to_api
 
 
 def agent_to_response(
@@ -33,10 +33,10 @@ def agent_to_response(
         "tool_permissions": agent.tool_permissions,
         "model": agent.model,
         "conversation_id": agent.conversation_id,
-        "last_run_at": to_utc_iso(agent.last_run_at) if agent.last_run_at else None,
-        "next_run_at": to_utc_iso(agent.next_run_at) if agent.next_run_at else None,
-        "created_at": to_utc_iso(agent.created_at),
-        "updated_at": to_utc_iso(agent.updated_at),
+        "last_run_at": to_api(agent.last_run_at) if agent.last_run_at else None,
+        "next_run_at": to_api(agent.next_run_at) if agent.next_run_at else None,
+        "created_at": to_api(agent.created_at),
+        "updated_at": to_api(agent.updated_at),
         "budget_limit": agent.budget_limit,
         "fresh_context": agent.fresh_context,
         "system_type": agent.system_type,
@@ -59,8 +59,8 @@ def execution_to_response(execution: AgentExecution) -> dict[str, Any]:
         "status": execution.status,
         "trigger_type": execution.trigger_type,
         "triggered_by_agent_id": execution.triggered_by_agent_id,
-        "started_at": to_utc_iso(execution.started_at),
-        "completed_at": to_utc_iso(execution.completed_at) if execution.completed_at else None,
+        "started_at": to_api(execution.started_at),
+        "completed_at": to_api(execution.completed_at) if execution.completed_at else None,
         "error_message": execution.error_message,
     }
 
@@ -75,6 +75,6 @@ def approval_to_response(approval: ApprovalRequest, agent_name: str) -> dict[str
         "tool_args": approval.tool_args,
         "description": approval.description,
         "status": approval.status,
-        "created_at": to_utc_iso(approval.created_at),
-        "resolved_at": to_utc_iso(approval.resolved_at) if approval.resolved_at else None,
+        "created_at": to_api(approval.created_at),
+        "resolved_at": to_api(approval.resolved_at) if approval.resolved_at else None,
     }

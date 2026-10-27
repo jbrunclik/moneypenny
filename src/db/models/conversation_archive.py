@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.conversation_rows import page_rows, row_to_conversation_summary
 from src.db.models.dataclasses import Conversation
 from src.db.models.helpers import parse_cursor
+from src.db.models.timestamps import normalize_cursor, to_db
+from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
@@ -30,8 +31,8 @@ class ConversationArchiveMixin:
 
     def archive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Archive a conversation (hide from main list)."""
-        now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET archived = 1, updated_at = ? WHERE id = ? AND user_id = ?"
@@ -82,8 +83,8 @@ class ConversationArchiveMixin:
 
     def unarchive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Unarchive a conversation (restore to main list)."""
-        now = datetime.now().isoformat()
         with self._pool.get_connection() as conn:
+            now = to_db(utc_now(), "local", conn)
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET archived = 0, updated_at = ? WHERE id = ? AND user_id = ?"
@@ -114,6 +115,7 @@ class ConversationArchiveMixin:
 
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
+                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,

@@ -5,7 +5,6 @@ dashboard with events from Google Calendar and tasks from Todoist,
 plus an ephemeral chat that resets daily.
 """
 
-from datetime import UTC, datetime
 from typing import Any
 
 from apiflask import APIBlueprint
@@ -34,6 +33,7 @@ from src.services.planner.models import (
     PlannerTask,
     PlannerWeather,
 )
+from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -250,8 +250,8 @@ def get_planner_conversation(user: User) -> dict[str, Any]:
         "id": conv.id,
         "title": conv.title,
         "model": conv.model,
-        "created_at": conv.created_at.isoformat(),
-        "updated_at": conv.updated_at.isoformat(),
+        "created_at": to_api(conv.created_at),
+        "updated_at": to_api(conv.updated_at),
         "messages": optimized_messages,
         "was_reset": was_reset,
     }
@@ -313,7 +313,7 @@ def sync_planner_conversation(user: User) -> dict[str, Any]:
     # Get planner conversation without creating it (sync shouldn't create)
     planner_conv = db.get_planner_conversation(user.id)
 
-    server_time = datetime.now(UTC).isoformat()
+    server_time = to_api(utc_now())
 
     if not planner_conv:
         return {"conversation": None, "server_time": server_time}
@@ -323,9 +323,9 @@ def sync_planner_conversation(user: User) -> dict[str, Any]:
     return {
         "conversation": {
             "id": planner_conv.id,
-            "updated_at": planner_conv.updated_at.isoformat(),
+            "updated_at": to_api(planner_conv.updated_at),
             "message_count": message_count,
-            "last_reset": planner_conv.last_reset.isoformat() if planner_conv.last_reset else None,
+            "last_reset": to_api(planner_conv.last_reset) if planner_conv.last_reset else None,
         },
         "server_time": server_time,
     }

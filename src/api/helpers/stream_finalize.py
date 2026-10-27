@@ -18,6 +18,7 @@ from src.api.utils import build_stream_done_event, is_round_capped
 from src.db.models import db
 from src.enums import MessageRole
 from src.services.push import send_push_to_user
+from src.utils.clock import to_api
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -193,7 +194,7 @@ def _finalize_approval_stream(context: StreamContext) -> Generator[str]:
     done_data = {
         "type": "done",
         "id": assistant_msg.id,
-        "created_at": assistant_msg.created_at.isoformat(),
+        "created_at": to_api(assistant_msg.created_at),
         "user_message_id": context.user_msg.id,
         "approval_required": True,
         "approval_id": approval_id,

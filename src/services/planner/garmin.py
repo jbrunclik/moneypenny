@@ -4,11 +4,12 @@ Each metric is best-effort: one failing call leaves only that metric empty.
 """
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from src.auth.garmin_auth import create_client_from_tokens
 from src.services.planner.models import PlannerHealthSummary
+from src.utils.clock import local_today
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -82,7 +83,7 @@ def _activity_summary(activity: dict[str, Any]) -> dict[str, Any]:
 
 
 def _apply_recent_activities(garmin: Any, today_str: str, summary: PlannerHealthSummary) -> None:
-    start = (datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d")
+    start = (local_today() - timedelta(days=14)).isoformat()
     activities = garmin.get_activities_by_date(start, today_str)
     if isinstance(activities, list):
         summary.recent_activities = [_activity_summary(a) for a in activities[:3]]
@@ -109,7 +110,7 @@ def fetch_health_summary(
         return None, None
     try:
         garmin = create_client_from_tokens(garmin_token)
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_str = local_today().isoformat()
         summary = PlannerHealthSummary()
         for fetch, failure in _METRICS:
             try:

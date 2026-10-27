@@ -26,6 +26,7 @@ from src.agent.specifics_net import missed_specifics
 from src.agent.tools.delegate import in_delegate_run
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
+from src.utils.clock import local_today, to_local, utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -48,8 +49,8 @@ _EARLIER_VERIFIED_MAX_CHARS = 6000
 
 
 def _now() -> datetime:
-    """Seam for tests (patching time globally also shifts date.today())."""
-    return datetime.now().astimezone()
+    """Seam for tests: the current time in APP_TIMEZONE."""
+    return to_local(utc_now())
 
 
 # check_tool_results (tool_round_check.py) sends its round nudges, retries and
@@ -189,7 +190,7 @@ def earlier_verified(history: list[dict[str, Any]] | None) -> str:
 
 def _today() -> date:
     """Seam for tests: recent news is judged against today's date."""
-    return date.today()
+    return local_today()
 
 
 def _run_verifier(

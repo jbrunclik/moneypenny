@@ -14,11 +14,13 @@ from src.config import Config
 from src.utils import clock
 from src.utils.clock import (
     app_tz,
+    local_date_start,
     local_day_start,
     local_month_bounds,
     local_today,
     planner_cutoff,
     to_api,
+    to_local,
     utc_now,
 )
 
@@ -130,6 +132,31 @@ class TestLocalDayStart:
     def test_rejects_naive(self) -> None:
         with pytest.raises(ValueError, match="naive"):
             local_day_start(datetime(2026, 1, 1, 12))
+
+
+class TestLocalDateStart:
+    @pytest.mark.parametrize(
+        ("day", "expected"),
+        [
+            (date(2026, 1, 15), _z(2026, 1, 14, 23)),
+            (date(2026, 7, 15), _z(2026, 7, 14, 22)),
+            (date(2026, 3, 29), _z(2026, 3, 28, 23)),  # spring-forward day starts in CET
+            (date(2026, 10, 25), _z(2026, 10, 24, 22)),  # fall-back day starts in CEST
+        ],
+    )
+    def test_local_midnight_as_utc(self, day: date, expected: datetime) -> None:
+        assert local_date_start(day) == expected
+
+
+class TestToLocal:
+    def test_wall_time_in_app_timezone(self) -> None:
+        assert to_local(_z(2026, 7, 15, 8)) == _local(2026, 7, 15, 10)
+        assert to_local(_z(2026, 7, 15, 8)).strftime("%H:%M %Z") == "10:00 CEST"
+        assert to_local(_z(2026, 1, 15, 8)).strftime("%H:%M %Z") == "09:00 CET"
+
+    def test_rejects_naive(self) -> None:
+        with pytest.raises(ValueError, match="naive"):
+            to_local(datetime(2026, 1, 15, 8))
 
 
 class TestLocalMonthBounds:

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
-from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, parse_int
+from src.api.schemas.base import QueryModel, RequestModel, ResponseModel, Timestamp, parse_int
 from src.api.schemas.files import (
     FileAttachment,
     FileMetadataResponse,
@@ -250,7 +250,7 @@ class MessageResponse(ResponseModel):
     action: MessageActionResponse | None = Field(
         default=None, description="What a message sent on the user's behalf was"
     )
-    created_at: str
+    created_at: Timestamp
 
 
 class ChatBatchResponse(ResponseModel):
@@ -287,7 +287,7 @@ class ChatBatchResponse(ResponseModel):
     artifacts: list[ArtifactRef] | None = Field(
         default=None, description="Artifact versions shown under the reply"
     )
-    created_at: str
+    created_at: Timestamp
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"
     )

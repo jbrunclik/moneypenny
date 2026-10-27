@@ -12,12 +12,13 @@ from __future__ import annotations
 import base64
 import os
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.blob_store import get_blob_store
+from src.utils.clock import planner_cutoff, utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -157,12 +158,12 @@ def parse_cursor(cursor: str) -> tuple[str, str]:
 def should_reset_planner(user: User, now: datetime | None = None) -> bool:
     """Check if the planner should be automatically reset.
 
-    The planner resets daily at 4am. This function checks if the last reset
-    was before today's 4am cutoff.
+    The planner resets daily at 4am local time (APP_TIMEZONE). This function
+    checks if the last reset was before the most recent 4am.
 
     Args:
         user: The User object with planner_last_reset_at field
-        now: The current time (a test seam; defaults to datetime.now())
+        now: The current instant, aware (defaults to now)
 
     Returns:
         True if the planner should be reset, False otherwise
@@ -171,17 +172,7 @@ def should_reset_planner(user: User, now: datetime | None = None) -> bool:
     if not user.planner_last_reset_at:
         return False
 
-    now = now or datetime.now()
-
-    # Calculate today's 4am cutoff
-    today_4am = now.replace(hour=4, minute=0, second=0, microsecond=0)
-
-    # If it's before 4am today, the cutoff is yesterday's 4am
-    if now.hour < 4:
-        today_4am -= timedelta(days=1)
-
-    # Reset if last reset was before the 4am cutoff
-    return user.planner_last_reset_at < today_4am
+    return user.planner_last_reset_at < planner_cutoff(now or utc_now())
 
 
 def check_database_connectivity(db_path: Path | None = None) -> tuple[bool, str | None]:

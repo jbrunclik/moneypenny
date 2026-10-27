@@ -3,6 +3,7 @@
 import json
 import time
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from flask.testing import FlaskClient
 
@@ -246,7 +247,7 @@ class TestMessagesAroundEndpoint:
         # Use older_cursor to get more older messages
         response_older = client.get(
             f"/api/conversations/{test_conversation.id}/messages"
-            f"?cursor={older_cursor}&direction=older&limit=5",
+            f"?cursor={quote(older_cursor)}&direction=older&limit=5",
             headers=auth_headers,
         )
         assert response_older.status_code == 200
@@ -256,7 +257,7 @@ class TestMessagesAroundEndpoint:
         # Use newer_cursor to get more newer messages
         response_newer = client.get(
             f"/api/conversations/{test_conversation.id}/messages"
-            f"?cursor={newer_cursor}&direction=newer&limit=5",
+            f"?cursor={quote(newer_cursor)}&direction=newer&limit=5",
             headers=auth_headers,
         )
         assert response_newer.status_code == 200
