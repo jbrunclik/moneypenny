@@ -174,6 +174,7 @@ class StreamContext:
             ),
             kwargs={"journal_message_id": self.expected_assistant_msg_id},
             daemon=False,
+            name="chat-stream",
         )
         self.stream_thread.start()
 
@@ -202,6 +203,7 @@ class StreamContext:
                 ),
             ),
             daemon=True,
+            name="chat-save",
         )
         self.cleanup_thread.start()
 

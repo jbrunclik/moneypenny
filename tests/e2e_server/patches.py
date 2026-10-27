@@ -18,10 +18,13 @@ from tests.e2e_server.llm_fakes import (
     mock_check_grounding,
     mock_should_check,
 )
+from tests.fake_clock import strictly_increasing_now
 
 
 def apply_service_patches(stack: contextlib.ExitStack) -> None:
     """Apply external service mocks; they stay active while `stack` is open."""
+    # Writes from back-to-back requests get distinct, ordered timestamps
+    stack.enter_context(patch("src.utils.clock._now", strictly_increasing_now()))
     stack.enter_context(patch("src.agent.chat_model.ChatGoogleGenerativeAI", create_mock_llm()))
     stack.enter_context(patch("src.agent.gemini_clients.ChatGoogleGenerativeAI", create_mock_llm()))
     stack.enter_context(patch("src.agent.tools.web.search_web_detailed", mock_search_web_detailed))

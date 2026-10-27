@@ -649,8 +649,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     const convItemsBefore = page.locator('.conversation-item-wrapper');
     await expect(convItemsBefore).toHaveCount(1);
 
-    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
-
     // Create a NEW conversation directly via API (simulating another device)
     // This bypasses the UI entirely, as if another device created it
     const createResponse = await request.post('/api/conversations', {
@@ -697,8 +695,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
 
-    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
-
     // Create a conversation with multiple messages via API
     const createResponse = await request.post('/api/conversations', {
       data: { model: 'gemini-3.8-flash' },
@@ -732,8 +728,6 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
     await page.fill('#message-input', 'Initial conversation');
     await page.click('#send-btn');
     await page.waitForSelector('.message.assistant:not(.streaming)', { timeout: 10000 });
-
-    await page.waitForTimeout(100); // distinct updated_at timestamps order the list (a fake clock replaces this with the timezone work)
 
     // Create conversation via API
     const createResponse = await request.post('/api/conversations', {

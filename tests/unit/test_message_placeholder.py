@@ -105,11 +105,6 @@ class TestUpdateMessageContent:
         original_updated = test_conversation.updated_at
 
         placeholder = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "")
-
-        import time
-
-        time.sleep(0.01)  # Ensure distinct timestamp
-
         test_database.update_message_content(placeholder.id, "updated content")
 
         # Re-fetch conversation to check updated_at

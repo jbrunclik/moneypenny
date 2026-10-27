@@ -190,7 +190,7 @@ class TestDeadlines:
         monkeypatch.setattr(Config, "FRESHNESS_GATE_TIMEOUT_SECONDS", 0.2)
 
         def slow(*_args: Any) -> Any:
-            time.sleep(2)
+            time.sleep(2)  # a gate call slower than its cap; nothing to poll
             return freshness.GateVerdict(lookup=True, queries=["q"]), None
 
         started = time.monotonic()

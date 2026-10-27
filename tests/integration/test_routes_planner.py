@@ -8,7 +8,6 @@ Tests cover:
 """
 
 import json
-import time
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -23,6 +22,7 @@ from src.services.planner.models import (
     PlannerTask,
     PlannerWeather,
 )
+from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -576,8 +576,7 @@ class TestResetPlannerConversation:
         # Create planner conversation
         client.get("/api/planner/conversation", headers=auth_headers)
 
-        before_reset = datetime.now(UTC)
-        time.sleep(0.01)
+        before_reset = utc_now()  # the test clock: every later reading is later
 
         # Reset
         client.post("/api/planner/reset", headers=auth_headers)

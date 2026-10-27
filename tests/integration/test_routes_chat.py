@@ -2,6 +2,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
@@ -443,6 +444,7 @@ class TestChatStream:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
         test_database: Database,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Should save message to DB even if client disconnects during streaming."""
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
@@ -475,10 +477,8 @@ class TestChatStream:
             # Just verify we got some data (client started receiving)
             assert len(response_data) > 0
 
-        # Wait for background thread and cleanup thread to complete
-        import time
-
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Verify message was saved to database even though client disconnected
         messages = test_database.get_messages(test_conversation.id)
@@ -496,10 +496,10 @@ class TestChatStream:
         test_conversation: Conversation,
         test_database: Database,
         monkeypatch: Any,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """When CHAT_TIMEOUT_SECONDS trips mid-stream, the partial text is persisted
         with the timeout marker and a 'timeout' event is sent."""
-        import time
 
         from src.api.helpers.stream_consumer import STREAM_TIMEOUT_MARKER
         from src.config import Config
@@ -528,8 +528,8 @@ class TestChatStream:
         assert response.status_code == 200
         assert '"type": "timeout"' in body
 
-        # Wait for the save (generator/cleanup thread) to complete.
-        time.sleep(1.5)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         messages = test_database.get_messages(test_conversation.id)
         assistant = [m for m in messages if m.role == "assistant"]
@@ -718,13 +718,13 @@ class TestChatWithGeneratedImages:
         test_conversation: Conversation,
         test_database: Database,
         sample_png_base64: str,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Should extract generated images during streaming and include in done event.
 
         This test verifies the fix for a regression where generated images
         weren't showing up until the conversation was reloaded.
         """
-        import time
 
         from langchain_core.messages import AIMessage
 
@@ -831,8 +831,8 @@ class TestChatWithGeneratedImages:
         assert len(done_event["generated_images"]) == 1
         assert done_event["generated_images"][0]["prompt"] == "a blue circle"
 
-        # Wait for cleanup thread to ensure message is saved
-        time.sleep(1.5)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Verify message was saved with files
         messages = test_database.get_messages(test_conversation.id)
@@ -846,13 +846,13 @@ class TestChatWithGeneratedImages:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Verify streaming works correctly when no images are generated.
 
         This tests the normal case where no generate_image tool is used.
         The done event should not include files when no images are generated.
         """
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -879,8 +879,8 @@ class TestChatWithGeneratedImages:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.5)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse response to verify done event is present and doesn't have files
         response_text = response.data.decode("utf-8")
@@ -916,9 +916,9 @@ class TestChatStreamDoneEvent:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Should send done event when content exists regardless of client status."""
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -946,8 +946,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse SSE events to verify done event was sent
         response_text = response.data.decode("utf-8")
@@ -976,9 +976,9 @@ class TestChatStreamDoneEvent:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
         test_database: Database,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Done event should include message id and created_at for finalization."""
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -1004,8 +1004,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse the done event
         response_text = response.data.decode("utf-8")
@@ -1075,9 +1075,9 @@ class TestChatStreamDoneEvent:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Done event should include content for stream recovery when tokens are lost."""
-        import time
 
         expected_content = "This is the full response content."
 
@@ -1105,8 +1105,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse the done event
         response_text = response.data.decode("utf-8")
@@ -1133,9 +1133,9 @@ class TestChatStreamDoneEvent:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Should send done event even when content is empty (e.g., memory-only tool calls)."""
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -1162,8 +1162,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse SSE events - done event must be sent even when content is empty
         # so the frontend can finalize the message (e.g. manage_memory-only responses)
@@ -1188,9 +1188,9 @@ class TestChatStreamDoneEvent:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_conversation: Conversation,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """user_message_saved event should include expected_assistant_message_id for recovery."""
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -1216,8 +1216,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Parse SSE events to find user_message_saved
         response_text = response.data.decode("utf-8")
@@ -1251,9 +1251,9 @@ class TestChatStreamDoneEvent:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
         test_database: Database,
+        join_turn_threads: Callable[[], None],
     ) -> None:
         """Message should be saved with the pre-generated ID for reliable recovery."""
-        import time
 
         with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
@@ -1279,8 +1279,8 @@ class TestChatStreamDoneEvent:
 
         assert response.status_code == 200
 
-        # Wait for background threads
-        time.sleep(1.0)
+        # The turn's stream and save threads finish (the reply is saved)
+        join_turn_threads()
 
         # Get the expected ID from user_message_saved event
         response_text = response.data.decode("utf-8")

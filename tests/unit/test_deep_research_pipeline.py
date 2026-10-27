@@ -46,7 +46,7 @@ class FakeOrchestrator:
         if FakeOrchestrator.outcome == "stop":
             raise TurnCancelled
         if FakeOrchestrator.outcome == "quiet":
-            time.sleep(0.5)
+            time.sleep(0.5)  # a run that emits nothing for a while
         if FakeOrchestrator.outcome == "nothing":
             return [ItemResult(i, "timed_out", "", [], {}) for i in range(2)]
         page = SourcePage("A", "https://a.cz", "alpha")

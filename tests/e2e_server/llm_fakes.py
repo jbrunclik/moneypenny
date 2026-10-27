@@ -28,7 +28,7 @@ def create_mock_llm() -> MagicMock:
         # Apply batch delay if configured (for testing conversation switching)
         batch_delay_ms = MOCK_CONFIG.get("batch_delay_ms", 0)
         if batch_delay_ms > 0:
-            time.sleep(batch_delay_ms / 1000)
+            time.sleep(batch_delay_ms / 1000)  # the configured model latency
 
         # Extract user message from the last message
         user_message = ""
@@ -123,12 +123,12 @@ def _hold_until_released() -> None:
     while not MOCK_CONFIG.get("thinking_released") and not _cancelled():
         if time.monotonic() > held_until:
             break
-        time.sleep(THINKING_RELEASE_POLL_SECONDS)
+        time.sleep(THINKING_RELEASE_POLL_SECONDS)  # poll interval
 
 
 def _thinking_events(delay_s: float) -> Iterator[dict[str, Any]]:
     """The thinking event, re-sent as the configured hold requires."""
-    time.sleep(delay_s)
+    time.sleep(delay_s)  # the configured model latency
     thinking_event = {"type": "thinking", "text": MOCK_CONFIG["thinking_text"]}
     yield thinking_event
     if MOCK_CONFIG["thinking_hold_ms"]:
@@ -137,14 +137,14 @@ def _thinking_events(delay_s: float) -> Iterator[dict[str, Any]]:
         # halfway, so the page sees it while the hold still runs -
         # not together with the first answer token
         half_hold_s = MOCK_CONFIG["thinking_hold_ms"] / 2000
-        time.sleep(half_hold_s)
+        time.sleep(half_hold_s)  # the configured hold, first half
         yield thinking_event
-        time.sleep(half_hold_s)
+        time.sleep(half_hold_s)  # and the second
     elif MOCK_CONFIG.get("thinking_until_released"):
         # Re-sent once to flush WebKit's held chunk (each re-send
         # re-renders the live line under the test's taps), then held
         # silently; capped so an unreleased test cannot wedge the thread
-        time.sleep(THINKING_RESEND_DELAY_SECONDS)
+        time.sleep(THINKING_RESEND_DELAY_SECONDS)  # the scripted re-send delay
         yield thinking_event
         _hold_until_released()
 
@@ -152,7 +152,7 @@ def _thinking_events(delay_s: float) -> Iterator[dict[str, Any]]:
 def _tool_events(force_tools: list[str], delay_s: float) -> Iterator[dict[str, Any]]:
     """tool_start/tool_end for each forced tool."""
     for tool in force_tools:
-        time.sleep(delay_s)
+        time.sleep(delay_s)  # the configured model latency
         # Same display metadata the real stream attaches (stream_events.py)
         from src.agent.tool_display import TOOL_METADATA
 
@@ -183,7 +183,7 @@ def _token_events(
         token = f" {word}" if i > 0 else word
         streamed += token
         yield {"type": "token", "text": token}
-        time.sleep(delay_s)
+        time.sleep(delay_s)  # the configured per-token delay
     return streamed, None
 
 
@@ -256,7 +256,7 @@ def create_mock_stream_chat_events() -> Any:
         # Optionally simulate a transient model error being retried
         if MOCK_CONFIG.get("emit_retry_hold_ms"):
             yield {"type": "retry", "attempt": 1, "max_retries": 3}
-            time.sleep(MOCK_CONFIG["emit_retry_hold_ms"] / 1000)
+            time.sleep(MOCK_CONFIG["emit_retry_hold_ms"] / 1000)  # the configured retry hold
 
         # Optionally yield a thinking event (based on mock config or message content)
         if "think" in text.lower() or MOCK_CONFIG.get("emit_thinking"):

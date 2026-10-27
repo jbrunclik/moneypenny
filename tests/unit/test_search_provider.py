@@ -956,7 +956,7 @@ class TestBreakerCounterIsAtomic:
 
         def kv_get(self, _u: str, _ns: str, key: str) -> str | None:
             value = self.store.get(key)
-            time.sleep(0.05)
+            time.sleep(0.05)  # widen the read-modify-write race window
             return value
 
         def kv_set(self, _u: str, _ns: str, key: str, value: str) -> None:

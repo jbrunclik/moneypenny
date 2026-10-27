@@ -5,7 +5,6 @@ real-time synchronization between multiple clients/devices.
 """
 
 import json
-import time
 from typing import TYPE_CHECKING
 
 import pytest
@@ -206,8 +205,7 @@ class TestSyncRaceConditions:
         cursor = data1["cursor"]
         assert data1["conversations"][0]["title"] == "Original Title"
 
-        # Wait and update title
-        time.sleep(0.01)
+        # Update the title
         test_database.update_conversation(conv.id, test_user.id, title="New Title")
 
         # Second sync should capture the update
@@ -237,8 +235,7 @@ class TestSyncRaceConditions:
         data1 = json.loads(response1.data)
         cursor = data1["cursor"]
 
-        # Wait then update all three conversations rapidly
-        time.sleep(0.01)
+        # Update all three conversations rapidly
         test_database.add_message(conv1.id, "user", "Msg 1")
         test_database.add_message(conv2.id, "user", "Msg 2")
         test_database.add_message(conv3.id, "user", "Msg 3")
@@ -316,7 +313,6 @@ class TestSyncTimestampEdgeCases:
         conv2 = test_database.create_conversation(test_user.id, "Second")
 
         # Update conv1 to make it most recent
-        time.sleep(0.01)
         test_database.add_message(conv1.id, "user", "Update")
 
         response = client.get("/api/conversations/sync", headers=auth_headers)
@@ -380,12 +376,10 @@ class TestSyncAgentConversationExclusion:
         data1 = json.loads(response1.data)
         cursor = data1["cursor"]
 
-        # Wait and create agent
-        time.sleep(0.01)
+        # Create an agent
         agent = test_database.create_agent(test_user.id, name="Test Agent")
 
-        # Wait and update both conversations
-        time.sleep(0.01)
+        # Update both conversations
         test_database.add_message(regular_conv.id, "user", "New message")
         test_database.add_message(agent.conversation_id, "user", "[Trigger]")
 

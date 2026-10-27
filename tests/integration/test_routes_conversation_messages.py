@@ -1,7 +1,6 @@
 """Integration tests for around_message_id parameter in messages endpoint."""
 
 import json
-import time
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
@@ -31,7 +30,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Get messages around message 10
         target_msg = messages[10]
@@ -119,7 +117,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         target_msg = messages[5]
 
@@ -155,7 +152,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Target is the first message
         target_msg = messages[0]
@@ -192,7 +188,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Target is the last message
         target_msg = messages[9]
@@ -229,7 +224,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Get messages around message 15
         target_msg = messages[15]
@@ -340,7 +334,6 @@ class TestMessagesAroundEndpoint:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Request with limit=100 (much larger than message count)
         target_msg = messages[1]

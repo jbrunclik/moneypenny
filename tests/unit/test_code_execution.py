@@ -446,7 +446,8 @@ class TestCancelKillsUserCode:
                 patch("src.agent.tools.code_execution.get_sandbox_pool", return_value=pool),
                 patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True),
             ):
-                execute_code.invoke({"code": "import time; time.sleep(30)"})
+                sandbox_code = "import time; time.sleep(30)"  # what the cancel cuts short
+                execute_code.invoke({"code": sandbox_code})
         finally:
             cancellation.unregister_token("req-code")
             set_current_request_id(None)

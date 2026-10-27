@@ -11,12 +11,12 @@ DEEP_RESEARCH_REPORT = "Report: the transfer costs 1590 CZK and takes two days."
 def _fake_item(index: int, step_s: float, finish_requested: Any) -> Any:
     """Scripted events of one sub-question: started, a finding, done."""
     yield {"type": "research_item", "index": index, "status": "started"}
-    time.sleep(step_s)
+    time.sleep(step_s)  # the configured step time
     if finish_requested():
         yield {"type": "research_item", "index": index, "status": "skipped", "pages": 0}
         return
     yield {"type": "research_finding", "agent": index, "text": f"Finding {index + 1}"}
-    time.sleep(step_s)
+    time.sleep(step_s)  # the configured step time
     yield {"type": "research_item", "index": index, "status": "done", "pages": 3 + index}
 
 
@@ -39,7 +39,7 @@ def mock_run_deep_research(
     yield {"type": "research_sources", "count": 2}
     yield {"type": "research_writing"}
     for word in DEEP_RESEARCH_REPORT.split(" "):
-        time.sleep(step_s / 5)
+        time.sleep(step_s / 5)  # the configured step time, per word
         yield {"type": "token", "text": f"{word} "}
     yield {"type": "grounding_started"}
     n = len(plan.sub_questions)

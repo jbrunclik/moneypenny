@@ -76,6 +76,10 @@ def test_login_timeout(monkeypatch):
 
     monkeypatch.setattr(rouvy_auth.Config, "ROUVY_LOGIN_TIMEOUT_MS", 1)
     monkeypatch.setattr(rouvy_auth, "_LOGIN_JOIN_BUFFER_SECONDS", 0.0)
-    monkeypatch.setattr(rouvy_auth, "_login_sync", lambda e, p: time.sleep(1))
+
+    def slow_login(_email: str, _password: str) -> None:
+        time.sleep(1)  # a login past its timeout
+
+    monkeypatch.setattr(rouvy_auth, "_login_sync", slow_login)
     with pytest.raises(RouvyAuthError, match="timed out"):
         rouvy_auth.login("e@x.com", "pw")

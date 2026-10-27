@@ -1,7 +1,6 @@
 """Integration tests for pagination routes."""
 
 import json
-import time
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
@@ -25,7 +24,6 @@ class TestConversationsPagination:
         # Create multiple conversations
         for i in range(5):
             test_database.create_conversation(test_user.id, title=f"Conv {i}")
-            time.sleep(0.01)  # Ensure different timestamps
 
         response = client.get("/api/conversations?limit=3", headers=auth_headers)
 
@@ -49,7 +47,6 @@ class TestConversationsPagination:
         # Create conversations
         for i in range(5):
             test_database.create_conversation(test_user.id, title=f"Conv {i}")
-            time.sleep(0.01)
 
         # Get first page
         response1 = client.get("/api/conversations?limit=2", headers=auth_headers)
@@ -82,7 +79,6 @@ class TestConversationsPagination:
         # Create 3 conversations
         for i in range(3):
             test_database.create_conversation(test_user.id, title=f"Conv {i}")
-            time.sleep(0.01)
 
         # Get first page with larger limit
         response = client.get("/api/conversations?limit=10", headers=auth_headers)
@@ -108,9 +104,6 @@ class TestConversationsPagination:
         for i in range(4):
             conv = test_database.create_conversation(test_user.id, title=f"Conv {i}")
             convs.append(conv)
-            # Note: SQLite datetime has second precision, but cursor uses full timestamp
-            # Adding tiny sleep to ensure different microseconds in case DB supports them
-            time.sleep(0.001)
 
         # Get all conversations in pages of 2
         all_conv_ids = []
@@ -253,7 +246,6 @@ class TestMessagesPagination:
         # Add messages
         for i in range(5):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.01)
 
         response = client.get(
             f"/api/conversations/{test_conversation.id}/messages?limit=3",
@@ -284,7 +276,6 @@ class TestMessagesPagination:
         # Add messages
         for i in range(6):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.01)
 
         # Get first page (newest)
         response1 = client.get(
@@ -321,7 +312,6 @@ class TestMessagesPagination:
         # Add messages
         for i in range(6):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.01)
 
         # Get first page (newest)
         response1 = client.get(
@@ -362,7 +352,6 @@ class TestMessagesPagination:
         # Add messages
         for i in range(10):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.005)
 
         # Paginate through all messages
         all_contents = []
@@ -491,7 +480,6 @@ class TestConversationDetailPagination:
         # Add messages
         for i in range(5):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.01)
 
         response = client.get(
             f"/api/conversations/{test_conversation.id}?message_limit=3",
@@ -543,7 +531,6 @@ class TestConversationDetailPagination:
         # Add messages
         for i in range(6):
             test_database.add_message(test_conversation.id, "user", f"Message {i}")
-            time.sleep(0.01)
 
         # Get first page
         response1 = client.get(

@@ -1,6 +1,5 @@
 """Unit tests for Database.get_messages_around() method."""
 
-import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -23,7 +22,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)  # Ensure distinct timestamps
 
         # Get messages around the 5th message (index 4)
         target_msg = messages[4]
@@ -67,7 +65,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Get messages around the first message
         target_msg = messages[0]
@@ -104,7 +101,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Get messages around the last message
         target_msg = messages[4]
@@ -210,7 +206,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         # Get messages around message 10 with small limits
         target_msg = messages[10]
@@ -266,7 +261,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         target_msg = messages[2]
         result = test_database.get_messages_around(
@@ -295,7 +289,6 @@ class TestGetMessagesAround:
                 content=f"Message {i}",
             )
             messages.append(msg)
-            time.sleep(0.01)
 
         target_msg = messages[5]
         result = test_database.get_messages_around(

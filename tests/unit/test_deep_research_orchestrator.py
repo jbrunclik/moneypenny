@@ -36,7 +36,7 @@ def _wait_cancellable(request_id: str, seconds: float) -> None:
         token = token_for(request_id)
         if token and token.cancelled:
             raise TurnCancelled
-        time.sleep(0.01)
+        time.sleep(0.01)  # poll interval for the cancellation
 
 
 def _ok(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
@@ -78,7 +78,7 @@ def test_parallelism_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
         with lock:
             running[0] += 1
             peak[0] = max(peak[0], running[0])
-        time.sleep(0.05)
+        time.sleep(0.05)  # work long enough for the items to overlap
         with lock:
             running[0] -= 1
         return ItemResult(index, "done", "", [], {})
@@ -92,8 +92,10 @@ def test_parallelism_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_second_run_waits_for_slots(monkeypatch: pytest.MonkeyPatch) -> None:
     orch.reset_slots(2)
     release = threading.Event()
+    started = threading.Semaphore(0)
 
     def held(brief: str, board: ResearchBoard, index: int, request_id: str) -> ItemResult:
+        started.release()
         release.wait(2)
         return ItemResult(index, "done", "", [], {})
 
@@ -102,11 +104,14 @@ def test_second_run_waits_for_slots(monkeypatch: pytest.MonkeyPatch) -> None:
     second_events: list[dict[str, Any]] = []
     first = threading.Thread(target=lambda: _run(_plan(2), first_events))
     first.start()
-    time.sleep(0.1)
+    # Both slots taken by the first run before the second starts
+    assert started.acquire(timeout=2) and started.acquire(timeout=2)
     second = threading.Thread(target=lambda: _run(_plan(2), second_events))
     second.start()
-    time.sleep(0.2)
-    assert any(e.get("status") == "waiting" for e in second_events)
+    deadline = time.monotonic() + 2
+    while not any(e.get("status") == "waiting" for e in second_events):
+        assert time.monotonic() < deadline, "the second run never waited for a slot"
+        time.sleep(0.01)  # poll interval
     release.set()
     first.join(3)
     second.join(3)

@@ -112,7 +112,7 @@ def _placeholder_id(test_database: Database, conv_id: str) -> str:
         assistant = [m for m in test_database.get_messages(conv_id) if m.role.value == "assistant"]
         if assistant:
             return assistant[-1].id
-        time.sleep(0.01)
+        time.sleep(0.01)  # poll interval
     raise AssertionError("the assistant placeholder was never saved")
 
 
@@ -133,7 +133,7 @@ def test_stop_flag_cancels_the_running_turn(
         for _ in range(100):
             if cancellation.is_cancelled():
                 break
-            time.sleep(0.01)
+            time.sleep(0.01)  # poll interval
         seen["cancelled"] = cancellation.is_cancelled()
         yield _final("Partial", stop_reason="user" if seen["cancelled"] else None)
 
@@ -146,7 +146,7 @@ def test_stop_flag_cancels_the_running_turn(
     for _ in range(100):
         if not cancellation.stop_requested(test_user.id, test_conversation.id, ids["msg"]):
             break
-        time.sleep(0.01)
+        time.sleep(0.01)  # poll interval
     assert cancellation.stop_requested(test_user.id, test_conversation.id, ids["msg"]) is False
 
 

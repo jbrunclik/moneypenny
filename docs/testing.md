@@ -174,6 +174,12 @@ This ensures:
   render on a CI VM running 5-7× slower than usual — the RAF-scheduled scroll
   hadn't run yet. Note the exception: "asserting something does NOT happen"
   (e.g., auto-scroll stays disabled) genuinely needs a fixed wait.
+- **No sleeping for a new timestamp** (Oct 27 2026): the autouse
+  `strictly_increasing_clock` fixture makes `utc_now()` advance at least 1 µs
+  per call (never behind the real clock), so rows written back to back sort in
+  write order; a test that needs a fixed time patches `src.utils.clock._now`
+  itself. To wait for a chat turn's save, call the `join_turn_threads` fixture
+  (it joins the `chat-stream` and `chat-save` threads) instead of sleeping.
 - **Condition helpers** (`web/tests/e2e/waits.ts`, Oct 26 2026 - no uncommented
   `waitForTimeout` is left): `nextFrames` (scroll/resize handlers ran),
   `scrollSettled` (a glide or re-pin landed), `pageSettled` (finite animations

@@ -60,7 +60,7 @@ def _wait_for_build(
         with manager._lock:  # type: ignore[attr-defined]
             if cache_key not in manager._creating:  # type: ignore[attr-defined]
                 return
-        time.sleep(0.005)
+        time.sleep(0.005)  # poll interval
 
 
 # ============ CacheProfile Tests ============
@@ -469,7 +469,7 @@ class TestContextCacheManager:
             with manager._lock:
                 if not manager._extending:
                     return
-            time.sleep(0.01)
+            time.sleep(0.01)  # poll interval
         raise AssertionError("background cache extension did not finish")
 
     @patch("src.agent.context_cache.Config")

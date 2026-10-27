@@ -23,7 +23,8 @@ def test_stop_kills_sleep_and_keeps_work_dir() -> None:
         execute_code.invoke({"code": "open('/work/keep.txt','w').write('kept')"})
         threading.Timer(2.0, token.cancel).start()
         started = time.monotonic()
-        execute_code.invoke({"code": "import time; time.sleep(30)"})
+        sandbox_code = "import time; time.sleep(30)"  # what the cancel cuts short
+        execute_code.invoke({"code": sandbox_code})
         elapsed = time.monotonic() - started
     finally:
         cancellation.unregister_token("req-live")

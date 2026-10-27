@@ -5,7 +5,7 @@ import os
 import tempfile
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -127,6 +127,38 @@ def close_pooled_sandbox_sessions() -> Generator[None]:
     pool = sandbox_sessions._pool.peek()
     if pool is not None:
         pool.close_all()
+
+
+# The chat turn's background threads (src/api/helpers/chat_streaming.py)
+_TURN_THREAD_NAMES = ("chat-stream", "chat-save")
+
+
+@pytest.fixture
+def join_turn_threads() -> Callable[[], None]:
+    """A function that waits for the chat turn's stream and save threads to
+    finish: after it returns, the reply is saved. Fails if they outlive the
+    timeout."""
+
+    def join(timeout_s: float = 10.0) -> None:
+        deadline = time.monotonic() + timeout_s
+        threads = [t for t in threading.enumerate() if t.name in _TURN_THREAD_NAMES]
+        for thread in threads:
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        alive = [t.name for t in threads if t.is_alive()]
+        assert not alive, f"chat turn threads still running after {timeout_s}s: {alive}"
+
+    return join
+
+
+@pytest.fixture(autouse=True)
+def strictly_increasing_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """utc_now never repeats (tests/fake_clock.py): rows written back to back
+    get distinct, ordered timestamps without a test sleeping between them. A
+    test that needs a fixed time patches ``src.utils.clock._now`` itself."""
+    from src.utils import clock
+    from tests.fake_clock import strictly_increasing_now
+
+    monkeypatch.setattr(clock, "_now", strictly_increasing_now())
 
 
 # -----------------------------------------------------------------------------

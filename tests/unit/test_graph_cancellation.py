@@ -194,7 +194,7 @@ class _SlowStreamingModel(BaseChatModel):
 
     def _stream(self, messages: Any, stop: Any = None, run_manager: Any = None, **kw: Any) -> Any:
         for i in range(20):
-            time.sleep(0.3)
+            time.sleep(0.3)  # a slow model: the cancel lands mid-stream
             chunk = ChatGenerationChunk(message=AIMessageChunk(content=f"w{i} "))
             if run_manager:
                 run_manager.on_llm_new_token(chunk.text, chunk=chunk)
