@@ -57,6 +57,10 @@ Several agent sessions often work in this checkout at once (A1):
   (`.e2e-server-<port>.pid`), never by killing whatever listens on a port.
   `make build` replaces `static/assets` for everyone: for long UI work use a
   worktree (`superpowers:using-git-worktrees`, under `.claude/worktrees/`).
+- **Subagent worktrees pile up** under `.claude/worktrees/` (54 and 8.3 GB in
+  two days, Oct 2026). After a subagent-heavy session run `make clean-worktrees`:
+  it removes the ones nothing holds (locked or uncommitted ones stay;
+  `FORCE=1` drops uncommitted changes) and deletes a branch only once it landed.
 - **New migration while another session might add one:** check the highest
   number on `main` right before committing; two sessions both creating the
   same `NNNN_` break startup.

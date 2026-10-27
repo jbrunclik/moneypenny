@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-tz test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-tz test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean clean-worktrees deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -321,6 +321,11 @@ openapi:
 types:
 	cd web && $(NPM) run types:generate
 	@echo "TypeScript types generated at web/src/types/generated-api.ts"
+
+# Agent worktrees under .claude/worktrees that nothing holds (FORCE=1: also
+# those with uncommitted changes); a branch goes only once it landed in main
+clean-worktrees:
+	$(PYTHON) scripts/clean_worktrees.py $(if $(FORCE),--force)
 
 clean:
 	rm -rf $(VENV)
