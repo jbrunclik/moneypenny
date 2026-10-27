@@ -291,6 +291,14 @@ by guessing):
 
 ## E2E Stability Pitfalls (Aug 2026)
 
+- **A condition that needs a running stream must slow the stream** (Oct 27
+  2026): "scroll position is maintained when scrolling up during active token
+  streaming" waited for the reply to grow after the scroll-up. On CI the
+  default mock stream (10ms a token) had finished before the scroll, so it
+  never grew and the test failed on every run there (local machines were fast
+  enough). The fixed sleep it replaced had hidden that the test exercised
+  nothing on CI. Set `/test/set-stream-delay` when a test acts mid-stream.
+
 - **A click while the list re-renders reaches no handler** (Oct 26 2026): the
   pin test hovered a row and clicked its pin just as the second conversation's
   generated title re-rendered the sidebar - no pin request was sent at all.

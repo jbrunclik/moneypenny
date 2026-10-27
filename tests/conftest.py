@@ -44,6 +44,13 @@ for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_AP
 # TZ values to prove nothing reads the process timezone (make test-tz)
 os.environ["APP_TIMEZONE"] = "Europe/Prague"
 os.environ["LEGACY_TIMESTAMP_TIMEZONE"] = "Europe/Prague"
+# The process-wide db and blob store open these: a scratch pair per test
+# process, never the developer's chatbot.db. Code under test that reaches the
+# global db without use_database() then fails here as it does on CI (a fresh
+# checkout has no migrated chatbot.db) instead of writing to the real one
+_SCRATCH_DIR = tempfile.mkdtemp(prefix="moneypenny-tests-")
+os.environ["DATABASE_PATH"] = os.path.join(_SCRATCH_DIR, "global.db")
+os.environ["BLOB_STORAGE_PATH"] = os.path.join(_SCRATCH_DIR, "global-files.db")
 
 
 # -----------------------------------------------------------------------------
@@ -164,6 +171,19 @@ def strictly_increasing_clock(monkeypatch: pytest.MonkeyPatch) -> None:
 # -----------------------------------------------------------------------------
 # Global cleanup fixture
 # -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session", autouse=True)
+def migrated_global_database() -> None:
+    """Give the process-wide db (the scratch DATABASE_PATH above) its schema
+    once per test process. Code under test that reaches it then behaves the
+    same in every worker and order - on CI it had a schema only once some
+    test happened to build the app, so early tests failed with "no such
+    table" (Oct 2026). Tests that need their own data use test_database and
+    use_database()."""
+    from src.db.models import db
+
+    db.migrate()
 
 
 @pytest.fixture(scope="session", autouse=True)

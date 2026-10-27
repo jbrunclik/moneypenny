@@ -269,6 +269,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
   test('scroll position is maintained when scrolling up during active token streaming', async ({
     page,
+    request,
   }) => {
     // This test verifies the fix for the race condition where:
     // - User scrolls up during streaming
@@ -290,6 +291,10 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 
     // Re-enable streaming
     await streamBtn.click();
+    // Slow the stream so tokens are still arriving after the scroll-up: at
+    // the default speed the short mock reply had finished on a slow CI
+    // runner before the test scrolled, and nothing was left to arrive
+    await request.post('/test/set-stream-delay', { data: { delay_ms: 150 } });
 
     const messagesContainer = page.locator('#messages');
 

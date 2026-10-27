@@ -1,8 +1,19 @@
 """The stop flag round-trips through kv_store (cross-worker carrier), scoped to one turn."""
 
+from collections.abc import Generator
+
+import pytest
+
 from src.agent.cancellation import clear_stop_request, request_stop, stop_requested
-from src.db.models import Database
+from src.db.models import Database, use_database
 from src.db.models.dataclasses import Conversation, User
+
+
+@pytest.fixture(autouse=True)
+def _global_db(test_database: Database) -> Generator[None]:
+    """cancellation.py writes through the process-wide db: point it at the test one."""
+    with use_database(test_database):
+        yield
 
 
 def test_stop_flag_lifecycle(

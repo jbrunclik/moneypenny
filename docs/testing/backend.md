@@ -37,6 +37,13 @@ tests/
 - Each test gets its own database file for complete isolation
 - Database fixture creates a fresh database for each test
 - No shared state between tests
+- Code that reaches the process-wide `db` (cancellation flags, agents, deep
+  research...) needs `use_database(test_database)` for its own data. Without
+  it, it uses a scratch database per test process: `tests/conftest.py` points
+  `DATABASE_PATH`/`BLOB_STORAGE_PATH` at a temp directory and migrates it once.
+  Before Oct 27 2026 that was the developer's real `chatbot.db` - tests passed
+  locally while writing into it, and on CI (an empty `chatbot.db`) they failed
+  with "no such table" whenever they ran before any test had built the app
 
 **Mocked external services**:
 - Gemini LLM responses are mocked with proper AIMessage objects
