@@ -98,9 +98,10 @@ const SYNC_CALLBACKS: SyncManagerCallbacks = {
 };
 
 /**
- * Create the sync manager and start polling.
+ * Create the sync manager and start polling. `onStarted` runs once the first
+ * full sync is done (or failed), with the change-log cursor set.
  */
-export function startSync(): void {
+export function startSync(onStarted?: () => void): void {
   initSyncManager(
     SYNC_CALLBACKS,
     { hasPending: hasPendingRecovery, attempt: attemptRecovery, cancel: cancelRecovery },
@@ -111,7 +112,8 @@ export function startSync(): void {
     ?.start()
     .catch((error) => {
       log.error('SyncManager failed to start', { error });
-    });
+    })
+    .finally(() => onStarted?.());
 }
 
 // Test helper: Trigger a full sync (for E2E tests)

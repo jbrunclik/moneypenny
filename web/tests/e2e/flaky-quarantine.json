@@ -40,5 +40,11 @@
     "title": "model selector shows planner model when navigating to planner",
     "project": "webkit",
     "todo": "Open E2E flakes (WebKit one-off: planner model selector)"
+  },
+  {
+    "file": "visual/mobile.visual.ts",
+    "title": "wide table has horizontal scroll on mobile",
+    "project": "chromium",
+    "todo": "Open E2E flakes (Chromium visual: wide table row antialiasing under load)"
   }
 ]

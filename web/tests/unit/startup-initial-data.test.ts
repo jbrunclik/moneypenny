@@ -9,6 +9,8 @@ const h = vi.hoisted(() => {
     calls: [] as string[],
     listError: null as Error | null,
     todoistDown: false,
+    /** startSync's callback for "the first full sync is done" */
+    onSyncStarted: undefined as (() => void) | undefined,
     /** A mock that records its name in `calls` */
     rec: (name: string) => vi.fn(() => void state.calls.push(name)),
   };
@@ -59,7 +61,12 @@ vi.mock('@/core/startup/initial-route', () => ({
     h.calls.push(`openInitialRoute loading=${String(useStore.getState().isLoading)}`);
   }),
 }));
-vi.mock('@/core/startup/sync', () => ({ startSync: h.rec('startSync') }));
+vi.mock('@/core/startup/sync', () => ({
+  startSync: vi.fn((onStarted?: () => void) => {
+    h.calls.push('startSync');
+    h.onSyncStarted = onStarted;
+  }),
+}));
 
 import { loadInitialData } from '@/core/startup/initial-data';
 import { openInitialRoute } from '@/core/startup/initial-route';
@@ -74,6 +81,7 @@ beforeEach(() => {
   h.calls = [];
   h.listError = null;
   h.todoistDown = false;
+  h.onSyncStarted = undefined;
   vi.clearAllMocks();
   useStore.setState({ user: USER, currentConversation: null, conversations: [], isLoading: false });
 });
@@ -113,10 +121,23 @@ describe('loadInitialData', () => {
 
   it('loads the trash count, except when the trash view itself is the route', async () => {
     await loadInitialData(null);
+    h.onSyncStarted?.();
     expect(h.calls).toContain('loadTrashedConversations');
     h.calls = [];
     await loadInitialData({ isTrash: true } as unknown as InitialRoute);
+    h.onSyncStarted?.();
     expect(h.calls).not.toContain('loadTrashedConversations');
+  });
+
+  it('loads the archive and trash lists only once the first sync has its cursor', async () => {
+    // A chat trashed elsewhere between an earlier list load and the sync's
+    // cursor was in neither, so the badge stayed stale (Oct 2026)
+    await loadInitialData(null);
+    expect(h.calls).not.toContain('loadTrashedConversations');
+    expect(h.calls).not.toContain('loadArchivedConversations');
+    h.onSyncStarted?.();
+    expect(h.calls).toContain('loadTrashedConversations');
+    expect(h.calls).toContain('loadArchivedConversations');
   });
 
   it('offers a refresh on failure, and still ends loading and re-renders', async () => {

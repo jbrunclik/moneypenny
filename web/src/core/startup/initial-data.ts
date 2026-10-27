@@ -79,7 +79,7 @@ function storeInitialData(
 }
 
 /** Render the sidebar and composer from the loaded data; fetch the counts. */
-function renderInitialData(initialRoute: InitialRoute | null | undefined): void {
+function renderInitialData(): void {
   renderConversationsList();
   renderUserInfo();
   void refreshSpendWarning();
@@ -88,13 +88,20 @@ function renderInitialData(initialRoute: InitialRoute | null | undefined): void 
   // Keep relative-time labels and date-group headers fresh even when no
   // sync poll returns changed data
   initSidebarTimeRefresh();
+}
 
-  // Load archive count in background (non-blocking) to show archive section
+/**
+ * Load the archive and trash lists (their counts badge the user menu) once
+ * the first sync has its change-log cursor: a chat archived or trashed on
+ * another device after that shows up in the change log and reloads them,
+ * while one changed between an earlier load and the cursor was in neither
+ * and left the badge stale (Oct 2026).
+ */
+function loadArchiveAndTrash(initialRoute: InitialRoute | null | undefined): void {
   loadArchivedConversations().catch(() => {
     // Ignore errors - archive section is optional
   });
-  // Trash count for the user-menu badge (skipped when the trash view
-  // itself is the initial route - navigateToTrash loads it)
+  // Skipped when the trash view itself is the initial route - navigateToTrash loads it
   if (!initialRoute?.isTrash) {
     void loadTrashedConversations();
   }
@@ -129,7 +136,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
 
   try {
     storeInitialData(store, await fetchInitialData());
-    renderInitialData(initialRoute);
+    renderInitialData();
 
     // After the store holds the conversation list: the views read it
     await openInitialRoute(initialRoute);
@@ -137,7 +144,7 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     // Only after data is loaded AND the initial route is handled: sync
     // starting earlier showed false "new messages available" banners for
     // the deep-linked conversation
-    startSync();
+    startSync(() => loadArchiveAndTrash(initialRoute));
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {

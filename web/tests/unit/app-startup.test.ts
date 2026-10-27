@@ -330,15 +330,17 @@ const DATA_STEPS = [
   'refreshSpendWarning',
   'renderModelDropdown',
   'initSidebarTimeRefresh',
-  'loadArchivedConversations',
-  'loadTrashedConversations',
 ];
 
+/** Sync starts, loading ends, and once the first sync has its cursor the
+ * archive and trash lists load (no trash-route skip). */
 const SYNC_AND_FINALLY_STEPS = [
   'initSyncManager',
   'syncManager.start',
   'updateSendButtonState',
   'renderConversationsList',
+  'loadArchivedConversations',
+  'loadTrashedConversations',
 ];
 
 function syncCallbacks(): SyncManagerCallbacks {
@@ -596,9 +598,9 @@ describe('app startup (signed in)', () => {
     it('#/trash skips the trash-count fetch (the view loads it)', async () => {
       await loginAt('#/trash');
       expect(calls).toEqual([
-        ...DATA_STEPS.filter((s) => s !== 'loadTrashedConversations'),
+        ...DATA_STEPS,
         'navigateToTrash',
-        ...SYNC_AND_FINALLY_STEPS,
+        ...SYNC_AND_FINALLY_STEPS.filter((s) => s !== 'loadTrashedConversations'),
       ]);
     });
 
