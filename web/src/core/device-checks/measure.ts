@@ -1,14 +1,12 @@
 /**
- * Device check measurements and waits: what the scenarios read off the live
- * layout. The viewport probes are keyboard-viewport.ts's own, so a check
- * reads the same numbers the keyboard handling decides on.
- *
- * core/layout-checks.ts (the field telemetry) measures similar invariants;
- * the two can share one measurement module later.
+ * Device check waits and the list measurements only the scenarios take. The
+ * keyboard and viewport numbers - and the model that judges them - come from
+ * keyboard/metrics.ts, shared with the keyboard handling and the field
+ * telemetry (core/layout-checks.ts), so all three read the same numbers.
  */
-import { isStandaloneDisplay, safeAreaTop, trueViewportHeight } from '../keyboard/metrics';
+import { windowScrollY } from '../keyboard/metrics';
 import { DEVICE_CHECK_SETTLE_MS, DEVICE_CHECK_SETTLE_TIMEOUT_MS } from '../../config';
-import type { KeyboardGeometry, PanMeasure } from './evaluate';
+import type { PanMeasure } from './evaluate';
 
 const POLL_MS = 50;
 
@@ -75,26 +73,8 @@ export async function waitForStable(
 
 export function panMeasure(): PanMeasure {
   return {
-    windowScrollY: Math.max(window.scrollY, document.scrollingElement?.scrollTop ?? 0),
+    windowScrollY: windowScrollY(),
     viewportOffsetTop: window.visualViewport?.offsetTop ?? 0,
-  };
-}
-
-export function distanceFromBottom(container: HTMLElement): number {
-  return Math.max(0, container.scrollHeight - container.scrollTop - container.clientHeight);
-}
-
-/** The applied --keyboard-inset (keyboard-viewport.ts writes it on <html>). */
-export function keyboardInset(): number {
-  return parseFloat(document.documentElement.style.getPropertyValue('--keyboard-inset')) || 0;
-}
-
-export function keyboardGeometry(): KeyboardGeometry {
-  return {
-    trueViewportHeightPx: trueViewportHeight(),
-    visualViewportHeightPx: window.visualViewport?.height ?? window.innerHeight,
-    safeAreaTopPx: safeAreaTop(),
-    standalone: isStandaloneDisplay(),
   };
 }
 

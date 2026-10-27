@@ -4,7 +4,16 @@
  * shrink counts as a keyboard and how big an inset it gets.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isStandaloneDisplay, measureKeyboardInset, trueViewportHeight } from '@/core/keyboard/metrics';
+import {
+  appliedKeyboardInset,
+  composerGap,
+  expectedComposerGap,
+  isStandaloneDisplay,
+  keyboardInsetFor,
+  measureKeyboardInset,
+  trueViewportHeight,
+  windowScrollY,
+} from '@/core/keyboard/metrics';
 import {
   KEYBOARD_DEFINITE_SHRINK_PX,
   KEYBOARD_INSET_MIN_PX,
@@ -80,5 +89,67 @@ describe('keyboard metrics', () => {
     const small = KEYBOARD_DEFINITE_SHRINK_PX - 10;
     expect(measureKeyboardInset(viewport(INNER_HEIGHT - small))).toMatchObject({ keyboardLikely: false, inset: 0 });
     expect(measureKeyboardInset(viewport(INNER_HEIGHT - 300))).toMatchObject({ keyboardLikely: true, inset: 300 });
+  });
+});
+
+// Device-verified geometry (docs/ui/mobile-and-pwa.md): iPhone, iOS 26
+const standaloneKeyboard = {
+  trueViewportHeightPx: 874,
+  visualViewportHeightPx: 471,
+  visualViewportOffsetTopPx: 0,
+  safeAreaTopPx: 62,
+  standalone: true,
+};
+const safariKeyboard = {
+  trueViewportHeightPx: 654,
+  visualViewportHeightPx: 363,
+  visualViewportOffsetTopPx: 0,
+  safeAreaTopPx: 0,
+  standalone: false,
+};
+
+describe('the keyboard model both layout checkers share', () => {
+  it('gives the device-verified insets', () => {
+    expect(keyboardInsetFor(standaloneKeyboard)).toBe(341 + KEYBOARD_STANDALONE_ACCESSORY_PX);
+    expect(keyboardInsetFor(safariKeyboard)).toBe(291);
+  });
+
+  it('is 0 at rest and for small shrinks (browser chrome)', () => {
+    expect(keyboardInsetFor({ ...standaloneKeyboard, visualViewportHeightPx: 812 })).toBe(0);
+    expect(keyboardInsetFor({ ...safariKeyboard, visualViewportHeightPx: 600 })).toBe(0);
+  });
+
+  it('puts the composer the accessory pill above the keyboard in standalone, flush in a tab', () => {
+    // standalone: app bottom 874 - 391 = 483, keyboard top 471 + 62 = 533
+    expect(composerGap(standaloneKeyboard, 483)).toBe(expectedComposerGap(true));
+    expect(composerGap(safariKeyboard, 363)).toBe(expectedComposerGap(false));
+  });
+
+  it('reads a pinned standalone composer as pinned (the Oct 2026 false overlaps)', () => {
+    // A production report: the field check, leaving out the top safe area,
+    // saw this as a 62px overlap; the composer sat exactly on the pill
+    const reported = { ...standaloneKeyboard, trueViewportHeightPx: 874, visualViewportHeightPx: 478 };
+    expect(composerGap(reported, 490)).toBe(expectedComposerGap(true));
+  });
+
+  it('counts the visual viewport pan into the keyboard top', () => {
+    const panned = { ...safariKeyboard, visualViewportOffsetTopPx: 40 };
+    expect(composerGap(panned, 403)).toBe(0);
+  });
+});
+
+describe('reads', () => {
+  afterEach(() => {
+    document.documentElement.style.removeProperty('--keyboard-inset');
+  });
+
+  it('reads the inset keyboard-viewport.ts writes on <html>', () => {
+    expect(appliedKeyboardInset()).toBe(0);
+    document.documentElement.style.setProperty('--keyboard-inset', '391px');
+    expect(appliedKeyboardInset()).toBe(391);
+  });
+
+  it('reads the window scroll', () => {
+    expect(windowScrollY()).toBe(0);
   });
 });

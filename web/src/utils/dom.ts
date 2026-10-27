@@ -403,6 +403,11 @@ export function scrollToBottom(
   currentSmoothScrollAnimationId = requestAnimationFrame(animate);
 }
 
+/** How far a scroll container sits above its bottom, in px (0 at the bottom). */
+export function distanceFromBottom(element: HTMLElement): number {
+  return Math.max(0, element.scrollHeight - element.scrollTop - element.clientHeight);
+}
+
 /**
  * Check if element is scrolled to bottom (within threshold)
  */
@@ -410,9 +415,7 @@ export function isScrolledToBottom(
   element: HTMLElement,
   threshold: number = SCROLL_BOTTOM_THRESHOLD_PX
 ): boolean {
-  return (
-    element.scrollHeight - element.scrollTop - element.clientHeight < threshold
-  );
+  return distanceFromBottom(element) < threshold;
 }
 
 /**

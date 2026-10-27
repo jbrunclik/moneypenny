@@ -13,7 +13,7 @@ import {
   turnAnchorEventCounts,
   turnAnchorExtra,
 } from '../../components/messages/turn-anchor';
-import { isSmoothScrolling } from '../../utils/dom';
+import { distanceFromBottom, isSmoothScrolling } from '../../utils/dom';
 import type { DeviceCheckMeasurements, DeviceCheckStatus } from '../../types/api';
 import {
   DEVICE_CHECK_KEYBOARD_APPEAR_MS,
@@ -22,23 +22,24 @@ import {
   KEYBOARD_INSET_MIN_PX,
 } from '../../config';
 import {
+  appliedKeyboardInset,
   composerGap,
+  expectedComposerGap,
+  keyboardGeometry,
+  keyboardInsetFor,
+} from '../keyboard/metrics';
+import {
   evaluateAnchor,
   evaluateBottom,
   evaluateKeyboardClose,
   evaluateKeyboardOpen,
   evaluateScrollButton,
-  expectedComposerGap,
-  expectedKeyboardInset,
   summarizeUserAgent,
   type Verdict,
 } from './evaluate';
 import {
   appRect,
   composerBottom,
-  distanceFromBottom,
-  keyboardGeometry,
-  keyboardInset,
   listSnapshot,
   panMeasure,
   round,
@@ -241,13 +242,13 @@ const keyboardOpen: DeviceCheckScenario = {
       return { status: 'skipped', measurements: {}, notes: ['no software keyboard appeared'] };
     }
     ctx.shared.keyboardShown = true;
-    await waitForStable(keyboardInset, ctx.signal);
+    await waitForStable(appliedKeyboardInset, ctx.signal);
     await settleList(ctx);
     const { geometry, gap, expectedGap } = keyboardMeasurements();
     const anchor = anchorAfter(ctx.container, turnEl);
     const m = {
-      insetPx: keyboardInset(),
-      expectedInsetPx: expectedKeyboardInset(geometry),
+      insetPx: appliedKeyboardInset(),
+      expectedInsetPx: keyboardInsetFor(geometry),
       composerGapPx: gap,
       expectedGapPx: expectedGap,
       turnMovedPx: turnEl && turnBefore !== null ? round(topInView(ctx.container, turnEl) - turnBefore) : null,
@@ -301,7 +302,7 @@ const scrollButton: DeviceCheckScenario = {
       distance_from_bottom_px: m.distanceFromBottomPx,
       composer_gap_px: gap,
       expected_gap_px: expectedGap,
-      inset_px: keyboardInset(),
+      inset_px: appliedKeyboardInset(),
       window_scroll_y: m.windowScrollY,
       viewport_offset_top: round(m.viewportOffsetTop),
     });
@@ -314,12 +315,12 @@ const keyboardClose: DeviceCheckScenario = {
   requires: 'keyboard-up',
   async run(ctx) {
     await ctx.askTap('Tap to close the keyboard', () => composer()?.blur());
-    await waitUntil(() => keyboardInset() === 0, DEVICE_CHECK_SETTLE_TIMEOUT_MS, ctx.signal);
+    await waitUntil(() => appliedKeyboardInset() === 0, DEVICE_CHECK_SETTLE_TIMEOUT_MS, ctx.signal);
     await waitForStable(() => appRect().height, ctx.signal);
     const app = appRect();
     const geometry = keyboardGeometry();
     const m = {
-      insetPx: keyboardInset(),
+      insetPx: appliedKeyboardInset(),
       kbOpenClass: document.documentElement.classList.contains('kb-open'),
       appHeightPx: round(app.height),
       trueViewportHeightPx: geometry.trueViewportHeightPx,

@@ -221,7 +221,7 @@ scrolls. It runs on iOS (`isIOS()`) or a coarse pointer only.
 
 | Invariant (shapes) | Fails when | Tolerance |
 |---|---|---|
-| `composer_gap` (`gap`, `overlap`) | keyboard up (applied and computed inset > 0) and the composer's bottom (`.input-area`) is off the keyboard top: `vv.offsetTop + vv.height`, minus the 50px pill in standalone. `gap`: dead band above the keyboard; `overlap`: composer under it | 20px (`LAYOUT_COMPOSER_GAP_TOLERANCE_PX`) |
+| `composer_gap` (`gap`, `overlap`) | keyboard up (applied and computed inset > 0) and the composer's bottom (`.input-area`) is off the keyboard top: `vv.offsetTop + vv.height + safe-area top` (`composerGap` in `core/keyboard/metrics.ts`), minus the 50px pill in standalone. Until Oct 27 2026 it left the safe-area top out, and every standalone keyboard reported a ~60px `overlap` (13 false reports from 3 users). `gap`: dead band above the keyboard; `overlap`: composer under it | 20px (`LAYOUT_COMPOSER_GAP_TOLERANCE_PX`) |
 | `stranded_pan` (`keyboard-open`, `keyboard-closed`) | the window stays scrolled with no finger down (the pan reset missed it) | 1px |
 | `inset_mismatch` (`stuck`, `missing`, `off`) | the applied `--keyboard-inset` differs from the unified formula for the settled viewport. `stuck`: left after the keyboard closed; `missing`: a keyboard the inset missed | 4px (`LAYOUT_INSET_TOLERANCE_PX`) |
 | `anchor_drift` (`keyboard-open`, `keyboard-close`) | the view rested on an anchored turn (at a settled check or when the send glide ended), the keyboard opened or closed, no user scroll since, no glide running, and the view ended off the anchor | 8px (`LAYOUT_ANCHOR_DRIFT_TOLERANCE_PX`) |
@@ -230,7 +230,16 @@ scrolls. It runs on iOS (`isIOS()`) or a coarse pointer only.
 The composer tolerance is a first guess: the pill's size varies by device and
 iOS version. If one device reports a steady `composer_gap` of the same size,
 the numbers in the report say whether `KEYBOARD_STANDALONE_ACCESSORY_PX` or
-the tolerance needs the change.
+the tolerance needs the change. A steady deviation equal to the device's
+top safe area means the model, not the layout, is off (Oct 27 2026).
+
+**One keyboard model.** The keyboard pinning (`keyboard-viewport.ts`), these
+field checks and the on-device runner (`core/device-checks/`) all read the
+viewport through `core/keyboard/metrics.ts`: the geometry
+(`keyboardGeometry`), the inset formula (`keyboardInsetFor`), the applied
+inset, the window pan and the composer's gap to the keyboard
+(`composerGap`, `expectedComposerGap`). A change to the model lands in all
+three at once.
 
 **What is sent.** Each invariant and shape once per page load, at most
 `LAYOUT_REPORTS_PER_PAGE_MAX` (5), at least `LAYOUT_REPORT_MIN_INTERVAL_MS`
@@ -434,10 +443,11 @@ apart.
 
 **Adding a scenario:** an entry in `DEVICE_CHECK_SCENARIOS`
 (`web/src/core/device-checks/scenarios.ts`: drive the app's real code path,
-measure with `measure.ts`, judge with a pure function in `evaluate.ts` and
-unit-test it with fake numbers in `device-check-evaluate.test.ts`).
-`requires` marks the keyboard steps. `core/layout-checks.ts` (field
-telemetry) measures similar invariants; the two measurement modules can merge.
+measure with `measure.ts` (the waits and list readings) and
+`core/keyboard/metrics.ts` (the keyboard model, shared with the field
+checks), judge with a pure function in `evaluate.ts` and unit-test it with
+fake numbers in `device-check-evaluate.test.ts`). `requires` marks the
+keyboard steps.
 
 ## PWA Viewport Height Fix
 

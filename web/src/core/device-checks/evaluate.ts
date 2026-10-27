@@ -1,7 +1,8 @@
 /**
  * Device check verdicts: pure functions from a scenario's measurements to
- * passed/failed with the reasons. Kept apart from the measuring (measure.ts)
- * so every threshold is unit-tested with fake numbers.
+ * passed/failed with the reasons. Kept apart from the measuring (measure.ts,
+ * and keyboard/metrics.ts for the keyboard model both checkers share) so
+ * every threshold is unit-tested with fake numbers.
  */
 import {
   DEVICE_CHECK_ANCHOR_TOLERANCE_PX,
@@ -11,8 +12,6 @@ import {
   DEVICE_CHECK_LAYOUT_TOLERANCE_PX,
   DEVICE_CHECK_PAN_TOLERANCE_PX,
   DEVICE_CHECK_TURN_MOVE_TOLERANCE_PX,
-  KEYBOARD_INSET_MIN_PX,
-  KEYBOARD_STANDALONE_ACCESSORY_PX,
 } from '../../config';
 
 export interface Verdict {
@@ -79,34 +78,6 @@ export function evaluateAnchor(m: AnchorMeasure): Verdict {
     ],
     ...panChecks(m),
   ]);
-}
-
-/** The keyboard geometry the unified formula reads (docs/ui/mobile-and-pwa.md). */
-export interface KeyboardGeometry {
-  trueViewportHeightPx: number;
-  visualViewportHeightPx: number;
-  safeAreaTopPx: number;
-  standalone: boolean;
-}
-
-/** The inset keyboard-viewport.ts should have applied for this geometry. */
-export function expectedKeyboardInset(g: KeyboardGeometry): number {
-  const shrink = Math.max(0, Math.round(g.trueViewportHeightPx - g.visualViewportHeightPx - g.safeAreaTopPx));
-  if (shrink < KEYBOARD_INSET_MIN_PX) return 0;
-  return shrink + (g.standalone ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0);
-}
-
-/**
- * Space between the composer's bottom and the keyboard's top in the
- * formula's model (keyboard top = visual viewport height + safe-area top).
- * Standalone expects the accessory pill's allowance there, a tab none.
- */
-export function composerGap(g: KeyboardGeometry, composerBottomPx: number): number {
-  return g.visualViewportHeightPx + g.safeAreaTopPx - composerBottomPx;
-}
-
-export function expectedComposerGap(standalone: boolean): number {
-  return standalone ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
 }
 
 export interface KeyboardOpenMeasure extends PanMeasure {

@@ -1,7 +1,10 @@
 /**
- * Viewport measurements for the keyboard pinning and the layout and device
- * checks: the true viewport height, standalone display, the top safe area
- * and the keyboard inset.
+ * Viewport measurements for the keyboard pinning and the two layout checkers
+ * - the field telemetry (core/layout-checks.ts) and the on-device runner
+ * (core/device-checks/) - so all three read the same numbers and judge them
+ * by one model: the true viewport height, standalone display, the top safe
+ * area, the keyboard inset (the formula and the applied value), the window
+ * pan and the composer's gap to the keyboard.
  */
 import {
   KEYBOARD_DEFINITE_SHRINK_PX,
@@ -42,7 +45,7 @@ export function isStandaloneDisplay(): boolean {
 }
 
 /** Resolved env(safe-area-inset-top) in px, via a probe element. */
-export function safeAreaTop(): number {
+function safeAreaTop(): number {
   let probe = document.getElementById('sat-probe');
   if (!probe) {
     probe = document.createElement('div');
@@ -55,9 +58,71 @@ export function safeAreaTop(): number {
   return probe.offsetHeight;
 }
 
+/** The viewport geometry the keyboard formula reads (docs/ui/mobile-and-pwa.md). */
+export interface KeyboardGeometry {
+  trueViewportHeightPx: number;
+  visualViewportHeightPx: number;
+  /** The visual viewport's pan below the layout viewport's top (0 at rest) */
+  visualViewportOffsetTopPx: number;
+  safeAreaTopPx: number;
+  standalone: boolean;
+}
+
+export function keyboardGeometry(viewport: VisualViewport | null = window.visualViewport): KeyboardGeometry {
+  return {
+    trueViewportHeightPx: trueViewportHeight(),
+    visualViewportHeightPx: viewport?.height ?? window.innerHeight,
+    visualViewportOffsetTopPx: viewport?.offsetTop ?? 0,
+    safeAreaTopPx: safeAreaTop(),
+    standalone: isStandaloneDisplay(),
+  };
+}
+
+/** How far the visual viewport is shorter than the true viewport, beyond the top safe area. */
+function keyboardShrink(g: KeyboardGeometry): number {
+  return Math.max(0, Math.round(g.trueViewportHeightPx - g.visualViewportHeightPx - g.safeAreaTopPx));
+}
+
+/**
+ * The inset for a keyboard of this geometry (0 below KEYBOARD_INSET_MIN_PX);
+ * standalone adds the input-assistant pill's allowance. Pure: the device
+ * checks recompute it from measured numbers.
+ */
+export function keyboardInsetFor(g: KeyboardGeometry): number {
+  const shrink = keyboardShrink(g);
+  if (shrink < KEYBOARD_INSET_MIN_PX) return 0;
+  return shrink + (g.standalone ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0);
+}
+
+/**
+ * The space between the composer's bottom and the keyboard's top, in layout
+ * px: the keyboard's top is the visual viewport's bottom - its pan plus its
+ * height - lowered by the top safe area, which the visual viewport leaves
+ * out in standalone (0 in browser tabs). Positive: a band above the
+ * keyboard; negative: the composer under it.
+ */
+export function composerGap(g: KeyboardGeometry, composerBottomPx: number): number {
+  return g.visualViewportOffsetTopPx + g.visualViewportHeightPx + g.safeAreaTopPx - composerBottomPx;
+}
+
+/** The gap a correctly pinned composer leaves: the pill's allowance in standalone, else 0. */
+export function expectedComposerGap(standalone: boolean): number {
+  return standalone ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
+}
+
+/** The --keyboard-inset keyboard-viewport.ts applied on <html>. */
+export function appliedKeyboardInset(): number {
+  return parseFloat(document.documentElement.style.getPropertyValue('--keyboard-inset')) || 0;
+}
+
+/** How far the window is scrolled (iOS pans it for a caret reveal; never legitimately). */
+export function windowScrollY(): number {
+  return Math.max(window.scrollY, document.scrollingElement?.scrollTop ?? 0);
+}
+
 /**
  * The keyboard's extent and whether it counts as one (see update below).
- * Exported for the layout checks, which compare it with the applied inset.
+ * The layout checks compare its inset with the applied one.
  */
 export function measureKeyboardInset(viewport: VisualViewport): {
   shrink: number;
@@ -85,10 +150,8 @@ export function measureKeyboardInset(viewport: VisualViewport): {
   // - standalone rest (settled/pre-settle): 874-874-62 / 874-812-62 -> 0
   // - Safari keyboard: 654 - 363 - 0 = 291 (saT is 0 in browser tabs)
   // - Safari rest: 0
-  const shrink = Math.max(
-    0,
-    Math.round(trueViewportHeight() - viewport.height - safeAreaTop())
-  );
+  const geometry = keyboardGeometry(viewport);
+  const shrink = keyboardShrink(geometry);
   // Editable-focused is the normal signal, but iOS can fire the resize
   // BEFORE focus lands - a shrink this large is unambiguously a keyboard
   // regardless (browser chrome is far smaller), and missing it leaves
@@ -96,12 +159,10 @@ export function measureKeyboardInset(viewport: VisualViewport): {
   const keyboardLikely =
     viewport.scale === 1 &&
     (isEditableElement(document.activeElement) || shrink >= KEYBOARD_DEFINITE_SHRINK_PX);
-  const overlap = keyboardLikely ? shrink : 0;
   // Standalone: the visual viewport excludes only the keyboard - iOS's
   // floating input-assistant pill hovers over page content unreported
-  // and would cover the composer's bottom edge (Safari tabs exclude it)
-  const accessory =
-    overlap > 0 && isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
-  const inset = overlap >= KEYBOARD_INSET_MIN_PX ? overlap + accessory : 0;
+  // and would cover the composer's bottom edge (Safari tabs exclude it);
+  // keyboardInsetFor adds its allowance
+  const inset = keyboardLikely ? keyboardInsetFor(geometry) : 0;
   return { shrink, keyboardLikely, inset };
 }

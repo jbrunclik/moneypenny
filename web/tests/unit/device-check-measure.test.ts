@@ -6,8 +6,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   DeviceCheckAbortedError,
-  distanceFromBottom,
-  keyboardInset,
   listSnapshot,
   round,
   snapshotMeasurements,
@@ -63,17 +61,10 @@ describe('waits', () => {
 });
 
 describe('reads', () => {
-  it('reads the inset keyboard-viewport.ts writes on <html>', () => {
-    expect(keyboardInset()).toBe(0);
-    document.documentElement.style.setProperty('--keyboard-inset', '391px');
-    expect(keyboardInset()).toBe(391);
-  });
-
-  it('measures the distance to the bottom and an element top in view', () => {
+  it('measures an element top in view', () => {
     const list = document.body.appendChild(document.createElement('div'));
     box(list, { scrollHeight: 6000, clientHeight: 800 });
     Object.defineProperty(list, 'scrollTop', { configurable: true, writable: true, value: 5150 });
-    expect(distanceFromBottom(list)).toBe(50);
 
     const item = list.appendChild(document.createElement('div'));
     box(item, { offsetParent: list, offsetTop: 5222 });

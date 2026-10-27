@@ -14,13 +14,14 @@
  * gets to fix it first). Each invariant and shape is sent once per page load,
  * at most LAYOUT_REPORTS_PER_PAGE_MAX, LAYOUT_REPORT_MIN_INTERVAL_MS apart.
  * Touch devices only. What each check means: docs/ui/mobile-and-pwa.md.
+ * The numbers and the keyboard model come from keyboard/metrics.ts, shared
+ * with the keyboard handling and the on-device runner (core/device-checks/).
  */
 import type { LayoutCheckDetail } from '../api/client-errors';
 import { isIOS } from '../components/MessageInput';
 import { isTurnAnchored, turnAnchorDrift } from '../components/messages/turn-anchor';
 import {
   KEYBOARD_BUILD_MARKER,
-  KEYBOARD_STANDALONE_ACCESSORY_PX,
   LAYOUT_ANCHOR_DRIFT_TOLERANCE_PX,
   LAYOUT_CHECK_CONFIRM_MS,
   LAYOUT_CHECK_SETTLE_MS,
@@ -30,9 +31,17 @@ import {
   LAYOUT_REPORTS_PER_PAGE_MAX,
   LAYOUT_SCROLL_BOTTOM_TOLERANCE_PX,
 } from '../config';
-import { addScrollDebugListener, isSmoothScrolling, userScrolledSince } from '../utils/dom';
+import { addScrollDebugListener, distanceFromBottom, isSmoothScrolling, userScrolledSince } from '../utils/dom';
 import { reportLayoutCheck } from './error-reporting';
-import { isStandaloneDisplay, measureKeyboardInset } from './keyboard/metrics';
+import {
+  appliedKeyboardInset,
+  composerGap,
+  expectedComposerGap,
+  isStandaloneDisplay,
+  keyboardGeometry,
+  measureKeyboardInset,
+  windowScrollY,
+} from './keyboard/metrics';
 import { isTouchActive } from './keyboard/touch-guard';
 
 type Invariant = LayoutCheckDetail['invariant'];
@@ -72,16 +81,8 @@ const session: Session = {
   lastReportAt: Number.NEGATIVE_INFINITY,
 };
 
-function appliedInset(): number {
-  return parseFloat(document.documentElement.style.getPropertyValue('--keyboard-inset')) || 0;
-}
-
 function messagesList(): HTMLElement | null {
   return document.getElementById('messages');
-}
-
-function windowScroll(): number {
-  return Math.max(window.scrollY, document.scrollingElement?.scrollTop ?? 0);
 }
 
 /** The numbers every report carries. */
@@ -90,13 +91,13 @@ function viewportNumbers(viewport: VisualViewport): Measurements {
     inner_height: window.innerHeight,
     vv_height: viewport.height,
     vv_offset_top: viewport.offsetTop,
-    keyboard_inset: appliedInset(),
-    scroll_y: windowScroll(),
+    keyboard_inset: appliedKeyboardInset(),
+    scroll_y: windowScrollY(),
   };
 }
 
 function geometryKey(viewport: VisualViewport): string {
-  return [viewport.height, viewport.offsetTop, viewport.scale, window.innerHeight, windowScroll(), appliedInset()].join('|');
+  return [viewport.height, viewport.offsetTop, viewport.scale, window.innerHeight, windowScrollY(), appliedKeyboardInset()].join('|');
 }
 
 /** iOS version: Safari's Version/ token, else the OS token (frozen at 18.6 on iOS 26). */
@@ -108,16 +109,17 @@ function iosVersion(): string | null {
 }
 
 /** With the keyboard up, the composer sits right on top of it (or the pill). */
-function composerGap(viewport: VisualViewport): Violation | null {
+function composerGapViolation(viewport: VisualViewport): Violation | null {
   const composer = document.querySelector('.input-area');
-  if (appliedInset() <= 0 || measureKeyboardInset(viewport).inset <= 0) return null;
+  if (appliedKeyboardInset() <= 0 || measureKeyboardInset(viewport).inset <= 0) return null;
   if (!(composer instanceof HTMLElement) || composer.classList.contains('hidden')) return null;
   const rect = composer.getBoundingClientRect();
   if (rect.height === 0) return null;
-  // Standalone: iOS's input-assistant pill floats inside the visual viewport
-  const accessory = isStandaloneDisplay() ? KEYBOARD_STANDALONE_ACCESSORY_PX : 0;
-  // Positive: a dead band above the keyboard; negative: the composer under it
-  const deviation = viewport.offsetTop + viewport.height - accessory - rect.bottom;
+  // Positive: a dead band above the keyboard; negative: the composer under
+  // it. The keyboard's top counts the top safe area: leaving it out reported
+  // every standalone keyboard as a ~60px overlap (13 false reports, Oct 2026)
+  const geometry = keyboardGeometry(viewport);
+  const deviation = composerGap(geometry, rect.bottom) - expectedComposerGap(geometry.standalone);
   if (Math.abs(deviation) <= LAYOUT_COMPOSER_GAP_TOLERANCE_PX) return null;
   return {
     invariant: 'composer_gap',
@@ -128,18 +130,18 @@ function composerGap(viewport: VisualViewport): Violation | null {
 
 /** The window is never legitimately scrolled (keyboard-viewport resets it). */
 function strandedPan(): Violation | null {
-  const scrolled = windowScroll();
+  const scrolled = windowScrollY();
   if (isTouchActive() || scrolled <= 1) return null;
   return {
     invariant: 'stranded_pan',
-    shape: appliedInset() > 0 ? 'keyboard-open' : 'keyboard-closed',
+    shape: appliedKeyboardInset() > 0 ? 'keyboard-open' : 'keyboard-closed',
     measurements: { deviation: scrolled },
   };
 }
 
 /** The applied --keyboard-inset matches the formula for the settled viewport. */
 function insetMismatch(viewport: VisualViewport): Violation | null {
-  const applied = appliedInset();
+  const applied = appliedKeyboardInset();
   const { inset: expected, shrink } = measureKeyboardInset(viewport);
   const deviation = applied - expected;
   if (Math.abs(deviation) <= LAYOUT_INSET_TOLERANCE_PX) return null;
@@ -150,7 +152,7 @@ function insetMismatch(viewport: VisualViewport): Violation | null {
 /** An anchored turn the view rested on stays on its anchor as the keyboard moves. */
 function anchorDrift(before: Settled): Violation | null {
   const container = messagesList();
-  const keyboardUp = appliedInset() > 0;
+  const keyboardUp = appliedKeyboardInset() > 0;
   if (!container || before.anchorRestAt === null || keyboardUp === (before.inset > 0)) return null;
   // The user scrolling owns the position; a glide in flight lands on its own
   if (!isTurnAnchored() || userScrolledSince(before.anchorRestAt) || isSmoothScrolling()) return null;
@@ -166,7 +168,7 @@ function anchorDrift(before: Settled): Violation | null {
 function settledViolations(viewport: VisualViewport, before: Settled): Violation[] {
   // Pinch zoom moves everything on purpose
   if (viewport.scale !== 1) return [];
-  return [composerGap(viewport), strandedPan(), insetMismatch(viewport), anchorDrift(before)].filter(
+  return [composerGapViolation(viewport), strandedPan(), insetMismatch(viewport), anchorDrift(before)].filter(
     (v): v is Violation => v !== null
   );
 }
@@ -197,7 +199,7 @@ function remember(): Settled {
   const container = messagesList();
   const drift = container && isTurnAnchored() ? turnAnchorDrift(container) : null;
   const resting = drift !== null && Math.abs(drift) <= LAYOUT_ANCHOR_DRIFT_TOLERANCE_PX;
-  return { inset: appliedInset(), anchorRestAt: resting ? performance.now() : null };
+  return { inset: appliedKeyboardInset(), anchorRestAt: resting ? performance.now() : null };
 }
 
 /** The layout settled: check, and re-check failures once before reporting. */
@@ -249,7 +251,7 @@ function checkScrollBottom(viewport: VisualViewport, gapAtDone: unknown, signal:
     if (!container || signal.aborted) return;
     // An anchored turn, the user, or another scroll owns the position now
     if (isTurnAnchored() || userScrolledSince(doneAt) || isSmoothScrolling()) return;
-    const gap = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const gap = distanceFromBottom(container);
     if (gap <= LAYOUT_SCROLL_BOTTOM_TOLERANCE_PX) return;
     report(viewport, { invariant: 'scroll_bottom_miss', shape: 'short', measurements: { deviation: gap } });
   }, LAYOUT_CHECK_CONFIRM_MS);

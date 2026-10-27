@@ -12,6 +12,7 @@ import {
   scrollToBottom,
   scrollToElementTop,
   isScrolledToBottom,
+  distanceFromBottom,
   toggleClass,
   showElement,
   hideElement,
@@ -346,6 +347,18 @@ describe('scrollToElementTop', () => {
       top: 700,
       behavior: 'auto',
     });
+  });
+});
+
+describe('distanceFromBottom', () => {
+  it('is how far the container sits above its bottom, never negative', () => {
+    const list = document.createElement('div');
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 6000 });
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 800 });
+    Object.defineProperty(list, 'scrollTop', { configurable: true, writable: true, value: 5150 });
+    expect(distanceFromBottom(list)).toBe(50);
+    list.scrollTop = 5300; // iOS rubber-band overscroll
+    expect(distanceFromBottom(list)).toBe(0);
   });
 });
 

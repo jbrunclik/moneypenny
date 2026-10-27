@@ -4,24 +4,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  composerGap,
   evaluateAnchor,
   evaluateBottom,
   evaluateKeyboardClose,
   evaluateKeyboardOpen,
   evaluateScrollButton,
-  expectedComposerGap,
-  expectedKeyboardInset,
   summarizeUserAgent,
 } from '@/core/device-checks/evaluate';
 import { skipReason } from '@/core/device-checks/scenarios';
 import { summarize } from '@/core/device-checks/runner';
 
 const noPan = { windowScrollY: 0, viewportOffsetTop: 0 };
-
-// Device-verified geometry (docs/ui/mobile-and-pwa.md): iPhone, iOS 26
-const standaloneKeyboard = { trueViewportHeightPx: 874, visualViewportHeightPx: 471, safeAreaTopPx: 62, standalone: true };
-const safariKeyboard = { trueViewportHeightPx: 654, visualViewportHeightPx: 363, safeAreaTopPx: 0, standalone: false };
 
 describe('evaluateBottom', () => {
   it('passes at the bottom within 2px', () => {
@@ -56,24 +49,6 @@ describe('evaluateAnchor', () => {
       'the app does not report the turn as anchored',
       'turn 12px above the anchor',
     ]);
-  });
-});
-
-describe('keyboard formula', () => {
-  it('matches the device-verified insets', () => {
-    expect(expectedKeyboardInset(standaloneKeyboard)).toBe(341 + 50);
-    expect(expectedKeyboardInset(safariKeyboard)).toBe(291);
-  });
-
-  it('is 0 at rest and for small shrinks (browser chrome)', () => {
-    expect(expectedKeyboardInset({ ...standaloneKeyboard, visualViewportHeightPx: 812 })).toBe(0);
-    expect(expectedKeyboardInset({ ...safariKeyboard, visualViewportHeightPx: 600 })).toBe(0);
-  });
-
-  it('puts the composer the accessory pill above the keyboard in standalone, flush in a tab', () => {
-    // standalone: app bottom 874 - 391 = 483, keyboard top 471 + 62 = 533
-    expect(composerGap(standaloneKeyboard, 483)).toBe(expectedComposerGap(true));
-    expect(composerGap(safariKeyboard, 363)).toBe(expectedComposerGap(false));
   });
 });
 

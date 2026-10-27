@@ -120,6 +120,45 @@ describe('composer and keyboard', () => {
   });
 });
 
+describe('composer and keyboard in the standalone app', () => {
+  /** A production report (Oct 2026): standalone keyboard, 62px top safe area. */
+  function openStandaloneKeyboard(): void {
+    Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });
+    for (const [id, height] of [
+      ['vh-probe', 874],
+      ['sat-probe', 62],
+    ] as const) {
+      const probe = document.body.appendChild(document.createElement('div'));
+      probe.id = id;
+      Object.defineProperty(probe, 'offsetHeight', { value: height, configurable: true });
+    }
+    document.getElementById('message-input')?.focus();
+    viewport.height = 478;
+    setInset(384); // 874 - 478 - 62 + the 50px pill
+    composerBottom = 490;
+    viewport.dispatchEvent(new Event('resize'));
+  }
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'standalone', { value: undefined, configurable: true });
+  });
+
+  it('stays quiet while the composer sits on the pill above the keyboard', async () => {
+    // The check left the top safe area out and reported this as a 62px overlap
+    openStandaloneKeyboard();
+    await vi.advanceTimersByTimeAsync(SETTLED_MS * 2);
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it('still reports a composer the keyboard covers', async () => {
+    openStandaloneKeyboard();
+    composerBottom = 560;
+    await vi.advanceTimersByTimeAsync(SETTLED_MS);
+    expect(sent()).toEqual([expect.objectContaining({ invariant: 'composer_gap', shape: 'overlap' })]);
+    expect(sent()[0]?.measurements).toMatchObject({ deviation: -70 });
+  });
+});
+
 describe('settling', () => {
   it('never checks mid-animation', async () => {
     openKeyboard();
