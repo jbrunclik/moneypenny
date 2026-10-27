@@ -273,7 +273,7 @@ test.describe('Conversations Pagination - Load More', () => {
 
     // Reload to see seeded conversations
     await page.reload();
-    await appReady(page);
+    // Not appReady: this test holds the first sync, so startup never settles.
     // The first page (30 items) must be RENDERED before scrolling: scrolling a
     // list that is still skeletons is a no-op and never fires the handler
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(30, { timeout: 10000 });
