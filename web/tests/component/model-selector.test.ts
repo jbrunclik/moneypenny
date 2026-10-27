@@ -21,7 +21,7 @@ import { useStore } from '@/state/store';
 import { initModelSelector, renderModelDropdown } from '@/components/ModelSelector';
 
 const MODELS: Model[] = [
-  { id: 'fast', name: 'Gemini Flash', short_name: 'Flash', description: 'Quick answers' },
+  { id: 'fast', name: 'Gemini Flash', short_name: 'Flash' },
   { id: 'smart', name: 'Gemini Pro', short_name: 'Pro' },
   { id: 'tiny', name: 'Gemini <Lite>', short_name: 'Lite & co' },
 ];
@@ -90,9 +90,9 @@ describe('ModelSelector', () => {
       expect(buttonLabel()).toBe('Pro');
     });
 
-    it('shows the description next to the name, and escapes model text', () => {
+    it('shows the full name under the short one, and escapes model text', () => {
       renderModelDropdown();
-      expect(option('fast').querySelector('.model-option-desc')?.textContent).toBe('Gemini Flash · Quick answers');
+      expect(option('fast').querySelector('.model-option-desc')?.textContent).toBe('Gemini Flash');
       expect(option('tiny').querySelector('.model-option-desc')?.textContent).toBe('Gemini <Lite>');
       expect(option('tiny').querySelector('.model-name')?.textContent).toBe('Lite & co');
       expect(option('tiny').querySelector('lite')).toBeNull();

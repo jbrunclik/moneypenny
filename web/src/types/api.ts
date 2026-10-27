@@ -239,12 +239,7 @@ export type ClientLocation = Schemas['ChatRequest.ClientLocation'] & {
 // Model types
 // =============================================================================
 
-export type Model = Schemas['ModelsListResponse.ModelResponse'] & {
-  // One-line description shown in the model dropdown. The /api/models route
-  // builds it, but ModelResponse does not declare it, so the output schema
-  // drops it (Oct 25 2026).
-  description?: string;
-};
+export type Model = Schemas['ModelsListResponse.ModelResponse'];
 
 // =============================================================================
 // Upload config

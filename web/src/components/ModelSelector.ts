@@ -202,9 +202,7 @@ export function renderModelDropdown(): void {
         [
           createElement('span', { class: 'model-option-text' }, [
             createElement('span', { class: 'model-name' }, [model.short_name]),
-            createElement('span', { class: 'model-option-desc' }, [
-              model.description ? `${model.name} · ${model.description}` : model.name,
-            ]),
+            createElement('span', { class: 'model-option-desc' }, [model.name]),
           ]),
           selected && createIconElement('model-check', CHECK_ICON),
         ]
