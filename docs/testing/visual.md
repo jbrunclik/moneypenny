@@ -62,6 +62,9 @@ touches theme tokens or glass materials.
 
 ## Baseline Locations
 
+Baselines are PNGs stored in **Git LFS** (install it before cloning, or the
+files check out as pointers and every visual test fails).
+
 Baselines are stored in snapshot directories:
 
 - `web/tests/visual/chat.visual.ts-snapshots/` - Desktop chat interface

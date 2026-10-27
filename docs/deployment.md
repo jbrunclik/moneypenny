@@ -1,8 +1,40 @@
 # Production Operations
 
-Scheduled maintenance jobs, reverse proxy configuration, and log management
-for a systemd-based deployment. See the README's Deployment section for the
-initial install and zero-downtime update flow.
+The first install, zero-downtime updates, scheduled maintenance jobs, reverse
+proxy configuration, and log management for a systemd-based deployment.
+
+## First Install (systemd user service)
+
+Production runs gunicorn under a systemd **user** service
+([systemd/moneypenny.service](../systemd/moneypenny.service)):
+
+```bash
+# In .env
+FLASK_ENV=production
+
+make setup      # dependencies, including gunicorn
+make deploy     # install the service and timers, start it
+
+# Keep the user's services running after logout (SSH disconnects)
+sudo loginctl enable-linger $USER
+
+journalctl --user -u moneypenny -f
+```
+
+On start the service builds the frontend (`npm ci && npm run build`) only when
+`static/assets` is empty - a normal update builds before reloading (below).
+
+## Zero-Downtime Updates
+
+| Command | Use when | Downtime |
+|---------|----------|----------|
+| `make reload` | Python code changes only | None |
+| `make update` | Anything: pulls main, installs dependencies, backs up the databases, rebuilds the frontend, reloads, and waits for the new workers to pass the health gate | None |
+| `make deploy` | First deployment or systemd unit changes | Brief (~5s) |
+
+`reload` sends `SIGHUP` to gunicorn, which starts new workers and lets the old
+ones finish their requests before they exit - no connection is dropped. An
+`.env` change is the exception: it needs a full restart (next section).
 
 ## Python Interpreter (uv-managed, no apt)
 

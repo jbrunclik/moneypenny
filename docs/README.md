@@ -81,6 +81,34 @@ User interface patterns and implementations:
 - **[conventions.md](conventions.md)** - Engineering standards: every rule with its ID and enforcer (security, layers, errors, logging, typing, size, testing, agent workflow)
 - **[superpowers/specs/](superpowers/specs/)** - Design specs still referenced by open work (parked or with deferred follow-ups). Shipped specs and plans are deleted; git history keeps them
 
+## Repository Layout
+
+```
+moneypenny/
+├── src/                     # Flask backend
+│   ├── app.py               # App factory, page routes, security headers
+│   ├── config.py            # Every environment setting and the model definitions
+│   ├── api/                 # routes/ (REST by feature), schemas/ (Pydantic, the OpenAPI source), helpers/ (streaming, save pipeline)
+│   ├── agent/               # LangGraph agent: graph and nodes, prompts, tools/, deep_research/, grounding check
+│   ├── services/            # DB-backed services: costs, push, search quota, retention, planner
+│   ├── db/                  # SQLite models (all SQL lives here), connection pool, blob store
+│   ├── auth/                # Google Sign In, JWT, integration OAuth
+│   └── utils/               # Pure helpers: clock, files, images, logging, weather
+├── web/src/                 # Vite + TypeScript frontend
+│   ├── core/                # Messaging, conversations, sync, startup, keyboard and layout checks
+│   ├── components/          # UI modules
+│   ├── state/               # Zustand store and slices
+│   ├── api/                 # Typed fetch wrapper, one module per domain
+│   └── styles/              # Tokens and per-component CSS
+├── migrations/              # yoyo migrations
+├── tests/                   # Backend unit and integration tests, the E2E mock server
+├── web/tests/               # Frontend unit, component, E2E and visual tests (LFS baselines)
+├── evals/                   # Agent-behavior evals against the live API
+├── scripts/                 # Operational scripts (backup, vacuum, defrag, cost analysis)
+├── systemd/                 # Service and timer units
+└── docs/                    # This documentation
+```
+
 ## Quick Links
 
 ### Most Referenced

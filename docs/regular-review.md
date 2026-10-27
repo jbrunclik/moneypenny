@@ -97,6 +97,11 @@ against fix commits), and CI - run time and any reruns
 - `TODO.md` items with a "re-measure" or "review" date that has passed.
 - [docs/conventions.md](conventions.md) rules marked "planned": still
   planned, or done and not marked?
+- The [README](../README.md), the project's front page: does "What makes it
+  different" and the feature list still match what shipped this month? A
+  feature worth a line that is missing, one that was removed, a number that
+  went stale (the test count). `tests/unit/test_readme.py` checks only the
+  model names and the screenshots.
 
 ## Report template
 
