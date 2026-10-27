@@ -16,11 +16,6 @@ def row_to_agent(row: sqlite3.Row) -> Agent:
     if row["tool_permissions"]:
         tool_permissions = json.loads(row["tool_permissions"])
 
-    # Handle budget_limit column (may not exist in older databases)
-    budget_limit = None
-    if "budget_limit" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        budget_limit = row["budget_limit"]
-
     return Agent(
         id=row["id"],
         user_id=row["user_id"],
@@ -37,10 +32,10 @@ def row_to_agent(row: sqlite3.Row) -> Agent:
         updated_at=from_db(row["updated_at"], "utc"),
         last_run_at=from_db_or_none(row["last_run_at"], "utc"),
         next_run_at=from_db_or_none(row["next_run_at"], "utc"),
-        last_viewed_at=(from_db_or_none(row["last_viewed_at"], "local")),
-        budget_limit=budget_limit,
-        fresh_context=(bool(row["fresh_context"]) if "fresh_context" in row.keys() else False),  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        system_type=(row["system_type"] if "system_type" in row.keys() else None),  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
+        last_viewed_at=from_db_or_none(row["last_viewed_at"], "local"),
+        budget_limit=row["budget_limit"],
+        fresh_context=bool(row["fresh_context"]),
+        system_type=row["system_type"],
     )
 
 

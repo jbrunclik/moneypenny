@@ -24,8 +24,7 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-_TRASH_LIST_SELECT = """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                          c.is_planning, c.archived, c.pinned, c.deleted_at,
+_TRASH_LIST_SELECT = """SELECT c.*,
                           COUNT(m.id) as message_count,
                           (SELECT m2.content FROM messages m2
                            WHERE m2.conversation_id = c.id

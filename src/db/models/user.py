@@ -14,7 +14,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import User
-from src.db.models.timestamps import from_db, to_db
+from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.token_crypto import decrypt_token
@@ -40,26 +40,10 @@ class UserMixin:
         raise NotImplementedError
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
-        """Convert a database row to a User object."""
-        todoist_connected_at = None
-        if row["todoist_connected_at"]:
-            todoist_connected_at = from_db(row["todoist_connected_at"], "local")
-
-        calendar_connected_at = None
-        if row["google_calendar_connected_at"]:
-            calendar_connected_at = from_db(row["google_calendar_connected_at"], "local")
-
-        calendar_expires_at = None
-        if row["google_calendar_token_expires_at"]:
-            calendar_expires_at = from_db(row["google_calendar_token_expires_at"], "local")
-
-        planner_last_reset = None
-        if row["planner_last_reset_at"]:
-            planner_last_reset = from_db(row["planner_last_reset_at"], "local")
-
-        # Parse selected calendar IDs (JSON array)
-        calendar_selected_ids = None
-        if "google_calendar_selected_ids" in row.keys() and row["google_calendar_selected_ids"]:  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
+        """Convert a ``users`` row (every column) to a User object."""
+        # Selected calendar IDs (a JSON array); primary when unset or unreadable
+        calendar_selected_ids = ["primary"]
+        if row["google_calendar_selected_ids"]:
             try:
                 calendar_selected_ids = json.loads(row["google_calendar_selected_ids"])
             except json.JSONDecodeError:
@@ -67,10 +51,6 @@ class UserMixin:
                     "Invalid calendar selection JSON, defaulting to primary",
                     extra={"user_id": row["id"]},
                 )
-                calendar_selected_ids = ["primary"]
-        else:
-            # Default to primary calendar for backward compatibility
-            calendar_selected_ids = ["primary"]
 
         return User(
             id=row["id"],
@@ -82,43 +62,27 @@ class UserMixin:
             # Tokens decrypt here so every reader of the User object gets
             # plaintext; legacy plaintext rows pass through unchanged
             todoist_access_token=decrypt_token(row["todoist_access_token"]),
-            todoist_connected_at=todoist_connected_at,
+            todoist_connected_at=from_db_or_none(row["todoist_connected_at"], "local"),
             google_calendar_access_token=decrypt_token(row["google_calendar_access_token"]),
             google_calendar_refresh_token=decrypt_token(row["google_calendar_refresh_token"]),
-            google_calendar_token_expires_at=calendar_expires_at,
-            google_calendar_connected_at=calendar_connected_at,
+            google_calendar_token_expires_at=from_db_or_none(
+                row["google_calendar_token_expires_at"], "local"
+            ),
+            google_calendar_connected_at=from_db_or_none(
+                row["google_calendar_connected_at"], "local"
+            ),
             google_calendar_email=row["google_calendar_email"],
             google_calendar_selected_ids=calendar_selected_ids,
-            planner_last_reset_at=planner_last_reset,
-            whatsapp_phone=row["whatsapp_phone"] if "whatsapp_phone" in row.keys() else None,  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            garmin_token=(
-                decrypt_token(row["garmin_token"]) if "garmin_token" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
-            garmin_connected_at=(
-                from_db(row["garmin_connected_at"], "local")
-                if "garmin_connected_at" in row.keys() and row["garmin_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-                else None
-            ),
-            rouvy_email=(
-                decrypt_token(row["rouvy_email"]) if "rouvy_email" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
-            rouvy_password=(
-                decrypt_token(row["rouvy_password"]) if "rouvy_password" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
-            rouvy_session=(
-                decrypt_token(row["rouvy_session"]) if "rouvy_session" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
-            rouvy_connected_at=(
-                from_db(row["rouvy_connected_at"], "local")
-                if "rouvy_connected_at" in row.keys() and row["rouvy_connected_at"]  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-                else None
-            ),
-            daily_briefing_agent_id=(
-                row["daily_briefing_agent_id"] if "daily_briefing_agent_id" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
-            preferred_language=(
-                row["preferred_language"] if "preferred_language" in row.keys() else None  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-            ),
+            planner_last_reset_at=from_db_or_none(row["planner_last_reset_at"], "local"),
+            whatsapp_phone=row["whatsapp_phone"],
+            garmin_token=decrypt_token(row["garmin_token"]),
+            garmin_connected_at=from_db_or_none(row["garmin_connected_at"], "local"),
+            rouvy_email=decrypt_token(row["rouvy_email"]),
+            rouvy_password=decrypt_token(row["rouvy_password"]),
+            rouvy_session=decrypt_token(row["rouvy_session"]),
+            rouvy_connected_at=from_db_or_none(row["rouvy_connected_at"], "local"),
+            daily_briefing_agent_id=row["daily_briefing_agent_id"],
+            preferred_language=row["preferred_language"],
         )
 
     def get_or_create_user(self, email: str, name: str, picture: str | None = None) -> User:

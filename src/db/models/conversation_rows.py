@@ -37,50 +37,7 @@ def build_message_preview(content: str | None) -> str | None:
 
 
 def row_to_conversation(row: sqlite3.Row) -> Conversation:
-    """Convert a database row to a Conversation object."""
-    # Check if optional columns exist (added in migrations)
-    last_reset = None
-    if "last_reset" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        last_reset = from_db_or_none(row["last_reset"], "local")
-
-    is_agent = False
-    agent_id = None
-    if "is_agent" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        is_agent = bool(row["is_agent"]) if row["is_agent"] else False
-        agent_id = row["agent_id"]
-
-    archived = False
-    if "archived" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        archived = bool(row["archived"]) if row["archived"] else False
-
-    pinned = False
-    if "pinned" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        pinned = bool(row["pinned"]) if row["pinned"] else False
-
-    is_sports = False
-    sports_program = None
-    if "is_sports" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        is_sports = bool(row["is_sports"]) if row["is_sports"] else False
-        sports_program = row["sports_program"]
-
-    is_language = False
-    language_program = None
-    if "is_language" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        is_language = bool(row["is_language"]) if row["is_language"] else False
-        language_program = row["language_program"]
-
-    anonymous_mode = False
-    if "anonymous_mode" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        anonymous_mode = bool(row["anonymous_mode"]) if row["anonymous_mode"] else False
-
-    read_message_count = 0
-    if "read_message_count" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        read_message_count = int(row["read_message_count"] or 0)
-
-    deleted_at = None
-    if "deleted_at" in row.keys():  # noqa: SIM118 - sqlite3.Row: `in` tests values, not column names
-        deleted_at = from_db_or_none(row["deleted_at"], "local")
-
+    """Convert a ``conversations`` row (every column, ``c.*``) to a Conversation."""
     return Conversation(
         id=row["id"],
         user_id=row["user_id"],
@@ -88,19 +45,19 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         model=row["model"],
         created_at=from_db(row["created_at"], "local"),
         updated_at=from_db(row["updated_at"], "local"),
-        is_planning=bool(row["is_planning"]) if row["is_planning"] else False,
-        last_reset=last_reset,
-        is_agent=is_agent,
-        agent_id=agent_id,
-        archived=archived,
-        pinned=pinned,
-        is_sports=is_sports,
-        sports_program=sports_program,
-        is_language=is_language,
-        language_program=language_program,
-        anonymous_mode=anonymous_mode,
-        deleted_at=deleted_at,
-        read_message_count=read_message_count,
+        is_planning=bool(row["is_planning"]),
+        last_reset=from_db_or_none(row["last_reset"], "local"),
+        is_agent=bool(row["is_agent"]),
+        agent_id=row["agent_id"],
+        archived=bool(row["archived"]),
+        pinned=bool(row["pinned"]),
+        is_sports=bool(row["is_sports"]),
+        sports_program=row["sports_program"],
+        is_language=bool(row["is_language"]),
+        language_program=row["language_program"],
+        anonymous_mode=bool(row["anonymous_mode"]),
+        deleted_at=from_db_or_none(row["deleted_at"], "local"),
+        read_message_count=int(row["read_message_count"] or 0),
     )
 
 

@@ -259,8 +259,8 @@ class ConversationMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                """SELECT c.id, c.user_id, c.title, c.model, c.created_at, c.updated_at,
-                          c.is_planning, COUNT(m.id) as message_count
+                """SELECT c.*,
+                          COUNT(m.id) as message_count
                    FROM conversations c
                    LEFT JOIN messages m ON m.conversation_id = c.id
                    WHERE c.id = ? AND c.deleted_at IS NULL
