@@ -10,14 +10,14 @@ docs/superpowers/specs/2026-10-03-grounding-annotations-design.md.
 import html
 import re
 from datetime import date, timedelta
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from src.agent.source_pages import SourcePage
 from src.config import Config
+from src.db.models.dataclasses import ClaimAnnotation, GroundingSummary, Verdict
 
-Verdict = Literal["supported", "partial", "not_found", "contradicted"]
 _PREFIX_CHARS = 32
 _WITH_SOURCE: frozenset[str] = frozenset({"supported", "partial", "contradicted"})
 # A bare time or time range ("10:15", "12:00–14:15"). Three or more unsupported
@@ -124,17 +124,18 @@ def _annotation(
     start: int,
     pages: list[SourcePage],
     today: date | None = None,
-) -> dict[str, Any]:
+) -> ClaimAnnotation:
     quote = claim.quote.strip()
-    ann: dict[str, Any] = {
+    ann: ClaimAnnotation = {
         "type": "claim",
         "verdict": claim.verdict,
         "quote": quote,
         "prefix": answer[max(0, start - _PREFIX_CHARS) : start],
     }
-    cited = _passage_in_page(claim, pages)
-    if claim.verdict in _WITH_SOURCE and cited:
-        ann["source"] = claim.source
+    # The source number, when that page holds the cited passage
+    cited = claim.source if _passage_in_page(claim, pages) else None
+    if claim.verdict in _WITH_SOURCE and cited is not None:
+        ann["source"] = cited
         ann["source_quote"] = _clip(
             claim.source_quote or "", Config.GROUNDING_CHECK_MAX_SOURCE_QUOTE_CHARS
         )
@@ -152,7 +153,7 @@ def _annotation(
     return ann
 
 
-def _drop_schedule_times(anns: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _drop_schedule_times(anns: list[ClaimAnnotation]) -> list[ClaimAnnotation]:
     times = [a for a in anns if a["verdict"] != "supported" and _BARE_TIME.fullmatch(a["quote"])]
     if len(times) < _SCHEDULE_MIN_TIMES:
         return anns
@@ -254,7 +255,7 @@ def validate_claims(
     pages: list[SourcePage],
     max_claims: int | None = None,
     today: date | None = None,
-) -> list[dict[str, Any]]:
+) -> list[ClaimAnnotation]:
     """Annotations for the claims that can be shown, in answer order.
 
     Claims arrive problems first (GroundingVerdict), so the cap keeps them.
@@ -267,7 +268,7 @@ def validate_claims(
     return _drop_schedule_times(anns)
 
 
-def summarize(source_count: int) -> dict[str, Any]:
+def summarize(source_count: int) -> GroundingSummary:
     """The footer's summary for a checked answer."""
     return {"checked": True, "source_count": source_count}
 
@@ -279,7 +280,7 @@ _CONTEXT_LABELS = {
 }
 
 
-def format_grounding_context(annotations: list[dict[str, Any]] | None) -> str | None:
+def format_grounding_context(annotations: list[ClaimAnnotation] | None) -> str | None:
     """MSG_CONTEXT entry: the claims a later turn must not repeat as fact."""
     groups: dict[str, list[str]] = {}
     for ann in annotations or []:
@@ -297,7 +298,7 @@ def format_grounding_context(annotations: list[dict[str, Any]] | None) -> str | 
 
 
 def verified_claims(
-    annotations: list[dict[str, Any]] | None, sources: list[dict[str, Any]] | None
+    annotations: list[ClaimAnnotation] | None, sources: list[dict[str, Any]] | None
 ) -> list[dict[str, str]]:
     """The answer's claims a page supported, with that page and its quote: a
     later turn restating them is not unverified (its own pages may lack them)."""

@@ -67,7 +67,7 @@ session and points here for the rest.
 | B3 | Routes stay thin: validation, one call into a helper/agent/db, response. No HTTP clients in routes | import-linter (HTTP clients); ruff `PLR0915`; judgment for thinness |
 | B4 | One input mechanism: bodies via `@validate_request`, query strings via a schema too - never raw `request.args`/`get_json` in routes | `tests/unit/test_route_input.py` |
 | B5 | Errors follow [Errors](#errors) | ruff `BLE`, `TRY400`, `N818` (baselined); `tests/unit/test_tool_errors.py` (no `"Error: ..."` tool results) |
-| B6 | Typing follows [Typing](#typing) | mypy strict; `tests/unit/test_any_ratchet.py` (`Any` uses in `src/` only go down: 1,140 on Oct 26 2026, 1,095 on Oct 27 once file attachments were typed - `StoredFile` and `UploadedFile` in `src/utils/files.py`) |
+| B6 | Typing follows [Typing](#typing) | mypy strict; `tests/unit/test_any_ratchet.py` (`Any` uses in `src/` only go down: 1,140 on Oct 26 2026, 1,068 on Oct 27 once file attachments (`StoredFile`, `UploadedFile` in `src/utils/files.py`) and the message payloads (`ClaimAnnotation`, `GroundingSummary`, `MessageAction`, `ArtifactShown` in `src/db/models/dataclasses.py`) were typed) |
 | B7 | Module-level mutable state is per-worker: comment `# per-worker: <why safe>` or move it to the DB/`kv_store` ([Multi-worker state](#multi-worker-state)); a lazy singleton is a `Lazy` (`src/utils/lazy.py`), not another hand-written double-checked lock; constant collections are immutable | `tests/unit/test_per_worker_state.py` (the comment); judgment (immutable constants) |
 | B8 | An agent tool is registered in one place (registry entry: tool, availability, exclusions, display metadata) | planned: registry + completeness test; today follow the [checklist](features/agent-tools.md#adding-a-new-tool) |
 | B9 | One HTTP client library: `httpx` | ruff `TID251` |
@@ -200,7 +200,7 @@ never a family member's conversation in full.
   `cast` need a reason in a comment.
 - A public function's dict-shaped parameter or result gets a `TypedDict`,
   dataclass or Pydantic model, not `dict[str, Any]`; the existing `Any` count
-  (1,095, Oct 27 2026) may only go down. A file attachment is an
+  (1,068, Oct 27 2026) may only go down. A file attachment is an
   `UploadedFile` while a turn carries its bytes and a `StoredFile` as
   `messages.files` keeps it (`src/utils/files.py`).
 - Frontend: no `any`, no `as unknown as`; check DOM lookups with

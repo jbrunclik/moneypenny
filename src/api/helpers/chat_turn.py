@@ -44,9 +44,11 @@ from src.api.errors import raise_conflict_error, raise_not_found_error, raise_va
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
+from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
 from src.db.models import Conversation, Message, User, db
+from src.db.models.dataclasses import MessageAction
 from src.enums import MessageRole
 from src.services.background_thumbnails import (
     mark_files_for_thumbnail_generation,
@@ -217,7 +219,7 @@ def _dedupe_client_message_id(conv_id: str, client_message_id: str | None) -> No
     raise_validation_error("client_message_id is already in use", field="client_message_id")
 
 
-def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> dict[str, Any] | None:
+def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> MessageAction | None:
     """The user message's action: a started run's comes from its final plan."""
     if plan is not None:
         return {
@@ -230,7 +232,14 @@ def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> dict[str, Any] 
         # Only the server records a started run; a bare one would render a
         # "Deep research started" row for a run that never ran
         raise_validation_error("A deep_research action needs a deep_research start", field="action")
-    return data.action.model_dump() if data.action else None
+    if isinstance(data.action, VerifyClaimRequest):
+        return {
+            "type": "verify_claim",
+            "source_message_id": data.action.source_message_id,
+            "claim_index": data.action.claim_index,
+            "quote": data.action.quote,
+        }
+    return None
 
 
 def _save_user_message(
@@ -238,7 +247,7 @@ def _save_user_message(
     message_text: str,
     files: list[UploadedFile],
     client_message_id: str | None,
-    action: dict[str, Any] | None = None,
+    action: MessageAction | None = None,
 ) -> Message:
     _dedupe_client_message_id(conv_id, client_message_id)
     user_msg = db.add_message(

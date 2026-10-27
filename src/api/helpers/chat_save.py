@@ -11,7 +11,7 @@ the fact.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 from src.agent.artifact_refs import extract_artifact_refs
 from src.agent.cancellation import STOPPED_EMPTY_TEXT
@@ -21,6 +21,7 @@ from src.agent.content import (
     extract_read_sources,
 )
 from src.agent.deep_research.offer import extract_offer, seconds_open
+from src.agent.grounding_check import GroundingResult
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
@@ -30,7 +31,8 @@ from src.agent.tools import (
 )
 from src.api.helpers.conversation_title import resolve_title_update
 from src.config import Config
-from src.db.models import db
+from src.db.models import Message, db
+from src.db.models.dataclasses import ArtifactShown, ClaimAnnotation, GroundingSummary
 from src.enums import MessageRole
 from src.services.costs import calculate_and_save_message_cost, convert_currency
 from src.utils.files import UploadedFile
@@ -41,6 +43,21 @@ from src.utils.images import (
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class _ReplyFields(TypedDict):
+    """The reply's stored fields, as add_message and update_message_content take them."""
+
+    files: list[UploadedFile] | None
+    sources: list[dict[str, Any]] | None
+    generated_images: list[dict[str, Any]] | None
+    language: str | None
+    tool_outputs: list[dict[str, str]] | None
+    stop_reason: str | None
+    annotations: list[ClaimAnnotation] | None
+    grounding: GroundingSummary | None
+    research: dict[str, Any] | None
+    artifacts: list[ArtifactShown] | None
 
 
 class SaveResult:
@@ -132,10 +149,10 @@ def _persist_assistant_message(
     language: str | None,
     tool_outputs: list[dict[str, str]] | None = None,
     stop_reason: str | None = None,
-    grounding: dict[str, Any] | None = None,
+    grounding: GroundingResult | None = None,
     research: dict[str, Any] | None = None,
-    artifacts: list[dict[str, Any]] | None = None,
-) -> Any:
+    artifacts: list[ArtifactShown] | None = None,
+) -> Message:
     """UPDATE the stream-start placeholder, or INSERT when it is gone/absent.
 
     `grounding` is usage_info["grounding"] ({"annotations", "summary"}) from the
@@ -145,15 +162,15 @@ def _persist_assistant_message(
         "Saving assistant message from stream",
         extra={"user_id": user_id, "conversation_id": conv_id},
     )
-    kwargs: dict[str, Any] = {
+    kwargs: _ReplyFields = {
         "files": all_generated_files if all_generated_files else None,
         "sources": sources if sources else None,
         "generated_images": generated_images_meta if generated_images_meta else None,
         "language": language,
         "tool_outputs": tool_outputs,
         "stop_reason": stop_reason,
-        "annotations": (grounding or {}).get("annotations"),
-        "grounding": (grounding or {}).get("summary"),
+        "annotations": grounding["annotations"] if grounding else None,
+        "grounding": grounding["summary"] if grounding else None,
         "research": research,
         "artifacts": artifacts or None,
     }

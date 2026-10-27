@@ -6,10 +6,66 @@ They are returned by Database methods and used throughout the application.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, NotRequired, TypedDict
 
 from src.enums import MessageRole
 from src.utils.files import StoredFile
+
+# The JSON a message stores beside its text (messages.annotations, .grounding,
+# .action, .artifacts). The API's response models mirror them
+# (src/api/schemas/chat.py), and the frontend reads them back.
+
+Verdict = Literal["supported", "partial", "not_found", "contradicted"]
+
+
+class ClaimAnnotation(TypedDict):
+    """A grounding-check claim in an assistant message."""
+
+    type: Literal["claim"]
+    verdict: Verdict
+    quote: str  # a literal phrase of the message content
+    prefix: str  # the text right before it (tells repeats apart)
+    reason: NotRequired[str]
+    source: NotRequired[int]  # 1-based index into the message's sources
+    source_quote: NotRequired[str]  # the passage of that source
+
+
+class GroundingSummary(TypedDict):
+    """The footer of a grounding-checked message."""
+
+    checked: bool
+    source_count: NotRequired[int]
+    legacy: NotRequired[bool]  # converted from pre-Oct-3-2026 inline markers
+
+
+class VerifyClaimAction(TypedDict):
+    """Look it up on a claim card (null ids: converted from old messages)."""
+
+    type: Literal["verify_claim"]
+    source_message_id: str | None
+    claim_index: int | None
+    quote: str
+
+
+class DeepResearchAction(TypedDict):
+    """A started deep-research run, with its plan's size."""
+
+    type: Literal["deep_research"]
+    offer_message_id: str
+    items: int
+    minutes: int
+
+
+# What a user message the app sent on the user's behalf was
+MessageAction = VerifyClaimAction | DeepResearchAction
+
+
+class ArtifactShown(TypedDict):
+    """One artifact version shown under a reply."""
+
+    id: str
+    version: int
+    title: str
 
 
 @dataclass
@@ -91,17 +147,16 @@ class Message:
     tool_outputs: list[dict[str, str]] | None = None
     # Why the reply ended early: "user" = the user pressed Stop (None otherwise)
     stop_reason: str | None = None
-    # Grounding-check claims ({type, verdict, quote, prefix, reason?, source?,
-    # source_quote?}) and the footer summary; None when never checked
-    annotations: list[dict[str, Any]] | None = None
-    grounding: dict[str, Any] | None = None
+    # Grounding-check claims and the footer summary; None when never checked
+    annotations: list[ClaimAnnotation] | None = None
+    grounding: GroundingSummary | None = None
     # Deep research: {"offer": {...}} or {"run": {...}} (src/agent/deep_research/)
     research: dict[str, Any] | None = None
-    # A user message the app sent on the user's behalf: {"type": "verify_claim"
-    # | "deep_research", ...} (docs/features/deep-research-data.md "Action messages")
-    action: dict[str, Any] | None = None
-    # Artifact versions shown under the reply: [{id, version, title}]
-    artifacts: list[dict[str, Any]] | None = None
+    # A user message the app sent on the user's behalf
+    # (docs/features/deep-research-data.md "Action messages")
+    action: MessageAction | None = None
+    # Artifact versions shown under the reply
+    artifacts: list[ArtifactShown] | None = None
 
 
 @dataclass

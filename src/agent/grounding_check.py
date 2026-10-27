@@ -13,7 +13,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 
@@ -26,6 +26,7 @@ from src.agent.specifics_net import missed_specifics
 from src.agent.tools.delegate import in_delegate_run
 from src.config import Config
 from src.constants import GEMINI_MIN_REQUEST_DEADLINE_SECONDS
+from src.db.models.dataclasses import ClaimAnnotation, GroundingSummary
 from src.utils.clock import local_today, to_local, utc_now
 from src.utils.logging import get_logger
 
@@ -230,12 +231,19 @@ def _run_verifier(
     return (parsed if isinstance(parsed, GroundingVerdict) else None), usage
 
 
+class GroundingResult(TypedDict):
+    """`usage_info["grounding"]`: what the reply stores from the check."""
+
+    annotations: list[ClaimAnnotation]
+    summary: GroundingSummary | None
+
+
 @dataclass
 class GroundingOutcome:
     """Annotations to store, the footer summary, and verifier usage."""
 
-    annotations: list[dict[str, Any]] = field(default_factory=list)
-    summary: dict[str, Any] | None = None
+    annotations: list[ClaimAnnotation] = field(default_factory=list)
+    summary: GroundingSummary | None = None
     usage: dict[str, Any] | None = None
 
 
@@ -369,4 +377,5 @@ def apply_grounding(
     if outcome.usage:
         usage_info["grounding_usage"] = outcome.usage
     if outcome.annotations:
-        usage_info["grounding"] = {"annotations": outcome.annotations, "summary": outcome.summary}
+        result: GroundingResult = {"annotations": outcome.annotations, "summary": outcome.summary}
+        usage_info["grounding"] = result

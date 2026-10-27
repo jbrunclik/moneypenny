@@ -12,9 +12,10 @@ from typing import Any
 from langchain_core.messages import ToolMessage
 
 from src.agent.tools.artifacts import ARTIFACT_TOOL_NAMES
+from src.db.models.dataclasses import ArtifactShown
 
 
-def artifact_ref_from_tool_content(tool_name: str | None, content: Any) -> dict[str, Any] | None:
+def artifact_ref_from_tool_content(tool_name: str | None, content: Any) -> ArtifactShown | None:
     """The ref from a successful create/update result, else None."""
     if tool_name not in ARTIFACT_TOOL_NAMES or not isinstance(content, str):
         return None
@@ -28,14 +29,14 @@ def artifact_ref_from_tool_content(tool_name: str | None, content: Any) -> dict[
     return {"id": str(ref["id"]), "version": int(ref["version"]), "title": str(ref["title"])}
 
 
-def extract_artifact_refs(result_messages: list[Any]) -> list[dict[str, Any]]:
+def extract_artifact_refs(result_messages: list[Any]) -> list[ArtifactShown]:
     """The turn's refs in order; an artifact changed twice keeps its last version
     at the position it first appeared."""
-    by_id: dict[str, dict[str, Any]] = {}
+    by_id: dict[str, ArtifactShown] = {}
     for msg in result_messages:
         if not isinstance(msg, ToolMessage):
             continue
         ref = artifact_ref_from_tool_content(msg.name, msg.content)
         if ref:
-            by_id[ref["id"]] = ref if ref["id"] not in by_id else {**by_id[ref["id"]], **ref}
+            by_id[ref["id"]] = ref
     return list(by_id.values())

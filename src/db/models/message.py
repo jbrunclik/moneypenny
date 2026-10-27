@@ -13,7 +13,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
-from src.db.models.dataclasses import Message
+from src.db.models.dataclasses import (
+    ArtifactShown,
+    ClaimAnnotation,
+    GroundingSummary,
+    Message,
+    MessageAction,
+)
 from src.db.models.helpers import (
     delete_message_blobs,
     extract_file_metadata,
@@ -199,11 +205,11 @@ class MessageMixin:
         message_id: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
         stop_reason: str | None = None,
-        annotations: list[dict[str, Any]] | None = None,
-        grounding: dict[str, Any] | None = None,
+        annotations: list[ClaimAnnotation] | None = None,
+        grounding: GroundingSummary | None = None,
         research: dict[str, Any] | None = None,
-        action: dict[str, Any] | None = None,
-        artifacts: list[dict[str, Any]] | None = None,
+        action: MessageAction | None = None,
+        artifacts: list[ArtifactShown] | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -442,10 +448,10 @@ class MessageMixin:
         language: str | None = None,
         tool_outputs: list[dict[str, str]] | None = None,
         stop_reason: str | None = None,
-        annotations: list[dict[str, Any]] | None = None,
-        grounding: dict[str, Any] | None = None,
+        annotations: list[ClaimAnnotation] | None = None,
+        grounding: GroundingSummary | None = None,
         research: dict[str, Any] | None = None,
-        artifacts: list[dict[str, Any]] | None = None,
+        artifacts: list[ArtifactShown] | None = None,
     ) -> Message | None:
         """Update an existing message's content fields.
 
