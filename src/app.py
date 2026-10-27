@@ -263,6 +263,26 @@ def _register_page_routes(
     app_version: str | None,
 ) -> None:
     """The HTML pages, the service worker and static files."""
+    _register_app_shell(app, logger, vite_manifest, app_version)
+    _register_artifact_frame(app, logger, vite_manifest)
+
+    @app.route("/privacy")
+    def privacy_policy() -> str:
+        return render_template("privacy.html")
+
+    # Serve static files
+    @app.route("/<path:path>")
+    def static_files(path: str) -> Response:
+        return send_from_directory(app.static_folder or "static", path)
+
+
+def _register_app_shell(
+    app: APIFlask,
+    logger: Logger,
+    vite_manifest: dict[str, dict[str, str | list[str]]],
+    app_version: str | None,
+) -> None:
+    """The app's page and its push service worker."""
 
     @app.route("/")
     def index() -> Response | tuple[str, int]:
@@ -319,6 +339,12 @@ def _register_page_routes(
         response.headers["Cache-Control"] = "no-cache"
         return response
 
+
+def _register_artifact_frame(
+    app: APIFlask, logger: Logger, vite_manifest: dict[str, dict[str, str | list[str]]]
+) -> None:
+    """The sandboxed page artifacts render in."""
+
     @app.route("/artifact-frame")
     def artifact_frame() -> Response:
         """The sandboxed page every artifact renders in (same for all of them).
@@ -351,33 +377,9 @@ def _register_page_routes(
         response.headers["Cache-Control"] = "no-cache"
         return response
 
-    @app.route("/privacy")
-    def privacy_policy() -> str:
-        return render_template("privacy.html")
 
-    # Serve static files
-    @app.route("/<path:path>")
-    def static_files(path: str) -> Response:
-        return send_from_directory(app.static_folder or "static", path)
-
-
-def create_app(*, apply_migrations: bool = True) -> APIFlask:
-    """Create and configure the Flask application.
-
-    ``apply_migrations``: bring the database schema up to date first. Only the
-    web app does (gunicorn and ``make run``); the agent-scheduler timer and the
-    test harnesses, which own their databases' schema, pass False.
-    """
-    # Setup structured logging first
-    setup_logging()
-    logger = get_logger(__name__)
-    logger.info(
-        "Flask app created",
-        extra={
-            "environment": Config.FLASK_ENV,
-            "log_level": Config.LOG_LEVEL,
-        },
-    )
+def _prepare_process(logger: Logger, *, apply_migrations: bool) -> None:
+    """Check the configuration, migrate, and start the per-process helpers."""
     # gunicorn starts the app here, never through main(): refuse to serve with
     # a configuration that main() would reject (e.g. a placeholder JWT secret)
     if not Config.is_testing():
@@ -391,6 +393,9 @@ def create_app(*, apply_migrations: bool = True) -> APIFlask:
     install_memory_profiler()
     start_malloc_trimmer()
 
+
+def _new_api_app() -> APIFlask:
+    """The APIFlask app with its request limits, template globals and proxy fix."""
     # The docs UI and spec map the whole API for anyone who asks: served in
     # development and tests only (app.spec still works for `make openapi`)
     serve_docs = Config.is_development() or Config.is_testing()
@@ -422,6 +427,28 @@ def create_app(*, apply_migrations: bool = True) -> APIFlask:
     # the TLS termination (HSTS). With TRUSTED_PROXY_COUNT=0 forwarded
     # headers are ignored entirely - they would be client-spoofable.
     apply_proxy_fix(app)
+    return app
+
+
+def create_app(*, apply_migrations: bool = True) -> APIFlask:
+    """Create and configure the Flask application.
+
+    ``apply_migrations``: bring the database schema up to date first. Only the
+    web app does (gunicorn and ``make run``); the agent-scheduler timer and the
+    test harnesses, which own their databases' schema, pass False.
+    """
+    # Setup structured logging first
+    setup_logging()
+    logger = get_logger(__name__)
+    logger.info(
+        "Flask app created",
+        extra={
+            "environment": Config.FLASK_ENV,
+            "log_level": Config.LOG_LEVEL,
+        },
+    )
+    _prepare_process(logger, apply_migrations=apply_migrations)
+    app = _new_api_app()
 
     _register_request_logging(app, logger)
     _register_security_headers(app)

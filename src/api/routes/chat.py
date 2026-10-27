@@ -6,6 +6,7 @@ batch (complete response) and streaming (SSE) modes.
 
 import json
 import uuid
+from dataclasses import dataclass
 from typing import NoReturn
 
 from apiflask import APIBlueprint
@@ -19,9 +20,9 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
-from src.api.helpers.chat_save import save_message_to_db
+from src.api.helpers.chat_save import SaveResult, save_message_to_db
 from src.api.helpers.chat_streaming import create_stream_generator
-from src.api.helpers.chat_turn import build_turn_context, prepare_turn
+from src.api.helpers.chat_turn import PreparedTurn, build_turn_context, prepare_turn
 from src.api.helpers.stream_resume import stream_resume_events
 from src.api.helpers.turn_steering import (
     can_steer,
@@ -80,6 +81,25 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     if running is not None:
         return _steer_batch_send(user, data, conv_id, running)
     turn = prepare_turn(user, data, conv_id)
+    return _batch_response(turn, _run_batch_turn(user, conv_id, turn)), 200
+
+
+@dataclass(frozen=True)
+class _BatchTurn:
+    """A finished batch turn: the saved reply and what the response reports."""
+
+    saved: SaveResult
+    stopped_early: bool
+    model_fallback: str | None
+    unanswered_steering_id: str | None
+
+
+def _run_batch_turn(user: User, conv_id: str, turn: PreparedTurn) -> _BatchTurn:
+    """Run the agent and save its reply.
+
+    Raises the route's error responses; whatever happens, the turn's context,
+    leftover steering and an unused empty placeholder are cleaned up.
+    """
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     ctx.apply()
     # After the history was read: the empty reply must not be part of it
@@ -140,9 +160,21 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         clear_interjection(user.id, conv_id)
         if saved is None:
             discard_unused_placeholder(placeholder_id)
+    if saved is None:
+        raise_server_error("Failed to generate response. Please try again.")
+    return _BatchTurn(
+        saved=saved,
+        stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
+        model_fallback=usage_info.get("model_fallback"),
+        unanswered_steering_id=unanswered_steering_id,
+    )
 
-    assistant_msg = db.get_message_by_id(saved.message_id) if saved else None
-    if saved is None or assistant_msg is None:
+
+def _batch_response(turn: PreparedTurn, done: _BatchTurn) -> dict[str, str]:
+    """The batch endpoint's body for a saved reply."""
+    saved = done.saved
+    assistant_msg = db.get_message_by_id(saved.message_id)
+    if assistant_msg is None:
         raise_server_error("Failed to generate response. Please try again.")
 
     response_data = build_chat_response(
@@ -154,14 +186,14 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
         conversation_title=saved.generated_title,
         user_message_id=turn.user_msg.id,
         language=saved.language,
-        stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
+        stopped_early=done.stopped_early,
     )
-    if unanswered_steering_id:
-        response_data["unanswered_steering_id"] = unanswered_steering_id
-    if usage_info.get("model_fallback"):
+    if done.unanswered_steering_id:
+        response_data["unanswered_steering_id"] = done.unanswered_steering_id
+    if done.model_fallback:
         # The conversation's model was down; the other tier answered
-        response_data["model_fallback"] = usage_info["model_fallback"]
-    return response_data, 200
+        response_data["model_fallback"] = done.model_fallback
+    return response_data
 
 
 def _steerable_running_turn(user: User, data: ChatRequest, conv_id: str) -> str | None:
