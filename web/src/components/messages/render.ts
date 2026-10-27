@@ -590,7 +590,7 @@ function approvalHeader(isResolved: boolean, wasApproved: boolean): { icon: Icon
 /** The tool line of an approval request; '' for generic placeholder names. */
 function approvalTool(toolName: string): HTMLElement | null {
   const generic = !toolName || toolName === 'custom_action' || toolName === 'unknown' || toolName === 'Unknown tool';
-  return generic ? null : createElement('p', { class: 'approval-tool' }, ['Tool: ', createElement('code', {}, [toolName])]);
+  return generic ? null : createElement('p', { class: 'approval-request-tool' }, ['Tool: ', createElement('code', {}, [toolName])]);
 }
 
 function wireApprovalButtons(messageEl: HTMLElement, approvalId: string): void {
@@ -639,7 +639,7 @@ function addApprovalRequestMessageToUI(
         createElement('span', { class: 'approval-title' }, [header.title]),
       ]),
       createElement('div', { class: 'approval-request-body' }, [
-        createElement('p', { class: 'approval-description' }, [description]),
+        createElement('p', { class: 'approval-request-description' }, [description]),
         approvalTool(parsed?.toolName || ''),
       ]),
       createElement('div', { class: 'approval-request-actions' }, actions),

@@ -508,8 +508,8 @@ describe('Messages - addMessageToUI special messages', () => {
     const el = container.querySelector<HTMLElement>('.approval-request-message')!;
     expect(el.dataset.approvalId).toBe('ab12-cd34');
     expect(el.querySelector('.approval-title')?.textContent).toBe('Action requires approval');
-    expect(el.querySelector('.approval-description')?.textContent).toBe('Send the weekly report');
-    expect(el.querySelector('.approval-tool code')?.textContent).toBe('send_email');
+    expect(el.querySelector('.approval-request-description')?.textContent).toBe('Send the weekly report');
+    expect(el.querySelector('.approval-request-tool code')?.textContent).toBe('send_email');
     expect(el.querySelector<HTMLElement>('.btn-approve')?.dataset.approvalId).toBe('ab12-cd34');
     expect(el.querySelector('.btn-reject')).not.toBeNull();
   });
@@ -535,7 +535,7 @@ describe('Messages - addMessageToUI special messages', () => {
       createMessage('a1', '[approval-request:ab12]\nI need your permission to: **Do it**\nTool: `custom_action`', 'assistant'),
       container
     );
-    expect(container.querySelector('.approval-tool')).toBeNull();
+    expect(container.querySelector('.approval-request-tool')).toBeNull();
   });
 
   it('skips the action approved/rejected follow-ups', () => {

@@ -312,14 +312,6 @@
     color: var(--text-primary);
 }
 
-/* "Save as quick action" only makes sense inside a program conversation */
-.message-save-quick-action-btn {
-    display: none;
-}
-body.has-quick-actions .message-save-quick-action-btn {
-    display: inline-flex;
-}
-
 /* ----------------------------------------
    Editor modal
    ---------------------------------------- */

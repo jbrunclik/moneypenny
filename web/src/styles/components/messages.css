@@ -446,6 +446,14 @@
     background-color: var(--bg-tertiary);
 }
 
+/* "Save as quick action" only makes sense inside a program conversation */
+.message-save-quick-action-btn {
+    display: none;
+}
+body.has-quick-actions .message-save-quick-action-btn {
+    display: inline-flex;
+}
+
 .message-copy-btn.copied {
     color: var(--success);
 }
@@ -1431,20 +1439,23 @@ a.document-name:hover {
     gap: var(--space-2);
 }
 
-.approval-description {
-    margin: 0;
+/* These shared their class names with the command center's approval card
+   (agents.css) until Oct 27 2026; the values are the ones that won then */
+.approval-request-description {
+    margin: 0 0 var(--space-2) 0;
     font-size: var(--font-size-sm);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     line-height: 1.5;
 }
 
-.approval-tool {
+.approval-request-tool {
+    display: inline-block;
     margin: 0;
     font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
-.approval-tool code {
+.approval-request-tool code {
     background-color: var(--bg-tertiary);
     padding: var(--space-0-5) var(--space-1);
     border-radius: var(--radius-sm);

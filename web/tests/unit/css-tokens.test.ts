@@ -6,21 +6,29 @@
  * - A global stacking layer takes its z-index from a `--z-*` token. Small
  *   values (-1 to 10) only order siblings inside one component and stay
  *   literal.
- * - One stylesheet per component prefix (`.kv-*` lives in kv-store.css).
- *   glass.css and mobile-sheets.css are layers that restyle every component
- *   (the glass material, mobile bottom sheets), so they don't count.
+ * - A class's own rules live in one stylesheet. Its own rules are the
+ *   selectors that style the element itself: `.kv-entry`, `.kv-entry:hover`,
+ *   `.kv-entry.active`. A context rule (`.kv-store-header .btn-refresh`)
+ *   belongs to the context's stylesheet and doesn't count. Styles are global,
+ *   so two stylesheets styling one class restyle each other (Jul 2026:
+ *   `.memory-*` in popups.css and kv-store.css; Oct 2026: agents.css restyled
+ *   every `.btn-icon` in the app). layout.css (where the app shell places each
+ *   component), glass.css (the glass material) and mobile-sheets.css (mobile
+ *   bottom sheets) are layers over every component, so they don't count.
  *
- * `css-tokens.baseline.json` lists what predates the rule (Oct 26 2026) and
- * only shrinks: fixed one? Delete its entry.
+ * Each list is empty since Oct 27 2026 and stays empty.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import baseline from './css-tokens.baseline.json';
 
 const SRC = join(__dirname, '../../src');
 const TOKENS_FILE = 'styles/variables.css';
-const LAYER_FILES = new Set(['styles/components/glass.css', 'styles/components/mobile-sheets.css']);
+const LAYER_FILES = new Set([
+  'styles/layout.css',
+  'styles/components/glass.css',
+  'styles/components/mobile-sheets.css',
+]);
 const LOCAL_Z_INDEX_MAX = 10;
 const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\([^)]*\)/g;
 
@@ -70,53 +78,61 @@ function zIndexLiterals(): string[] {
     .sort();
 }
 
-/**
- * `prefix: stylesheet` for each stylesheet defining classes of a prefix
- * (`.kv-entry` -> kv) that more than one stylesheet defines.
- */
-function sharedPrefixes(): string[] {
-  const filesByPrefix = new Map<string, Set<string>>();
+/** A selector list split at its top-level commas (not those inside `:is()`). */
+function selectors(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of list) {
+    if (char === '(' || char === '[') depth += 1;
+    if (char === ')' || char === ']') depth -= 1;
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  return [...parts, current];
+}
+
+/** The class a selector styles itself (`.btn:hover` -> btn), or null for a
+ * context rule (`.header .btn`) or one that doesn't start with a class. */
+function ownClass(selector: string): string | null {
+  const trimmed = selector.trim();
+  const flat = trimmed.replace(/\((?:[^()]|\([^()]*\))*\)/g, '');
+  if (/[\s>+~]/.test(flat)) return null;
+  return trimmed.match(/^\.([a-zA-Z][\w-]*)/)?.[1] ?? null;
+}
+
+/** `class: stylesheet` for each class whose own rules span stylesheets. */
+function spreadClasses(): string[] {
+  const filesByClass = new Map<string, Set<string>>();
   for (const { name, css } of stylesheets) {
     if (LAYER_FILES.has(name)) continue;
-    for (const [, selectorList = ''] of css.matchAll(/([^{}]+)\{/g)) {
-      for (const selector of selectorList.split(',')) {
-        const prefix = selector.trim().match(/^\.([a-zA-Z][a-zA-Z0-9]*)/)?.[1];
-        if (prefix) filesByPrefix.set(prefix, (filesByPrefix.get(prefix) ?? new Set()).add(name));
+    for (const [, list = ''] of css.matchAll(/([^{}@;]+)\{/g)) {
+      for (const selector of selectors(list)) {
+        const cls = ownClass(selector);
+        if (cls) filesByClass.set(cls, (filesByClass.get(cls) ?? new Set()).add(name));
       }
     }
   }
-  return [...filesByPrefix.entries()]
+  return [...filesByClass.entries()]
     .filter(([, files]) => files.size > 1)
-    .flatMap(([prefix, files]) => [...files].map((file) => `${prefix}: ${file}`))
+    .flatMap(([cls, files]) => [...files].map((file) => `${cls}: ${file}`))
     .sort();
 }
 
-/** Entries of `actual` beyond what `allowed` holds, counting duplicates. */
-function beyond(actual: string[], allowed: string[]): string[] {
-  const left = new Map<string, number>();
-  for (const entry of allowed) left.set(entry, (left.get(entry) ?? 0) + 1);
-  return actual.filter((entry) => {
-    const count = left.get(entry) ?? 0;
-    left.set(entry, count - 1);
-    return count <= 0;
-  });
-}
-
 describe('CSS tokens (F7)', () => {
-  const checks = [
-    ['colour literals', colorLiterals(), baseline.colors],
-    ['z-index literals', zIndexLiterals(), baseline.zIndex],
-    ['component prefixes spread over stylesheets', sharedPrefixes(), baseline.prefixes],
-  ] as const;
+  it('has no colour literals outside variables.css', () => {
+    expect(colorLiterals()).toEqual([]);
+  });
 
-  for (const [what, actual, allowed] of checks) {
-    it(`adds no new ${what}`, () => {
-      expect(beyond(actual, allowed)).toEqual([]);
-    });
+  it('takes global z-indexes from tokens', () => {
+    expect(zIndexLiterals()).toEqual([]);
+  });
 
-    it(`keeps the ${what} baseline free of fixed entries`, () => {
-      // Fixed one? Delete it from css-tokens.baseline.json so it can't return
-      expect(beyond(allowed, actual)).toEqual([]);
-    });
-  }
+  it("keeps each class's own rules in one stylesheet", () => {
+    expect(spreadClasses()).toEqual([]);
+  });
 });
