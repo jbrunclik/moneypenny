@@ -2,11 +2,12 @@
  * E2E tests for anonymous mode functionality
  */
 import { test, expect, setMockResponse } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Anonymous Mode', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
   });
 
@@ -247,7 +248,7 @@ test.describe('Chat - Anonymous Mode Initial State', () => {
 test.describe('Anonymous Mode - Persist Failure Rollback', () => {
   test('failed persist rolls the toggle back instead of lying about state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Persist the conversation first (toggle needs a real conversation id)

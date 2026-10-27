@@ -2,6 +2,7 @@
  * E2E tests for device location sharing (settings toggle + client_location on chat requests)
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Location sharing', () => {
   test.use({
@@ -11,7 +12,7 @@ test.describe('Location sharing', () => {
 
   test('settings toggle enables location sharing', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
@@ -37,7 +38,7 @@ test.describe('Location sharing', () => {
 
   test('sends client_location with chat when sharing is enabled', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Enable sharing (set directly; toggle UX is covered above)
     await page.evaluate(() => localStorage.setItem('location_sharing_enabled', 'true'));
@@ -61,7 +62,7 @@ test.describe('Location sharing', () => {
 
   test('omits client_location when sharing is disabled', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'hello');
 

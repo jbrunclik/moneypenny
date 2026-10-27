@@ -195,6 +195,18 @@ When fullSync returns conversations beyond the initial paginated load (e.g., use
 - The SyncManager initializes `localMessageCounts` to the server's count for these conversations, preventing false unread badges
 - The store's `addConversation()` inserts at the correct sorted position (by `updated_at` DESC) rather than prepending
 
+### 9. Lists loaded at startup (Oct 27 2026)
+
+A list the change log keeps current - the archive and the trash, whose counts
+badge the user menu - is loaded only once the first full sync has its
+change-log cursor (`startSync(onStarted)` in `web/src/core/startup/sync.ts`).
+Loaded before it, a chat archived or trashed on another device between the
+list's snapshot and the cursor was in neither, and the badge stayed stale
+until the next change elsewhere. A new such list follows the same rule
+(convention F12); `startup-initial-data.test.ts` pins the order. The app
+marks `<html data-app-ready>` once these loads settle, which is what E2E
+specs wait for.
+
 ## Delete Detection
 
 Full sync compares local conversation IDs with server response:

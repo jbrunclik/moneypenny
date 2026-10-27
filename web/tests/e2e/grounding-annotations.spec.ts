@@ -1,5 +1,5 @@
 import { test, expect } from '../global-setup';
-import { nextFrames } from './waits';
+import { appReady, nextFrames } from './waits';
 
 const ANNOTATIONS = {
   summary: { checked: true, source_count: 1 },
@@ -14,7 +14,7 @@ for (const streaming of [true, false]) {
     test.beforeEach(async ({ page, request }) => {
       await request.post('/test/set-grounding-result', { data: ANNOTATIONS });
       await page.goto('/');
-      await page.waitForSelector('#new-chat-btn');
+      await appReady(page);
       const streamBtn = page.locator('#stream-btn');
       if ((await streamBtn.getAttribute('aria-pressed')) !== String(streaming)) await streamBtn.click();
       await page.click('#new-chat-btn');
@@ -67,7 +67,7 @@ test('claims list is a bottom sheet on mobile', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await request.post('/test/set-grounding-result', { data: ANNOTATIONS });
   await page.goto('/');
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   // On mobile, New chat lives in the sidebar
   await page.click('#menu-btn');
   await page.click('#new-chat-btn');

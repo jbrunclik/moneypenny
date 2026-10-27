@@ -54,8 +54,9 @@ async function completeIntegrationOAuth(): Promise<void> {
 
 /**
  * Check authentication; load the user's data, or show the sign-in button.
+ * Returns whether the user is signed in.
  */
-export async function startSession(initialRoute: InitialRoute): Promise<void> {
+export async function startSession(initialRoute: InitialRoute): Promise<boolean> {
   const isAuthenticated = await checkAuth();
 
   if (isAuthenticated) {
@@ -75,6 +76,7 @@ export async function startSession(initialRoute: InitialRoute): Promise<void> {
       renderGoogleButton(loginBtn);
     }
   }
+  return isAuthenticated;
 }
 
 async function handleLogin(): Promise<void> {

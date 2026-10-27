@@ -6,7 +6,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 
 async function newChat(page: Page): Promise<void> {
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn', { state: 'attached' });
+  await appReady(page);
   if (await page.locator('#menu-btn').isVisible()) await page.click('#menu-btn');
   await page.click('#new-chat-btn');
 }

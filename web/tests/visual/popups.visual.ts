@@ -3,7 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -28,7 +28,7 @@ const SPARKLES_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 test.describe('Visual: Cost Popups', () => {
   test('message cost popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject message cost popup directly
@@ -89,7 +89,7 @@ test.describe('Visual: Cost Popups', () => {
 
   test('cost history popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject cost history popup directly
@@ -155,7 +155,7 @@ test.describe('Visual: Cost Popups', () => {
 
   test('cost history empty state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject cost history popup with empty state
@@ -192,7 +192,7 @@ test.describe('Visual: Cost Popups', () => {
 test.describe('Visual: Sources Popup', () => {
   test('sources popup with multiple sources', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject sources popup directly
@@ -245,7 +245,7 @@ test.describe('Visual: Sources Popup', () => {
 test.describe('Visual: Image Generation Popup', () => {
   test('image generation popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject image generation popup directly
@@ -286,7 +286,7 @@ test.describe('Visual: Image Generation Popup', () => {
 
   test('image generation popup with multiple images', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject image generation popup with multiple images
@@ -333,7 +333,7 @@ test.describe('Visual: Image Generation Popup', () => {
 test.describe('Visual: Lightbox', () => {
   test('lightbox with image', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a visible lightbox with a test image
@@ -369,7 +369,7 @@ test.describe('Visual: Lightbox', () => {
 
   test('lightbox loading state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Show lightbox in loading state
@@ -410,7 +410,7 @@ const WARNING_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 test.describe('Visual: Settings Popup', () => {
   test('settings popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject settings popup directly
@@ -468,7 +468,7 @@ test.describe('Visual: Settings Popup', () => {
 
   test('settings popup empty', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject settings popup with empty fields
@@ -526,7 +526,7 @@ test.describe('Visual: Settings Popup', () => {
 
   test('settings popup with warning character count', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject settings popup with character count warning
@@ -589,7 +589,7 @@ test.describe('Visual: Mobile Popups', () => {
 
   test('mobile message cost popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject message cost popup directly
@@ -650,7 +650,7 @@ test.describe('Visual: Mobile Popups', () => {
 
   test('mobile sources popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject sources popup directly
@@ -696,7 +696,7 @@ test.describe('Visual: Mobile Popups', () => {
 
   test('mobile lightbox with image', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a visible lightbox with a test image
@@ -780,7 +780,7 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
 
   test('garmin section disconnected state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     const disconnectedHtml = `
@@ -816,7 +816,7 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
 
   test('garmin section connected state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     const connectedHtml = `
@@ -840,7 +840,7 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
 
   test('garmin section needs reconnect state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     const needsReconnectHtml = `

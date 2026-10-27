@@ -63,6 +63,23 @@ def test_fixed_sleeps_say_why() -> None:
     )
 
 
+# Shell elements exist from the first paint, so waiting for one after
+# page.goto lets a spec act while startup's auth check or first sync is still
+# in flight (two load-only flakes, Oct 27 2026); appReady waits for startup
+_SHELL_WAIT = re.compile(r"waitForSelector\('(?:#app|#new-chat-btn|#user-info|#menu-btn|#sidebar)'")
+
+
+def test_specs_wait_for_app_ready() -> None:
+    """T4: after navigating, a spec waits for appReady (web/tests/e2e/waits.ts)."""
+    found = [
+        f"{path.relative_to(_ROOT)}:{number}"
+        for path in _TS_TESTS
+        for number, line in enumerate(path.read_text().splitlines(), 1)
+        if _SHELL_WAIT.search(line)
+    ]
+    assert found == [], "wait with appReady(page), not on a shell element:\n" + "\n".join(found)
+
+
 def test_tests_use_public_names() -> None:
     """T7: importing a module's _private name couples the test to its internals."""
     count = sum(

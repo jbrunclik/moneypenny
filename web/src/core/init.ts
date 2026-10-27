@@ -34,6 +34,7 @@ import { leaveTrashView } from './trash';
 import { initTTSVoices } from './tts';
 import { mountAppShell } from './startup/app-shell';
 import { initAppStatus } from './startup/app-status';
+import { markAppReady } from './startup/app-ready';
 import { initAuthEvents, startSession } from './startup/auth';
 import { initComposer } from './startup/composer';
 import { initMessageEvents } from './startup/message-events';
@@ -102,10 +103,12 @@ export async function init(): Promise<void> {
   const initialRoute = initDeepLinking(handleDeepLinkNavigation);
 
   // After every init* above: signing in renders data into those components
-  await startSession(initialRoute);
+  const signedIn = await startSession(initialRoute);
 
   // Only once the boot session has settled (signed in and loaded, or the
   // sign-in button shown): the handlers below assume startup is done
   initAuthEvents();
   initMessageEvents();
+  // Signed in, ready waits for the first sync (startup/initial-data.ts)
+  if (!signedIn) markAppReady();
 }

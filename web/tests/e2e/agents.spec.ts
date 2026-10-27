@@ -10,6 +10,7 @@
  * - Agent triggering
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 // Helper function to set up command center mock data
 async function setCommandCenterData(page: import('@playwright/test').Page, data: {
@@ -62,7 +63,7 @@ async function setCommandCenterData(page: import('@playwright/test').Page, data:
 test.describe('Agents - Sidebar Entry', () => {
   test('shows agents entry in sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Agents entry should be visible
     const agentsEntry = page.locator('.agents-entry');
@@ -89,7 +90,7 @@ test.describe('Agents - Sidebar Entry', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Badge should show unread count
     const badge = page.locator('.agents-entry .unread-badge');
@@ -116,7 +117,7 @@ test.describe('Agents - Sidebar Entry', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Waiting badge should show count
     const waitingBadge = page.locator('.agents-entry .waiting-badge');
@@ -130,7 +131,7 @@ test.describe('Agents - Navigation', () => {
     await setCommandCenterData(page, { agents: [] });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click agents entry
     const agentsEntry = page.locator('.agents-entry');
@@ -628,7 +629,7 @@ test.describe('Agents - Pending Approval Input Blocking', () => {
 
     // Navigate to app first then to conversation
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Navigate to the agent's conversation via URL (uses full /conversations/ path)
     await page.goto(`/#/conversations/${conversationId}`);

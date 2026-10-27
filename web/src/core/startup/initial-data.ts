@@ -23,6 +23,7 @@ import { isTempConversation } from '../../utils/conversation-id';
 import { resyncPushSubscription } from '../push';
 import { loadTrashedConversations } from '../trash';
 import { openInitialRoute } from './initial-route';
+import { markAppReady } from './app-ready';
 import { startSync } from './sync';
 
 const log = createLogger('init');
@@ -97,14 +98,14 @@ function renderInitialData(): void {
  * while one changed between an earlier load and the cursor was in neither
  * and left the badge stale (Oct 2026).
  */
-function loadArchiveAndTrash(initialRoute: InitialRoute | null | undefined): void {
-  loadArchivedConversations().catch(() => {
-    // Ignore errors - archive section is optional
-  });
-  // Skipped when the trash view itself is the initial route - navigateToTrash loads it
-  if (!initialRoute?.isTrash) {
-    void loadTrashedConversations();
-  }
+async function loadArchiveAndTrash(initialRoute: InitialRoute | null | undefined): Promise<void> {
+  await Promise.all([
+    loadArchivedConversations().catch(() => {
+      // Ignore errors - archive section is optional
+    }),
+    // Skipped when the trash view itself is the initial route - navigateToTrash loads it
+    initialRoute?.isTrash ? undefined : loadTrashedConversations(),
+  ]);
 }
 
 /** Once loading ends, whether it succeeded or not. */
@@ -144,12 +145,13 @@ export async function loadInitialData(initialRoute?: InitialRoute | null): Promi
     // Only after data is loaded AND the initial route is handled: sync
     // starting earlier showed false "new messages available" banners for
     // the deep-linked conversation
-    startSync(() => loadArchiveAndTrash(initialRoute));
+    startSync(() => void loadArchiveAndTrash(initialRoute).finally(markAppReady));
   } catch (error) {
     log.error('Failed to load initial data', { error });
     toast.error('Failed to load data. Please refresh the page.', {
       action: { label: 'Refresh', onClick: () => window.location.reload() },
     });
+    markAppReady();
   } finally {
     finishLoading(store);
   }

@@ -2,11 +2,12 @@
  * E2E tests for batch mode message sending
  */
 import { test, expect, disableStreaming } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Batch Mode', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for batch tests

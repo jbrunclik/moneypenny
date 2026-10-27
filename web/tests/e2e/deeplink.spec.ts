@@ -5,11 +5,12 @@
  * Format: #/conversations/{conversationId}
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Deep Linking', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -77,7 +78,7 @@ test.describe('Deep Linking', () => {
 
     // Reload the page with the hash
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Conversation should be loaded automatically
     const userMessage = page.locator('.message.user');
@@ -141,7 +142,7 @@ test.describe('Deep Linking', () => {
   test('handles invalid conversation ID in URL gracefully', async ({ page }) => {
     // Navigate to a non-existent conversation
     await page.goto('/#/conversations/non-existent-id-12345');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should show error toast
     const toast = page.locator('.toast-error');
@@ -244,7 +245,7 @@ test.describe('Deep Linking', () => {
 test.describe('Deep Linking - Not in Paginated List', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -279,7 +280,7 @@ test.describe('Deep Linking - Not in Paginated List', () => {
 
     // Navigate directly to the first conversation via URL
     await page.goto(`/#/conversations/${firstConvId}`);
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should load the first conversation
     const userMessage = page.locator('.message.user');
@@ -299,7 +300,7 @@ test.describe('Deep Linking - Edge Cases', () => {
   test('handles temp conversation ID in URL gracefully', async ({ page }) => {
     // Navigate to a temp conversation (should be ignored)
     await page.goto('/#/conversations/temp-12345678');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should treat as home (no conversation selected)
     const welcomeMessage = page.locator('.welcome-message');
@@ -313,7 +314,7 @@ test.describe('Deep Linking - Edge Cases', () => {
   test('handles malformed hash gracefully', async ({ page }) => {
     // Navigate to a malformed hash
     await page.goto('/#/invalid/path/here');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should treat as home
     const hash = await page.evaluate(() => window.location.hash);
@@ -327,7 +328,7 @@ test.describe('Deep Linking - Edge Cases', () => {
   test('handles empty hash', async ({ page }) => {
     // Navigate with empty hash
     await page.goto('/#');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should show home view. The welcome message only shows when no
     // conversation is selected, and earlier tests may have left some in the
@@ -339,7 +340,7 @@ test.describe('Deep Linking - Edge Cases', () => {
   test('preserves hash after page refresh', async ({ page }) => {
     // Navigate to home first
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -359,7 +360,7 @@ test.describe('Deep Linking - Edge Cases', () => {
 
     // Refresh the page
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Hash should be preserved
     const hashAfterRefresh = await page.evaluate(() => window.location.hash);
@@ -377,7 +378,7 @@ test.describe('Deep link - Archived conversations', () => {
   test('reloading an archived conversation URL loads it', async ({ page }) => {
     // Create a conversation with content
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Message before archive');
     await page.click('#send-btn');
@@ -425,7 +426,7 @@ test.describe('Deep link - Archive view', () => {
   test('archive view survives a reload', async ({ page }) => {
     // Enter archive via the UI, then reload - the URL must bring it back
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Need at least one archived conversation for the section link to exist;
     // create + archive one via the UI-equivalent API calls

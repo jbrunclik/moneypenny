@@ -3,11 +3,12 @@
  * composer centred under it.
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test('desktop composer sits under the greeting, then returns to the bottom on send', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   await page.click('#new-chat-btn');
   await expect(page.locator('.welcome-message h2')).toHaveText(/^What’s on your mind/);
 
@@ -31,7 +32,7 @@ test('desktop composer sits under the greeting, then returns to the bottom on se
 test('mobile keeps the composer at the bottom on an empty conversation', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   const box = (await page.locator('.input-container').boundingBox())!;
   expect(box.y + box.height).toBeGreaterThan(812 - 60);
 });
@@ -48,7 +49,7 @@ for (const [label, vars] of [
   test(`desktop composer clears the greeting when ${label}`, async ({ page }) => {
     await page.setViewportSize({ width: 1180, height: 820 });
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     const heading = page.locator('.welcome-message h2');
     await expect(heading).toHaveText(/^What’s on your mind/);

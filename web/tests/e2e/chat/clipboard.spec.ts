@@ -10,11 +10,12 @@ import {
   clearMockResponse,
 } from './fixtures';
 import { Buffer } from 'buffer';
+import { appReady } from '../waits';
 
 test.describe('Chat - Clipboard Paste', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
   });
 
@@ -183,7 +184,7 @@ test.describe('Chat - Clipboard Paste', () => {
 test.describe('Chat - Copy to Clipboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for consistent tests

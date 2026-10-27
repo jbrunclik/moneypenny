@@ -2,11 +2,12 @@
  * E2E tests for settings popup and custom instructions
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Settings', () => {
   test('settings button is visible in the user menu', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     await page.locator('#user-menu-btn').click();
     const settingsBtn = page.locator('#settings-btn');
@@ -16,7 +17,7 @@ test.describe('Settings', () => {
 
   test('opens scrolled to the top with Appearance visible', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     await page.locator('#user-menu-btn').click();
     await page.locator('#settings-btn').click();
@@ -33,7 +34,7 @@ test.describe('Settings', () => {
 
   test('opens settings popup when clicking settings button', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Click settings button
     await page.locator('#user-menu-btn').click();
@@ -86,7 +87,7 @@ test.describe('Settings', () => {
 
   test('closes settings popup when clicking close button', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -102,7 +103,7 @@ test.describe('Settings', () => {
 
   test('closes settings popup when clicking backdrop', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -118,7 +119,7 @@ test.describe('Settings', () => {
 
   test('closes settings popup when pressing Escape', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -134,7 +135,7 @@ test.describe('Settings', () => {
 
   test('saves custom instructions', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -163,7 +164,7 @@ test.describe('Settings', () => {
 
   test('shows character count', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -184,7 +185,7 @@ test.describe('Settings', () => {
 
   test('shows warning when approaching character limit', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -202,7 +203,7 @@ test.describe('Settings', () => {
 
   test('clears custom instructions with empty save', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // First, set some instructions
     await page.locator('#user-menu-btn').click();
@@ -245,7 +246,7 @@ test.describe('Color Scheme', () => {
 
   test('shows color scheme options in settings popup', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -264,7 +265,7 @@ test.describe('Color Scheme', () => {
 
   test('system is selected by default', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -278,7 +279,7 @@ test.describe('Color Scheme', () => {
 
   test('switches to light theme when clicking Light option', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -302,7 +303,7 @@ test.describe('Color Scheme', () => {
       localStorage.setItem('ai-chatbot-color-scheme', 'light');
     });
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Verify light theme is active
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -325,7 +326,7 @@ test.describe('Color Scheme', () => {
 
   test('persists theme selection across page reload', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup and select light theme
     await page.locator('#user-menu-btn').click();
@@ -339,7 +340,7 @@ test.describe('Color Scheme', () => {
 
     // Reload page
     await page.reload();
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Verify light theme is still active
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -354,7 +355,7 @@ test.describe('Color Scheme', () => {
 
   test('theme applies immediately without needing to save', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings popup
     await page.locator('#user-menu-btn').click();
@@ -374,7 +375,7 @@ test.describe('Color Scheme', () => {
 
   test('theme affects visual appearance', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#user-info');
+    await appReady(page);
 
     // Open settings and select dark theme to ensure consistent starting point
     await page.locator('#user-menu-btn').click();

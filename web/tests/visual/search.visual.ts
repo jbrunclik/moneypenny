@@ -2,12 +2,12 @@
  * Visual regression tests for search functionality
  */
 import { test, expect } from '../global-setup';
-import { nextFrames, pageSettled } from '../e2e/waits';
+import { appReady, nextFrames, pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Search Input', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input');
   });
 
@@ -39,7 +39,7 @@ test.describe('Visual: Search Input', () => {
 test.describe('Visual: Search Empty States', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input');
   });
 
@@ -82,7 +82,7 @@ test.describe('Visual: Search Empty States', () => {
 test.describe('Visual: Search Results', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input');
   });
 
@@ -181,7 +181,7 @@ test.describe('Visual: Search Results', () => {
 test.describe('Visual: Search Loading', () => {
   test('search loading spinner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input');
 
     // Focus to activate search mode
@@ -207,7 +207,7 @@ test.describe('Visual: Search Loading', () => {
 test.describe('Visual: Sidebar with Search', () => {
   test('sidebar in search mode vs normal mode', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input');
 
     // Disable streaming

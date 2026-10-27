@@ -3,11 +3,12 @@
  * truncate-and-rerun family).
  */
 import { test, expect, disableStreaming, setMockResponse, clearMockResponse } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Regenerate / Continue / Edit', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
 

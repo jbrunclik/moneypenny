@@ -4,6 +4,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import { appReady } from '../e2e/waits';
 
 const OFFER = {
   question: 'Transfer a car registration',
@@ -28,7 +29,7 @@ async function sendOffer(page: Page, request: APIRequestContext, stepMs = 50, of
   // After the page fixture's reset, which clears the test's mock config
   await request.post('/test/set-deep-research', { data: { offer, step_ms: stepMs } });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   await page.evaluate(() => {
     const banner = document.querySelector('.version-banner');
     if (banner) (banner as HTMLElement).style.display = 'none';
@@ -50,7 +51,7 @@ test.describe('Visual: Deep research', () => {
   test('offer counting down after an explicit request', async ({ page, request }) => {
     await request.post('/test/set-deep-research', { data: { offer: { ...OFFER, run_now: true }, step_ms: 50 } });
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Research the car registration transfer in depth');
     await page.click('#send-btn');

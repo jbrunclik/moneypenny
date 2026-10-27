@@ -5,14 +5,14 @@
  * Since E2E tests bypass auth, we directly show the login overlay via DOM manipulation.
  */
 import { test, expect } from '../global-setup';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Login Screen', () => {
   test('login overlay - desktop', async ({ page }) => {
     await page.goto('/');
 
     // Wait for app to initialize
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // Show login overlay by removing the hidden class
     await page.evaluate(() => {
@@ -31,7 +31,7 @@ test.describe('Visual: Login Screen', () => {
 
   test('login overlay - sign-in unavailable', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // The state renderGoogleButton (auth/google.ts) shows when sign-in is
     // configured but Google's script never loaded - keep in sync with it
@@ -59,7 +59,7 @@ test.describe('Visual: Login Screen', () => {
     await page.goto('/');
 
     // Wait for app to initialize
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // Show login overlay by removing the hidden class
     await page.evaluate(() => {

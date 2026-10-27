@@ -2,11 +2,12 @@
  * E2E tests for the version-update banner's resting (hidden) state.
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Version banner', () => {
   test('hidden banner casts no shadow and is out of the tab order', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const banner = page.locator('.version-banner');
     await expect(banner).not.toHaveClass(/visible/);

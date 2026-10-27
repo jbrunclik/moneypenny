@@ -1,11 +1,12 @@
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 const DIAGRAM = 'Here is the flow:\n\n```mermaid\nflowchart LR\n  A[Offer] --> B{Start?}\n  B -->|yes| C[Research]\n  B -->|no| D[Done]\n```\n';
 
 async function reply(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext, response: string): Promise<void> {
   await request.post('/test/set-mock-response', { data: { response } });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   if (await page.locator('#menu-btn').isVisible()) await page.click('#menu-btn');
   await page.click('#new-chat-btn');
   await page.fill('#message-input', 'Draw it');

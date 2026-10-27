@@ -2,12 +2,12 @@
  * Visual regression tests for chat interface
  */
 import { test, expect } from '../global-setup';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Chat Interface', () => {
   test('empty conversation state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Wait for welcome message to appear
@@ -22,7 +22,7 @@ test.describe('Visual: Chat Interface', () => {
 
   test('conversation with messages', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Send a message
@@ -41,7 +41,7 @@ test.describe('Visual: Chat Interface', () => {
 
   test('sidebar with conversations', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Create multiple conversations
     for (let i = 0; i < 3; i++) {
@@ -80,7 +80,7 @@ test.describe('Visual: Chat Interface', () => {
 
   test('message input focused', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Focus on input
@@ -98,7 +98,7 @@ test.describe('Visual: Chat Interface', () => {
 
   test('message input focused with attachment', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Attach a tiny image so the preview strip renders above the input
@@ -128,7 +128,7 @@ test.describe('Visual: Chat Interface', () => {
 
   test('model selector dropdown', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Open model selector dropdown
@@ -147,7 +147,7 @@ test.describe('Visual: Chat Interface', () => {
 test.describe('Visual: Long Content Wrapping', () => {
   test('long URL in user message wraps correctly', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for reliable mock responses
@@ -175,7 +175,7 @@ test.describe('Visual: Long Content Wrapping', () => {
 
   test('wide table widens the message bubble on desktop', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for reliable mock responses
@@ -227,7 +227,7 @@ test.describe('Visual: Long Content Wrapping', () => {
 
   test('short message displays correctly', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for reliable mock responses
@@ -259,7 +259,7 @@ test.describe('Visual: Chat States', () => {
 
   test('stream button active', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Ensure streaming is enabled
@@ -274,7 +274,7 @@ test.describe('Visual: Chat States', () => {
 
   test('search button active', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Activate search
@@ -297,7 +297,7 @@ test.describe('Visual: Thinking Indicator', () => {
 
   test('message with streaming response', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Ensure streaming is enabled
@@ -325,7 +325,7 @@ test.describe('Visual: Thinking Indicator', () => {
 
   test('message with tool usage', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Ensure streaming is enabled
@@ -359,7 +359,7 @@ test.describe('Visual: Thinking Indicator', () => {
 test.describe('Visual: Sync UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');

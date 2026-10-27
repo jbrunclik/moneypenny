@@ -3,6 +3,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect, enableStreaming, disableStreaming } from './fixtures';
+import { appReady } from '../waits';
 
 /**
  * The model list arrives with the initial data load, after the selector
@@ -16,7 +17,7 @@ async function waitForModels(page: Page): Promise<void> {
 test.describe('Chat - Model Selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await waitForModels(page);
   });

@@ -4,13 +4,14 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
 /** Open the rename prompt (a confirm-style sheet with an input). */
 async function openRenamePrompt(page: Page): Promise<void> {
   await page.goto('/');
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   await page.click('#menu-btn');
   await page.click('#new-chat-btn');
   await page.fill('#message-input', 'Sheet test');

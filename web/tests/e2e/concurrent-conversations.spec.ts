@@ -4,11 +4,12 @@
  * and converse there while the first stream completes in the background.
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Concurrent conversations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     const streamBtn = page.locator('#stream-btn');
     if ((await streamBtn.getAttribute('aria-pressed')) === 'false') {
       await streamBtn.click();

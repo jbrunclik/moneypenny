@@ -5,7 +5,7 @@
 import { readFileSync } from 'fs';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 const KITCHEN_SINK = readFileSync('tests/fixtures/artifact-kitchen-sink.html', 'utf8');
 
@@ -13,7 +13,7 @@ async function showKitchenSink(page: Page, request: APIRequestContext): Promise<
   // After the page fixture's reset, which clears the test's mock config
   await request.post('/test/set-artifact', { data: { title: 'Svíčková', html: KITCHEN_SINK } });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn', { state: 'attached' });
+  await appReady(page);
   await page.evaluate(() => {
     const banner = document.querySelector('.version-banner');
     if (banner) (banner as HTMLElement).style.display = 'none';

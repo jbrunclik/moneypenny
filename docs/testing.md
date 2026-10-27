@@ -181,7 +181,10 @@ This ensures:
   itself. To wait for a chat turn's save, call the `join_turn_threads` fixture
   (it joins the `chat-stream` and `chat-save` threads) instead of sleeping.
 - **Condition helpers** (`web/tests/e2e/waits.ts`, Oct 26 2026 - no uncommented
-  `waitForTimeout` is left): `nextFrames` (scroll/resize handlers ran),
+  `waitForTimeout` is left): `appReady` (startup has settled - signed in with
+  the first sync done, or the sign-in button shown; call it after every
+  `page.goto`, since shell elements like `#new-chat-btn` exist from the first
+  paint), `nextFrames` (scroll/resize handlers ran),
   `scrollSettled` (a glide or re-pin landed), `pageSettled` (finite animations
   done, fonts loaded - call it before a screenshot taken after an entrance:
   text painted mid-animation antialiases differently from the baseline) and

@@ -11,12 +11,12 @@
  */
 import { test, expect } from '../global-setup';
 import { clickStop } from './chat/fixtures';
-import { serverReplySaved } from './waits';
+import { appReady, serverReplySaved } from './waits';
 
 test.describe('Stream Recovery - Visibility Changes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Enable streaming for these tests
     const streamBtn = page.locator('#stream-btn');
@@ -219,7 +219,7 @@ test.describe('Stream Recovery - Visibility Changes', () => {
 test.describe('Stream Recovery - Quick Return', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Enable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -275,7 +275,7 @@ test.describe('Stream Recovery - Quick Return', () => {
 test.describe('Stream Recovery - Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Enable streaming
     const streamBtn = page.locator('#stream-btn');

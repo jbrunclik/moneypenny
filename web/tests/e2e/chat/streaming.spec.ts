@@ -15,7 +15,7 @@ import {
   installScrollLog,
   attachScrollLog,
 } from './fixtures';
-import { nextFrames, scrollSettled } from '../waits';
+import { appReady, nextFrames, scrollSettled } from '../waits';
 
 test.describe('Chat - Streaming Mode', () => {
   test.beforeEach(async ({ page }) => {
@@ -26,7 +26,7 @@ test.describe('Chat - Streaming Mode', () => {
     await resetStreamDelay(page);
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming
@@ -113,7 +113,7 @@ test.describe('Chat - Streaming Mode', () => {
 test.describe('Chat - Streaming Auto-Scroll', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming for auto-scroll tests
@@ -430,7 +430,7 @@ test.describe('Chat - Streaming Auto-Scroll', () => {
 test.describe('Chat - Mid-run Steering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await enableStreaming(page);
   });
@@ -488,7 +488,7 @@ test.describe('Chat - Mid-run Steering', () => {
 test.describe('Chat - Unanswered Steering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await enableStreaming(page);
   });
@@ -526,7 +526,7 @@ test.describe('Chat - Unanswered Steering', () => {
 test.describe('Chat - Stop Streaming', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming for stop tests
@@ -726,7 +726,7 @@ test.describe('Chat - Stop Streaming', () => {
 test.describe('Chat - Streaming Scroll Pause Indicator', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming for these tests
@@ -957,7 +957,7 @@ test.describe('Chat - Send-to-top', () => {
         await clearMockResponse(page);
         await page.goto('/');
         if (layout.name === 'phone') {
-          await page.waitForSelector('#menu-btn');
+          await appReady(page);
           await page.click('#menu-btn');
         }
         await page.click('#new-chat-btn');
@@ -1207,7 +1207,7 @@ test.describe('Send-to-top - reserved space after an abnormal end', () => {
 
   test('stopping during the thinking phase leaves no empty space', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
     await enableStreaming(page);
@@ -1242,7 +1242,7 @@ test.describe('Send-to-top - following resumes only for the user', () => {
   // screen the view chased it - send-to-top lost
   test('a nudge at the anchor with no input does not start chasing the reply', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
     await enableStreaming(page);
@@ -1334,7 +1334,7 @@ test.describe('Send-to-top - band changes keep the turn anchored', () => {
 
   test('typing a multi-line follow-up mid-stream keeps the turn under the header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
     await enableStreaming(page);
@@ -1385,7 +1385,7 @@ test.describe('Send-to-top - the iOS keyboard opening mid-stream', () => {
       Object.defineProperty(window, 'visualViewport', { value: viewport, configurable: true });
     });
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
     await enableStreaming(page);
@@ -1518,7 +1518,7 @@ test.describe('Send-to-top - no pill while thinking', () => {
     const thoughts = Array.from({ length: 80 }, (_, i) => `Thought ${i + 1} about the joke.`).join('\n\n');
     await page.request.post('/test/set-emit-thinking', { data: { emit: true, text: thoughts, hold_ms: 4000 } });
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
     await enableStreaming(page);
@@ -1569,7 +1569,7 @@ test.describe('Chat - Stop Streaming on a phone', () => {
 
   test('stop keeps the partial reply with a Stopped note', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     // Below the mobile breakpoint new-chat lives in the sidebar
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');

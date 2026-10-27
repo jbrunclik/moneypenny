@@ -2,12 +2,12 @@
  * E2E tests for full-text search functionality
  */
 import { test, expect } from '../global-setup';
-import { scrollSettled } from './waits';
+import { appReady, scrollSettled } from './waits';
 
 test.describe('Search - Input', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // Wait for search input to be rendered
     await page.waitForSelector('#search-input', { timeout: 5000 });
   });
@@ -144,7 +144,7 @@ test.describe('Search - Input', () => {
 test.describe('Search - Results', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // Wait for search input to be rendered
     await page.waitForSelector('#search-input', { timeout: 5000 });
 
@@ -227,7 +227,7 @@ test.describe('Search - Results', () => {
 test.describe('Search - Mock Results', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // Wait for search input to be rendered
     await page.waitForSelector('#search-input', { timeout: 5000 });
   });
@@ -299,7 +299,7 @@ test.describe('Search - Mock Results', () => {
 test.describe('Search - Debounce', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // Wait for search input to be rendered
     await page.waitForSelector('#search-input', { timeout: 5000 });
 
@@ -331,7 +331,7 @@ test.describe('Search - Debounce', () => {
 test.describe('Search - Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // Wait for search input to be rendered
     await page.waitForSelector('#search-input', { timeout: 5000 });
 
@@ -390,7 +390,7 @@ test.describe('Search - Navigation', () => {
 test.describe('Search - Navigation with Pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.waitForSelector('#search-input', { timeout: 5000 });
 
     // Disable streaming for reliable batch responses

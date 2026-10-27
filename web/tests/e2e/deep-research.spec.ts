@@ -1,5 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 const OFFER = {
   question: 'Transfer a car registration',
@@ -16,7 +17,7 @@ async function offerTurn(
     data: { offer: { ...OFFER, run_now: options.runNow ?? false }, step_ms: options.stepMs ?? 150 },
   });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   await page.click('#new-chat-btn');
   await page.fill('#message-input', options.message ?? 'Help me transfer a car registration');
   await page.click('#send-btn');
@@ -119,7 +120,7 @@ test('deep research on mobile', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await request.post('/test/set-deep-research', { data: { offer: OFFER, step_ms: 150 } });
   await page.goto('/');
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   // On mobile, New chat lives in the sidebar
   await page.click('#menu-btn');
   await page.click('#new-chat-btn');

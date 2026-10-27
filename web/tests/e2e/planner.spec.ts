@@ -2,6 +2,7 @@
  * E2E tests for Planner feature
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Planner - Sidebar Entry Visibility', () => {
   test('shows planner entry when todoist connected', async ({ page }) => {
@@ -11,7 +12,7 @@ test.describe('Planner - Sidebar Entry Visibility', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Planner entry should be visible in sidebar
     const plannerEntry = page.locator('.planner-entry');
@@ -26,7 +27,7 @@ test.describe('Planner - Sidebar Entry Visibility', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Planner entry should be visible in sidebar
     const plannerEntry = page.locator('.planner-entry');
@@ -40,7 +41,7 @@ test.describe('Planner - Sidebar Entry Visibility', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Planner entry should be visible in sidebar
     const plannerEntry = page.locator('.planner-entry');
@@ -54,7 +55,7 @@ test.describe('Planner - Sidebar Entry Visibility', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Planner entry should NOT be visible
     const plannerEntry = page.locator('.planner-entry');
@@ -72,7 +73,7 @@ test.describe('Planner - Navigation', () => {
 
   test('navigates to planner via sidebar click', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click the planner entry
     const plannerEntry = page.locator('.planner-entry');
@@ -106,7 +107,7 @@ test.describe('Planner - Navigation', () => {
 
   test('browser back from planner returns to previous view', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Create a conversation first
     await page.click('#new-chat-btn');
@@ -128,7 +129,7 @@ test.describe('Planner - Navigation', () => {
 
   test('planner entry has active state when on planner view', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click the planner entry
     const plannerEntry = page.locator('.planner-entry');
@@ -380,7 +381,7 @@ test.describe('Planner - UI State Management', () => {
 
   test('model selector shows planner model when navigating to planner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Check initial model selector state (should show default model)
     const modelSelector = page.locator('#current-model-name');
@@ -402,7 +403,7 @@ test.describe('Planner - UI State Management', () => {
 
   test('cost display changes when navigating to planner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Create a conversation with some cost
     await page.click('#new-chat-btn');
@@ -434,7 +435,7 @@ test.describe('Planner - UI State Management', () => {
 
   test('model selector updates when switching from conversation to planner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Create a conversation with non-default model
     await page.click('#new-chat-btn');

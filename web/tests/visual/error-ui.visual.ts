@@ -3,7 +3,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { nextFrames, pageSettled } from '../e2e/waits';
+import { appReady, nextFrames, pageSettled } from '../e2e/waits';
 
 /**
  * Helper to dismiss any overlays that might interfere with tests
@@ -21,7 +21,7 @@ async function dismissOverlays(page: Page): Promise<void> {
 test.describe('Visual: Toast Notifications', () => {
   test('success toast', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a success toast directly (clipboard may not work in headless browser)
@@ -48,7 +48,7 @@ test.describe('Visual: Toast Notifications', () => {
 
   test('error toast', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject the error toast directly
@@ -76,7 +76,7 @@ test.describe('Visual: Toast Notifications', () => {
 
   test('warning toast', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a warning toast directly
@@ -103,7 +103,7 @@ test.describe('Visual: Toast Notifications', () => {
 
   test('info toast', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject an info toast directly
@@ -130,7 +130,7 @@ test.describe('Visual: Toast Notifications', () => {
 
   test('multiple toasts stacked', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject multiple toasts
@@ -169,7 +169,7 @@ test.describe('Visual: Toast Notifications', () => {
 test.describe('Visual: Modal Dialogs', () => {
   test('alert modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject an alert modal directly
@@ -205,7 +205,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
   test('confirm modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a confirm modal directly
@@ -238,7 +238,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
   test('danger confirm modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a danger confirm modal directly
@@ -271,7 +271,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
   test('prompt modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a prompt modal directly
@@ -305,7 +305,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
   test('delete confirmation modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Create a conversation with a message
@@ -343,7 +343,7 @@ test.describe('Visual: Modal Dialogs', () => {
 
   test('modal with page overlay', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Create a conversation with a message
@@ -384,7 +384,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
 
   test('mobile alert modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject an alert modal directly
@@ -416,7 +416,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
 
   test('mobile danger confirm modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a danger confirm modal directly
@@ -449,7 +449,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
 
   test('mobile prompt modal', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject a prompt modal directly
@@ -483,7 +483,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
 
   test('mobile toast notifications', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await dismissOverlays(page);
 
     // Inject multiple toasts
@@ -513,7 +513,7 @@ test.describe('Visual: Mobile Modal Dialogs', () => {
 test.describe('Visual: Version Banner', () => {
   test('version banner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Inject version banner directly (visible state)
     await page.evaluate(() => {
@@ -550,7 +550,7 @@ test.describe('Visual: Mobile Version Banner', () => {
 
   test('mobile version banner', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Inject version banner directly (visible state)
     await page.evaluate(() => {

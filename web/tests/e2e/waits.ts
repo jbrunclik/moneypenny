@@ -95,3 +95,15 @@ export async function serverReplySaved(page: Page, timeoutMs = 20000): Promise<v
     await page.waitForTimeout(100); // poll interval
   }
 }
+
+/**
+ * Wait until startup has settled (`<html data-app-ready>`, set in
+ * src/core/startup/app-ready.ts): signed in with the data loaded and the
+ * first sync done, or signed out with the sign-in button shown. Call it after
+ * `page.goto` - shell elements like `#new-chat-btn` exist from the first
+ * paint, so waiting for one lets a test act while the auth check or the first
+ * sync is still in flight.
+ */
+export async function appReady(page: Page, timeoutMs = 15000): Promise<void> {
+  await page.locator('html[data-app-ready]').waitFor({ state: 'attached', timeout: timeoutMs });
+}

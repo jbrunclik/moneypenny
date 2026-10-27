@@ -2,11 +2,12 @@
  * E2E tests for thinking indicator collapse/expand behavior
  */
 import { test, expect, enableStreaming, clickStop } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Thinking Indicator', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming (thinking indicator only shows in streaming mode)

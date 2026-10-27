@@ -7,7 +7,7 @@
  * - Delete detection during sync
  */
 import { test, expect } from '../global-setup';
-import { nextFrames } from './waits';
+import { appReady, nextFrames } from './waits';
 
 // Extend Window type for test helpers exposed by the app
 declare global {
@@ -19,7 +19,7 @@ declare global {
 test.describe('Sync - Unread Count Badges', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -75,7 +75,7 @@ test.describe('Sync - Unread Count Badges', () => {
 test.describe('Sync - Conversation Switching', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -149,7 +149,7 @@ test.describe('Sync - Conversation Switching', () => {
 test.describe('Sync - Conversation Deletion Detection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -201,7 +201,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
 
     // Alternative: Just reload the page which triggers full sync on startup
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Conversation should be removed from sidebar
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(0);
@@ -322,7 +322,7 @@ test.describe('Sync - Conversation Deletion Detection', () => {
 test.describe('Sync - Sync Endpoint Integration', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -401,7 +401,7 @@ test.describe('Sync - Sync Endpoint Integration', () => {
 test.describe('Sync - Multiple Tabs Simulation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -426,7 +426,7 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
 
     // Reload the page (triggers full sync)
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Both conversations should appear in the sidebar
     const convItems = page.locator('.conversation-item-wrapper');
@@ -465,7 +465,7 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
 
     // Reload the page (triggers full sync)
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Only one conversation should remain after sync
     const convItemsAfter = page.locator('.conversation-item-wrapper');
@@ -498,7 +498,7 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
 
     // Reload the page (triggers full sync)
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // The title should still be the updated one
     const title = page.locator('.conversation-item-wrapper .conversation-title').first();
@@ -509,7 +509,7 @@ test.describe('Sync - Multiple Tabs Simulation', () => {
 test.describe('Sync - Visibility Change', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -625,7 +625,7 @@ test.describe('Sync - Remote Conversation Created While Tab Hidden', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');

@@ -4,6 +4,7 @@
  */
 import { test, expect, enableStreaming } from './fixtures';
 import type { Page } from '@playwright/test';
+import { appReady } from '../waits';
 
 const CHAT_ENDPOINTS = '**/chat/{stream,batch}';
 
@@ -18,7 +19,7 @@ async function restoreSends(page: Page): Promise<void> {
 test.describe('Chat - Send Failure Handling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await enableStreaming(page);
   });
@@ -126,7 +127,7 @@ test.describe('Chat - Send Failure Handling', () => {
 test.describe('Chat - Send Auto-Retry', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await enableStreaming(page);
   });

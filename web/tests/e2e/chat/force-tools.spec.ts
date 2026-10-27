@@ -2,11 +2,12 @@
  * E2E tests for force tools (search button) functionality
  */
 import { test, expect } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Force Tools', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
   });
 

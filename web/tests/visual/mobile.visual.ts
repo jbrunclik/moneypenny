@@ -2,14 +2,14 @@
  * Visual regression tests for mobile layouts
  */
 import { test, expect } from '../global-setup';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 test.describe('Visual: Mobile iPhone', () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
   // Helper to create a new conversation on mobile (must open sidebar first)
   async function createNewConversation(page: import('@playwright/test').Page) {
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
     await page.waitForSelector('.sidebar-overlay.visible');
     await page.click('#new-chat-btn');
@@ -28,7 +28,7 @@ test.describe('Visual: Mobile iPhone', () => {
 
   test('mobile sidebar open', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Open sidebar
     await page.click('#menu-btn');
@@ -110,7 +110,7 @@ test.describe('Visual: Mobile iPad', () => {
 
   test('ipad layout', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     await page.waitForSelector('.welcome-message');
@@ -123,7 +123,7 @@ test.describe('Visual: Mobile iPad', () => {
 
   test('ipad with messages', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     await page.fill('#message-input', 'iPad test message');
@@ -139,7 +139,7 @@ test.describe('Visual: Mobile iPad', () => {
 
   test('ipad sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Create some conversations
     for (let i = 0; i < 2; i++) {
@@ -157,7 +157,7 @@ test.describe('Visual: Mobile iPad', () => {
 
 // Helper to create a new conversation on mobile (must open sidebar first)
 async function createNewConversationMobile(page: import('@playwright/test').Page): Promise<void> {
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   await page.click('#menu-btn');
   await page.waitForSelector('.sidebar-overlay.visible');
   await page.click('#new-chat-btn');
@@ -173,7 +173,7 @@ test.describe('Visual: Mobile Interactions', () => {
 
   test('empty conversations state', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Open sidebar (should show empty state)
     await page.click('#menu-btn');

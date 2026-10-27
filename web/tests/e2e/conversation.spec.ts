@@ -5,7 +5,7 @@ import { deflateSync } from 'zlib';
 import { test, expect } from '../global-setup';
 import { TEST_IMAGES } from '../fixtures/test-images';
 import { attachScrollLog, installScrollLog } from './chat/fixtures';
-import { nextFrames, scrollSettled } from './waits';
+import { appReady, nextFrames, scrollSettled } from './waits';
 
 /**
  * Generate a minimal valid PNG image buffer programmatically.
@@ -95,7 +95,7 @@ function generatePngBuffer(width: number, height: number, color: string = 'red')
 test.describe('Conversations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -348,7 +348,7 @@ test.describe('Conversations', () => {
 test.describe('Conversation deletion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -492,7 +492,7 @@ test.describe('Conversation deletion', () => {
 test.describe('Conversation rename', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -662,7 +662,7 @@ test.describe('Conversation rename', () => {
 test.describe('Scroll to bottom behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -736,7 +736,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Reload the page to test initial load scroll behavior
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the conversation to load it
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -788,7 +788,7 @@ test.describe('Scroll to bottom behavior', () => {
       data: { conversations: [{ title: 'History Scroll Test', messages }] },
     });
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.locator('.conversation-item-wrapper').first().click();
     await page.waitForSelector('.message.user', { timeout: 10000 });
 
@@ -1084,7 +1084,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Reload the page to test INITIAL LOAD behavior
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the conversation to load it (this is the initial load scenario)
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -1167,7 +1167,7 @@ test.describe('Scroll to bottom behavior', () => {
 
     // Reload the page to test INITIAL LOAD behavior
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the conversation to load it (this is the initial load scenario)
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -1318,7 +1318,7 @@ test.describe('Scroll to bottom behavior', () => {
     // On initial load, images are not in browser cache yet, so they load from the server
     // This tests the scenario where images load asynchronously and trigger scroll behavior
     await page.reload();
-    await page.waitForSelector('#new-chat-btn', { timeout: 20000 });
+    await appReady(page);
 
     // Click on the conversation to load it (this triggers the initial load scenario)
     const convItem = page.locator('.conversation-item-wrapper').first();
@@ -1636,7 +1636,7 @@ test.describe('Conversation group labels', () => {
 test.describe('Pinned conversations', () => {
   test('pin moves a conversation to the Pinned group and survives reload', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Two conversations so grouping is meaningful
     for (const text of ['First conversation', 'Second conversation']) {

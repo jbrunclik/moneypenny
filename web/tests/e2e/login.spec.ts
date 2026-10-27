@@ -5,22 +5,13 @@
  * Since E2E tests bypass auth by default, we show the login overlay
  * via DOM manipulation for testing.
  */
-import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-
-/**
- * Wait until startup has signed in: it hides the overlay once the auth check
- * returns, so a test that showed it before then saw it hidden again (WebKit,
- * Oct 2026). The user menu renders after that, with the loaded data.
- */
-async function signedIn(page: Page): Promise<void> {
-  await page.waitForSelector('#user-menu-btn');
-}
+import { appReady } from './waits';
 
 test.describe('Login Screen', () => {
   test('login overlay covers entire screen', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // Show login overlay
     await page.evaluate(() => {
@@ -47,7 +38,7 @@ test.describe('Login Screen', () => {
 
   test('login overlay shows correct content', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // Show login overlay
     await page.evaluate(() => {
@@ -77,7 +68,7 @@ test.describe('Login Screen', () => {
 
   test('login overlay blocks interaction with app behind', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // Show login overlay
     await page.evaluate(() => {
@@ -107,7 +98,7 @@ test.describe('Login Screen', () => {
 
   test('login overlay hides when hidden class is added', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // First show, then hide the overlay
     await page.evaluate(() => {
@@ -133,7 +124,7 @@ test.describe('Login Screen', () => {
 
   test('login overlay is hidden by default when authenticated', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // In E2E test mode, auth is bypassed so the overlay should be hidden
     const overlay = page.locator('#login-overlay');
@@ -142,7 +133,7 @@ test.describe('Login Screen', () => {
 
   test('login overlay uses theme background', async ({ page }) => {
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // Show login overlay
     await page.evaluate(() => {
@@ -170,7 +161,7 @@ test.describe('Login Screen', () => {
     await page.setViewportSize({ width: 375, height: 812 });
 
     await page.goto('/');
-    await signedIn(page);
+    await appReady(page);
 
     // Show login overlay
     await page.evaluate(() => {

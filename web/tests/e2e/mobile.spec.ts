@@ -3,7 +3,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../global-setup';
-import { pageSettled } from './waits';
+import { appReady, pageSettled } from './waits';
 
 /**
  * Open the sidebar and wait until its slide-in has finished. The row actions
@@ -23,7 +23,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('deleting the current conversation clears the mobile cost chip', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Create a conversation with recorded cost (new-chat lives in the sidebar)
     await page.click('#menu-btn');
@@ -49,7 +49,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('a deleted conversation can be restored from the trash', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     await page.click('#menu-btn');
     await page.click('#new-chat-btn');
@@ -79,7 +79,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('sidebar is hidden by default', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#sidebar');
+    await appReady(page);
 
     const sidebar = page.locator('#sidebar');
     await expect(sidebar).not.toHaveClass(/open/);
@@ -87,7 +87,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('menu button opens sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     await page.click('#menu-btn');
 
@@ -97,7 +97,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('overlay closes sidebar when clicked', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Open sidebar
     await page.click('#menu-btn');
@@ -121,7 +121,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('selecting conversation closes sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -190,7 +190,7 @@ test.describe('Mobile - iPhone', () => {
 
   test('new chat button in header', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const newChatBtn = page.locator('#new-chat-btn');
     await expect(newChatBtn).toBeVisible();
@@ -204,7 +204,7 @@ test.describe('Mobile - iPad', () => {
 
   test('layout adjusts for tablet', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // iPad is above mobile breakpoint, sidebar behavior may differ
     // This depends on your CSS breakpoints (768px mentioned in CLAUDE.md)
@@ -214,7 +214,7 @@ test.describe('Mobile - iPad', () => {
 
   test('can send messages on iPad', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -251,7 +251,7 @@ test.describe('Touch gestures', () => {
 
   test('swipe from left edge opens sidebar', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // Simulate edge swipe
     const app = page.locator('#app');
@@ -274,7 +274,7 @@ test.describe('Touch gestures', () => {
 
   test('swipe on conversation reveals delete', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -330,7 +330,7 @@ test.describe('Responsive behavior', () => {
     // Start at mobile size
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
-    await page.waitForSelector('#sidebar');
+    await appReady(page);
 
     // Sidebar hidden on mobile
     await expect(page.locator('#sidebar')).not.toHaveClass(/open/);

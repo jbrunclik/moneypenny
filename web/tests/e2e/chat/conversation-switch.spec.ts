@@ -12,12 +12,12 @@ import {
   resetBatchDelay,
   setEmitThinking,
 } from './fixtures';
-import { serverReplySaved } from '../waits';
+import { appReady, serverReplySaved } from '../waits';
 
 test.describe('Chat - Request Continuation on Conversation Switch', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
   });
 
   test('batch request completes after switching conversations', async ({ page }) => {
@@ -194,7 +194,7 @@ test.describe('Chat - Request Continuation on Conversation Switch', () => {
 test.describe('Chat - Conversation Switch During Active Request', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
   });
 
   test('restores streaming UI when switching back to conversation with active stream', async ({
@@ -465,7 +465,7 @@ test.describe('Chat - Conversation Switch During Active Request', () => {
 test.describe('Chat - Conversation Switch During Streaming Scroll', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
   });
 
   test('scroll state is restored when switching back to streaming conversation', async ({

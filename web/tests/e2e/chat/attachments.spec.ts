@@ -10,7 +10,7 @@ import {
   resetBatchDelay,
 } from './fixtures';
 import { Buffer } from 'buffer';
-import { nextFrames, scrollSettled } from '../waits';
+import { appReady, nextFrames, scrollSettled } from '../waits';
 
 test.describe('Chat - Image Loading Scroll', () => {
   /**
@@ -65,7 +65,7 @@ test.describe('Chat - Image Loading Scroll', () => {
 
     // Navigate to the app
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the seeded conversation
     const conversationItem = page.locator('.conversation-item-wrapper').first();
@@ -120,7 +120,7 @@ test.describe('Chat - Image Loading Scroll', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const conversationItem = page.locator('.conversation-item-wrapper').first();
     await conversationItem.click();
@@ -175,7 +175,7 @@ test.describe('Chat - Image Loading Scroll', () => {
 test.describe('Chat - Upload Progress', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
   });
 
@@ -385,7 +385,7 @@ test.describe('Chat - Video Upload', () => {
 
   test('user can attach and send a video', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
 
@@ -411,7 +411,7 @@ test.describe('Chat - Video Upload', () => {
 
   test('a historical video plays after tap-to-load', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
 
@@ -452,7 +452,7 @@ test.describe('Chat - Video Upload', () => {
       const configResponse = page.waitForResponse('**/api/config/upload');
       await page.goto('/');
       await configResponse;
-      await page.waitForSelector('#new-chat-btn');
+      await appReady(page);
       await page.click('#new-chat-btn');
 
       await attachVideo(page);
@@ -467,7 +467,7 @@ test.describe('Chat - Video Upload', () => {
 test.describe('Chat - Thinking Gated on Upload', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
   });
 
@@ -536,7 +536,7 @@ test.describe('Chat - Thinking Gated on Upload', () => {
 test.describe('Chat - Client-side Image Compression', () => {
   test('large images are downscaled and re-encoded before upload', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
 

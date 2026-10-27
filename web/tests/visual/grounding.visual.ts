@@ -4,6 +4,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { APIRequestContext, Page } from '@playwright/test';
+import { appReady } from '../e2e/waits';
 
 const ANNOTATIONS = {
   summary: { checked: true, source_count: 1 },
@@ -19,7 +20,7 @@ async function sendAnnotated(page: Page, request: APIRequestContext): Promise<vo
   // After the page fixture's reset, which clears the test's mock config
   await request.post('/test/set-grounding-result', { data: ANNOTATIONS });
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   await page.evaluate(() => {
     const banner = document.querySelector('.version-banner');
     if (banner) (banner as HTMLElement).style.display = 'none';

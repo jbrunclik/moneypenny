@@ -2,11 +2,12 @@
  * E2E tests for image lightbox functionality
  */
 import { test, expect, pngBuffer, enableStreaming, disableStreaming } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - Lightbox', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for consistent tests
@@ -215,7 +216,7 @@ test.describe('Chat - Lightbox', () => {
 test.describe('Chat - Lightbox Gallery', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
 

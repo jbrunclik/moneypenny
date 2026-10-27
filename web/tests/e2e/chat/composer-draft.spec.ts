@@ -3,6 +3,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { appReady } from '../waits';
 
 async function startConversation(page: Page, text: string): Promise<string> {
   await page.click('#new-chat-btn');
@@ -16,7 +17,7 @@ async function startConversation(page: Page, text: string): Promise<string> {
 test.describe('Chat - Composer draft', () => {
   test('text typed while a conversation loads is kept and can be sent', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     const first = await startConversation(page, 'First conversation');
     const second = await startConversation(page, 'Second conversation');
 

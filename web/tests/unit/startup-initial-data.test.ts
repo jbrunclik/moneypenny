@@ -140,6 +140,21 @@ describe('loadInitialData', () => {
     expect(h.calls).toContain('loadArchivedConversations');
   });
 
+  it('marks the app ready once the lists have loaded after the first sync', async () => {
+    delete document.documentElement.dataset.appReady;
+    await loadInitialData(null);
+    expect(document.documentElement.dataset.appReady).toBeUndefined();
+    h.onSyncStarted?.();
+    await vi.waitFor(() => expect(document.documentElement.dataset.appReady).toBe(''));
+  });
+
+  it('marks the app ready when loading fails (the error is what it shows)', async () => {
+    delete document.documentElement.dataset.appReady;
+    h.listError = new Error('down');
+    await loadInitialData(null);
+    expect(document.documentElement.dataset.appReady).toBe('');
+  });
+
   it('offers a refresh on failure, and still ends loading and re-renders', async () => {
     h.listError = new Error('offline');
     await loadInitialData(null);

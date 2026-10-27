@@ -2,11 +2,12 @@
  * E2E tests for URL detection and link behavior
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Links - User Messages', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for simpler tests
@@ -97,7 +98,7 @@ test.describe('Links - User Messages', () => {
 test.describe('Links - Assistant Messages (Markdown)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for simpler tests
@@ -133,7 +134,7 @@ test.describe('Links - Assistant Messages (Markdown)', () => {
 test.describe('Links - Streaming Mode', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Enable streaming
@@ -162,7 +163,7 @@ test.describe('Links - Streaming Mode', () => {
 test.describe('Links - Security', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
 
     // Disable streaming for simpler tests

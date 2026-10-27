@@ -4,6 +4,7 @@
  */
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, pdfBuffer, disableStreaming } from './fixtures';
+import { appReady } from '../waits';
 
 const PDF_VIEWER_CHUNK = 'PdfViewer-*.js';
 
@@ -56,7 +57,7 @@ async function pageWasReloaded(page: Page): Promise<boolean> {
 test.describe('Chat - Inline PDF viewer', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await disableStreaming(page);
   });

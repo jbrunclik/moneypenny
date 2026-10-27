@@ -2,12 +2,13 @@
  * Touch screens get 44px hit areas on the small composer/header controls.
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
 
 test('small controls answer taps within a 44px area', async ({ page }) => {
   await page.goto('/');
-  await page.waitForSelector('#menu-btn');
+  await appReady(page);
   for (const id of ['attach-btn', 'toolbar-options-btn', 'send-btn', 'menu-btn']) {
     const hit = await page.evaluate((id) => {
       const btn = document.getElementById(id)!;

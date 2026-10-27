@@ -8,11 +8,12 @@
  * is what made users send it again.
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Batch turn after reload', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -36,7 +37,7 @@ test.describe('Batch turn after reload', () => {
     await expect.poll(async () => { const id = page.url().split('/conversations/')[1]; if (!id) return 0; const r = await page.request.get(`/api/conversations/${id}/messages`); return r.ok() ? ((await r.json()) as { messages: unknown[] }).messages.length : 0; }, { timeout: 5000 }).toBeGreaterThan(0);
 
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // The user message is back from the server; the spinner says a reply is coming
     await expect(page.locator('.message.user')).toHaveCount(1);

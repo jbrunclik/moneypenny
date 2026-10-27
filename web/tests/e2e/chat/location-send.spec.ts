@@ -4,6 +4,7 @@
  * streaming bubble existed, so the user saw only their own message.
  */
 import { test, expect, setStreamDelay, resetStreamDelay } from './fixtures';
+import { appReady } from '../waits';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -23,7 +24,7 @@ test.afterEach(async ({ page }) => {
 
 test('the thinking bar appears at once while the location fix is still pending', async ({ page }) => {
   await page.goto('/');
-  await page.waitForSelector('#new-chat-btn');
+  await appReady(page);
   await page.click('#new-chat-btn');
   await setStreamDelay(page, 50);
 

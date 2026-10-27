@@ -2,7 +2,7 @@
  * Visual regression tests for Agents (Command Center) feature
  */
 import { test, expect, waitForSidebarSettled } from '../global-setup';
-import { nextFrames, pageSettled, scrollSettled } from '../e2e/waits';
+import { appReady, nextFrames, pageSettled, scrollSettled } from '../e2e/waits';
 
 test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry default state', async ({ page }) => {
@@ -413,7 +413,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the seeded conversation
     const convItem = page.locator('.conversation-item').first();
@@ -447,7 +447,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the seeded conversation
     const convItem = page.locator('.conversation-item').first();
@@ -481,7 +481,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the seeded conversation
     const convItem = page.locator('.conversation-item').first();
@@ -523,7 +523,7 @@ test.describe('Visual: Agent Trigger Messages', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Click on the seeded conversation
     const convItem = page.locator('.conversation-item').first();

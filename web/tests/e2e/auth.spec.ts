@@ -2,13 +2,14 @@
  * E2E tests for authentication flow
  */
 import { test, expect } from '../global-setup';
+import { appReady } from './waits';
 
 test.describe('Authentication', () => {
   test('app loads successfully', async ({ page }) => {
     await page.goto('/');
 
     // Wait for app to initialize
-    await page.waitForSelector('#app');
+    await appReady(page);
 
     // In test mode, auth is bypassed, so we should see the main UI
     await expect(page.locator('#sidebar')).toBeVisible();
@@ -25,7 +26,7 @@ test.describe('Authentication', () => {
     });
 
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     expect(googleRequests).toEqual([]);
   });
@@ -34,7 +35,7 @@ test.describe('Authentication', () => {
     await page.goto('/');
 
     // Wait for app to load
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Should show user info after auth (test mode uses test@example.com)
     // Note: In test mode with FLASK_ENV=testing, the auth might be bypassed
@@ -46,7 +47,7 @@ test.describe('Authentication', () => {
   test('new chat button is visible', async ({ page }) => {
     await page.goto('/');
 
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const newChatBtn = page.locator('#new-chat-btn');
     await expect(newChatBtn).toBeVisible();
@@ -69,7 +70,7 @@ test.describe('Mobile viewport', () => {
   test('sidebar is hidden by default on mobile', async ({ page }) => {
     await page.goto('/');
 
-    await page.waitForSelector('#sidebar');
+    await appReady(page);
 
     const sidebar = page.locator('#sidebar');
     // Sidebar should not have 'open' class on mobile initially
@@ -79,7 +80,7 @@ test.describe('Mobile viewport', () => {
   test('menu button is visible on mobile', async ({ page }) => {
     await page.goto('/');
 
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
 
     const menuBtn = page.locator('#menu-btn');
     await expect(menuBtn).toBeVisible();
@@ -88,7 +89,7 @@ test.describe('Mobile viewport', () => {
   test('clicking menu button opens sidebar', async ({ page }) => {
     await page.goto('/');
 
-    await page.waitForSelector('#menu-btn');
+    await appReady(page);
     await page.click('#menu-btn');
 
     const sidebar = page.locator('#sidebar');

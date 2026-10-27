@@ -90,6 +90,7 @@ session and points here for the rest.
 | F9 | Real `<button>`, not `role="button"` on a div - except a row that holds other buttons (a `<button>` cannot nest them), which keeps `role="button"` with `tabindex` and Enter/Space handling; a button inside a `<form>` declares its `type`; an `aria-modal` dialog traps focus | `web/tests/unit/button-types.test.ts` (types in forms); judgment (the rest; every `aria-modal` dialog traps focus and every `role="button"` handles Enter/Space as of Oct 25 2026) |
 | F10 | No unused exports (a config value nobody reads drifts from the copy someone does) | knip (`web/knip.jsonc`, in `make lint`; no baseline - a deliberate alias export carries `@alias`) |
 | F11 | State management is Zustand ([store.ts](../web/src/state/store.ts)); dynamic content uses event delegation; `textContent` for plain text; icons from `icons.ts` | judgment |
+| F12 | A list the sync change log keeps current (archive, trash, any new one) is loaded at startup only after the first full sync has its cursor - [sync](features/sync.md#9-lists-loaded-at-startup-oct-27-2026) | `web/tests/unit/startup-initial-data.test.ts` (the lists load in `startSync`'s `onStarted`); judgment for a new list |
 
 ### Code shape, both stacks (C)
 
@@ -111,7 +112,7 @@ Details: [testing.md](testing.md).
 | T1 | Bug fixes are test-first: a failing test, then the fix, then the full suite | judgment (`/fix-bug`) |
 | T2 | Coverage floors follow actual coverage, about two points under it (backend 83%; frontend lines 44%, branches 40%) | `fail_under` (pyproject), vitest `coverage.thresholds` |
 | T3 | No placeholder tests (a body of only `pass`, a docstring or comments) | test (`test_test_hygiene.py`) |
-| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why | test (`test_test_hygiene.py`, both at 0: `waitForTimeout` since Oct 26 2026, `time.sleep` since Oct 27 - rows written back to back get distinct timestamps from the test clock (`strictly_increasing_clock` in `tests/conftest.py`), a chat turn's threads are joined with the `join_turn_threads` fixture, and in E2E wait on a condition with `web/tests/e2e/waits.ts` (`nextFrames`, `scrollSettled`, `pageSettled`, `serverReplySaved`) or an auto-waiting assertion; a fixed span stays only where elapsed time is the subject) |
+| T4 | No new fixed sleeps (`time.sleep`, `waitForTimeout`) without a same-line comment saying why; after navigating, an E2E spec waits for `appReady(page)` (startup settled), not a shell element that exists from the first paint | test (`test_test_hygiene.py`, both at 0: `waitForTimeout` since Oct 26 2026, `time.sleep` since Oct 27 - rows written back to back get distinct timestamps from the test clock (`strictly_increasing_clock` in `tests/conftest.py`), a chat turn's threads are joined with the `join_turn_threads` fixture, and in E2E wait on a condition with `web/tests/e2e/waits.ts` (`appReady`, `nextFrames`, `scrollSettled`, `pageSettled`, `serverReplySaved`) or an auto-waiting assertion; a fixed span stays only where elapsed time is the subject; `waitForSelector` on `#app`, `#new-chat-btn`, `#user-info`, `#menu-btn` or `#sidebar` is refused, at 0 since Oct 27) |
 | T5 | E2E mock responses validate against the API schema | test (`test_e2e_mock_schema.py`) |
 | T6 | A flaky test fails CI unless it is on the quarantine list (with a TODO entry) | `web/tests/flaky-gate.ts` after each CI E2E shard (reads the JSON report; `web/tests/e2e/flaky-quarantine.json` lists the allowed flakes, `tests/unit/flaky-gate.test.ts` checks each entry names a real test) |
 | T7 | Tests exercise public behavior, not `_private` names or test-only exports | test (`test_test_hygiene.py`: no import of a `_private` name from `src`; the 66 of Oct 26 2026 went the same day - pure logic moved to modules with public names, the rest tested through its entry point) |
@@ -119,6 +120,7 @@ Details: [testing.md](testing.md).
 | T9 | Unit tests touch neither a database nor the Flask client; anything that does is an integration test | judgment |
 | T10 | E2E runs the last `make build`; rebuild after any frontend change ([rule](../.claude/rules/testing.md)) | judgment |
 | T11 | UI changes are checked on desktop and mobile (768px breakpoint) | judgment; visual tests |
+| T12 | A guard test (a scan or contract that enforces a rule) also proves it can fail: a built-in case with the banned pattern, or a mutation checked once by hand and named in the commit | judgment; examples `test_naive_datetimes.py` (`test_the_scan_sees_each_pattern`), `test_payload_parity.py` (`test_the_check_sees_a_drift`) |
 
 ### Agent workflow (A)
 

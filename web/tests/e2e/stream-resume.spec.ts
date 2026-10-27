@@ -23,6 +23,7 @@
  */
 import { test, expect } from '../global-setup';
 import { clickStop } from './chat/fixtures';
+import { appReady } from './waits';
 
 /**
  * Intercept the next POST /chat/stream, let the REAL server process it fully,
@@ -52,7 +53,7 @@ async function truncateNextStream(page: import('@playwright/test').Page, keepEve
 test.describe('Resumable streams', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Enable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -136,7 +137,7 @@ test.describe('Resumable streams', () => {
     // Simulate a client crash: full page reload mid-stream. The hash route
     // reopens the conversation; the in-flight entry triggers a resume.
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({
       timeout: 30000,
@@ -174,7 +175,7 @@ test.describe('Resumable streams', () => {
 
     // Second reload, mid-resume: the turn must still be picked up
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     await expect(page.locator('.message.assistant:not(.streaming)').last()).toBeVisible({
       timeout: 30000,
@@ -305,7 +306,7 @@ test.describe('Resumable streams', () => {
 
   test('opening a chat whose turn died offers Retry', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await page.fill('#message-input', 'Hello there');
     await page.click('#send-btn');

@@ -5,6 +5,7 @@
  * the reply - the conversation ended on the user's message.
  */
 import { test, expect, enableStreaming, failNextStream, setMockResponse, clearMockResponse } from './fixtures';
+import { appReady } from '../waits';
 
 test.describe('Chat - server error before any text', () => {
   test.afterEach(async ({ page }) => {
@@ -13,7 +14,7 @@ test.describe('Chat - server error before any text', () => {
 
   test('fails at once with a Retry that answers the message', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await page.click('#new-chat-btn');
     await enableStreaming(page);
 

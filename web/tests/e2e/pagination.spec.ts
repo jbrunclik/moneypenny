@@ -2,12 +2,12 @@
  * E2E tests for pagination (conversations and messages)
  */
 import { test, expect } from '../global-setup';
-import { nextFrames, scrollSettled } from './waits';
+import { appReady, nextFrames, scrollSettled } from './waits';
 
 test.describe('Conversations Pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -61,7 +61,7 @@ test.describe('Conversations Pagination', () => {
 
     // Reload to see seeded conversations
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Verify all conversations are in sidebar
     const convItems = page.locator('.conversation-item-wrapper');
@@ -135,7 +135,7 @@ test.describe('Conversations Pagination', () => {
 test.describe('Conversations Pagination - Load More', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -190,7 +190,7 @@ test.describe('Conversations Pagination - Load More', () => {
 
     // Reload to see seeded conversations
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Verify initial conversations loaded
     const convItems = page.locator('.conversation-item-wrapper');
@@ -273,7 +273,7 @@ test.describe('Conversations Pagination - Load More', () => {
 
     // Reload to see seeded conversations
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // The first page (30 items) must be RENDERED before scrolling: scrolling a
     // list that is still skeletons is a no-op and never fires the handler
     await expect(page.locator('.conversation-item-wrapper')).toHaveCount(30, { timeout: 10000 });
@@ -299,7 +299,7 @@ test.describe('Conversations Pagination - Load More', () => {
 test.describe('Pagination with Sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -346,7 +346,7 @@ test.describe('Pagination with Sync', () => {
 
     // Reload page to see seeded conversations
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Wait for conversations to load
     const convItems = page.locator('.conversation-item-wrapper');
@@ -364,7 +364,7 @@ test.describe('Pagination with Sync', () => {
 test.describe('Pagination Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming
     const streamBtn = page.locator('#stream-btn');
@@ -443,7 +443,7 @@ test.describe('Pagination Edge Cases', () => {
 test.describe('Messages Pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -609,7 +609,7 @@ test.describe('Messages Pagination', () => {
 test.describe('Pagination with Sync - Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Disable streaming for reliable mock responses
     const streamBtn = page.locator('#stream-btn');
@@ -636,7 +636,7 @@ test.describe('Pagination with Sync - Edge Cases', () => {
 
     // Reload to see seeded conversations
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     // Wait for conversations to load
     const convItems = page.locator('.conversation-item-wrapper');
@@ -670,7 +670,7 @@ test.describe('Pagination with Sync - Edge Cases', () => {
     });
 
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(numConversations, { timeout: 10000 });
@@ -718,7 +718,7 @@ test.describe('Pagination with Sync - Edge Cases', () => {
     });
 
     await page.reload();
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
 
     const convItems = page.locator('.conversation-item-wrapper');
     await expect(convItems).toHaveCount(2, { timeout: 10000 });

@@ -648,12 +648,15 @@ describe('app startup (signed out, booting into a route)', () => {
   it('shows the loader and the sign-in button instead of loading data', async () => {
     window.location.hash = '#/planner';
     document.body.innerHTML = '<div id="app"></div>';
+    delete document.documentElement.dataset.appReady;
     vi.mocked(checkAuth).mockImplementationOnce(() => {
       calls.push('checkAuth');
       return Promise.resolve(false);
     });
     calls.length = 0;
     await init();
+    // Signed out, startup has settled once the sign-in button is in place
+    expect(document.documentElement.dataset.appReady).toBe('');
     await flush();
     expect(calls).toEqual([
       'initErrorReporting',

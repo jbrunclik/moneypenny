@@ -5,7 +5,7 @@
  */
 import { test, expect } from '../global-setup';
 import type { Page } from '@playwright/test';
-import { pageSettled } from '../e2e/waits';
+import { appReady, pageSettled } from '../e2e/waits';
 
 /** Static loading icon (no animation for deterministic screenshots) */
 const LOADING_ICON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-dashoffset="10" transform="rotate(-90 12 12)"/></svg>`;
@@ -139,7 +139,7 @@ async function injectToast(
 test.describe('Visual: Stream Recovery - Desktop', () => {
   test('recovering in progress', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupStreamingMessage(page);
     await injectToast(page, 'info', 'Recovering response...', LOADING_ICON);
     await pageSettled(page);
@@ -149,7 +149,7 @@ test.describe('Visual: Stream Recovery - Desktop', () => {
 
   test('recovery succeeded', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupStreamingMessage(page);
     await injectToast(page, 'success', 'Response recovered', CHECK_ICON);
     await pageSettled(page);
@@ -159,7 +159,7 @@ test.describe('Visual: Stream Recovery - Desktop', () => {
 
   test('recovery warning', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupIncompleteMessage(page);
     await injectToast(page, 'warning', 'Response may be incomplete', WARNING_ICON);
     await pageSettled(page);
@@ -169,7 +169,7 @@ test.describe('Visual: Stream Recovery - Desktop', () => {
 
   test('recovery failed', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupIncompleteMessage(page);
     await injectToast(
       page,
@@ -193,7 +193,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
 
   test('recovering in progress', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupStreamingMessage(page);
     await injectToast(page, 'info', 'Recovering response...', LOADING_ICON);
     await pageSettled(page);
@@ -203,7 +203,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
 
   test('recovery succeeded', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupStreamingMessage(page);
     await injectToast(page, 'success', 'Response recovered', CHECK_ICON);
     await pageSettled(page);
@@ -213,7 +213,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
 
   test('recovery warning', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupIncompleteMessage(page);
     await injectToast(page, 'warning', 'Response may be incomplete', WARNING_ICON);
     await pageSettled(page);
@@ -223,7 +223,7 @@ test.describe('Visual: Stream Recovery - Mobile', () => {
 
   test('recovery failed', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     await setupIncompleteMessage(page);
     await injectToast(
       page,

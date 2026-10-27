@@ -7,6 +7,7 @@
 import { readFileSync } from 'fs';
 import type { APIRequestContext, FrameLocator, Page } from '@playwright/test';
 import { test, expect } from '../../global-setup';
+import { appReady } from '../waits';
 
 // Playwright runs from web/ (the same relative-path style as attachments.spec.ts)
 const KITCHEN_SINK = readFileSync('tests/fixtures/artifact-kitchen-sink.html', 'utf8');
@@ -22,7 +23,7 @@ async function artifactTurn(
   await request.post('/test/set-artifact', { data: artifact });
   if (newChat) {
     await page.goto('/');
-    await page.waitForSelector('#new-chat-btn');
+    await appReady(page);
     // On mobile, New chat lives in the sidebar
     if (await page.locator('#menu-btn').isVisible()) await page.click('#menu-btn');
     await page.click('#new-chat-btn');
