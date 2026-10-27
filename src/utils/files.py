@@ -1,8 +1,8 @@
-"""File validation utilities."""
+"""File attachments: their shapes and validation."""
 
 import base64
 import binascii
-from typing import Any
+from typing import NotRequired, TypedDict
 
 import magic
 
@@ -10,6 +10,36 @@ from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class UploadedFile(TypedDict):
+    """A file as a turn carries it: the bytes base64-encoded (the chat request's
+    FileAttachment, or a tool's output), plus what the turn adds on the way."""
+
+    name: str
+    type: str  # MIME type
+    data: str
+    thumbnail: NotRequired[str | None]  # base64 JPEG (images)
+    thumbnail_status: NotRequired[str]  # ThumbnailStatus value
+    gemini_file_uri: NotRequired[str]  # set when uploaded to the Files API
+    gemini_upload_error: NotRequired[str]
+
+
+class StoredFile(TypedDict):
+    """A file attachment as `messages.files` keeps it; its bytes and thumbnail
+    are in the blob store (src/db/blob_store.py)."""
+
+    name: str
+    type: str  # MIME type
+    size: NotRequired[int]  # bytes
+    has_thumbnail: NotRequired[bool]
+    thumbnail_status: NotRequired[str]  # ThumbnailStatus value
+    gemini_file_uri: NotRequired[str]
+    gemini_upload_error: NotRequired[str]
+    # Rows from before the blob store kept the bytes inline (base64)
+    data: NotRequired[str]
+    thumbnail: NotRequired[str]
+
 
 # Mapping of allowed MIME types to their expected magic-detected MIME types
 # Some MIME types may be detected differently by libmagic than what browsers send
@@ -204,7 +234,7 @@ def max_size_for_mime(mime_type: str) -> int:
     return Config.MAX_FILE_SIZE_BYTES
 
 
-def validate_files(files: list[dict[str, Any]]) -> tuple[bool, str]:
+def validate_files(files: list[UploadedFile]) -> tuple[bool, str]:
     """Validate uploaded files against config limits.
 
     Args:

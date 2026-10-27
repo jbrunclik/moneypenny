@@ -11,6 +11,7 @@ from PIL import Image, UnidentifiedImageError
 
 from src.config import Config
 from src.enums import ThumbnailStatus
+from src.utils.files import UploadedFile
 from src.utils.logging import get_logger
 
 # PIL cannot open HEIC/HEIF (iPhone photos) without this plugin
@@ -162,7 +163,7 @@ def downscale_image_for_reference(binary_data: bytes, mime_type: str) -> tuple[b
     return output.getvalue(), "image/jpeg"
 
 
-def process_image_files_sync(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def process_image_files_sync(files: list[UploadedFile]) -> list[UploadedFile]:
     """Process a list of files and add thumbnails to images synchronously.
 
     This is used for tool-generated images where we want synchronous thumbnail
@@ -244,7 +245,7 @@ def _get_full_result_field(tool_result: dict[str, Any], field: str) -> Any | Non
     return full_result.get(field)
 
 
-def _create_file_entry_with_thumbnail(name: str, mime_type: str, data: str) -> dict[str, Any]:
+def _create_file_entry_with_thumbnail(name: str, mime_type: str, data: str) -> UploadedFile:
     """Create a file entry dict with optional thumbnail generation.
 
     Args:
@@ -255,7 +256,7 @@ def _create_file_entry_with_thumbnail(name: str, mime_type: str, data: str) -> d
     Returns:
         File dict with thumbnail added if it's an image
     """
-    file_dict: dict[str, Any] = {
+    file_dict: UploadedFile = {
         "name": name,
         "type": mime_type,
         "data": data,
@@ -271,7 +272,7 @@ def _create_file_entry_with_thumbnail(name: str, mime_type: str, data: str) -> d
 
 def extract_generated_images_from_tool_results(
     tool_results: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> list[UploadedFile]:
     """Extract generated images from tool results.
 
     Scans tool results for generate_image outputs and extracts the image data
@@ -284,7 +285,7 @@ def extract_generated_images_from_tool_results(
     Returns:
         List of file dicts with {name, type, data, thumbnail} to store
     """
-    files: list[dict[str, Any]] = []
+    files: list[UploadedFile] = []
 
     for msg in tool_results:
         tool_result = _parse_tool_result_json(msg)
@@ -318,7 +319,7 @@ def extract_generated_images_from_tool_results(
 
 def extract_code_output_files_from_tool_results(
     tool_results: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> list[UploadedFile]:
     """Extract generated files from execute_code tool results.
 
     Scans tool results for execute_code outputs and extracts the file data
@@ -331,7 +332,7 @@ def extract_code_output_files_from_tool_results(
     Returns:
         List of file dicts with {name, type, data, thumbnail?} to store
     """
-    files: list[dict[str, Any]] = []
+    files: list[UploadedFile] = []
 
     for msg in tool_results:
         tool_result = _parse_tool_result_json(msg)

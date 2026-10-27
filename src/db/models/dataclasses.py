@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from src.enums import MessageRole
+from src.utils.files import StoredFile
 
 
 @dataclass
@@ -81,7 +82,7 @@ class Message:
     role: MessageRole
     content: str  # Plain text message
     created_at: datetime
-    files: list[dict[str, Any]] = field(default_factory=list)  # File attachments
+    files: list[StoredFile] = field(default_factory=list)  # File attachments
     sources: list[dict[str, str]] | None = None  # Web sources for assistant messages
     generated_images: list[dict[str, str]] | None = None  # Generated image metadata
     language: str | None = None  # ISO 639-1 language code (e.g., "en", "cs") for TTS

@@ -25,6 +25,7 @@ from src.enums import ThumbnailStatus
 from src.services.background_thumbnails import generate_and_save_thumbnail
 from src.services.file_retention import is_file_expired, retention_note
 from src.utils.clock import utc_now
+from src.utils.files import StoredFile
 from src.utils.images import transcode_image_for_browser
 from src.utils.logging import get_logger
 
@@ -103,7 +104,7 @@ def _cached_image(binary_data: bytes, mimetype: str) -> Response:
 
 def _thumbnail_image_file(
     user: User, message_id: str, file_index: int
-) -> tuple[Message, dict[str, Any]]:
+) -> tuple[Message, StoredFile]:
     """The message and image file a thumbnail request names (raises 403/404/400)."""
     # Get the message
     message = db.get_message_by_id(message_id)
@@ -195,7 +196,7 @@ def _pending_thumbnail(
 
 
 def _stored_thumbnail(
-    message_id: str, file_index: int, file: dict[str, Any], log_extra: dict[str, Any]
+    message_id: str, file_index: int, file: StoredFile, log_extra: dict[str, Any]
 ) -> Response | None:
     """The saved thumbnail (blob store, else the legacy base64 field), if there is one."""
     has_thumbnail = file.get("has_thumbnail", False)
@@ -232,7 +233,7 @@ def _stored_thumbnail(
 def _full_image_fallback(
     message_id: str,
     file_index: int,
-    file: dict[str, Any],
+    file: StoredFile,
     file_type: str,
     log_extra: dict[str, Any],
 ) -> Response | None:
@@ -304,7 +305,7 @@ def get_message_file(
     raise_not_found_error("File data")
 
 
-def _requested_file(user: User, message_id: str, file_index: int) -> tuple[Message, dict[str, Any]]:
+def _requested_file(user: User, message_id: str, file_index: int) -> tuple[Message, StoredFile]:
     """The message and file a file request names (raises 403/404/410)."""
     # Get the message
     message = db.get_message_by_id(message_id)
@@ -374,9 +375,7 @@ def _blob_file(message_id: str, file_index: int, log_extra: dict[str, Any]) -> R
     return _cached_image(binary_data, mime_type)
 
 
-def _legacy_file(
-    file: dict[str, Any], file_type: str, log_extra: dict[str, Any]
-) -> Response | None:
+def _legacy_file(file: StoredFile, file_type: str, log_extra: dict[str, Any]) -> Response | None:
     """The file from legacy base64 data (unmigrated messages), or None."""
     file_data = file.get("data", "")
     if not file_data:

@@ -53,7 +53,7 @@ from src.services.background_thumbnails import (
     queue_pending_thumbnails,
 )
 from src.services.planner.dashboard import build_planner_dashboard
-from src.utils.files import validate_files
+from src.utils.files import UploadedFile, validate_files
 from src.utils.logging import get_logger, log_payload_snippet
 
 logger = get_logger(__name__)
@@ -71,7 +71,7 @@ class PreparedTurn:
     conv: Conversation
     user_msg: Message
     message_text: str
-    files: list[dict[str, Any]]
+    files: list[UploadedFile]
     history: list[dict[str, Any]]
     force_tools: list[str] | None
     anonymous_mode: bool
@@ -93,7 +93,10 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     anonymous_mode = conv.anonymous_mode or data.anonymous_mode
     if data.anonymous_mode and not conv.anonymous_mode:
         db.set_conversation_anonymous_mode(conv_id, user.id, True)
-    files = _validate_files(user, conv_id, [f.model_dump() for f in data.files])
+    uploads: list[UploadedFile] = [
+        {"name": f.name, "type": f.type, "data": f.data} for f in data.files
+    ]
+    files = _validate_files(user, conv_id, uploads)
     log_payload_snippet(
         logger,
         {
@@ -179,7 +182,7 @@ def _get_chat_conversation(user: User, conv_id: str) -> Conversation:
     return conv
 
 
-def _validate_files(user: User, conv_id: str, files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _validate_files(user: User, conv_id: str, files: list[UploadedFile]) -> list[UploadedFile]:
     """Content validation (base64 decoding, size); Pydantic checked structure."""
     if not files:
         return files
@@ -233,7 +236,7 @@ def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> dict[str, Any] 
 def _save_user_message(
     conv_id: str,
     message_text: str,
-    files: list[dict[str, Any]],
+    files: list[UploadedFile],
     client_message_id: str | None,
     action: dict[str, Any] | None = None,
 ) -> Message:
@@ -291,7 +294,7 @@ class TurnContext:
     custom_instructions: str | None = None
     model: str = Config.DEFAULT_MODEL
     conversation_title: str | None = None
-    files: list[dict[str, Any]] = field(default_factory=list)
+    files: list[UploadedFile] = field(default_factory=list)
     history: list[dict[str, Any]] = field(default_factory=list)
     force_tools: list[str] | None = None
     anonymous_mode: bool = False

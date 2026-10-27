@@ -125,6 +125,8 @@ wind_speed  # src/utils/weather.py WeatherPeriod / WeatherForecast
 wind_direction
 cloud_coverage
 fetched_at
+gemini_file_uri  # src/utils/files.py UploadedFile / StoredFile (read as file["..."])
+gemini_upload_error
 
 # --- Framework interfaces -----------------------------------------------------
 _.row_factory  # sqlite3.Connection

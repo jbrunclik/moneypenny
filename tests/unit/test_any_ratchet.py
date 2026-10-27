@@ -12,7 +12,7 @@ from pathlib import Path
 
 _SRC = Path(__file__).parents[2] / "src"
 
-ANY_BASELINE = 1140  # Oct 26 2026
+ANY_BASELINE = 1095  # Oct 27 2026 (file attachments typed: StoredFile, UploadedFile)
 
 
 def _any_uses(path: Path) -> int:

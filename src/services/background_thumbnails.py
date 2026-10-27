@@ -7,11 +7,11 @@ when complete.
 
 import base64
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 from src.config import Config
 from src.db.models import db
 from src.enums import ThumbnailStatus
+from src.utils.files import UploadedFile
 from src.utils.images import generate_thumbnail
 from src.utils.lazy import Lazy
 from src.utils.logging import get_logger
@@ -168,7 +168,7 @@ def _generate_thumbnail_task(
             logger.debug("Thread-local db connection close failed", exc_info=True)
 
 
-def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def mark_files_for_thumbnail_generation(files: list[UploadedFile]) -> list[UploadedFile]:
     """Mark files with appropriate thumbnail status before saving.
 
     This should be called BEFORE saving the message to the database.
@@ -209,7 +209,7 @@ def mark_files_for_thumbnail_generation(files: list[dict[str, Any]]) -> list[dic
     return files
 
 
-def queue_pending_thumbnails(message_id: str, files: list[dict[str, Any]]) -> None:
+def queue_pending_thumbnails(message_id: str, files: list[UploadedFile]) -> None:
     """Queue background thumbnail generation for all pending files.
 
     This should be called AFTER saving the message to the database,

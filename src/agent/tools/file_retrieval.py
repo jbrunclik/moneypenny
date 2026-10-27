@@ -13,6 +13,7 @@ from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import db, make_blob_key
 from src.services.file_retention import is_file_expired, retention_note
+from src.utils.files import StoredFile
 from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
 
@@ -146,7 +147,7 @@ def retrieve_file(
 
 
 def _load_file_data(
-    message_id: str, file_index: int, file_meta: dict[str, Any], mime_type: str
+    message_id: str, file_index: int, file_meta: StoredFile, mime_type: str
 ) -> tuple[bytes, str] | str:
     """The file's bytes and MIME type, or a tool error when they cannot be read."""
     # Get file data from blob store

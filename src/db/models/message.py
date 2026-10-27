@@ -23,6 +23,7 @@ from src.db.models.message_rows import row_to_message
 from src.db.models.timestamps import to_db
 from src.enums import MessageRole
 from src.utils.clock import utc_now
+from src.utils.files import StoredFile, UploadedFile
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -33,14 +34,14 @@ logger = get_logger(__name__)
 
 def _store_message_payload(
     message_id: str,
-    files: list[dict[str, Any]],
+    files: list[UploadedFile],
     sources: list[dict[str, str]] | None,
     generated_images: list[dict[str, str]] | None,
     tool_outputs: list[dict[str, str]] | None,
-) -> tuple[list[dict[str, Any]], str | None, str | None, str | None, str | None]:
+) -> tuple[list[StoredFile], str | None, str | None, str | None, str | None]:
     """Save file blobs; return (files_metadata, files, sources, images, tool_outputs JSON)."""
     # Extract metadata and save binary data to blob store
-    files_metadata: list[dict[str, Any]] = []
+    files_metadata: list[StoredFile] = []
     for idx, file_data in enumerate(files):
         # Save file data and thumbnail to blob store
         save_file_to_blob_store(message_id, idx, file_data)
@@ -191,7 +192,7 @@ class MessageMixin:
         conversation_id: str,
         role: MessageRole | str,
         content: str,
-        files: list[dict[str, Any]] | None = None,
+        files: list[UploadedFile] | None = None,
         sources: list[dict[str, str]] | None = None,
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,
@@ -435,7 +436,7 @@ class MessageMixin:
         self,
         message_id: str,
         content: str,
-        files: list[dict[str, Any]] | None = None,
+        files: list[UploadedFile] | None = None,
         sources: list[dict[str, str]] | None = None,
         generated_images: list[dict[str, str]] | None = None,
         language: str | None = None,

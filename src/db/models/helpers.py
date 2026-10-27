@@ -14,7 +14,7 @@ import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from src.config import Config
 from src.db.blob_store import get_blob_store
@@ -23,6 +23,7 @@ from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from src.db.models.dataclasses import User
+    from src.utils.files import StoredFile, UploadedFile
 
 logger = get_logger(__name__)
 
@@ -42,7 +43,7 @@ def make_thumbnail_key(message_id: str, file_index: int) -> str:
     return f"{message_id}/{file_index}.thumb"
 
 
-def save_file_to_blob_store(message_id: str, file_index: int, file_data: dict[str, Any]) -> None:
+def save_file_to_blob_store(message_id: str, file_index: int, file_data: UploadedFile) -> None:
     """Save file data and thumbnail to blob store.
 
     Args:
@@ -65,9 +66,10 @@ def save_file_to_blob_store(message_id: str, file_index: int, file_data: dict[st
             )
 
     # Save thumbnail if present
-    if file_data.get("thumbnail"):
+    thumbnail = file_data.get("thumbnail")
+    if thumbnail:
         try:
-            thumb_bytes = base64.b64decode(file_data["thumbnail"])
+            thumb_bytes = base64.b64decode(thumbnail)
             # Thumbnails are always JPEG
             blob_store.save(make_thumbnail_key(message_id, file_index), thumb_bytes, "image/jpeg")
         except Exception:
@@ -77,25 +79,25 @@ def save_file_to_blob_store(message_id: str, file_index: int, file_data: dict[st
             )
 
 
-def extract_file_metadata(file_data: dict[str, Any]) -> dict[str, Any]:
-    """Extract metadata from file dict, removing binary data.
-
-    Returns a new dict with 'data' and 'thumbnail' removed, plus 'size' added.
-    """
-    # Copy over non-data fields
-    metadata = {key: value for key, value in file_data.items() if key not in ("data", "thumbnail")}
-
-    # Calculate and store size from data
-    if "data" in file_data:
-        try:
-            data_bytes = base64.b64decode(file_data["data"])
-            metadata["size"] = len(data_bytes)
-        except ValueError, TypeError:
-            metadata["size"] = 0
-
-    # Track whether thumbnail exists
-    metadata["has_thumbnail"] = bool(file_data.get("thumbnail"))
-
+def extract_file_metadata(file_data: UploadedFile) -> StoredFile:
+    """The stored metadata of an uploaded file: no bytes, with its size and
+    whether it has a thumbnail (both of which go to the blob store)."""
+    try:
+        size = len(base64.b64decode(file_data["data"]))
+    except ValueError, TypeError:
+        size = 0
+    metadata: StoredFile = {
+        "name": file_data["name"],
+        "type": file_data["type"],
+        "size": size,
+        "has_thumbnail": bool(file_data.get("thumbnail")),
+    }
+    if "thumbnail_status" in file_data:
+        metadata["thumbnail_status"] = file_data["thumbnail_status"]
+    if "gemini_file_uri" in file_data:
+        metadata["gemini_file_uri"] = file_data["gemini_file_uri"]
+    if "gemini_upload_error" in file_data:
+        metadata["gemini_upload_error"] = file_data["gemini_upload_error"]
     return metadata
 
 

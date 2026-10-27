@@ -33,6 +33,7 @@ from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
 from src.services.costs import calculate_and_save_message_cost, convert_currency
+from src.utils.files import UploadedFile
 from src.utils.images import (
     extract_code_output_files_from_tool_results,
     extract_generated_images_from_tool_results,
@@ -50,7 +51,7 @@ class SaveResult:
         message_id: str,
         sources: list[dict[str, str]],
         generated_images_meta: list[dict[str, str]],
-        all_generated_files: list[dict[str, Any]],
+        all_generated_files: list[UploadedFile],
         generated_title: str | None,
         language: str | None,
     ) -> None:
@@ -90,7 +91,7 @@ def _extract_stream_metadata(
 
 def _collect_generated_files(
     stream_request_id: str, user_id: str, conv_id: str
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[UploadedFile], list[dict[str, Any]]]:
     """Pop the full tool results, clean up request context, extract files.
 
     Returns (all_generated_files, full_tool_results). NOTE:
@@ -125,7 +126,7 @@ def _persist_assistant_message(
     user_id: str,
     content: str,
     assistant_message_id: str | None,
-    all_generated_files: list[dict[str, Any]],
+    all_generated_files: list[UploadedFile],
     sources: list[dict[str, Any]],
     generated_images_meta: list[dict[str, Any]],
     language: str | None,
@@ -252,7 +253,7 @@ def _superseded(research: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visible_content(
-    content: str, all_generated_files: list[dict[str, Any]], stop_reason: str | None
+    content: str, all_generated_files: list[UploadedFile], stop_reason: str | None
 ) -> str:
     """The reply text to save: never empty for a files-only or stopped turn."""
     # A turn that only produced files still needs visible text

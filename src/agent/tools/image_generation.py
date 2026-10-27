@@ -18,6 +18,7 @@ from src.agent.tools.permission_check import check_autonomous_permission
 from src.config import Config
 from src.db.blob_store import get_blob_store
 from src.db.models import db, make_blob_key
+from src.utils.files import StoredFile
 from src.utils.images import downscale_image_for_reference
 from src.utils.logging import get_logger
 
@@ -168,7 +169,7 @@ def _normalized_request(prompt: str, aspect_ratio: str, image_size: str) -> tupl
     return prompt, image_size
 
 
-def _history_file(message_id: str, file_index: int) -> dict[str, Any] | str:
+def _history_file(message_id: str, file_index: int) -> StoredFile | str:
     """The metadata of an image file in this conversation's history, or a tool error."""
     conv_id, user_id = get_conversation_context()
 
@@ -191,7 +192,7 @@ def _history_file(message_id: str, file_index: int) -> dict[str, Any] | str:
             f"Message has {len(message.files) if message.files else 0} file(s)."
         )
 
-    file_meta: dict[str, Any] = message.files[file_index]
+    file_meta = message.files[file_index]
     mime_type = file_meta.get("type", "")
     if not mime_type.startswith("image/"):
         return tool_error(

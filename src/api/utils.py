@@ -1,5 +1,6 @@
 """API response building utilities."""
 
+from collections.abc import Sequence
 from datetime import timedelta
 from typing import Any
 
@@ -10,6 +11,7 @@ from src.config import Config
 from src.db.models import db
 from src.enums import MessageRole
 from src.utils.clock import to_api, utc_now
+from src.utils.files import StoredFile, UploadedFile
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -75,7 +77,7 @@ def normalize_generated_images(
 
 
 def build_response_files(
-    gen_image_files: list[dict[str, Any]], message_id: str
+    gen_image_files: Sequence[UploadedFile | StoredFile], message_id: str
 ) -> list[dict[str, Any]]:
     """Build file metadata list for API response.
 
@@ -131,7 +133,7 @@ def add_artifacts(data: dict[str, Any], msg: Any) -> None:
 def build_chat_response(
     assistant_msg: Any,
     content: str,
-    gen_image_files: list[dict[str, Any]],
+    gen_image_files: Sequence[UploadedFile | StoredFile],
     sources: list[dict[str, str]],
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,
@@ -296,7 +298,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
 
 def build_stream_done_event(
     assistant_msg: Any,
-    gen_image_files: list[dict[str, Any]],
+    gen_image_files: Sequence[UploadedFile | StoredFile],
     sources: list[dict[str, str]],
     generated_images_meta: list[dict[str, str]],
     conversation_title: str | None = None,

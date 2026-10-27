@@ -296,17 +296,25 @@ class TestExtractFileMetadata:
         assert "thumbnail" not in metadata
         assert metadata["thumbnail_status"] == "ready"
 
-    def test_extract_preserves_other_fields(self):
-        """Test that other fields are preserved."""
+    def test_extract_keeps_the_known_fields_only(self):
+        """The stored metadata is a StoredFile: its optional fields carry over,
+        anything else (and the bytes) does not."""
         from src.db.models import extract_file_metadata
 
         file_data = {
             "name": "photo.jpg",
             "type": "image/jpeg",
             "data": "aGVsbG8=",
-            "custom_field": "preserved",
+            "thumbnail_status": "pending",
+            "custom_field": "dropped",
         }
 
         metadata = extract_file_metadata(file_data)
 
-        assert metadata["custom_field"] == "preserved"
+        assert metadata == {
+            "name": "photo.jpg",
+            "type": "image/jpeg",
+            "size": 5,
+            "has_thumbnail": False,
+            "thumbnail_status": "pending",
+        }

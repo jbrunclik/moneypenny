@@ -21,6 +21,7 @@ from src.db.models import db
 from src.db.models.timestamps import from_db
 from src.services.gemini_file_cache import GEMINI_FILES_NAMESPACE, SYSTEM_KV_USER_ID, cache_key
 from src.utils.clock import to_api, utc_now
+from src.utils.files import UploadedFile
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -113,7 +114,7 @@ def ensure_gemini_file_uri(message_id: str, file_index: int, data: bytes, mime_t
     return str(gfile.uri)
 
 
-def attach_gemini_file_uris(message_id: str, files: list[dict[str, Any]]) -> None:
+def attach_gemini_file_uris(message_id: str, files: list[UploadedFile]) -> None:
     """Upload video attachments to the Files API, annotating file dicts in place.
 
     Adds "gemini_file_uri" on success or "gemini_upload_error" on failure.
