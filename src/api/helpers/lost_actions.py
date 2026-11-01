@@ -14,7 +14,6 @@ record.
 """
 
 import json
-import re
 from collections import Counter
 
 from src.db.models import db
@@ -54,13 +53,14 @@ _NOTE = (
 
 
 # A detail is the model's own tool arguments - possibly text copied from a
-# page - and the note is promoted to guidance: no markers, a short line
-_MARKER = re.compile(r"\[/?\s*SYSTEM GUIDANCE\s*\]", re.IGNORECASE)
+# page - and the note is promoted to guidance: no square brackets (no marker
+# can form, nested or not), one short line
+_BRACKETS = str.maketrans("[]", "()")
 _DETAIL_MAX_CHARS = 120
 
 
 def _clean(detail: str) -> str:
-    detail = " ".join(_MARKER.sub("", detail).split())
+    detail = " ".join(detail.translate(_BRACKETS).split())
     return detail if len(detail) <= _DETAIL_MAX_CHARS else detail[: _DETAIL_MAX_CHARS - 1] + "…"
 
 
