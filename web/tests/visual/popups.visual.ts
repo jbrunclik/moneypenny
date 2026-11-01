@@ -868,3 +868,53 @@ test.describe('Visual: Settings Popup - Garmin Connect Section', () => {
     );
   });
 });
+
+test.describe('Visual: Conversation Facts', () => {
+  async function openSeeded(page: Page): Promise<void> {
+    const response = await page.request.post('/test/seed', {
+      data: {
+        conversations: [
+          {
+            title: 'Bedroom renovation',
+            messages: [
+              { role: 'user', content: 'All partitions are reinforced concrete' },
+              { role: 'assistant', content: 'Noted - I will plan around the concrete walls.' },
+            ],
+            facts: [
+              { key: 'walls', text: 'All partitions are reinforced concrete except one brick wall' },
+              { key: 'blinds', text: 'Blackout blinds already installed' },
+              { key: 'room', text: 'The bedroom is room 2141.5' },
+            ],
+          },
+        ],
+      },
+    });
+    const body = (await response.json()) as { conversation_ids: string[] };
+    await page.goto(`/#/conversations/${body.conversation_ids[0]}`);
+    await appReady(page);
+    await dismissOverlays(page);
+  }
+
+  test('facts chip in the desktop header', async ({ page }) => {
+    await openSeeded(page);
+    await expect(page.locator('#conversation-facts')).toBeVisible();
+    await pageSettled(page);
+    await expect(page.locator('#chat-header')).toHaveScreenshot('header-conversation-facts.png');
+  });
+
+  test('facts popup', async ({ page }) => {
+    await openSeeded(page);
+    await page.locator('#conversation-facts').click();
+    await expect(page.locator('#facts-popup')).toBeVisible();
+    await pageSettled(page);
+    await expect(page.locator('#facts-popup')).toHaveScreenshot('popup-conversation-facts.png');
+  });
+
+  test('facts chip in the mobile header', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await openSeeded(page);
+    await expect(page.locator('#conversation-facts-mobile')).toBeVisible();
+    await pageSettled(page);
+    await expect(page.locator('.mobile-header')).toHaveScreenshot('mobile-header-conversation-facts.png');
+  });
+});

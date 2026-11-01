@@ -78,6 +78,13 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
   spacer.className = 'chat-header-spacer';
   header.appendChild(spacer);
 
+  // Filled by FactsIndicator; hidden until the conversation has settled facts
+  const facts = document.createElement('button');
+  facts.id = 'conversation-facts';
+  facts.type = 'button';
+  facts.className = 'chat-header-facts hidden';
+  header.appendChild(facts);
+
   // Filled by CompactionIndicator; hidden until the conversation is compacted
   const compaction = document.createElement('button');
   compaction.id = 'conversation-compaction';

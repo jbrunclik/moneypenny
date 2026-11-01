@@ -95,6 +95,14 @@ def seed_data() -> tuple[dict[str, Any], int]:
 
             g.db.kv_set(user.id, KV_NAMESPACE, conv.id, json.dumps(compaction))
 
+        # Optional settled facts ([{key, text}]), owned by the last reply
+        facts = conv_data.get("facts")
+        if facts and messages:
+            last = g.db.get_messages(conv.id)[-1]
+            g.db.apply_conversation_facts(
+                conv.id, user.id, last.id, [(f["key"], f["text"]) for f in facts], []
+            )
+
     return {"status": "seeded", "conversation_ids": created_ids}, 200
 
 

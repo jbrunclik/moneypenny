@@ -42,6 +42,7 @@
 @import "./components/image-gen-popup.css";
 @import "./components/cost-popups.css";
 @import "./components/compaction-popup.css";
+@import "./components/facts-popup.css";
 @import "./components/toasts.css";
 @import "./components/modal.css";
 @import "./components/version-banner.css";

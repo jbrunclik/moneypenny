@@ -1,0 +1,43 @@
+/* ----------------------------------------
+   Conversation Facts Popup (FactsIndicator.ts)
+   ---------------------------------------- */
+
+.facts-content {
+    padding: var(--space-4);
+}
+
+.facts-intro,
+.facts-note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.facts-list {
+    list-style: none;
+    margin: var(--space-3) 0;
+    padding: 0;
+    font-size: var(--font-size-sm);
+}
+
+.facts-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.facts-item:last-child {
+    border-bottom: none;
+}
+
+.facts-key {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.facts-text {
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}

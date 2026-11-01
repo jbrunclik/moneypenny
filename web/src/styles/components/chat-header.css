@@ -70,8 +70,10 @@
     display: none;
 }
 
-/* Compaction chip (CompactionIndicator.ts): older messages are summarized */
-.chat-header-compaction {
+/* Compaction chip (CompactionIndicator.ts): older messages are summarized;
+   facts chip (FactsIndicator.ts): the conversation's settled facts */
+.chat-header-compaction,
+.chat-header-facts {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
@@ -86,15 +88,18 @@
     cursor: pointer;
 }
 
-.chat-header-compaction:hover {
+.chat-header-compaction:hover,
+.chat-header-facts:hover {
     color: var(--text-primary);
 }
 
-.chat-header-compaction.hidden {
+.chat-header-compaction.hidden,
+.chat-header-facts.hidden {
     display: none;
 }
 
-.chat-header-compaction svg {
+.chat-header-compaction svg,
+.chat-header-facts svg {
     width: 12px;
     height: 12px;
     flex-shrink: 0;
@@ -166,8 +171,16 @@
         flex-shrink: 0;
     }
 
+    #conversation-facts-mobile {
+        margin-left: auto;
+        margin-right: var(--space-2);
+        flex-shrink: 0;
+    }
+
     /* When the chip shows, the cost follows it rather than pushing apart */
-    #conversation-compaction-mobile:not(.hidden) + #conversation-cost-mobile {
+    #conversation-compaction-mobile:not(.hidden) + #conversation-cost-mobile,
+    #conversation-facts-mobile:not(.hidden) ~ #conversation-compaction-mobile,
+    #conversation-facts-mobile:not(.hidden) ~ #conversation-cost-mobile {
         margin-left: 0;
     }
 
@@ -176,8 +189,18 @@
     }
 
     /* Keep the centered title clear of the extra chip */
+    .mobile-header:has(#conversation-facts-mobile:not(.hidden)) #current-chat-title,
     .mobile-header:has(#conversation-compaction-mobile:not(.hidden)) #current-chat-title {
         left: 130px;
         right: 130px;
+    }
+
+    /* Both chips: wider still */
+    .mobile-header:has(#conversation-facts-mobile:not(.hidden)):has(
+            #conversation-compaction-mobile:not(.hidden)
+        )
+        #current-chat-title {
+        left: 170px;
+        right: 170px;
     }
 }

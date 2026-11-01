@@ -80,6 +80,11 @@ vi.mock('@/components/CompactionIndicator', () => ({
   initCompactionIndicator: h.rec('initCompactionIndicator'),
   createCompactionPopupShell: () => Object.assign(document.createElement('div'), { id: 'compaction-popup' }),
 }));
+vi.mock('@/components/FactsIndicator', () => ({
+  initFactsIndicator: h.rec('initFactsIndicator'),
+  createFactsPopupShell: () => Object.assign(document.createElement('div'), { id: 'facts-popup' }),
+  updateFactsIndicator: vi.fn(),
+}));
 vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),
   navigateToAgents: h.recAsync('navigateToAgents'),
@@ -290,6 +295,7 @@ const COMPONENT_STEPS = [
   'initMessageCostPopup',
   'costHistoryPopup.init',
   'initCompactionIndicator',
+  'initFactsIndicator',
   'initAgents',
   'initScrollToBottom',
   'initTurnAnchorResizeHold',

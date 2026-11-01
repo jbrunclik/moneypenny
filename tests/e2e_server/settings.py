@@ -25,6 +25,7 @@ os.environ["APP_URL"] = ""
 os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 # No live freshness-gate calls (src/agent/freshness.py); tests enable it explicitly
 os.environ["FRESHNESS_GATE_ENABLED"] = "false"
+os.environ["CONVERSATION_FACTS_ENABLED"] = "true"  # The facts chip and popup
 # Metered search providers must never be billed from tests (src/config.py
 # loads the real .env); evals blank the same keys (evals/run.py)
 for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_API_KEY"):
