@@ -116,6 +116,9 @@ class EvalCase:
     # Run the deep-research pipeline with this plan instead of a chat turn:
     # {question, context, sub_questions} (the offer step has its own cases)
     deep_research: dict[str, Any] = field(default_factory=dict)
+    # Settled conversation facts ([{key, text}], [] for an empty list): the
+    # case runs with CONVERSATION_FACTS_ENABLED on; None leaves it off
+    conversation_facts: list[dict[str, str]] | None = None
 
 
 def _placeholder_date(placeholder: str, today: date) -> date | None:
@@ -202,6 +205,14 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 seed_conversation=dict(data.get("seed_conversation") or {}),
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
                 deep_research=dict(data.get("deep_research") or {}),
+                conversation_facts=(
+                    None
+                    if data.get("conversation_facts") is None
+                    else [
+                        {"key": str(f["key"]), "text": str(f["text"])}
+                        for f in data["conversation_facts"]
+                    ]
+                ),
             )
         )
     return cases
@@ -634,6 +645,45 @@ def _run_turn(
     sports_context: dict[str, Any] | None,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
     """The agent turn: (response, tool_results, usage, result_messages, integration changes)."""
+    from src.config import Config
+
+    facts = _case_facts(case)
+    # The flag binds the facts tool when the agent is built; restored after.
+    # Switched on for the whole run, every case gets the (empty) facts block
+    # an ordinary chat would - the rollout cost/latency check
+    facts_were_enabled = Config.CONVERSATION_FACTS_ENABLED
+    if facts is None and facts_were_enabled:
+        facts = []
+    Config.CONVERSATION_FACTS_ENABLED = facts is not None
+    try:
+        return _agent_turn(case, user, conversation_id, request_id, history, sports_context, facts)
+    finally:
+        Config.CONVERSATION_FACTS_ENABLED = facts_were_enabled
+
+
+def _case_facts(case: EvalCase) -> list[Any] | None:
+    """The case's seeded facts as the turn's conversation_facts (None: feature off)."""
+    if case.conversation_facts is None:
+        return None
+    from src.db.models import ConversationFact
+    from src.utils.clock import utc_now
+
+    return [
+        ConversationFact(f["key"], f["text"], "eval-seed", utc_now())
+        for f in case.conversation_facts
+    ]
+
+
+def _agent_turn(
+    case: EvalCase,
+    user: Any,
+    conversation_id: str,
+    request_id: str,
+    history: list[dict[str, Any]] | None,
+    sports_context: dict[str, Any] | None,
+    facts: list[Any] | None,
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+    """_run_turn's agent call, with the case's facts flag already set."""
     from evals.fakes import describe_actions, fake_integrations
     from src.agent.agent import ChatAgent
     from src.config import Config
@@ -663,6 +713,7 @@ def _run_turn(
                 conversation_id=conversation_id,
                 is_sports=is_sports,
                 sports_context=sports_context,
+                conversation_facts=facts,
             )
         return response, tool_results, usage, result_messages, describe_actions(fakes)
 

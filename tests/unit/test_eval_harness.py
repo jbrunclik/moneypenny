@@ -710,3 +710,76 @@ class TestRunCase:
         assert result["agent_cost_usd"] > 0 and result["judge_cost_usd"] > 0
         assert result["deterministic_failures"] == []
         assert result["response_preview"] == "The answer"
+
+
+class TestConversationFacts:
+    """A case may seed the conversation's settled facts; the harness then runs
+    it with conversation facts switched on (docs/features/conversation-facts.md)."""
+
+    def test_facts_parse_and_default_to_off(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "facts.yaml",
+            """
+id: f
+conversation_facts:
+  - {key: walls, text: All partitions are reinforced concrete}
+user: hi
+expect: {rubric: r}
+""",
+        )
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        by_id = {c.id: c for c in load_cases(tmp_path)}
+        assert by_id["f"].conversation_facts == [
+            {"key": "walls", "text": "All partitions are reinforced concrete"}
+        ]
+        assert by_id["p"].conversation_facts is None
+
+    def test_a_facts_case_reaches_the_turn_with_the_feature_on(self, tmp_path: Path) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from evals import run
+        from src.config import Config
+
+        _write_case(
+            tmp_path,
+            "facts.yaml",
+            "id: f\nconversation_facts: []\nuser: hi\nexpect: {rubric: r}\n",
+        )
+        [case] = load_cases(tmp_path)
+        seen: dict[str, Any] = {}
+
+        def fake_agent(**_kwargs: Any) -> MagicMock:
+            seen["enabled"] = Config.CONVERSATION_FACTS_ENABLED
+            agent = MagicMock()
+            agent.chat_batch.return_value = ("ok", [], {}, [])
+            seen["agent"] = agent
+            return agent
+
+        with patch("src.agent.agent.ChatAgent", side_effect=fake_agent):
+            run._run_turn(case, MagicMock(id="u"), "c", "r", None, None)
+
+        assert seen["enabled"] is True
+        assert Config.CONVERSATION_FACTS_ENABLED is False  # restored after the case
+        assert seen["agent"].chat_batch.call_args.kwargs["conversation_facts"] == []
+
+    def test_the_run_wide_flag_gives_every_case_an_empty_list(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CONVERSATION_FACTS_ENABLED=true for a whole run measures what
+        ordinary turns cost with the feature on (the rollout check)."""
+        from unittest.mock import MagicMock, patch
+
+        from evals import run
+        from src.config import Config
+
+        monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", True)
+        _write_case(tmp_path, "plain.yaml", "id: p\nuser: hi\nexpect: {rubric: r}\n")
+        [case] = load_cases(tmp_path)
+        agent = MagicMock()
+        agent.chat_batch.return_value = ("ok", [], {}, [])
+
+        with patch("src.agent.agent.ChatAgent", return_value=agent):
+            run._run_turn(case, MagicMock(id="u"), "c", "r", None, None)
+
+        assert agent.chat_batch.call_args.kwargs["conversation_facts"] == []

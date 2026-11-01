@@ -1,0 +1,89 @@
+id: facts_retention_after_topic_change
+description:
+  Facts settled early stay in force after a long detour past the compaction point (Oct 2026
+  floor-plan chat)
+conversation_facts:
+  - key: partition-walls
+    text: All partitions are reinforced concrete, except one brick wall in room 2141.5
+  - key: blackout-blinds
+    text: Blackout blinds are already installed in the bedroom
+compact_history: true
+history:
+  - role: user
+    content:
+      "Řešíme ložnici: všechny příčky jsou železobeton kromě cihlové zdi v pokoji 2141.5 a zatemňovací
+      rolety už máme."
+  - role: assistant
+    content: Rozumím, beru to jako dané.
+  - role: user
+    content: Jaký film dnes večer?
+  - role: assistant
+    content: "Zkus třeba Duna: Část druhá, pokud máš rád sci-fi."
+  - role: user
+    content: A něco lehčího?
+  - role: assistant
+    content: Paddington v Peru je milá rodinná komedie.
+  - role: user
+    content: Kolik trvá?
+  - role: assistant
+    content: Asi 106 minut.
+  - role: user
+    content: Kde ho najdu?
+  - role: assistant
+    content: Podívej se na nabídku streamovacích služeb, které máš předplacené.
+  - role: user
+    content: Jaký popcorn je nejlepší?
+  - role: assistant
+    content: Na pánvi s trochou másla a soli; do mikrovlnky stačí sáček z obchodu.
+  - role: user
+    content: A k pití?
+  - role: assistant
+    content: Domácí limonáda z citronu a máty se hodí.
+  - role: user
+    content: Doporuč seriál
+  - role: assistant
+    content: Severance, pokud tě baví záhadné kancelářské thrillery.
+  - role: user
+    content: Kolik má řad?
+  - role: assistant
+    content: Dvě řady, třetí je ohlášená.
+  - role: user
+    content: Něco českého?
+  - role: assistant
+    content: Dobré ráno, Brno! je populární česká komedie.
+  - role: user
+    content: Díky
+  - role: assistant
+    content: Rádo se stalo, užij si večer.
+  - role: user
+    content: Ještě kniha na víkend?
+  - role: assistant
+    content: Zkus Projekt Hail Mary od Andyho Weira.
+  - role: user
+    content: O čem to je?
+  - role: assistant
+    content: Vědec se probudí sám na vesmírné lodi a musí zachránit Zemi.
+  - role: user
+    content: Je to dlouhé?
+  - role: assistant
+    content: Kolem 500 stran, ale čte se rychle.
+  - role: user
+    content: A audiokniha?
+  - role: assistant
+    content: Anglická audioverze je velmi oceňovaná.
+  - role: user
+    content: Super, díky
+  - role: assistant
+    content: Není zač.
+  - role: user
+    content: "Poslední dotaz k filmům: Oppenheimer?"
+  - role: assistant
+    content: Tři hodiny, ale stojí za to, pokud tě baví historie.
+user: "Zpátky k ložnici: navrhni, kam dát nové zásuvky a co ještě koupit do ložnice."
+expect:
+  rubric:
+    Replies in Czech with outlet placement and a shopping list for the bedroom. It FAILS if it treats
+    the partitions as drywall (e.g. hollow-wall boxes or easy chasing in drywall) instead of reinforced
+    concrete with one brick wall, or if it suggests buying blackout blinds or curtains for darkening,
+    which are already installed. Mentioning that chasing concrete for new outlets is hard, or suggesting
+    surface trunking, is a plus.

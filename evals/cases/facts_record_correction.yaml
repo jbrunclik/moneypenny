@@ -1,0 +1,18 @@
+id: facts_record_correction
+description: A correction of a fact about the conversation's subject is recorded as a conversation fact (Oct 2026 floor-plan chat)
+conversation_facts: []
+history:
+  - role: user
+    content: Plánuju přestavbu ložnice, chci tam pověsit těžké police.
+  - role: assistant
+    content: >-
+      U sádrokartonových příček použij hmoždinky do dutých stěn (např. Molly)
+      a police kotvi do profilů, ne jen do desky.
+user: "Ne, všechny příčky jsou železobeton, kromě jedné cihlové zdi v pokoji 2141.5."
+expect:
+  rubric: >
+    Replies in Czech, acknowledges the correction and adjusts the advice to
+    reinforced-concrete partitions (concrete anchors / drilling into concrete)
+    with the one brick wall in room 2141.5 as the exception. It must not keep
+    recommending hollow-wall anchors for the concrete partitions.
+  required_tools: [record_conversation_facts]
