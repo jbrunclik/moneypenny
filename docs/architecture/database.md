@@ -166,11 +166,19 @@ Rule: never close a sqlite connection from a thread other than its live owner.
 
 Since Oct 27 2026 (timezone step 2b) every datetime in the app is **aware**:
 instants are UTC, and the household's days are drawn in `APP_TIMEZONE`. Rule
-B12 in [conventions](../conventions.md) and its guards keep it that way. The
-stored strings are still in their two legacy naive formats until the data
-migration (step 3 of
+B12 in [conventions](../conventions.md) and its guards keep it that way.
+Since migration 0072 (Nov 2026, step 3 of
 [the timezone design](../superpowers/specs/2026-10-26-timezone-aware-datetimes-design.md))
-converts them. **Local-naive** (host wall-clock time) holds conversation data,
+every stored timestamp is fixed-width UTC (`YYYY-MM-DDTHH:MM:SS.ffffff+00:00`,
+it sorts chronologically as a string), and the app_settings flag
+`timestamp_storage` reads `utc`. The migration knew each column's legacy
+format (its `COLUMNS` map), emptied the cache tables instead of converting
+them, and dropped `sync_change_message_update` around the messages rewrite so
+the sync counter moved once per conversation, not per message. Its rollback
+writes the legacy formats back (restart the app after it: workers cache the
+flag). The dry run on a production backup (Nov 1 2026): 95k values in 1.5 s,
+every instant and ordering unchanged. Before it, the two legacy naive formats
+were: **local-naive** (host wall-clock time) for conversation data,
 costs, memories, users, push subscriptions, client errors and
 `autonomous_agents.last_viewed_at`. **UTC-naive** holds the rest of the agent
 tables, caches, kv_store, settings and artifacts, but only since Jun 10 2026:

@@ -260,13 +260,11 @@ class TestToDbFlag:
         assert to_db(_z(2026, 1, 15, 9), "utc", bare) == "2026-01-15T09:00:00"
         bare.close()
 
-    def test_flag_via_the_app_database(self, test_database: Database) -> None:
-        dt = _z(2026, 1, 15, 9)
+    def test_a_migrated_app_database_stores_utc(self, test_database: Database) -> None:
+        # Migration 0072 converts the data and sets the flag
+        assert test_database.get_setting(TIMESTAMP_STORAGE_SETTING) == "utc"
         with test_database._pool.get_connection() as pooled:
-            assert to_db(dt, "local", pooled) == "2026-01-15T10:00:00"
-        test_database.set_setting(TIMESTAMP_STORAGE_SETTING, "utc")
-        with test_database._pool.get_connection() as pooled:
-            assert to_db(dt, "local", pooled) == "2026-01-15T09:00:00.000000+00:00"
+            assert to_db(_z(2026, 1, 15, 9), "local", pooled) == "2026-01-15T09:00:00.000000+00:00"
 
 
 class TestNormalizeCursor:
