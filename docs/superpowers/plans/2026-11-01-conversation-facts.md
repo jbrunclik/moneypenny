@@ -65,7 +65,7 @@ Table: `conversation_facts(conversation_id TEXT NOT NULL, user_id TEXT NOT NULL,
 ### Task 2: The tool and its extraction
 
 **Files:**
-- Modify: `src/agent/tools/metadata.py` (tool + `EXTRACT_ONLY_TOOL_NAMES`), `src/agent/tools/__init__.py` (bound only when `CONVERSATION_FACTS_ENABLED`; listed in `_CONDITIONAL_TOOLS` - follow `/new-tool`'s checklist: `TOOL_METADATA`, `extract_tool_detail`, prompt-enhancer list, `AgentEditor.ts` only if agents may use it - they may not), `src/agent/content.py`
+- Modify: `src/agent/tools/metadata.py` (tool + `EXTRACT_ONLY_TOOL_NAMES`), `src/agent/tools/__init__.py` (bound only when `CONVERSATION_FACTS_ENABLED`), `src/agent/tool_display.py` (`TOOL_METADATA`, `extract_tool_detail`, and `_CONDITIONAL_TOOLS` since it is not always bound) - follow `/new-tool`'s checklist for the rest: prompt-enhancer list, `AgentEditor.ts` only if agents may use it - they may not), `src/agent/content.py`
 - Test: `tests/unit/test_conversation_facts_tool.py`
 
 **Interfaces:**
