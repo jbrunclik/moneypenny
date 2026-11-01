@@ -1,0 +1,463 @@
+id: facts_retention_mixed_topics
+description:
+  "Corrections given in passing inside other topics survive a long mixed-topic chat past compaction.
+  Nov 1 2026: passes 3/3 with the facts list (2 of 3 runs need no tool) and 3/3 without it, where the
+  agent recovers them with search_conversations (3-5 rounds, ~1.5x the time) - a guard for both paths"
+conversation_facts:
+  - key: partition-walls
+    text: All partitions are reinforced concrete, except the brick wall between the bedroom and room 2141.5
+  - key: blackout-blinds
+    text: Blackout blinds are already installed in the bedroom
+  - key: bedroom-budget
+    text: Bedroom renovation budget is at most 15 000 CZK in total
+compact_history: true
+history:
+  - role: user
+    content: Chystáme rekonstrukci ložnice. Chci tam pověsit těžké police na knihy a televizi na zeď.
+  - role: assistant
+    content:
+      Pokud jsou příčky sádrokartonové, použij hmoždinky do dutých stěn (Molly, Fischer DuoTec) a
+      těžké police kotvi do CW profilů. Na TV doporučuju výsuvný držák kotvený do profilu.
+  - role: user
+    content: A zásuvky?
+  - role: assistant
+    content:
+      "U sádrokartonu je to snadné: krabice do dutých stěn, kabel protáhneš dutinou, bez sekání.
+      Přidal bych zásuvky u postele a za TV."
+  - role: user
+    content: A co tma v létě?
+  - role: assistant
+    content: Na spaní pomohou zatemňovací rolety nebo blackout závěsy, počítej zhruba 3-6 tisíc Kč.
+  - role: user
+    content: "Jiná věc, auto: kdy se má měnit rozvodový řemen u Octavie 1.6 TDI?"
+  - role: assistant
+    content:
+      Výrobce uvádí výměnu zhruba po 210 000 km nebo 10 letech, podle toho, co nastane dřív. Ověř
+      si to v servisní knížce. Long-life interval znamená výměnu podle palubního počítače, nejdéle však
+      po 2 letech nebo 30 000 km. Nezávislé servisy si účtují 900 až 1 400 Kč za hodinu práce, výměna trvá
+      zhruba 3 až 4 hodiny. Při 180 000 km je dobré zkontrolovat i stav spojky, dvouhmotového setrvačníku
+      a silentbloků uložení motoru. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka, vodící
+      kladky a vodní pumpa, protože mají podobnou životnost. Olej podle normy VW 507.00 v balení 5 litrů
+      vyjde na 900 až 1 300 Kč, filtr Mann HU 6013 z kolem 250 Kč. Originální sada INA nebo Contitech stojí
+      kolem 4 500 Kč, s pumpou SKF kolem 6 800 Kč. Nezávislé servisy si účtují 900 až 1 400 Kč za hodinu
+      práce, výměna trvá zhruba 3 až 4 hodiny. Originální sada INA nebo Contitech stojí kolem 4 500 Kč,
+      s pumpou SKF kolem 6 800 Kč. Olej podle normy VW 507.00 v balení 5 litrů vyjde na 900 až 1 300 Kč,
+      filtr Mann HU 6013 z kolem 250 Kč. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka,
+      vodící kladky a vodní pumpa, protože mají podobnou životnost. Před výměnou rozvodů si nech dát písemnou
+      kalkulaci a ptej se, zda je v ceně i nová chladicí kapalina G13.
+  - role: user
+    content:
+      "Máme 180 tisíc. Jo a k ložnici, ať to nezapomenu: ty příčky nejsou sádrokarton, všechny jsou
+      železobeton, jen stěna mezi ložnicí a pokojem 2141.5 je cihlová. Kolik stojí výměna řemenu?"
+  - role: assistant
+    content:
+      Beru na vědomí. Výměna rozvodů s vodní pumpou vyjde v nezávislém servisu zhruba na 9-14 tisíc
+      Kč. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka, vodící kladky a vodní pumpa, protože
+      mají podobnou životnost. Před výměnou rozvodů si nech dát písemnou kalkulaci a ptej se, zda je v ceně
+      i nová chladicí kapalina G13. Při 180 000 km je dobré zkontrolovat i stav spojky, dvouhmotového setrvačníku
+      a silentbloků uložení motoru. Long-life interval znamená výměnu podle palubního počítače, nejdéle
+      však po 2 letech nebo 30 000 km. U naftových motorů s DPF pomáhá jezdit občas delší trasy po dálnici,
+      aby proběhla regenerace filtru. Olej podle normy VW 507.00 v balení 5 litrů vyjde na 900 až 1 300
+      Kč, filtr Mann HU 6013 z kolem 250 Kč. Nezávislé servisy si účtují 900 až 1 400 Kč za hodinu práce,
+      výměna trvá zhruba 3 až 4 hodiny. Olej podle normy VW 507.00 v balení 5 litrů vyjde na 900 až 1 300
+      Kč, filtr Mann HU 6013 z kolem 250 Kč. Při 180 000 km je dobré zkontrolovat i stav spojky, dvouhmotového
+      setrvačníku a silentbloků uložení motoru. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka,
+      vodící kladky a vodní pumpa, protože mají podobnou životnost. U naftových motorů s DPF pomáhá jezdit
+      občas delší trasy po dálnici, aby proběhla regenerace filtru.
+  - role: user
+    content: Dá se to nechat na 250 tisíc?
+  - role: assistant
+    content:
+      Nedoporučuju - prasklý řemen znamená zničený motor. Při 180 000 km bych výměnu naplánoval v
+      příštím roce. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Hloubka
+      dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní neplatí.
+      Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky.
+      Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+      Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu.
+      Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza.
+      Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Paddington v Peru
+      trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky. Přezutí v pneuservisu
+      stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu. Zimní pneumatiky jsou
+      povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza. Projekt Hail Mary
+      má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+  - role: user
+    content: A olej?
+  - role: assistant
+    content:
+      Pro tento motor olej splňující normu VW 507.00, interval podle režimu servisu (long-life až
+      30 000 km). Originální sada INA nebo Contitech stojí kolem 4 500 Kč, s pumpou SKF kolem 6 800 Kč.
+      Olej podle normy VW 507.00 v balení 5 litrů vyjde na 900 až 1 300 Kč, filtr Mann HU 6013 z kolem 250
+      Kč. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka, vodící kladky a vodní pumpa, protože
+      mají podobnou životnost. U naftových motorů s DPF pomáhá jezdit občas delší trasy po dálnici, aby
+      proběhla regenerace filtru. Před výměnou rozvodů si nech dát písemnou kalkulaci a ptej se, zda je
+      v ceně i nová chladicí kapalina G13. Při 180 000 km je dobré zkontrolovat i stav spojky, dvouhmotového
+      setrvačníku a silentbloků uložení motoru. Originální sada INA nebo Contitech stojí kolem 4 500 Kč,
+      s pumpou SKF kolem 6 800 Kč. U motoru 1.6 TDI se při výměně rozvodů mění i napínací kladka, vodící
+      kladky a vodní pumpa, protože mají podobnou životnost. Olej podle normy VW 507.00 v balení 5 litrů
+      vyjde na 900 až 1 300 Kč, filtr Mann HU 6013 z kolem 250 Kč. Long-life interval znamená výměnu podle
+      palubního počítače, nejdéle však po 2 letech nebo 30 000 km. Nezávislé servisy si účtují 900 až 1
+      400 Kč za hodinu práce, výměna trvá zhruba 3 až 4 hodiny.
+  - role: user
+    content: Díky, objednám se.
+  - role: assistant
+    content:
+      Super, ať to klapne. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha
+      v podání Jiřího Schwarze. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech
+      běží v dabingu i s titulky. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm,
+      jinak pneumatika jako zimní neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud
+      je na silnici sníh, led nebo námraza. Severance má dvě řady po devíti a deseti dílech, každý díl trvá
+      zhruba 50 minut. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50
+      minut. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+  - role: user
+    content: "Na večer: co uvařit z kuřecích stehen a brambor?"
+  - role: assistant
+    content:
+      "Pečená stehna na tymiánu s bramborami na plechu: brambory na měsíčky, stehna navrch, 200 °C
+      asi 50 minut. Ke kuřeti se hodí i okurkový salát se zakysanou smetanou a koprem, osvěží těžší jídlo.
+      Tymián, rozmarýn a pár stroužků česneku ve slupce dej mezi brambory, uvolní aroma během pečení. Mrkev
+      nakrájej na hranolky silné 1 cm, cibuli na osminky, přidej je na plech po 15 minutách pečení. Brambory
+      nakrájené na měsíčky předvař 5 minut v osolené vodě, budou uvnitř měkčí a venku křupavější. Teplota
+      uvnitř stehna má dosáhnout 80 °C, u kosti nejpomaleji, ideálně změř vpichovým teploměrem. Omáčku z
+      výpeku zahusti lžící hladké mouky, rozmíchej a podlij 300 ml kuřecího vývaru, provař 3 minuty. Pec
+      na 200 °C horkovzduch, po 30 minutách stehna otoč a přelij výpekem, celkem asi 50 minut. Stehna nejdřív
+      osuš papírovou utěrkou, kůže pak lépe zkřupavatí, a potři je olejem s paprikou a česnekem. Teplota
+      uvnitř stehna má dosáhnout 80 °C, u kosti nejpomaleji, ideálně změř vpichovým teploměrem. Tymián,
+      rozmarýn a pár stroužků česneku ve slupce dej mezi brambory, uvolní aroma během pečení. Ke kuřeti
+      se hodí i okurkový salát se zakysanou smetanou a koprem, osvěží těžší jídlo."
+  - role: user
+    content:
+      Jo, mimochodem, ty zatemňovací rolety v ložnici už máme namontované od minulého měsíce. Dá
+      se k tomu udělat nějaká omáčka?
+  - role: assistant
+    content:
+      Výborně. K pečenému kuřeti se hodí jednoduchá omáčka z výpeku zahuštěná trochou mouky a podlitá
+      vývarem. Omáčku z výpeku zahusti lžící hladké mouky, rozmíchej a podlij 300 ml kuřecího vývaru, provař
+      3 minuty. Ke kuřeti se hodí i okurkový salát se zakysanou smetanou a koprem, osvěží těžší jídlo. Pec
+      na 200 °C horkovzduch, po 30 minutách stehna otoč a přelij výpekem, celkem asi 50 minut. Tymián, rozmarýn
+      a pár stroužků česneku ve slupce dej mezi brambory, uvolní aroma během pečení. Stehna nejdřív osuš
+      papírovou utěrkou, kůže pak lépe zkřupavatí, a potři je olejem s paprikou a česnekem. Mrkev nakrájej
+      na hranolky silné 1 cm, cibuli na osminky, přidej je na plech po 15 minutách pečení. Mrkev nakrájej
+      na hranolky silné 1 cm, cibuli na osminky, přidej je na plech po 15 minutách pečení. Brambory nakrájené
+      na měsíčky předvař 5 minut v osolené vodě, budou uvnitř měkčí a venku křupavější. Tymián, rozmarýn
+      a pár stroužků česneku ve slupce dej mezi brambory, uvolní aroma během pečení. Ke kuřeti se hodí i
+      okurkový salát se zakysanou smetanou a koprem, osvěží těžší jídlo. Pec na 200 °C horkovzduch, po 30
+      minutách stehna otoč a přelij výpekem, celkem asi 50 minut.
+  - role: user
+    content: A zelenina?
+  - role: assistant
+    content:
+      Mrkev a cibuli můžeš dát na plech rovnou k bramborám. Mrkev nakrájej na hranolky silné 1 cm,
+      cibuli na osminky, přidej je na plech po 15 minutách pečení. Stehna nejdřív osuš papírovou utěrkou,
+      kůže pak lépe zkřupavatí, a potři je olejem s paprikou a česnekem. Omáčku z výpeku zahusti lžící hladké
+      mouky, rozmíchej a podlij 300 ml kuřecího vývaru, provař 3 minuty. Ke kuřeti se hodí i okurkový salát
+      se zakysanou smetanou a koprem, osvěží těžší jídlo. Tymián, rozmarýn a pár stroužků česneku ve slupce
+      dej mezi brambory, uvolní aroma během pečení. Brambory nakrájené na měsíčky předvař 5 minut v osolené
+      vodě, budou uvnitř měkčí a venku křupavější. Omáčku z výpeku zahusti lžící hladké mouky, rozmíchej
+      a podlij 300 ml kuřecího vývaru, provař 3 minuty. Teplota uvnitř stehna má dosáhnout 80 °C, u kosti
+      nejpomaleji, ideálně změř vpichovým teploměrem. Pec na 200 °C horkovzduch, po 30 minutách stehna otoč
+      a přelij výpekem, celkem asi 50 minut. Mrkev nakrájej na hranolky silné 1 cm, cibuli na osminky, přidej
+      je na plech po 15 minutách pečení. Ke kuřeti se hodí i okurkový salát se zakysanou smetanou a koprem,
+      osvěží těžší jídlo.
+  - role: user
+    content: Kolik soli?
+  - role: assistant
+    content:
+      Zhruba lžičku na kilo brambor, kuře osol zvlášť. Brambory nakrájené na měsíčky předvař 5 minut
+      v osolené vodě, budou uvnitř měkčí a venku křupavější. Mrkev nakrájej na hranolky silné 1 cm, cibuli
+      na osminky, přidej je na plech po 15 minutách pečení. Stehna nejdřív osuš papírovou utěrkou, kůže
+      pak lépe zkřupavatí, a potři je olejem s paprikou a česnekem. Tymián, rozmarýn a pár stroužků česneku
+      ve slupce dej mezi brambory, uvolní aroma během pečení. Pec na 200 °C horkovzduch, po 30 minutách
+      stehna otoč a přelij výpekem, celkem asi 50 minut. Teplota uvnitř stehna má dosáhnout 80 °C, u kosti
+      nejpomaleji, ideálně změř vpichovým teploměrem. Brambory nakrájené na měsíčky předvař 5 minut v osolené
+      vodě, budou uvnitř měkčí a venku křupavější. Stehna nejdřív osuš papírovou utěrkou, kůže pak lépe
+      zkřupavatí, a potři je olejem s paprikou a česnekem. Omáčku z výpeku zahusti lžící hladké mouky, rozmíchej
+      a podlij 300 ml kuřecího vývaru, provař 3 minuty. Tymián, rozmarýn a pár stroužků česneku ve slupce
+      dej mezi brambory, uvolní aroma během pečení. Pec na 200 °C horkovzduch, po 30 minutách stehna otoč
+      a přelij výpekem, celkem asi 50 minut.
+  - role: user
+    content: Dobře, díky.
+  - role: assistant
+    content:
+      Dobrou chuť! Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání
+      Jiřího Schwarze. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech
+      běží v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba
+      50 minut. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako
+      zimní neplatí. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Hloubka
+      dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní neplatí.
+      Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky.
+      Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu.
+      Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza.
+  - role: user
+    content: Dcera jede na školní výlet do Krkonoš, co jí sbalit?
+  - role: assistant
+    content:
+      Pohorky, nepromokavou bundu, vrstvy oblečení, čepici, láhev na vodu, svačinu, náplasti a malou
+      baterku. Lékařský průkaz a kopie kartičky pojišťovny patří do obalu na dokumenty, škola je obvykle
+      vybírá předem. Pokud dcera bere pravidelně léky, napiš učitelce dávkování na papír a dej léky do podepsané
+      krabičky. Do batohu přidej láhev na 0,75 l, svačinu, náplasti na puchýře, opalovací krém a čepici
+      i v létě. Pohorky by měly být rozchozené, nové boty na výlet jsou nejčastější příčinou puchýřů. Kapesné
+      500 až 800 Kč stačí na suvenýr, zmrzlinu a vstupné, větší částky děti zbytečně ztrácejí. Na chatách
+      bývají lůžkoviny, ale spacák se hodí, pokud je v pokynech uvedeno spaní na matracích. Pokud dcera
+      bere pravidelně léky, napiš učitelce dávkování na papír a dej léky do podepsané krabičky. Na chatách
+      bývají lůžkoviny, ale spacák se hodí, pokud je v pokynech uvedeno spaní na matracích. Lékařský průkaz
+      a kopie kartičky pojišťovny patří do obalu na dokumenty, škola je obvykle vybírá předem. Na tři dny
+      v Krkonoších sbal dvoje kalhoty, troje tričko, mikinu, fleecovou vrstvu a nepromokavou bundu. Pohorky
+      by měly být rozchozené, nové boty na výlet jsou nejčastější příčinou puchýřů.
+  - role: user
+    content:
+      "Kolik jí dát kapesného? A k té ložnici: rozpočet máme nakonec max 15 000 Kč na všechno, víc
+      ne."
+  - role: assistant
+    content:
+      Rozumím, 15 000 Kč. Na třídenní výlet stačí 500-800 Kč kapesného. Na chatách bývají lůžkoviny,
+      ale spacák se hodí, pokud je v pokynech uvedeno spaní na matracích. Lékařský průkaz a kopie kartičky
+      pojišťovny patří do obalu na dokumenty, škola je obvykle vybírá předem. Kapesné 500 až 800 Kč stačí
+      na suvenýr, zmrzlinu a vstupné, větší částky děti zbytečně ztrácejí. Do batohu přidej láhev na 0,75
+      l, svačinu, náplasti na puchýře, opalovací krém a čepici i v létě. Pohorky by měly být rozchozené,
+      nové boty na výlet jsou nejčastější příčinou puchýřů. Pokud dcera bere pravidelně léky, napiš učitelce
+      dávkování na papír a dej léky do podepsané krabičky. Kapesné 500 až 800 Kč stačí na suvenýr, zmrzlinu
+      a vstupné, větší částky děti zbytečně ztrácejí. Baterka s náhradními bateriemi se hodí na noční hru,
+      kterou školy v horách často pořádají. Lékařský průkaz a kopie kartičky pojišťovny patří do obalu na
+      dokumenty, škola je obvykle vybírá předem. Do batohu přidej láhev na 0,75 l, svačinu, náplasti na
+      puchýře, opalovací krém a čepici i v létě. Pokud dcera bere pravidelně léky, napiš učitelce dávkování
+      na papír a dej léky do podepsané krabičky.
+  - role: user
+    content: Potřebuje spacák?
+  - role: assistant
+    content:
+      Pokud spí v chatě s lůžkovinami, tak ne; ověř to v pokynech od školy. Lékařský průkaz a kopie
+      kartičky pojišťovny patří do obalu na dokumenty, škola je obvykle vybírá předem. Pohorky by měly být
+      rozchozené, nové boty na výlet jsou nejčastější příčinou puchýřů. Na tři dny v Krkonoších sbal dvoje
+      kalhoty, troje tričko, mikinu, fleecovou vrstvu a nepromokavou bundu. Pokud dcera bere pravidelně
+      léky, napiš učitelce dávkování na papír a dej léky do podepsané krabičky. Kapesné 500 až 800 Kč stačí
+      na suvenýr, zmrzlinu a vstupné, větší částky děti zbytečně ztrácejí. Baterka s náhradními bateriemi
+      se hodí na noční hru, kterou školy v horách často pořádají. Lékařský průkaz a kopie kartičky pojišťovny
+      patří do obalu na dokumenty, škola je obvykle vybírá předem. Na tři dny v Krkonoších sbal dvoje kalhoty,
+      troje tričko, mikinu, fleecovou vrstvu a nepromokavou bundu. Na chatách bývají lůžkoviny, ale spacák
+      se hodí, pokud je v pokynech uvedeno spaní na matracích. Kapesné 500 až 800 Kč stačí na suvenýr, zmrzlinu
+      a vstupné, větší částky děti zbytečně ztrácejí. Pohorky by měly být rozchozené, nové boty na výlet
+      jsou nejčastější příčinou puchýřů.
+  - role: user
+    content: A léky?
+  - role: assistant
+    content:
+      Běžné léky, které užívá, a lékařský průkaz s kopií kartičky pojišťovny. Kapesné 500 až 800
+      Kč stačí na suvenýr, zmrzlinu a vstupné, větší částky děti zbytečně ztrácejí. Do batohu přidej láhev
+      na 0,75 l, svačinu, náplasti na puchýře, opalovací krém a čepici i v létě. Na tři dny v Krkonoších
+      sbal dvoje kalhoty, troje tričko, mikinu, fleecovou vrstvu a nepromokavou bundu. Pohorky by měly být
+      rozchozené, nové boty na výlet jsou nejčastější příčinou puchýřů. Lékařský průkaz a kopie kartičky
+      pojišťovny patří do obalu na dokumenty, škola je obvykle vybírá předem. Pokud dcera bere pravidelně
+      léky, napiš učitelce dávkování na papír a dej léky do podepsané krabičky. Baterka s náhradními bateriemi
+      se hodí na noční hru, kterou školy v horách často pořádají. Kapesné 500 až 800 Kč stačí na suvenýr,
+      zmrzlinu a vstupné, větší částky děti zbytečně ztrácejí. Pokud dcera bere pravidelně léky, napiš učitelce
+      dávkování na papír a dej léky do podepsané krabičky. Do batohu přidej láhev na 0,75 l, svačinu, náplasti
+      na puchýře, opalovací krém a čepici i v létě. Pohorky by měly být rozchozené, nové boty na výlet jsou
+      nejčastější příčinou puchýřů.
+  - role: user
+    content: Díky, sbalíme to.
+  - role: assistant
+    content:
+      Ať se jí výlet vydaří! Na tři dny v Krkonoších sbal dvoje kalhoty, troje tričko, mikinu, fleecovou
+      vrstvu a nepromokavou bundu. Lékařský průkaz a kopie kartičky pojišťovny patří do obalu na dokumenty,
+      škola je obvykle vybírá předem. Baterka s náhradními bateriemi se hodí na noční hru, kterou školy
+      v horách často pořádají. Kapesné 500 až 800 Kč stačí na suvenýr, zmrzlinu a vstupné, větší částky
+      děti zbytečně ztrácejí. Pokud dcera bere pravidelně léky, napiš učitelce dávkování na papír a dej
+      léky do podepsané krabičky. Pohorky by měly být rozchozené, nové boty na výlet jsou nejčastější příčinou
+      puchýřů. Pokud dcera bere pravidelně léky, napiš učitelce dávkování na papír a dej léky do podepsané
+      krabičky. Lékařský průkaz a kopie kartičky pojišťovny patří do obalu na dokumenty, škola je obvykle
+      vybírá předem. Na tři dny v Krkonoších sbal dvoje kalhoty, troje tričko, mikinu, fleecovou vrstvu
+      a nepromokavou bundu. Na chatách bývají lůžkoviny, ale spacák se hodí, pokud je v pokynech uvedeno
+      spaní na matracích. Kapesné 500 až 800 Kč stačí na suvenýr, zmrzlinu a vstupné, větší částky děti
+      zbytečně ztrácejí.
+  - role: user
+    content: Jaký film na víkend?
+  - role: assistant
+    content:
+      Paddington v Peru je fajn rodinný film. Paddington v Peru trvá 106 minut a je přístupný pro
+      děti od 6 let, v kinech běží v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech,
+      každý díl trvá zhruba 50 minut. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha
+      v podání Jiřího Schwarze. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech
+      běží v dabingu i s titulky. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha
+      v podání Jiřího Schwarze. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí.
+  - role: user
+    content: Kolik trvá?
+  - role: assistant
+    content:
+      Asi 106 minut. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba
+      50 minut. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu
+      i s titulky. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč
+      za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh,
+      led nebo námraza. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání
+      Jiřího Schwarze. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut.
+      Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní
+      neplatí. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led
+      nebo námraza. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu
+      i s titulky. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč
+      za sezónu.
+  - role: user
+    content: A něco pro dospělé?
+  - role: assistant
+    content:
+      Severance, pokud vás baví mysteriózní seriály. Projekt Hail Mary má v českém vydání 496 stran
+      a vyšel i jako audiokniha v podání Jiřího Schwarze. Hloubka dezénu zimní pneumatiky musí být u osobních
+      aut alespoň 4 mm, jinak pneumatika jako zimní neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč
+      za sadu, uskladnění pneumatik kolem 600 Kč za sezónu. Severance má dvě řady po devíti a deseti dílech,
+      každý díl trvá zhruba 50 minut. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let,
+      v kinech běží v dabingu i s titulky. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března,
+      pokud je na silnici sníh, led nebo námraza. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března,
+      pokud je na silnici sníh, led nebo námraza. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň
+      4 mm, jinak pneumatika jako zimní neplatí. Severance má dvě řady po devíti a deseti dílech, každý
+      díl trvá zhruba 50 minut. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha
+      v podání Jiřího Schwarze.
+  - role: user
+    content: Kolik má řad?
+  - role: assistant
+    content:
+      Dvě, třetí je ohlášená. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let,
+      v kinech běží v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech, každý díl trvá
+      zhruba 50 minut. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600
+      Kč za sezónu. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího
+      Schwarze. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako
+      zimní neplatí. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh,
+      led nebo námraza. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50
+      minut. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu
+      i s titulky. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč
+      za sezónu. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika
+      jako zimní neplatí.
+  - role: user
+    content: Doporuč knihu
+  - role: assistant
+    content:
+      Projekt Hail Mary od Andyho Weira. Severance má dvě řady po devíti a deseti dílech, každý díl
+      trvá zhruba 50 minut. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let,
+      v kinech běží v dabingu i s titulky. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako
+      audiokniha v podání Jiřího Schwarze. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud
+      je na silnici sníh, led nebo námraza. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha
+      v podání Jiřího Schwarze. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let,
+      v kinech běží v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech, každý díl trvá
+      zhruba 50 minut.
+  - role: user
+    content: O čem je?
+  - role: assistant
+    content:
+      Vědec se probudí sám na vesmírné lodi a musí zachránit Zemi. Severance má dvě řady po devíti
+      a deseti dílech, každý díl trvá zhruba 50 minut. Hloubka dezénu zimní pneumatiky musí být u osobních
+      aut alespoň 4 mm, jinak pneumatika jako zimní neplatí. Projekt Hail Mary má v českém vydání 496 stran
+      a vyšel i jako audiokniha v podání Jiřího Schwarze. Zimní pneumatiky jsou povinné od 1. listopadu
+      do 31. března, pokud je na silnici sníh, led nebo námraza. Paddington v Peru trvá 106 minut a je přístupný
+      pro děti od 6 let, v kinech běží v dabingu i s titulky. Přezutí v pneuservisu stojí 600 až 1 000 Kč
+      za sadu, uskladnění pneumatik kolem 600 Kč za sezónu. Severance má dvě řady po devíti a deseti dílech,
+      každý díl trvá zhruba 50 minut. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud
+      je na silnici sníh, led nebo námraza. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let,
+      v kinech běží v dabingu i s titulky. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň
+      4 mm, jinak pneumatika jako zimní neplatí.
+  - role: user
+    content: Kde ji koupím?
+  - role: assistant
+    content:
+      V běžných knihkupectvích i jako e-knihu. Projekt Hail Mary má v českém vydání 496 stran a vyšel
+      i jako audiokniha v podání Jiřího Schwarze. Paddington v Peru trvá 106 minut a je přístupný pro děti
+      od 6 let, v kinech běží v dabingu i s titulky. Hloubka dezénu zimní pneumatiky musí být u osobních
+      aut alespoň 4 mm, jinak pneumatika jako zimní neplatí. Severance má dvě řady po devíti a deseti dílech,
+      každý díl trvá zhruba 50 minut. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50
+      minut. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako
+      zimní neplatí. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího
+      Schwarze. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za
+      sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led
+      nebo námraza.
+  - role: user
+    content: Jak dlouho se čte?
+  - role: assistant
+    content:
+      Kolem 500 stran, čte se rychle. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako
+      audiokniha v podání Jiřího Schwarze. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6
+      let, v kinech běží v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech, každý díl
+      trvá zhruba 50 minut. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak
+      pneumatika jako zimní neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik
+      kolem 600 Kč za sezónu. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50
+      minut. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+      Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu.
+      Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza.
+      Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky.
+  - role: user
+    content: Super, díky
+  - role: assistant
+    content:
+      Rádo se stalo. Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici
+      sníh, led nebo námraza. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v
+      podání Jiřího Schwarze. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech
+      běží v dabingu i s titulky. Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm,
+      jinak pneumatika jako zimní neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění
+      pneumatik kolem 600 Kč za sezónu. Severance má dvě řady po devíti a deseti dílech, každý díl trvá
+      zhruba 50 minut. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600
+      Kč za sezónu. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Zimní
+      pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza.
+      Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky.
+      Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní
+      neplatí.
+  - role: user
+    content: "Ještě: kdy se mění pneumatiky na zimní?"
+  - role: assistant
+    content:
+      Obvykle od listopadu, zákonná povinnost platí při zimních podmínkách od 1. 11. do 31. 3. Přezutí
+      v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu. Projekt
+      Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze. Paddington
+      v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky. Hloubka
+      dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní neplatí.
+      Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Zimní pneumatiky
+      jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza. Zimní pneumatiky
+      jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza. Paddington
+      v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky. Severance
+      má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Hloubka dezénu zimní pneumatiky
+      musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní neplatí. Projekt Hail Mary má v
+      českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+  - role: user
+    content: Díky
+  - role: assistant
+    content:
+      Není zač. Paddington v Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží
+      v dabingu i s titulky. Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut.
+      Zimní pneumatiky jsou povinné od 1. listopadu do 31. března, pokud je na silnici sníh, led nebo námraza.
+      Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+      Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za sezónu.
+      Hloubka dezénu zimní pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní
+      neplatí. Přezutí v pneuservisu stojí 600 až 1 000 Kč za sadu, uskladnění pneumatik kolem 600 Kč za
+      sezónu. Projekt Hail Mary má v českém vydání 496 stran a vyšel i jako audiokniha v podání Jiřího Schwarze.
+      Severance má dvě řady po devíti a deseti dílech, každý díl trvá zhruba 50 minut. Hloubka dezénu zimní
+      pneumatiky musí být u osobních aut alespoň 4 mm, jinak pneumatika jako zimní neplatí. Paddington v
+      Peru trvá 106 minut a je přístupný pro děti od 6 let, v kinech běží v dabingu i s titulky.
+user:
+  "Zpátky k ložnici. Shrň mi celý plán: jak uchytit police a televizi, kam dát nové zásuvky a jak
+  je udělat, co ještě dokoupit a kolik to celé bude stát."
+expect:
+  rubric:
+    "Replies in Czech with a bedroom plan (shelves and TV mounting, new outlets, shopping list,
+    total cost). It FAILS if any of these hold: it treats the partitions as drywall (hollow-wall anchors
+    such as Molly, anchoring into CW profiles, outlet boxes for hollow walls, pulling cable through a
+    cavity without chasing) instead of reinforced concrete with one brick wall to room 2141.5; it suggests
+    buying blackout blinds or blackout curtains, which are already installed; or its total cost ignores
+    or exceeds the 15 000 CZK budget. Concrete anchors, drilling into concrete, the brick wall as the
+    easier place for chasing, or surface trunking for outlets are signs it kept the facts."

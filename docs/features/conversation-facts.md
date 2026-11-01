@@ -98,3 +98,18 @@ memory, where nothing tied them to this conversation.
   it could show (one 32 s outlier with the flag on); measure a larger sample
   before the flip.
 - Eval spend for these runs: $0.69 (including the control).
+- Same day, two harder tests (another $1.10):
+  - `facts_retention_mixed_topics` - three corrections given in passing
+    inside other topics, ~5,500 words of dense mixed-topic history past
+    compaction: 3/3 with facts, but also 3/3 without them - the agent digs
+    the corrections out with `search_conversations` (3-5 rounds, 43-55 s,
+    $0.07-0.09 per run), while with facts 2 of 3 runs needed no tool (26-35 s,
+    $0.05).
+  - The Oct 25 production chat that motivated the feature, replayed locally
+    up to the failing turn (the reply that called the planned Wi-Fi access
+    points excessive despite the thick reinforced-concrete walls; not
+    committed - the repo is public): today's agent got it right 3/3 without
+    facts and 3/3 with them.
+  - So no reproducible failure is fixed by the list today: compaction plus
+    search recovery cover the cases tried. What it measurably buys is fewer
+    search rounds on long chats, and the visible list.
