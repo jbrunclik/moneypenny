@@ -90,6 +90,30 @@ class TestDecide:
         assert "TODAY: 2026-10-10" in prompt
         assert "Jaký externí modely maj?" in prompt and "Siri AI běží" in prompt
 
+    def test_the_prompt_says_when_the_message_has_attachments(self) -> None:
+        # cz_image_reading: "kdy tam maji otevreno v sobotu? foto cedule v priloze"
+        # looked opening hours up on the web; the gate never saw the photo
+        turn = [
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": "kdy tam maji otevreno v sobotu?"},
+                    {"type": "image", "base64": "x", "mime_type": "image/png"},
+                ]
+            )
+        ]
+        model = _verdict_model(freshness.GateVerdict(lookup=False))
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
+            freshness.decide_freshness(turn)
+        prompt = model.with_structured_output.return_value.invoke.call_args.args[0]
+        assert "ATTACHMENTS: 1 image or file" in prompt
+
+    def test_the_prompt_says_when_there_are_no_attachments(self) -> None:
+        model = _verdict_model(freshness.GateVerdict(lookup=False))
+        with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
+            freshness.decide_freshness(_TURN)
+        prompt = model.with_structured_output.return_value.invoke.call_args.args[0]
+        assert "ATTACHMENTS: none" in prompt
+
     def test_fails_open_on_any_error(self) -> None:
         model = _verdict_model(None, raises=TimeoutError("slow"))
         with patch.object(gemini_clients, "ChatGoogleGenerativeAI", return_value=model):
@@ -232,6 +256,24 @@ class TestDisputes:
             _call, result = freshness.prefetch_messages(decision, "To není pravda")
         note = json.loads(str(result.content))["_dispute"]
         assert "do not apologise" in note and "correct" in note
+
+    def test_a_dispute_is_looked_up_even_when_the_gate_said_no_lookup(self) -> None:
+        # Nov 2026 audit: 102 of 125 disputed turns ran no lookup, so the note
+        # never reached the model ("To je nesmysl, pumpu za 2000 bez výměny baterky")
+        verdict = freshness.GateVerdict(lookup=False, queries=["pumpa baterie 2026"], disputed=True)
+        with patch.object(
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+        ):
+            decision = freshness.decide_freshness(_TURN)
+        assert decision.lookup is True and decision.disputed is True
+
+    def test_a_dispute_without_queries_carries_no_dispute(self) -> None:
+        verdict = freshness.GateVerdict(lookup=False, disputed=True)
+        with patch.object(
+            gemini_clients, "ChatGoogleGenerativeAI", return_value=_verdict_model(verdict)
+        ):
+            decision = freshness.decide_freshness(_TURN)
+        assert decision.lookup is False and decision.disputed is False
 
     def test_no_note_without_a_dispute(self) -> None:
         decision = freshness.FreshnessDecision(lookup=True, queries=["q 2026"])

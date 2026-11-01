@@ -58,7 +58,19 @@ So every measure below rides on code or on tool results.
    `DISPUTE_NOTE`: decide from the sources, not the user's confidence - keep a
    correct answer politely without apologising, correct a wrong one plainly.
    A lookup alone still ended in agreement with a user who was wrong
-   (`fresh_pushback_holds` 1 of 3 before, 3 of 3 after).
+   (`fresh_pushback_holds` 1 of 3 before, 3 of 3 after). A disputed fact is
+   always looked up: `disputed` with queries means a lookup even when the gate
+   said `lookup=false`, and without queries the turn carries no dispute. The
+   Nov 1 2026 audit found 102 of 125 disputed turns had run no lookup, so the
+   note never reached the model - and most of them were not disputes at all
+   (the user clarifying what they meant, or telling the assistant about their
+   own life, or about a film plot). The prompt now keeps `disputed` for facts
+   about the world that sources can settle.
+5. The gate sees whether the latest message has attachments (images, PDFs,
+   media; text files arrive as text). A question the attachment answers - a
+   photo of opening hours, a receipt, a screenshot - is read, not looked up
+   (`cz_image_reading` looked the opening hours up on the web in 2-3 of 4
+   runs).
 
 Why before the turn and not after a draft: the chat model streams tokens to the
 client as it writes, and it runs on a Gemini context cache whose tools and tool
@@ -97,6 +109,14 @@ thinking everywhere cut plain-turn time by a third and agent cost by a
 quarter, but skipped the product-research skill (1 of 4 vs 3 of 4) and
 delegation on hard cases - hence the per-turn choice instead of a global
 setting.
+
+Measured in prod (Nov 1 2026, the week before vs the week after, 992 vs 644
+turns): the gate judged 83% of turns easy. The median plain turn (no tools,
+no lookup) went from 10.5 s to 7.6 s (p90 24.2 s to 16.5 s), and the
+median of all turns from 13.1 s to 10.0 s. Easy plain turns take 7.3 s,
+hard ones 14.2 s. `load_skill` ran on 1.7% of turns before and 1.9% after.
+`delegate_task` ran on none in either week, so there was no delegation to
+miss.
 
 ## Dated search results
 

@@ -110,6 +110,14 @@ def latest_exchange(messages: list[BaseMessage]) -> tuple[str, str]:
     return _text(messages[user_index].content), previous
 
 
+def _attachments(messages: list[BaseMessage]) -> int:
+    """Images, PDFs and media on the user's latest message (text files arrive as text)."""
+    user = next((m for m in reversed(messages) if isinstance(m, HumanMessage)), None)
+    if user is None or not isinstance(user.content, list):
+        return 0
+    return sum(1 for part in user.content if isinstance(part, dict) and part.get("type") != "text")
+
+
 def _usage(raw: Any) -> dict[str, Any]:
     metadata = getattr(raw, "usage_metadata", None) or {}
     details = metadata.get("input_token_details") or {}
@@ -121,7 +129,9 @@ def _usage(raw: Any) -> dict[str, Any]:
     }
 
 
-def _ask_gate(user: str, previous: str) -> tuple[GateVerdict | None, dict[str, Any] | None]:
+def _ask_gate(
+    user: str, previous: str, attachments: int
+) -> tuple[GateVerdict | None, dict[str, Any] | None]:
     model = chat_model(
         Config.FRESHNESS_GATE_MODEL,
         temperature=0,
@@ -134,6 +144,7 @@ def _ask_gate(user: str, previous: str) -> tuple[GateVerdict | None, dict[str, A
         today=_today().isoformat(),
         previous=previous[:_PREVIOUS_MAX_CHARS],
         user=user[:_USER_MAX_CHARS],
+        attachments=f"{attachments} image or file" if attachments else "none",
     )
     out = model.with_structured_output(GateVerdict, include_raw=True).invoke(prompt)
     if not isinstance(out, dict):
@@ -150,7 +161,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
     # The gate runs before every regular turn: past its cap the turn goes on
     # without it (the call finishes in the background and is dropped)
     context = contextvars.copy_context()
-    future = _GATE_POOL.submit(context.run, _ask_gate, user, previous)
+    future = _GATE_POOL.submit(context.run, _ask_gate, user, previous, _attachments(messages))
     try:
         verdict, usage = future.result(timeout=Config.FRESHNESS_GATE_TIMEOUT_SECONDS)
     except FutureTimeout:
@@ -164,9 +175,11 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
         return FreshnessDecision(lookup=False)
     queries = [q.strip() for q in (verdict.queries if verdict else []) if q.strip()]
     queries = queries[: Config.FRESHNESS_GATE_MAX_QUERIES]
-    lookup = bool(verdict and verdict.lookup and queries)
-    reason = verdict.reason if verdict else ""
     disputed = bool(verdict and verdict.disputed)
+    # A disputed fact is checked even when the gate said no lookup (Nov 2026:
+    # most disputed turns ran none, so the dispute note never reached the model)
+    lookup = bool(verdict and (verdict.lookup or disputed) and queries)
+    reason = verdict.reason if verdict else ""
     think_hard = verdict.think_hard if verdict else True
     logger.info(
         "Freshness gate",
@@ -183,7 +196,7 @@ def decide_freshness(messages: list[BaseMessage]) -> FreshnessDecision:
         queries=queries,
         reason=reason,
         usage=usage,
-        disputed=disputed,
+        disputed=disputed and lookup,
         think_hard=think_hard,
     )
 

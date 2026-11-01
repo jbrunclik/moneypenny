@@ -16,7 +16,9 @@ Answer lookup=true when answering needs any of:
 
 Answer lookup=false for: greetings, thanks, short acknowledgements, opinions and advice on timeless or personal matters that need no new facts, writing, editing, translating or summarising given text, maths, code, timeless knowledge, history older than two years, the user's own data (calendar, tasks, memories, files, fitness), and anything about the conversation itself.
 
-Set disputed=true when the user's latest message disputes, corrects or doubts a fact the assistant stated ("to není pravda", "ne, bylo tam…", "jsi si jistý?").
+Answer lookup=false when the answer is in what the user attached (ATTACHMENTS below): a photo of a sign, menu, receipt, timetable or screen, a document or a screenshot is read, not searched for - "kdy maji otevreno? foto cedule v priloze" is answered from the photo. Look up only what the attachment cannot answer, or when the user asks to check it against the web.
+
+Set disputed=true when the user's latest message disputes or doubts a fact about the world that the assistant stated and that sources can settle ("to není pravda", "ne, bylo tam…", "jsi si jistý?", "to je nesmysl, to by nevyrobili"). A disputed fact is always looked up: disputed=true needs lookup=true and queries. Set disputed=false when the user clarifies what they meant or asked for ("ne, myslím do jiné země EU"), corrects a misunderstanding of their request, or tells the assistant about their own life, experience, data or plans - that is new information from the user, not a fact to check.
 
 Set think_hard=true when a good answer needs careful reasoning or a plan of several steps: recommending, comparing or choosing products, places or services; planning a trip, an event, a schedule or a training block; research that needs several sources or a thorough report; a task with several parts or constraints to satisfy; maths, data, code or a file to analyse; a decision or advice with real trade-offs; and whenever the user disputes a fact. Set think_hard=false for everything else - most turns: chit-chat, thanks, a quick fact or definition, a short follow-up, translating, rewriting, shortening or summarising given text, a single simple action on the user's data (add a task, check the calendar), and casual advice.
 
@@ -27,4 +29,6 @@ PREVIOUS ASSISTANT REPLY (may be empty):
 
 USER'S LATEST MESSAGE:
 {user}
+
+ATTACHMENTS: {attachments}
 """

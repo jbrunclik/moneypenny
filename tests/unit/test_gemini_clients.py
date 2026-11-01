@@ -57,7 +57,7 @@ def _clients_built() -> Iterator[list[None]]:
 @pytest.mark.parametrize(
     "call",
     [
-        pytest.param(lambda: freshness._ask_gate("Who won yesterday?", ""), id="freshness-gate"),
+        pytest.param(lambda: freshness._ask_gate("Who won yesterday?", "", 0), id="freshness-gate"),
         pytest.param(
             lambda: grounding_check._run_verifier("An answer.", "Sources.", ""), id="grounding"
         ),
