@@ -207,30 +207,31 @@ When adding a new tool for autonomous agents, update these locations:
 2. **`src/agent/tools/__init__.py`** - Register in `get_tools_for_request()`, add `is_<tool>_available()` function
 3. **`src/agent/tool_display.py`** - Add to `TOOL_METADATA` (icon, present/past labels) **and** a branch in `extract_tool_detail()` so the pill says *what* the tool did, not just that it ran. A tool with no metadata renders as a raw `Used <function_name>` with a generic brain icon; `validate_tool_names()` logs a warning at import for any bindable tool that is missing an entry, and `tests/unit/test_tool_display.py` fails the build. Tools bound only in specific contexts (planner, programs, autonomous agents) must also be listed in `_CONDITIONAL_TOOLS`.
 4. **`src/api/routes/agent_assist.py`** - Add to `_PROMPT_TOOL_DESCRIPTIONS` dict for prompt enhancer
+5. **`src/api/helpers/lost_actions.py`** - A tool that changes something outside the reply (writes to a service, memory, a message) joins `SIDE_EFFECT_TOOLS`, so a retry after a lost turn is told it already ran ([chat-and-streaming.md](chat-and-streaming.md#resumable-streams))
 
 **Frontend (required):**
 
-5. **`web/src/components/AgentEditor.ts`** - Add to `BASE_TOOLS` array for permissions UI
-6. **`web/src/utils/icons.ts`** - Add icon if needed (referenced by `TOOL_METADATA`)
+6. **`web/src/components/AgentEditor.ts`** - Add to `BASE_TOOLS` array for permissions UI
+7. **`web/src/utils/icons.ts`** - Add icon if needed (referenced by `TOOL_METADATA`)
 
 **Configuration (if needed):**
 
-7. **`src/config.py`** - Add configuration variables
-8. **`.env.example`** - Document new config variables
+8. **`src/config.py`** - Add configuration variables
+9. **`.env.example`** - Document new config variables
 
 **For integration tools requiring user connection:**
 
-9. **`src/api/routes/agent_assist.py`** - Add `_is_<tool>_connected_for_user(user)` function that checks both app config AND user connection status
+10. **`src/api/routes/agent_assist.py`** - Add `_is_<tool>_connected_for_user(user)` function that checks both app config AND user connection status
 
 **Documentation:**
 
-10. **`docs/features/agent-tools.md`** - Update the tools table above
-11. **`docs/features/<integration>.md`** - A page for an external-service tool, linked from the table in `docs/features/integrations.md`; use `not_connected_result()` for users without a working connection
+11. **`docs/features/agent-tools.md`** - Update the tools table above
+12. **`docs/features/<integration>.md`** - A page for an external-service tool, linked from the table in `docs/features/integrations.md`; use `not_connected_result()` for users without a working connection
 
 **Tests:**
 
-12. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
-13. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
+13. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
+14. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
 
 > **Pitfall — type every tool parameter concretely.** A parameter typed `Any`
 > (or otherwise producing a schema with no `type`/`anyOf`) can break when

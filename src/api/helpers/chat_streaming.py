@@ -15,6 +15,7 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 from src.api.helpers.chat_save import save_message_to_db
+from src.api.helpers.lost_actions import record_lost_actions
 from src.api.helpers.stream_consumer import handle_generator_error, relay_events
 from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
@@ -90,6 +91,9 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
                 and context.approval_info is None
                 and (context.stream_thread is None or not context.stream_thread.is_alive())
             ):
+                record_lost_actions(
+                    context.user_id, context.conv_id, context.expected_assistant_msg_id
+                )
                 try:
                     db.delete_message_by_id(context.expected_assistant_msg_id)
                 except Exception:

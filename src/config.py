@@ -75,6 +75,11 @@ class Config:
     GUNICORN_TIMEOUT_SECONDS: int = int(
         os.getenv("GUNICORN_TIMEOUT_SECONDS", "300")
     )  # 5 minutes default
+    # How long a reload lets old workers finish their running turns (used by
+    # the systemd unit). Gunicorn's 30 s default killed tool turns mid-write
+    GUNICORN_GRACEFUL_TIMEOUT_SECONDS: int = int(
+        os.getenv("GUNICORN_GRACEFUL_TIMEOUT_SECONDS", "120")
+    )
     SSE_KEEPALIVE_INTERVAL_SECONDS: int = int(
         os.getenv("SSE_KEEPALIVE_INTERVAL_SECONDS", "15")
     )  # seconds

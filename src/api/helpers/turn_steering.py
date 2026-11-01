@@ -15,6 +15,7 @@ import time
 from datetime import timedelta
 
 from src.agent.interjection import save_interjection
+from src.api.helpers.lost_actions import record_lost_actions
 from src.api.schemas.chat import ChatRequest
 from src.api.utils import is_empty_placeholder, streaming_message_id
 from src.config import Config
@@ -129,7 +130,7 @@ def has_lost_reply(conv_id: str) -> bool:
     return bool(_dead_placeholders(conv_id))
 
 
-def discard_dead_placeholders(conv_id: str) -> None:
+def discard_dead_placeholders(conv_id: str, user_id: str) -> None:
     """Delete empty replies a killed worker left behind, before a new turn.
 
     Oct 2026: a restart killed a turn mid-stream. Its empty reply - hidden
@@ -141,6 +142,7 @@ def discard_dead_placeholders(conv_id: str) -> None:
             "Discarding a dead turn's empty reply",
             extra={"conversation_id": conv_id, "message_id": message.id},
         )
+        record_lost_actions(user_id, conv_id, message.id)
         discard_unused_placeholder(message.id)
 
 

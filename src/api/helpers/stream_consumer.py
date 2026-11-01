@@ -15,6 +15,7 @@ import time
 from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
+from src.api.helpers.lost_actions import record_lost_actions
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -230,6 +231,7 @@ def handle_generator_error(context: StreamContext, error: Exception) -> Generato
         and not context.clean_content.strip()
         and not context.final_results["saved"]
     ):
+        record_lost_actions(context.user_id, context.conv_id, context.expected_assistant_msg_id)
         try:
             db.delete_message_by_id(context.expected_assistant_msg_id)
         except Exception:  # cleanup must not mask the original error

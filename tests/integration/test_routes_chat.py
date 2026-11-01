@@ -1783,6 +1783,97 @@ class TestDeadTurnPlaceholder:
         assert test_database.get_message_by_id(batch_reply.id) is not None
 
 
+class TestLostTurnActions:
+    """Oct 2026: a deploy gave running turns gunicorn's 30 s grace while tool
+    turns run p90 ~42 s - a turn could die right after a Todoist or Calendar
+    write. Retry re-answered the question with no record of what had run, so
+    the write could happen twice. The next turn is told what already ran."""
+
+    _WRITE = (
+        (1, '{"type": "tool_start", "tool": "todoist", "detail": "add_task: Buy milk"}'),
+        (2, '{"type": "tool_end", "tool": "todoist"}'),
+        (3, '{"type": "tool_start", "tool": "google_calendar", "detail": "create: Dentist"}'),
+    )
+
+    @staticmethod
+    def _batch_text(
+        client: FlaskClient, auth_headers: dict[str, str], conv_id: str, body: dict[str, Any]
+    ) -> str:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = ("Answer", [], {}, [])
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{conv_id}/chat/batch", headers=auth_headers, json=body
+            )
+        assert response.status_code == 200
+        return str(mock_agent.chat_batch.call_args.kwargs["text"])
+
+    def test_retry_after_a_dead_turn_is_told_what_already_ran(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "Add milk and book the dentist")
+        dead = test_database.add_message(test_conversation.id, "assistant", "")
+        test_database.journal_append_events(
+            dead.id, [*self._WRITE, (4, '{"type": "tool_start", "tool": "web_search"}')]
+        )
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+
+        text = self._batch_text(
+            client, auth_headers, test_conversation.id, {"rerun_mode": "regenerate"}
+        )
+
+        assert text.startswith("Add milk and book the dentist")
+        assert "todoist: add_task: Buy milk (finished)" in text
+        assert "google_calendar: create: Dentist (cut off" in text
+        assert "web_search" not in text
+        # Told once: the turn after it starts clean
+        later = self._batch_text(client, auth_headers, test_conversation.id, {"message": "Díky"})
+        assert later == "Díky"
+
+    def test_retry_after_a_failed_stream_is_told_what_already_ran(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def write_then_fail(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "tool_start", "tool": "todoist", "detail": "add_task: Buy milk"}
+                yield {"type": "tool_end", "tool": "todoist"}
+                raise RuntimeError("model down")
+
+            mock_agent.stream_chat_events = write_then_fail
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Add milk"},
+            )
+            assert '"type": "error"' in response.data.decode()
+
+        text = self._batch_text(
+            client, auth_headers, test_conversation.id, {"rerun_mode": "regenerate"}
+        )
+
+        assert "todoist: add_task: Buy milk (finished)" in text
+
+    def test_a_dead_turn_that_only_read_adds_nothing(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        test_database.add_message(test_conversation.id, "user", "Co je nového?")
+        dead = test_database.add_message(test_conversation.id, "assistant", "")
+        test_database.journal_append_events(
+            dead.id, [(1, '{"type": "tool_start", "tool": "web_search", "detail": "news"}')]
+        )
+        monkeypatch.setattr(Config, "STREAM_RESUME_STALL_SECONDS", 0)
+
+        text = self._batch_text(
+            client, auth_headers, test_conversation.id, {"rerun_mode": "regenerate"}
+        )
+
+        assert text == "Co je nového?"
+
+
 class TestStreamModelErrorLeavesNoPlaceholder:
     """A model error before any text: the route deleted the empty reply
     placeholder only if the producer thread had already exited - it is still

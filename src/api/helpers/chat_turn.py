@@ -41,6 +41,7 @@ from src.agent.tools import (
     set_sports_context,
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
+from src.api.helpers.lost_actions import pop_lost_actions_note
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
@@ -79,6 +80,8 @@ class PreparedTurn:
     anonymous_mode: bool
     client_location: dict[str, Any] | None
     deep_research: DeepResearchPlan | None = None
+    # What the conversation's lost turn already did (lost_actions.py)
+    lost_actions_note: str | None = None
 
 
 def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
@@ -119,7 +122,10 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
 
     # A worker killed mid-turn left its empty reply: out of the history, and
     # out of the regenerate's way
-    discard_dead_placeholders(conv_id)
+    discard_dead_placeholders(conv_id, user.id)
+    # What a dead or failed turn already did (its reply is gone): told to
+    # this turn, so a retry does not repeat a write
+    lost_actions_note = pop_lost_actions_note(user.id, conv_id)
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:
@@ -143,6 +149,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         anonymous_mode=anonymous_mode,
         client_location=data.client_location.model_dump() if data.client_location else None,
         deep_research=plan,
+        lost_actions_note=lost_actions_note,
     )
 
 
@@ -320,6 +327,7 @@ class TurnContext:
     agent_execution_context: AgentContext | None = None
     # Set for a deep-research turn (the stream producer runs the pipeline)
     deep_research: DeepResearchPlan | None = None
+    lost_actions_note: str | None = None
 
     @property
     def timeout_seconds(self) -> int:
@@ -379,10 +387,20 @@ class TurnContext:
             language_context=self.language_context,
         )
 
+    def _agent_text(self) -> str:
+        """The user's text, plus what a lost attempt at it already did.
+
+        Only the agent sees the note: the saved message, the title and the
+        rest of the turn use message_text.
+        """
+        if not self.lost_actions_note:
+            return self.message_text
+        return f"{self.message_text}\n\n[SYSTEM GUIDANCE]\n{self.lost_actions_note}\n[/SYSTEM GUIDANCE]"
+
     def agent_call_kwargs(self) -> dict[str, Any]:
         """Arguments for ChatAgent.chat_batch / stream_chat_events."""
         return {
-            "text": self.message_text,
+            "text": self._agent_text(),
             "files": self.files,
             "history": self.history,
             "force_tools": self.force_tools,
@@ -418,6 +436,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         anonymous_mode=turn.anonymous_mode,
         client_location=turn.client_location,
         deep_research=turn.deep_research,
+        lost_actions_note=turn.lost_actions_note,
         is_planning=conv.is_planning,
     )
     if conv.is_planning:
