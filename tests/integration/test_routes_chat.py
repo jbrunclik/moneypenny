@@ -1857,6 +1857,28 @@ class TestLostTurnActions:
 
         assert "todoist: add_task: Buy milk (finished)" in text
 
+    def test_a_refused_rerun_keeps_the_note_for_the_next_turn(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        from src.api.helpers.lost_actions import KV_NAMESPACE
+
+        test_database.add_message(test_conversation.id, "user", "Add milk")
+        test_database.add_message(test_conversation.id, "assistant", "Done?")
+        user_id = test_conversation.user_id
+        test_database.kv_set(
+            user_id, KV_NAMESPACE, test_conversation.id, '{"m1": ["- todoist: add_task: Milk"]}'
+        )
+
+        refused = client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"rerun_mode": "regenerate"},
+        )
+        assert refused.status_code == 400
+
+        text = self._batch_text(client, auth_headers, test_conversation.id, {"message": "A?"})
+        assert "todoist: add_task: Milk" in text
+
     def test_a_dead_turn_that_only_read_adds_nothing(
         self, client, auth_headers, test_conversation, test_database, monkeypatch
     ) -> None:

@@ -24,6 +24,22 @@ from src.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Limits
+# The app's own per-user state (steering, stop flags, compaction, lost-turn
+# notes, OAuth state, quotas, file caches): the model may name any namespace,
+# and a page it read must not be able to plant these. A test keeps the list
+# in step with the modules' constants
+RESERVED_NAMESPACES = frozenset(
+    {
+        "cancel",
+        "deep_research_finish",
+        "conv_compaction",
+        "interject",
+        "lost_actions",
+        "oauth_state",
+        "search-usage",
+        "gemini_files",
+    }
+)
 _MAX_KEY_LENGTH = 256
 _MAX_VALUE_SIZE = 65536  # 64KB
 _MAX_KEYS_PER_NAMESPACE = 1000
@@ -87,6 +103,11 @@ def kv_store(
             namespace = "sports"
         elif agent_context:
             namespace = f"agent:{agent_context.agent.id}"
+
+    if namespace in RESERVED_NAMESPACES:
+        return tool_error(
+            f"Namespace '{namespace}' is reserved for the app's own state.", retriable=False
+        )
 
     # Validate action
     handler = _KV_ACTIONS.get(action)

@@ -14,6 +14,7 @@ record.
 """
 
 import json
+import re
 from collections import Counter
 
 from src.db.models import db
@@ -52,6 +53,17 @@ _NOTE = (
 )
 
 
+# A detail is the model's own tool arguments - possibly text copied from a
+# page - and the note is promoted to guidance: no markers, a short line
+_MARKER = re.compile(r"\[/?\s*SYSTEM GUIDANCE\s*\]", re.IGNORECASE)
+_DETAIL_MAX_CHARS = 120
+
+
+def _clean(detail: str) -> str:
+    detail = " ".join(_MARKER.sub("", detail).split())
+    return detail if len(detail) <= _DETAIL_MAX_CHARS else detail[: _DETAIL_MAX_CHARS - 1] + "…"
+
+
 def _journal_actions(message_id: str) -> list[str]:
     """The side-effecting tool calls in a turn's journal, in order."""
     starts: list[tuple[str, str]] = []
@@ -62,7 +74,7 @@ def _journal_actions(message_id: str) -> list[str]:
         if tool not in SIDE_EFFECT_TOOLS:
             continue
         if event.get("type") == "tool_start":
-            starts.append((tool, event.get("detail") or ""))
+            starts.append((tool, _clean(event.get("detail") or "")))
         elif event.get("type") == "tool_end":
             ended[tool] += 1
     actions = []

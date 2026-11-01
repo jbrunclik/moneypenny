@@ -123,9 +123,6 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     # A worker killed mid-turn left its empty reply: out of the history, and
     # out of the regenerate's way
     discard_dead_placeholders(conv_id, user.id)
-    # What a dead or failed turn already did (its reply is gone): told to
-    # this turn, so a retry does not repeat a write
-    lost_actions_note = pop_lost_actions_note(user.id, conv_id)
     if data.rerun_mode:
         message_text, history_messages, user_msg = _resolve_rerun(conv_id, data.rerun_mode)
     else:
@@ -136,6 +133,10 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
 
     # A stale interjection from a previous turn must never steer this one
     clear_interjection(user.id, conv_id)
+    # What a dead or failed turn already did (its reply is gone): told to
+    # this turn, so a retry does not repeat a write. Taken only once the turn
+    # is accepted - a refused rerun leaves it for the next one
+    lost_actions_note = pop_lost_actions_note(user.id, conv_id)
 
     # File DATA is left out of history (only metadata: name, type, message_id,
     # file_index) so large base64 isn't re-sent; tools fetch it on demand.

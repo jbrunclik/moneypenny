@@ -261,6 +261,7 @@ Autonomous agents have access to a per-user key-value store for persisting data 
    - Sports conversations: namespace `sports`, keys `<program_id>:<suffix>` (goals, preferences, routine, progress, last_session); language conversations likewise under `language`
 3. The namespace is injected by the tool at runtime - agents/programs never need to specify it explicitly
 4. Data is stored in the `kv_store` SQLite table and scoped per user
+5. The app keeps its own per-user state in the same table (steering, stop flags, compaction, lost-turn notes, OAuth state, search quotas, file caches). The model may still name a namespace explicitly, so those are refused (`RESERVED_NAMESPACES` in `agent_kv.py`): a page read in the same turn must not be able to plant steering or a guidance note. A new internal namespace joins that set (a test checks the known ones)
 
 ### Usage (from an agent's perspective)
 

@@ -1030,3 +1030,42 @@ class TestKVIncrement:
         test_database.kv_increment(test_user.id, "search-usage", "k", delta=10)
         result = test_database.kv_increment(test_user.id, "search-usage", "k", delta=5)
         assert result == 15
+
+
+class TestKVStoreReservedNamespaces:
+    """The tool lets the model name any namespace; the app's own state must
+    stay out of its reach - a page read in the same turn could otherwise plant
+    steering, a stop flag or a lost-turn note."""
+
+    @pytest.mark.parametrize(
+        "namespace",
+        [
+            "src.agent.cancellation.KV_NAMESPACE",
+            "src.agent.cancellation.FINISH_KV_NAMESPACE",
+            "src.agent.conversation_compaction.KV_NAMESPACE",
+            "src.agent.interjection.KV_NAMESPACE",
+            "src.api.helpers.lost_actions.KV_NAMESPACE",
+            "src.auth.oauth_state._NAMESPACE",
+            "src.services.search_provider.USAGE_NAMESPACE",
+            "src.services.gemini_file_cache.GEMINI_FILES_NAMESPACE",
+        ],
+    )
+    def test_internal_namespaces_are_refused(
+        self, namespace: str, mock_db_for_tool: MagicMock, mock_agent_context: MagicMock
+    ) -> None:
+        import importlib
+
+        module, _, name = namespace.rpartition(".")
+        value = getattr(importlib.import_module(module), name)
+        with (
+            patch(
+                "src.agent.tools.agent_kv.get_conversation_context",
+                return_value=("conv-1", "user-1"),
+            ),
+            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
+        ):
+            result = _invoke_kv_store(action="set", key="conv-1", value='"x"', namespace=value)
+
+        assert "reserved" in result
+        mock_db_for_tool.kv_set.assert_not_called()
