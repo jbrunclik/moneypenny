@@ -11,6 +11,7 @@ from typing import Any
 from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.helpers.conversation_facts import facts_eligible
 from src.api.helpers.sync import cursor_sync, sync_summary
 from src.api.helpers.turn_steering import has_lost_reply, running_turn_id
 from src.api.rate_limiting import rate_limit_conversations
@@ -18,6 +19,7 @@ from src.api.schemas.common import StatusResponse
 from src.api.schemas.conversations import (
     ConversationDetailPaginatedResponse,
     ConversationDetailQuery,
+    ConversationFactsResponse,
     ConversationResponse,
     ConversationsListPaginatedResponse,
     ConversationsPageQuery,
@@ -289,6 +291,27 @@ def update_anonymous_mode(
         },
     )
     return {"status": "updated"}, 200
+
+
+@api.route("/conversations/<conv_id>/facts", methods=["GET"])
+@api.output(ConversationFactsResponse)
+@api.doc(responses=[404])
+@require_auth
+def get_conversation_facts(user: User, conv_id: str) -> tuple[dict[str, object], int]:
+    """The conversation's settled facts, for the read-only chip and popup."""
+    conv = db.get_conversation(conv_id, user.id)
+    if not conv:
+        raise_not_found_error("Conversation")
+    enabled = facts_eligible(conv, anonymous_mode=False)
+    facts = db.get_conversation_facts(conv_id) if enabled else []
+    return {
+        "conversation_id": conv_id,
+        "facts": [
+            {"key": f.key, "text": f.text, "updated_at": to_api(f.updated_at)} for f in facts
+        ],
+        "max_count": Config.CONVERSATION_FACTS_MAX_COUNT,
+        "enabled": enabled,
+    }, 200
 
 
 @api.route("/conversations/<conv_id>", methods=["DELETE"])

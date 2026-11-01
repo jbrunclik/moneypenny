@@ -2,6 +2,7 @@
  * Conversations API: list/sync/CRUD, message pages, archive, trash, and single-message operations.
  */
 import {
+  type ConversationFactsResponse,
   PaginationDirection,
   type BulkTrashRequest,
   type Conversation,
@@ -140,6 +141,11 @@ export const conversations = {
    * Used for stream recovery when the connection drops but the message was saved server-side.
    * @param messageId - The message ID to fetch
    */
+  /** The conversation's settled facts (read-only; the agent keeps them). */
+  async getFacts(id: string): Promise<ConversationFactsResponse> {
+    return requestWithRetry<ConversationFactsResponse>(`/api/conversations/${id}/facts`);
+  },
+
   async getMessage(messageId: string): Promise<Message> {
     return requestWithRetry<Message>(`/api/messages/${messageId}`);
   },

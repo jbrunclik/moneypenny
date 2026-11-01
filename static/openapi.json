@@ -4537,6 +4537,46 @@
         "summary": "Delete a program and its conversation."
       }
     },
+    "/api/conversations/{conv_id}/facts": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationFactsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "The conversation's settled facts, for the read-only chip and popup."
+      }
+    },
     "/api/conversations/{conv_id}/unpin": {
       "post": {
         "parameters": [
@@ -15065,6 +15105,64 @@
           "formatted"
         ],
         "title": "ConversationCostResponse",
+        "type": "object"
+      },
+      "ConversationFactsResponse.ConversationFactResponse": {
+        "description": "One settled fact of a conversation.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text",
+          "updated_at"
+        ],
+        "title": "ConversationFactResponse",
+        "type": "object"
+      },
+      "ConversationFactsResponse": {
+        "description": "The conversation's settled facts (read-only; changed by talking to the agent).",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationFactsResponse.ConversationFactResponse"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "max_count": {
+            "title": "Max Count",
+            "type": "integer"
+          },
+          "enabled": {
+            "description": "Whether conversation facts are switched on",
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "facts",
+          "max_count",
+          "enabled"
+        ],
+        "title": "ConversationFactsResponse",
         "type": "object"
       },
       "ArtifactStateRequest": {

@@ -76,6 +76,7 @@ measurements
 notes
 finished_at
 # src/api/schemas/conversations.py
+max_count
 read_count
 purge_at
 trashed_ids

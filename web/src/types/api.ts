@@ -374,6 +374,8 @@ export type MessageCostResponse = Schemas['MessageCostResponse'];
 
 export type ConversationCompactionResponse = Schemas['ConversationCompactionResponse'];
 
+export type ConversationFactsResponse = Schemas['ConversationFactsResponse'];
+
 export type MonthlyCostResponse = Schemas['MonthlyCostResponse'];
 
 export type CostHistoryResponse = Schemas['CostHistoryResponse'];

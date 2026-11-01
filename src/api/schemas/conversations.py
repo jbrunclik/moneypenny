@@ -252,6 +252,23 @@ class ConversationDetailPaginatedResponse(ResponseModel):
     )
 
 
+class ConversationFactResponse(ResponseModel):
+    """One settled fact of a conversation."""
+
+    key: str
+    text: str
+    updated_at: Timestamp
+
+
+class ConversationFactsResponse(ResponseModel):
+    """The conversation's settled facts (read-only; changed by talking to the agent)."""
+
+    conversation_id: str
+    facts: list[ConversationFactResponse]
+    max_count: int
+    enabled: bool = Field(description="Whether conversation facts are switched on")
+
+
 class MessagesListResponse(ResponseModel):
     """Paginated messages response (for dedicated messages endpoint)."""
 

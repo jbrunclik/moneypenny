@@ -5180,6 +5180,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{conv_id}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The conversation's settled facts, for the read-only chip and popup. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationFactsResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/unpin": {
         parameters: {
             query?: never;
@@ -11612,6 +11659,38 @@ export interface components {
             currency: string;
             /** Formatted */
             formatted: string;
+        };
+        /**
+         * ConversationFactResponse
+         * @description One settled fact of a conversation.
+         */
+        "ConversationFactsResponse.ConversationFactResponse": {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ConversationFactsResponse
+         * @description The conversation's settled facts (read-only; changed by talking to the agent).
+         */
+        ConversationFactsResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Facts */
+            facts: components["schemas"]["ConversationFactsResponse.ConversationFactResponse"][];
+            /** Max Count */
+            max_count: number;
+            /**
+             * Enabled
+             * @description Whether conversation facts are switched on
+             */
+            enabled: boolean;
         };
         /**
          * ArtifactStateRequest

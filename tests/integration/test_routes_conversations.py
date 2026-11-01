@@ -583,3 +583,69 @@ class TestStreamingMessageIdLookup:
 
         assert older["message_pagination"]["has_newer"] is True
         assert older["streaming_message_id"] == placeholder.id
+
+
+class TestConversationFacts:
+    """GET /api/conversations/<id>/facts - the read-only list behind the chip."""
+
+    @staticmethod
+    def _get(client: FlaskClient, auth_headers: dict[str, str], conv_id: str) -> tuple[int, dict]:
+        response = client.get(f"/api/conversations/{conv_id}/facts", headers=auth_headers)
+        return response.status_code, json.loads(response.data)
+
+    def test_lists_the_facts_in_order(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", True)
+        reply = test_database.add_message(test_conversation.id, "assistant", "a")
+        test_database.apply_conversation_facts(
+            test_conversation.id,
+            test_conversation.user_id,
+            reply.id,
+            [("walls", "Concrete"), ("blinds", "Installed")],
+            [],
+        )
+
+        status, data = self._get(client, auth_headers, test_conversation.id)
+
+        assert status == 200
+        assert data["enabled"] is True
+        assert data["max_count"] == 30
+        # Set together: same updated_at, then by key
+        assert [(f["key"], f["text"]) for f in data["facts"]] == [
+            ("blinds", "Installed"),
+            ("walls", "Concrete"),
+        ]
+        assert data["facts"][0]["updated_at"].endswith("+00:00")
+
+    def test_another_users_conversation_is_not_found(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+    ) -> None:
+        other = test_database.get_or_create_user(email="other@example.com", name="Other")
+        conv = test_database.create_conversation(other.id)
+
+        status, _ = self._get(client, auth_headers, conv.id)
+
+        assert status == 404
+
+    def test_disabled_is_an_empty_list(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", False)
+
+        status, data = self._get(client, auth_headers, test_conversation.id)
+
+        assert status == 200
+        assert (data["enabled"], data["facts"]) == (False, [])
