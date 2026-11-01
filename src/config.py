@@ -610,6 +610,17 @@ class Config:
     # An update leaving an entry at this share of the cap gets a nudge to save
     # new topics as separate memories (catch-all memories were the lossy ones)
     MEMORY_ENTRY_NEAR_LIMIT_RATIO = 0.8
+
+    # Conversation facts (docs/features/conversation-facts.md): settled facts
+    # per conversation, sent with every turn of it. Off until the retention
+    # eval passes and ordinary turns are shown not slower or costlier
+    CONVERSATION_FACTS_ENABLED: bool = (
+        os.getenv("CONVERSATION_FACTS_ENABLED", "false").lower() == "true"
+    )
+    # Fits ~30 short facts; edits past the cap are dropped and the facts block
+    # tells the agent the list is full
+    CONVERSATION_FACTS_MAX_COUNT = 30
+    CONVERSATION_FACTS_MAX_FACT_CHARS = 200
     MEMORY_MAX_ENTRIES: int = int(os.getenv("MEMORY_MAX_ENTRIES", "200"))
     # Point at which the LLM is nudged to consolidate rather than keep adding.
     # Defaults to 80% of the cap so the two stay in step when the cap changes.

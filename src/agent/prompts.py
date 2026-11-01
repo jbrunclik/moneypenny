@@ -24,6 +24,9 @@ from src.agent.prompt_programs import (
 )
 from src.agent.prompt_texts.core import (
     BASE_SYSTEM_PROMPT,
+    CONVERSATION_FACTS_EMPTY,
+    CONVERSATION_FACTS_FULL,
+    CONVERSATION_FACTS_PROMPT,
     CONVERSATION_TITLE_CONTEXT_PROMPT,
     CUSTOM_INSTRUCTIONS_PROMPT,
     TOOLS_SYSTEM_PROMPT_BASE,
@@ -38,7 +41,7 @@ from src.agent.skills import skills_index_prompt
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_location_context
 from src.config import Config
-from src.db.models import db
+from src.db.models import ConversationFact, db
 from src.utils.clock import to_local, utc_now
 from src.utils.logging import get_logger
 from src.utils.mapy import MapyError, is_mapy_configured, mapy_rgeocode
@@ -118,6 +121,18 @@ def _get_conversation_title_context(
 
 
 # ============ Helper Functions ============
+
+
+def format_conversation_facts(facts: list[ConversationFact]) -> str:
+    """The conversation's settled facts as the per-turn context block."""
+    lines = [f"- {fact.key}: {fact.text}" for fact in facts] or [CONVERSATION_FACTS_EMPTY]
+    if len(facts) >= Config.CONVERSATION_FACTS_MAX_COUNT:
+        lines.append(CONVERSATION_FACTS_FULL)
+    return CONVERSATION_FACTS_PROMPT.format(
+        count=len(facts),
+        max_count=Config.CONVERSATION_FACTS_MAX_COUNT,
+        facts="\n".join(lines),
+    )
 
 
 def get_force_tools_prompt(force_tools: list[str]) -> str:
@@ -257,6 +272,26 @@ def get_static_prompt_for_profile(profile: str) -> str:
     return prompt
 
 
+def _conversation_parts(
+    conversation_title: str | None,
+    conversation_facts: list[ConversationFact] | None,
+    is_sports: bool,
+    is_language: bool,
+    is_planning: bool,
+) -> list[str]:
+    """The conversation's title and settled facts for the dynamic context."""
+    parts: list[str] = []
+    title_context = _get_conversation_title_context(
+        conversation_title, is_sports, is_language, is_planning
+    )
+    if title_context:
+        parts.append(title_context)
+    # None: not an ordinary chat or the feature is off; [] still explains it
+    if conversation_facts is not None:
+        parts.append(format_conversation_facts(conversation_facts))
+    return parts
+
+
 def get_dynamic_prompt_parts(
     force_tools: list[str] | None = None,
     user_name: str | None = None,
@@ -271,6 +306,7 @@ def get_dynamic_prompt_parts(
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
     conversation_title: str | None = None,
+    conversation_facts: list[ConversationFact] | None = None,
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -304,11 +340,11 @@ def get_dynamic_prompt_parts(
     if custom_instructions and custom_instructions.strip():
         parts.append(CUSTOM_INSTRUCTIONS_PROMPT.format(instructions=custom_instructions.strip()))
 
-    title_context = _get_conversation_title_context(
-        conversation_title, is_sports, is_language, is_planning
+    parts.extend(
+        _conversation_parts(
+            conversation_title, conversation_facts, is_sports, is_language, is_planning
+        )
     )
-    if title_context:
-        parts.append(title_context)
 
     if user_id and not anonymous_mode:
         # Instructions live in the cached static prefix; only the list is dynamic
@@ -388,6 +424,7 @@ def get_system_prompt(
     is_language: bool = False,
     language_context: dict[str, Any] | None = None,
     conversation_title: str | None = None,
+    conversation_facts: list[ConversationFact] | None = None,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -422,6 +459,9 @@ def get_system_prompt(
     )
     if title_context:
         prompt += title_context
+
+    if conversation_facts is not None:
+        prompt += "\n" + format_conversation_facts(conversation_facts)
 
     if with_tools and get_available_tools():
         prompt += _tools_prompt(anonymous_mode)

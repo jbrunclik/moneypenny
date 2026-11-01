@@ -41,6 +41,7 @@ from src.agent.tools import (
     set_sports_context,
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
+from src.api.helpers.conversation_facts import load_turn_facts
 from src.api.helpers.lost_actions import pop_lost_actions_note
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
@@ -48,7 +49,7 @@ from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
-from src.db.models import Conversation, Message, User, db
+from src.db.models import Conversation, ConversationFact, Message, User, db
 from src.db.models.dataclasses import MessageAction
 from src.enums import MessageRole
 from src.services.background_thumbnails import (
@@ -329,6 +330,8 @@ class TurnContext:
     # Set for a deep-research turn (the stream producer runs the pipeline)
     deep_research: DeepResearchPlan | None = None
     lost_actions_note: str | None = None
+    # None where the conversation keeps no facts list (conversation_facts.py)
+    conversation_facts: list[ConversationFact] | None = None
 
     @property
     def timeout_seconds(self) -> int:
@@ -416,6 +419,7 @@ class TurnContext:
             "is_language": self.language_program is not None,
             "language_context": self.language_context,
             "conversation_title": self.conversation_title,
+            "conversation_facts": self.conversation_facts,
         }
 
 
@@ -438,6 +442,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         client_location=turn.client_location,
         deep_research=turn.deep_research,
         lost_actions_note=turn.lost_actions_note,
+        conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
     )
     if conv.is_planning:

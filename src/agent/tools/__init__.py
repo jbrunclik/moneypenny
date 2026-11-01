@@ -7,6 +7,8 @@ from collections.abc import Callable
 from typing import Any
 
 # Import tools from submodules
+from langchain_core.tools import BaseTool
+
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
 from src.agent.tools.attachment import create_file
@@ -37,6 +39,7 @@ from src.agent.tools.image_generation import generate_image
 from src.agent.tools.memory import manage_memory, search_memory
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
+    record_conversation_facts,
     set_conversation_title,
 )
 from src.agent.tools.places import (
@@ -105,12 +108,19 @@ _SPORTS_EXCLUDED_TOOLS = {
     "create_artifact",
     "update_artifact",
     "read_artifact",
+    # Programs keep their own kv_store notebook
+    "record_conversation_facts",
 }
 
 _LANGUAGE_EXCLUDED_TOOLS = _SPORTS_EXCLUDED_TOOLS | {
     "garmin_connect",
     "garmin_workout",
 }
+
+
+def _facts_tools() -> list[BaseTool]:
+    """Settled facts of the conversation (extract-only, applied on save)."""
+    return [record_conversation_facts] if Config.CONVERSATION_FACTS_ENABLED else []
 
 
 def get_available_tools() -> list[Any]:
@@ -133,6 +143,8 @@ def get_available_tools() -> list[Any]:
         search_conversations,
         read_conversation,
     ]
+
+    tools.extend(_facts_tools())
 
     # Inline artifacts (sandboxed HTML/JS under the reply); never granted to
     # autonomous agents - their output is push and digest text
@@ -352,6 +364,7 @@ _TOOL_MAP: dict[str, Any] = {
 _NON_PERMISSIONED_TOOLS = frozenset(
     {
         "set_conversation_title",  # metadata tool, always bound
+        "record_conversation_facts",  # metadata tool, chats only
         "refresh_planner_dashboard",  # planner mode only
         "request_approval",  # autonomous agents only
         "propose_deep_research",  # ordinary chats only, never for agents
@@ -484,6 +497,7 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "request_approval",
     "whatsapp",
     "set_conversation_title",
+    "record_conversation_facts",
     "manage_memory",
     "search_memory",
     "search_conversations",

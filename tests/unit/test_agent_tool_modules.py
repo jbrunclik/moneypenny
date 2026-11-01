@@ -12,6 +12,7 @@ from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
+    record_conversation_facts,
     set_conversation_title,
 )
 from src.agent.tools.trigger_agent import trigger_agent
@@ -22,7 +23,10 @@ from src.agent.tools.trigger_agent import trigger_agent
 class TestMetadataTools:
     def test_extract_only_tool_names_match_tools(self) -> None:
         """should_continue routes on this set - it must match the tool names."""
-        assert frozenset({set_conversation_title.name}) == EXTRACT_ONLY_TOOL_NAMES
+        assert (
+            frozenset({set_conversation_title.name, record_conversation_facts.name})
+            == EXTRACT_ONLY_TOOL_NAMES
+        )
 
     def test_cite_sources_is_gone(self) -> None:
         """Sources are derived from pages read; a citation tool cost an extra

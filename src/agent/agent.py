@@ -25,6 +25,7 @@ from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
+from src.db.models import ConversationFact
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -246,6 +247,7 @@ class ChatAgent:
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
+        conversation_facts: list[ConversationFact] | None = None,
     ) -> list[BaseMessage]:
         """Build the messages list from history and user message."""
         messages: list[BaseMessage] = []
@@ -280,6 +282,7 @@ class ChatAgent:
                 is_language=is_language,
                 language_context=language_context,
                 conversation_title=conversation_title,
+                conversation_facts=conversation_facts,
             )
             dynamic_context_msg = HumanMessage(content=f"[CONTEXT]\n{dynamic}\n[/CONTEXT]")
         else:
@@ -303,6 +306,7 @@ class ChatAgent:
                         is_language=is_language,
                         language_context=language_context,
                         conversation_title=conversation_title,
+                        conversation_facts=conversation_facts,
                     )
                 )
             )
@@ -338,6 +342,7 @@ class ChatAgent:
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
+        conversation_facts: list[ConversationFact] | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
         """
         Send a message and get a response (non-streaming).
@@ -373,6 +378,7 @@ class ChatAgent:
             is_language=is_language,
             language_context=language_context,
             conversation_title=conversation_title,
+            conversation_facts=conversation_facts,
         )
         logger.debug(
             "Starting chat_batch",
@@ -434,6 +440,7 @@ class ChatAgent:
         is_language: bool = False,
         language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
+        conversation_facts: list[ConversationFact] | None = None,
     ) -> Generator[dict[str, Any]]:
         """Stream response events including thinking, tool calls, and tokens.
 
@@ -472,6 +479,7 @@ class ChatAgent:
             is_language=is_language,
             language_context=language_context,
             conversation_title=conversation_title,
+            conversation_facts=conversation_facts,
         )
         decision = self._freshness_decision(messages)
         if decision and decision.lookup:

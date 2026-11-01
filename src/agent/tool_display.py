@@ -206,6 +206,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Renamed the conversation",
         "icon": "edit",
     },
+    "record_conversation_facts": {
+        "label": "Noting settled facts",
+        "label_past": "Noted settled facts",
+        "icon": "edit",
+    },
 }
 
 # Place/routing tools share one detail formatter.
@@ -225,6 +230,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "request_approval",
         "trigger_agent",
         "propose_deep_research",
+        "record_conversation_facts",  # behind CONVERSATION_FACTS_ENABLED
     }
 )
 
@@ -616,6 +622,18 @@ def _approval_detail(args: dict[str, Any]) -> str | None:
     return _snippet(str(args["action_description"]), 70)
 
 
+def _facts_detail(tool_args: dict[str, object]) -> str | None:
+    """Fact edits as their keys - e.g. 'partition-walls, -blinds'."""
+    sets = tool_args.get("set")
+    removes = tool_args.get("remove")
+    keys = (
+        [str(f.get("key")) for f in sets if isinstance(f, dict)] if isinstance(sets, list) else []
+    )
+    if isinstance(removes, list):
+        keys += [f"-{k}" for k in removes]
+    return ", ".join(k for k in keys if k) or None
+
+
 _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "research": _truthy_arg("question"),
     "create_artifact": _truthy_arg("title"),
@@ -643,6 +661,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "trigger_agent": _truthy_arg("agent_name"),
     "request_approval": _approval_detail,
     "set_conversation_title": _truthy_arg("title"),
+    "record_conversation_facts": _facts_detail,
 }
 
 

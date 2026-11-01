@@ -29,6 +29,7 @@ from src.agent.tools import (
     set_current_message_files,
     set_location_context,
 )
+from src.api.helpers.conversation_facts import record_turn_facts
 from src.api.helpers.conversation_title import resolve_title_update
 from src.config import Config
 from src.db.models import Message, db
@@ -400,6 +401,7 @@ def save_message_to_db(
         generated_title = resolve_title_update(
             conv_id, user_id, message_text, content, result_messages
         )
+        record_turn_facts(conv_id, user_id, assistant_msg.id, result_messages)
 
         logger.info(
             "Chat turn completed and saved",

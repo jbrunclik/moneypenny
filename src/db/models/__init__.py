@@ -31,6 +31,7 @@ from src.db.models.cache import CacheMixin
 from src.db.models.client_errors import ClientErrorsMixin
 from src.db.models.conversation import ConversationMixin
 from src.db.models.conversation_archive import ConversationArchiveMixin
+from src.db.models.conversation_facts import ConversationFactsMixin
 from src.db.models.conversation_listing import ConversationListingMixin
 from src.db.models.conversation_trash import ConversationTrashMixin
 from src.db.models.cost import CostMixin
@@ -39,6 +40,7 @@ from src.db.models.dataclasses import (
     AgentExecution,
     ApprovalRequest,
     Conversation,
+    ConversationFact,
     Memory,
     Message,
     MessagePagination,
@@ -88,6 +90,7 @@ class Database(
     ConversationListingMixin,
     ConversationArchiveMixin,
     ConversationTrashMixin,
+    ConversationFactsMixin,
     MessageMixin,
     MessagePaginationMixin,
     MessageFileMixin,
@@ -208,6 +211,7 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     # Dataclasses
     "User",
     "Conversation",
+    "ConversationFact",
     "Message",
     "Memory",
     "MessagePagination",

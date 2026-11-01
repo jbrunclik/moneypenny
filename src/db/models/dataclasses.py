@@ -207,6 +207,16 @@ class Memory:
 
 
 @dataclass
+class ConversationFact:
+    """A fact settled in one conversation, owned by the reply that last set it."""
+
+    key: str
+    text: str
+    message_id: str
+    updated_at: datetime
+
+
+@dataclass
 class MessagePagination:
     """Pagination info for messages.
 

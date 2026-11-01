@@ -87,6 +87,45 @@ class TestConversationTitleContext:
             assert "set_conversation_title" not in dynamic
 
 
+class TestConversationFacts:
+    """Settled facts of the conversation ride in every turn's context."""
+
+    @staticmethod
+    def _facts(n: int) -> list:
+        from datetime import UTC, datetime
+
+        from src.db.models import ConversationFact
+
+        when = datetime(2026, 11, 1, tzinfo=UTC)
+        return [ConversationFact(f"fact-{i}", f"Fact {i}", "m1", when) for i in range(n)]
+
+    def test_facts_block_lists_facts_with_count(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        dynamic = get_dynamic_prompt_parts(conversation_facts=self._facts(2))
+        assert "# Conversation facts (2/30)" in dynamic
+        assert "- fact-0: Fact 0" in dynamic and "- fact-1: Fact 1" in dynamic
+        assert "never contradict them" in dynamic
+        assert "manage_memory" in dynamic
+
+    def test_an_empty_list_still_explains_the_tool(self) -> None:
+        dynamic = get_system_prompt(conversation_facts=[])
+        assert "# Conversation facts (0/30)" in dynamic
+        assert "No facts recorded yet." in dynamic
+
+    def test_facts_block_says_full_at_the_cap(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        dynamic = get_dynamic_prompt_parts(conversation_facts=self._facts(30))
+        assert "The list is full" in dynamic
+
+    def test_no_facts_block_without_facts(self) -> None:
+        from src.agent.prompts import get_dynamic_prompt_parts
+
+        assert "Conversation facts" not in get_dynamic_prompt_parts()
+        assert "Conversation facts" not in get_system_prompt(with_tools=False)
+
+
 class TestGetForceToolsPrompt:
     """Tests for get_force_tools_prompt function."""
 

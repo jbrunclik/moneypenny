@@ -1896,6 +1896,140 @@ class TestLostTurnActions:
         assert text == "Co je nového?"
 
 
+class TestConversationFacts:
+    """Facts the agent records apply when its reply is saved, reach every
+    later turn, and go with the reply that set them."""
+
+    @staticmethod
+    def _record(key: str, text: str) -> list[Any]:
+        from langchain_core.messages import AIMessage
+
+        call = {
+            "name": "record_conversation_facts",
+            "args": {"set": [{"key": key, "text": text}]},
+            "id": "f1",
+        }
+        return [AIMessage(content="Noted.", tool_calls=[call])]
+
+    @staticmethod
+    def _batch(
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        conv_id: str,
+        body: dict[str, Any],
+        result_messages: list[Any] | None = None,
+    ) -> MagicMock:
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = ("Noted.", [], {}, result_messages or [])
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{conv_id}/chat/batch", headers=auth_headers, json=body
+            )
+        assert response.status_code == 200
+        return mock_agent
+
+    @pytest.fixture(autouse=True)
+    def _enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", True)
+
+    def test_batch_reply_records_and_the_next_turn_gets_it(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        self._batch(
+            client,
+            auth_headers,
+            test_conversation.id,
+            {"message": "Zdi jsou beton"},
+            self._record("walls", "All walls are concrete"),
+        )
+        facts = test_database.get_conversation_facts(test_conversation.id)
+        reply = test_database.get_messages(test_conversation.id)[-1]
+        assert [(f.key, f.text, f.message_id) for f in facts] == [
+            ("walls", "All walls are concrete", reply.id)
+        ]
+
+        agent = self._batch(client, auth_headers, test_conversation.id, {"message": "Další?"})
+        sent = agent.chat_batch.call_args.kwargs["conversation_facts"]
+        assert [f.key for f in sent] == ["walls"]
+
+    def test_stream_reply_records(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        result = self._record("walls", "All walls are concrete")
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+
+            def stream(*args: Any, **kwargs: Any) -> Any:
+                yield {"type": "token", "text": "Noted."}
+                yield {
+                    "type": "final",
+                    "content": "Noted.",
+                    "tool_results": [],
+                    "usage_info": {},
+                    "result_messages": result,
+                }
+
+            mock_agent.stream_chat_events = stream
+            mock_agent_class.return_value = mock_agent
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/stream",
+                headers=auth_headers,
+                json={"message": "Zdi jsou beton"},
+            )
+            response.data.decode()
+
+        assert [f.key for f in test_database.get_conversation_facts(test_conversation.id)] == [
+            "walls"
+        ]
+
+    def test_regenerate_drops_the_deleted_replys_facts(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        self._batch(
+            client,
+            auth_headers,
+            test_conversation.id,
+            {"message": "Zdi jsou beton"},
+            self._record("walls", "All walls are concrete"),
+        )
+        reply = test_database.get_messages(test_conversation.id)[-1]
+        test_database.delete_message_by_id(reply.id)
+
+        agent = self._batch(
+            client, auth_headers, test_conversation.id, {"rerun_mode": "regenerate"}
+        )
+
+        assert agent.chat_batch.call_args.kwargs["conversation_facts"] == []
+
+    def test_disabled_records_nothing_and_sends_nothing(
+        self, client, auth_headers, test_conversation, test_database, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", False)
+        agent = self._batch(
+            client,
+            auth_headers,
+            test_conversation.id,
+            {"message": "Zdi jsou beton"},
+            self._record("walls", "All walls are concrete"),
+        )
+        assert test_database.get_conversation_facts(test_conversation.id) == []
+        assert agent.chat_batch.call_args.kwargs["conversation_facts"] is None
+
+    def test_anonymous_conversations_get_no_facts(
+        self, client, auth_headers, test_conversation, test_database
+    ) -> None:
+        agent = self._batch(
+            client,
+            auth_headers,
+            test_conversation.id,
+            {"message": "Zdi jsou beton", "anonymous_mode": True},
+            self._record("walls", "All walls are concrete"),
+        )
+        assert test_database.get_conversation_facts(test_conversation.id) == []
+        assert agent.chat_batch.call_args.kwargs["conversation_facts"] is None
+
+
 class TestStreamModelErrorLeavesNoPlaceholder:
     """A model error before any text: the route deleted the empty reply
     placeholder only if the producer thread had already exited - it is still

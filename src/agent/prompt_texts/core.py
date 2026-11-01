@@ -295,3 +295,15 @@ The user has provided these custom instructions for how you should respond:
 {instructions}
 
 Follow these instructions while still adhering to safety guidelines."""
+
+
+CONVERSATION_FACTS_PROMPT = """
+# Conversation facts ({count}/{max_count})
+Facts settled in this conversation. They are in force: never contradict them;
+if a request conflicts with one, say so. Keep them current with
+record_conversation_facts (replace a fact by its key, remove what no longer
+holds). Facts about the user in general go to manage_memory instead.
+
+{facts}"""
+CONVERSATION_FACTS_EMPTY = "No facts recorded yet."
+CONVERSATION_FACTS_FULL = "The list is full - replace or remove a fact before adding one."

@@ -265,6 +265,29 @@ def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
     return [{"title": p.title, "url": p.url} for p in turn_pages(messages)]
 
 
+def extract_fact_edits(messages: list[BaseMessage]) -> tuple[list[tuple[str, str]], list[str]]:
+    """The turn's record_conversation_facts edits as (sets, removes).
+
+    Every call of the turn counts, in order: a later set of a key replaces an
+    earlier one, and a later remove cancels an earlier set of that key.
+    """
+    edits: dict[str, str | None] = {}
+    for msg in messages:
+        if not isinstance(msg, AIMessage) or not msg.tool_calls:
+            continue
+        for tc in msg.tool_calls:
+            if tc.get("name") != "record_conversation_facts":
+                continue
+            args = tc.get("args") or {}
+            for key in args.get("remove") or []:
+                edits[str(key)] = None
+            for fact in args.get("set") or []:
+                if isinstance(fact, dict) and fact.get("key") and fact.get("text"):
+                    edits[str(fact["key"])] = str(fact["text"])
+    sets = [(key, text) for key, text in edits.items() if text is not None]
+    return sets, [key for key, text in edits.items() if text is None]
+
+
 def extract_conversation_title(messages: list[BaseMessage]) -> str | None:
     """Extract the title arg from the turn's set_conversation_title calls.
 
