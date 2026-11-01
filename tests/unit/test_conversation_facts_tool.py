@@ -72,8 +72,30 @@ def test_extract_ignores_other_tools() -> None:
 
 @pytest.mark.parametrize("enabled", [True, False])
 def test_bound_only_when_enabled(monkeypatch: pytest.MonkeyPatch, enabled: bool) -> None:
-    from src.agent.tools import get_available_tools
+    from src.agent.tools import get_tools_for_request
 
     monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", enabled)
-    names = {t.name for t in get_available_tools()}
+    names = {t.name for t in get_tools_for_request()}
     assert ("record_conversation_facts" in names) is enabled
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"anonymous_mode": True},
+        {"is_planning": True},
+        {"is_sports": True},
+        {"is_language": True},
+        {"is_agent": True},
+    ],
+)
+def test_not_bound_where_facts_are_not_kept(
+    monkeypatch: pytest.MonkeyPatch, kwargs: dict[str, bool]
+) -> None:
+    """Review I2: bound where its edits are discarded, the tool told the model
+    'recorded' for nothing (and cost a round on a tool-only turn)."""
+    from src.agent.tools import get_tools_for_request
+
+    monkeypatch.setattr(Config, "CONVERSATION_FACTS_ENABLED", True)
+    names = {t.name for t in get_tools_for_request(**kwargs)}
+    assert "record_conversation_facts" not in names

@@ -41,12 +41,17 @@ memory, where nothing tied them to this conversation.
 - **Caps** - 30 facts (`CONVERSATION_FACTS_MAX_COUNT`), 200 characters each
   (`CONVERSATION_FACTS_MAX_FACT_CHARS`), keys are lowercase slugs of up to 40
   characters. An extract-only tool returns nothing the model reads, so the
-  cap is signalled in the block: at 30 it says the list is full. Edits past
-  the caps are dropped (logged as "Conversation facts rejected at the caps").
+  count cap is signalled in the block: at 30 it says the list is full, and a
+  new key past it is dropped (logged as "Conversation facts rejected at the
+  caps"). A longer fact is clipped at a word with `…`, never dropped - a
+  silently dropped fact left the agent believing it was recorded (review of
+  Nov 1 2026).
 - **Scope** - ordinary, non-anonymous chats. Planner, sports and language
   conversations keep their own kv_store notebooks; agent conversations are
-  not the user's chat. The tool is not bound in program conversations; in
-  planner and anonymous chats its edits are ignored and no block is sent.
+  not the user's chat. The tool is bound only where facts are kept
+  (`_ordinary_chat_tools` in `src/agent/tools/__init__.py`, next to
+  `propose_deep_research`): bound elsewhere it would answer "recorded" while
+  its edits were discarded.
 - **UI** - a header chip with the count (desktop chat header and mobile
   header, hidden at 0) opens a read-only popup
   (`web/src/components/FactsIndicator.ts`, `GET /api/conversations/<id>/facts`).

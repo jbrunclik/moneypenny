@@ -108,19 +108,12 @@ _SPORTS_EXCLUDED_TOOLS = {
     "create_artifact",
     "update_artifact",
     "read_artifact",
-    # Programs keep their own kv_store notebook
-    "record_conversation_facts",
 }
 
 _LANGUAGE_EXCLUDED_TOOLS = _SPORTS_EXCLUDED_TOOLS | {
     "garmin_connect",
     "garmin_workout",
 }
-
-
-def _facts_tools() -> list[BaseTool]:
-    """Settled facts of the conversation (extract-only, applied on save)."""
-    return [record_conversation_facts] if Config.CONVERSATION_FACTS_ENABLED else []
 
 
 def get_available_tools() -> list[Any]:
@@ -143,8 +136,6 @@ def get_available_tools() -> list[Any]:
         search_conversations,
         read_conversation,
     ]
-
-    tools.extend(_facts_tools())
 
     # Inline artifacts (sandboxed HTML/JS under the reply); never granted to
     # autonomous agents - their output is push and digest text
@@ -246,6 +237,19 @@ def _add_permitted_tools(
             tools.append(tool)
 
 
+def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
+    """Tools for ordinary chats only - not programs, the planner or agents."""
+    tools: list[BaseTool] = []
+    # Deep research offers: those have their own cost and approval models
+    if Config.DEEP_RESEARCH_ENABLED:
+        tools.append(propose_deep_research)
+    # Conversation facts are kept in ordinary, non-anonymous chats only:
+    # elsewhere the tool's edits would be discarded while it answers "recorded"
+    if Config.CONVERSATION_FACTS_ENABLED and not anonymous_mode:
+        tools.append(record_conversation_facts)
+    return tools
+
+
 def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
@@ -302,10 +306,8 @@ def get_tools_for_request(
     else:
         tools = available
 
-    # Deep research offers belong to ordinary chats (not programs, the planner
-    # or agent conversations - those have their own cost and approval models)
-    if Config.DEEP_RESEARCH_ENABLED and not (is_planning or is_sports or is_language or is_agent):
-        tools = [*tools, propose_deep_research]
+    if not (is_planning or is_sports or is_language or is_agent):
+        tools = [*tools, *_ordinary_chat_tools(anonymous_mode)]
 
     # Add refresh_planner_dashboard tool only in planner mode
     if is_planning and is_refresh_planner_dashboard_available():

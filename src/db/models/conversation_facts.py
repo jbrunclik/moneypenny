@@ -35,6 +35,16 @@ def normalize_fact_key(key: str) -> str:
     return slug[:_KEY_MAX_CHARS]
 
 
+def _clip_fact(text: str) -> str:
+    """One line, clipped at a word to the length cap: a dropped fact would
+    leave the agent believing it was recorded (the tool returns nothing)."""
+    text = " ".join(text.split())
+    cap = Config.CONVERSATION_FACTS_MAX_FACT_CHARS
+    if len(text) <= cap:
+        return text
+    return text[: cap - 1].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+
+
 @dataclass
 class FactsApplyResult:
     """How many edits of one call were applied and how many hit the caps."""
@@ -98,8 +108,8 @@ class ConversationFactsMixin:
                 )
                 applied += cursor.rowcount
             for raw_key, raw_text in set_facts:
-                key, text = normalize_fact_key(raw_key), " ".join(raw_text.split())
-                if not key or not text or len(text) > Config.CONVERSATION_FACTS_MAX_FACT_CHARS:
+                key, text = normalize_fact_key(raw_key), _clip_fact(raw_text)
+                if not key or not text:
                     rejected += 1
                     continue
                 if not self._fact_fits(conn, conv_id, key):

@@ -74,11 +74,21 @@ def test_cap_rejects_past_the_count_and_long_facts(
         conv_id, test_user.id, a, [("fact-0", "Changed")], []
     )
     assert replaced.applied == 1
-    long = test_database.apply_conversation_facts(
-        conv_id, test_user.id, a, [("fact-1", "y" * 201)], []
-    )
-    assert long.rejected == 1
     assert len(test_database.get_conversation_facts(conv_id)) == 30
+
+
+def test_a_long_fact_is_clipped_not_dropped(test_database: Database, test_user: User) -> None:
+    """Review I1: a dropped fact left the agent believing it was recorded."""
+    conv_id, (a,) = _conv_with_replies(test_database, test_user, 1)
+    text = "The partition walls are reinforced concrete " + "and very thick " * 15
+
+    result = test_database.apply_conversation_facts(conv_id, test_user.id, a, [("walls", text)], [])
+
+    (fact,) = test_database.get_conversation_facts(conv_id)
+    assert (result.applied, result.rejected) == (1, 0)
+    assert len(fact.text) <= 200 and fact.text.endswith("…")
+    assert fact.text.startswith("The partition walls are reinforced concrete")
+    assert not fact.text[:-1].endswith(" ")
 
 
 def test_keys_are_normalized(test_database: Database, test_user: User) -> None:
