@@ -6,9 +6,8 @@ out there - kept by the agent and sent with every turn of that conversation.
 Part 1 of the [thorough turns design](../superpowers/specs/2026-10-25-thorough-turns-and-conversation-facts-design.md);
 plan: [2026-11-01-conversation-facts.md](../superpowers/plans/2026-11-01-conversation-facts.md).
 
-Behind `CONVERSATION_FACTS_ENABLED` (default `false`) until the retention eval
-passes and ordinary turns are shown not to be slower or noticeably more
-expensive.
+Behind `CONVERSATION_FACTS_ENABLED` (default `false`); switched on in
+production on Nov 1 2026 (see the rollout status below).
 
 ## Why
 
@@ -113,3 +112,12 @@ memory, where nothing tied them to this conversation.
   - So no reproducible failure is fixed by the list today: compaction plus
     search recovery cover the cases tried. What it measurably buys is fewer
     search rounds on long chats, and the visible list.
+- Switched on in production for its efficiency and visibility after a timing
+  sample: 15 plain cases, 3 runs with the flag off and 3 on, interleaved -
+  median per-case latency +4% (within run-to-run noise), cost $0.023 per case
+  either way, 43 vs 42 of 45 passed (unrelated content misses), and no case
+  recorded a fact in a chat where nothing was settled. Sample spend $2.09.
+- Measure around Nov 15 2026 from the logs ("Conversation facts recorded")
+  and the table: share of chats with facts, facts per chat, whether they read
+  as settled facts or chatter, search rounds on long chats, plain-turn
+  latency. Turn it off and remove it if the lists are noise.
