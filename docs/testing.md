@@ -130,6 +130,11 @@ This ensures:
 - Each test gets its own database file
 - Fixtures create fresh state
 - No shared state between tests
+- `src/config.py` loads the developer's real `.env`, so `tests/conftest.py`
+  pins every feature flag a test's expectations depend on to its default
+  before import. When a flag is switched on in production (and so in the local
+  `.env`), add it there, or tests pass on CI and fail on the laptop
+  (`CONVERSATION_FACTS_ENABLED`, Nov 2026). Tests opt in via `monkeypatch` on `Config`.
 - `make test` / `make test-cov` run in parallel (`pytest-xdist -n auto`; the
   suite went from ~7 min to under 2 locally). Each worker is its own pytest
   session with its own temp DB directory, so a new test must not write to a

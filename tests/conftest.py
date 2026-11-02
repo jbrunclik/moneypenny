@@ -32,6 +32,9 @@ os.environ["EMBEDDINGS_ENABLED"] = "false"
 os.environ["GROUNDING_CHECK_ENABLED"] = "false"
 # No live freshness-gate calls (src/agent/freshness.py); tests enable it explicitly
 os.environ["FRESHNESS_GATE_ENABLED"] = "false"
+# Off at its default, whatever the developer's .env says (on in production);
+# facts tests opt in via monkeypatch on Config
+os.environ["CONVERSATION_FACTS_ENABLED"] = "false"
 # Per-process counters: a shared sqlite:// file would leak hits between tests
 # and xdist workers; the SQLite storage has its own tests
 os.environ["RATE_LIMIT_STORAGE_URI"] = "memory://"
