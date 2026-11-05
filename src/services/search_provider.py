@@ -151,15 +151,17 @@ def _breaker_state(provider: str) -> tuple[int, float]:
 def _breaker_tripped(provider: str) -> bool:
     """Whether the provider should be skipped right now.
 
-    Tripped once failures reach the threshold, EXCEPT for a single half-open
-    probe allowed once the probe interval has elapsed since the last failure -
-    so a transient (non-exhaustion) outage recovers within a day instead of
-    staying down until the billing period rolls over.
+    Tripped once failures reach the threshold - or at once when the provider
+    said it is out of credits - EXCEPT for a single half-open probe allowed
+    once the probe interval has elapsed since the last failure. So an outage
+    recovers within a day instead of staying down until the billing period
+    rolls over. Exhaustion gets the probe too: our period starts at local
+    midnight, which can precede the provider's own reset (Nov 1 2026, Exa's
+    402 at 08:20 would otherwise have benched it for the whole month).
     """
-    if db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider)):
-        return True  # terminal for the period; the probe would only re-confirm
     fails, last = _breaker_state(provider)
-    if fails < Config.SEARCH_BREAKER_THRESHOLD:
+    exhausted = db.kv_get(_SYSTEM_USER_ID, USAGE_NAMESPACE, breaker_exhausted_key(provider))
+    if not exhausted and fails < Config.SEARCH_BREAKER_THRESHOLD:
         return False
     return _now() - last < Config.SEARCH_BREAKER_PROBE_SECONDS
 

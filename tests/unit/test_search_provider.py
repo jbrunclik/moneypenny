@@ -31,6 +31,7 @@ from src.services.search_provider import (
     period_start,
     quota_status,
     search_web,
+    search_web_detailed,
     usage_key,
 )
 
@@ -1164,8 +1165,9 @@ class TestTerminalVsTransientErrors:
 
 
 class TestExhaustionBenchesImmediately:
-    """A terminal signal benches a provider for the rest of the period, with
-    no threshold to reach and no daily probe re-asking a settled question."""
+    """A terminal signal benches a provider at once, with no threshold to
+    reach, but still gets the daily probe: our period can start before the
+    provider's own reset, so an early "out of credits" must not last a month."""
 
     @patch("src.services.search_adapters.search_ddgs")
     @patch("src.services.search_adapters.search_brave")
@@ -1191,12 +1193,17 @@ class TestExhaustionBenchesImmediately:
 
     @patch("src.services.search_adapters.search_ddgs")
     @patch("src.services.search_adapters.search_brave")
-    def test_exhausted_provider_is_not_probed_again_this_period(
+    def test_exhausted_provider_is_probed_after_the_probe_window(
         self, mock_brave: MagicMock, mock_ddgs: MagicMock
     ) -> None:
-        """The half-open probe exists to recover a transient outage. Credits
-        do not come back mid-period, so probing for them is pure waste."""
-        mock_brave.side_effect = SearchProviderError("out of credits", exhausted=True)
+        """Nov 1 2026: Exa's first call of the period got a 402 because Exa
+        had not reset yet at local midnight; a period-long bench left its
+        whole monthly allowance unused. The probe recovers it."""
+        mock_brave.side_effect = [
+            SearchProviderError("out of credits", exhausted=True),
+            [{"title": "B", "url": "https://b", "snippet": "S"}],
+            [{"title": "B2", "url": "https://b2", "snippet": "S"}],
+        ]
         mock_ddgs.return_value = [{"title": "T", "url": "https://a", "snippet": "S"}]
         store: dict[str, str] = {}
         with (
@@ -1210,10 +1217,13 @@ class TestExhaustionBenchesImmediately:
             patch("src.services.search_provider.db", _stateful_db(store)),
         ):
             search_web("q", 3)
-            # Well past the probe window - a transient trip would retry here
-            with patch("src.services.search_provider._now", return_value=time.time() + 10 * 86400):
-                search_web("q2", 3)
-        mock_brave.assert_called_once()
+            search_web("q2", 3)  # inside the window: still benched
+            later = time.time() + Config.SEARCH_BREAKER_PROBE_SECONDS + 1
+            with patch("src.services.search_provider._now", return_value=later):
+                _, served_by = search_web_detailed("q3", 3)
+                assert served_by == "brave"
+                search_web("q4", 3)  # the success cleared the bench
+        assert mock_brave.call_count == 3
 
 
 def test_tests_never_hold_a_metered_search_key() -> None:
