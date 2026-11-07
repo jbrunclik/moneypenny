@@ -158,6 +158,19 @@ function panelContent(progress: ResearchProgress, messageId: string, now: number
   ];
 }
 
+/**
+ * Put the previous Finish now button back in place of the freshly built one
+ * (taking its label and state): the panel refreshes on every event, and a tap
+ * landing on a button that was just replaced reaches a detached node and is lost.
+ */
+function keepFinishButton(panel: HTMLElement, previous: HTMLButtonElement | null): void {
+  const fresh = panel.querySelector<HTMLButtonElement>('.research-progress__finish');
+  if (!previous || !fresh) return;
+  previous.textContent = fresh.textContent;
+  previous.disabled = fresh.disabled;
+  fresh.replaceWith(previous);
+}
+
 /** Render (or refresh) the panel at the top of a streaming bubble. */
 export function renderResearchProgress(
   messageEl: HTMLElement,
@@ -175,7 +188,9 @@ export function renderResearchProgress(
   }
   panel.dataset.conversationId = ids.convId;
   panel.dataset.messageId = ids.messageId;
+  const previousFinish = panel.querySelector<HTMLButtonElement>('.research-progress__finish');
   panel.replaceChildren(...panelContent(progress, ids.messageId, now));
+  keepFinishButton(panel, previousFinish);
   // Share of items finished (set here: no inline style attribute in the markup)
   const finished = progress.states.filter((state) => FINISHED.has(state)).length;
   const share = progress.writing ? 1 : finished / Math.max(progress.items.length, 1);

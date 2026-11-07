@@ -57,6 +57,21 @@ describe('research progress panel', () => {
     expect(el.querySelector<HTMLElement>('.research-progress__bar span')!.style.width).toBe('67%');
   });
 
+  it('keeps the same Finish now button across progress updates', () => {
+    // The panel refreshes on every event; a recreated button loses a click
+    // that lands on the old node (WebKit E2E flake, run 42424240288)
+    const el = bubble();
+    const ids = { convId: 'c1', messageId: 'a1' };
+    renderResearchProgress(el, run([PLAN]), ids, START);
+    const before = el.querySelector('.research-progress__finish');
+
+    renderResearchProgress(el, run([PLAN, { type: 'research_item', index: 0, status: 'started' }]), ids, START + 1000);
+
+    expect(el.querySelector('.research-progress__finish')).toBe(before);
+    (before as HTMLButtonElement).click();
+    expect(conversations.finishNow).toHaveBeenCalledWith('c1', 'a1');
+  });
+
   it('marks running, failed and skipped items', () => {
     const el = bubble();
     const progress = run([
