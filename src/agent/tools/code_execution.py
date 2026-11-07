@@ -438,7 +438,8 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
 
     ## Reading PDFs
     - Start with `from sandbox_helpers import pdf_overview; pdf_overview(path)`: what
-      each page holds, and which pages have no text (scanned - render and look at them)
+      each page holds, and which pages have no text (scanned - render and look at them);
+      20 pages per call, `first_page=21` for the next
     - pdfplumber: `page.extract_text()`, `page.extract_words()` (with coordinates),
       drawn lines/rectangles in `page.lines` / `page.rects` (measure plans from them),
       `page.find_tables()`, `page.to_image(resolution=150).save(...)` to render a page
