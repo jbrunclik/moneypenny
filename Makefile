@@ -1,4 +1,4 @@
-.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-tz test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types clean clean-worktrees deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
+.PHONY: help setup sandbox-image browser-setup push-keys token-key lint lint-fix check-generated run dev build test test-cov test-unit test-tz test-integration test-fe test-fe-unit test-fe-component test-fe-e2e test-fe-visual test-fe-visual-update test-fe-visual-report test-fe-visual-browse test-fe-watch decode-stack lock test-all pre-commit audit migration openapi types prompt-snapshots clean clean-worktrees deploy reload update rollback _update _rollback _build_and_reload vacuum update-currency backup backup-list defrag-memories
 
 VENV := .venv
 # Use venv binaries if available, otherwise fall back to system commands (for CI)
@@ -179,6 +179,9 @@ test:
 
 eval: ## Run agent eval harness (golden cases, hits live Gemini API)
 	$(PYTHON) evals/run.py
+
+prompt-snapshots: ## Regenerate the static prompt + tool declaration snapshots after an intended change
+	UPDATE_PROMPT_SNAPSHOTS=1 $(PYTHON) -m pytest tests/unit/test_prompt_snapshots.py -q -n0 -p no:randomly
 
 test-cov:
 	$(PYTHON) -m pytest tests/ -v -n auto --cov=src --cov-report=html --cov-report=term

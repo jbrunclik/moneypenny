@@ -1,0 +1,45 @@
+# Characters sent on every turn. Regenerate: make prompt-snapshots
+
+static prompt
+  standard       33881
+  anonymous      22034
+  planning       37029
+  sports         41738
+  language       46840
+
+tool declarations (35 tools, 97388 chars)
+  browser                       7394
+  create_artifact               3219
+  create_file                   2454
+  delegate_task                 1566
+  delete_place                   501
+  execute_code                  5161
+  fetch_url                     1843
+  garmin_connect                8652
+  garmin_workout                7245
+  generate_image                5007
+  get_route                      933
+  google_calendar               2784
+  kv_store                      2878
+  list_places                    425
+  load_skill                     813
+  manage_memory                 2359
+  propose_deep_research         1298
+  read_artifact                  503
+  read_conversation             1026
+  record_conversation_facts     1668
+  refresh_planner_dashboard     1895
+  request_approval              2855
+  research                      2896
+  retrieve_file                 2976
+  rouvy_workout                 1714
+  save_place                    1113
+  search_conversations          2049
+  search_memory                 1019
+  search_places                 1313
+  set_conversation_title        1091
+  todoist                      11458
+  trigger_agent                 1010
+  update_artifact               1878
+  web_search                    2429
+  whatsapp                      3963

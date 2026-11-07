@@ -49,6 +49,16 @@ make test-cov
 make test-tz
 ```
 
+**Prompt snapshots** (`tests/unit/test_prompt_snapshots.py`, Nov 2026): the static
+prompt of every cache profile and every tool declaration (as Gemini receives it)
+are committed under `tests/fixtures/prompt_snapshots/`, with their sizes in
+`sizes.txt` - both are sent on every turn, so a prompt or tool change shows in
+review as a diff with its cost. After an intended change run
+`make prompt-snapshots` and commit the files. The snapshot pins everything
+environment-dependent (all tools declared, Mapy treated as configured, memory
+tunables at their code defaults), so laptop and CI agree; a new
+environment-dependent piece in the prompt has to be pinned there too.
+
 ### Frontend Tests
 
 ```bash

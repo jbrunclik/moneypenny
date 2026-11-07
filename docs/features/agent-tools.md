@@ -233,6 +233,7 @@ When adding a new tool for autonomous agents, update these locations:
 
 13. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
 14. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
+15. **`make prompt-snapshots`** - A new tool, or a changed docstring or schema, changes `tests/fixtures/prompt_snapshots/tools.json` and `sizes.txt`; regenerate and commit them (`test_prompt_snapshots.py` fails until you do)
 
 > **Pitfall — type every tool parameter concretely.** A parameter typed `Any`
 > (or otherwise producing a schema with no `type`/`anyOf`) can break when
