@@ -98,6 +98,19 @@ class ConversationMixin:
 
             return self._row_to_conversation(row)
 
+    def agent_conversation_ids(self, user_id: str, conversation_ids: list[str]) -> set[str]:
+        """Which of these conversations are scheduled agents' runs (search ranks them last)."""
+        if not conversation_ids:
+            return set()
+        marks = ",".join("?" * len(conversation_ids))
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"SELECT id FROM conversations WHERE user_id = ? AND is_agent = 1 AND id IN ({marks})",
+                (user_id, *conversation_ids),
+            ).fetchall()
+        return {row["id"] for row in rows}
+
     def set_conversation_anonymous_mode(
         self, conv_id: str, user_id: str, anonymous_mode: bool
     ) -> bool:

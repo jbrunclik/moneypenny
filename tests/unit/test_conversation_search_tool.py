@@ -264,3 +264,80 @@ class TestSemanticConversationSearch:
         result = str(search_conversations.invoke({"query": "hexagonal tiles"}))
 
         assert result.count("Tiles") == 1
+
+
+class TestSearchAdditions:
+    """Hits name their message, agent runs rank below the family's chats, and a
+    hit deep in a long chat can be read in its context."""
+
+    def test_hits_carry_their_message_id(self, search_context: tuple[Database, User]) -> None:
+        database, user = search_context
+        conv = database.create_conversation(user.id, "Garden")
+        message = database.add_message(conv.id, "user", "The apricot tree needs pruning in March")
+
+        result = str(search_conversations.invoke({"query": "apricot pruning"}))
+
+        assert f"message_id={message.id}" in result
+
+    def test_scheduled_agent_conversations_rank_below_and_are_labelled(
+        self, search_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Agent runs are not in the keyword index, but their messages are
+        embedded: in the semantic matches they come after the family's chats."""
+        import src.agent.tools.conversation_search as module
+        from src.utils.embeddings import pack_vector
+
+        monkeypatch.setattr(Config, "EMBEDDINGS_ENABLED", True)
+        monkeypatch.setattr(
+            "src.db.models.embeddings.EmbeddingsMixin.embed_and_store_async", lambda *args: None
+        )
+        database, user = search_context
+        agent = database.create_agent(user.id, "Zoo watcher")
+        run = database.add_message(agent.conversation_id, "assistant", "Zoo opening hours today")
+        human = _conversation_with_message(database, user, "Weekend", "Shall we visit the animals?")
+        human_msg = database.get_messages(human.id)[0]
+        # The agent's run is the closer semantic match
+        database.upsert_embedding(user.id, "message", run.id, "m", 2, pack_vector([1.0, 0.0]))
+        database.upsert_embedding(user.id, "message", human_msg.id, "m", 2, pack_vector([0.8, 0.6]))
+        monkeypatch.setattr(module, "embed_text", lambda text: [1.0, 0.0])
+
+        result = str(search_conversations.invoke({"query": "where to take the kids"}))
+
+        assert result.index(f"conversation_id={human.id}") < result.index(
+            f"conversation_id={agent.conversation_id}"
+        )
+        assert "(scheduled agent)" in result
+
+    def test_search_description_says_to_search_before_asking_again(self) -> None:
+        assert "Before asking the user to repeat" in search_conversations.description
+
+    def test_read_around_a_message_shows_its_neighbourhood(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        conv = database.create_conversation(user.id, "Long chat")
+        ids = [database.add_message(conv.id, "user", f"message number {i}").id for i in range(60)]
+
+        result = str(
+            read_conversation.invoke(
+                {"conversation_id": conv.id, "around_message_id": ids[5], "max_messages": 10}
+            )
+        )
+
+        assert "message number 5" in result
+        assert "message number 59" not in result
+        assert "around" in result
+
+    def test_read_around_a_message_of_another_conversation_is_refused(
+        self, search_context: tuple[Database, User]
+    ) -> None:
+        database, user = search_context
+        conv = _conversation_with_message(database, user, "A", "hello")
+        other = database.create_conversation(user.id, "B")
+        stray = database.add_message(other.id, "user", "elsewhere")
+
+        result = str(
+            read_conversation.invoke({"conversation_id": conv.id, "around_message_id": stray.id})
+        )
+
+        assert "not in this conversation" in result

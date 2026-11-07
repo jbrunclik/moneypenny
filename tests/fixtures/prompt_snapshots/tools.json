@@ -537,7 +537,7 @@
     }
   },
   {
-    "description": "Read the messages of one of the user's past conversations.\n\nUse this after search_conversations to see the full context around a match.\n\nArgs:\n    conversation_id: ID of the conversation, as returned by search_conversations.\n    max_messages: How many of the most recent messages to return (1-100, default 30).\n\nReturns:\n    The conversation's messages in chronological order.",
+    "description": "Read the messages of one of the user's past conversations.\n\nUse this after search_conversations to see the full context around a match:\npass the hit's message_id as around_message_id to read the exchange around\nit (otherwise you get the most recent messages, which in a long chat may\nnot include the match).\n\nArgs:\n    conversation_id: ID of the conversation, as returned by search_conversations.\n    max_messages: How many messages to return (1-100, default 30).\n    around_message_id: Optional message_id from a search hit to center on.\n\nReturns:\n    The conversation's messages in chronological order.",
     "name": "read_conversation",
     "parameters": {
       "properties": {
@@ -546,6 +546,10 @@
         },
         "max_messages": {
           "type": "INTEGER"
+        },
+        "around_message_id": {
+          "nullable": true,
+          "type": "STRING"
         }
       },
       "required": [
@@ -723,7 +727,7 @@
     }
   },
   {
-    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase of what was discussed also works.\n    limit: Maximum number of results to return (1-25, default 10).\n\nReturns:\n    Matching conversations with dates, titles and matching snippets.",
+    "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it.\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase of what was discussed also works.\n    limit: Maximum number of results to return (1-25, default 10).\n\nReturns:\n    Matching conversations with dates, titles and matching snippets.",
     "name": "search_conversations",
     "parameters": {
       "properties": {

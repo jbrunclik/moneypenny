@@ -163,8 +163,15 @@ reachable through search instead, which is what keeps the bank small:
 - `search_conversations(query, limit)` - FTS5 keyword search over the user's own history,
   excluding the current conversation (already in context), **merged with semantic
   matches** (embedding cosine over stored message vectors, labelled `(semantic match)`,
-  one per conversation) so paraphrases of past discussions are findable
-- `read_conversation(conversation_id, max_messages)` - read the full exchange behind a match
+  one per conversation) so paraphrases of past discussions are findable. Each hit names its
+  `message_id`. Scheduled agents' runs are not in the keyword index but their messages are
+  embedded: in the results they rank after the family's own chats and are labelled
+  `(scheduled agent)` (Nov 2026). The description says to search before asking the user to
+  repeat something
+- `read_conversation(conversation_id, max_messages, around_message_id=None)` - read the
+  exchange behind a match; with a hit's `message_id` it returns a window centred on it
+  (`get_messages_around`, as the UI's search jump) instead of the latest messages, which in
+  a long chat may not include the match
 
 Both are withheld in anonymous mode. Bounds: `CONVERSATION_SEARCH_MAX_RESULTS`,
 `CONVERSATION_READ_MAX_MESSAGES`, `CONVERSATION_READ_MAX_CHARS_PER_MESSAGE`.
