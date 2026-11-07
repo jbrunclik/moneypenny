@@ -1,0 +1,141 @@
+id: cz_compaction_user_details
+description:
+  "Compaction keeps what the USER said: small specifics and a correction that only ever appear
+  in user turns of the summarized part (the assistant never restates them), between long assistant replies
+  dense with their own details, must survive in the summary alone - search is forbidden
+
+  "
+compact_history: true
+history:
+  - role: user
+    content: Ahoj, jedeme v srpnu na týden do Rovinje, pomůžeš mi s plánem?
+  - role: assistant
+    content:
+      Rád! Rovinj je v srpnu krásný, ale počítej s tím, že je to vrchol sezóny. Staré město je přeplněné
+      hlavně mezi 11. a 17. hodinou, kdy připlouvají výletní lodě z Poreče a Puly, takže na procházky je
+      nejlepší ráno do devíti nebo večer po sedmé. Parkování ve městě je drahé - velké parkoviště Valdibora
+      stojí v srpnu kolem 3 EUR za hodinu a bývá plné už v deset dopoledne. Pokud budete jezdit na výlety,
+      vyplatí se mít ubytování s vlastním parkováním. Z Rovinje je to blízko do Puly (35 minut), do Poreče
+      (40 minut) i do Motovunu (necelá hodina). Na koupání jsou nejbližší zátoky v parku Zlatni rt, kam
+      se dá dojít pěšky po promenádě za 20 minut, nebo na ostrov Sveta Katarina, kam jezdí loďka z přístavu
+      každou půlhodinu za 6 EUR zpáteční. Začneme ubytováním, nebo programem?
+  - role: user
+    content:
+      Ubytování je hotel Lone, přijíždíme 9. srpna večer. Parkovací místo máme rezervované, číslo
+      P-27, v podzemní garáži.
+  - role: assistant
+    content:
+      Hotel Lone je výborná volba - leží přímo u parku Zlatni rt, do starého města je to 15 minut
+      pěšky po pobřežní promenádě a ráno tam je klid. Má venkovní i vnitřní bazén, wellness s několika saunami
+      a dětský klub pro děti od 4 do 12 let, který funguje od 10 do 18 hodin. Snídaně bývají formou bufetu
+      od 7 do 10:30, večeře se dá dokoupit, ale v okolí je spousta lepších a levnějších restaurací. Na recepci
+      si můžete půjčit kola zdarma na dvě hodiny denně. Pláž přímo pod hotelem je oblázková a s betonovými
+      plotnami, takže se hodí boty do vody. V srpnu doporučuji rezervovat lehátka u bazénu hned ráno - po
+      deváté už bývají obsazená. Na co se chceš podívat jako první - staré město, pláže, nebo výlety po
+      okolí?
+  - role: user
+    content: Pojede s námi babička Věra, ta nesmí lepek - má celiakii, i drobky jí vadí.
+  - role: assistant
+    content:
+      Dobře, budu na to při doporučení restaurací myslet. Obecně v Istrii hodně podniků nabízí ryby
+      a mořské plody na grilu, které jsou přirozeně bez lepku, ale pozor na obalované kalamáry, rybí polévky
+      zahuštěné moukou a těstoviny s lanýži, které jsou v Istrii všudypřítomné. Ve starém městě jsou oblíbené
+      konoby Mali Raj a Veli Jože, kde mají pečené maso pod pekou a domácí fuži. V supermarketech Konzum
+      a Plodine najdete regál s bezlepkovými výrobky značky Schär, hlavně pečivo a těstoviny. Pekárny Mlinar
+      a Pekara Krušno bezlepkové pečivo obvykle nemají. Na trhu Valdibora se dá koupit čerstvé ovoce, olivový
+      olej a sýry, které jsou bezpečné. Když budeš chtít, můžu ti před každou večeří ověřit konkrétní restauraci
+      a jejich přístup k přípravě jídel.
+  - role: user
+    content: A na večeře si dávám strop 45 EUR na osobu, dráž ne.
+  - role: assistant
+    content:
+      "Beru na vědomí, budu vybírat podle toho. Pro orientaci: v Rovinji stojí hlavní jídlo v běžné
+      konobě 15 až 25 EUR, ryby na váhu se počítají 60 až 80 EUR za kilogram, takže u nich je dobré se předem
+      zeptat na hmotnost. Láhev domácího vína (malvazija nebo teran) vyjde na 20 až 30 EUR, sklenka kolem
+      5 EUR. Předkrmy jako istrijský pršut se sýrem stojí 12 až 18 EUR na talíř pro dva. Na nábřeží u přístavu
+      jsou ceny o pětinu vyšší než v uličkách starého města. Dětské menu má většina podniků kolem 9 EUR.
+      Spropitné není povinné, ale běžné je zaokrouhlit nebo nechat 5 až 10 procent. Platit kartou jde skoro
+      všude, jen v menších konobách na kopcích ve vnitrozemí je lepší mít hotovost."
+  - role: user
+    content: Co se dá dělat ve starém městě?
+  - role: assistant
+    content:
+      Ve starém městě začni u kostela sv. Eufémie na vrcholu kopce - zvonice je vysoká 60 metrů,
+      vstupné 5 EUR, a výhled na souostroví stojí za to, jen schody jsou strmé a dřevěné. Dolů vede ulice
+      Grisia s galeriemi a ateliéry místních malířů, každou druhou neděli v srpnu tam bývá venkovní výstava.
+      U přístavu stojí Balbiho oblouk, kdysi hlavní brána do města, a hned vedle náměstí Maršala Tita s
+      hodinovou věží a kavárnami. Městské muzeum v paláci Califfi je otevřené do 22 hodin a vstupné je 4
+      EUR. Večer doporučuji posedět na skalách pod kostelem - jsou tam bary s polštáři přímo na kamenech
+      a západ slunce je kolem 20:15. V úterý a pátek večer bývá na nábřeží živá hudba.
+  - role: user
+    content: "Oprava: nepřijedeme 9., ale až 10. srpna, ráno kolem desáté. Hotel už o tom ví."
+  - role: assistant
+    content:
+      "Dobře, upravím si to. V souvislosti s plánem: první den bych nechal volnější - po cestě se
+      ubytujete, odpoledne zátoka ve Zlatni rtu a večer procházka starým městem. Druhý den je ideální na
+      Limský kanál, protože lodě odjíždějí v 9:30 z přístavu a vrací se kolem 15. Třetí den pláže a kola,
+      čtvrtý den výlet do vnitrozemí do Motovunu a Grožnjanu, pátý den Pula s amfiteátrem a šestý den odpočinek
+      a nákupy na trhu. Pokud by bylo škaredé počasí, náhradním programem je akvárium v Pule nebo dinosauří
+      park ve Funtaně, kam se dostanete za 25 minut. Rezervace výletu do Limského kanálu doporučuji udělat
+      aspoň den předem, v srpnu se vyprodávají. Mám ti připravit i seznam věcí na sbalení?"
+  - role: user
+    content: Jsou tam pláže pro děti?
+  - role: assistant
+    content:
+      V parku Zlatni rt jsou oblázkové zátoky s pozvolným vstupem, ideální pro děti. Hodí se boty
+      do vody.
+  - role: user
+    content: A výlet lodí?
+  - role: assistant
+    content: Oblíbený je výlet do Limského kanálu s ochutnávkou ústřic, trvá asi půl dne.
+  - role: user
+    content: Kde se dá půjčit kolo?
+  - role: assistant
+    content: Půjčovny jsou u autobusového nádraží i u hotelů v Lone, elektrokola zhruba 25 EUR na den.
+  - role: user
+    content: Je tam nějaký trh?
+  - role: assistant
+    content: Ráno je tržnice na náměstí Valdibora s ovocem, sýry a olivovým olejem.
+  - role: user
+    content: Jaké bude počasí?
+  - role: assistant
+    content: V srpnu kolem 30 °C, moře 24–25 °C, prší málokdy.
+  - role: user
+    content: Co večer s dětmi?
+  - role: assistant
+    content: Procházka po nábřeží, zmrzlina a pouliční umělci na hlavním náměstí - děti to baví.
+  - role: user
+    content: Doporučíš výlet do vnitrozemí?
+  - role: assistant
+    content: Motovun a Grožnjan na kopcích, k tomu lanýžová restaurace - na celý den.
+  - role: user
+    content: A kolik je to autem?
+  - role: assistant
+    content: Do Motovunu asi 50 minut, do Grožnjanu dalších 20.
+  - role: user
+    content: Je tam problém s parkováním?
+  - role: assistant
+    content: Pod Motovunem je placené parkoviště, nahoru se jde pěšky nebo kyvadlovým autobusem.
+  - role: user
+    content: Dobře, díky.
+  - role: assistant
+    content: Rádo se stalo. Chceš ještě něco doladit?
+  - role: user
+    content: Možná později.
+  - role: assistant
+    content: Jasně, kdykoliv.
+user:
+  "Shrň mi prosím: kdy přesně přijíždíme, jaké máme parkovací místo, kdo z nás nesmí lepek a jaký
+  strop na večeři jsem si dal?"
+expect:
+  rubric:
+    "Answers in Czech with all four details: arrival on 10 August in the morning (around ten) -
+    the corrected date, NOT 9 August; parking spot P-27; grandma Věra cannot eat gluten (celiac disease);
+    a dinner cap of 45 EUR per person. A wrong, missing or hedged value for any of the four fails; giving
+    9 August as the arrival fails.
+
+    "
+  forbidden_tools:
+    - search_conversations
+    - read_conversation
+  max_tool_rounds: 1
