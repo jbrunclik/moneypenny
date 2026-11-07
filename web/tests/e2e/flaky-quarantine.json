@@ -69,5 +69,11 @@
     "title": "runs the suite on a fixture, stores the run and puts everything back",
     "project": "webkit",
     "todo": "Open E2E flakes (CI flakes, Oct 31 - Nov 1 2026)"
+  },
+  {
+    "file": "e2e/agents.spec.ts",
+    "title": "granting \"Other agents\" saves trigger_agent in the permissions",
+    "project": "webkit",
+    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   }
 ]
