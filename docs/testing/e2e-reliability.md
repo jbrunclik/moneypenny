@@ -261,6 +261,16 @@ by guessing):
   showed the reload's `GET /` never reaching the server (no app request
   pending it). The group now loads once per test. Keep tests to the
   navigations they assert on: a fresh context needs no clean-up load.
+  **Nov 7 2026 traces (run 42403686730, two shards):** the test's first `page.goto`
+  in a fresh context issued `GET /` and got no response, while the mock server kept
+  serving the other workers every second and its `INFLIGHT` monitor (any request over
+  3 s) never saw it - the request never reached the server. Retry passed in 2-3 s.
+  Because it hits any test's navigation, the flaky gate (T6) passes it by signature:
+  a WebKit flake whose failed attempts all timed out in `page.goto`/`page.reload`
+  prints `webkit-stall` and passes; more than `MAX_NAVIGATION_STALLS` (2) in one
+  shard fail the run (that many hung navigations mean a hung server, not this bug).
+  Don't quarantine stall-only tests; the app-triggered `location.reload()` variant
+  (pdf-viewer) ends in an assertion, not a navigation timeout, so it stays quarantined.
 - **Scroll forensics**: `installScrollLog(page)` / `attachScrollLog(page,
   label)` (`web/tests/e2e/chat/fixtures.ts`) record every scroll write to
   `#messages` with its app caller (minified bundle frames - `make
@@ -385,7 +395,8 @@ the HTML never came), no `load` event in 30 s, retry passes, five tests in three
 reproducible on macOS WebKit - lost theirs that way. CI now keeps the failing first
 attempt's trace on WebKit (`trace: 'retain-on-first-failure'`: its network log names the
 request that never finished) and uploads `test-results/` plus `e2e-server.log` on every
-run, so a quarantined stall still leaves evidence.
+run, so a stall still leaves evidence (the gate now passes these by signature - see
+the Playwright-WebKit navigation stalls entry).
 
 CI fails when a test passes only on a retry (T6, `web/tests/flaky-gate.ts`), unless
 `web/tests/e2e/flaky-quarantine.json` lists it with the entry below that tracks it.
@@ -404,5 +415,5 @@ since a rerun clears the folder. Fixed or quiet for a month: delete the entry.
 - **WebKit one-off: trash view confirm modal** (Oct 27 2026) - `conversation.spec.ts:438` "trash view restores, deletes forever, and empties" timed out once in a full `make test-all` clicking `.modal-container:not(.modal-hidden) .modal-confirm` (the modal never showed or was replaced); 30/30 right after on WebKit under load. The artifacts were lost to that rerun - copy `test-results/` first next time.
 - **Both browsers: another device's question missing after a steered reply** (Nov 1 2026) - `sync-other-device.spec.ts:376` "a send while another device's reply is running steers that reply (one turn)": the reply finishes (two assistant messages), but the other device's `U:Long` never reaches this page within the 10 s `expect.poll` (received `[U:Keep, A]`). Reproduces in isolation, not only under load: 2/20 with `--repeat-each=10` on webkit+chromium, and 1/20 with migration 0072 removed, so it predates the timestamp migration. Possibly a real sync gap (the question saved on the phone while this device's steering send is in flight is never synced in), not test timing - investigate before quarantining. The 1/20 run's chromium artifacts (screenshots, error context) were kept outside the repo; capture a trace next time.
 - **CI flakes, Oct 31 - Nov 1 2026 (mostly WebKit; docs-only commits failed too, so not code)** - recurring: `device-checks.spec.ts:41` "runs the suite on a fixture, stores the run and puts everything..." (webkit; runs 40547941600, 41327743739, PR #319's 40854471374, and 42379097706 on Nov 7 as a 30 s `page.goto` stall - quarantined then, artifacts were saved locally before the run was pruned) and `chat/attachments.spec.ts:412` "a historical video plays after tap-to-load" (webkit, 40 s timeout; runs 41325461340, 41339056865). One-offs: `chat/streaming.spec.ts:97` (webkit, 41337746167), `chat/conversation-switch.spec.ts:419` (chromium, 41327743739), `chat/lightbox.spec.ts:96` (webkit, 41325461340), and on PR #319 `sync.spec.ts:475`, `concurrent-conversations.spec.ts:19`, `chat/send-failure.spec.ts:27`. The main runs were deleted after recording; start with the two recurring ones (`--repeat-each` on webkit under load, trace on).
-- **CI flakes, Nov 5-7 2026 (each passed on retry)** - patterns: (2) `concurrent-conversations.spec.ts:19` "can chat in a new conversation while another streams" (`toContainText`) on both browsers: chromium run 40853241394 (Oct 29), webkit run 42350818261. (3) WebKit `page.goto` timing out at 30 s on a different test each time - `sync-other-device.spec.ts:258` (run 42350818261), `chat/model-selection.spec.ts:248` (42006171387), `chat/send-failure.spec.ts:27` (40853241394), `conversation.spec.ts:1619` (42353714470), `agents.spec.ts:424` (42391731277): a stalled page load, not an assertion, so per-test quarantine won't hold; `:258`, `:1619` and `agents:424` are quarantined. Five different tests in three days - worth a systemic look (what WebKit waits on in `page.goto` under load) rather than more entries. Download the run's artifacts before they expire on the next occurrence
+- **CI flakes, Nov 5-7 2026 (each passed on retry)** - patterns: (2) `concurrent-conversations.spec.ts:19` "can chat in a new conversation while another streams" (`toContainText`) on both browsers: chromium run 40853241394 (Oct 29), webkit run 42350818261. (3) WebKit `page.goto` timing out at 30 s on a different test each time - `sync-other-device.spec.ts:258` (run 42350818261), `chat/model-selection.spec.ts:248` (42006171387), `chat/send-failure.spec.ts:27` (40853241394), `conversation.spec.ts:1619` (42353714470), `agents.spec.ts:424` (42391731277): a stalled page load, not an assertion, so per-test quarantine won't hold. Resolved Nov 7 2026: traced to the upstream WebKit stall (see the Playwright-WebKit navigation stalls entry); the gate passes it by signature and the three quarantine entries were removed
 - **WebKit one-off: planner model selector** (Oct 26 2026) - `planner.spec.ts:381` "model selector shows planner model when navigating to planner" failed once in a full `make test-all` (`toBeVisible` - element not found); 470/470 right after with `--repeat-each=10` on both browsers. Capture `test-results/` on the next occurrence.

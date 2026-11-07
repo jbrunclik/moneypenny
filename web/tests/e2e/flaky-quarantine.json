@@ -53,27 +53,9 @@
     "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   },
   {
-    "file": "e2e/sync-other-device.spec.ts",
-    "title": "deleting a message does not trigger a full re-render on the next poll",
-    "project": "webkit",
-    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
-  },
-  {
-    "file": "e2e/conversation.spec.ts",
-    "title": "date headings are not pinned",
-    "project": "webkit",
-    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
-  },
-  {
     "file": "e2e/device-checks.spec.ts",
     "title": "runs the suite on a fixture, stores the run and puts everything back",
     "project": "webkit",
     "todo": "Open E2E flakes (CI flakes, Oct 31 - Nov 1 2026)"
-  },
-  {
-    "file": "e2e/agents.spec.ts",
-    "title": "granting \"Other agents\" saves trigger_agent in the permissions",
-    "project": "webkit",
-    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   }
 ]
