@@ -19,6 +19,7 @@ from src.db.models.dataclasses import (
     GroundingSummary,
     Message,
     MessageAction,
+    MessageDelivery,
 )
 from src.db.models.helpers import (
     delete_message_blobs,
@@ -210,6 +211,7 @@ class MessageMixin:
         research: dict[str, Any] | None = None,
         action: MessageAction | None = None,
         artifacts: list[ArtifactShown] | None = None,
+        delivery: MessageDelivery | None = None,
     ) -> Message:
         """Add a message to a conversation.
 
@@ -232,6 +234,7 @@ class MessageMixin:
             research: Optional deep-research offer or run data
             action: What a user message sent on the user's behalf was
             artifacts: Artifact versions shown under the reply ([{id, version, title}])
+            delivery: The scheduled item that delivered this turn ({kind, label})
 
         Returns:
             The created Message
@@ -262,8 +265,8 @@ class MessageMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action, artifacts)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO messages (id, conversation_id, role, content, files, sources, generated_images, language, created_at, tool_outputs, stop_reason, annotations, grounding, research, action, artifacts, delivery)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     msg_id,
                     conversation_id,
@@ -281,6 +284,7 @@ class MessageMixin:
                     _json_or_none(research),
                     _json_or_none(action),
                     _json_or_none(artifacts),
+                    _json_or_none(delivery),
                 ),
             )
             # Update conversation's updated_at
@@ -311,6 +315,7 @@ class MessageMixin:
             research=research,
             action=action,
             artifacts=artifacts,
+            delivery=delivery,
         )
 
     def get_streaming_placeholder_id(

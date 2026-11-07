@@ -60,6 +60,13 @@ class DeepResearchAction(TypedDict):
 MessageAction = VerifyClaimAction | DeepResearchAction
 
 
+class MessageDelivery(TypedDict):
+    """An assistant turn a scheduled item delivered into its chat."""
+
+    kind: Literal["reminder", "check_in", "watcher", "recurring"]
+    label: str  # e.g. "Check-in · Fri 18:00"
+
+
 class ArtifactShown(TypedDict):
     """One artifact version shown under a reply."""
 
@@ -157,6 +164,8 @@ class Message:
     action: MessageAction | None = None
     # Artifact versions shown under the reply
     artifacts: list[ArtifactShown] | None = None
+    # Delivered by a scheduled item (check-in, watcher, recurring)
+    delivery: MessageDelivery | None = None
 
 
 @dataclass
@@ -334,14 +343,29 @@ class PushSubscription:
     last_used_at: datetime | None
 
 
+ItemKind = Literal["reminder", "check_in", "watcher", "recurring"]
+ItemStatus = Literal["active", "paused", "running"]
+
+
 @dataclass
-class Reminder:
-    """A one-off push set from chat, sent by the scheduler at due_at."""
+class ScheduledItem:
+    """A lightweight item set from chat (docs/features/agents.md): a reminder,
+    a check-in, a watcher or a recurring check. It lives with its chat - runs
+    and shows only while the chat is live, and is deleted with it."""
 
     id: str
     user_id: str
-    conversation_id: str | None
-    text: str
-    due_at: datetime
-    status: str  # "pending" | "sent" | "cancelled"
+    conversation_id: str
+    kind: ItemKind
+    text: str  # reminder text / check-in question / what to check or do
+    end_condition: str | None  # watcher: when to stop
+    schedule: str | None  # recurring: cron in the household timezone
+    interval_hours: int | None  # watcher: hours between checks
+    next_run_at: datetime
+    expires_at: datetime | None
+    status: ItemStatus
+    last_result: str | None  # watcher: the last report, for "what changed"
+    quiet_runs: int
+    failures: int
     created_at: datetime
+    claimed_at: datetime | None = None

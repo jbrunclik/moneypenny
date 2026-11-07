@@ -30,6 +30,7 @@ def row_to_message(row: sqlite3.Row) -> Message:
         research=_json_column(row, "research"),
         action=_json_column(row, "action"),
         artifacts=_json_column(row, "artifacts"),
+        delivery=_json_column(row, "delivery"),
     )
 
 
