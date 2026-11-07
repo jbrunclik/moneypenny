@@ -12,6 +12,7 @@ import { updateMonthlyCost } from '../components/Sidebar';
 import { refreshSpendWarning } from '../components/SpendBanner';
 import { updateCompactionIndicator } from '../components/CompactionIndicator';
 import { updateFactsIndicator } from '../components/FactsIndicator';
+import { updateScheduleIndicator } from '../components/ScheduleIndicator';
 import { getElementById, createElement } from '../utils/dom';
 import { STREAM_ICON, STREAM_OFF_ICON, setIcon } from '../utils/icons';
 import { logger } from '../utils/logger';
@@ -20,13 +21,14 @@ import { isTempConversation } from '../utils/conversation-id';
 
 /**
  * Update conversation cost display and monthly cost in sidebar.
- * Also refreshes the compaction and facts chips, which sit next to the cost
+ * Also refreshes the compaction, facts and schedules chips, which sit next to the cost
  * chip and change at the same moments (conversation load, end of each turn).
  */
 export async function updateConversationCost(convId: string | null): Promise<void> {
   const savedId = convId && !isTempConversation(convId) ? convId : null;
   void updateCompactionIndicator(savedId);
   void updateFactsIndicator(savedId);
+  void updateScheduleIndicator(savedId);
 
   // Desktop chip lives in the chat header (only when rendered); mobile chip
   // lives in the mobile header and always exists.

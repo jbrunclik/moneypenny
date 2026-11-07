@@ -7,6 +7,7 @@ import { initClaimCard } from '../../components/ClaimCard';
 import { initClaimsSheet } from '../../components/ClaimsSheet';
 import { initCompactionIndicator } from '../../components/CompactionIndicator';
 import { initFactsIndicator } from '../../components/FactsIndicator';
+import { initScheduleIndicator } from '../../components/ScheduleIndicator';
 import { costHistoryPopup } from '../../components/CostHistoryPopup';
 import { initImageGenPopup } from '../../components/ImageGenPopup';
 import { initLightbox } from '../../components/Lightbox';
@@ -40,4 +41,5 @@ export function initMessageUi(): void {
   costHistoryPopup.init();
   initCompactionIndicator();
   initFactsIndicator();
+  initScheduleIndicator();
 }

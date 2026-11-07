@@ -7,7 +7,9 @@
 import { createElement } from '../utils/dom';
 import { CHECK_ICON, CHEVRON_DOWN_ICON, CLOCK_ICON, CLOSE_ICON, COMMAND_CENTER_ICON, EDIT_ICON, HISTORY_ICON, PLAY_ICON, PLUS_ICON, REFRESH_ICON, ROBOT_ICON, WARNING_ICON, createIconButton, createIconElement, iconNodes, setIcon, type IconHtml } from '../utils/icons';
 import { createEmptyState } from './EmptyState';
-import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse } from '../types/api';
+import { SCHEDULE_KIND_ICONS } from './messages/delivery-label';
+import { schedules } from '../api/schedules';
+import type { Agent, AgentExecution, AgentWindowStats, ApprovalRequest, CommandCenterResponse, ScheduledItem } from '../types/api';
 
 type RefreshCallback = () => Promise<void>;
 type ApprovalCallback = (approvalId: string, approved: boolean) => Promise<void>;
@@ -226,11 +228,43 @@ export function renderCommandCenter(
 
   const statsByAgent = new Map((stats?.per_agent ?? []).map((s) => [s.agent_id, s]));
   el.appendChild(renderApprovalsSection(data, onApproval));
+  const chatItems = renderChatItemsSection(data.chat_items, onRefresh);
+  if (chatItems) el.appendChild(chatItems);
   el.appendChild(renderAgentsSection(data, statsByAgent, onAgentSelect, onAgentRun, onAgentEdit, onNewAgent));
   const executionsSection = renderExecutionsSection(data);
   if (executionsSection) el.appendChild(executionsSection);
 
   return el;
+}
+
+/** One item set from a chat: what, when and how it ends, its chat, cancel. */
+function renderChatItem(item: ScheduledItem, onRefresh: RefreshCallback): HTMLElement {
+  const cancel = createElement('button', { type: 'button', class: 'chat-item-cancel', title: 'Cancel' }, ['Cancel']);
+  cancel.addEventListener('click', () => {
+    void schedules.remove(item.id).finally(() => onRefresh());
+  });
+  return createElement('div', { class: 'chat-item' }, [
+    createIconElement('chat-item-icon', SCHEDULE_KIND_ICONS[item.kind]),
+    createElement('div', { class: 'chat-item-body' }, [
+      createElement('span', { class: 'chat-item-title' }, [item.title]),
+      createElement('span', { class: 'chat-item-meta' }, [
+        `${item.when} · ${item.ends}${item.status === 'paused' ? ' · paused' : ''}`,
+      ]),
+      createElement('a', { class: 'chat-item-chat', href: `#/conversations/${item.conversation_id}` }, [item.conversation_title]),
+    ]),
+    cancel,
+  ]);
+}
+
+/** Reminders, check-ins, watchers and recurring checks set from chats (hidden when none). */
+function renderChatItemsSection(items: ScheduledItem[] | undefined, onRefresh: RefreshCallback): HTMLDivElement | null {
+  if (!items?.length) return null;
+  const section = createElement('div', { class: 'command-center-section command-center-section--chat-items' });
+  section.append(
+    sectionTitle(CLOCK_ICON, 'From chats', { count: items.length }),
+    createElement('div', { class: 'chat-items-list' }, items.map((item) => renderChatItem(item, onRefresh)))
+  );
+  return section;
 }
 
 /** The status dot next to an agent's name (pending approval, disabled, last run outcome). */

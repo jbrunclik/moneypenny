@@ -8,7 +8,7 @@ from flask import Request
 from werkzeug.exceptions import HTTPException
 
 from src.config import Config
-from src.db.models import db
+from src.db.models import Message, db
 from src.enums import MessageRole
 from src.utils.clock import to_api, utc_now
 from src.utils.files import StoredFile, UploadedFile
@@ -116,11 +116,10 @@ def add_action(data: dict[str, Any], msg: Any) -> None:
         data["action"] = action
 
 
-def add_delivery(data: dict[str, Any], msg: Any) -> None:
+def add_delivery(data: dict[str, object], msg: Message) -> None:
     """The scheduled item that delivered this turn, when one did."""
-    delivery = getattr(msg, "delivery", None)
-    if delivery:
-        data["delivery"] = delivery
+    if msg.delivery:
+        data["delivery"] = msg.delivery
 
 
 def add_research(data: dict[str, Any], msg: Any) -> None:

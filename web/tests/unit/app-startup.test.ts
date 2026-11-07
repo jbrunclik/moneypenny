@@ -85,6 +85,11 @@ vi.mock('@/components/FactsIndicator', () => ({
   createFactsPopupShell: () => Object.assign(document.createElement('div'), { id: 'facts-popup' }),
   updateFactsIndicator: vi.fn(),
 }));
+vi.mock('@/components/ScheduleIndicator', () => ({
+  initScheduleIndicator: h.rec('initScheduleIndicator'),
+  createSchedulesPopupShell: () => Object.assign(document.createElement('div'), { id: 'schedules-popup' }),
+  updateScheduleIndicator: vi.fn(),
+}));
 vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),
   navigateToAgents: h.recAsync('navigateToAgents'),
@@ -296,6 +301,7 @@ const COMPONENT_STEPS = [
   'costHistoryPopup.init',
   'initCompactionIndicator',
   'initFactsIndicator',
+  'initScheduleIndicator',
   'initAgents',
   'initScrollToBottom',
   'initTurnAnchorResizeHold',

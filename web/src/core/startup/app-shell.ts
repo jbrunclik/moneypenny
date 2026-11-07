@@ -6,6 +6,7 @@ import { showConversationLoader } from '../../components/messages';
 import { createCostHistoryPopupShell } from '../../components/CostHistoryPopup';
 import { createCompactionPopupShell } from '../../components/CompactionIndicator';
 import { createFactsPopupShell } from '../../components/FactsIndicator';
+import { createSchedulesPopupShell } from '../../components/ScheduleIndicator';
 import { createPopupShell } from '../../components/InfoPopup';
 import { APP_NAME } from '../../config';
 import { createElement, getElementById, clearElement } from '../../utils/dom';
@@ -146,6 +147,7 @@ function main(): HTMLElement {
     el('header', { class: 'mobile-header' }, [
       createIconButton({ id: 'menu-btn', class: 'btn-icon' }, MENU_ICON),
       el('span', { id: 'current-chat-title' }, [APP_NAME]),
+      el('button', { id: 'conversation-schedules-mobile', type: 'button', class: 'chat-header-schedules hidden' }),
       el('button', { id: 'conversation-facts-mobile', type: 'button', class: 'chat-header-facts hidden' }),
       el('button', { id: 'conversation-compaction-mobile', type: 'button', class: 'chat-header-compaction hidden' }),
       el('span', { id: 'conversation-cost-mobile', class: 'chat-header-cost' }),
@@ -195,6 +197,7 @@ function popupShells(): HTMLElement[] {
     createCostHistoryPopupShell(),
     createCompactionPopupShell(),
     createFactsPopupShell(),
+    createSchedulesPopupShell(),
     createPopupShell('settings-popup'),
   ];
 }

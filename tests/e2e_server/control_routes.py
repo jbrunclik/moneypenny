@@ -64,7 +64,9 @@ def seed_data() -> tuple[dict[str, Any], int]:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             files = msg.get("files")
-            added = g.db.add_message(conv.id, role, content, files=files)
+            added = g.db.add_message(
+                conv.id, role, content, files=files, delivery=msg.get("delivery")
+            )
             # Optional per-turn cost row (message_costs): tool rounds,
             # e.g. a reply cut off by the tool-round cap, or spend
             # (cost_usd) for the spend warning and the admin page
@@ -103,7 +105,40 @@ def seed_data() -> tuple[dict[str, Any], int]:
                 conv.id, user.id, last.id, [(f["key"], f["text"]) for f in facts], []
             )
 
+        # Optional items scheduled from this chat ([{kind, text, ...}])
+        for spec in conv_data.get("scheduled_items", []):
+            _seed_item(user.id, conv.id, spec)
+
     return {"status": "seeded", "conversation_ids": created_ids}, 200
+
+
+def _seed_item(user_id: str, conversation_id: str, spec: dict[str, Any]) -> None:
+    import uuid
+    from datetime import timedelta
+
+    from src.db.models.dataclasses import ScheduledItem
+    from src.utils.clock import utc_now
+
+    now = utc_now()
+    g.db.add_item(
+        ScheduledItem(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            conversation_id=conversation_id,
+            kind=spec["kind"],
+            text=spec["text"],
+            end_condition=spec.get("end_condition"),
+            schedule=spec.get("schedule"),
+            interval_hours=spec.get("interval_hours"),
+            next_run_at=now + timedelta(days=1),
+            expires_at=None,
+            status=spec.get("status", "active"),
+            last_result=None,
+            quiet_runs=0,
+            failures=0,
+            created_at=now,
+        )
+    )
 
 
 @test_bp.route("/test/dump-threads", methods=["GET"])

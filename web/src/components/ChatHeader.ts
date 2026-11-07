@@ -78,6 +78,13 @@ export function createChatHeader(opts: ChatHeaderOptions): HTMLElement {
   spacer.className = 'chat-header-spacer';
   header.appendChild(spacer);
 
+  // Filled by ScheduleIndicator; hidden until the chat has scheduled items
+  const schedulesChip = document.createElement('button');
+  schedulesChip.id = 'conversation-schedules';
+  schedulesChip.type = 'button';
+  schedulesChip.className = 'chat-header-schedules hidden';
+  header.appendChild(schedulesChip);
+
   // Filled by FactsIndicator; hidden until the conversation has settled facts
   const facts = document.createElement('button');
   facts.id = 'conversation-facts';

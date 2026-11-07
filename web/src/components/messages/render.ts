@@ -2,6 +2,7 @@
  * Message rendering - HTML generation for individual messages and message lists.
  */
 
+import { renderDeliveryLabel } from './delivery-label';
 import { resetTurnAnchor } from './turn-anchor';
 import { createElement, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
@@ -363,6 +364,10 @@ export function addMessageToUI(
   // Content wrapper
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'message-content-wrapper';
+  // A turn a scheduled item delivered (check-in, watcher, recurring) says so
+  if (message.role === 'assistant' && message.delivery) {
+    contentWrapper.appendChild(renderDeliveryLabel(message.delivery));
+  }
   contentWrapper.appendChild(renderMessageContent(message));
 
   // Create message actions with all buttons and handlers
