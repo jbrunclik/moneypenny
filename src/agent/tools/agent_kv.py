@@ -191,7 +191,9 @@ def _kv_set(user_id: str, namespace: str, key: str, value: str) -> str:
         parsed = json.loads(value)
     except json.JSONDecodeError, TypeError:
         return tool_error("Value must be valid JSON.")
-    if error := _injection_error("value", _decoded(parsed)):
+    # Both forms: the raw text is what gets stored (a duplicate key hides an
+    # earlier value from the parsed form), the decoded one resolves escapes
+    if error := _injection_error("value", value) or _injection_error("value", _decoded(parsed)):
         return error
     # Check key count limit
     current_count = db.kv_count(user_id, namespace)
