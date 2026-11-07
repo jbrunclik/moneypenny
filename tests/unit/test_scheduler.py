@@ -144,3 +144,23 @@ def test_one_failing_agent_does_not_stop_the_others(
     )
     result = scheduler.run_scheduled_agents()
     assert (result.executed, result.failed) == (1, 1)
+
+
+def test_items_run_before_agents_and_are_counted(
+    db: Database, test_user: User, run: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.agent.item_scheduler import ItemsResult
+
+    order: list[str] = []
+    monkeypatch.setattr(
+        scheduler,
+        "run_due_items",
+        lambda now: order.append("items") or ItemsResult(fired=2, run=1),
+    )
+    run.side_effect = lambda *a, **k: order.append("agent") or (True, None)
+    _due_agent(db, test_user)
+
+    result = scheduler.run_scheduled_agents()
+
+    assert order == ["items", "agent"]
+    assert (result.items_fired, result.items_run) == (2, 1)

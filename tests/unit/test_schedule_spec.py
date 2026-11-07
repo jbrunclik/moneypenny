@@ -76,7 +76,9 @@ def test_descriptions_for_previews() -> None:
     assert describe_cron("0 8 * * *") == "every day at 08:00"
 
 
-@pytest.mark.parametrize(("hint", "hours"), [("6h", 6), ("daily", 24), ("weekly", 168), (" Daily ", 24)])
+@pytest.mark.parametrize(
+    ("hint", "hours"), [("6h", 6), ("daily", 24), ("weekly", 168), (" Daily ", 24)]
+)
 def test_watch_interval_hours(hint: str, hours: int) -> None:
     assert watch_interval_hours(hint) == hours
 

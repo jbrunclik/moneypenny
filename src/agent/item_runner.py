@@ -2,8 +2,10 @@
 
 A run uses the agent machinery (ChatAgent in autonomous mode, the agent
 context that permission checks and the schedule tool read) with an in-memory
-Agent - no agent row - and only the always-safe read-only tools
-(tool_permissions=[]). Its cost is recorded against the item's chat: on the
+Agent - no agent row. An unattended run reads untrusted web pages, so it gets
+only the web tools (RUN_TOOL_NAMES: no files, no kv store), not the user's
+memories, and a stored report that looks like injected instructions is not
+replayed into the next run. Its cost is recorded against the item's chat: on the
 delivered message, or for a silent run under a synthetic message id.
 """
 
@@ -38,6 +40,7 @@ from src.services.costs import calculate_and_save_message_cost
 from src.services.push import send_push_to_user
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
+from src.utils.threat_patterns import find_injection
 
 if TYPE_CHECKING:
     from src.db.models import Message, User
@@ -45,11 +48,11 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-DONE_MARKER = "[DONE]"
 _MARKS = r"[`*]*"
 _DONE_AT_START = re.compile(rf"^\s*{_MARKS}\[done\]{_MARKS}\.?\s*", re.IGNORECASE)
 _DONE_AT_END = re.compile(rf"\s*{_MARKS}\[done\]{_MARKS}\.?\s*$", re.IGNORECASE)
 _NAME_MAX_CHARS = 40
+RUN_TOOL_NAMES = frozenset({"web_search", "fetch_url", "research"})
 _PUSH_BODY_CHARS = 160
 _KIND_TITLES: dict[str, str] = {
     "reminder": "Reminder",
@@ -93,7 +96,7 @@ def _ephemeral_agent(item: ScheduledItem) -> Agent:
         schedule=item.schedule,
         timezone=Config.APP_TIMEZONE,
         enabled=True,
-        tool_permissions=[],  # the always-safe read-only tools only
+        tool_permissions=[],  # narrowed further to RUN_TOOL_NAMES in _chat
         model=Config.DEFAULT_MODEL,
         created_at=now,
         updated_at=now,
@@ -103,6 +106,8 @@ def _ephemeral_agent(item: ScheduledItem) -> Agent:
 
 def _run_message(item: ScheduledItem) -> str:
     previous = item.last_result or NO_PREVIOUS_RESULT
+    if find_injection(previous):
+        previous = NO_PREVIOUS_RESULT
     if item.kind == "watcher":
         return WATCHER_RUN_PROMPT.format(
             text=item.text, end_condition=item.end_condition or "", last_result=previous
@@ -113,7 +118,7 @@ def _run_message(item: ScheduledItem) -> str:
 def _chat(
     agent: Agent, user: User, item: ScheduledItem, request_id: str
 ) -> tuple[str, Callable[[str], None]]:
-    tools = get_tools_for_agent(agent)
+    tools = [t for t in get_tools_for_agent(agent) if t.name in RUN_TOOL_NAMES]
     chat_agent = ChatAgent(
         model_name=agent.model,
         anonymous_mode=False,
@@ -137,7 +142,7 @@ def _chat(
         history=[],
         force_tools=None,
         user_name=user.name,
-        user_id=user.id,
+        user_id=None,  # only feeds the user's memories in: kept out of unattended runs
         custom_instructions=user.custom_instructions,
         is_planning=False,
         conversation_id=item.conversation_id,

@@ -4,6 +4,7 @@ as the same instants, now stored as fixed-width UTC."""
 import re
 import shutil
 import sqlite3
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -42,7 +43,16 @@ def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.Mo
     db = Database(db_path=legacy_db)
     user = db.get_or_create_user(email="a@example.com", name="A")
     conv = db.create_conversation(user.id)
-    message = db.add_message(conv.id, "user", "Ahoj")
+    # Raw: today's add_message writes columns later migrations add
+    message_id = str(uuid.uuid4())
+    db.close()
+    _raw(
+        legacy_db,
+        "INSERT INTO messages (id, conversation_id, role, content, created_at)"
+        " VALUES (?, ?, 'user', 'Ahoj', '2026-07-01T12:00:00')",
+        (message_id, conv.id),
+    )
+    db = Database(db_path=legacy_db)
     memory = db.add_memory(user.id, "Likes tea")
     db.kv_set(user.id, "sports", "programs", "{}")
     db.close()
@@ -64,7 +74,7 @@ def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.Mo
     assert db.get_user_by_id(user.id).created_at == summer
     migrated = db.get_conversation(conv.id, user.id)
     assert (migrated.created_at, migrated.updated_at) == (summer, winter)
-    assert db.get_message_by_id(message.id).created_at == summer
+    assert db.get_message_by_id(message_id).created_at == summer
     stored_memory = db.get_memory(memory.id, user.id)
     assert (stored_memory.created_at, stored_memory.updated_at) == (summer, winter)
     assert db.get_setting("timestamp_storage") is None  # 0074 drops 0072's flag

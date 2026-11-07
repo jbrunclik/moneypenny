@@ -94,7 +94,7 @@ steps = [
            END""",
         "DROP TRIGGER IF EXISTS scheduled_items_follow_conversation",
     ),
-    # Removed agents are not recreated on rollback
+    # irreversible: removed chat-created agents (and their runs) are not recreated
     step(_remove_chat_agents, None),
     step(
         "ALTER TABLE messages ADD COLUMN delivery TEXT",

@@ -169,7 +169,7 @@
   - `@dataclass ItemsResult: fired: int = 0; run: int = 0; missed: int = 0; expired: int = 0`
   - `run_due_items(now: datetime) -> ItemsResult`
   - `next_watch_run(now: datetime, interval_hours: int, quiet_runs: int, has_until: bool) -> datetime` - doubles `interval_hours` per full 7 quiet runs (`quiet_runs // 7`), capped at 168, no back-off when `has_until`
-  - Config: `SCHEDULE_MISSED_GRACE_HOURS: int = 6`, `SCHEDULE_WATCH_BACKOFF_AFTER: int = 7`, `SCHEDULE_ITEM_MAX_FAILURES: int = 3`, `SCHEDULE_RUN_STALE_MINUTES: int = 30`
+  - Config: `SCHEDULE_MISSED_GRACE_HOURS: int = 6`, `SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS: int = 7`, `SCHEDULE_ITEM_MAX_FAILURES: int = 3`, `SCHEDULE_RUN_STALE_MINUTES: int = 30`
 
 - [ ] **Step 1: Write the failing tests** in `tests/unit/test_item_scheduler.py`:
   - `test_reminder_pushes_and_is_deleted` - push called once, no message in the chat, item gone

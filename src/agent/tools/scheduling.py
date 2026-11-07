@@ -111,13 +111,13 @@ def _watcher(args: Mapping[str, object], now: datetime) -> Spec | str:
     until = _until(args, now)
     if isinstance(until, str):
         return until
-    expires = until or now + timedelta(days=Config.SCHEDULE_WATCH_EXPIRY_DAYS)
     limit = f"until {_short(until)}" if until else f"{Config.SCHEDULE_WATCH_EXPIRY_DAYS} days"
     return {
         "end_condition": condition,
         "interval_hours": hours,
         "next_run_at": now.isoformat(),
-        "expires_at": expires.isoformat(),
+        # Only a date the user gave is stored: no back-off for those (watch_expiry)
+        "expires_at": until.isoformat() if until else None,
         "when": f"checks {describe_interval(hours)}",
         "ends": f"until {condition}, at most {limit}",
     }
@@ -283,12 +283,21 @@ def describe_when(item: ScheduledItem) -> str:
     return describe_instant(item.next_run_at, Config.APP_TIMEZONE)
 
 
+def watch_expiry(item: ScheduledItem) -> datetime | None:
+    """When the item stops on its own: the user's end date, or for a watcher
+    without one, SCHEDULE_WATCH_EXPIRY_DAYS after it was set."""
+    if item.expires_at is not None or item.kind != "watcher":
+        return item.expires_at
+    return item.created_at + timedelta(days=Config.SCHEDULE_WATCH_EXPIRY_DAYS)
+
+
 def describe_ends(item: ScheduledItem) -> str:
     """How the item ends, for lists and previews."""
     if item.kind in _ONE_OFFS:
         return "then done"
     if item.kind == "watcher":
-        limit = f", at most until {_short(item.expires_at)}" if item.expires_at else ""
+        expiry = watch_expiry(item)
+        limit = f", at most until {_short(expiry)}" if expiry else ""
         return f"until {item.end_condition}{limit}"
     return f"until {_short(item.expires_at)}" if item.expires_at else "until cancelled"
 

@@ -12,13 +12,12 @@ The only difference between environments is how the scheduler is triggered:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from src.agent.executor import AgentBlockedError, execute_agent
+from src.agent.item_scheduler import run_due_items
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import db
-from src.services.push import send_push_to_user
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -36,7 +35,8 @@ class SchedulerResult:
     skipped: int = 0
     failed: int = 0
     waiting_approval: int = 0
-    reminders_sent: int = 0
+    items_fired: int = 0  # reminders and check-ins sent
+    items_run: int = 0  # watcher and recurring runs
 
 
 def run_scheduled_agents() -> SchedulerResult:
@@ -59,9 +59,9 @@ def run_scheduled_agents() -> SchedulerResult:
             extra={"count": zombies_cleaned},
         )
 
-    # Reminders first: a push with no model call, it must not wait behind an
-    # agent run that takes a minute
-    reminders_sent = send_due_reminders(now)
+    # Items set from chat first: a reminder is a push with no model call, it
+    # must not wait behind an agent run that takes a minute
+    items = run_due_items(now)
 
     # Get agents due for execution (enabled, has schedule, next_run_at <= now)
     due_agents = db.get_due_agents(now)
@@ -70,7 +70,7 @@ def run_scheduled_agents() -> SchedulerResult:
         extra={"count": len(due_agents), "agent_ids": [a.id for a in due_agents]},
     )
 
-    result = SchedulerResult(reminders_sent=reminders_sent)
+    result = SchedulerResult(items_fired=items.fired, items_run=items.run)
 
     for agent in due_agents:
         _run_due_agent(agent, result)
@@ -82,37 +82,14 @@ def run_scheduled_agents() -> SchedulerResult:
             "skipped": result.skipped,
             "failed": result.failed,
             "waiting_approval": result.waiting_approval,
-            "reminders_sent": result.reminders_sent,
+            "items_fired": result.items_fired,
+            "items_run": result.items_run,
+            "items_missed": items.missed,
+            "items_expired": items.expired,
         },
     )
 
     return result
-
-
-def send_due_reminders(now: datetime) -> int:
-    """Push every reminder due by `now`; returns how many were handed to push.
-
-    The rows are claimed (marked sent) before pushing, so overlapping runs
-    never send one twice; a push that fails is logged, not retried.
-    """
-    sent = 0
-    for reminder in db.claim_due_reminders(now):
-        url = f"/#/conversations/{reminder.conversation_id}" if reminder.conversation_id else "/"
-        try:
-            send_push_to_user(
-                reminder.user_id,
-                "Reminder",
-                reminder.text[:160],
-                url=url,
-                tag=f"reminder-{reminder.id}",
-            )
-        except Exception:
-            logger.warning(
-                "Reminder push failed", extra={"reminder_id": reminder.id}, exc_info=True
-            )
-            continue
-        sent += 1
-    return sent
 
 
 def _run_due_agent(agent: Agent, result: SchedulerResult) -> None:

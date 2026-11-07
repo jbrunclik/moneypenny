@@ -185,3 +185,5 @@ local_day_start
 local_month_bounds
 planner_cutoff
 normalize_cursor  # src/db/models/timestamps.py
+ends  # src/agent/tools/scheduling.py Spec key, read as spec["ends"]
+claimed_at  # ScheduledItem field, written through dataclasses.fields()

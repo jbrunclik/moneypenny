@@ -695,6 +695,17 @@ class Config:
     SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
     # A watcher with no end date stops after this many days
     SCHEDULE_WATCH_EXPIRY_DAYS: int = int(os.getenv("SCHEDULE_WATCH_EXPIRY_DAYS", "30"))
+    # A reminder or check-in more than this late (scheduler down, chat restored
+    # from the trash) is noted as missed in its chat instead of fired late
+    SCHEDULE_MISSED_GRACE_HOURS: int = int(os.getenv("SCHEDULE_MISSED_GRACE_HOURS", "6"))
+    # A watcher's interval doubles after this many quiet runs in a row (up to weekly)
+    SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS: int = int(
+        os.getenv("SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS", "7")
+    )
+    # A watcher or recurring item stops after this many failed runs in a row
+    SCHEDULE_ITEM_MAX_FAILURES: int = int(os.getenv("SCHEDULE_ITEM_MAX_FAILURES", "3"))
+    # A run claimed longer ago than this never finished: it is run again
+    SCHEDULE_RUN_STALE_MINUTES: int = int(os.getenv("SCHEDULE_RUN_STALE_MINUTES", "30"))
     # Docker image for sandbox (custom image with pre-installed fonts and
     # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
     # networking disabled, so every library must be baked into the image;
