@@ -6,7 +6,9 @@ import pytest
 from src.agent.executor import SILENT_RUN_REPLY, is_silent_reply, should_push_run
 
 
-@pytest.mark.parametrize("text", ["[SILENT]", " [silent]. ", "[SILENT]\n"])
+@pytest.mark.parametrize(
+    "text", ["[SILENT]", " [silent]. ", "[SILENT]\n", "`[SILENT]`", "**[SILENT]**"]
+)
 def test_the_marker_alone_is_silent(text: str) -> None:
     assert is_silent_reply(text)
 

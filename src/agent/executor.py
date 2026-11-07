@@ -476,8 +476,9 @@ SILENT_RUN_REPLY = "Nothing new."
 
 
 def is_silent_reply(text: str) -> bool:
-    """The reply is the [SILENT] marker alone (whitespace and a final dot allowed)."""
-    return text.strip().rstrip(".").strip().upper() == SILENT_MARKER
+    """The reply is the [SILENT] marker alone (whitespace, a final dot and
+    markdown code/bold marks allowed - the prompt shows it in backticks)."""
+    return text.strip().strip("`*").rstrip(".").strip().strip("`*").upper() == SILENT_MARKER
 
 
 def should_push_run(trigger_type: str, reply: str) -> bool:
