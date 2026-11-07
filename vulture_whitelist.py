@@ -128,6 +128,7 @@ cloud_coverage
 fetched_at
 gemini_file_uri  # src/utils/files.py UploadedFile / StoredFile (read as file["..."])
 gemini_upload_error
+history_file_id  # src/utils/files.py UploadedFile (read as file.get("history_file_id"))
 
 # --- Framework interfaces -----------------------------------------------------
 _.row_factory  # sqlite3.Connection

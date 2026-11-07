@@ -1,0 +1,18 @@
+id: sandbox_pdf_current_turn
+description: >
+  The natural form of the floor-plan request: the PDF is attached to the very
+  message that asks for a to-scale drawing. The sandbox only opens a file by
+  id, so the current message lists its uploads' ids for execute_code(files=...)
+requires: [code_sandbox]
+files: [fixtures/floor_plan.pdf]
+user: >
+  Here is our floor plan. Draw both rooms to scale as a PNG with each room's
+  area written inside it, and tell me the total floor area to two decimals.
+expect:
+  rubric: >
+    Reads the real dimensions from the plan (Room A 4.20 x 3.50 m, Room B
+    3.10 x 2.80 m), returns a PNG drawing of the two rooms, and states the
+    total floor area as 23.38 m2 (14.70 + 8.68). Guessed or hedged
+    dimensions fail; claiming the file cannot be opened fails.
+  required_tools: [execute_code]
+  max_tool_rounds: 6

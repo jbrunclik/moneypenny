@@ -104,7 +104,9 @@ takes file ids from the history metadata (`message_id:file_index`), loads each t
 user's own conversation, the message belongs to it, the index exists, within retention -
 and copies it to `/work/attachments/<safe name>` before the code runs (directories and
 leading dots stripped, a repeated name gets `-2`; the result's `attachments` lists the
-paths). All files are checked before anything is copied; at most
+paths). Files attached to the **current** message have no history line yet, so the save
+path gives them their id (`annotate_history_file_ids`, transient like the Files API URIs) and
+`build_message_content` lists them beside the attachments. All files are checked before anything is copied; at most
 `CODE_SANDBOX_MAX_ATTACHMENTS` (5) per call, each within `MAX_FILE_SIZE_BYTES`.
 
 The image reads PDFs with `pypdf` and `pdfplumber` (text, words with coordinates, drawn
@@ -112,10 +114,11 @@ lines/rects, tables, page renders via `page.to_image`). `from sandbox_helpers im
 pdf_overview` (`docker/code-sandbox/sandbox_helpers.py`, on `PYTHONPATH`) is the first
 look: per page size, text characters, words, lines/rects and tables, ending with the
 pages that have **no text** (scanned or drawn as images) and how to render them - never
-silence. This closed the floor-plan failure (Oct 2026): a PDF uploaded earlier is only
-listed in later turns, and the sandbox had neither the file nor a PDF library. Eval:
+silence. Pages print as they are read, 20 per call (`first_page=` for the next), so a
+line-dense plan set cannot run into the 30 s timeout with nothing shown. This closed the floor-plan failure (Oct 2026): a PDF uploaded earlier is only
+listed in later turns, and the sandbox had neither the file nor a PDF library. Evals:
 `sandbox_pdf_floor_plan` (a file on an earlier turn - the harness stores history files
-like uploads).
+like uploads) and `sandbox_pdf_current_turn` (attached to the asking message).
 
 ## Deployment
 

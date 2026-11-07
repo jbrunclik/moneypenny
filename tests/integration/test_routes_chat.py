@@ -578,6 +578,39 @@ class TestChatWithFiles:
 
         assert response.status_code == 200
 
+    def test_current_message_files_carry_their_history_ids(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        sample_file: dict[str, Any],
+        test_database: Database,
+    ) -> None:
+        """The agent gets each upload's history id (message_id:file_index), so
+        execute_code(files=...) can open a file attached to this very message."""
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
+            mock_agent = MagicMock()
+            mock_agent.chat_batch.return_value = (
+                "ok",
+                [],
+                {"input_tokens": 1, "output_tokens": 1},
+                [],
+            )
+            mock_agent_class.return_value = mock_agent
+
+            response = client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "Draw it to scale", "files": [sample_file]},
+            )
+
+        assert response.status_code == 200
+        user_msg = next(
+            m for m in test_database.get_messages(test_conversation.id) if m.role == "user"
+        )
+        passed = mock_agent.chat_batch.call_args.kwargs["files"]
+        assert passed[0]["history_file_id"] == f"{user_msg.id}:0"
+
     def test_files_only_no_message(
         self,
         client: FlaskClient,

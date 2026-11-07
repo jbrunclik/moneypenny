@@ -272,3 +272,32 @@ class TestMsgContextToolDigest:
             "metadata": {"timestamp": "2024-06-15 14:30 CET"},
         }
         assert "tool_digest" not in self._format(msg)
+
+
+def test_current_message_files_are_listed_with_their_ids() -> None:
+    """The sandbox can only open a file by id: the current message's uploads
+    are listed with theirs (history turns already carry ids)."""
+    from src.agent.message_content import build_message_content
+
+    files = [
+        {"name": "plan.pdf", "type": "application/pdf", "data": "UERG", "history_file_id": "m1:0"}
+    ]
+
+    blocks = build_message_content("draw it to scale", files)
+
+    listing = [
+        b for b in blocks if isinstance(b, dict) and b.get("type") == "text" and "m1:0" in b["text"]
+    ]
+    assert len(listing) == 1
+    assert "plan.pdf" in listing[0]["text"]
+    assert "execute_code" in listing[0]["text"]
+
+
+def test_files_without_ids_get_no_listing() -> None:
+    from src.agent.message_content import build_message_content
+
+    blocks = build_message_content(
+        "hi", [{"name": "a.pdf", "type": "application/pdf", "data": "UERG"}]
+    )
+
+    assert not any(isinstance(b, dict) and "execute_code" in b.get("text", "") for b in blocks)

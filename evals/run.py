@@ -666,6 +666,30 @@ def _history_with_files(
     return enrich_history(messages)
 
 
+def _saved_attachments(case: EvalCase, db: Any, conversation_id: str) -> list[Any]:
+    """The current turn's files, saved with their message as production does.
+
+    The app saves the user message before the agent runs and gives each upload
+    its history id (message_id:file_index), which execute_code(files=...)
+    takes; sent unsaved, a current-turn file could not reach the sandbox.
+    """
+    from src.agent.message_content import annotate_history_file_ids
+    from src.db.models.helpers import save_file_to_blob_store
+    from src.utils.files import UploadedFile
+
+    payload = [
+        UploadedFile(name=f["name"], type=f["type"], data=f["data"])
+        for f in _attachment_payload(case)
+    ]
+    if not payload:
+        return []
+    message = db.add_message(conversation_id, "user", case.user, files=payload)
+    for index, file in enumerate(payload):
+        save_file_to_blob_store(message.id, index, file)
+    annotate_history_file_ids(message.id, payload)
+    return payload
+
+
 def _sports_context(case: EvalCase) -> dict[str, Any] | None:
     """Sports mode: canned cycling program (mirrors load_sports_context's shape)."""
     if case.mode != "sports":
@@ -728,6 +752,7 @@ def _agent_turn(
     from evals.fakes import describe_actions, fake_integrations
     from src.agent.agent import ChatAgent
     from src.config import Config
+    from src.db.models import db
 
     is_sports = sports_context is not None
     agent = ChatAgent(
@@ -747,7 +772,7 @@ def _agent_turn(
         else:
             response, tool_results, usage, result_messages = agent.chat_batch(
                 text=case.user,
-                files=_attachment_payload(case) or None,
+                files=_saved_attachments(case, db, conversation_id) or None,
                 history=history,
                 user_name="Eval User",
                 user_id=user.id,

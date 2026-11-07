@@ -828,3 +828,20 @@ expect:
         stored = test_database.get_message_by_id(listed["message_id"])
         assert stored is not None and stored.conversation_id == conv.id
         assert built[1]["role"] == "assistant"
+
+    def test_current_turn_files_are_saved_with_their_ids(self, test_database, test_user) -> None:
+        """Like production: the current message is saved with its uploads, and
+        each upload carries its history id for execute_code(files=...)."""
+        from evals.run import EvalCase, _saved_attachments
+
+        conv = test_database.create_conversation(test_user.id, "Flat")
+        case = EvalCase(
+            id="c", description="", user="Draw it", rubric="r", files=["fixtures/floor_plan.pdf"]
+        )
+
+        payload = _saved_attachments(case, test_database, conv.id)
+
+        message_id, _, index = payload[0]["history_file_id"].partition(":")
+        stored = test_database.get_message_by_id(message_id)
+        assert stored is not None and stored.conversation_id == conv.id and index == "0"
+        assert payload[0]["name"] == "floor_plan.pdf"

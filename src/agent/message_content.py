@@ -8,9 +8,12 @@ history messages.
 import base64
 import binascii
 import json
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+
+from src.utils.files import UploadedFile
 
 
 def _file_block(file: dict[str, Any]) -> dict[Any, Any] | None:
@@ -87,8 +90,36 @@ def build_message_content(
         block = _file_block(file)
         if block is not None:
             blocks.append(block)
+    if listing := _file_id_listing(files):
+        blocks.append({"type": "text", "text": listing})
 
     return blocks if blocks else text
+
+
+def annotate_history_file_ids(message_id: str, files: list[UploadedFile]) -> None:
+    """Give a just-saved message's uploads their history ids (transient).
+
+    History turns list files as ``message_id:file_index``; the current message
+    sends them inline, without one - so the code sandbox could not open a file
+    attached to this very message (execute_code(files=...) takes the id).
+    """
+    for index, file in enumerate(files):
+        file["history_file_id"] = f"{message_id}:{index}"
+
+
+def _file_id_listing(files: Iterable[Mapping[str, object]]) -> str | None:
+    """A line naming each upload's id, when they have one."""
+    named = [
+        f"{f.get('name', 'file')} (id {f['history_file_id']})"
+        for f in files
+        if f.get("history_file_id")
+    ]
+    if not named:
+        return None
+    return (
+        f"[Files attached to this message: {', '.join(named)}. To measure, parse or convert "
+        "one in code, pass its id to execute_code(files=[...]).]"
+    )
 
 
 # Assistant-message fields copied into MSG_CONTEXT as is, in this order

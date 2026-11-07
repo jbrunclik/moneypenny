@@ -23,6 +23,8 @@ class UploadedFile(TypedDict):
     thumbnail_status: NotRequired[str]  # ThumbnailStatus value
     gemini_file_uri: NotRequired[str]  # set when uploaded to the Files API
     gemini_upload_error: NotRequired[str]
+    # message_id:file_index once the message is saved - what execute_code(files=...) takes
+    history_file_id: NotRequired[str]
 
 
 class StoredFile(TypedDict):

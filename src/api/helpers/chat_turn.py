@@ -32,6 +32,7 @@ from src.agent.executor import AgentContext, clear_agent_context, set_agent_cont
 from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
+from src.agent.message_content import annotate_history_file_ids
 from src.agent.tool_results import set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
@@ -268,6 +269,8 @@ def _save_user_message(
         action=action,
     )
     if files:
+        # Transient, like the Files API URIs below: lets the turn name each file by id
+        annotate_history_file_ids(user_msg.id, files)
         queue_pending_thumbnails(user_msg.id, files)
         # Upload videos to the Gemini Files API and annotate files with URIs
         # (annotations are transient: the message was already saved without them)
