@@ -48,8 +48,8 @@ def _retrieve(
     return retrieve_file.invoke({"message_id": "msg-1", "file_index": 0})
 
 
-@patch("src.agent.tools.file_retrieval.get_blob_store")
-@patch("src.agent.tools.file_retrieval.db")
+@patch("src.agent.tools.conversation_files.get_blob_store")
+@patch("src.agent.tools.conversation_files.db")
 class TestRetrieveFileLimits:
     def test_large_image_is_downscaled_inline(
         self, mock_db: MagicMock, mock_get_blob_store: MagicMock
