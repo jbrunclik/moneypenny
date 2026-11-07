@@ -16,7 +16,7 @@ import json
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
@@ -59,8 +59,21 @@ _KIND_LABELS: dict[str, str] = {
 _ONE_OFFS = {"reminder", "check_in"}
 _SHORT_DATE = "%d %b"
 
-# A pending preview: what ScheduledItem needs, plus the descriptions shown
-Spec = dict[str, Any]
+
+class Spec(TypedDict, total=False):
+    """A pending preview: what ScheduledItem needs (instants as ISO strings,
+    JSON-safe for the kv store), plus the descriptions shown and the turn."""
+
+    kind: ItemKind
+    text: str
+    end_condition: str
+    schedule: str
+    interval_hours: int
+    next_run_at: str
+    expires_at: str | None
+    when: str
+    ends: str
+    turn: str
 
 
 def _until(args: Mapping[str, object], now: datetime) -> datetime | str | None:
@@ -81,7 +94,11 @@ def _one_off(kind: str, args: Mapping[str, object], now: datetime) -> Spec | str
     instant = one_off_instant(str(args.get("date") or ""), str(args.get("time") or ""), tz, now)
     if isinstance(instant, ScheduleError):
         return tool_error(instant.message)
-    return {"next_run_at": instant, "when": describe_instant(instant, tz), "ends": "then done"}
+    return {
+        "next_run_at": instant.isoformat(),
+        "when": describe_instant(instant, tz),
+        "ends": "then done",
+    }
 
 
 def _watcher(args: Mapping[str, object], now: datetime) -> Spec | str:
@@ -99,8 +116,8 @@ def _watcher(args: Mapping[str, object], now: datetime) -> Spec | str:
     return {
         "end_condition": condition,
         "interval_hours": hours,
-        "next_run_at": now,
-        "expires_at": expires,
+        "next_run_at": now.isoformat(),
+        "expires_at": expires.isoformat(),
         "when": f"checks {describe_interval(hours)}",
         "ends": f"until {condition}, at most {limit}",
     }
@@ -118,8 +135,8 @@ def _recurring(args: Mapping[str, object], now: datetime) -> Spec | str:
         return until
     return {
         "schedule": cron,
-        "next_run_at": next_cron_run(cron, Config.APP_TIMEZONE, now),
-        "expires_at": until,
+        "next_run_at": next_cron_run(cron, Config.APP_TIMEZONE, now).isoformat(),
+        "expires_at": until.isoformat() if until else None,
         "when": describe_cron(cron),
         "ends": f"until {_short(until)}" if until else "until cancelled",
     }
@@ -161,14 +178,9 @@ def _keep_pending(user_id: str, conversation_id: str, spec: Spec) -> None:
     db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(spec))
 
 
-def _stored_spec(spec: Spec) -> Spec:
-    """The spec as JSON-safe values (instants as ISO strings)."""
-    return {k: v.isoformat() if isinstance(v, datetime) else v for k, v in spec.items()}
-
-
-def _instant(value: object) -> datetime | None:
+def _instant(value: str | None) -> datetime | None:
     # tz-naive: values are isoformats of aware UTC instants this module built
-    return datetime.fromisoformat(str(value)) if value else None
+    return datetime.fromisoformat(value) if value else None
 
 
 def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledItem:
@@ -182,7 +194,7 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
         schedule=pending.get("schedule"),
         interval_hours=pending.get("interval_hours"),
         # tz-naive: an isoformat of an aware UTC instant this module built
-        next_run_at=datetime.fromisoformat(str(pending["next_run_at"])),
+        next_run_at=datetime.fromisoformat(pending["next_run_at"]),
         expires_at=_instant(pending.get("expires_at")),
         status="active",
         last_result=None,
@@ -245,14 +257,16 @@ def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object
     text = str(args.get("text") or "").strip()
     if not text:
         return tool_error("'text' is required: the reminder, the question, or what to check.")
-    if reason := find_injection(text):
-        return tool_error(f"Refused: {reason}. Describe it in your own words.")
+    # Every free-text field that reaches a future run is screened, not just text
+    for value in (text, str(args.get("end_condition") or "")):
+        if reason := find_injection(value):
+            return tool_error(f"Refused: {reason}. Describe it in your own words.")
     kind = str(args.get("kind") or "")
     spec = _build(kind, args, utc_now())
     if isinstance(spec, str):
         return spec
-    spec |= {"kind": kind, "text": text}
-    _keep_pending(user_id, conversation_id, _stored_spec(spec))
+    spec["kind"], spec["text"] = kind, text  # type: ignore[typeddict-item]  # kind checked by _build
+    _keep_pending(user_id, conversation_id, spec)
     return (
         f"PREVIEW: {_KIND_LABELS[kind]} - {spec['when']} ({Config.APP_TIMEZONE}), "
         f'{spec["ends"]}: "{text}". Nothing is scheduled yet: show this to the user and ask; '
