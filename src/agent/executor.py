@@ -273,7 +273,7 @@ def _save_response(
 ) -> tuple[Message, str]:
     """Save the run's reply with its sources, files and cost; return it and its text."""
     # Extract metadata from tool calls and deterministic analysis
-    clean_response = raw_response
+    clean_response = SILENT_RUN_REPLY if is_silent_reply(raw_response) else raw_response
     # Source chips = pages the turn read (no cite_sources tool any more)
     sources: list[dict[str, str]] = extract_read_sources(result_messages)
     generated_images_meta = extract_image_prompts_from_messages(result_messages)
@@ -469,6 +469,22 @@ def _record_run_result(
     return clean_response
 
 
+# A scheduled run with nothing worth telling replies exactly [SILENT]; it is
+# saved as this text, and no push goes out
+SILENT_MARKER = "[SILENT]"
+SILENT_RUN_REPLY = "Nothing new."
+
+
+def is_silent_reply(text: str) -> bool:
+    """The reply is the [SILENT] marker alone (whitespace and a final dot allowed)."""
+    return text.strip().rstrip(".").strip().upper() == SILENT_MARKER
+
+
+def should_push_run(trigger_type: str, reply: str) -> bool:
+    """Push a finished run unless it was manual (the user is watching) or had nothing new."""
+    return trigger_type != "manual" and reply != SILENT_RUN_REPLY
+
+
 def _notify_run_finished(
     agent: Agent, user: User, conv: Conversation, trigger_type: str, clean_response: str
 ) -> None:
@@ -477,7 +493,7 @@ def _notify_run_finished(
     # previous notification instead of stacking. Manual runs don't
     # push - the user is in the app clicking Run and gets the
     # completion toast there.
-    if trigger_type != "manual":
+    if should_push_run(trigger_type, clean_response):
         send_push_to_user(
             user.id,
             f"{agent.name} finished",
