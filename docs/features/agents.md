@@ -186,36 +186,71 @@ In development (`FLASK_ENV=development`), `start_dev_scheduler()` runs a backgro
 
 In production a systemd timer runs `scripts/run_agent_scheduler.py` every minute to check for due agents (see [Scheduled Jobs](../architecture/scheduled-jobs.md)). Never run a scheduler thread inside the web workers.
 
-## Scheduling From Chat (Nov 2026)
+## Lightweight Agents From Chat (Nov 2026)
 
 The `schedule` tool (`src/agent/tools/scheduling.py`, ordinary non-anonymous chats only -
-never agents, so a scheduled run cannot schedule more) sets reminders and recurring tasks
-from a message ("remind me Friday at 8...", "every Monday check...") and lists, pauses,
-resumes and deletes them.
+never agents, so a scheduled run cannot schedule more) sets four kinds of item from a
+message, each belonging to the chat that set it
+([spec](../superpowers/specs/2026-11-07-lightweight-agents-design.md)):
+
+| Kind | Example | Runs | Ends |
+|---|---|---|---|
+| `reminder` | "remind me Friday at 8 to call the plumber" | push at the time, no model call | once fired |
+| `check_in` | "check with me Friday how it's healing" | posts its question into the chat, no model call (written at creation) | once fired |
+| `watcher` | "tell me when the school posts a teacher job" | model run every 6h / daily / weekly | `[DONE]`, its end date, or 30 days |
+| `recurring` | "every Monday, what's for lunch at school" | model run on a cron (household timezone) | cancelled, or its end date |
 
 - **Confirmed in chat, enforced in code:** `create` without `confirm=true` returns a
-  `PREVIEW:`, stores nothing, and keeps the preview pending for the conversation (kv
-  `schedule_pending`). `confirm=true` stores exactly that pending item, and only once a
-  newer user message exists - so a page's injected "confirm" in the same turn, or fields
-  that drifted since the preview, cannot schedule something the user never saw.
-- **No push device:** a reminder's preview and confirmation warn when none of the user's
-  devices has notifications on (the reminder would reach no one).
-- **Built by code:** the model fills structured fields - `date` + `time` for a reminder,
-  `days` (mon..sun, daily, weekdays, weekends) + `time` for a task - and
-  `src/utils/schedule_spec.py` builds the UTC instant or cron string in
-  `Config.APP_TIMEZONE` (a time already past is refused, naming the local time).
-- **Reminders** are rows in `reminders`, pushed by the every-minute scheduler with no
-  model call (`send_due_reminders`, before agents run). Due rows are claimed in one
-  `UPDATE ... RETURNING`, so overlapping runs never send one twice; the push opens the
-  conversation it was set in.
-- **Recurring tasks** are ordinary agents (description `Created from chat: ...`,
-  `tool_permissions=[]` - the always-safe read-only tools only), visible in the Command
-  Center. Text goes through the injection scan; at most `SCHEDULE_MAX_ACTIVE_PER_USER`
-  (20) active reminders + chat tasks per user.
-- **Silent runs:** the autonomous-agent prompt says to reply exactly `[SILENT]` when a
-  check finds nothing new; the executor saves it as "Nothing new." and skips the push
-  (`is_silent_reply`, `should_push_run`).
-- Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_weekly_task`.
+  `PREVIEW:` (saying how the item ends), stores nothing, and keeps the preview pending for
+  the conversation (kv `schedule_pending`). `confirm=true` stores exactly that pending
+  item, and only once a newer user message exists - so a page's injected "confirm" in the
+  same turn, or fields that drifted since the preview, cannot schedule something the user
+  never saw. `text` and a watcher's `end_condition` go through the injection scan.
+- **Built by code:** the model fills structured fields and `src/utils/schedule_spec.py`
+  builds the instant, interval or cron string in `Config.APP_TIMEZONE` (a time already
+  past is refused, naming the local time).
+- **Data:** `scheduled_items` (migration 0076; `src/db/models/scheduled_items.py`), one
+  row per item with a required `conversation_id`. Items **follow their chat by query**:
+  only items in live chats (not trashed, not archived) are listed, counted or run, so
+  trashing or archiving a chat suspends its items and restoring it brings them back; a
+  trigger deletes them with the conversation row (permanent delete, trash purge). Finished
+  items are deleted - the chat holds the record. `expires_at` holds only an end date the
+  user gave; a watcher without one stops `SCHEDULE_WATCH_EXPIRY_DAYS` after it was set
+  (`watch_expiry`).
+- **Scheduler** (`src/agent/item_scheduler.py`, every minute, before agents): hands back
+  runs that never finished (`SCHEDULE_RUN_STALE_MINUTES`), then claims due items in one
+  `UPDATE ... RETURNING` (overlapping runs never handle one twice). A one-off more than
+  `SCHEDULE_MISSED_GRACE_HOURS` late (scheduler down, chat restored after the time) is not
+  fired late but noted as "Missed (was due ...)" in its chat. A quiet watcher slows down
+  - its interval doubles per `SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS` silent runs, up to
+  weekly, except with a user-given end date; the next run never passes the expiry.
+  `SCHEDULE_ITEM_MAX_FAILURES` failed runs in a row, or the end date, stop the item with a
+  note in its chat (no push). The run line logs `items_fired`, `items_run`,
+  `items_missed`, `items_expired`.
+- **Runs** (`src/agent/item_runner.py`): ChatAgent in autonomous mode with an in-memory
+  agent (no agent row) and only `web_search`, `fetch_url`, `research`; the user's
+  memories are kept out (an unattended run reads untrusted pages), and a stored report
+  that looks like injected instructions is not replayed. The run prompt
+  (`prompt_texts/scheduled_items.py`) gets what to check, the end condition and the
+  previous report; it replies `[SILENT]` (nothing posted or pushed), a report, or for a
+  watcher `[DONE]` + report. Cost is recorded against the item's chat - on the delivered
+  turn, or for a silent run under a `silent:` message id.
+- **Delivery:** a result is an ordinary assistant message in the item's chat with a
+  `delivery` label (`{"kind", "label"}`, e.g. "Check-in · Fri 18:00", "Watcher · found"),
+  plus a push opening the chat - so the user just replies, in context. Reminders push
+  only.
+- **UI:** a header chip in the chat (desktop and mobile; `ScheduleIndicator.ts`) opens a
+  sheet listing its items with cancel, and pause/resume for watchers and recurring checks;
+  the Command Center has a "From chats" lane above the agents (hidden when empty).
+  API: `GET /api/conversations/<id>/schedules`, `DELETE /api/schedules/<id>`,
+  `POST /api/schedules/<id>/pause|resume`, `chat_items` on the Command Center payload.
+- **Limits:** at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included;
+  a reminder's preview warns when none of the user's devices has notifications on.
+- **Silent runs** (full agents too): the autonomous-agent prompt says to reply exactly
+  `[SILENT]` when a check finds nothing new; the executor saves it as "Nothing new." and
+  skips the push (`is_silent_reply`, `should_push_run`).
+- Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_check_in_preview`,
+  `schedule_watcher_preview`, `schedule_weekly_task`.
 
 ## Agent Execution Flow
 

@@ -8,7 +8,7 @@ This directory contains detailed documentation for the Moneypenny project, organ
 Feature-specific documentation covering user-facing functionality:
 
 - **[admin.md](features/admin.md)** - Admin page (ADMIN_EMAILS: spend, agent health, web-search quotas, response quality, browser errors, system facts, device check runs), browser error reporting, the in-app device check runner, and the daily spend warning banner
-- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention
+- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention, lightweight items set from chat (reminders, check-ins, watchers, recurring checks)
 - **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
 - **[freshness.md](features/freshness.md)** - Current facts: freshness gate (lookup before the turn, dated queries, failed-lookup note), `published` dates and the `_recency` note on search results, snippets-are-not-verification directive, recent-news grounding scope, config, evals
 - **[conversation-facts.md](features/conversation-facts.md)** - Settled facts per conversation: the extract-only recording tool, the every-turn context block, caps, the read-only chip and popup, the flag

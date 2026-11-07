@@ -1,7 +1,8 @@
 id: schedule_weekly_task
 description: >
-  A recurring task in Czech becomes a preview of a weekly schedule (every
-  Monday 09:00) - built from structured fields, confirmed before it exists
+  A recurring check in Czech becomes a preview of a weekly recurring item
+  (every Monday 09:00) - built from structured fields, confirmed before it
+  exists
 user: >
   Každé pondělí v 9 ráno mi zkontroluj školní jídelníček na
   https://www.zs-lipova.cz/jidelna a napiš mi, co bude ten týden k obědu.
@@ -16,4 +17,6 @@ expect:
   forbidden_arg_patterns:
     schedule.confirm:
       - "^True$"
+    schedule.kind:
+      - "^(task|reminder|check_in|watcher)$"
   max_tool_rounds: 3

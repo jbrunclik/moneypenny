@@ -5,7 +5,7 @@ description: >
 kv:
   - namespace: schedule_pending
     key: "{conversation_id}"
-    value: '{"kind": "reminder", "text": "Zavolat instalatérovi", "value": "2028-03-15T07:00:00+00:00", "described": "Wed 15 Mar 2028 08:00", "turn": "seeded-preview-turn"}'
+    value: '{"kind": "reminder", "text": "Zavolat instalatérovi", "next_run_at": "2028-03-15T07:00:00+00:00", "when": "Wed 15 Mar 2028 08:00", "ends": "then done", "turn": "seeded-preview-turn"}'
 history:
   - role: user
     content: "Připomeň mi prosím 15. března 2028 v 8 ráno, ať zavolám instalatérovi."

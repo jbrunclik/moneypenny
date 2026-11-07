@@ -1,0 +1,25 @@
+id: schedule_check_in_preview
+description: >
+  "Check with me on Friday how it's healing" becomes a check-in preview: a
+  specific question about the injury, asked back in this chat on Friday
+  evening - previewed, not stored
+history:
+  - role: user
+    content: "Náš pes si včera poranil ocas o dveře, má tam odřeninu a chybí mu kus srsti."
+  - role: assistant
+    content: "To mě mrzí. Ránu udržujte čistou a suchou, a když bude otékat nebo mokvat, zajděte k veterináři."
+user: "Zeptej se mě prosím v pátek večer, jak se to hojí."
+expect:
+  rubric: >
+    Answers in Czech. Previews a check-in for Friday evening that will ask
+    about the dog's tail healing (the question mentions the tail, the
+    wound or the fur), and asks the user to confirm. Calling the schedule
+    tool for a preview is expected (it stores nothing). Must NOT claim the
+    check-in is already set.
+  required_tools: [schedule]
+  forbidden_arg_patterns:
+    schedule.confirm:
+      - "^True$"
+    schedule.kind:
+      - "^(task|reminder|watcher|recurring)$"
+  max_tool_rounds: 2

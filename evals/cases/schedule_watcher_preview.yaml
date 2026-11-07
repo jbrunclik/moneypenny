@@ -1,0 +1,21 @@
+id: schedule_watcher_preview
+description: >
+  "Let me know when the school posts a teacher job" becomes a watcher
+  preview with an end condition - checked until it happens, then stops
+user: >
+  Dej mi vědět, až škola na https://www.zs-lipova.cz/kariera vypíše místo
+  učitele/učitelky.
+expect:
+  rubric: >
+    Answers in Czech. Previews a watcher that will check the school's career
+    page and stop once a teacher position is posted, and says how often it
+    checks and that it stops on its own (or after at most 30 days). Asks
+    the user to confirm. Calling the schedule tool for a preview is
+    expected. Must NOT claim it is already watching.
+  required_tools: [schedule]
+  forbidden_arg_patterns:
+    schedule.confirm:
+      - "^True$"
+    schedule.kind:
+      - "^(task|reminder|check_in|recurring)$"
+  max_tool_rounds: 3

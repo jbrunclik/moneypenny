@@ -81,6 +81,12 @@ window to it (or opens one).
 - **Agent execution finished** — `src/agent/executor.py` success path;
   `tag: agent-<id>` so re-runs replace the previous notification;
   deep-links to the agent's conversation.
+- **Item set from chat** — `src/agent/item_scheduler.py` /
+  `src/agent/item_runner.py`: a reminder (title "Reminder"), a check-in's
+  question, a watcher's or recurring check's report (title by kind);
+  `tag: item-<id>`; deep-links to the chat that set it. Silent runs,
+  "missed" and "stopped" notes post no push
+  ([agents.md](agents.md#lightweight-agents-from-chat-nov-2026)).
 - **Agent waiting for approval** — `ApprovalRequestedException` path;
   `tag: approval-<id>`; deep-links to `/#/agents`.
 - **Chat turn finished while backgrounded** — when an interactive turn
