@@ -61,7 +61,7 @@ mdurl==0.1.2
     # via markdown-it-py
 more-itertools==11.2.1
     # via openapi-core
-mypy==2.4.0
+mypy==2.4.1
     # via -r requirements-dev.in
 mypy-extensions==1.1.0
     # via mypy
@@ -87,13 +87,13 @@ pluggy==1.7.0
     # via
     #   pytest
     #   pytest-cov
-pydantic==2.14.1
+pydantic==2.14.3
     # via
     #   -c requirements.txt
     #   openapi-schema-validator
     #   openapi-spec-validator
     #   pydantic-settings
-pydantic-core==2.50.1
+pydantic-core==2.50.4
     # via
     #   -c requirements.txt
     #   pydantic
@@ -105,7 +105,7 @@ pygments==2.21.0
     # via
     #   pytest
     #   rich
-pytest==9.1.1
+pytest==9.2.0
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -141,7 +141,7 @@ rpds-py==2026.9.1
     # via
     #   jsonschema
     #   referencing
-ruff==0.17.2
+ruff==0.17.4
     # via -r requirements-dev.in
 six==1.17.0
     # via
@@ -151,7 +151,7 @@ tomli==2.5.0 ; python_full_version < '3.15'
     # via deptry
 types-croniter==6.2.4.20261006
     # via -r requirements-dev.in
-types-pyyaml==6.0.12.20260906
+types-pyyaml==6.0.12.20261103
     # via -r requirements-dev.in
 typing-extensions==4.16.0
     # via

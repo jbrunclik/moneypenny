@@ -22,7 +22,10 @@ def test_a_monkeypatch_through_db_does_not_outlive_its_database() -> None:
     finally:
         set_database(previous)
     second.delete_message_by_id.assert_called_once_with("m1")
-    first.delete_message_by_id.assert_not_called()
+    # mock_calls, not first.delete_message_by_id: since pytest 9.2 the undo
+    # deletes the patched attribute (it was not in the instance __dict__), and
+    # a MagicMock raises on reading an attribute deleted from it
+    assert first.mock_calls == []
 
 
 def test_attribute_writes_reach_the_current_database() -> None:
