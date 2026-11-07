@@ -119,6 +119,15 @@ tests/integration/test_routes_chat.py .....                 [100%]
 
 ## Key Testing Patterns
 
+### "Today" in tests is the household day
+
+The app's day is `local_today()` (`src/utils/clock.py`, `APP_TIMEZONE`). A test that
+builds "today" with `date.today()` or `datetime.now(UTC)` disagrees with it for an hour
+every night - between midnight in Prague and midnight UTC - and CI runs in UTC while
+laptops run in Prague, so the laptop stays green while CI fails (Nov 8 2026: eight tests
+across planner, eval and search). Use `local_today()` in expectations; to check, run the
+suite with `TZ=UTC` during that hour.
+
 ### TDD for Bug Fixes
 
 When fixing bugs, follow TDD approach:
