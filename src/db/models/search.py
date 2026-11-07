@@ -159,7 +159,7 @@ def _unique_results(rows: list[sqlite3.Row]) -> list[SearchResult]:
                 message_content=row["message_snippet"],
                 match_type=row["match_type"],
                 rank=float(row["rank"]),
-                created_at=from_db_or_none(row["message_created_at"], "local"),
+                created_at=from_db_or_none(row["message_created_at"]),
             )
         )
 

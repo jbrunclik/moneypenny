@@ -64,8 +64,8 @@ def build_offer(args: dict[str, Any], kind: str = "initial", round_: int = 1) ->
 def seconds_open(offer: dict[str, Any]) -> int | None:
     """Seconds since the offer was made (time to decision, for telemetry)."""
     try:
-        # Offers made before Oct 27 2026 hold local-naive times
-        created = from_db(str(offer["created_at"]), "local")
+        # Offers made before Oct 27 2026 hold local-naive times: no answer
+        created = from_db(str(offer["created_at"]))
     except KeyError, ValueError:
         return None
     return round((utc_now() - created).total_seconds())

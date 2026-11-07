@@ -86,7 +86,7 @@ class MessagePaginationMixin:
             ).fetchall()
 
         cursor_timestamp, cursor_id = parse_cursor(cursor)
-        cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
+        cursor_timestamp = normalize_cursor(cursor_timestamp)
         if direction == PaginationDirection.OLDER:
             # Fetch messages OLDER than cursor (created_at < cursor_timestamp)
             # Order by created_at DESC to get the ones just before cursor

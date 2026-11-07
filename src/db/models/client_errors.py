@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 def _api_time(stored: str) -> str:
     """A stored last_seen as the API sends instants."""
-    return to_api(from_db(stored, "local"))
+    return to_api(from_db(stored))
 
 
 class LayoutCheckRow(TypedDict):
@@ -72,7 +72,7 @@ class ClientErrorsMixin:
         """
         now = now or utc_now()
         with self._pool.get_connection() as conn:
-            seen = to_db(now, "local", conn)
+            seen = to_db(now)
             self._execute_with_timing(
                 conn,
                 """INSERT INTO client_errors
@@ -107,7 +107,7 @@ class ClientErrorsMixin:
             conn.commit()
 
     def _prune_client_errors(self, conn: sqlite3.Connection, user_id: str, now: datetime) -> None:
-        cutoff = to_db(now - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS), "local", conn)
+        cutoff = to_db(now - timedelta(days=Config.CLIENT_ERROR_RETENTION_DAYS))
         self._execute_with_timing(conn, "DELETE FROM client_errors WHERE last_seen < ?", (cutoff,))
         self._execute_with_timing(
             conn,
@@ -133,7 +133,7 @@ class ClientErrorsMixin:
                    GROUP BY fingerprint
                    ORDER BY count DESC, last_seen DESC
                    LIMIT ?""",
-                (to_db(since, "local", conn), limit),
+                (to_db(since), limit),
             ).fetchall()
         return [{**dict(row), "last_seen": _api_time(row["last_seen"])} for row in rows]
 
@@ -160,7 +160,7 @@ class ClientErrorsMixin:
                    GROUP BY app_version, build_marker, invariant, shape
                    ORDER BY last_seen DESC
                    LIMIT ?""",
-                (to_db(since, "local", conn), limit),
+                (to_db(since), limit),
             ).fetchall()
         return [
             LayoutCheckRow(

@@ -113,8 +113,8 @@ class AgentMixin:
                     user_id,
                     f"Agent: {name}",
                     agent_model,
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
+                    to_db(now),
+                    to_db(now),
                     agent_id,
                 ),
             )
@@ -139,9 +139,9 @@ class AgentMixin:
                     1 if enabled else 0,
                     tool_permissions_json,
                     agent_model,
-                    to_db(now, "utc", conn),
-                    to_db(now, "utc", conn),
-                    to_db_or_none(next_run_at, "utc", conn),
+                    to_db(now),
+                    to_db(now),
+                    to_db_or_none(next_run_at),
                     budget_limit,
                     1 if fresh_context else 0,
                     system_type,
@@ -272,7 +272,7 @@ class AgentMixin:
             cursor = self._execute_with_timing(
                 conn,
                 f"UPDATE autonomous_agents SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
-                tuple(to_db(p, "utc", conn) if isinstance(p, datetime) else p for p in params),
+                tuple(to_db(p) if isinstance(p, datetime) else p for p in params),
             )
 
             if cursor.rowcount == 0:

@@ -71,7 +71,7 @@ class AgentStatsMixin:
                    FROM autonomous_agents a
                    WHERE a.user_id = ?
                    ORDER BY a.created_at DESC""",
-                (to_db(now, "utc", conn), user_id),
+                (to_db(now), user_id),
             ).fetchall()
 
             result: list[dict[str, Any]] = []
@@ -120,7 +120,7 @@ class AgentStatsMixin:
                    JOIN autonomous_agents a ON e.agent_id = a.id
                    WHERE a.user_id = ? AND e.started_at >= ?
                    GROUP BY e.agent_id, e.status""",
-                (user_id, to_db(since, "utc", conn)),
+                (user_id, to_db(since)),
             ).fetchall()
             cost_rows = self._execute_with_timing(
                 conn,
@@ -133,7 +133,7 @@ class AgentStatsMixin:
                    WHERE c.user_id = ? AND c.agent_id IS NOT NULL
                      AND mc.created_at >= ?
                    GROUP BY c.agent_id""",
-                (user_id, to_db(since, "local", conn)),
+                (user_id, to_db(since)),
             ).fetchall()
 
         for row in exec_rows:
@@ -169,7 +169,7 @@ class AgentStatsMixin:
                    WHERE c.user_id = ? AND c.agent_id IS NOT NULL
                    AND mc.created_at >= ?
                    GROUP BY c.agent_id""",
-                (user_id, to_db(today_start, "local", conn)),
+                (user_id, to_db(today_start)),
             ).fetchall()
             return {row["agent_id"]: float(row["total"]) for row in rows}
 
@@ -200,7 +200,7 @@ class AgentStatsMixin:
                    WHERE r.user_id = ? AND r.status = 'pending'
                    AND (r.expires_at IS NULL OR r.expires_at > ?)
                    ORDER BY r.created_at DESC""",
-                (user_id, to_db(now, "utc", conn)),
+                (user_id, to_db(now)),
             ).fetchall()
 
         pending_approvals = [
@@ -242,7 +242,7 @@ class AgentStatsMixin:
                    JOIN conversations c ON m.conversation_id = c.id
                    WHERE c.agent_id = ?
                    AND mc.created_at >= ?""",
-                (agent_id, to_db(today_start, "local", conn)),
+                (agent_id, to_db(today_start)),
             ).fetchone()
 
             return float(row["total"]) if row else 0.0

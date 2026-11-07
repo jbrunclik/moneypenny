@@ -111,7 +111,7 @@ def run_file_cleanup_if_due() -> bool:
     last_run = models.db.kv_get("_system", "file_cleanup", "last_run")
     if last_run:
         try:
-            if from_db(last_run, "utc") > utc_now() - timedelta(hours=CLEANUP_MIN_PERIOD_HOURS):
+            if from_db(last_run) > utc_now() - timedelta(hours=CLEANUP_MIN_PERIOD_HOURS):
                 return False
         except ValueError:
             pass

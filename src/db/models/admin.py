@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from src.db.models.timestamps import LegacyFormat, from_db, to_db
+from src.db.models.timestamps import from_db, to_db
 from src.utils.clock import to_api
 
 if TYPE_CHECKING:
@@ -48,12 +48,10 @@ class AdminMixin:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
 
-    def _rows(
-        self, query: str, params: tuple[Any, ...] = (), legacy: LegacyFormat = "local"
-    ) -> list[sqlite3.Row]:
-        """Run a read; datetime params are stored in the ``legacy`` columns' format."""
+    def _rows(self, query: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
+        """Run a read; datetime params are passed in the stored timestamp format."""
         with self._pool.get_connection() as conn:
-            stored = tuple(to_db(p, legacy, conn) if isinstance(p, datetime) else p for p in params)
+            stored = tuple(to_db(p) if isinstance(p, datetime) else p for p in params)
             return list(self._execute_with_timing(conn, query, stored).fetchall())
 
     def admin_spend_per_user(
@@ -95,7 +93,7 @@ class AdminMixin:
     def admin_spend_by_day(self, since: datetime) -> list[tuple[str, float]]:
         """Family spend per local calendar day since a moment (days with spend only)."""
         rows = self._rows(
-            """SELECT app_local_date(created_at, 'local') AS day, SUM(cost_usd)
+            """SELECT app_local_date(created_at) AS day, SUM(cost_usd)
                FROM message_costs WHERE created_at >= ?
                GROUP BY day ORDER BY day""",
             (since,),
@@ -138,7 +136,6 @@ class AdminMixin:
             """SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 END), 0)
                FROM agent_executions WHERE started_at >= ?""",
             (since,),
-            legacy="utc",
         )[0]
         pending = self._rows(
             "SELECT COUNT(*) FROM agent_approval_requests WHERE status = 'pending'"
@@ -160,7 +157,7 @@ class AdminMixin:
             {
                 "agent_name": r[0],
                 "user_name": r[1],
-                "started_at": to_api(from_db(r[2], "utc")),
+                "started_at": to_api(from_db(r[2])),
                 "error": (r[3] or "").strip().split("\n", 1)[0][:AGENT_ERROR_MAX_CHARS],
             }
             for r in rows

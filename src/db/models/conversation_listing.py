@@ -74,7 +74,7 @@ class ConversationListingMixin:
             # Build the query with JOIN for message counts (excluding planning, agent, and archived)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
-                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
+                cursor_timestamp = normalize_cursor(cursor_timestamp)
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.*,

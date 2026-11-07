@@ -64,8 +64,8 @@ class AgentApprovalMixin:
                     tool_name,
                     json.dumps(tool_args) if tool_args else None,
                     description,
-                    to_db(now, "utc", conn),
-                    to_db(expires_at, "utc", conn),
+                    to_db(now),
+                    to_db(expires_at),
                 ),
             )
             conn.commit()
@@ -117,7 +117,7 @@ class AgentApprovalMixin:
                    WHERE user_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    ORDER BY created_at DESC""",
-                (user_id, to_db(now, "utc", conn)),
+                (user_id, to_db(now)),
             ).fetchall()
 
             return [row_to_approval_request(row) for row in rows]
@@ -132,7 +132,7 @@ class AgentApprovalMixin:
                    WHERE agent_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    LIMIT 1""",
-                (agent_id, to_db(now, "utc", conn)),
+                (agent_id, to_db(now)),
             ).fetchone()
 
             return row is not None
@@ -155,7 +155,7 @@ class AgentApprovalMixin:
         approvals are preferred over generic ones).
         """
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "utc", conn)
+            now = to_db(utc_now())
             rows = self._execute_with_timing(
                 conn,
                 """SELECT id, tool_args FROM agent_approval_requests
@@ -226,7 +226,7 @@ class AgentApprovalMixin:
                 """UPDATE agent_approval_requests
                    SET status = ?, resolved_at = ?
                    WHERE id = ? AND user_id = ? AND status = 'pending'""",
-                (status, to_db(now, "utc", conn), request_id, user_id),
+                (status, to_db(now), request_id, user_id),
             )
 
             if cursor.rowcount == 0:

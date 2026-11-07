@@ -57,30 +57,28 @@ class UserMixin:
             email=row["email"],
             name=row["name"],
             picture=row["picture"],
-            created_at=from_db(row["created_at"], "local"),
+            created_at=from_db(row["created_at"]),
             custom_instructions=row["custom_instructions"],
             # Tokens decrypt here so every reader of the User object gets
             # plaintext; legacy plaintext rows pass through unchanged
             todoist_access_token=decrypt_token(row["todoist_access_token"]),
-            todoist_connected_at=from_db_or_none(row["todoist_connected_at"], "local"),
+            todoist_connected_at=from_db_or_none(row["todoist_connected_at"]),
             google_calendar_access_token=decrypt_token(row["google_calendar_access_token"]),
             google_calendar_refresh_token=decrypt_token(row["google_calendar_refresh_token"]),
             google_calendar_token_expires_at=from_db_or_none(
-                row["google_calendar_token_expires_at"], "local"
+                row["google_calendar_token_expires_at"]
             ),
-            google_calendar_connected_at=from_db_or_none(
-                row["google_calendar_connected_at"], "local"
-            ),
+            google_calendar_connected_at=from_db_or_none(row["google_calendar_connected_at"]),
             google_calendar_email=row["google_calendar_email"],
             google_calendar_selected_ids=calendar_selected_ids,
-            planner_last_reset_at=from_db_or_none(row["planner_last_reset_at"], "local"),
+            planner_last_reset_at=from_db_or_none(row["planner_last_reset_at"]),
             whatsapp_phone=row["whatsapp_phone"],
             garmin_token=decrypt_token(row["garmin_token"]),
-            garmin_connected_at=from_db_or_none(row["garmin_connected_at"], "local"),
+            garmin_connected_at=from_db_or_none(row["garmin_connected_at"]),
             rouvy_email=decrypt_token(row["rouvy_email"]),
             rouvy_password=decrypt_token(row["rouvy_password"]),
             rouvy_session=decrypt_token(row["rouvy_session"]),
-            rouvy_connected_at=from_db_or_none(row["rouvy_connected_at"], "local"),
+            rouvy_connected_at=from_db_or_none(row["rouvy_connected_at"]),
             daily_briefing_agent_id=row["daily_briefing_agent_id"],
             preferred_language=row["preferred_language"],
         )
@@ -96,7 +94,7 @@ class UserMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "INSERT OR IGNORE INTO users (id, email, name, picture, created_at) VALUES (?, ?, ?, ?, ?)",
-                (user_id, email, name, picture, to_db(now, "local", conn)),
+                (user_id, email, name, picture, to_db(now)),
             )
             conn.commit()
 
@@ -228,7 +226,7 @@ class UserMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
-                (to_db(now, "local", conn), user_id),
+                (to_db(now), user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

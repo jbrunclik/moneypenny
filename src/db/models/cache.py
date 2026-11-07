@@ -66,7 +66,7 @@ class CacheMixin:
                 return None
 
             # Check if expired
-            expires_at = from_db(row[1], "utc")
+            expires_at = from_db(row[1])
             if utc_now() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_dashboard(user_id)
@@ -103,7 +103,7 @@ class CacheMixin:
                 (user_id, dashboard_data, cached_at, expires_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user_id, dashboard_json, to_db(now, "utc", conn), to_db(expires_at, "utc", conn)),
+                (user_id, dashboard_json, to_db(now), to_db(expires_at)),
             )
             conn.commit()
 
@@ -156,7 +156,7 @@ class CacheMixin:
                 SELECT calendars_data FROM calendar_cache
                 WHERE user_id = ? AND expires_at > ?
                 """,
-                (user_id, to_db(utc_now(), "utc", conn)),
+                (user_id, to_db(utc_now())),
             )
             row = cursor.fetchone()
 
@@ -196,8 +196,8 @@ class CacheMixin:
                 (
                     user_id,
                     calendars_json,
-                    to_db(cached_at, "utc", conn),
-                    to_db(expires_at, "utc", conn),
+                    to_db(cached_at),
+                    to_db(expires_at),
                 ),
             )
             conn.commit()
@@ -312,7 +312,7 @@ class CacheMixin:
                 return None
 
             # Check if expired
-            expires_at = from_db(row[1], "utc")
+            expires_at = from_db(row[1])
             if utc_now() >= expires_at:
                 # Expired - delete and return None
                 self.delete_cached_weather(location)
@@ -349,7 +349,7 @@ class CacheMixin:
                 (location, forecast_data, cached_at, expires_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (location, forecast_json, to_db(now, "utc", conn), to_db(expires_at, "utc", conn)),
+                (location, forecast_json, to_db(now), to_db(expires_at)),
             )
             conn.commit()
 

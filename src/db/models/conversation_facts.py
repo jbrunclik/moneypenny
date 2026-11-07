@@ -81,7 +81,7 @@ class ConversationFactsMixin:
                 key=row["fact_key"],
                 text=row["text"],
                 message_id=row["message_id"],
-                updated_at=from_db(row["updated_at"], "utc"),
+                updated_at=from_db(row["updated_at"]),
             )
             for row in rows
         ]
@@ -99,7 +99,7 @@ class ConversationFactsMixin:
         dropped and counted as rejected."""
         applied = rejected = 0
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "utc", conn)
+            now = to_db(utc_now())
             for key in {normalize_fact_key(k) for k in remove_keys}:
                 cursor = self._execute_with_timing(
                     conn,

@@ -80,7 +80,7 @@ status, notes and measurements.
   `GET /api/admin/device-check-runs?limit=` (newest first, default 20, max
   100). Table `device_check_runs` (migration 0071): build marker, app
   version, standalone, UA summary, environment and scenarios as JSON,
-  started/finished (client clock), created_at ("utc" legacy format). The
+  started/finished (client clock), created_at. The
   newest `DEVICE_CHECK_RUNS_KEPT` (200) are kept, pruned on insert. Every
   admin sees every admin's runs.
 - `POST /api/admin/device-check-fixture` (201 `{conversation_id,

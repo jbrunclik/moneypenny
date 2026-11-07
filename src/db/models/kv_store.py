@@ -62,7 +62,7 @@ class KVStoreMixin:
             value: The value (string, use JSON for complex data)
         """
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "utc", conn)
+            now = to_db(utc_now())
             self._execute_with_timing(
                 conn,
                 """
@@ -85,7 +85,7 @@ class KVStoreMixin:
             The value after the increment.
         """
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "utc", conn)
+            now = to_db(utc_now())
             self._execute_with_timing(
                 conn,
                 """

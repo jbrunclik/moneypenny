@@ -115,9 +115,9 @@ class PlannerMixin:
                     user_id,
                     "Planner",
                     model,
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
+                    to_db(now),
+                    to_db(now),
+                    to_db(now),
                 ),
             ).rowcount
             conn.commit()
@@ -199,14 +199,14 @@ class PlannerMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE users SET planner_last_reset_at = ? WHERE id = ?",
-                (to_db(now, "local", conn), user_id),
+                (to_db(now), user_id),
             )
 
             # Update conversation updated_at and last_reset
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ?, last_reset = ? WHERE id = ?",
-                (to_db(now, "local", conn), to_db(now, "local", conn), conv_id),
+                (to_db(now), to_db(now), conv_id),
             )
 
             conn.commit()

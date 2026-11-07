@@ -1,35 +1,39 @@
-"""Migration 0072 on the real schema: what the app wrote in the legacy formats
-reads back as the same instants, now stored as fixed-width UTC."""
+"""Migration 0072 on the real schema: values in the legacy formats read back
+as the same instants, now stored as fixed-width UTC."""
 
 import re
 import shutil
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from src.config import Config
 from src.db.models import Database
 from src.db.models import base as db_base
 
 _FIXED_UTC = r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}\+00:00$"
+_FIRST_UTC_MIGRATION = 72
 
 
 @pytest.fixture
 def legacy_db(test_db_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A database migrated up to 0071 - the app still writes legacy values."""
-    monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "Europe/Prague")
+    """A database migrated up to 0071, before UTC storage."""
     migrations = tmp_path / "migrations"
     shutil.copytree(db_base.MIGRATIONS_DIR, migrations)
-    (migrations / "0072_timestamps_to_utc.py").unlink()
+    for path in migrations.glob("[0-9][0-9][0-9][0-9]_*.py"):
+        if int(path.name[:4]) >= _FIRST_UTC_MIGRATION:
+            path.unlink()
     monkeypatch.setattr(db_base, "MIGRATIONS_DIR", migrations)
     return test_db_path
 
 
-def _raw(db_path: Path, sql: str) -> list[tuple[object, ...]]:
+def _raw(db_path: Path, sql: str, params: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
     conn = sqlite3.connect(db_path)
     try:
-        return conn.execute(sql).fetchall()
+        rows = conn.execute(sql, params).fetchall()
+        conn.commit()
+        return rows
     finally:
         conn.close()
 
@@ -41,28 +45,34 @@ def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.Mo
     message = db.add_message(conv.id, "user", "Ahoj")
     memory = db.add_memory(user.id, "Likes tea")
     db.kv_set(user.id, "sports", "programs", "{}")
-    before = {
-        "user": user.created_at,
-        "conversation": db.get_conversation(conv.id, user.id).created_at,
-        "message": db.get_message_by_id(message.id).created_at,
-        "memory": db.get_memory(memory.id, user.id).created_at,
-    }
-    stored = _raw(legacy_db, "SELECT created_at FROM messages")[0][0]
-    assert "+" not in str(stored)  # legacy naive
     db.close()
+
+    # What the app wrote before UTC storage: local wall-clock (Europe/Prague)
+    # for conversation data, UTC-naive for kv_store after Jun 10 2026
+    local_summer = "2026-07-01T12:00:00.123456"  # CEST -> 10:00Z
+    local_winter = "2026-01-05 12:00:00"  # CET -> 11:00Z
+    for table in ("users", "conversations", "messages", "user_memories"):
+        _raw(legacy_db, f"UPDATE {table} SET created_at = ?", (local_summer,))
+    _raw(legacy_db, "UPDATE conversations SET updated_at = ?", (local_winter,))
+    _raw(legacy_db, "UPDATE user_memories SET updated_at = ?", (local_winter,))
+    _raw(legacy_db, "UPDATE kv_store SET updated_at = ?", ("2026-08-01T12:00:00",))
 
     monkeypatch.undo()  # back to the real migrations directory
-    monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "Europe/Prague")
     db = Database(db_path=legacy_db)
-    after = {
-        "user": db.get_user_by_id(user.id).created_at,
-        "conversation": db.get_conversation(conv.id, user.id).created_at,
-        "message": db.get_message_by_id(message.id).created_at,
-        "memory": db.get_memory(memory.id, user.id).created_at,
-    }
+    summer = datetime(2026, 7, 1, 10, 0, 0, 123456, tzinfo=UTC)
+    winter = datetime(2026, 1, 5, 11, tzinfo=UTC)
+    assert db.get_user_by_id(user.id).created_at == summer
+    migrated = db.get_conversation(conv.id, user.id)
+    assert (migrated.created_at, migrated.updated_at) == (summer, winter)
+    assert db.get_message_by_id(message.id).created_at == summer
+    stored_memory = db.get_memory(memory.id, user.id)
+    assert (stored_memory.created_at, stored_memory.updated_at) == (summer, winter)
+    assert db.get_setting("timestamp_storage") is None  # 0074 drops 0072's flag
     db.close()
 
-    assert after == before
+    assert _raw(legacy_db, "SELECT updated_at FROM kv_store")[0][0] == (
+        "2026-08-01T12:00:00.000000+00:00"
+    )
     for table, column in [
         ("users", "created_at"),
         ("conversations", "created_at"),
@@ -73,3 +83,21 @@ def test_legacy_rows_keep_their_instants(legacy_db: Path, monkeypatch: pytest.Mo
     ]:
         (value,) = _raw(legacy_db, f"SELECT {column} FROM {table}")[0]
         assert re.match(_FIXED_UTC, str(value)), (table, column, value)
+
+
+def test_drops_naive_gemini_file_cache_entries(
+    legacy_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = Database(db_path=legacy_db)
+    db.kv_set(
+        "_system", "gemini_files", "old:0", '{"uri": "u", "expires_at": "2026-10-20T10:00:00"}'
+    )
+    fresh = '{"uri": "u", "expires_at": "2026-11-09T10:00:00.000000+00:00"}'
+    db.kv_set("_system", "gemini_files", "new:0", fresh)
+    db.close()
+
+    monkeypatch.undo()
+    db = Database(db_path=legacy_db)
+    assert db.kv_get("_system", "gemini_files", "old:0") is None
+    assert db.kv_get("_system", "gemini_files", "new:0") == fresh
+    db.close()

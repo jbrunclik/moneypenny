@@ -29,7 +29,7 @@ def _cost(db: Database, user: User, usd: float, at: datetime, **kwargs: Any) -> 
     with db._pool.get_connection() as conn:
         conn.execute(
             "UPDATE message_costs SET created_at = ? WHERE message_id = ?",
-            (to_db(at, "local", conn), message.id),
+            (to_db(at), message.id),
         )
         conn.commit()
     return conversation.id

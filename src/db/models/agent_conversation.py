@@ -67,7 +67,7 @@ class AgentConversationMixin:
         with self._pool.get_connection() as conn:
             # messages.created_at's format: the unread-count subqueries
             # compare the two as strings
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE autonomous_agents
@@ -107,7 +107,7 @@ class AgentConversationMixin:
         the END of the context window (after the most recent real messages).
         """
         if keep_rows:
-            earliest_kept = min(from_db(row["created_at"], "local") for row in keep_rows)
+            earliest_kept = min(from_db(row["created_at"]) for row in keep_rows)
             summary_ts = earliest_kept - timedelta(microseconds=1)
         else:
             summary_ts = utc_now()
@@ -119,7 +119,7 @@ class AgentConversationMixin:
                 str(uuid.uuid4()),
                 conv_id,
                 f"[Previous conversation summary]\n\n{summary}",
-                to_db(summary_ts, "local", conn),
+                to_db(summary_ts),
             ),
         )
 

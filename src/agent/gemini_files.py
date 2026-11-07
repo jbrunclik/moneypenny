@@ -45,7 +45,7 @@ def _get_cached_uri(message_id: str, file_index: int) -> str | None:
         return None
     try:
         entry = json.loads(raw)
-        if utc_now() < from_db(entry["expires_at"], "utc"):
+        if utc_now() < from_db(entry["expires_at"]):
             return str(entry["uri"])
     except json.JSONDecodeError, KeyError, TypeError, ValueError:
         pass

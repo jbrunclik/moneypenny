@@ -146,7 +146,7 @@ class TestGetMessageThumbnail:
         with test_database._pool.get_connection() as conn:
             conn.execute(
                 "UPDATE messages SET created_at = ? WHERE id = ?",
-                (to_db(stale_time, "local", conn), message.id),
+                (to_db(stale_time), message.id),
             )
             conn.commit()
 

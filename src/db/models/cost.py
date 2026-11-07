@@ -113,7 +113,7 @@ class CostMixin:
                     tool_call_count,
                     cost_usd,
                     image_generation_cost_usd,
-                    to_db(utc_now(), "local", conn),
+                    to_db(utc_now()),
                     duration_ms,
                     tool_errors,
                     json.dumps(tools_used) if tools_used else None,
@@ -221,8 +221,8 @@ class CostMixin:
         month_start, month_end = local_month_bounds(year, month)
 
         with self._pool.get_connection() as conn:
-            start_date = to_db(month_start, "local", conn)
-            end_date = to_db(month_end, "local", conn)
+            start_date = to_db(month_start)
+            end_date = to_db(month_end)
             # Get total cost and message count
             total_row = self._execute_with_timing(
                 conn,
@@ -273,8 +273,8 @@ class CostMixin:
             rows = self._execute_with_timing(
                 conn,
                 """SELECT
-                    strftime('%Y', app_local_date(created_at, 'local')) as year,
-                    strftime('%m', app_local_date(created_at, 'local')) as month,
+                    strftime('%Y', app_local_date(created_at)) as year,
+                    strftime('%m', app_local_date(created_at)) as month,
                     SUM(cost_usd) as total,
                     COUNT(*) as count
                    FROM message_costs

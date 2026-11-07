@@ -32,7 +32,7 @@ class ConversationArchiveMixin:
     def archive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Archive a conversation (hide from main list)."""
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET archived = 1, updated_at = ? WHERE id = ? AND user_id = ?"
@@ -84,7 +84,7 @@ class ConversationArchiveMixin:
     def unarchive_conversation(self, conv_id: str, user_id: str) -> bool:
         """Unarchive a conversation (restore to main list)."""
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET archived = 0, updated_at = ? WHERE id = ? AND user_id = ?"
@@ -115,7 +115,7 @@ class ConversationArchiveMixin:
 
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
-                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
+                cursor_timestamp = normalize_cursor(cursor_timestamp)
                 rows = self._execute_with_timing(
                     conn,
                     """SELECT c.*,

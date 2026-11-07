@@ -72,7 +72,7 @@ class AgentExecutionMixin:
                     agent_id,
                     trigger_type,
                     triggered_by_agent_id,
-                    to_db(now, "utc", conn),
+                    to_db(now),
                 ),
             )
             conn.commit()
@@ -103,7 +103,7 @@ class AgentExecutionMixin:
                 """UPDATE agent_executions
                    SET status = ?, completed_at = ?, error_message = ?
                    WHERE id = ?""",
-                (status, to_db(now, "utc", conn), error_message, execution_id),
+                (status, to_db(now), error_message, execution_id),
             )
             conn.commit()
 
@@ -138,7 +138,7 @@ class AgentExecutionMixin:
                    WHERE agent_id = ? AND status = 'running'
                    AND started_at > ?
                    LIMIT 1""",
-                (agent_id, to_db(cutoff, "utc", conn)),
+                (agent_id, to_db(cutoff)),
             ).fetchone()
 
             return row is not None
@@ -163,7 +163,7 @@ class AgentExecutionMixin:
                    WHERE agent_id = ? AND completed_at IS NOT NULL
                    AND completed_at > ? AND completed_at <= ?
                    LIMIT 1""",
-                (agent_id, to_db(cutoff, "utc", conn), to_db(now, "utc", conn)),
+                (agent_id, to_db(cutoff), to_db(now)),
             ).fetchone()
 
             return row is not None
@@ -204,7 +204,7 @@ class AgentExecutionMixin:
                        error_message = 'Execution timed out (zombie cleanup)'
                    WHERE status IN ('running', 'waiting_approval')
                    AND started_at < ?""",
-                (to_db(utc_now(), "utc", conn), to_db(cutoff, "utc", conn)),
+                (to_db(utc_now()), to_db(cutoff)),
             )
             conn.commit()
 

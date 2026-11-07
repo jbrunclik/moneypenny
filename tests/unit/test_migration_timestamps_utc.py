@@ -27,13 +27,6 @@ def m() -> ModuleType:
     return module
 
 
-@pytest.fixture(autouse=True)
-def _prague(monkeypatch: pytest.MonkeyPatch) -> None:
-    from src.config import Config
-
-    monkeypatch.setattr(Config, "LEGACY_TIMESTAMP_TIMEZONE", "Europe/Prague")
-
-
 class TestToUtc:
     def test_local_summer_and_winter(self, m: ModuleType) -> None:
         assert m.to_utc("2026-07-01T12:00:00.123456", "local") == "2026-07-01T10:00:00.123456+00:00"

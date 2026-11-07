@@ -103,8 +103,8 @@ class ProgramConversationMixin:
                     title,
                     model,
                     program,
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
+                    to_db(now),
+                    to_db(now),
                 ),
             )
             conn.commit()
@@ -173,7 +173,7 @@ class ProgramConversationMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (to_db(now, "local", conn), conv_id),
+                (to_db(now), conv_id),
             )
 
             conn.commit()

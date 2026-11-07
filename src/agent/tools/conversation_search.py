@@ -81,7 +81,7 @@ def _format_results(
 
     for _message_id, conv_id, content, created_at, title in semantic_rows:
         try:
-            date = to_local(from_db(created_at, "local")).strftime("%Y-%m-%d")
+            date = to_local(from_db(created_at)).strftime("%Y-%m-%d")
         except ValueError, TypeError:
             date = "unknown date"
         where = (

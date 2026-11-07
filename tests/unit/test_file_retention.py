@@ -171,12 +171,6 @@ class TestRunIfDue:
         db.kv_set("_system", "file_cleanup", "last_run", to_api(utc_now()))
         assert run_file_cleanup_if_due() is False
 
-    def test_reads_a_utc_naive_stamp_from_before_oct_2026(self, seeded_env) -> None:
-        db, _, _ = seeded_env
-        stamp = utc_now().replace(tzinfo=None).isoformat()
-        db.kv_set("_system", "file_cleanup", "last_run", stamp)
-        assert run_file_cleanup_if_due() is False
-
     def test_runs_and_stamps_when_due(self, seeded_env) -> None:
         db, _, _ = seeded_env
         assert run_file_cleanup_if_due() is True

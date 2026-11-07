@@ -35,8 +35,8 @@ def _row_to_artifact(row: sqlite3.Row) -> Artifact:
         title=row["title"],
         latest_version=row["latest_version"],
         state=json.loads(row["state"]) if row["state"] else None,
-        created_at=from_db(row["created_at"], "utc"),
-        updated_at=from_db(row["updated_at"], "utc"),
+        created_at=from_db(row["created_at"]),
+        updated_at=from_db(row["updated_at"]),
     )
 
 
@@ -46,7 +46,7 @@ def _row_to_version(row: sqlite3.Row) -> ArtifactVersion:
         version=row["version"],
         html=row["html"],
         created_by_message_id=row["created_by_message_id"],
-        created_at=from_db(row["created_at"], "utc"),
+        created_at=from_db(row["created_at"]),
     )
 
 
@@ -80,8 +80,8 @@ class ArtifactMixin:
                     conversation_id,
                     user_id,
                     title,
-                    to_db(now, "utc", conn),
-                    to_db(now, "utc", conn),
+                    to_db(now),
+                    to_db(now),
                 ),
             )
             self._insert_version(conn, art_id, 1, html, now)
@@ -96,7 +96,7 @@ class ArtifactMixin:
             conn,
             """INSERT INTO artifact_versions (artifact_id, version, html, created_at)
                VALUES (?, ?, ?, ?)""",
-            (art_id, version, html, to_db(now, "utc", conn)),
+            (art_id, version, html, to_db(now)),
         )
 
     def revise_artifact(
@@ -122,7 +122,7 @@ class ArtifactMixin:
                     conn,
                     """UPDATE artifacts SET latest_version = ?, updated_at = ?,
                        title = COALESCE(?, title) WHERE id = ?""",
-                    (version, to_db(now, "utc", conn), title, artifact_id),
+                    (version, to_db(now), title, artifact_id),
                 )
             except BaseException:
                 conn.rollback()
@@ -188,7 +188,7 @@ class ArtifactMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE artifacts SET state = ?, updated_at = ? WHERE id = ?",
-                (payload, to_db(utc_now(), "utc", conn), artifact_id),
+                (payload, to_db(utc_now()), artifact_id),
             )
             conn.commit()
 

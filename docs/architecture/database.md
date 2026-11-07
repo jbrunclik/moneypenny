@@ -164,31 +164,36 @@ Rule: never close a sqlite connection from a thread other than its live owner.
 
 ## Timestamps
 
-Since Oct 27 2026 (timezone step 2b) every datetime in the app is **aware**:
-instants are UTC, and the household's days are drawn in `APP_TIMEZONE`. Rule
-B12 in [conventions](../conventions.md) and its guards keep it that way.
-Since migration 0072 (Nov 2026, step 3 of
-[the timezone design](../superpowers/specs/2026-10-26-timezone-aware-datetimes-design.md))
-every stored timestamp is fixed-width UTC (`YYYY-MM-DDTHH:MM:SS.ffffff+00:00`,
-it sorts chronologically as a string), and the app_settings flag
-`timestamp_storage` reads `utc`. The migration knew each column's legacy
-format (its `COLUMNS` map), emptied the cache tables instead of converting
-them, and dropped `sync_change_message_update` around the messages rewrite so
-the sync counter moved once per conversation, not per message. Its rollback
-writes the legacy formats back (restart the app after it: workers cache the
-flag). The dry run on a production backup (Nov 1 2026): 95k values in 1.5 s,
-every instant and ordering unchanged. Before it, the two legacy naive formats
-were: **local-naive** (host wall-clock time) for conversation data,
-costs, memories, users, push subscriptions, client errors and
-`autonomous_agents.last_viewed_at`. **UTC-naive** holds the rest of the agent
-tables, caches, kv_store, settings and artifacts, but only since Jun 10 2026:
-older rows in those tables are local too. Every read goes through `from_db` and
-every write and query parameter through `to_db`, each naming the column's
-legacy format. Two write-only columns (`blobs.created_at` in `files.db`,
-`embeddings.created_at` from the repair script) take offset values as they are.
-Timestamps inside JSON values (kv_store entries, a research offer's
-`created_at`) are written with `to_api` and read with `from_db`, which also
-accepts the naive values written before.
+Every datetime in the app is **aware**: instants are UTC, and the
+household's days are drawn in `APP_TIMEZONE`. Rule B12 in
+[conventions](../conventions.md) and its guards keep it that way. Every stored
+timestamp is fixed-width UTC (`YYYY-MM-DDTHH:MM:SS.ffffff+00:00`, the string
+the API sends; it sorts chronologically as a string), and a value without an
+offset is an error on read.
+
+History ([the timezone design](../superpowers/specs/2026-10-26-timezone-aware-datetimes-design.md)):
+until Nov 2026 columns held one of two naive formats - **local-naive** (host
+wall-clock time, Europe/Prague) for conversation data, costs, memories, users,
+push subscriptions, client errors and `autonomous_agents.last_viewed_at`, and
+**UTC-naive** for the rest of the agent tables, caches, kv_store, settings and
+artifacts (only since Jun 10 2026; older rows there were local too). Migration
+0072 (Nov 1 2026) rewrote every column as fixed-width UTC from its `COLUMNS`
+map, emptied the cache tables instead of converting them, and dropped
+`sync_change_message_update` around the messages rewrite so the sync counter
+moved once per conversation, not per message (dry run on a production backup:
+95k values in 1.5 s, every instant and ordering unchanged). It set an
+app_settings flag `timestamp_storage` that the app read during the switch;
+step 4 (Nov 7 2026) confirmed production held no naive values left, removed
+the legacy reading and writing, and migration 0074 dropped the flag. 0072's
+rollback writes the legacy formats back, which only code from before step 4
+can read.
+
+Two write-only columns (`blobs.created_at` in `files.db`,
+`embeddings.created_at`) are written with `to_db` too. Timestamps inside JSON
+values (kv_store entries, a research offer's `created_at`) are written with
+`to_api` and read with `from_db`; the few naive ones left from before Oct 27
+2026 (decided research offers) fail to parse, and their readers treat that as
+no value.
 
 - [utils/clock.py](../../src/utils/clock.py) gives aware time: `utc_now()`, `app_tz()`,
   `local_today()` and `to_local(dt)` (an instant as `APP_TIMEZONE` wall time, for
@@ -202,30 +207,23 @@ accepts the naive values written before.
   DST days come out 23 h and 25 h long. Tests move time through `clock._now`,
   not by patching `time.time`.
 - [db/models/timestamps.py](../../src/db/models/timestamps.py) reads and writes stored
-  values (`from_db_or_none` / `to_db_or_none` for nullable columns). `from_db(s, legacy)` reads naive values (in the column's `legacy`
-  zone, `"local"` or `"utc"`), `Z` values and offset values, and returns aware
-  UTC. `to_db(dt, legacy, conn)` writes the column's legacy format until the
-  app_settings flag `timestamp_storage` reads `utc`. After that it writes the
-  fixed-width UTC format. The flag is read on every call until it says `utc`,
-  then cached for that database file for the life of the process.
-  `normalize_cursor(ts, legacy, conn)` puts a pagination cursor's timestamp
+  values (`from_db_or_none` / `to_db_or_none` for nullable columns).
+  `from_db(s)` reads `Z` and offset values and returns aware UTC; a naive
+  value raises `ValueError`. `to_db(dt)` writes the stored format (it rejects a
+  naive datetime). `normalize_cursor(ts)` puts a pagination cursor's timestamp
   into the stored format before it is compared as a string. Message cursors
   carry `to_api` timestamps (`+00:00`), so a client must URL-encode them
   (`URLSearchParams` does); the query schema rejects a cursor whose timestamp
   does not parse.
-- The SQL function `app_local_date(ts, legacy)` returns a stored value's
-  `APP_TIMEZONE` date (`YYYY-MM-DD`) in any format, for day buckets in
-  queries. It is deterministic, so it can be used in an expression index. It
-  is registered on every pooled connection through `ConnectionPool(on_connect=...)`.
-  It is not registered on yoyo's migration connection: a migration that needs
-  it must register it itself.
+- The SQL function `app_local_date(ts)` returns a stored value's
+  `APP_TIMEZONE` date (`YYYY-MM-DD`), for day buckets in queries (NULL for
+  NULL or a value that does not parse). It is deterministic, so it can be used
+  in an expression index. It is registered on every pooled connection through
+  `ConnectionPool(on_connect=...)`. It is not registered on yoyo's migration
+  connection: a migration that needs it must register it itself.
 
-Settings: `APP_TIMEZONE` (default `Europe/Prague`) draws the day boundaries.
-`LEGACY_TIMESTAMP_TIMEZONE` is the zone that local-naive rows were written in.
-Empty means the host zone from `/etc/localtime`, with its full DST rules.
-Both are validated as IANA names at startup. A naive local value in the
-repeated fall-back hour reads as its first occurrence (`fold=0`), because the
-string cannot tell the two apart.
+Settings: `APP_TIMEZONE` (default `Europe/Prague`) draws the day boundaries;
+it is validated as an IANA name at startup.
 
 ---
 

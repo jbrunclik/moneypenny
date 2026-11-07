@@ -273,7 +273,7 @@ class MessageMixin:
                     sources_json,
                     generated_images_json,
                     language,
-                    to_db(now, "local", conn),
+                    to_db(now),
                     tool_outputs_json,
                     stop_reason,
                     _json_or_none(annotations),
@@ -287,7 +287,7 @@ class MessageMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE conversations SET updated_at = ? WHERE id = ?",
-                (to_db(now, "local", conn), conversation_id),
+                (to_db(now), conversation_id),
             )
             conn.commit()
 
@@ -328,7 +328,7 @@ class MessageMixin:
                      AND (generated_images IS NULL OR generated_images = '' OR generated_images = '[]')
                      AND created_at >= ?
                    ORDER BY created_at DESC, rowid DESC LIMIT 1""",
-                (conversation_id, to_db(newer_than, "local", conn)),
+                (conversation_id, to_db(newer_than)),
             ).fetchone()
             return row[0] if row else None
 
@@ -338,7 +338,7 @@ class MessageMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE messages SET created_at = ? WHERE id = ?",
-                (to_db(created_at, "local", conn), message_id),
+                (to_db(created_at), message_id),
             )
             conn.commit()
 
@@ -516,7 +516,7 @@ class MessageMixin:
                 conn,
                 """UPDATE conversations SET updated_at = ?
                    WHERE id = (SELECT conversation_id FROM messages WHERE id = ?)""",
-                (to_db(now, "local", conn), message_id),
+                (to_db(now), message_id),
             )
             conn.commit()
 

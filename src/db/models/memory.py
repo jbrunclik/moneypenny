@@ -77,8 +77,8 @@ class MemoryMixin:
                     user_id,
                     content,
                     category,
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
+                    to_db(now),
+                    to_db(now),
                     source_conversation_id,
                     int(protected),
                 ),
@@ -117,7 +117,7 @@ class MemoryMixin:
         )
 
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             if category is not None:
                 cursor = self._execute_with_timing(
                     conn,
@@ -202,7 +202,7 @@ class MemoryMixin:
             cursor = self._execute_with_timing(
                 conn,
                 query,
-                (to_db(utc_now(), "local", conn), memory_id, user_id),
+                (to_db(utc_now()), memory_id, user_id),
             )
             conn.commit()
             deleted = cursor.rowcount > 0
@@ -250,7 +250,7 @@ class MemoryMixin:
             Number of rows purged
         """
         with self._pool.get_connection() as conn:
-            cutoff = to_db(utc_now() - timedelta(days=retention_days), "local", conn)
+            cutoff = to_db(utc_now() - timedelta(days=retention_days))
             cursor = self._execute_with_timing(
                 conn,
                 "DELETE FROM user_memories WHERE deleted_at IS NOT NULL AND deleted_at < ?",
@@ -273,11 +273,11 @@ class MemoryMixin:
             user_id=row["user_id"],
             content=row["content"],
             category=row["category"],
-            created_at=from_db(row["created_at"], "local"),
-            updated_at=from_db(row["updated_at"], "local"),
+            created_at=from_db(row["created_at"]),
+            updated_at=from_db(row["updated_at"]),
             protected=bool(row["protected"]),
             source_conversation_id=row["source_conversation_id"],
-            deleted_at=from_db_or_none(row["deleted_at"], "local"),
+            deleted_at=from_db_or_none(row["deleted_at"]),
         )
 
     def get_memory(self, memory_id: str, user_id: str) -> Memory | None:
@@ -390,7 +390,7 @@ class MemoryMixin:
                         email=row["email"],
                         name=row["name"],
                         picture=row["picture"],
-                        created_at=from_db(row["created_at"], "local"),
+                        created_at=from_db(row["created_at"]),
                         custom_instructions=row["custom_instructions"],
                     ),
                     int(row["memory_count"]),
@@ -423,7 +423,7 @@ class MemoryMixin:
         result = {"deleted": 0, "updated": 0, "added": 0}
 
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             # Soft-delete memories, skipping protected ones
             for memory_id in to_delete:
                 cursor = self._execute_with_timing(

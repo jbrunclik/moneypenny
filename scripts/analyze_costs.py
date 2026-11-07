@@ -265,11 +265,11 @@ def _print_daily_trend(conn: sqlite3.Connection, has_cache_column: bool) -> None
     print("DAILY TREND (last 14 days):")
     cached_expr = "SUM(cached_input_tokens)" if has_cache_column else "0"
     for r in conn.execute(
-        f"""SELECT app_local_date(created_at, 'local') day, COUNT(*) n, SUM(cost_usd) usd,
+        f"""SELECT app_local_date(created_at) day, COUNT(*) n, SUM(cost_usd) usd,
                    SUM(input_tokens) tin, {cached_expr} cached
            FROM message_costs WHERE created_at >= ?
            GROUP BY day ORDER BY day DESC LIMIT 14""",
-        (to_db(utc_now() - timedelta(days=14), "local", conn),),
+        (to_db(utc_now() - timedelta(days=14)),),
     ):
         bar = "#" * min(int(r["usd"] * 20), 60)
         cache_note = f" | cached {_pct(r['cached'], r['tin'])}" if has_cache_column else ""
@@ -285,7 +285,7 @@ def main() -> None:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     register_sql_functions(conn)
-    since = to_db(utc_now() - timedelta(days=days), "local", conn)
+    since = to_db(utc_now() - timedelta(days=days))
     # Older DBs lack telemetry columns added by later migrations
     cost_columns = {r["name"] for r in conn.execute("PRAGMA table_info(message_costs)")}
     has_cache_column = "cached_input_tokens" in cost_columns

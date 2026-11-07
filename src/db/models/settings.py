@@ -61,7 +61,7 @@ class SettingsMixin:
             value: The setting value (must be a string, use JSON for complex values)
         """
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "utc", conn)
+            now = to_db(utc_now())
             self._execute_with_timing(
                 conn,
                 """

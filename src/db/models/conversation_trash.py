@@ -67,7 +67,7 @@ def _placeholders(values: list[str]) -> str:
 
 def _stored(params: tuple[object, ...], conn: sqlite3.Connection) -> tuple[object, ...]:
     """params with each datetime in the conversations columns' stored format."""
-    return tuple(to_db(p, "local", conn) if isinstance(p, datetime) else p for p in params)
+    return tuple(to_db(p) if isinstance(p, datetime) else p for p in params)
 
 
 class ConversationTrashMixin:
@@ -97,7 +97,7 @@ class ConversationTrashMixin:
         sorts by it); the old value is kept in trashed_updated_at for restore.
         """
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             cursor = self._execute_with_timing(
                 conn,
                 f"""UPDATE conversations SET {_TRASH_SET}
@@ -215,7 +215,7 @@ class ConversationTrashMixin:
             params: tuple[Any, ...] = (user_id,)
             if cursor:
                 cursor_timestamp, cursor_id = parse_cursor(cursor)
-                cursor_timestamp = normalize_cursor(cursor_timestamp, "local", conn)
+                cursor_timestamp = normalize_cursor(cursor_timestamp)
                 query += " AND (c.updated_at < ? OR (c.updated_at = ? AND c.id < ?))"
                 params += (cursor_timestamp, cursor_timestamp, cursor_id)
             rows = self._execute_with_timing(
@@ -254,7 +254,7 @@ class ConversationTrashMixin:
     def purge_trashed_conversations(self, retention_days: int) -> int:
         """Permanently delete conversations trashed over retention_days ago (all users)."""
         with self._pool.get_connection() as conn:
-            cutoff = to_db(utc_now() - timedelta(days=retention_days), "local", conn)
+            cutoff = to_db(utc_now() - timedelta(days=retention_days))
             rows = self._execute_with_timing(
                 conn,
                 """SELECT id, user_id FROM conversations

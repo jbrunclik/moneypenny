@@ -78,7 +78,7 @@ class AgentScheduleMixin:
                    AND next_run_at IS NOT NULL
                    AND next_run_at <= ?
                    ORDER BY next_run_at ASC""",
-                (to_db(now, "utc", conn),),
+                (to_db(now),),
             ).fetchall()
 
             return [row_to_agent(row) for row in rows]
@@ -112,9 +112,9 @@ class AgentScheduleMixin:
                    SET last_run_at = ?, next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
                 (
-                    to_db(now, "utc", conn),
-                    to_db_or_none(next_run_at, "utc", conn),
-                    to_db(now, "utc", conn),
+                    to_db(now),
+                    to_db_or_none(next_run_at),
+                    to_db(now),
                     agent_id,
                 ),
             )
@@ -134,8 +134,8 @@ class AgentScheduleMixin:
                    SET next_run_at = ?, updated_at = ?
                    WHERE id = ?""",
                 (
-                    to_db(next_run_at, "utc", conn),
-                    to_db(now, "utc", conn),
+                    to_db(next_run_at),
+                    to_db(now),
                     agent_id,
                 ),
             )

@@ -77,7 +77,7 @@ _RUN_COLUMNS = """id, build_marker, app_version, standalone, ua_summary, environ
 
 
 def _api_time(value: str) -> str:
-    return to_api(from_db(value, "utc"))
+    return to_api(from_db(value))
 
 
 def _row_to_run(row: sqlite3.Row) -> DeviceCheckRunRow:
@@ -142,9 +142,9 @@ class DeviceChecksMixin:
                     passed,
                     failed,
                     skipped,
-                    to_db(run["started_at"], "utc", conn),
-                    to_db(run["finished_at"], "utc", conn),
-                    to_db(utc_now(), "utc", conn),
+                    to_db(run["started_at"]),
+                    to_db(run["finished_at"]),
+                    to_db(utc_now()),
                 ),
             )
             # rowid, not created_at: two runs stored within a clock tick
@@ -179,7 +179,7 @@ class DeviceChecksMixin:
         conv_id = str(uuid.uuid4())
         start = utc_now() - _FIXTURE_MESSAGE_SPACING * len(messages)
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             self._execute_with_timing(
                 conn,
                 """INSERT INTO conversations (id, user_id, title, model, archived, created_at, updated_at)
@@ -187,7 +187,7 @@ class DeviceChecksMixin:
                 (conv_id, user_id, title, Config.DEFAULT_MODEL, now, now),
             )
             for index, (role, content) in enumerate(messages):
-                created = to_db(start + _FIXTURE_MESSAGE_SPACING * index, "local", conn)
+                created = to_db(start + _FIXTURE_MESSAGE_SPACING * index)
                 self._execute_with_timing(
                     conn,
                     """INSERT INTO messages (id, conversation_id, role, content, created_at)
@@ -198,7 +198,7 @@ class DeviceChecksMixin:
                 conn,
                 """INSERT INTO device_check_fixtures (conversation_id, user_id, created_at)
                    VALUES (?, ?, ?)""",
-                (conv_id, user_id, to_db(utc_now(), "utc", conn)),
+                (conv_id, user_id, to_db(utc_now())),
             )
             conn.commit()
         return conv_id

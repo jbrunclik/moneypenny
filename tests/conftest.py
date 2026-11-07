@@ -42,11 +42,10 @@ os.environ["RATE_LIMIT_STORAGE_URI"] = "memory://"
 # loads the real .env); evals blank the same keys (evals/run.py)
 for _key in ("BRAVE_SEARCH_API_KEY", "TAVILY_API_KEY", "EXA_API_KEY", "LINKUP_API_KEY"):
     os.environ[_key] = ""
-# Legacy local-naive timestamps read in the production host's zone, whatever
-# this machine's /etc/localtime (UTC on CI); the suite also runs under other
-# TZ values to prove nothing reads the process timezone (make test-tz)
+# The household's zone, whatever this machine's /etc/localtime (UTC on CI);
+# the suite also runs under other TZ values to prove nothing reads the
+# process timezone (make test-tz)
 os.environ["APP_TIMEZONE"] = "Europe/Prague"
-os.environ["LEGACY_TIMESTAMP_TIMEZONE"] = "Europe/Prague"
 # The process-wide db and blob store open these: a scratch pair per test
 # process, never the developer's chatbot.db. Code under test that reaches the
 # global db without use_database() then fails here as it does on CI (a fresh

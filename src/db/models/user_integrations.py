@@ -57,7 +57,7 @@ class UserIntegrationsMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET todoist_access_token = ?, todoist_connected_at = ? WHERE id = ?",
-                (encrypt_token(access_token), to_db_or_none(connected_at, "local", conn), user_id),
+                (encrypt_token(access_token), to_db_or_none(connected_at), user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -117,8 +117,8 @@ class UserIntegrationsMixin:
                 (
                     encrypt_token(access_token),
                     encrypt_token(refresh_token),
-                    to_db_or_none(expires_at, "local", conn),
-                    to_db_or_none(connected_at, "local", conn),
+                    to_db_or_none(expires_at),
+                    to_db_or_none(connected_at),
                     email,
                     user_id,
                 ),
@@ -192,7 +192,7 @@ class UserIntegrationsMixin:
                 (
                     encrypt_token(access_token),
                     encrypt_token(refresh_token),
-                    to_db(expires_at, "local", conn),
+                    to_db(expires_at),
                     user_id,
                     stored_value,
                 ),
@@ -268,7 +268,7 @@ class UserIntegrationsMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET garmin_token = ?, garmin_connected_at = ? WHERE id = ?",
-                (encrypt_token(token), to_db_or_none(connected_at, "local", conn), user_id),
+                (encrypt_token(token), to_db_or_none(connected_at), user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
@@ -311,7 +311,7 @@ class UserIntegrationsMixin:
                     encrypt_token(email),
                     encrypt_token(password),
                     encrypt_token(session),
-                    to_db_or_none(connected_at, "local", conn),
+                    to_db_or_none(connected_at),
                     user_id,
                 ),
             )
@@ -332,7 +332,7 @@ class UserIntegrationsMixin:
             cursor = self._execute_with_timing(
                 conn,
                 "UPDATE users SET rouvy_session = ?, rouvy_connected_at = ? WHERE id = ?",
-                (encrypt_token(session), to_db_or_none(connected_at, "local", conn), user_id),
+                (encrypt_token(session), to_db_or_none(connected_at), user_id),
             )
             conn.commit()
             return cursor.rowcount > 0

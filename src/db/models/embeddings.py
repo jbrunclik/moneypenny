@@ -67,7 +67,7 @@ class EmbeddingsMixin:
                     model,
                     dim,
                     vector,
-                    to_db(utc_now(), "local", conn),
+                    to_db(utc_now()),
                 ),
             )
             conn.commit()

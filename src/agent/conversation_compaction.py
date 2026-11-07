@@ -200,7 +200,7 @@ def _in_backoff(state: _State) -> bool:
     if not state.retry_after:
         return False
     try:
-        return _now() < from_db(state.retry_after, "utc")
+        return _now() < from_db(state.retry_after)
     except ValueError:
         return False
 

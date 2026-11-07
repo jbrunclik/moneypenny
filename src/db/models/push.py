@@ -30,8 +30,8 @@ def _row_to_subscription(row: sqlite3.Row) -> PushSubscription:
         p256dh=row["p256dh"],
         auth=row["auth"],
         user_agent=row["user_agent"],
-        created_at=from_db(row["created_at"], "local"),
-        last_used_at=from_db_or_none(row["last_used_at"], "local"),
+        created_at=from_db(row["created_at"]),
+        last_used_at=from_db_or_none(row["last_used_at"]),
     )
 
 
@@ -60,7 +60,7 @@ class PushSubscriptionMixin:
         """Create or update a subscription (upsert by endpoint)."""
         sub_id = str(uuid.uuid4())
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now(), "local", conn)
+            now = to_db(utc_now())
             self._execute_with_timing(
                 conn,
                 """INSERT INTO push_subscriptions
@@ -128,6 +128,6 @@ class PushSubscriptionMixin:
             self._execute_with_timing(
                 conn,
                 "UPDATE push_subscriptions SET last_used_at = ? WHERE id = ?",
-                (to_db(utc_now(), "local", conn), subscription_id),
+                (to_db(utc_now()), subscription_id),
             )
             conn.commit()

@@ -30,12 +30,15 @@ sends; it sorts chronologically) and the app_settings flag
 
 import sqlite3
 from datetime import UTC, datetime, tzinfo
+from zoneinfo import ZoneInfo
 
 from yoyo import step
 
-from src.db.models.timestamps import legacy_local_zone
-
 __depends__ = {"0071_add_device_check_runs"}
+
+# The zone "local" values were written in: the production host's, on
+# Europe/Prague since at least Dec 14 2025 (checked from paired UTC/local rows)
+_LEGACY_ZONE = ZoneInfo("Europe/Prague")
 
 # ce810114's deploy, local wall-clock time: "utc_since" values before it are
 # local. Compared as an instant against the value read both ways (below)
@@ -102,7 +105,7 @@ def to_utc(value: str | None, kind: str, zone: tzinfo | None = None) -> str | No
         return value
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        local = zone or legacy_local_zone()
+        local = zone or _LEGACY_ZONE
         if kind == "utc_since":
             # Before the cutoff the row was written local
             kind = "local" if parsed < _UTC_NAIVE_SINCE else "utc"
@@ -119,7 +122,7 @@ def to_legacy(value: str | None, kind: str, zone: tzinfo | None = None) -> str |
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
         return value
-    local = zone or legacy_local_zone()
+    local = zone or _LEGACY_ZONE
     if kind == "utc_since":
         cutoff = _UTC_NAIVE_SINCE.replace(tzinfo=local)
         kind = "local" if parsed < cutoff else "utc"
@@ -175,8 +178,8 @@ def convert(conn: sqlite3.Connection) -> None:
 
 
 def revert(conn: sqlite3.Connection) -> None:
-    """Back to the legacy formats. Restart the app after it: each worker
-    caches the flag once it reads "utc" (timestamps.stores_utc)."""
+    """Back to the legacy formats. Only for code from before Nov 7 2026: the
+    app since then reads offset-carrying values only (timestamps.from_db)."""
     conn.execute("DELETE FROM app_settings WHERE key = ?", (_FLAG,))
     conn.create_function("to_legacy", 2, to_legacy, deterministic=True)
     _rewrite(conn, "to_legacy")

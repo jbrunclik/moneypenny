@@ -68,8 +68,8 @@ class ConversationMixin:
                     user_id,
                     title,
                     model,
-                    to_db(now, "local", conn),
-                    to_db(now, "local", conn),
+                    to_db(now),
+                    to_db(now),
                 ),
             )
             conn.commit()
@@ -150,7 +150,7 @@ class ConversationMixin:
                 conn,
                 f"UPDATE conversations SET {', '.join(updates)} WHERE id = ? AND user_id = ?"
                 " AND deleted_at IS NULL",
-                (to_db(utc_now(), "local", conn), *params),
+                (to_db(utc_now()), *params),
             )
             conn.commit()
             return cursor.rowcount > 0

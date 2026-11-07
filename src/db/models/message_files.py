@@ -44,7 +44,7 @@ class MessageFileMixin:
                 """SELECT * FROM messages
                    WHERE files IS NOT NULL AND files != '[]' AND created_at < ?
                    ORDER BY created_at""",
-                (to_db(cutoff, "local", conn),),
+                (to_db(cutoff),),
             ).fetchall()
             return [row_to_message(row) for row in rows]
 

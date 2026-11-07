@@ -43,10 +43,10 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         user_id=row["user_id"],
         title=row["title"],
         model=row["model"],
-        created_at=from_db(row["created_at"], "local"),
-        updated_at=from_db(row["updated_at"], "local"),
+        created_at=from_db(row["created_at"]),
+        updated_at=from_db(row["updated_at"]),
         is_planning=bool(row["is_planning"]),
-        last_reset=from_db_or_none(row["last_reset"], "local"),
+        last_reset=from_db_or_none(row["last_reset"]),
         is_agent=bool(row["is_agent"]),
         agent_id=row["agent_id"],
         archived=bool(row["archived"]),
@@ -56,7 +56,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         is_language=bool(row["is_language"]),
         language_program=row["language_program"],
         anonymous_mode=bool(row["anonymous_mode"]),
-        deleted_at=from_db_or_none(row["deleted_at"], "local"),
+        deleted_at=from_db_or_none(row["deleted_at"]),
         read_message_count=int(row["read_message_count"] or 0),
     )
 
