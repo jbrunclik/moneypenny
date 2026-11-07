@@ -7,7 +7,7 @@ from unittest.mock import patch
 from flask.testing import FlaskClient
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, Database
+    from src.db.models import Agent, Database, User
 
 
 class TestListAgents:
@@ -83,6 +83,23 @@ class TestCreateAgent:
         assert data["name"] == "New Agent"
         assert data["timezone"] == "UTC"  # Default
         assert data["enabled"] is True  # Default
+
+    def test_no_tools_selected_stays_restricted(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        """An empty permission list means "only the safe tools"; it was stored
+        as NULL - "no restrictions" - so the agent got every tool."""
+        response = client.post(
+            "/api/agents", headers=auth_headers, json={"name": "Quiet", "tool_permissions": []}
+        )
+
+        assert response.status_code == 201
+        agent = test_database.get_agent(json.loads(response.data)["id"], test_user.id)
+        assert agent is not None and agent.tool_permissions == []
 
     def test_creates_with_all_fields(
         self, client: FlaskClient, auth_headers: dict[str, str]

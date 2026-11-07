@@ -94,7 +94,9 @@ class AgentMixin:
             extra={"user_id": user_id, "agent_id": agent_id, "agent_name": name},
         )
 
-        tool_permissions_json = json.dumps(tool_permissions) if tool_permissions else None
+        # "is not None": [] means "only the safe tools", None means "all tools" -
+        # a falsy check stored [] as NULL and the agent got every tool
+        tool_permissions_json = json.dumps(tool_permissions) if tool_permissions is not None else None
 
         # Calculate next run time if schedule is provided
         next_run_at = None
