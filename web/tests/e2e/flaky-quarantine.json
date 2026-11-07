@@ -71,8 +71,8 @@
     "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   },
   {
-    "file": "e2e/search.spec.ts",
-    "title": "handles rapid search result clicks gracefully",
+    "file": "e2e/conversation.spec.ts",
+    "title": "date headings are not pinned",
     "project": "webkit",
     "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   }

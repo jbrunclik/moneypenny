@@ -227,6 +227,17 @@ function findApprovalResolution(messages: Message[], start: number): { resolved:
   return { resolved: false, approved: true };
 }
 
+// UI-local (F2): bumped by every full render. A page load captures it and
+// drops its response when the list was re-rendered meanwhile: the page belongs
+// to the previous window (search jump, conversation reload) and would
+// duplicate messages already in the new one.
+let renderGeneration = 0;
+
+/** The current full-render generation, for discarding stale page loads. */
+export function getRenderGeneration(): number {
+  return renderGeneration;
+}
+
 /**
  * Render all messages in the container
  */
@@ -234,6 +245,7 @@ export function renderMessages(messages: Message[], options: RenderMessagesOptio
   log.debug('Rendering messages', { count: messages.length, skipScrollToBottom: options.skipScrollToBottom });
   const container = getElementById<HTMLDivElement>('messages');
   if (!container) return;
+  renderGeneration++;
   // A fresh render holds no reserved send-to-top space and no merged-in
   // "New messages" from the previous list
   resetTurnAnchor(container);

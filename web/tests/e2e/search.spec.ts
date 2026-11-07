@@ -628,6 +628,66 @@ test.describe('Search - Navigation with Pagination', () => {
     await expect(errorToast).not.toBeVisible();
   });
 
+  test('an older page requested before a search jump does not land in the new window', async ({ page }) => {
+    // CI flake Nov 7 2026 (search.spec.ts:588): a double-clicked result rendered
+    // the target twice. The loaders only checked the conversation id, so a page
+    // requested against the previous window was prepended into the re-rendered one.
+    const messages = [];
+    for (let i = 0; i < 60; i++) {
+      messages.push({ role: 'user', content: `Message ${i}: ${i === 30 ? 'STALE_PAGE_TARGET' : 'x'}` });
+      messages.push({ role: 'assistant', content: `Response ${i}` });
+    }
+    await page.request.post('/test/seed', {
+      data: { conversations: [{ title: 'Stale page', messages }] },
+    });
+    await page.reload();
+    await page.locator('.conversation-item-wrapper', { hasText: 'Stale page' }).click();
+    await expect(page.locator('.message').last()).toContainText('Response 59', { timeout: 10000 });
+    await scrollSettled(page);
+
+    // Hold the older page (messages 20-69, which hold the target) until the jump is done
+    let releaseOlder: () => void = () => {};
+    const olderHeld = new Promise<void>((resolve) => {
+      void page.route('**/messages?*direction=older*', async (route) => {
+        await new Promise<void>((release) => {
+          releaseOlder = release;
+          resolve();
+        });
+        await route.continue();
+      });
+    });
+    await page.locator('#messages').hover();
+    await expect
+      .poll(
+        async () => {
+          await page.mouse.wheel(0, -4000);
+          return page.evaluate(() => document.getElementById('messages')!.scrollTop);
+        },
+        { timeout: 5000 }
+      )
+      .toBe(0);
+    await olderHeld;
+
+    await page.locator('#search-input').fill('STALE_PAGE_TARGET');
+    await page.locator('.search-result-item').first().click();
+    const target = page.locator('.message.user:has-text("STALE_PAGE_TARGET")');
+    await expect(target).toBeVisible({ timeout: 5000 });
+
+    const olderDone = page.waitForResponse('**/messages?*direction=older*');
+    releaseOlder();
+    await olderDone;
+    await expect(page.locator('.older-messages-loader')).toHaveCount(0);
+
+    await expect(target).toHaveCount(1);
+    const duplicateIds = await page.evaluate(() => {
+      const ids = [...document.querySelectorAll<HTMLElement>('#messages .message[data-message-id]')].map(
+        (el) => el.dataset.messageId
+      );
+      return ids.filter((id, i) => ids.indexOf(id) !== i);
+    });
+    expect(duplicateIds).toEqual([]);
+  });
+
   test('handles conversation switch during search navigation', async ({ page }) => {
     // Create two conversations
     const conv1Messages = [];

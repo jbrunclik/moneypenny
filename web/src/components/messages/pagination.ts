@@ -16,7 +16,7 @@ import {
 } from '../../config';
 import { PaginationDirection } from '../../types/api';
 import { refreshVersionBadges } from './artifacts';
-import { addMessageToUI, lockOlderQuizBlocks } from './render';
+import { addMessageToUI, getRenderGeneration, lockOlderQuizBlocks } from './render';
 import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { Message } from '../../types/api';
 
@@ -99,6 +99,10 @@ export function cleanupOlderMessagesScrollListener(): void {
   }
 }
 
+// UI-local (F2): numbers each older-page load, so a discarded stale load can
+// tell whether a later one now owns the loading flag and the loader
+let olderLoadSeq = 0;
+
 /**
  * Load older messages for a conversation and prepend them to the UI.
  */
@@ -126,6 +130,8 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
 
   // Set loading state
   store.setLoadingOlderMessages(conversationId, true);
+  const generation = getRenderGeneration();
+  const load = ++olderLoadSeq;
 
   // Record the scroll height BEFORE the loader goes in: it is removed again
   // (finally) before the compensation below runs, so measuring with it
@@ -153,6 +159,15 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
       });
       store.setLoadingOlderMessages(conversationId, false);
       hideOlderMessagesLoader();
+      return;
+    }
+
+    // The list was re-rendered meanwhile (a search jump): this page belongs to
+    // the previous window and would duplicate messages already in the new one.
+    // The flag and loader are reset only by the latest older load, which owns them.
+    if (getRenderGeneration() !== generation) {
+      log.debug('Discarding older messages - list re-rendered during load', { conversationId });
+      if (load === olderLoadSeq) store.setLoadingOlderMessages(conversationId, false);
       return;
     }
 
@@ -187,7 +202,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
     // Reset loading state on error
     store.setLoadingOlderMessages(conversationId, false);
   } finally {
-    hideOlderMessagesLoader();
+    if (load === olderLoadSeq) hideOlderMessagesLoader();
   }
 }
 
@@ -401,6 +416,10 @@ export function cleanupNewerMessagesScrollListener(): void {
   }
 }
 
+// UI-local (F2): numbers each newer-page load, so a discarded stale load can
+// tell whether a later one now owns the loading flag and the loader
+let newerLoadSeq = 0;
+
 /**
  * Load newer messages for a conversation and append them to the UI.
  */
@@ -428,6 +447,8 @@ async function loadNewerMessages(conversationId: string, container: HTMLElement)
 
   // Set loading state
   store.setLoadingNewerMessages(conversationId, true);
+  const generation = getRenderGeneration();
+  const load = ++newerLoadSeq;
 
   // Show loading indicator at bottom
   showNewerMessagesLoader(container);
@@ -453,6 +474,15 @@ async function loadNewerMessages(conversationId: string, container: HTMLElement)
       return;
     }
 
+    // The list was re-rendered meanwhile (a search jump): this page belongs to
+    // the previous window and would duplicate messages already in the new one.
+    // The flag and loader are reset only by the latest newer load, which owns them.
+    if (getRenderGeneration() !== generation) {
+      log.debug('Discarding newer messages - list re-rendered during load', { conversationId });
+      if (load === newerLoadSeq) store.setLoadingNewerMessages(conversationId, false);
+      return;
+    }
+
     // Update store with new messages appended
     store.appendMessages(conversationId, result.messages, result.pagination);
 
@@ -469,7 +499,7 @@ async function loadNewerMessages(conversationId: string, container: HTMLElement)
     // Reset loading state on error
     store.setLoadingNewerMessages(conversationId, false);
   } finally {
-    hideNewerMessagesLoader();
+    if (load === newerLoadSeq) hideNewerMessagesLoader();
   }
 }
 

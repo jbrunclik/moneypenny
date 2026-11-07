@@ -101,6 +101,7 @@ When navigating to a search result in a large conversation, the app uses `around
 | **Sending message after search navigation** | If `hasNewer` is true, `loadAllRemainingNewerMessages()` is called before sending to ensure no gap |
 | **Rapid search result clicks** | `pendingSearchNavigationMessageId` tracking variable prevents stale API responses from rendering |
 | **Conversation switch during navigation** | Guards check `currentConversation.id` after API call returns |
+| **Page load in flight during the jump** (Nov 2026) | An older/newer page requested against the previous window would be inserted into the re-rendered one and duplicate messages (a double-clicked result rendered the target twice). `renderMessages()` bumps a render generation (`getRenderGeneration()`); the loaders drop a response whose generation changed, and only the latest load of a kind resets its loading flag and loader. A conversation-id check alone cannot catch this - the conversation is the same |
 | **Image scroll interference** | `disableScrollOnImageLoad()` is called before `renderMessages()` so images don't override scroll-to-target behavior |
 | **Sync manager false unread badges** | `markConversationRead()` is called with `total_count` after loading around messages to prevent false badges |
 | **Scroll-to-bottom in partial view** | The scroll-to-bottom button callback loads all remaining newer messages first via `setBeforeScrollToBottomCallback` |

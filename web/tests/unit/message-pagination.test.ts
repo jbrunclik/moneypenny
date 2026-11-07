@@ -6,7 +6,9 @@
  * the conversation streams, while one is running, or when the server said
  * there is nothing more; a failed load clears the loading flag so the next
  * scroll retries. loadAllRemainingNewerMessages pages to the end before a
- * send, sharing one run between concurrent callers.
+ * send, sharing one run between concurrent callers. A page that comes back
+ * after the list was re-rendered (a search jump) belongs to the old window and
+ * is dropped.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Message, MessagesPagination, PaginationDirection } from '@/types/api';
@@ -28,12 +30,14 @@ const ui = vi.hoisted(() => ({
   refreshVersionBadges: vi.fn(),
   applyCompactionMarkers: vi.fn(),
   observeThumbnail: vi.fn(),
+  renderGeneration: 0,
 }));
 
 vi.mock('@/api/conversations', () => ({ conversations: api }));
 vi.mock('@/components/messages/render', () => ({
   addMessageToUI: ui.addMessageToUI,
   lockOlderQuizBlocks: ui.lockOlderQuizBlocks,
+  getRenderGeneration: () => ui.renderGeneration,
 }));
 vi.mock('@/components/messages/artifacts', () => ({ refreshVersionBadges: ui.refreshVersionBadges }));
 vi.mock('@/components/CompactionIndicator', () => ({ applyCompactionMarkers: ui.applyCompactionMarkers }));
@@ -307,6 +311,83 @@ describe('message pagination', () => {
       await scrollTo(0);
 
       expect(api.getMessages).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('a re-render while a page loads', () => {
+    /** A full render (renderMessages) replaced the list: a search jump. */
+    function reRender(ids: string[], pag: Partial<MessagesPagination>): void {
+      ui.renderGeneration++;
+      openConversation('c1', ids, pag);
+    }
+
+    it('drops the older page requested against the previous window', async () => {
+      openConversation('c1', ['m70', 'm71'], { has_older: true, older_cursor: 'last-page' });
+      const stale = deferred<Page>();
+      api.getMessages.mockReturnValue(stale.promise);
+      setupOlderMessagesScrollListener('c1');
+      await scrollTo(0);
+
+      reRender(['m59', 'm60', 'm61'], { has_older: true, older_cursor: 'around' });
+      stale.resolve({ messages: [msg('m60'), msg('m69')], pagination: page() });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(domIds(container)).toEqual(['m59', 'm60', 'm61']);
+      expect(storeIds('c1')).toEqual(['m59', 'm60', 'm61']);
+      expect(pagination('c1')?.olderCursor).toBe('around');
+      expect(pagination('c1')?.isLoadingOlder).toBe(false);
+    });
+
+    it('leaves the loading flag and loader of a later load alone', async () => {
+      openConversation('c1', ['m70'], { has_older: true, older_cursor: 'last-page' });
+      const stale = deferred<Page>();
+      const fresh = deferred<Page>();
+      api.getMessages.mockReturnValueOnce(stale.promise).mockReturnValueOnce(fresh.promise);
+      setupOlderMessagesScrollListener('c1');
+      await scrollTo(0);
+      reRender(['m60'], { has_older: true, older_cursor: 'around' });
+      setupOlderMessagesScrollListener('c1');
+      await scrollTo(1);
+
+      stale.resolve({ messages: [msg('m69')], pagination: page() });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pagination('c1')?.isLoadingOlder).toBe(true);
+      expect(container.querySelector('.older-messages-loader')).not.toBeNull();
+      fresh.resolve({ messages: [msg('m59')], pagination: page() });
+      await vi.waitFor(() => expect(domIds(container)).toEqual(['m59', 'm60']));
+      expect(pagination('c1')?.isLoadingOlder).toBe(false);
+    });
+
+    it('clears its own loading flag when nothing replaced it, so the next scroll retries', async () => {
+      openConversation('c1', ['m70'], { has_older: true, older_cursor: 'o' });
+      const stale = deferred<Page>();
+      api.getMessages.mockReturnValue(stale.promise);
+      setupOlderMessagesScrollListener('c1');
+      await scrollTo(0);
+
+      ui.renderGeneration++; // re-rendered from the same stored page
+      stale.resolve({ messages: [msg('m69')], pagination: page() });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(pagination('c1')?.isLoadingOlder).toBe(false);
+      expect(container.querySelector('.older-messages-loader')).toBeNull();
+    });
+
+    it('drops the newer page requested against the previous window', async () => {
+      openConversation('c1', ['m1', 'm2', 'm3', 'm4'], { has_newer: true, newer_cursor: 'n' });
+      const stale = deferred<Page>();
+      api.getMessages.mockReturnValue(stale.promise);
+      setupNewerMessagesScrollListener('c1');
+      await scrollTo(50);
+
+      reRender(['m9', 'm10'], { has_newer: true, newer_cursor: 'around' });
+      stale.resolve({ messages: [msg('m5'), msg('m9')], pagination: page() });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(domIds(container)).toEqual(['m9', 'm10']);
+      expect(storeIds('c1')).toEqual(['m9', 'm10']);
+      expect(pagination('c1')?.isLoadingNewer).toBe(false);
     });
   });
 
