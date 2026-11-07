@@ -332,3 +332,16 @@ class PushSubscription:
     user_agent: str | None
     created_at: datetime
     last_used_at: datetime | None
+
+
+@dataclass
+class Reminder:
+    """A one-off push set from chat, sent by the scheduler at due_at."""
+
+    id: str
+    user_id: str
+    conversation_id: str | None
+    text: str
+    due_at: datetime
+    status: str  # "pending" | "sent" | "cancelled"
+    created_at: datetime

@@ -71,6 +71,7 @@ from src.db.models.message_pagination import MessagePaginationMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.programs import ProgramConversationMixin
 from src.db.models.push import PushSubscriptionMixin
+from src.db.models.reminders import RemindersMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
 from src.db.models.stream_journal import StreamJournalMixin
@@ -110,6 +111,7 @@ class Database(
     EmbeddingsMixin,
     ProgramConversationMixin,
     PushSubscriptionMixin,
+    RemindersMixin,
     StreamJournalMixin,
     SyncChangesMixin,
     ArtifactMixin,
