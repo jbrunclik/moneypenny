@@ -96,6 +96,27 @@ header, frozen panes, column widths, number formats, formulas where values
 should update), and a descriptive filename under `/output/`. Files come back
 through the normal [file output pattern](#file-output-pattern-uses-_full_result-to-save-tokens).
 
+## Conversation Files and PDFs (Nov 2026)
+
+The user's uploads are not in the sandbox by default. `execute_code(code, files=[...])`
+takes file ids from the history metadata (`message_id:file_index`), loads each through
+`conversation_files.load_conversation_file` - the same checks as `retrieve_file`: the
+user's own conversation, the message belongs to it, the index exists, within retention -
+and copies it to `/work/attachments/<safe name>` before the code runs (directories and
+leading dots stripped, a repeated name gets `-2`; the result's `attachments` lists the
+paths). All files are checked before anything is copied; at most
+`CODE_SANDBOX_MAX_ATTACHMENTS` (5) per call, each within `MAX_FILE_SIZE_BYTES`.
+
+The image reads PDFs with `pypdf` and `pdfplumber` (text, words with coordinates, drawn
+lines/rects, tables, page renders via `page.to_image`). `from sandbox_helpers import
+pdf_overview` (`docker/code-sandbox/sandbox_helpers.py`, on `PYTHONPATH`) is the first
+look: per page size, text characters, words, lines/rects and tables, ending with the
+pages that have **no text** (scanned or drawn as images) and how to render them - never
+silence. This closed the floor-plan failure (Oct 2026): a PDF uploaded earlier is only
+listed in later turns, and the sandbox had neither the file nor a PDF library. Eval:
+`sandbox_pdf_floor_plan` (a file on an earlier turn - the harness stores history files
+like uploads).
+
 ## Deployment
 
 Each deployment environment must build the custom image:

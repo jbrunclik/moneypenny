@@ -637,11 +637,20 @@ class TestExecuteCodeAttachments:
         assert "attachments" not in result
 
     def test_attachment_paths_are_safe_and_distinct(self) -> None:
-        from src.agent.tools.code_execution import _attachment_path
+        names = iter(["../../etc/passwd", ".env", "", "plan.pdf", "plan.pdf"])
+        session = MagicMock()
 
-        taken: set[str] = set()
-        assert _attachment_path("../../etc/passwd", taken) == "/work/attachments/passwd"
-        assert _attachment_path(".env", taken) == "/work/attachments/env"
-        assert _attachment_path("", taken) == "/work/attachments/file"
-        assert _attachment_path("plan.pdf", taken) == "/work/attachments/plan.pdf"
-        assert _attachment_path("plan.pdf", taken) == "/work/attachments/plan-2.pdf"
+        def loader(message_id: str, index: int) -> object:
+            from src.agent.tools.conversation_files import ConversationFile
+
+            return ConversationFile(f"{message_id}:{index}", next(names), "text/plain", b"x")
+
+        result = self._invoke(session, loader, files=[f"m{i}:0" for i in range(5)])
+
+        assert [a["path"] for a in result["attachments"]] == [
+            "/work/attachments/passwd",
+            "/work/attachments/env",
+            "/work/attachments/file",
+            "/work/attachments/plan.pdf",
+            "/work/attachments/plan-2.pdf",
+        ]

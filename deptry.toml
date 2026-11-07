@@ -6,6 +6,9 @@
 requirements_files = ["requirements.in"]
 requirements_files_dev = ["requirements-dev.in"]
 known_first_party = ["src", "evals", "tests", "scripts"]
+# The code sandbox image's own helpers: run inside the image, whose Dockerfile
+# installs their imports (pdfplumber) - not dependencies of the app
+extend_exclude = ["docker"]
 
 [tool.deptry.per_rule_ignores]
 # Run by the systemd unit (gunicorn src.app:...), never imported

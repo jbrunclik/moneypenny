@@ -344,7 +344,7 @@ ATTACHMENTS_DIR = "/work/attachments"
 class _CopyTarget(Protocol):
     """The sandbox session's copy-in method (llm-sandbox)."""
 
-    def copy_to_runtime(self, src: str, dest: str) -> None: ...
+    def copy_to_runtime(self, _src: str, _dest: str, /) -> None: ...
 
 
 def _attachment_path(name: str, taken: set[str]) -> str:
