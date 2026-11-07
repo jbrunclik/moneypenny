@@ -8,19 +8,27 @@ MEMORY_SYSTEM_PROMPT = """
 You have access to a memory system that stores facts about the user for personalization.
 
 ## Memory Operations
-Use the **manage_memory** tool to add, update, or delete user memories:
+Use the **manage_memory** tool to add, edit, or delete user memories:
 - `manage_memory(operations=[{{"action": "add", "content": "...", "category": "fact"}}])`
-- `manage_memory(operations=[{{"action": "update", "id": "<memory id>", "content": "..."}}])`
+- `manage_memory(operations=[{{"action": "patch", "id": "<memory id>", "old_text": "<exact text in the memory>", "new_text": "<replacement>"}}])`
 - `manage_memory(operations=[{{"action": "delete", "id": "<memory id>"}}])`
 
+`patch` changes only the span you name, so the rest of the memory stays exactly as
+it was: copy `old_text` verbatim from the memory (enough of it to match once), and
+use `"new_text": ""` to remove it. To merge memories, add the merged one and delete
+the old ones in the same call.
+
 The tool performs the writes and returns one result line per operation - the new
-ID for an add, or a REJECTED line explaining what went wrong. Read that result:
-- If an add was rejected because the bank is full, consolidate or delete first, then retry.
-- If content was rejected as too long, rewrite it shorter and retry.
-- If an update or delete reported an unknown ID, the memory list you were given is
+ID for an add, or a REJECTED line explaining what went wrong. A call is applied
+all-or-nothing: if any operation is rejected, nothing is written. Read the result:
+- Fix the REJECTED operations and resubmit the whole call.
+- If a patch's old_text was not found, the result shows the memory's current text - copy from it.
+- If an add was rejected because the bank is full, delete or merge in the same call.
+- If content was rejected as too long, save the new fact as its own memory instead.
+- If an operation reported an unknown ID, the memory list you were given is
   stale - do not invent IDs, and only use IDs exactly as listed below.
-- Some memories are protected by the user and cannot be deleted; update them instead.
-- At most {max_ops_per_call} operations are applied per call. Batch the important ones.
+- Some memories are protected by the user and cannot be deleted; patch them instead.
+- A call holds at most {max_ops_per_call} operations; a longer one is rejected whole. Send the important ones.
 
 ## Categories
 - **preference**: Preferences and choices that affect recommendations (e.g., "Prefers Python for backend work due to its readability; uses TypeScript for frontend")
@@ -30,22 +38,27 @@ ID for an add, or a REJECTED line explaining what went wrong. Read that result:
 
 ## Core Principles
 
-### 1. Write Complete, Context-Rich Memories
+### 1. Write Facts, Not Commands
+Memories describe the user; they are not instructions to you:
+- BAD: "Always answer briefly"
+- GOOD: "Prefers short answers without background"
+
+### 2. Write Complete, Context-Rich Memories
 Don't be overly brief. Include relevant context that makes the memory useful:
 - BAD: "Likes coffee"
 - GOOD: "Prefers strong black coffee in the morning, usually has 2 cups before noon"
 - BAD: "Has kids"
 - GOOD: "Has two children: Emma (born 2018) and Jack (born 2021)"
 
-### 2. Consolidate Related Information
-Group facts about the same topic into a single comprehensive memory. Before adding a new memory, check if it should UPDATE an existing one instead:
+### 3. One Topic Per Memory
+Keep each memory about one topic, and grow it with patch as you learn more. Before adding a new memory, check whether it belongs in an existing one about the same topic:
 - BAD: Three separate memories: "Has a dog", "Dog's name is Max", "Max is a golden retriever"
 - GOOD: One memory: "Has a golden retriever named Max, adopted as a puppy in 2020, loves playing fetch"
-- BAD: Separate memories for each family member's detail
-- GOOD: One memory per family member with all their relevant details consolidated
+- BAD: One catch-all memory holding the dog, the car and the commute
+- GOOD: One memory per family member, pet or topic, each with its details
 
-### 3. Protect Essential Facts (Never Delete)
-Some information is fundamental and should NEVER be deleted, only updated with more detail.
+### 4. Protect Essential Facts (Never Delete)
+Some information is fundamental and should NEVER be deleted, only patched with more detail.
 Memories the user has marked `protected` are additionally refused by the tool:
 - Family member names, relationships, and birthdays
 - Partner/spouse information
@@ -54,19 +67,19 @@ Memories the user has marked `protected` are additionally refused by the tool:
 - Long-term health conditions or dietary restrictions (e.g., "Vegetarian since 2015", "Allergic to shellfish")
 - Pet names and basic info
 
-### 4. Actively Manage Memory Space
+### 5. Actively Manage Memory Space
 When near the limit ({warning_threshold}+ memories), prioritize keeping space:
 - KEEP: Essential facts (family, identity), active goals, strong preferences
-- CONSOLIDATE: Multiple related memories into one comprehensive entry
+- MERGE: Memories about the same topic into one (add the merged one, delete the old ones)
 - REMOVE: Completed goals, outdated projects, stale context that no longer applies
-- UPDATE rather than create new: If a memory about the same topic exists, update it with new info
+- PATCH rather than create new: If a memory about the same topic exists, patch the new info into it
 
-### 5. Avoid Unnecessary Updates
-Do NOT update a memory unless there is genuinely new, substantive information to add:
+### 6. Avoid Unnecessary Edits
+Do NOT edit a memory unless there is genuinely new, substantive information to add:
 - Do NOT rephrase or reword existing memories for style improvements
 - Do NOT re-store information that is already accurately captured
 - If a memory was recently updated (check the updated date), leave it alone unless the user shared brand new facts
-- Only UPDATE when the user shares new facts that meaningfully extend or correct an existing memory
+- Only PATCH when the user shares new facts that meaningfully extend or correct an existing memory
 - If a memory already captures the key facts, leave it alone — even if you would word it slightly differently
 - In a long conversation, resist the urge to "refine" memories — stability is more valuable than perfect wording
 
@@ -82,7 +95,7 @@ Do NOT update a memory unless there is genuinely new, substantive information to
 When the memory bank is large, only core entries (protected, preferences, goals)
 and recently updated ones appear in your context; the list header says how many
 are shown. Use the search_memory tool to look up anything else BEFORE concluding
-you don't know something about the user. update/delete need the memory id -
+you don't know something about the user. patch/delete need the memory id -
 search_memory returns ids for entries not listed in your context.
 
 ## What NOT to Memorize

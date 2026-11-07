@@ -54,7 +54,7 @@ The LLM can learn and remember facts about the user across conversations for per
   their text (prevents fake memories)
 - **Soft delete**: deletes are recoverable for `MEMORY_SOFT_DELETE_RETENTION_DAYS`
 - **One limit**: `MEMORY_MAX_ENTRIES` is both what the LLM is told and what writes enforce
-- **LLM deduplication**: the LLM sees existing memories and decides to update/consolidate
+- **LLM deduplication**: the LLM sees existing memories and decides to patch or merge
 - **Categories**: `preference`, `fact`, `context`, `goal`
 
 ### How It Works
@@ -62,8 +62,8 @@ The LLM can learn and remember facts about the user across conversations for per
 1. **Instructions**: `MEMORY_SYSTEM_PROMPT` is static, so it lives in the cached prompt prefix
 2. **Injection**: the current memory list (with IDs, dates and protection flags) is added to
    the per-request dynamic context
-3. **Writes**: the model calls `manage_memory`, which validates, writes, and reports the
-   outcome so the model can correct course
+3. **Writes**: the model calls `manage_memory`, which validates the whole batch, writes it
+   in one transaction, and reports the outcome so the model can correct course
 4. **Management**: users view/delete/protect memories on the **Data page**
    ([`KVStorePage.ts`](../../web/src/components/KVStorePage.ts)), reached via the
    "Memories & Storage" button in the sidebar. (The old `MemoriesPopup` was removed — the
@@ -74,18 +74,33 @@ The LLM can learn and remember facts about the user across conversations for per
 ```python
 manage_memory(operations=[
     {"action": "add", "content": "Prefers dark mode", "category": "preference"},
-    {"action": "update", "id": "<memory id>", "content": "Now prefers light mode"},
+    {"action": "patch", "id": "<memory id>", "old_text": "dark mode", "new_text": "light mode"},
     {"action": "delete", "id": "<memory id>"},
 ])
 ```
 
-The tool returns one line per operation, e.g.:
+**Span edits (Nov 2026).** `patch` replaces one exact span (`old_text`, which must match
+once; `new_text: ""` removes it) and can set `category` alone. There is no whole-entry
+rewrite: every forced rewrite of a long memory risked dropping details ("Lossy memory
+writes"), the reason Hermes Agent removed its replace too. A miss returns the memory's
+current text so the model can copy `old_text` from it; an `update` call is rejected with a
+pointer to `patch`. Merging is `add` the merged entry + `delete` the old ones.
+
+**All or nothing.** Every operation is validated against the batch's end state first
+(so delete-one-add-one works on a full bank, and two patches of one memory chain), then
+`Database.apply_memory_batch` writes them in one `BEGIN IMMEDIATE` transaction. A patch
+lands only if the row still holds the text it was computed from, so a parallel edit is
+never overwritten; any miss rolls the batch back. One rejection applies nothing:
 
 ```
-added id=6f2c... (7/200 used)
-REJECTED (update): no memory with id=bogus (it may have been deleted or consolidated).
-REJECTED (delete): id=9ab1... is protected by the user and cannot be deleted.
+Nothing was applied: fix the REJECTED operations and resubmit the whole batch.
+not applied (add): valid, resubmit it with the fixes
+REJECTED (patch): old_text not found in id=6f2c.... Its current text is: "..." - copy old_text from it exactly.
 ```
+
+A successful batch reports `added id=... (7/200 used)`, `patched id=..., now: "..."` and
+`deleted id=...`. The tool description and prompt also ask for facts, not commands
+("Prefers short answers", not "Always answer briefly").
 
 ### Bounds and Safety
 
@@ -96,9 +111,9 @@ prompt-injection persistence vector. The enforced bounds:
 | Setting | Default | Purpose |
 |---|---|---|
 | `MEMORY_MAX_ENTRIES` | 200 | Bank size; also the number shown to the LLM |
-| `MEMORY_MAX_ENTRY_CHARS` | 1000 | Per-entry size; oversized writes are rejected, not truncated. The rejection, and a successful update that leaves an entry at 80%+ of the cap, tell the model to keep one topic per memory and `add` new facts (Oct 2026: at 500, 74 of 272 updates were rejected and catch-all rewrites dropped details) |
+| `MEMORY_MAX_ENTRY_CHARS` | 1000 | Per-entry size, checked on the patched result; oversized writes are rejected, not truncated. The rejection, and a successful patch that leaves an entry at 80%+ of the cap, tell the model to keep one topic per memory and `add` new facts (Oct 2026: at 500, 74 of 272 updates were rejected and catch-all rewrites dropped details) |
 | `MEMORY_WARNING_THRESHOLD` | 80% of max | Point at which the LLM is told to consolidate |
-| `MEMORY_MAX_OPS_PER_CALL` | 10 | Per-call write budget, bounding a mass rewrite |
+| `MEMORY_MAX_OPS_PER_CALL` | 10 | Per-call write budget, bounding a mass rewrite; a longer batch is rejected whole (cutting it would apply half a merge) |
 | `MEMORY_SOFT_DELETE_RETENTION_DAYS` | 7 | Recovery window for deleted memories |
 | `MEMORY_INJECT_FULL_MAX` | 60 | Above this count, injection switches to tiered mode |
 | `MEMORY_INJECT_RECENT_COUNT` | 15 | Recently-updated non-core entries injected in tiered mode |
@@ -116,7 +131,7 @@ which would let injected web content plant sticky memories.) The prompt states h
 model to call the **`search_memory`** tool before claiming it doesn't know
 something about the user. `search_memory` matches by substring AND by embedding
 cosine similarity (`MEMORY_SEARCH_MIN_SIMILARITY`), returning ids so
-update/delete work on unlisted entries. This bounds the per-turn token cost of
+patch/delete work on unlisted entries. This bounds the per-turn token cost of
 a bank approaching the 200-entry cap.
 
 Additional guards:

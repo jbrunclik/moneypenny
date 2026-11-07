@@ -1,0 +1,16 @@
+id: memory_patch
+description: A correction to a stored memory is a span patch, not a rewrite or a duplicate
+memories:
+  - content: "Has a golden retriever named Max, adopted from a shelter as a puppy in 2020; loves fetch and sleeps on the sofa"
+    category: fact
+user: "Small correction - the vet says Max is actually a labrador, not a golden retriever."
+expect:
+  rubric: >
+    Acknowledges the correction (Max is a labrador) briefly and confirms it was
+    saved. The confirmation must not claim failure and must not ask the user to
+    repeat details they already gave.
+  required_tools: [manage_memory]
+  forbidden_arg_patterns:
+    manage_memory.operations:
+      - "'action': '(add|update)'"
+  max_tool_rounds: 3

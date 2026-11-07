@@ -495,12 +495,14 @@ def _format_memory_op(op: dict[str, Any]) -> str | None:
     new_content = str(op.get("content") or "").strip()
     if action == "add":
         return f"remembered: {_snippet(new_content, 55)}" if new_content else "remembered"
-    if action == "update":
-        old = _fetch_memory_content(str(op.get("id") or "").strip())
-        if old and new_content:
-            return f"updated: {_snippet(old, 35)} → {_snippet(new_content, 35)}"
-        if new_content:
-            return f"updated: {_snippet(new_content, 55)}"
+    if action == "patch":
+        # patch carries both sides of the edit, so no lookup is needed
+        old_text = str(op.get("old_text") or "").strip()
+        new_text = str(op.get("new_text") or "").strip()
+        if old_text and new_text:
+            return f"updated: {_snippet(old_text, 35)} → {_snippet(new_text, 35)}"
+        if old_text:
+            return f"updated: removed {_snippet(old_text, 47)}"
         return "updated"
     if action == "delete":
         old = _fetch_memory_content(str(op.get("id") or "").strip())

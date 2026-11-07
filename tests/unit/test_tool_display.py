@@ -364,27 +364,39 @@ class TestMemoryDiffDetail:
         )
         assert result == "remembered: Runs marathons"
 
-    def test_update_shows_old_to_new_diff(self) -> None:
-        with patch(
-            "src.agent.tool_display._fetch_memory_content", return_value="Drinks oat milk lattes"
-        ):
-            result = extract_tool_detail(
-                "manage_memory",
-                {
-                    "operations": [
-                        {"action": "update", "id": "m1", "content": "Switched to black coffee"}
-                    ]
-                },
-            )
-        assert result == "updated: Drinks oat milk lattes → Switched to black coffee"
+    def test_patch_shows_the_span_diff(self) -> None:
+        # patch carries both sides of the change, so no lookup is needed
+        result = extract_tool_detail(
+            "manage_memory",
+            {
+                "operations": [
+                    {
+                        "action": "patch",
+                        "id": "m1",
+                        "old_text": "oat milk lattes",
+                        "new_text": "black coffee",
+                    }
+                ]
+            },
+        )
+        assert result == "updated: oat milk lattes → black coffee"
 
-    def test_update_without_old_falls_back_to_new(self) -> None:
-        with patch("src.agent.tool_display._fetch_memory_content", return_value=None):
-            result = extract_tool_detail(
-                "manage_memory",
-                {"operations": [{"action": "update", "id": "gone", "content": "New value"}]},
-            )
-        assert result == "updated: New value"
+    def test_patch_removing_a_span_says_so(self) -> None:
+        result = extract_tool_detail(
+            "manage_memory",
+            {
+                "operations": [
+                    {"action": "patch", "id": "m1", "old_text": " and jazz", "new_text": ""}
+                ]
+            },
+        )
+        assert result == "updated: removed and jazz"
+
+    def test_category_only_patch_shows_bare_verb(self) -> None:
+        result = extract_tool_detail(
+            "manage_memory", {"operations": [{"action": "patch", "id": "m1", "category": "goal"}]}
+        )
+        assert result == "updated"
 
     def test_delete_shows_what_was_forgotten(self) -> None:
         with patch(
@@ -412,11 +424,14 @@ class TestMemoryDiffDetail:
         assert result == "remembered: Alpha; remembered: Beta (+1 more)"
 
     def test_long_snippets_are_truncated(self) -> None:
-        with patch("src.agent.tool_display._fetch_memory_content", return_value="O" * 60):
-            result = extract_tool_detail(
-                "manage_memory",
-                {"operations": [{"action": "update", "id": "m1", "content": "N" * 60}]},
-            )
+        result = extract_tool_detail(
+            "manage_memory",
+            {
+                "operations": [
+                    {"action": "patch", "id": "m1", "old_text": "O" * 60, "new_text": "N" * 60}
+                ]
+            },
+        )
         # each side of the diff is truncated to 35 chars (34 + ellipsis)
         assert result == f"updated: {'O' * 34}… → {'N' * 34}…"
 

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from src.db.models.dataclasses import Memory, User
 from src.db.models.timestamps import from_db, from_db_or_none, to_db
@@ -22,6 +23,29 @@ if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class MemoryWrite:
+    """One validated write for apply_memory_batch.
+
+    add: content + category. patch: the full new content, the content it was
+    computed from (expected), and an optional new category. delete: the id.
+    """
+
+    action: Literal["add", "patch", "delete"]
+    memory_id: str | None = None
+    content: str | None = None
+    expected: str | None = None
+    category: str | None = None
+
+
+class MemoryWriteConflictError(Exception):
+    """A batch target changed or vanished after the batch was planned."""
+
+    def __init__(self, memory_id: str) -> None:
+        super().__init__(f"memory {memory_id} changed or was deleted meanwhile")
+        self.memory_id = memory_id
 
 
 class MemoryMixin:
@@ -97,52 +121,73 @@ class MemoryMixin:
             source_conversation_id=source_conversation_id,
         )
 
-    def update_memory(
-        self, memory_id: str, user_id: str, content: str, category: str | None = None
-    ) -> bool:
-        """Update a memory's content.
+    def apply_memory_batch(
+        self, user_id: str, conversation_id: str | None, writes: list[MemoryWrite]
+    ) -> list[str | None]:
+        """Apply manage_memory's writes in one transaction: all of them or none.
 
-        Args:
-            memory_id: The memory ID
-            user_id: The user ID (for ownership verification)
-            content: New content
-            category: Optional new category
+        A patch carries the content it was computed from and lands only if the
+        row still holds it, so an edit made in between (another device, a
+        defrag run) is never overwritten. Deletes refuse protected rows. Any
+        miss rolls everything back and raises MemoryWriteConflictError.
 
         Returns:
-            True if memory was updated, False if not found
+            The new memory id for each add, None for the other writes
         """
-        logger.debug(
-            "Updating memory",
-            extra={"user_id": user_id, "memory_id": memory_id},
-        )
-
+        now = to_db(utc_now())
+        new_ids: list[str | None] = []
         with self._pool.get_connection() as conn:
-            now = to_db(utc_now())
-            if category is not None:
-                cursor = self._execute_with_timing(
-                    conn,
-                    """UPDATE user_memories SET content = ?, category = ?, updated_at = ?
-                       WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-                    (content, category, now, memory_id, user_id),
+            self._execute_with_timing(conn, "BEGIN IMMEDIATE")
+            try:
+                new_ids.extend(
+                    self._apply_memory_write(conn, user_id, conversation_id, write, now)
+                    for write in writes
                 )
-            else:
-                cursor = self._execute_with_timing(
-                    conn,
-                    """UPDATE user_memories SET content = ?, updated_at = ?
-                       WHERE id = ? AND user_id = ? AND deleted_at IS NULL""",
-                    (content, now, memory_id, user_id),
-                )
+            except BaseException:
+                conn.rollback()
+                raise
             conn.commit()
-            updated = cursor.rowcount > 0
+        logger.info("Memory batch applied", extra={"user_id": user_id, "writes": len(writes)})
+        return new_ids
 
-        if updated:
-            logger.info("Memory updated", extra={"memory_id": memory_id, "user_id": user_id})
-        else:
-            logger.warning(
-                "Memory not found for update",
-                extra={"memory_id": memory_id, "user_id": user_id},
+    def _apply_memory_write(
+        self,
+        conn: sqlite3.Connection,
+        user_id: str,
+        conversation_id: str | None,
+        write: MemoryWrite,
+        now: str,
+    ) -> str | None:
+        """One write inside apply_memory_batch's transaction."""
+        if write.action == "add":
+            memory_id = str(uuid.uuid4())
+            self._execute_with_timing(
+                conn,
+                """INSERT INTO user_memories
+                   (id, user_id, content, category, created_at, updated_at,
+                    source_conversation_id, protected)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 0)""",
+                (memory_id, user_id, write.content, write.category, now, now, conversation_id),
             )
-        return updated
+            return memory_id
+        if write.action == "patch":
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE user_memories
+                   SET content = ?, category = COALESCE(?, category), updated_at = ?
+                   WHERE id = ? AND user_id = ? AND content = ? AND deleted_at IS NULL""",
+                (write.content, write.category, now, write.memory_id, user_id, write.expected),
+            )
+        else:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE user_memories SET deleted_at = ?
+                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL AND protected = 0""",
+                (now, write.memory_id, user_id),
+            )
+        if cursor.rowcount == 0:
+            raise MemoryWriteConflictError(str(write.memory_id))
+        return None
 
     def set_memory_protected(self, memory_id: str, user_id: str, protected: bool) -> bool:
         """Mark a memory as protected (exempt from LLM/defrag deletion).

@@ -110,99 +110,251 @@ class TestAddOperation:
         assert len(database.list_memories(user.id)) == 1
 
 
-class TestUpdateOperation:
-    """Updates distinguish a successful edit from a stale ID."""
+class TestPatchOperation:
+    """Patch edits a span, so details outside it cannot be lost by a rewrite."""
 
-    def test_update_changes_content(self, memory_context: tuple[Database, User]) -> None:
-        """Should apply the new content and confirm the ID."""
+    def test_patch_replaces_a_unique_span(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Drinks oat milk lattes every morning", "preference")
+
+        result = _invoke(
+            [
+                {
+                    "action": "patch",
+                    "id": memory.id,
+                    "old_text": "oat milk lattes",
+                    "new_text": "black coffee",
+                }
+            ]
+        )
+
+        assert result.startswith(f"patched id={memory.id}")
+        assert "Drinks black coffee every morning" in result
+        assert database.list_memories(user.id)[0].content == "Drinks black coffee every morning"
+
+    def test_empty_new_text_removes_the_span(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea and coffee", "preference")
+
+        _invoke([{"action": "patch", "id": memory.id, "old_text": " and coffee", "new_text": ""}])
+
+        assert database.list_memories(user.id)[0].content == "Likes tea"
+
+    def test_missing_span_returns_the_current_text(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        """The model's copy may be stale: show it the real text so it can retry."""
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Has a golden retriever named Max", "fact")
+
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "a labrador", "new_text": "x"}]
+        )
+
+        assert "REJECTED (patch)" in result
+        assert "not found" in result
+        assert "Has a golden retriever named Max" in result
+        assert database.list_memories(user.id)[0].content == "Has a golden retriever named Max"
+
+    def test_ambiguous_span_asks_for_more_context(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Son plays tennis; daughter plays tennis", "fact")
+
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "tennis", "new_text": "golf"}]
+        )
+
+        assert "REJECTED (patch)" in result
+        assert "2 times" in result
+        assert (
+            database.list_memories(user.id)[0].content == "Son plays tennis; daughter plays tennis"
+        )
+
+    def test_category_only_change(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Training for a marathon", "context")
+
+        result = _invoke([{"action": "patch", "id": memory.id, "category": "goal"}])
+
+        assert result.startswith(f"patched id={memory.id}")
+        stored = database.list_memories(user.id)[0]
+        assert (stored.content, stored.category) == ("Training for a marathon", "goal")
+
+    @pytest.mark.parametrize(
+        ("op", "field"),
+        [
+            ({"old_text": "a", "new_text": "b"}, "id"),
+            ({"id": "ID"}, "old_text"),
+            ({"id": "ID", "old_text": "tea"}, "new_text"),
+        ],
+    )
+    def test_missing_field_is_named(
+        self, memory_context: tuple[Database, User], op: dict, field: str
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+        op = {k: (memory.id if v == "ID" else v) for k, v in op.items()}
+
+        result = _invoke([{"action": "patch", **op}])
+
+        assert "REJECTED (patch)" in result
+        assert field in result
+        assert database.list_memories(user.id)[0].content == "Likes tea"
+
+    def test_new_text_without_old_text_is_rejected(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        """Not a silent category-only change: the model meant to edit the text."""
         database, user = memory_context
         memory = database.add_memory(user.id, "Likes tea", "preference")
 
-        result = _invoke([{"action": "update", "id": memory.id, "content": "Likes green tea"}])
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "new_text": "Likes coffee", "category": "fact"}]
+        )
 
-        assert f"updated id={memory.id}" in result
-        assert database.list_memories(user.id)[0].content == "Likes green tea"
+        assert "REJECTED (patch)" in result
+        assert "old_text" in result
+        stored = database.list_memories(user.id)[0]
+        assert (stored.content, stored.category) == ("Likes tea", "preference")
 
-    def test_oversized_update_steers_to_a_separate_memory(
+    def test_unknown_category_is_rejected(self, memory_context: tuple[Database, User]) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+
+        result = _invoke([{"action": "patch", "id": memory.id, "category": "nonsense"}])
+
+        assert "REJECTED (patch)" in result
+        assert "preference" in result
+
+    def test_patch_that_empties_the_memory_points_to_delete(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "Likes tea", "new_text": ""}]
+        )
+
+        assert "REJECTED (patch)" in result
+        assert "'delete'" in result
+        assert database.list_memories(user.id)[0].content == "Likes tea"
+
+    def test_oversized_result_steers_to_a_separate_memory(
         self, memory_context: tuple[Database, User]
     ) -> None:
         """Prod logs (Oct 2026): 74 of 272 updates were over the limit, mostly
         catch-all memories absorbing unrelated facts - steer to 'add' instead."""
         database, user = memory_context
         memory = database.add_memory(user.id, "Likes tea", "preference")
-        oversized = "x" * (Config.MEMORY_MAX_ENTRY_CHARS + 1)
+        oversized = "x" * Config.MEMORY_MAX_ENTRY_CHARS
 
-        result = _invoke([{"action": "update", "id": memory.id, "content": oversized}])
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "tea", "new_text": oversized}]
+        )
 
-        assert "REJECTED (update)" in result
+        assert "REJECTED (patch)" in result
         assert "one topic" in result
         assert "'add'" in result
         assert database.list_memories(user.id)[0].content == "Likes tea"
 
-    def test_update_near_the_limit_suggests_add(
+    def test_result_near_the_limit_suggests_add(
         self, memory_context: tuple[Database, User]
     ) -> None:
-        """An update that succeeds but fills most of the entry gets the same nudge."""
         database, user = memory_context
         memory = database.add_memory(user.id, "Likes tea", "preference")
         near = "x" * int(Config.MEMORY_MAX_ENTRY_CHARS * Config.MEMORY_ENTRY_NEAR_LIMIT_RATIO)
 
-        result = _invoke([{"action": "update", "id": memory.id, "content": near}])
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "Likes tea", "new_text": near}]
+        )
 
-        assert f"updated id={memory.id}" in result
         assert f"{len(near)}/{Config.MEMORY_MAX_ENTRY_CHARS} chars" in result
         assert "'add'" in result
 
-    def test_small_update_has_no_nudge(self, memory_context: tuple[Database, User]) -> None:
+    def test_small_patch_has_no_nudge(self, memory_context: tuple[Database, User]) -> None:
         database, user = memory_context
         memory = database.add_memory(user.id, "Likes tea", "preference")
 
-        result = _invoke([{"action": "update", "id": memory.id, "content": "Likes green tea"}])
+        result = _invoke(
+            [{"action": "patch", "id": memory.id, "old_text": "tea", "new_text": "green tea"}]
+        )
 
         assert "'add'" not in result
 
     def test_unknown_id_is_reported(self, memory_context: tuple[Database, User]) -> None:
-        """A stale ID must surface, not vanish into the logs."""
-        _invoke([{"action": "add", "content": "Anything", "category": "fact"}])
+        result = _invoke(
+            [{"action": "patch", "id": "no-such-id", "old_text": "a", "new_text": "b"}]
+        )
 
-        result = _invoke([{"action": "update", "id": "no-such-id", "content": "New"}])
-
-        assert "REJECTED (update)" in result
+        assert "REJECTED (patch)" in result
         assert "no-such-id" in result
 
-    def test_update_of_another_users_memory_is_rejected(
-        self, memory_context: tuple[Database, User]
-    ) -> None:
-        """Ownership is enforced below the tool; the model still gets told."""
+    def test_another_users_memory_is_rejected(self, memory_context: tuple[Database, User]) -> None:
         database, _user = memory_context
         other = database.get_or_create_user(email="other@example.com", name="Other")
         theirs = database.add_memory(other.id, "Their secret", "fact")
 
-        result = _invoke([{"action": "update", "id": theirs.id, "content": "Hijacked"}])
+        result = _invoke(
+            [{"action": "patch", "id": theirs.id, "old_text": "secret", "new_text": "x"}]
+        )
 
-        assert "REJECTED (update)" in result
+        assert "REJECTED (patch)" in result
         assert database.list_memories(other.id)[0].content == "Their secret"
 
-    def test_missing_id_is_reported(self, memory_context: tuple[Database, User]) -> None:
-        """Should name the missing field."""
-        result = _invoke([{"action": "update", "content": "No id given"}])
+    def test_protected_memory_can_be_patched(self, memory_context: tuple[Database, User]) -> None:
+        """Protection blocks deletes only: a changed fact must still be correctable."""
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Lives in Brno", "fact", protected=True)
+
+        _invoke([{"action": "patch", "id": memory.id, "old_text": "Brno", "new_text": "Prague"}])
+
+        assert database.list_memories(user.id)[0].content == "Lives in Prague"
+
+    def test_two_patches_to_one_memory_apply_in_order(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea and jazz", "preference")
+
+        result = _invoke(
+            [
+                {"action": "patch", "id": memory.id, "old_text": "tea", "new_text": "coffee"},
+                {"action": "patch", "id": memory.id, "old_text": "jazz", "new_text": "blues"},
+            ]
+        )
+
+        assert "REJECTED" not in result
+        assert database.list_memories(user.id)[0].content == "Likes coffee and blues"
+
+    def test_update_action_points_to_patch(self, memory_context: tuple[Database, User]) -> None:
+        """Old conversations still show 'update' calls the model may imitate."""
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+
+        result = _invoke([{"action": "update", "id": memory.id, "content": "Likes coffee"}])
 
         assert "REJECTED (update)" in result
-        assert "id" in result
+        assert "'patch'" in result
+        assert database.list_memories(user.id)[0].content == "Likes tea"
 
 
 class TestWriteLogging:
     """The logs must show whether updates shrink memories (losing details) and
     why writes are refused - the TODO's lossy-write check needs both."""
 
-    def test_update_logs_old_and_new_length(
+    def test_patch_logs_old_and_new_length(
         self, memory_context: tuple[Database, User], caplog: pytest.LogCaptureFixture
     ) -> None:
         database, user = memory_context
         memory = database.add_memory(user.id, "Likes tea and coffee", "preference")
 
         with caplog.at_level(logging.INFO):
-            _invoke([{"action": "update", "id": memory.id, "content": "Likes tea"}])
+            _invoke(
+                [{"action": "patch", "id": memory.id, "old_text": " and coffee", "new_text": ""}]
+            )
 
         record = next(r for r in caplog.records if r.getMessage() == "Memory updated via tool")
         assert (record.old_chars, record.new_chars) == (20, 9)
@@ -211,10 +363,10 @@ class TestWriteLogging:
         self, memory_context: tuple[Database, User], caplog: pytest.LogCaptureFixture
     ) -> None:
         with caplog.at_level(logging.INFO):
-            _invoke([{"action": "update", "id": "no-such-id", "content": "New"}])
+            _invoke([{"action": "patch", "id": "no-such-id", "old_text": "a", "new_text": "b"}])
 
         record = next(r for r in caplog.records if r.getMessage() == "Memory write rejected")
-        assert record.action == "update"
+        assert record.action == "patch"
         assert record.reason.startswith("no memory with id=no-such-id")
 
 
@@ -256,51 +408,165 @@ class TestDeleteOperation:
 class TestBatchBehaviour:
     """Batch semantics: partial success, ordering, and the write budget."""
 
-    def test_partial_failure_reports_each_operation(
-        self, memory_context: tuple[Database, User]
-    ) -> None:
-        """One bad operation must not hide the good ones, or vice versa."""
+    def test_one_rejection_applies_nothing(self, memory_context: tuple[Database, User]) -> None:
+        """A merge is add + delete: applying half of it loses or duplicates a fact."""
         database, user = memory_context
+        old = database.add_memory(user.id, "Has a dog", "fact")
 
         result = _invoke(
             [
-                {"action": "add", "content": "Good one", "category": "fact"},
-                {"action": "update", "id": "missing", "content": "Bad one"},
-                {"action": "add", "content": "Another good one", "category": "goal"},
+                {"action": "add", "content": "Has a dog named Max", "category": "fact"},
+                {"action": "patch", "id": "missing", "old_text": "a", "new_text": "b"},
+                {"action": "delete", "id": old.id},
             ]
         )
 
         lines = result.splitlines()
-        assert len(lines) == 3
-        assert lines[0].startswith("added id=")
-        assert lines[1].startswith("REJECTED (update)")
-        assert lines[2].startswith("added id=")
-        assert len(database.list_memories(user.id)) == 2
+        assert len(lines) == 4
+        assert lines[0].startswith("Nothing was applied")
+        assert lines[1].startswith("not applied (add)")
+        assert lines[2].startswith("REJECTED (patch)")
+        assert lines[3].startswith("not applied (delete)")
+        assert [m.content for m in database.list_memories(user.id)] == ["Has a dog"]
+
+    def test_limits_are_checked_on_the_final_state(
+        self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """On a full bank, delete-one-add-one is fine whatever the order."""
+        database, user = memory_context
+        monkeypatch.setattr(Config, "MEMORY_MAX_ENTRIES", 1)
+        old = database.add_memory(user.id, "Has a dog", "fact")
+
+        result = _invoke(
+            [
+                {"action": "add", "content": "Has a dog named Max", "category": "fact"},
+                {"action": "delete", "id": old.id},
+            ]
+        )
+
+        assert "REJECTED" not in result
+        assert [m.content for m in database.list_memories(user.id)] == ["Has a dog named Max"]
+
+    def test_overflowing_adds_are_rejected_together(
+        self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        database, user = memory_context
+        monkeypatch.setattr(Config, "MEMORY_MAX_ENTRIES", 1)
+
+        result = _invoke(
+            [
+                {"action": "add", "content": "One", "category": "fact"},
+                {"action": "add", "content": "Two", "category": "fact"},
+            ]
+        )
+
+        assert "full" in result.lower()
+        assert database.list_memories(user.id) == []
+
+    def test_patch_after_delete_in_one_batch_is_rejected(
+        self, memory_context: tuple[Database, User]
+    ) -> None:
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+
+        result = _invoke(
+            [
+                {"action": "delete", "id": memory.id},
+                {"action": "patch", "id": memory.id, "old_text": "tea", "new_text": "coffee"},
+            ]
+        )
+
+        assert "REJECTED (patch)" in result
+        assert database.list_memories(user.id)[0].content == "Likes tea"
+
+    def test_memory_changed_meanwhile_is_reported(
+        self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A parallel edit between planning and writing rolls the batch back."""
+        import src.agent.tools.memory as memory_module
+
+        database, user = memory_context
+        memory = database.add_memory(user.id, "Likes tea", "preference")
+        real_apply = database.apply_memory_batch
+
+        def edit_first(*args: object, **kwargs: object) -> object:
+            with database._pool.get_connection() as conn:
+                conn.execute(
+                    "UPDATE user_memories SET content = 'Likes juice' WHERE id = ?", (memory.id,)
+                )
+                conn.commit()
+            return real_apply(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(memory_module.db, "apply_memory_batch", edit_first)
+
+        result = _invoke(
+            [
+                {"action": "add", "content": "Has a cat", "category": "fact"},
+                {"action": "patch", "id": memory.id, "old_text": "tea", "new_text": "coffee"},
+            ]
+        )
+
+        assert "Nothing was applied" in result
+        assert memory.id in result
+        assert [m.content for m in database.list_memories(user.id)] == ["Likes juice"]
 
     def test_unknown_action_is_reported(self, memory_context: tuple[Database, User]) -> None:
         """Should name the valid actions."""
         result = _invoke([{"action": "frobnicate", "content": "?"}])
 
         assert "REJECTED" in result
-        assert "add" in result and "update" in result and "delete" in result
+        assert "add" in result and "patch" in result and "delete" in result
 
-    def test_per_call_budget_caps_applied_operations(
+    def test_oversized_batch_is_rejected_whole(
         self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A mass rewrite is refused, and the refusal is visible.
 
         The operation list can be shaped by fetched web content, so one turn
-        must not be able to rewrite the whole bank.
+        must not be able to rewrite the whole bank. Cutting the batch instead
+        would apply half a merge and skip validating the rest.
         """
         database, user = memory_context
         monkeypatch.setattr(Config, "MEMORY_MAX_OPS_PER_CALL", 2)
 
         result = _invoke(
-            [{"action": "add", "content": f"Memory {i}", "category": "fact"} for i in range(5)]
+            [
+                {"action": "add", "content": "One", "category": "fact"},
+                {"action": "add", "content": "Two", "category": "fact"},
+                {"action": "delete", "id": "nope"},
+            ]
         )
 
-        assert "only the first 2" in result
-        assert len(database.list_memories(user.id)) == 2
+        assert "REJECTED" in result
+        assert "3 operations" in result and "2" in result
+        assert "Nothing was applied" in result
+        assert database.list_memories(user.id) == []
+
+    def test_failure_after_the_commit_does_not_claim_nothing_was_applied(
+        self, memory_context: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The writes landed: saying otherwise makes the model resubmit duplicates."""
+        import src.agent.tools.memory as memory_module
+
+        database, user = memory_context
+        gone = database.add_memory(user.id, "Old note", "context")
+
+        def locked(*_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("database is locked")
+
+        monkeypatch.setattr(memory_module.db, "delete_embedding", locked)
+
+        result = _invoke(
+            [
+                {"action": "add", "content": "New note", "category": "context"},
+                {"action": "delete", "id": gone.id},
+            ]
+        )
+
+        assert "Nothing was applied" not in result
+        assert "REJECTED" not in result
+        assert f"deleted id={gone.id}" in result
+        assert [m.content for m in database.list_memories(user.id)] == ["New note"]
 
     def test_empty_operations_list(self, memory_context: tuple[Database, User]) -> None:
         """Should not error on an empty batch."""
@@ -398,7 +664,7 @@ class TestMemoryEmbeddingHook:
         memory_id = result.split("id=")[1].split(" ")[0]
         assert calls == [(test_user.id, "memory", memory_id, "Loves hiking")]
 
-    def test_update_schedules_embedding(self, memory_context, monkeypatch) -> None:
+    def test_patch_schedules_embedding(self, memory_context, monkeypatch) -> None:
         calls: list[tuple] = []
         test_database, test_user = memory_context
         monkeypatch.setattr(
@@ -406,7 +672,7 @@ class TestMemoryEmbeddingHook:
         )
         memory = test_database.add_memory(test_user.id, "Old fact", "fact")
 
-        _invoke([{"action": "update", "id": memory.id, "content": "New fact"}])
+        _invoke([{"action": "patch", "id": memory.id, "old_text": "Old", "new_text": "New"}])
 
         assert (test_user.id, "memory", memory.id, "New fact") in calls
 

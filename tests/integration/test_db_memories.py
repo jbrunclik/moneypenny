@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from src.db.models.memory import MemoryWrite, MemoryWriteConflictError
+
 if TYPE_CHECKING:
     from src.db.models import Database, User
 
@@ -44,22 +46,6 @@ class TestMemoryCrud:
         assert memories[0].id == memory.id
         assert memories[0].content == "Has a dog named Max"
         assert memories[0].category == "fact"
-
-    def test_update_memory_content(self, test_database: Database, test_user: User) -> None:
-        """Should update content and bump updated_at."""
-        memory = test_database.add_memory(test_user.id, "Likes coffee", "preference")
-
-        assert test_database.update_memory(memory.id, test_user.id, "Likes dark roast coffee")
-
-        memories = test_database.list_memories(test_user.id)
-        assert memories[0].content == "Likes dark roast coffee"
-
-    def test_update_memory_wrong_user(self, test_database: Database, test_user: User) -> None:
-        """Should refuse updates from a different user."""
-        memory = test_database.add_memory(test_user.id, "Likes coffee", "preference")
-
-        assert test_database.update_memory(memory.id, "other-user", "Hijacked") is False
-        assert test_database.list_memories(test_user.id)[0].content == "Likes coffee"
 
     def test_get_memory_count(self, test_database: Database, test_user: User) -> None:
         """Should count only this user's memories."""
@@ -164,15 +150,6 @@ class TestSoftDelete:
         memory = test_database.add_memory(test_user.id, "Live", "fact")
 
         assert test_database.restore_memory(memory.id, test_user.id) is False
-
-    def test_deleted_memory_cannot_be_updated(
-        self, test_database: Database, test_user: User
-    ) -> None:
-        """A soft-deleted memory is invisible to updates too."""
-        memory = test_database.add_memory(test_user.id, "Gone", "fact")
-        test_database.delete_memory(memory.id, test_user.id)
-
-        assert test_database.update_memory(memory.id, test_user.id, "Resurrected") is False
 
     def test_purge_removes_only_expired_rows(
         self, test_database: Database, test_user: User
@@ -285,3 +262,99 @@ class TestUsersWithMemoryCounts:
 
         results = test_database.get_users_with_memory_counts(min_memories=1)
         assert [(u.id, count) for u, count in results] == [(test_user.id, 1)]
+
+
+class TestApplyMemoryBatch:
+    """manage_memory's batch lands in one transaction: all of it or none."""
+
+    def test_applies_add_patch_and_delete_together(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        kept = test_database.add_memory(test_user.id, "Likes coffee", "preference")
+        gone = test_database.add_memory(test_user.id, "Old note", "context")
+
+        new_ids = test_database.apply_memory_batch(
+            test_user.id,
+            "conv-1",
+            [
+                MemoryWrite(
+                    "patch",
+                    memory_id=kept.id,
+                    content="Likes dark roast coffee",
+                    expected="Likes coffee",
+                    category="fact",
+                ),
+                MemoryWrite("delete", memory_id=gone.id),
+                MemoryWrite("add", content="Has a dog", category="fact"),
+            ],
+        )
+
+        memories = {m.id: m for m in test_database.list_memories(test_user.id)}
+        assert memories[kept.id].content == "Likes dark roast coffee"
+        assert memories[kept.id].category == "fact"
+        assert gone.id not in memories
+        assert new_ids[0] is None and new_ids[1] is None
+        added = memories[str(new_ids[2])]
+        assert (added.content, added.source_conversation_id) == ("Has a dog", "conv-1")
+
+    def test_stale_patch_rolls_back_the_whole_batch(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        """A memory edited after the batch was planned must not be overwritten."""
+        memory = test_database.add_memory(test_user.id, "Likes coffee", "preference")
+
+        with pytest.raises(MemoryWriteConflictError) as excinfo:
+            test_database.apply_memory_batch(
+                test_user.id,
+                None,
+                [
+                    MemoryWrite("add", content="Never stored", category="fact"),
+                    MemoryWrite("patch", memory_id=memory.id, content="X", expected="Likes tea"),
+                ],
+            )
+
+        assert excinfo.value.memory_id == memory.id
+        assert [m.content for m in test_database.list_memories(test_user.id)] == ["Likes coffee"]
+
+    def test_another_users_memory_is_a_conflict(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        memory = test_database.add_memory(test_user.id, "Likes coffee", "preference")
+
+        with pytest.raises(MemoryWriteConflictError):
+            test_database.apply_memory_batch(
+                "other-user",
+                None,
+                [
+                    MemoryWrite(
+                        "patch", memory_id=memory.id, content="Hijacked", expected="Likes coffee"
+                    )
+                ],
+            )
+
+        assert test_database.list_memories(test_user.id)[0].content == "Likes coffee"
+
+    def test_deleted_memory_cannot_be_patched(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        memory = test_database.add_memory(test_user.id, "Gone", "fact")
+        test_database.delete_memory(memory.id, test_user.id)
+
+        with pytest.raises(MemoryWriteConflictError):
+            test_database.apply_memory_batch(
+                test_user.id,
+                None,
+                [MemoryWrite("patch", memory_id=memory.id, content="Back", expected="Gone")],
+            )
+
+    def test_protected_memory_delete_is_a_conflict(
+        self, test_database: Database, test_user: User
+    ) -> None:
+        memory = test_database.add_memory(test_user.id, "Allergic", "fact", protected=True)
+
+        with pytest.raises(MemoryWriteConflictError):
+            test_database.apply_memory_batch(
+                test_user.id, None, [MemoryWrite("delete", memory_id=memory.id)]
+            )
+
+        assert len(test_database.list_memories(test_user.id)) == 1
