@@ -12,6 +12,7 @@ bad item never stops the tick.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -30,6 +31,9 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 WATCH_MAX_INTERVAL_HOURS = 168
+_ONE_OFFS = {"reminder", "check_in"}
+# Patched in tests: the tick's elapsed time for SCHEDULE_TICK_BUDGET_SECONDS
+_monotonic = time.monotonic
 _PUSH_BODY_CHARS = 160
 
 
@@ -58,16 +62,40 @@ def next_watch_run(
 
 
 def run_due_items(now: datetime) -> ItemsResult:
-    """Handle every item due by `now`; returns what was done."""
+    """Handle every item due by `now`; returns what was done.
+
+    One-offs (a push, no model call) go first. No model run starts once the
+    tick has used SCHEDULE_TICK_BUDGET_SECONDS - the scheduler process is
+    killed a little later - so the rest wait for the next tick, unchanged.
+    """
     result = ItemsResult()
     db.reset_stale_runs(now, Config.SCHEDULE_RUN_STALE_MINUTES)
-    for item in db.claim_due_items(now):
+    claimed = sorted(db.claim_due_items(now), key=lambda i: i.kind not in _ONE_OFFS)
+    started = _monotonic()
+    for item in claimed:
+        if (
+            item.kind not in _ONE_OFFS
+            and _monotonic() - started > Config.SCHEDULE_TICK_BUDGET_SECONDS
+        ):
+            db.finish_item_run(
+                item.id, item.next_run_at, item.last_result, item.quiet_runs, item.failures
+            )
+            continue
         try:
             _handle(item, now, result)
         except Exception:  # one bad item must not stop the others
             logger.exception("Scheduled item failed", extra={"item_id": item.id})
-            _give_back(item, now, failed=True)
+            _recover(item, now)
     return result
+
+
+def _recover(item: ScheduledItem, now: datetime) -> None:
+    """Give a failed item back; a second error is logged, never raised (the
+    agents run after this pass in the same tick)."""
+    try:
+        _give_back(item, now, failed=True)
+    except Exception:  # the stale reset picks it up later
+        logger.exception("Scheduled item recovery failed", extra={"item_id": item.id})
 
 
 def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
@@ -116,12 +144,14 @@ def _apply_outcome(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> N
         else:
             _give_back(item, now, failed=True)
         return
-    if outcome.status == "silent":
-        _finish(item, now, item.last_result, item.quiet_runs + 1)
-        return
     if outcome.status == "done" and item.kind == "watcher":
-        deliver(item, outcome.text, delivery_label(item.kind, now, tz, "found"), outcome=outcome)
+        # A bare [DONE] still says what was found (the watcher is gone after this)
+        text = outcome.text or f"Found: {item.end_condition} ({item.text})"
+        deliver(item, text, delivery_label(item.kind, now, tz, "found"), outcome=outcome)
         db.delete_item(item.id)
+        return
+    if outcome.status == "silent" or not outcome.text:  # an empty report tells nothing
+        _finish(item, now, item.last_result, item.quiet_runs + 1)
         return
     tag = "update" if item.kind == "watcher" else None
     deliver(item, outcome.text, delivery_label(item.kind, now, tz, tag), outcome=outcome)

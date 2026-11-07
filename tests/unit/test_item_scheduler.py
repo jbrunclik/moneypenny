@@ -338,3 +338,86 @@ def test_one_bad_item_does_not_stop_the_tick(
     result = item_scheduler.run_due_items(_NOW)
 
     assert result.fired == 1
+
+
+def test_a_bare_done_delivers_what_was_found(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    _watcher(db, test_user, test_conversation)
+    runs.return_value = RunOutcome("done", "")
+
+    item_scheduler.run_due_items(_NOW)
+
+    [(text, label)] = _deliveries(db, test_conversation)
+    assert text == "Found: a teacher job is posted (the school's job board)"
+    assert label == "Watcher · found"
+    assert push.call_args.args[2] == text
+
+
+def test_an_empty_recurring_report_is_silent(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    _add(
+        db, test_user, test_conversation, kind="recurring", schedule="0 9 * * 1", text="School menu"
+    )
+    runs.return_value = RunOutcome("done", "")
+
+    item_scheduler.run_due_items(_NOW)
+
+    assert db.get_messages(test_conversation.id) == []
+    push.assert_not_called()
+
+
+def test_one_offs_fire_before_model_runs(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    order: list[str] = []
+    runs.side_effect = lambda *a: order.append("run") or RunOutcome("silent", "")
+    push.side_effect = lambda *a, **k: order.append("push")
+    _watcher(db, test_user, test_conversation, next_run_at=_NOW - timedelta(minutes=5))
+    _add(db, test_user, test_conversation, next_run_at=_NOW)
+
+    item_scheduler.run_due_items(_NOW)
+
+    assert order == ["push", "run"]
+
+
+def test_model_runs_stop_at_the_tick_budget(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The scheduler service is killed after 300 s: no new run starts past the budget
+    monkeypatch.setattr(Config, "SCHEDULE_TICK_BUDGET_SECONDS", 240)
+    ticks = iter([0.0, 0.0, 250.0])
+    monkeypatch.setattr(item_scheduler, "_monotonic", lambda: next(ticks, 250.0))
+    first = _watcher(db, test_user, test_conversation, next_run_at=_NOW - timedelta(minutes=2))
+    second = _watcher(db, test_user, test_conversation, next_run_at=_NOW - timedelta(minutes=1))
+
+    result = item_scheduler.run_due_items(_NOW)
+
+    assert result.run == 1
+    stored = db.get_item(second.id, test_user.id)
+    assert stored is not None
+    assert (stored.status, stored.next_run_at, stored.failures) == ("active", second.next_run_at, 0)
+    assert db.get_item(first.id, test_user.id).next_run_at > _NOW  # type: ignore[union-attr]
+
+
+def test_a_failing_recovery_does_not_stop_the_tick(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _watcher(db, test_user, test_conversation)
+    runs.side_effect = RuntimeError("boom")
+    monkeypatch.setattr(item_scheduler, "_give_back", MagicMock(side_effect=RuntimeError("locked")))
+
+    result = item_scheduler.run_due_items(_NOW)  # must not raise
+
+    assert result.run == 1

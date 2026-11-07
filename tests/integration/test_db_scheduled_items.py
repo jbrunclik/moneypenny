@@ -185,3 +185,16 @@ def test_message_delivery_round_trips(
     messages = test_database.get_messages(test_conversation.id)
 
     assert [m.delivery for m in messages] == [label, None]
+
+
+def test_a_stale_reset_counts_a_failure(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    # A run killed mid-way (scheduler timeout) must not re-run forever unbilled
+    item = test_database.add_item(_item(test_user, test_conversation, kind="watcher", failures=1))
+    test_database.claim_due_items(_NOW)
+
+    test_database.reset_stale_runs(_NOW + timedelta(minutes=31), 30)
+
+    stored = test_database.get_item(item.id, test_user.id)
+    assert stored is not None and stored.failures == 2

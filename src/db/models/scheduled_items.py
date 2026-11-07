@@ -163,12 +163,14 @@ class ScheduledItemsMixin:
             conn.commit()
 
     def reset_stale_runs(self, now: datetime, stale_minutes: int) -> int:
-        """Give back items whose run never finished (a crashed scheduler)."""
+        """Give back items whose run never finished (a crashed or killed scheduler),
+        counting it as a failure - a run that always dies must not re-run forever."""
         cutoff = to_db(now - timedelta(minutes=stale_minutes))
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE scheduled_items SET status = 'active', claimed_at = NULL
+                """UPDATE scheduled_items
+                   SET status = 'active', claimed_at = NULL, failures = failures + 1
                    WHERE status = 'running' AND claimed_at <= ?""",
                 (cutoff,),
             )
