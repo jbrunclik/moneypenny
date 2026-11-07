@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from dataclasses import asdict
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -18,12 +18,13 @@ import pytest
 
 from src.config import Config
 from src.services.planner.dashboard import build_planner_dashboard
+from src.utils.clock import local_today
 from src.utils.weather import WeatherForecast, WeatherPeriod
 
 GARMIN_SEAM = "src.services.planner.garmin.create_client_from_tokens"
 WEATHER_SEAM = "src.services.planner.weather.get_weather_for_location"
 
-TODAY = date.today()
+TODAY = local_today()  # the household day, as the dashboard builds it
 D = [(TODAY + timedelta(days=i)).isoformat() for i in range(11)]
 YESTERDAY = (TODAY - timedelta(days=1)).isoformat()
 
@@ -492,7 +493,7 @@ class TestFullDashboard:
 
         output = asdict(dashboard)
         server_time = output.pop("server_time")
-        assert datetime.fromisoformat(server_time).date() == TODAY
+        assert local_today(datetime.fromisoformat(server_time)) == TODAY
         assert output == _expected_dashboard()
 
         weather.assert_called_once_with("Prague", db=db, force_refresh=False)

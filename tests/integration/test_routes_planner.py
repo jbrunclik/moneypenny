@@ -22,7 +22,7 @@ from src.services.planner.models import (
     PlannerTask,
     PlannerWeather,
 )
-from src.utils.clock import utc_now
+from src.utils.clock import local_today, utc_now
 
 if TYPE_CHECKING:
     from src.db.models import Database, User
@@ -87,7 +87,8 @@ class TestGetPlannerDashboard:
         data = json.loads(response.data)
 
         assert data["days"][0]["day_name"] == "Today"
-        assert data["days"][0]["date"] == datetime.now(UTC).strftime("%Y-%m-%d")
+        # The household's day (APP_TIMEZONE), not UTC's: they differ around midnight
+        assert data["days"][0]["date"] == local_today().isoformat()
 
     def test_second_day_is_tomorrow(
         self,
@@ -100,9 +101,9 @@ class TestGetPlannerDashboard:
         assert response.status_code == 200
         data = json.loads(response.data)
 
-        tomorrow = datetime.now(UTC) + timedelta(days=1)
+        tomorrow = local_today() + timedelta(days=1)
         assert data["days"][1]["day_name"] == "Tomorrow"
-        assert data["days"][1]["date"] == tomorrow.strftime("%Y-%m-%d")
+        assert data["days"][1]["date"] == tomorrow.isoformat()
 
     def test_no_integrations_connected(
         self,
