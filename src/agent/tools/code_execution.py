@@ -4,10 +4,11 @@ import base64
 import contextlib
 import json
 import os as local_os
+import re
 import subprocess
 import tempfile
 import threading
-from typing import Any
+from typing import Any, Protocol
 
 from langchain_core.tools import tool
 
@@ -20,6 +21,11 @@ from src.agent.tools.code_execution_output import (
     wrap_user_code,
 )
 from src.agent.tools.context import get_conversation_context
+from src.agent.tools.conversation_files import (
+    ConversationFile,
+    load_conversation_file,
+    parse_file_id,
+)
 from src.agent.tools.errors import tool_error
 from src.agent.tools.permission_check import check_autonomous_permission
 from src.agent.tools.sandbox_sessions import OWNER_PID_LABEL, get_sandbox_pool
@@ -332,8 +338,84 @@ def _log_execution_result(result: Any, response: dict[str, Any]) -> None:
         )
 
 
+ATTACHMENTS_DIR = "/work/attachments"
+
+
+class _CopyTarget(Protocol):
+    """The sandbox session's copy-in method (llm-sandbox)."""
+
+    def copy_to_runtime(self, src: str, dest: str) -> None: ...
+
+
+def _attachment_path(name: str, taken: set[str]) -> str:
+    """A safe, unused path in ATTACHMENTS_DIR for an uploaded file's name.
+
+    Directories and leading dots are dropped (no traversal, no hidden files);
+    a repeated name gets -2, -3... before its extension.
+    """
+    base = (
+        re.sub(r"[^\w.\- ]", "_", local_os.path.basename(name.replace("\\", "/"))).lstrip(". ")
+        or "file"
+    )
+    stem, ext = local_os.path.splitext(base)
+    candidate, n = base, 1
+    while candidate in taken:
+        n += 1
+        candidate = f"{stem}-{n}{ext}"
+    taken.add(candidate)
+    return f"{ATTACHMENTS_DIR}/{candidate}"
+
+
+def _load_attachments(file_ids: list[str]) -> list[ConversationFile] | str:
+    """Every requested attachment, or the tool error for the first that fails.
+
+    All are checked before anything is copied: the code must not run on a
+    partial set of inputs.
+    """
+    limit = Config.CODE_SANDBOX_MAX_ATTACHMENTS
+    if len(file_ids) > limit:
+        return tool_error(f"At most {limit} files per call; {len(file_ids)} were listed.")
+    loaded: list[ConversationFile] = []
+    for file_id in file_ids:
+        parsed = parse_file_id(str(file_id))
+        if parsed is None:
+            return tool_error(
+                f"'{file_id}' is not a file id. Use the history's 'message_id:file_index' form."
+            )
+        result = load_conversation_file(*parsed)
+        if isinstance(result, str):
+            return result
+        if len(result.data) > Config.MAX_FILE_SIZE_BYTES:
+            return tool_error(
+                f"'{result.name}' is {len(result.data)} bytes; the limit is {Config.MAX_FILE_SIZE_BYTES}."
+            )
+        loaded.append(result)
+    return loaded
+
+
+def _copy_attachments(
+    session: _CopyTarget, files: list[ConversationFile]
+) -> list[dict[str, object]]:
+    """Copy the attachments into the sandbox; their paths for the result."""
+    taken: set[str] = set()
+    copied: list[dict[str, object]] = []
+    for file in files:
+        path = _attachment_path(file.name, taken)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(file.data)
+        try:
+            session.copy_to_runtime(tmp.name, path)
+        finally:
+            with contextlib.suppress(OSError):
+                local_os.unlink(tmp.name)
+        copied.append(
+            {"file_id": file.file_id, "path": path, "name": file.name, "size": len(file.data)}
+        )
+    return copied
+
+
 @tool
-def execute_code(code: str) -> str:
+def execute_code(code: str, files: list[str] | None = None) -> str:
     """Execute Python code in a secure, isolated sandbox environment.
 
     Use this tool for tasks that require computation, data processing, or generating files.
@@ -366,6 +448,13 @@ def execute_code(code: str) -> str:
     - Variables do NOT persist - each call is a fresh Python process
     - /output/ is cleared at the start of every call
 
+    ## Files From the Conversation
+    - The user's uploads are NOT in the sandbox until you list them in `files`:
+      give their ids from the history metadata ("message_id:file_index"); they
+      are copied to /work/attachments/ before your code runs, and the result's
+      `attachments` gives each path. This is the only way to measure, parse or
+      convert an uploaded file (a PDF plan, a spreadsheet, a photo).
+
     ## Best Practices
     - Print results you want to show the user
     - For plots: use plt.savefig() or plt.show() - plots are captured automatically
@@ -397,6 +486,8 @@ def execute_code(code: str) -> str:
 
     Args:
         code: Python code to execute. Should be complete, runnable code.
+        files: Optional ids of conversation files ("message_id:file_index")
+            to copy into /work/attachments/ first (at most 5 per call).
 
     Returns:
         JSON with stdout, stderr, exit_code, and any generated files.
@@ -417,6 +508,10 @@ def execute_code(code: str) -> str:
 
     if not code or not code.strip():
         return tool_error("Code cannot be empty.")
+
+    attachments = _load_attachments(files) if files else []
+    if isinstance(attachments, str):
+        return attachments
 
     logger.info(
         "execute_code called",
@@ -440,11 +535,14 @@ def execute_code(code: str) -> str:
             # Libraries are pre-installed in the image - run the code directly.
             # Server-side Stop kills the running program (not the container:
             # /work must survive) and the turn ends at the next checkpoint.
+            copied = _copy_attachments(session, attachments)
             raise_if_cancelled()
             with on_cancel(lambda: _kill_user_code(session)):
                 result = session.run(wrapped_code)
 
             response = _collect_execution_response(session, result)
+            if files:
+                response["attachments"] = copied
             _log_execution_result(result, response)
             return json.dumps(response)
 

@@ -60,6 +60,7 @@ CODE_SANDBOX_IMAGE=moneypenny-sandbox:local  # Custom Docker image (required)
 CODE_SANDBOX_TIMEOUT_SECONDS=30                      # Execution timeout in seconds
 CODE_SANDBOX_MEMORY_LIMIT=512m               # Container memory limit
 CODE_SANDBOX_CPU_LIMIT=1.0                   # CPU limit (1.0 = 1 core)
+CODE_SANDBOX_MAX_ATTACHMENTS=5               # Conversation files execute_code may copy into /work/attachments/ per call
 CODE_SANDBOX_MAX_SESSIONS=2                  # Pooled sessions per worker
 CODE_SANDBOX_SESSION_TTL_SECONDS=900         # Idle session lifetime
 ```

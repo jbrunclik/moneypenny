@@ -534,3 +534,114 @@ class TestKillUserCode:
             cancellation.unregister_token("req-code-kill")
             set_current_request_id(None)
         assert cancel_took[0] < 0.5
+
+
+class TestExecuteCodeAttachments:
+    """execute_code(files=[...]) copies conversation attachments into
+    /work/attachments/ before the code runs (the floor-plan failure: the model
+    had no way to open an uploaded PDF in the sandbox)."""
+
+    @staticmethod
+    def _pool(session: MagicMock) -> MagicMock:
+        result = MagicMock(exit_code=0, stdout="ok\n", stderr="", plots=[])
+        session.run.return_value = result
+        pool = MagicMock()
+        pool.session.return_value.__enter__ = MagicMock(return_value=session)
+        pool.session.return_value.__exit__ = MagicMock(return_value=False)
+        return pool
+
+    def _invoke(self, session: MagicMock, loader: object, **args: object) -> dict:
+        from src.agent.tools.context import set_conversation_context
+
+        set_conversation_context("conv-1", "user-1")
+        try:
+            with (
+                patch("src.agent.tools.code_execution.Config.CODE_SANDBOX_ENABLED", True),
+                patch("src.agent.tools.code_execution._check_docker_available", return_value=True),
+                patch(
+                    "src.agent.tools.code_execution.get_sandbox_pool",
+                    return_value=self._pool(session),
+                ),
+                patch("src.agent.tools.code_execution.load_conversation_file", side_effect=loader),
+            ):
+                return json.loads(execute_code.invoke({"code": "print('ok')", **args}))
+        finally:
+            set_conversation_context(None, None)
+
+    @staticmethod
+    def _file(name: str = "plan.pdf", data: bytes = b"PDF") -> object:
+        from src.agent.tools.conversation_files import ConversationFile
+
+        return lambda message_id, index: ConversationFile(
+            f"{message_id}:{index}", name, "application/pdf", data
+        )
+
+    def test_files_are_copied_before_the_code_runs(self) -> None:
+        session = MagicMock()
+        order: list[str] = []
+        session.copy_to_runtime.side_effect = lambda src, dest: order.append(f"copy {dest}")
+        session.run.side_effect = lambda code: (
+            order.append("run") or MagicMock(exit_code=0, stdout="ok\n", stderr="", plots=[])
+        )
+
+        result = self._invoke(session, self._file(), files=["m1:0"])
+
+        assert order[:2] == ["copy /work/attachments/plan.pdf", "run"]
+        assert result["attachments"] == [
+            {"file_id": "m1:0", "path": "/work/attachments/plan.pdf", "name": "plan.pdf", "size": 3}
+        ]
+
+    def test_a_file_that_cannot_be_loaded_stops_the_run(self) -> None:
+        session = MagicMock()
+
+        result = self._invoke(
+            session, lambda m, i: json.dumps({"error": "Message not found: m9"}), files=["m9:0"]
+        )
+
+        assert "Message not found" in result["error"]
+        session.run.assert_not_called()
+
+    def test_a_malformed_file_id_is_refused(self) -> None:
+        session = MagicMock()
+
+        result = self._invoke(session, self._file(), files=["nonsense"])
+
+        assert "message_id:file_index" in result["error"]
+        session.run.assert_not_called()
+
+    def test_more_files_than_the_limit_are_refused(self) -> None:
+        session = MagicMock()
+
+        result = self._invoke(session, self._file(), files=[f"m{i}:0" for i in range(6)])
+
+        assert "5" in result["error"]
+        session.copy_to_runtime.assert_not_called()
+
+    def test_files_over_the_size_limit_are_refused(self) -> None:
+        from src.config import Config
+
+        session = MagicMock()
+        big = b"x" * (Config.MAX_FILE_SIZE_BYTES + 1)
+
+        result = self._invoke(session, self._file(data=big), files=["m1:0"])
+
+        assert "error" in result
+        session.copy_to_runtime.assert_not_called()
+
+    def test_without_files_nothing_changes(self) -> None:
+        session = MagicMock()
+
+        result = self._invoke(session, self._file())
+
+        session.copy_to_runtime.assert_not_called()
+        assert "attachments" not in result
+
+    def test_attachment_paths_are_safe_and_distinct(self) -> None:
+        from src.agent.tools.code_execution import _attachment_path
+
+        taken: set[str] = set()
+        assert _attachment_path("../../etc/passwd", taken) == "/work/attachments/passwd"
+        assert _attachment_path(".env", taken) == "/work/attachments/env"
+        assert _attachment_path("", taken) == "/work/attachments/file"
+        assert _attachment_path("plan.pdf", taken) == "/work/attachments/plan.pdf"
+        assert _attachment_path("plan.pdf", taken) == "/work/attachments/plan-2.pdf"

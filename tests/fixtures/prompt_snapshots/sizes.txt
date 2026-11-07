@@ -7,13 +7,13 @@ static prompt
   sports         41738
   language       46840
 
-tool declarations (35 tools, 56389 chars)
+tool declarations (35 tools, 57015 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
   delegate_task                  878
   delete_place                   325
-  execute_code                  2655
+  execute_code                  3281
   fetch_url                      992
   garmin_connect                4533
   garmin_workout                3774

@@ -688,6 +688,9 @@ class Config:
     )  # seconds
     CODE_SANDBOX_MEMORY_LIMIT: str = os.getenv("CODE_SANDBOX_MEMORY_LIMIT", "512m")
     CODE_SANDBOX_CPU_LIMIT: float = float(os.getenv("CODE_SANDBOX_CPU_LIMIT", "1.0"))
+    # Conversation attachments execute_code may copy into /work/attachments/
+    # per call (each also capped at MAX_FILE_SIZE_BYTES)
+    CODE_SANDBOX_MAX_ATTACHMENTS: int = int(os.getenv("CODE_SANDBOX_MAX_ATTACHMENTS", "5"))
     # Docker image for sandbox (custom image with pre-installed fonts and
     # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
     # networking disabled, so every library must be baked into the image;
