@@ -727,6 +727,52 @@
     }
   },
   {
+    "description": "Set reminders and recurring tasks for the user, and manage them.\n\nUse for \"remind me ...\", \"every Monday check ...\", \"what reminders do I\nhave?\", \"cancel/pause ...\". Times are in the household's local time.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree,\ncall again with the same fields and confirm=true.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date = YYYY-MM-DD, time = HH:MM.\n  - kind=\"task\": a recurring check you will run and report on. text =\n    the task in your own words (what to check and what to tell the user;\n    reply exactly [SILENT] when there is nothing new), days = list of\n    mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"], time = HH:MM.\nlist: the reminders and chat-created tasks, with their ids.\npause / resume (tasks) and delete (reminders or tasks): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder or task (create).\n    text: The reminder text, or the task to run (create).\n    date: YYYY-MM-DD (reminder).\n    time: HH:MM, 24-hour, local time (create).\n    days: Days for a task: mon..sun, or daily, weekdays, weekends.\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview.",
+    "name": "schedule",
+    "parameters": {
+      "properties": {
+        "action": {
+          "type": "STRING"
+        },
+        "kind": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "text": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "date": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "time": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "days": {
+          "items": {
+            "type": "STRING"
+          },
+          "nullable": true,
+          "type": "ARRAY"
+        },
+        "item_id": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "confirm": {
+          "type": "BOOLEAN"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "schedule",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Search the user's past conversations for something previously discussed.\n\nUse this when the user refers to an earlier discussion (\"what did we decide\nabout...\", \"the recipe you gave me\", \"that error from last month\") or when\nyou need context that is not in the current conversation and not in your\nstored memories. It also covers the earlier part of THIS conversation once\nit has been condensed into a summary - search it when you need an exact\ndetail (number, name, wording) the summary left out. Do NOT use it for\ngeneral knowledge questions - it only searches this user's own chat history.\nBefore asking the user to repeat something they told you in an earlier\nconversation, search for it.\n\nArgs:\n    query: Words or a short phrase. Matches both keywords and meaning\n        (semantic), so a paraphrase of what was discussed also works.\n    limit: Maximum number of results to return (1-25, default 10).\n\nReturns:\n    Matching conversations with dates, titles and matching snippets.",
     "name": "search_conversations",
     "parameters": {

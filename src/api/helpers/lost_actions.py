@@ -39,6 +39,7 @@ SIDE_EFFECT_TOOLS = frozenset(
         "create_artifact",
         "update_artifact",
         "trigger_agent",
+        "schedule",
         "browser",
     }
 )

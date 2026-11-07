@@ -691,6 +691,8 @@ class Config:
     # Conversation attachments execute_code may copy into /work/attachments/
     # per call (each also capped at MAX_FILE_SIZE_BYTES)
     CODE_SANDBOX_MAX_ATTACHMENTS: int = int(os.getenv("CODE_SANDBOX_MAX_ATTACHMENTS", "5"))
+    # Reminders + recurring tasks a user may have set from chat at once (schedule tool)
+    SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
     # Docker image for sandbox (custom image with pre-installed fonts and
     # libraries - see docker/code-sandbox/Dockerfile). The sandbox runs with
     # networking disabled, so every library must be baked into the image;

@@ -211,6 +211,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Noted settled facts",
         "icon": "edit",
     },
+    "schedule": {
+        "label": "Scheduling",
+        "label_past": "Scheduled",
+        "icon": "history",
+    },
 }
 
 # Place/routing tools share one detail formatter.
@@ -231,6 +236,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "trigger_agent",
         "propose_deep_research",
         "record_conversation_facts",  # behind CONVERSATION_FACTS_ENABLED
+        "schedule",  # ordinary non-anonymous chats only
     }
 )
 
@@ -624,6 +630,16 @@ def _approval_detail(args: dict[str, Any]) -> str | None:
     return _snippet(str(args["action_description"]), 70)
 
 
+def _schedule_detail(tool_args: dict[str, object]) -> str | None:
+    """'preview: Call the plumber', 'reminder: Call the plumber', 'list'..."""
+    action = str(tool_args.get("action") or "")
+    if action != "create":
+        return action or None
+    text = str(tool_args.get("text") or "")
+    label = str(tool_args.get("kind") or "create") if tool_args.get("confirm") else "preview"
+    return f"{label}: {_snippet(text, 50)}" if text else label
+
+
 def _facts_detail(tool_args: dict[str, object]) -> str | None:
     """Fact edits as their keys - e.g. 'partition-walls, -blinds'."""
     sets = tool_args.get("set")
@@ -664,6 +680,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "request_approval": _approval_detail,
     "set_conversation_title": _truthy_arg("title"),
     "record_conversation_facts": _facts_detail,
+    "schedule": _schedule_detail,
 }
 
 

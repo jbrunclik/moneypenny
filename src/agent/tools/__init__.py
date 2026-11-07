@@ -59,6 +59,7 @@ from src.agent.tools.planner import (
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
 from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
+from src.agent.tools.scheduling import schedule
 from src.agent.tools.skills import load_skill
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
@@ -249,6 +250,10 @@ def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
     # elsewhere the tool's edits would be discarded while it answers "recorded"
     if Config.CONVERSATION_FACTS_ENABLED and not anonymous_mode:
         tools.append(record_conversation_facts)
+    # Reminders and recurring tasks from chat: not in anonymous chats, and never
+    # for agents - a scheduled run must not schedule more
+    if not anonymous_mode:
+        tools.append(schedule)
     return tools
 
 
@@ -372,6 +377,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "refresh_planner_dashboard",  # planner mode only
         "request_approval",  # autonomous agents only
         "propose_deep_research",  # ordinary chats only, never for agents
+        "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",
         "update_artifact",

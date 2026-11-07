@@ -7,7 +7,7 @@ static prompt
   sports         41757
   language       46859
 
-tool declarations (35 tools, 57915 chars)
+tool declarations (36 tools, 59795 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
@@ -34,6 +34,7 @@ tool declarations (35 tools, 57915 chars)
   retrieve_file                 1587
   rouvy_workout                 1035
   save_place                     650
+  schedule                      1880
   search_conversations          1225
   search_memory                  586
   search_places                  762
