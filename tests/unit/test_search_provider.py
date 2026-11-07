@@ -34,6 +34,7 @@ from src.services.search_provider import (
     search_web_detailed,
     usage_key,
 )
+from src.utils.clock import local_today
 
 
 @pytest.fixture(autouse=True)
@@ -1330,11 +1331,10 @@ class TestQuotaStatus:
         assert status["ddgs"]["quota"] is None  # unmetered fallback
 
     def test_degraded_today(self) -> None:
-        from datetime import date
 
         from src.services import search_provider
 
-        store = {f"degraded-alert:{date.today().isoformat()}": "1"}
+        store = {f"degraded-alert:{local_today().isoformat()}": "1"}
         with patch.object(search_provider, "db", _stateful_db(store)):
             assert search_provider.degraded_today() is True
         with patch.object(search_provider, "db", _stateful_db({})):

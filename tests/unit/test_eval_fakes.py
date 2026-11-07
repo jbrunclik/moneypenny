@@ -7,17 +7,18 @@ tools through them.
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from evals.fakes import FakeTodoist, describe_actions, fake_integrations
+from src.utils.clock import local_today
 
 
 def _todoist() -> dict:
     """Fixture dated from the moment the test runs, not from import time
     (a suite that ran across midnight saw yesterday's "today")."""
-    today = date.today()
+    today = local_today()
     return {
         "projects": [{"id": "p1", "name": "Work"}, {"id": "p2", "name": "Personal"}],
         "sections": [{"id": "s1", "project_id": "p2", "name": "Errands"}],

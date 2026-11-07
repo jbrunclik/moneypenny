@@ -6,7 +6,7 @@ running evals hits the live Gemini API and happens via `make eval`, never in CI.
 
 import json
 import os
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,7 @@ from evals.run import (
     turn_cost,
     write_results,
 )
+from src.utils.clock import local_today
 
 
 def _write_case(directory: Path, name: str, body: str) -> None:
@@ -65,7 +66,7 @@ expect:
 
         rubric = load_cases(tmp_path)[0].rubric
 
-        today = date.today()
+        today = local_today()
         later = today + timedelta(days=10)
         assert rubric == (f"Today is {today:%A} {today.isoformat()}; in 10 days is {later:%A}.")
 
@@ -79,7 +80,7 @@ expect:
 
         rubric = load_cases(tmp_path)[0].rubric
 
-        today = date.today()
+        today = local_today()
         days = [today + timedelta(days=n) for n in (-1, 1, -3, 2)]
         assert rubric == " ".join(d.isoformat() for d in days) + " {next_week}"
 
