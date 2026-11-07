@@ -281,7 +281,7 @@ def _google_calendar_list_events(
     if not isinstance(events, dict):
         raise Exception("Unexpected response from Google Calendar")
     formatted_events = [_format_calendar_event(e) for e in events.get("items", [])]
-    return {
+    result = {
         "action": "list_events",
         "calendar_id": calendar_id,
         "time_min": time_min_val,
@@ -289,6 +289,14 @@ def _google_calendar_list_events(
         "count": len(formatted_events),
         "events": formatted_events,
     }
+    # Directive on the result, where the model reads it: a cut list read as
+    # the whole range ("that's everything on Friday")
+    if events.get("nextPageToken"):
+        result["incomplete"] = (
+            f"More events exist in this range beyond these {len(formatted_events)}. "
+            "Narrow time_min/time_max or raise max_results before saying that's everything."
+        )
+    return result
 
 
 def _google_calendar_get_event(token: str, calendar_id: str, event_id: str) -> dict[str, Any]:

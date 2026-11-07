@@ -71,6 +71,14 @@ The `todoist` tool exposes granular actions for full Todoist management.
 |--------|------------|-------------|
 | `list_collaborators` | `project_id` | List all collaborators in a shared project. Returns collaborator IDs, names, and emails for use with task assignment. |
 
+### Paged Lists (Nov 2026)
+
+API v1 returns lists 50 per page with a `next_cursor`. `todoist_api_request` follows the
+cursor (up to `MAX_LIST_PAGES`, 10) and returns one list, so tasks, projects and sections
+come back whole; stopping at the first page handed a user with 51+ tasks the first 50 as
+if they were all. What reaches the model is then capped by `TODOIST_MAX_TASK_RESULTS`,
+with a `truncated` note naming how many more matched.
+
 ### Todoist Filter Syntax Examples
 
 - `today` - Tasks due today

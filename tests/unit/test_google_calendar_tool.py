@@ -304,3 +304,35 @@ class TestGoogleCalendarTool:
 
         assert "error" in parsed
         assert "response_status" in parsed["error"].lower()
+
+
+class TestListEventsCompleteness:
+    """A cut list must say so, or the model reports a partial day as the whole day."""
+
+    @staticmethod
+    def _list(events: dict) -> dict:
+        from src.agent.tools import google_calendar
+
+        with (
+            patch("src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_ID", "test-id"),
+            patch(
+                "src.agent.tools.google_calendar.Config.GOOGLE_CALENDAR_CLIENT_SECRET",
+                "test-secret",
+            ),
+            patch(
+                "src.agent.tools.google_calendar._get_google_calendar_access_token",
+                return_value=("tok", "user@example.com"),
+            ),
+            patch(
+                "src.agent.tools.google_calendar._google_calendar_api_request", return_value=events
+            ),
+        ):
+            return json.loads(google_calendar.invoke({"action": "list_events", "max_results": 1}))
+
+    def test_more_pages_are_reported_as_incomplete(self) -> None:
+        result = self._list({"items": [{"id": "e1", "summary": "A"}], "nextPageToken": "next"})
+
+        assert "max_results" in result["incomplete"]
+
+    def test_a_complete_list_carries_no_note(self) -> None:
+        assert "incomplete" not in self._list({"items": [{"id": "e1", "summary": "A"}]})

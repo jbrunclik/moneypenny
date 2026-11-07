@@ -78,6 +78,12 @@ shared "disconnected - reconnect in Settings" result
 | `delete_event` | `calendar_id`, `event_id`, optional `send_updates` | Delete an event (confirm first) |
 | `respond_event` | `calendar_id`, `event_id`, `response_status` | RSVP to invitations (accepted/tentative/declined) |
 
+
+**Cut lists say so (Nov 2026):** `list_events` asks for one page; when Google returns a
+`nextPageToken` (more events than `max_results`, or 250), the result carries an
+`incomplete` note telling the model to narrow the range or raise `max_results` before
+saying that's everything - a cut list was read as the whole day.
+
 ## Strategic Guidance
 
 The LLM acts as an executive strategist:

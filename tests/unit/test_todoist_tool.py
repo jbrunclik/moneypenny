@@ -295,3 +295,41 @@ class TestTodoistTool:
         assert len(parsed["tasks"]) == 1
         assert parsed["tasks"][0]["assignee_id"] == "user-1"
         assert parsed["tasks"][0]["assigner_id"] == "user-2"
+
+
+class TestTodoistListPagination:
+    """API v1 lists come 50 per page with a next_cursor: the client follows it,
+    or a user with 51+ tasks silently got the first 50 ("that's all")."""
+
+    @staticmethod
+    def _page(items: list[dict], cursor: str | None) -> MagicMock:
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"results": items, "next_cursor": cursor}
+        return response
+
+    def test_follows_next_cursor_until_the_last_page(self) -> None:
+        from src.agent.tools import todoist_client
+
+        pages = [
+            self._page([{"id": "1"}], "c1"),
+            self._page([{"id": "2"}], "c2"),
+            self._page([{"id": "3"}], None),
+        ]
+        with patch.object(todoist_client.httpx, "get", side_effect=pages) as get:
+            items = todoist_client.todoist_api_request(
+                "GET", "/tasks", "tok", params={"project_id": "p"}
+            )
+
+        assert items == [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        assert get.call_args_list[1].kwargs["params"] == {"project_id": "p", "cursor": "c1"}
+        assert get.call_args_list[2].kwargs["params"] == {"project_id": "p", "cursor": "c2"}
+
+    def test_stops_at_the_page_bound(self) -> None:
+        from src.agent.tools import todoist_client
+
+        endless = [self._page([{"id": str(i)}], f"c{i}") for i in range(50)]
+        with patch.object(todoist_client.httpx, "get", side_effect=endless) as get:
+            items = todoist_client.todoist_api_request("GET", "/tasks", "tok")
+
+        assert get.call_count == todoist_client.MAX_LIST_PAGES
+        assert len(items) == todoist_client.MAX_LIST_PAGES
