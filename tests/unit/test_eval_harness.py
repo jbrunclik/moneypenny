@@ -783,3 +783,48 @@ expect: {rubric: r}
             run._run_turn(case, MagicMock(id="u"), "c", "r", None, None)
 
         assert agent.chat_batch.call_args.kwargs["conversation_facts"] == []
+
+
+class TestHistoryFiles:
+    """A file on an earlier turn (the floor-plan situation): stored like an
+    upload, and listed in the history metadata the way production lists it."""
+
+    def test_history_files_parse(self, tmp_path: Path) -> None:
+        _write_case(
+            tmp_path,
+            "plan.yaml",
+            """
+id: plan
+description: file on an earlier turn
+history:
+  - role: user
+    content: Here is our flat
+    files: [fixtures/floor_plan.pdf]
+  - role: assistant
+    content: Got it.
+user: total area?
+expect:
+  rubric: says the area
+""",
+        )
+        case = load_cases(tmp_path)[0]
+        assert case.history[0]["files"] == ["fixtures/floor_plan.pdf"]
+        assert "files" not in case.history[1]
+
+    def test_history_files_are_stored_and_listed(self, test_database, test_user) -> None:
+        from evals.run import _history_with_files
+
+        conv = test_database.create_conversation(test_user.id, "Flat")
+        history = [
+            {"role": "user", "content": "Here is our flat", "files": ["fixtures/floor_plan.pdf"]},
+            {"role": "assistant", "content": "Got it."},
+        ]
+
+        built = _history_with_files(history, test_database, conv.id)
+
+        listed = built[0]["metadata"]["files"][0]
+        assert listed["name"] == "floor_plan.pdf"
+        assert listed["file_index"] == 0
+        stored = test_database.get_message_by_id(listed["message_id"])
+        assert stored is not None and stored.conversation_id == conv.id
+        assert built[1]["role"] == "assistant"

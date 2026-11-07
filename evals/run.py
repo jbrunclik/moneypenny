@@ -187,6 +187,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                         "role": str(h["role"]),
                         "content": str(h["content"]),
                         **({"metadata": dict(h["metadata"])} if h.get("metadata") else {}),
+                        **({"files": [str(f) for f in h["files"]]} if h.get("files") else {}),
                     }
                     for h in (data.get("history") or [])
                 ],
@@ -620,9 +621,49 @@ def _seed_case(
     ]
     history = with_artifact_ids(case.history, artifact_ids) or None
     summarizer_usage = {"input": 0.0, "output": 0.0}
+    if history and any(turn.get("files") for turn in history) and not case.compact_history:
+        history = _history_with_files(history, db, conversation_id)
     if case.compact_history:
         history, summarizer_usage = _compacted_history(case, user, db, conversation_id)
     return seeded_memory_ids, history, summarizer_usage
+
+
+def _history_with_files(
+    history: list[dict[str, Any]], db: Any, conversation_id: str
+) -> list[dict[str, Any]]:
+    """Store a history whose turns carry files, as the app stores uploads.
+
+    Each turn becomes a message of the eval conversation; its fixture files go
+    to the blob store under that message, and the history the turn sees is
+    built by enrich_history - so the files are listed (message_id, file_index)
+    exactly as in production and the tools can load them.
+    """
+    import base64
+    import mimetypes
+
+    from src.agent.history import enrich_history
+    from src.db.models.helpers import save_file_to_blob_store
+    from src.utils.files import UploadedFile
+
+    messages = []
+    for turn in history:
+        files: list[UploadedFile] = []
+        for rel_path in turn.get("files") or []:
+            fixture = Path(__file__).parent / rel_path
+            files.append(
+                UploadedFile(
+                    name=fixture.name,
+                    type=mimetypes.guess_type(fixture.name)[0] or "application/octet-stream",
+                    data=base64.b64encode(fixture.read_bytes()).decode(),
+                )
+            )
+        message = db.add_message(
+            conversation_id, turn["role"], turn["content"], files=files or None
+        )
+        for index, file in enumerate(files):
+            save_file_to_blob_store(message.id, index, file)
+        messages.append(message)
+    return enrich_history(messages)
 
 
 def _sports_context(case: EvalCase) -> dict[str, Any] | None:

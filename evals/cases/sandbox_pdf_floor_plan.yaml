@@ -1,0 +1,24 @@
+id: sandbox_pdf_floor_plan
+description: >
+  The floor-plan failure (Oct 2026): a PDF uploaded on an earlier turn is only
+  listed in the history now. Measuring and drawing from it needs the file in
+  the code sandbox - execute_code(files=...) and the sandbox PDF library
+requires: [code_sandbox]
+history:
+  - role: user
+    content: Here is the floor plan of our flat.
+    files: [fixtures/floor_plan.pdf]
+  - role: assistant
+    content: Got it - I have the floor plan. What would you like to do with it?
+user: >
+  Using the floor plan I sent, draw both rooms to scale as a PNG with each
+  room's area written inside it, and tell me the total floor area to two
+  decimals.
+expect:
+  rubric: >
+    Reads the real dimensions from the plan (Room A 4.20 x 3.50 m, Room B
+    3.10 x 2.80 m), returns a PNG drawing of the two rooms, and states the
+    total floor area as 23.38 m2 (14.70 + 8.68). Guessed or hedged
+    dimensions fail; claiming the file cannot be opened fails.
+  required_tools: [execute_code]
+  max_tool_rounds: 6
