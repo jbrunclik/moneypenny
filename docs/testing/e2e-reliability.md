@@ -377,6 +377,16 @@ by guessing):
 
 ## Open flakes
 
+**Evidence before pruning (Nov 2026).** A pruned CI run takes its job log (with the mock
+server's `SLOW`/`INFLIGHT` lines) and artifacts with it: download both first
+(`gh run view --job <id> --log`, `gh run download <run>`). The WebKit `page.goto`
+stalls - blank page (the app's `<body>` is empty until JS boots, so blank does not mean
+the HTML never came), no `load` event in 30 s, retry passes, five tests in three days, not
+reproducible on macOS WebKit - lost theirs that way. CI now keeps the failing first
+attempt's trace on WebKit (`trace: 'retain-on-first-failure'`: its network log names the
+request that never finished) and uploads `test-results/` plus `e2e-server.log` on every
+run, so a quarantined stall still leaves evidence.
+
 CI fails when a test passes only on a retry (T6, `web/tests/flaky-gate.ts`), unless
 `web/tests/e2e/flaky-quarantine.json` lists it with the entry below that tracks it.
 Fix a flake: delete its entry here and in the quarantine list together.

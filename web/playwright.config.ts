@@ -66,6 +66,11 @@ export default defineConfig({
       retries: process.env.CI ? 3 : 0,
       use: {
         ...devices['Desktop Safari'],
+        // CI keeps the trace of a FAILED FIRST attempt: the WebKit page.goto
+        // stalls (blank page, no load event, retry passes) left no trace -
+        // on-first-retry only records the retry, which passes. Its network
+        // log names the request that never finished.
+        trace: process.env.CI ? 'retain-on-first-failure' : 'on-first-retry',
         // Increase viewport height to reduce whitespace in visual tests
         viewport: { width: 1280, height: 1024 },
       },

@@ -371,12 +371,18 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+      # Always, not only on failure: a quarantined flake passes the job, and
+      # its first-attempt trace and the server log are the only evidence of
+      # what stalled (the WebKit page.goto stalls, Nov 2026)
       - name: Upload test results
         uses: actions/upload-artifact@v7
-        if: failure()
+        if: always()
         with:
           name: e2e-test-results-${{ matrix.project }}-${{ strategy.job-index }}
-          path: web/test-results/
+          path: |
+            web/test-results/
+            e2e-server.log
+          if-no-files-found: ignore
           retention-days: 7
 
   # Visual regression tests run inside the Playwright Docker container so
