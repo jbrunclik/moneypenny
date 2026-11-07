@@ -69,5 +69,11 @@
     "title": "deleting a message does not trigger a full re-render on the next poll",
     "project": "webkit",
     "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
+  },
+  {
+    "file": "e2e/search.spec.ts",
+    "title": "handles rapid search result clicks gracefully",
+    "project": "webkit",
+    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
   }
 ]
