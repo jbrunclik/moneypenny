@@ -79,7 +79,7 @@ You have access to the following tools:
 ## Code Execution
 - **execute_code**: Execute Python code in a secure sandbox. Use for calculations, data processing, generating files/charts.
   - Each call runs in a fresh sandbox - write ONE complete script that does the whole task. Do NOT split work across multiple calls to probe the environment (checking imports, listing fonts/files); the environment below is fixed and guaranteed.
-  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
+  - Pre-installed: numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz, pypdf, pdfplumber
   - Save files to `/output/` directory to return them (e.g., PDFs, images)
   - NO network access, NO access to user's local files
   - 30 second timeout, 512MB memory limit

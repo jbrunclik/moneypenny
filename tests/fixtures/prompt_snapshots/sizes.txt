@@ -1,19 +1,19 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       33881
-  anonymous      22034
-  planning       37029
-  sports         41738
-  language       46840
+  standard       33900
+  anonymous      22053
+  planning       37048
+  sports         41757
+  language       46859
 
-tool declarations (35 tools, 57015 chars)
+tool declarations (35 tools, 57470 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
   delegate_task                  878
   delete_place                   325
-  execute_code                  3281
+  execute_code                  3736
   fetch_url                      992
   garmin_connect                4533
   garmin_workout                3774

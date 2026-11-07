@@ -434,7 +434,14 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
     - JSON/CSV data transformation
 
     ## Pre-installed Libraries
-    numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz
+    numpy, pandas, matplotlib, scipy, sympy, pillow, reportlab, fpdf2, requests, beautifulsoup4, lxml, openpyxl, python-docx, python-pptx, python-dateutil, pytz, pypdf, pdfplumber
+
+    ## Reading PDFs
+    - Start with `from sandbox_helpers import pdf_overview; pdf_overview(path)`: what
+      each page holds, and which pages have no text (scanned - render and look at them)
+    - pdfplumber: `page.extract_text()`, `page.extract_words()` (with coordinates),
+      drawn lines/rectangles in `page.lines` / `page.rects` (measure plans from them),
+      `page.find_tables()`, `page.to_image(resolution=150).save(...)` to render a page
 
     ## Limitations
     - NO network access (cannot fetch URLs, APIs, or download anything)

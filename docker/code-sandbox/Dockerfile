@@ -31,8 +31,14 @@ RUN pip install --no-cache-dir \
     python-docx \
     python-pptx \
     python-dateutil \
-    pytz
+    pytz \
+    pypdf \
+    pdfplumber
+
+# Helpers importable from user code (from sandbox_helpers import pdf_overview)
+COPY sandbox_helpers.py /opt/helpers/sandbox_helpers.py
+ENV PYTHONPATH=/opt/helpers
 
 # Add labels to identify our custom image and enable cleanup of old versions
 LABEL moneypenny.sandbox=true \
-      moneypenny.version=1.1
+      moneypenny.version=1.2
