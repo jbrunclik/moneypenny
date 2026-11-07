@@ -319,7 +319,7 @@ class TestRetrieveFile:
 
     def test_requires_conversation_context(self) -> None:
         with patch(
-            "src.agent.tools.file_retrieval.get_conversation_context",
+            "src.agent.tools.conversation_files.get_conversation_context",
             return_value=(None, None),
         ):
             result = self._invoke()
@@ -328,10 +328,10 @@ class TestRetrieveFile:
     def test_rejects_unowned_conversation(self) -> None:
         with (
             patch(
-                "src.agent.tools.file_retrieval.get_conversation_context",
+                "src.agent.tools.conversation_files.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.tools.file_retrieval.db") as mock_db,
+            patch("src.agent.tools.conversation_files.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = None
             result = self._invoke()
@@ -343,10 +343,10 @@ class TestRetrieveFile:
         message.conversation_id = "conv-OTHER"
         with (
             patch(
-                "src.agent.tools.file_retrieval.get_conversation_context",
+                "src.agent.tools.conversation_files.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.tools.file_retrieval.db") as mock_db,
+            patch("src.agent.tools.conversation_files.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = MagicMock()
             mock_db.get_message_by_id.return_value = message
@@ -359,10 +359,10 @@ class TestRetrieveFile:
         message.files = [{"name": "a.png"}]
         with (
             patch(
-                "src.agent.tools.file_retrieval.get_conversation_context",
+                "src.agent.tools.conversation_files.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.tools.file_retrieval.db") as mock_db,
+            patch("src.agent.tools.conversation_files.db") as mock_db,
         ):
             mock_db.get_conversation.return_value = MagicMock()
             mock_db.get_message_by_id.return_value = message
