@@ -1,10 +1,12 @@
 """Cost calculation utilities for tracking LLM usage costs."""
 
 import json
+from datetime import datetime
 from typing import Any
 
 from src.config import Config
 from src.db.models import db
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -25,16 +27,26 @@ def get_currency_rates() -> dict[str, float]:
     return Config.CURRENCY_RATES.copy()
 
 
-def get_model_pricing(model_name: str) -> dict[str, float]:
-    """Get pricing for a model.
+def get_model_pricing(model_name: str, at: datetime | None = None) -> dict[str, float]:
+    """Get pricing for a model as it stands at a given instant.
 
     Args:
-        model_name: The model identifier
+        model_name: The model identifier (unknown models price as 3.8 Flash)
+        at: The instant the tokens were used; now when omitted
 
     Returns:
-        Dict with 'input' and 'output' prices per million tokens
+        Dict with 'input', 'cached_input' and 'output' prices per million
+        tokens (plus 'image_output' for the image model), with the latest
+        MODEL_PRICING_CHANGES entry in force at ``at`` applied
     """
-    return Config.MODEL_PRICING.get(model_name, Config.MODEL_PRICING["gemini-3.8-flash"])
+    if model_name not in Config.MODEL_PRICING:
+        model_name = "gemini-3.8-flash"
+    when = at or utc_now()
+    pricing = dict(Config.MODEL_PRICING[model_name])
+    for effective, rates in Config.MODEL_PRICING_CHANGES.get(model_name, []):
+        if effective <= when:
+            pricing.update(rates)
+    return pricing
 
 
 def calculate_token_cost(
@@ -88,7 +100,7 @@ def calculate_image_generation_cost(usage_metadata: dict[str, Any]) -> float:
 
     # Input (prompt) is charged at the input rate, image output at the image
     # rate, and text + thinking output at the (much lower) text output rate
-    pricing = Config.MODEL_PRICING[Config.IMAGE_GENERATION_MODEL]
+    pricing = get_model_pricing(Config.IMAGE_GENERATION_MODEL)
     input_cost = (prompt_tokens / 1_000_000) * pricing["input"]
     image_cost = (image_tokens / 1_000_000) * pricing["image_output"]
     text_output_cost = (text_output_tokens / 1_000_000) * pricing["output"]

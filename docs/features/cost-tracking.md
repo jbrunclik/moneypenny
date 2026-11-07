@@ -165,6 +165,18 @@ make update-currency  # Fetch and update rates immediately
 - If API fetch fails, existing rates are preserved
 - Rates are loaded fresh from DB on each currency conversion (no app restart needed)
 
+## Price Changes (Nov 2026)
+
+A cost is calculated once, when the message is saved, and stored; the charts,
+the admin overview and the daily spend warning all read the stored values. So a
+provider price change only has to apply from its effective instant on:
+`get_model_pricing(model, at=None)` starts from `MODEL_PRICING` and applies every
+`MODEL_PRICING_CHANGES` entry in force at `at` (now when omitted). Add a known
+future change there ahead of time - no deploy on the day - and keep
+`MODEL_PRICING` as the rates before the first change, so older costs and tests
+that pin a date stay right. Tests that assert a rate pin the clock
+(`src.utils.clock._now`), or they break on the switch date.
+
 ## Configuration
 
 ```bash
@@ -175,11 +187,19 @@ COST_CURRENCY=CZK  # Display currency (default: CZK)
 ```python
 # src/config.py
 MODEL_PRICING = {
-    "gemini-3-flash-preview": {
-        "input": 0.30,   # Per million tokens
-        "output": 1.20,  # Per million tokens
+    "gemini-3.8-flash": {
+        "input": 0.75,         # Per million tokens
+        "cached_input": 0.075,
+        "output": 3.75,        # Per million tokens (thinking included)
     },
     # ... other models
+}
+
+# Dated changes, in date order: from that instant, get_model_pricing() applies them
+MODEL_PRICING_CHANGES = {
+    "gemini-3.8-flash": [
+        (datetime(2027, 1, 1, tzinfo=UTC), {"input": 1.50, "cached_input": 0.15, "output": 7.50}),
+    ],
 }
 
 CURRENCY_RATES = {

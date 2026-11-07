@@ -1,4 +1,5 @@
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -186,8 +187,8 @@ class Config:
     # short TTLs, so it is negligible.
     MODEL_PRICING: ClassVar[dict[str, dict[str, float]]] = {
         "gemini-3.8-flash": {
-            # Introductory pricing through Dec 31, 2026; doubles to
-            # $1.50 / $0.15 / $7.50 on Jan 1, 2027
+            # Introductory pricing through Dec 31, 2026; the Jan 1, 2027
+            # rates are in MODEL_PRICING_CHANGES
             "input": 0.75,  # $0.75 per million input tokens
             "cached_input": 0.075,
             "output": 3.75,  # $3.75 per million output tokens
@@ -236,6 +237,21 @@ class Config:
             "output": 12.00,  # $12.00 per million output tokens (text + thinking)
             "image_output": 120.00,  # $120.00 per million image output tokens (~$0.134/1K image)
         },
+    }
+
+    # Dated price changes, applied by services.costs.get_model_pricing to costs
+    # recorded from that instant on (MODEL_PRICING holds the rates before the
+    # first change), in date order. Rates are per million tokens, as in
+    # MODEL_PRICING.
+    MODEL_PRICING_CHANGES: ClassVar[dict[str, list[tuple[datetime, dict[str, float]]]]] = {
+        "gemini-3.8-flash": [
+            # ai.google.dev pricing: the introductory rates double (context
+            # cache storage too, $0.50 -> $1.00 per 1M tokens per hour)
+            (
+                datetime(2027, 1, 1, tzinfo=UTC),
+                {"input": 1.50, "cached_input": 0.15, "output": 7.50},
+            ),
+        ],
     }
 
     # Currency conversion rates (USD to other currencies)

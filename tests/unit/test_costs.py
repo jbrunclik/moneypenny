@@ -1,5 +1,7 @@
 """Unit tests for src/services/costs.py."""
 
+from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import ClassVar
 
 import pytest
@@ -12,6 +14,52 @@ from src.services.costs import (
     format_cost,
     get_model_pricing,
 )
+
+# Rates are date-aware (Flash doubles on Jan 1 2027): the fixed-rate tests
+# below run on a fixed day, not on whatever day the suite runs
+_BEFORE_SWITCH = datetime(2026, 11, 15, 12, tzinfo=UTC)
+_JAN_1_2027 = datetime(2027, 1, 1, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _pinned_clock(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
+    from src.utils import clock
+
+    monkeypatch.setattr(clock, "_now", lambda: _BEFORE_SWITCH)
+    yield
+
+
+class TestDatedPricing:
+    """Gemini 3.8 Flash's introductory rates double on Jan 1 2027: costs
+    recorded from then on (and the charts and spend warning built on them)
+    must use the new rates without a deploy on the day."""
+
+    def test_flash_keeps_introductory_rates_until_the_switch(self) -> None:
+        pricing = get_model_pricing(
+            "gemini-3.8-flash", at=datetime(2026, 12, 31, 23, 59, tzinfo=UTC)
+        )
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (0.75, 0.075, 3.75)
+
+    def test_flash_doubles_on_jan_1_2027(self) -> None:
+        pricing = get_model_pricing("gemini-3.8-flash", at=_JAN_1_2027)
+        assert (pricing["input"], pricing["cached_input"], pricing["output"]) == (1.50, 0.15, 7.50)
+
+    def test_defaults_to_the_current_time(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.utils import clock
+
+        monkeypatch.setattr(clock, "_now", lambda: datetime(2027, 3, 1, tzinfo=UTC))
+        assert get_model_pricing("gemini-3.8-flash")["output"] == 7.50
+        assert calculate_token_cost("gemini-3.8-flash", 1_000_000, 1_000_000) == pytest.approx(9.00)
+
+    def test_models_without_a_change_keep_their_rates(self) -> None:
+        assert get_model_pricing("gemini-3.1-pro-preview", at=_JAN_1_2027)["output"] == 12.00
+
+    def test_unknown_model_falls_back_to_flash_at_that_date(self) -> None:
+        assert get_model_pricing("unknown-model-xyz", at=_JAN_1_2027)["output"] == 7.50
+
+    def test_the_schedule_does_not_mutate_the_base_table(self) -> None:
+        get_model_pricing("gemini-3.8-flash", at=_JAN_1_2027)
+        assert get_model_pricing("gemini-3.8-flash", at=_BEFORE_SWITCH)["output"] == 3.75
 
 
 class TestGetModelPricing:
