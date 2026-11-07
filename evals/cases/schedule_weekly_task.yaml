@@ -1,0 +1,19 @@
+id: schedule_weekly_task
+description: >
+  A recurring task in Czech becomes a preview of a weekly schedule (every
+  Monday 09:00) - built from structured fields, confirmed before it exists
+user: >
+  Každé pondělí v 9 ráno mi zkontroluj školní jídelníček na
+  https://www.zs-lipova.cz/jidelna a napiš mi, co bude ten týden k obědu.
+expect:
+  rubric: >
+    Answers in Czech. Describes a recurring task every Monday at 09:00 that
+    checks the school lunch menu, and asks the user to confirm before it is
+    created. Calling the schedule tool to get a preview is expected and
+    correct (the preview stores nothing). Must NOT claim the task is
+    already set up.
+  required_tools: [schedule]
+  forbidden_arg_patterns:
+    schedule.confirm:
+      - "^True$"
+  max_tool_rounds: 3

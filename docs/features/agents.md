@@ -186,6 +186,33 @@ In development (`FLASK_ENV=development`), `start_dev_scheduler()` runs a backgro
 
 In production a systemd timer runs `scripts/run_agent_scheduler.py` every minute to check for due agents (see [Scheduled Jobs](../architecture/scheduled-jobs.md)). Never run a scheduler thread inside the web workers.
 
+## Scheduling From Chat (Nov 2026)
+
+The `schedule` tool (`src/agent/tools/scheduling.py`, ordinary non-anonymous chats only -
+never agents, so a scheduled run cannot schedule more) sets reminders and recurring tasks
+from a message ("remind me Friday at 8...", "every Monday check...") and lists, pauses,
+resumes and deletes them.
+
+- **Confirmed in chat:** `create` without `confirm=true` returns a `PREVIEW:` and stores
+  nothing; the model shows it, and only after the user agrees calls again with
+  `confirm=true`.
+- **Built by code:** the model fills structured fields - `date` + `time` for a reminder,
+  `days` (mon..sun, daily, weekdays, weekends) + `time` for a task - and
+  `src/utils/schedule_spec.py` builds the UTC instant or cron string in
+  `Config.APP_TIMEZONE` (a time already past is refused, naming the local time).
+- **Reminders** are rows in `reminders`, pushed by the every-minute scheduler with no
+  model call (`send_due_reminders`, before agents run). Due rows are claimed in one
+  `UPDATE ... RETURNING`, so overlapping runs never send one twice; the push opens the
+  conversation it was set in.
+- **Recurring tasks** are ordinary agents (description `Created from chat: ...`,
+  `tool_permissions=[]` - the always-safe read-only tools only), visible in the Command
+  Center. Text goes through the injection scan; at most `SCHEDULE_MAX_ACTIVE_PER_USER`
+  (20) active reminders + chat tasks per user.
+- **Silent runs:** the autonomous-agent prompt says to reply exactly `[SILENT]` when a
+  check finds nothing new; the executor saves it as "Nothing new." and skips the push
+  (`is_silent_reply`, `should_push_run`).
+- Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_weekly_task`.
+
 ## Agent Execution Flow
 
 1. **Check pending approvals**: Skip if agent has an unresolved/unexpired approval request

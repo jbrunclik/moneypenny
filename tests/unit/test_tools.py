@@ -64,6 +64,7 @@ def _names(**kwargs: Any) -> set[str]:
 # Bound in ordinary chats on top of get_available_tools(), never for agents/programs
 _ORDINARY_CHAT_ONLY = {"propose_deep_research", "schedule"}
 
+
 class TestGetToolsForRequest:
     """Tests for get_tools_for_request function."""
 

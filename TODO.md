@@ -77,9 +77,7 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 ## Integrations & proactive nudges
 
 - [ ] **Gmail integration** - read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): what needs a reply, invoices, feed for briefings/agents. (Bespoke module: an MCP client is parked, decided Oct 26 2026.)
-- [ ] **Scheduling from chat** (Oct 26 2026, Hermes `cronjob_manage`) - nobody can say "remind me Friday at 8 to call the plumber" or "every Monday check the school menu and tell me": agents are created only in the Command Center form. One tool that creates a one-shot reminder (a push) or a prompt-only agent, after a confirmation card; the schedule is parsed by code, not the model ("in 2 hours", "every monday 9am", "weekdays at 7"; `cron/jobs.py:705-783`); scheduled runs cannot schedule more; the injection scan runs on the stored prompt; list/pause/delete from chat too.
-- [ ] **Quieter, smarter watchers** (Oct 26 2026, Hermes cron/loops) - every scheduled run pushes today (`executor.py`, `send_push_to_user` after each non-manual run), whether or not anything changed:
-  - **Silent runs** - the agent replies a fixed marker (`[SILENT]`) when there is nothing to report: the run is saved, no push (`cron/scheduler_prompt.py:259-279`). Optional cheap pre-check (a page or API hash) skips the model call when nothing changed (`cron/monitor.py`).
+- [ ] **Quieter, smarter watchers** (Oct 26 2026, Hermes cron/loops) - silent runs shipped Nov 7 2026 (a run replying `[SILENT]` saves "Nothing new." and does not push); still open:
   - **Self-stopping watchers** - "track this parcel / price until X": a done marker disables the agent; checks back off while the result stays the same (`hermes_cli/loops.py`).
   - **One alert per failure** - a broken agent pushes an error once per error signature, with a later reminder, not on every run (`cron.md`, incidents).
   - **Replies continue the delivery** - write the delivered result into the conversation as a labelled turn, so "tell me more about point 3" after the Daily Briefing push has the briefing in context; check what the agent conversation offers today first.

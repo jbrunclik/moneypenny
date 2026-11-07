@@ -1,0 +1,15 @@
+id: schedule_reminder_preview
+description: >
+  A reminder request is previewed and confirmed with the user - nothing is
+  scheduled without a yes (schedule tool, create without confirm)
+user: "Připomeň mi prosím zítra v 8 ráno, ať zavolám instalatérovi."
+expect:
+  rubric: >
+    Answers in Czech. States the reminder it would set (call the plumber,
+    tomorrow at 08:00) and asks the user to confirm. Must NOT claim the
+    reminder is already set.
+  required_tools: [schedule]
+  forbidden_arg_patterns:
+    schedule.confirm:
+      - "^True$"
+  max_tool_rounds: 2

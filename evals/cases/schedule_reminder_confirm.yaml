@@ -1,0 +1,16 @@
+id: schedule_reminder_confirm
+description: >
+  After the preview, the user's yes stores the reminder (schedule create with
+  confirm=true) and the reply confirms the time
+history:
+  - role: user
+    content: "Připomeň mi prosím zítra v 8 ráno, ať zavolám instalatérovi."
+  - role: assistant
+    content: "Mám nastavit připomínku na zítra v 8:00: „Zavolat instalatérovi“? Potvrď prosím a nastavím ji."
+user: "Ano, nastav ji."
+expect:
+  rubric: >
+    Confirms in Czech that the reminder to call the plumber is set for
+    tomorrow at 08:00. Must not claim failure or ask again.
+  required_tools: [schedule]
+  max_tool_rounds: 2

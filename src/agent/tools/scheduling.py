@@ -76,6 +76,7 @@ def _store(
 ) -> str:
     tz = Config.APP_TIMEZONE
     if kind == "reminder":
+        # tz-naive: value is the isoformat of the aware UTC instant one_off_instant built
         reminder = db.add_reminder(user_id, conversation_id, text, datetime.fromisoformat(value))
         logger.info(
             "Reminder scheduled from chat", extra={"user_id": user_id, "reminder_id": reminder.id}
