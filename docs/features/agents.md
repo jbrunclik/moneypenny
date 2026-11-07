@@ -193,9 +193,13 @@ never agents, so a scheduled run cannot schedule more) sets reminders and recurr
 from a message ("remind me Friday at 8...", "every Monday check...") and lists, pauses,
 resumes and deletes them.
 
-- **Confirmed in chat:** `create` without `confirm=true` returns a `PREVIEW:` and stores
-  nothing; the model shows it, and only after the user agrees calls again with
-  `confirm=true`.
+- **Confirmed in chat, enforced in code:** `create` without `confirm=true` returns a
+  `PREVIEW:`, stores nothing, and keeps the preview pending for the conversation (kv
+  `schedule_pending`). `confirm=true` stores exactly that pending item, and only once a
+  newer user message exists - so a page's injected "confirm" in the same turn, or fields
+  that drifted since the preview, cannot schedule something the user never saw.
+- **No push device:** a reminder's preview and confirmation warn when none of the user's
+  devices has notifications on (the reminder would reach no one).
 - **Built by code:** the model fills structured fields - `date` + `time` for a reminder,
   `days` (mon..sun, daily, weekdays, weekends) + `time` for a task - and
   `src/utils/schedule_spec.py` builds the UTC instant or cron string in

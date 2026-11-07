@@ -2,15 +2,20 @@ id: schedule_reminder_confirm
 description: >
   After the preview, the user's yes stores the reminder (schedule create with
   confirm=true) and the reply confirms the time
+kv:
+  - namespace: schedule_pending
+    key: "{conversation_id}"
+    value: '{"kind": "reminder", "text": "Zavolat instalatérovi", "value": "2028-03-15T07:00:00+00:00", "described": "Wed 15 Mar 2028 08:00", "turn": "seeded-preview-turn"}'
 history:
   - role: user
-    content: "Připomeň mi prosím zítra v 8 ráno, ať zavolám instalatérovi."
+    content: "Připomeň mi prosím 15. března 2028 v 8 ráno, ať zavolám instalatérovi."
   - role: assistant
-    content: "Mám nastavit připomínku na zítra v 8:00: „Zavolat instalatérovi“? Potvrď prosím a nastavím ji."
+    content: "Mám nastavit připomínku na středu 15. 3. 2028 v 8:00: „Zavolat instalatérovi“? Potvrď prosím a nastavím ji."
 user: "Ano, nastav ji."
 expect:
   rubric: >
     Confirms in Czech that the reminder to call the plumber is set for
-    tomorrow at 08:00. Must not claim failure or ask again.
+    15 March 2028 at 08:00. Must not claim failure or ask again. A note that
+    notifications are off on the user's devices is fine.
   required_tools: [schedule]
   max_tool_rounds: 2

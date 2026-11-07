@@ -111,6 +111,9 @@ class EvalCase:
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
+    # KV rows seeded for the user: [{namespace, key, value}]; {conversation_id}
+    # in a key is the case's conversation (e.g. a pending schedule preview)
+    kv: list[dict[str, str]] = field(default_factory=list)
     # Fake integration backends (evals/fakes.py): {todoist: {...}, garmin: {...}}
     integrations: dict[str, Any] = field(default_factory=dict)
     # Run the deep-research pipeline with this plan instead of a chat turn:
@@ -204,6 +207,14 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     for a in (data.get("artifacts") or [])
                 ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
+                kv=[
+                    {
+                        "namespace": str(e["namespace"]),
+                        "key": str(e["key"]),
+                        "value": str(e["value"]),
+                    }
+                    for e in (data.get("kv") or [])
+                ],
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
                 deep_research=dict(data.get("deep_research") or {}),
                 conversation_facts=(
@@ -613,6 +624,10 @@ def _seed_case(
         )
         for msg in case.seed_conversation.get("messages", []):
             db.add_message(past.id, str(msg["role"]), str(msg["content"]))
+
+    for entry in case.kv:
+        key = entry["key"].replace("{conversation_id}", conversation_id)
+        db.kv_set(user.id, entry["namespace"], key, entry["value"])
 
     # Seed artifacts for revision cases (they go with the eval conversation)
     artifact_ids = [

@@ -3,11 +3,16 @@
 A one-off reminder is a row the every-minute scheduler pushes (no model call);
 a recurring task is an ordinary agent with only the always-safe read-only
 tools. Nothing is stored until the user confirmed: a create without
-confirm=true returns a preview. The model fills structured fields; the
+confirm=true returns a preview and keeps it pending for the conversation; a
+confirm stores exactly that pending item, and only in a later turn (the user
+replied to it) - so neither drifted fields nor a page's injected "confirm"
+in the same turn can schedule something the user never saw. The model fills
+structured fields; the
 schedule itself is built by code (src/utils/schedule_spec.py) in the
 household timezone.
 """
 
+import json
 from collections.abc import Mapping
 from datetime import datetime
 
@@ -17,6 +22,7 @@ from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
 from src.db.models import Agent, db
+from src.enums import MessageRole
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.schedule_spec import (
@@ -33,6 +39,12 @@ logger = get_logger(__name__)
 # Marks the agents this tool created, so list/pause/delete see only those
 CHAT_TASK_PREFIX = "Created from chat"
 _NAME_MAX_CHARS = 40
+# The preview awaiting the user's answer, per conversation (kv: multi-worker safe)
+_PENDING_NAMESPACE = "schedule_pending"
+_NO_PUSH_NOTE = (
+    " Note: none of the user's devices has notifications turned on, so a reminder"
+    " cannot reach them - tell them to turn notifications on in the app."
+)
 
 
 def _chat_tasks(user_id: str) -> list[Agent]:
@@ -100,7 +112,75 @@ def _store(
     )
 
 
+def _push_note(user_id: str, kind: str) -> str:
+    """Warn when a reminder's push has no device to reach."""
+    if kind == "reminder" and not db.get_push_subscriptions(user_id):
+        return _NO_PUSH_NOTE
+    return ""
+
+
+def _latest_user_message_id(conversation_id: str) -> str:
+    """The turn marker: production saves each user message before the agent runs."""
+    return next(
+        (m.id for m in reversed(db.get_messages(conversation_id)) if m.role == MessageRole.USER),
+        "",
+    )
+
+
+def _confirm(user_id: str, conversation_id: str | None) -> str:
+    """Store the conversation's pending preview, once the user has answered it."""
+    raw = db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id) if conversation_id else None
+    if not conversation_id or not raw:
+        return tool_error(
+            "Nothing was previewed in this chat to confirm: call create without confirm "
+            "first, show the preview and ask the user."
+        )
+    pending: dict[str, str] = json.loads(raw)
+    if pending["turn"] == _latest_user_message_id(conversation_id):
+        return tool_error(
+            "The user has not answered the preview yet - show it and ask them; confirm "
+            "only after they agree in their reply."
+        )
+    tz = Config.APP_TIMEZONE
+    # tz-naive: value is the isoformat of the aware UTC instant one_off_instant built
+    if pending["kind"] == "reminder" and datetime.fromisoformat(pending["value"]) <= utc_now():
+        return tool_error(
+            f"That time has passed - it is now {describe_instant(utc_now(), tz)} ({tz}). "
+            "Preview a new time."
+        )
+    cap = Config.SCHEDULE_MAX_ACTIVE_PER_USER
+    if (active := _active_count(user_id)) >= cap:
+        return tool_error(
+            f"You already have {active} active schedules (limit {cap}); delete one first."
+        )
+    db.kv_delete(user_id, _PENDING_NAMESPACE, conversation_id)
+    return _store(
+        user_id,
+        conversation_id,
+        pending["kind"],
+        pending["text"],
+        pending["value"],
+        pending["described"],
+    ) + _push_note(user_id, pending["kind"])
+
+
+def _keep_pending(
+    user_id: str, conversation_id: str, kind: str, text: str, value: str, described: str
+) -> None:
+    """Hold the preview for the user's answer. Re-previewing the very item
+    they already saw keeps its turn: it stays answered, so confirmable."""
+    turn = _latest_user_message_id(conversation_id)
+    if raw := db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id):
+        previous: dict[str, str] = json.loads(raw)
+        if (previous["kind"], previous["text"], previous["value"]) == (kind, text, value):
+            turn = previous["turn"]
+    pending = {"kind": kind, "text": text, "value": value, "described": described, "turn": turn}
+    db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(pending))
+
+
 def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object]) -> str:
+    if args.get("confirm"):
+        return _confirm(user_id, conversation_id)
     text = str(args.get("text") or "").strip()
     if not text:
         return tool_error("'text' is required: what to remind about, or the task to run.")
@@ -117,17 +197,13 @@ def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object
     if isinstance(when, str):
         return when
     value, described = when
-    if not args.get("confirm"):
-        return (
-            f'PREVIEW: {described} ({Config.APP_TIMEZONE}) - "{text}". Nothing is scheduled yet: ask the '
-            "user to confirm, then call again with the same fields and confirm=true."
-        )
-    cap = Config.SCHEDULE_MAX_ACTIVE_PER_USER
-    if (active := _active_count(user_id)) >= cap:
-        return tool_error(
-            f"You already have {active} active schedules (limit {cap}); delete one first."
-        )
-    return _store(user_id, conversation_id, str(kind), text, value, described)
+    if conversation_id:
+        _keep_pending(user_id, conversation_id, str(kind), text, value, described)
+    return (
+        f'PREVIEW: {described} ({Config.APP_TIMEZONE}) - "{text}". Nothing is scheduled yet: show '
+        "this to the user and ask; when they agree in their reply, call create with confirm=true."
+        + _push_note(user_id, str(kind))
+    )
 
 
 def _list(user_id: str) -> str:
@@ -182,8 +258,9 @@ def schedule(
     have?", "cancel/pause ...". Times are in the household's local time.
 
     create: first call WITHOUT confirm - it returns a preview and stores
-    nothing. Show the preview to the user and ask; only after they agree,
-    call again with the same fields and confirm=true.
+    nothing. Show the preview to the user and ask; only after they agree in
+    their reply, call create with confirm=true (no other fields needed): it
+    stores exactly the item previewed in this chat.
       - kind="reminder": a one-off push. text = what to remind about,
         date = YYYY-MM-DD, time = HH:MM.
       - kind="task": a recurring check you will run and report on. text =
@@ -201,7 +278,7 @@ def schedule(
         time: HH:MM, 24-hour, local time (create).
         days: Days for a task: mon..sun, or daily, weekdays, weekends.
         item_id: The id from list (pause, resume, delete).
-        confirm: true only after the user agreed to the preview.
+        confirm: true only after the user agreed to the preview in their reply.
     """
     conversation_id, user_id = get_conversation_context()
     if not user_id:
