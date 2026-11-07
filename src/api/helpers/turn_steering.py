@@ -231,12 +231,20 @@ def defer_unanswered_steering(conv_id: str, reply_id: str, text: str | None) -> 
     reply = db.get_message_by_id(reply_id)
     if reply is None:
         return None
-    earlier = [m for m in db.get_messages(conv_id) if m.created_at < reply.created_at]
     steering = next(
-        (m for m in reversed(earlier) if m.role == MessageRole.USER and m.content == text), None
+        (
+            m
+            for m in reversed(db.get_messages(conv_id))
+            if m.role == MessageRole.USER and m.content == text
+        ),
+        None,
     )
     if steering is None:
         return None
+    # Already after the reply when it committed before the stream-start
+    # placeholder did (so the placeholder could not be moved after it)
+    if steering.created_at > reply.created_at:
+        return steering.id
     db.set_message_created_at(steering.id, reply.created_at + timedelta(microseconds=1))
     logger.info(
         "Unanswered steering moved after the reply",

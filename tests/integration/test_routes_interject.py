@@ -543,6 +543,25 @@ class TestUnansweredSteeringIsFlagged:
         messages = test_database.get_messages(test_conversation.id)
         assert [m.role.value for m in messages] == ["user", "user", "assistant"]
 
+    def test_steering_already_after_the_reply_is_still_flagged(
+        self,
+        client: FlaskClient,
+        test_database: Database,
+        test_conversation: Conversation,
+    ) -> None:
+        # The steering committed before the stream-start placeholder did, so
+        # the placeholder could not be moved after it and already sorts first
+        from src.api.helpers.turn_steering import defer_unanswered_steering
+        from src.enums import MessageRole
+
+        conv_id = test_conversation.id
+        test_database.add_message(conv_id, MessageRole.USER, "Compare the plans")
+        reply = test_database.add_message(conv_id, MessageRole.ASSISTANT, "Answer")
+        steering = test_database.add_message(conv_id, MessageRole.USER, "and the 2025 ones")
+
+        assert defer_unanswered_steering(conv_id, reply.id, "and the 2025 ones") == steering.id
+        assert [m.id for m in test_database.get_messages(conv_id)][-1] == steering.id
+
     def test_batch_moves_the_steering_after_the_reply_and_flags_it(
         self,
         client: FlaskClient,
