@@ -1,5 +1,6 @@
 import {
   cancelSmoothScroll,
+  forgetUserScrollIntent,
   getElementById,
   isScrolledToBottom,
   noteUserScrollIntent,
@@ -93,6 +94,9 @@ export function initScrollToBottom(): void {
     // Ours, not the user's: the header auto-hide hid the header on every tap
     const token = beginProgrammaticScroll();
     stopMomentumScroll(messagesContainer);
+    // The tap is the user's newest intent: the flick before it is not them
+    // scrolling up during this jump (after stopMomentumScroll, which checks it)
+    forgetUserScrollIntent();
     scrollToBottom(messagesContainer, true, () => endProgrammaticScroll(token), { ignoreMomentum: true });
   };
   scrollButton.addEventListener('click', () => {

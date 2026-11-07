@@ -126,10 +126,45 @@ describe('smooth scroll-to-bottom write trace', () => {
         "576 write 1499.9",
         "592 write 1500",
         "608 write 1500",
-        "608 debug bottom-done {"top":1500,"gap":0}",
-        "608 done",
+        "624 write 1500",
+        "640 write 1500",
+        "656 write 1500",
+        "672 write 1500",
+        "688 write 1500",
+        "704 write 1500",
+        "720 write 1500",
+        "736 write 1500",
+        "752 write 1500",
+        "768 write 1500",
+        "784 write 1500",
+        "800 write 1500",
+        "816 write 1500",
+        "832 write 1500",
+        "848 write 1500",
+        "864 write 1500",
+        "880 write 1500",
+        "896 write 1500",
+        "912 write 1500",
+        "928 write 1500",
+        "944 write 1500",
+        "960 write 1500",
       ]
     `);
+  });
+
+  it('content that lands just after the curve ends is still followed', () => {
+    // CI flake Nov 2026 (scroll-button.spec.ts:13): the settle's stability
+    // clock started at the animation's start, so a 600ms curve counted as
+    // already stable on its last frame and the settle ended at once - late
+    // content (the actions row, a diagram) right after it left the list short
+    const el = scroller();
+    run(el);
+    for (let i = 0; i < 38; i++) tick(); // the curve ends at 600ms
+    expect(el.top).toBe(1500);
+    el.height += 400;
+    for (let i = 0; i < 60; i++) tick();
+    expect(el.top).toBe(1900);
+    expect(trace.at(-1)).toMatch(/ done$/);
   });
 
   it('content grows mid-curve and during the settle: retarget', () => {
@@ -286,8 +321,33 @@ describe('smooth scroll-to-bottom write trace', () => {
         "576 write 1099.93",
         "592 write 1100",
         "608 write 1100",
-        "608 debug bottom-done {"top":1100,"gap":0}",
-        "608 done",
+        "624 write 1100",
+        "640 write 1100",
+        "656 write 1100",
+        "672 write 1100",
+        "688 write 1100",
+        "704 write 1100",
+        "720 write 1100",
+        "736 write 1100",
+        "752 write 1100",
+        "768 write 1100",
+        "784 write 1100",
+        "800 write 1100",
+        "816 write 1100",
+        "832 write 1100",
+        "848 write 1100",
+        "864 write 1100",
+        "880 write 1100",
+        "896 write 1100",
+        "912 write 1100",
+        "928 write 1100",
+        "944 write 1100",
+        "960 write 1100",
+        "976 write 1100",
+        "992 write 1100",
+        "1008 write 1100",
+        "1008 debug bottom-done {"top":1100,"gap":0}",
+        "1008 done",
       ]
     `);
   });
@@ -360,8 +420,30 @@ describe('smooth scroll-to-bottom write trace', () => {
         "576 write 1499.9",
         "592 write 1500",
         "608 write 1500",
-        "608 debug bottom-done {"top":1500,"gap":0}",
-        "608 done",
+        "624 write 1500",
+        "640 write 1500",
+        "656 write 1500",
+        "672 write 1500",
+        "688 write 1500",
+        "704 write 1500",
+        "720 write 1500",
+        "736 write 1500",
+        "752 write 1500",
+        "768 write 1500",
+        "784 write 1500",
+        "800 write 1500",
+        "816 write 1500",
+        "832 write 1500",
+        "848 write 1500",
+        "864 write 1500",
+        "880 write 1500",
+        "896 write 1500",
+        "912 write 1500",
+        "928 write 1500",
+        "944 write 1500",
+        "960 write 1500",
+        "976 write 1500",
+        "992 write 1500",
       ]
     `);
   });
@@ -414,8 +496,27 @@ describe('smooth scroll-to-bottom write trace', () => {
         "5800 write 1500",
         "5816 write 1500",
         "5832 write 1500",
-        "5832 debug bottom-done {"top":1500,"gap":0}",
-        "5832 done",
+        "5848 write 1500",
+        "5864 write 1500",
+        "5880 write 1500",
+        "5896 write 1500",
+        "5912 write 1500",
+        "5928 write 1500",
+        "5944 write 1500",
+        "5960 write 1500",
+        "5976 write 1500",
+        "5992 write 1500",
+        "6008 write 1500",
+        "6024 write 1500",
+        "6040 write 1500",
+        "6056 write 1500",
+        "6072 write 1500",
+        "6088 write 1500",
+        "6104 write 1500",
+        "6120 write 1500",
+        "6136 write 1500",
+        "6136 debug bottom-done {"top":1500,"gap":0}",
+        "6136 done",
       ]
     `);
   });
@@ -611,8 +712,9 @@ describe('smooth scroll-to-bottom write trace', () => {
         "960 write 1600",
         "976 write 1600",
         "992 write 1600",
-        "992 debug bottom-done {"top":1600,"gap":0}",
-        "992 done",
+        "1008 write 1600",
+        "1008 debug bottom-done {"top":1600,"gap":0}",
+        "1008 done",
       ]
     `);
   });
@@ -650,8 +752,9 @@ describe('smooth scroll-to-bottom write trace', () => {
         "368 write 1500",
         "384 write 1500",
         "400 write 1500",
-        "400 debug bottom-done {"top":1500,"gap":0}",
-        "400 done",
+        "416 write 1500",
+        "416 debug bottom-done {"top":1500,"gap":0}",
+        "416 done",
       ]
     `);
   });

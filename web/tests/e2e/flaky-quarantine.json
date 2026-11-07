@@ -48,18 +48,6 @@
     "todo": "Open E2E flakes (Chromium visual: wide table row antialiasing under load)"
   },
   {
-    "file": "e2e/scroll-button.spec.ts",
-    "title": "a tap while the list still coasts from a flick reaches the bottom",
-    "project": "chromium",
-    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
-  },
-  {
-    "file": "e2e/scroll-button.spec.ts",
-    "title": "one tap reaches the bottom even when content grows during the scroll",
-    "project": "chromium",
-    "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"
-  },
-  {
     "file": "e2e/concurrent-conversations.spec.ts",
     "title": "can chat in a new conversation while another streams",
     "todo": "Open E2E flakes (CI flakes, Nov 5-7 2026)"

@@ -160,6 +160,16 @@ export function noteUserScrollIntent(): void {
   lastUserScrollIntentAt = performance.now();
 }
 
+/**
+ * The user asked for a position themselves (the scroll button): their
+ * earlier scroll input no longer counts as them scrolling. Inside the
+ * momentum window, the coast left over from a flick before the tap was taken
+ * for the user scrolling up during the button's own jump, and cancelled it.
+ */
+export function forgetUserScrollIntent(): void {
+  lastUserScrollIntentAt = -Infinity;
+}
+
 /** Whether the user scrolled the list themselves since `since` (performance.now). */
 export function userScrolledSince(since: number): boolean {
   return lastUserScrollIntentAt > since;
@@ -391,7 +401,10 @@ export function scrollToBottom(
       return;
     }
     settleSince ??= currentTime;
-    const stable = currentTime - lastChangeAt >= SMOOTH_SCROLL_SETTLE_MS;
+    // Stable = no height change for SETTLE_MS of the settle itself: counted
+    // from the animation's start, a curve of 400ms+ was "stable" on its last
+    // frame and the settle ended at once, missing content landing right after
+    const stable = currentTime - Math.max(lastChangeAt, settleSince) >= SMOOTH_SCROLL_SETTLE_MS;
     if (stable || currentTime - settleSince >= SMOOTH_SCROLL_SETTLE_MAX_MS) {
       scrollDebug('bottom-done', { top: Math.round(element.scrollTop), gap: Math.round(element.scrollHeight - element.scrollTop - element.clientHeight) });
       finishSmoothScroll();
