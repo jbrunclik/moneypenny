@@ -727,7 +727,7 @@
     }
   },
   {
-    "description": "Set reminders and recurring tasks for the user, and manage them.\n\nUse for \"remind me ...\", \"every Monday check ...\", \"what reminders do I\nhave?\", \"cancel/pause ...\". Times are in the household's local time.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree in\ntheir reply, call create with confirm=true (no other fields needed): it\nstores exactly the item previewed in this chat.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date = YYYY-MM-DD, time = HH:MM.\n  - kind=\"task\": a recurring check you will run and report on. text =\n    the task in your own words (what to check and what to tell the user;\n    reply exactly [SILENT] when there is nothing new), days = list of\n    mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"], time = HH:MM.\nlist: the reminders and chat-created tasks, with their ids.\npause / resume (tasks) and delete (reminders or tasks): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder or task (create).\n    text: The reminder text, or the task to run (create).\n    date: YYYY-MM-DD (reminder).\n    time: HH:MM, 24-hour, local time (create).\n    days: Days for a task: mon..sun, or daily, weekdays, weekends.\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview in their reply.",
+    "description": "Set reminders, check-ins, watchers and recurring checks for the user, and manage them.\n\nEverything belongs to this chat: results arrive here as a new message\n(and a push), and deleting the chat deletes them. Times are local.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree in\ntheir reply, call create with confirm=true (no other fields needed): it\nstores exactly the item previewed in this chat.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date + time.\n  - kind=\"check_in\": at date + time, ask the user a question back in\n    this chat (\"check with me Friday how it's healing\"). text = the\n    question to ask then, written now from this conversation.\n  - kind=\"watcher\": check a public web page until something happens,\n    then report and stop (\"tell me when the school posts a teacher job\").\n    text = what to check (with its URL if known), end_condition = when\n    to stop, interval = 6h, daily or weekly (how urgent), optional\n    until = last day. Only public pages - not email, mail or accounts.\n  - kind=\"recurring\": a regular check you run and report on. text = the\n    task, days = mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"],\n    time, optional until.\nlist: everything scheduled from chat, with ids.\npause / resume (watchers, recurring) and delete (any): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder, check_in, watcher or recurring (create).\n    text: The reminder, the check-in question, or what to check or do.\n    date: YYYY-MM-DD (reminder, check_in).\n    time: HH:MM, 24-hour, local time (reminder, check_in, recurring).\n    days: Days for recurring: mon..sun, or daily, weekdays, weekends.\n    until: YYYY-MM-DD, the last day (watcher, recurring; optional).\n    interval: 6h, daily or weekly (watcher).\n    end_condition: When a watcher stops (watcher).\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview in their reply.",
     "name": "schedule",
     "parameters": {
       "properties": {
@@ -756,6 +756,18 @@
           },
           "nullable": true,
           "type": "ARRAY"
+        },
+        "until": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "interval": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "end_condition": {
+          "nullable": true,
+          "type": "STRING"
         },
         "item_id": {
           "nullable": true,

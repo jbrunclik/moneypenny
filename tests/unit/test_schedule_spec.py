@@ -9,8 +9,12 @@ from src.utils.schedule_spec import (
     ScheduleError,
     describe_cron,
     describe_instant,
+    describe_interval,
+    next_cron_run,
     one_off_instant,
     recurring_cron,
+    until_instant,
+    watch_interval_hours,
 )
 
 _TZ = "Europe/Prague"
@@ -70,3 +74,36 @@ def test_descriptions_for_previews() -> None:
     assert describe_cron("0 9 * * 1") == "every Monday at 09:00"
     assert describe_cron("30 7 * * 1-5") == "every weekday at 07:30"
     assert describe_cron("0 8 * * *") == "every day at 08:00"
+
+
+@pytest.mark.parametrize(("hint", "hours"), [("6h", 6), ("daily", 24), ("weekly", 168), (" Daily ", 24)])
+def test_watch_interval_hours(hint: str, hours: int) -> None:
+    assert watch_interval_hours(hint) == hours
+
+
+@pytest.mark.parametrize("hint", ["1h", "hourly", "", "monthly"])
+def test_watch_interval_hours_refuses_others(hint: str) -> None:
+    result = watch_interval_hours(hint)
+    assert isinstance(result, ScheduleError)
+    assert "6h" in result.message and "daily" in result.message and "weekly" in result.message
+
+
+def test_until_instant_is_the_end_of_that_local_day() -> None:
+    assert until_instant("2026-12-24", _TZ, _NOW) == datetime(2026, 12, 24, 22, 59, 59, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("day", ["2026-11-06", "24.12.", "2026-02-30"])
+def test_until_instant_refuses_past_or_malformed(day: str) -> None:
+    assert isinstance(until_instant(day, _TZ, _NOW), ScheduleError)
+
+
+@pytest.mark.parametrize(
+    ("hours", "text"), [(6, "every 6 hours"), (24, "daily"), (168, "weekly"), (48, "every 2 days")]
+)
+def test_describe_interval(hours: int, text: str) -> None:
+    assert describe_interval(hours) == text
+
+
+def test_next_cron_run_is_local_time() -> None:
+    # Sat 7 Nov 19:00 Prague -> Mon 9 Nov 09:00 Prague = 08:00 UTC
+    assert next_cron_run("0 9 * * 1", _TZ, _NOW) == datetime(2026, 11, 9, 8, 0, tzinfo=UTC)

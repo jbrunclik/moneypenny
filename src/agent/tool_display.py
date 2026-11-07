@@ -631,13 +631,14 @@ def _approval_detail(args: dict[str, Any]) -> str | None:
 
 
 def _schedule_detail(tool_args: dict[str, object]) -> str | None:
-    """'preview: Call the plumber', 'reminder: Call the plumber', 'list'..."""
+    """'preview: Call the plumber', 'confirmed', 'list'..."""
     action = str(tool_args.get("action") or "")
     if action != "create":
         return action or None
+    if tool_args.get("confirm"):
+        return "confirmed"  # a confirm carries no fields: it stores the previewed item
     text = str(tool_args.get("text") or "")
-    label = str(tool_args.get("kind") or "create") if tool_args.get("confirm") else "preview"
-    return f"{label}: {_snippet(text, 50)}" if text else label
+    return f"preview: {_snippet(text, 50)}" if text else "preview"
 
 
 def _facts_detail(tool_args: dict[str, object]) -> str | None:

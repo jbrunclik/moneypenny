@@ -1,27 +1,31 @@
-"""Reminders and recurring tasks set from chat ("remind me Friday at 8...").
+"""Lightweight items set from chat: reminders, check-ins, watchers, recurring checks.
 
-A one-off reminder is a row the every-minute scheduler pushes (no model call);
-a recurring task is an ordinary agent with only the always-safe read-only
-tools. Nothing is stored until the user confirmed: a create without
+Every item belongs to the chat that set it (docs/features/agents.md): a
+reminder pushes at a time, a check-in asks its question back in the chat, a
+watcher checks the web until its condition is met, a recurring check reports
+on a schedule. Nothing is stored until the user confirmed: a create without
 confirm=true returns a preview and keeps it pending for the conversation; a
 confirm stores exactly that pending item, and only in a later turn (the user
-replied to it) - so neither drifted fields nor a page's injected "confirm"
-in the same turn can schedule something the user never saw. The model fills
-structured fields; the
-schedule itself is built by code (src/utils/schedule_spec.py) in the
-household timezone.
+replied to it) - so neither drifted fields nor a page's injected "confirm" in
+the same turn can schedule something the user never saw. The model fills
+structured fields; the schedule itself is built by code
+(src/utils/schedule_spec.py) in the household timezone.
 """
 
 import json
+import uuid
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any
+from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
-from src.db.models import Agent, db
+from src.db.models import db
+from src.db.models.dataclasses import ItemKind, ScheduledItem
 from src.enums import MessageRole
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -29,94 +33,111 @@ from src.utils.schedule_spec import (
     ScheduleError,
     describe_cron,
     describe_instant,
+    describe_interval,
+    next_cron_run,
     one_off_instant,
     recurring_cron,
+    until_instant,
+    watch_interval_hours,
 )
 from src.utils.threat_patterns import find_injection
 
 logger = get_logger(__name__)
 
-# Marks the agents this tool created, so list/pause/delete see only those
-CHAT_TASK_PREFIX = "Created from chat"
-_NAME_MAX_CHARS = 40
 # The preview awaiting the user's answer, per conversation (kv: multi-worker safe)
 _PENDING_NAMESPACE = "schedule_pending"
 _NO_PUSH_NOTE = (
-    " Note: none of the user's devices has notifications turned on, so a reminder"
+    " Note: none of the user's devices has notifications turned on, so this"
     " cannot reach them - tell them to turn notifications on in the app."
 )
+_KIND_LABELS: dict[str, str] = {
+    "reminder": "reminder",
+    "check_in": "check-in",
+    "watcher": "watcher",
+    "recurring": "recurring check",
+}
+_ONE_OFFS = {"reminder", "check_in"}
+_SHORT_DATE = "%d %b"
+
+# A pending preview: what ScheduledItem needs, plus the descriptions shown
+Spec = dict[str, Any]
 
 
-def _chat_tasks(user_id: str) -> list[Agent]:
-    agents = (row["agent"] for row in db.list_agents_with_status(user_id))
-    return [a for a in agents if (a.description or "").startswith(CHAT_TASK_PREFIX)]
+def _until(args: Mapping[str, object], now: datetime) -> datetime | str | None:
+    """The user's end date (end of that local day), None, or a tool error."""
+    raw = str(args.get("until") or "").strip()
+    if not raw:
+        return None
+    end = until_instant(raw, Config.APP_TIMEZONE, now)
+    return tool_error(end.message) if isinstance(end, ScheduleError) else end
 
 
-def _active_count(user_id: str) -> int:
-    return len(db.list_reminders(user_id)) + sum(1 for a in _chat_tasks(user_id) if a.enabled)
+def _short(instant: datetime) -> str:
+    return instant.astimezone(ZoneInfo(Config.APP_TIMEZONE)).strftime(_SHORT_DATE).lstrip("0")
 
 
-def _when(
-    kind: str | None, date: str | None, time: str | None, days: list[str] | None
-) -> tuple[str, str] | str:
-    """(schedule value, human description) or a tool error."""
+def _one_off(kind: str, args: Mapping[str, object], now: datetime) -> Spec | str:
     tz = Config.APP_TIMEZONE
-    if kind == "reminder":
-        instant = one_off_instant(date or "", time or "", tz, utc_now())
-        if isinstance(instant, ScheduleError):
-            return tool_error(instant.message)
-        return instant.isoformat(), describe_instant(instant, tz)
-    if kind == "task":
-        cron = recurring_cron(days or [], time or "")
-        if isinstance(cron, ScheduleError):
-            return tool_error(cron.message)
-        return cron, describe_cron(cron)
-    return tool_error("kind must be 'reminder' (once) or 'task' (recurring).")
+    instant = one_off_instant(str(args.get("date") or ""), str(args.get("time") or ""), tz, now)
+    if isinstance(instant, ScheduleError):
+        return tool_error(instant.message)
+    return {"next_run_at": instant, "when": describe_instant(instant, tz), "ends": "then done"}
 
 
-def _task_name(user_id: str, text: str) -> str:
-    base = text if len(text) <= _NAME_MAX_CHARS else text[: _NAME_MAX_CHARS - 1].rstrip() + "…"
-    name, n = base, 1
-    while db.get_agent_by_name(user_id, name) is not None:
-        n += 1
-        name = f"{base} ({n})"
-    return name
+def _watcher(args: Mapping[str, object], now: datetime) -> Spec | str:
+    condition = str(args.get("end_condition") or "").strip()
+    if not condition:
+        return tool_error("'end_condition' is required for a watcher: when should it stop?")
+    hours = watch_interval_hours(str(args.get("interval") or "daily"))
+    if isinstance(hours, ScheduleError):
+        return tool_error(hours.message)
+    until = _until(args, now)
+    if isinstance(until, str):
+        return until
+    expires = until or now + timedelta(days=Config.SCHEDULE_WATCH_EXPIRY_DAYS)
+    limit = f"until {_short(until)}" if until else f"{Config.SCHEDULE_WATCH_EXPIRY_DAYS} days"
+    return {
+        "end_condition": condition,
+        "interval_hours": hours,
+        "next_run_at": now,
+        "expires_at": expires,
+        "when": f"checks {describe_interval(hours)}",
+        "ends": f"until {condition}, at most {limit}",
+    }
 
 
-def _store(
-    user_id: str, conversation_id: str | None, kind: str, text: str, value: str, when: str
-) -> str:
-    tz = Config.APP_TIMEZONE
-    if kind == "reminder":
-        # tz-naive: value is the isoformat of the aware UTC instant one_off_instant built
-        reminder = db.add_reminder(user_id, conversation_id, text, datetime.fromisoformat(value))
-        logger.info(
-            "Reminder scheduled from chat", extra={"user_id": user_id, "reminder_id": reminder.id}
-        )
-        return f'Scheduled reminder id={reminder.id} for {when} ({tz}): "{text}". It arrives as a push notification.'
-    agent = db.create_agent(
-        user_id,
-        _task_name(user_id, text),
-        description=f"{CHAT_TASK_PREFIX}: {text[:200]}",
-        system_prompt=text,
-        schedule=value,
-        timezone=tz,
-        tool_permissions=[],  # the always-safe read-only tools only
+def _recurring(args: Mapping[str, object], now: datetime) -> Spec | str:
+    days = args.get("days")
+    cron = recurring_cron(
+        [str(d) for d in days] if isinstance(days, list) else [], str(args.get("time") or "")
     )
-    logger.info(
-        "Recurring task created from chat", extra={"user_id": user_id, "agent_id": agent.id}
-    )
-    return (
-        f'Created recurring task id={agent.id} "{agent.name}" - {when} ({tz}). It runs with read-only '
-        "web tools; results arrive as a push and in the Command Center."
-    )
+    if isinstance(cron, ScheduleError):
+        return tool_error(cron.message)
+    until = _until(args, now)
+    if isinstance(until, str):
+        return until
+    return {
+        "schedule": cron,
+        "next_run_at": next_cron_run(cron, Config.APP_TIMEZONE, now),
+        "expires_at": until,
+        "when": describe_cron(cron),
+        "ends": f"until {_short(until)}" if until else "until cancelled",
+    }
 
 
-def _push_note(user_id: str, kind: str) -> str:
-    """Warn when a reminder's push has no device to reach."""
-    if kind == "reminder" and not db.get_push_subscriptions(user_id):
-        return _NO_PUSH_NOTE
-    return ""
+def _build(kind: str, args: Mapping[str, object], now: datetime) -> Spec | str:
+    if kind in _ONE_OFFS:
+        return _one_off(kind, args, now)
+    if kind == "watcher":
+        return _watcher(args, now)
+    if kind == "recurring":
+        return _recurring(args, now)
+    return tool_error("kind must be reminder, check_in, watcher or recurring.")
+
+
+def _push_note(user_id: str) -> str:
+    """Warn when an item's push has no device to reach."""
+    return "" if db.get_push_subscriptions(user_id) else _NO_PUSH_NOTE
 
 
 def _latest_user_message_id(conversation_id: str) -> str:
@@ -127,118 +148,161 @@ def _latest_user_message_id(conversation_id: str) -> str:
     )
 
 
-def _confirm(user_id: str, conversation_id: str | None) -> str:
-    """Store the conversation's pending preview, once the user has answered it."""
-    raw = db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id) if conversation_id else None
-    if not conversation_id or not raw:
-        return tool_error(
-            "Nothing was previewed in this chat to confirm: call create without confirm "
-            "first, show the preview and ask the user."
-        )
-    pending: dict[str, str] = json.loads(raw)
+def _keep_pending(user_id: str, conversation_id: str, spec: Spec) -> None:
+    """Hold the preview for the user's answer. Re-previewing the very item
+    they already saw keeps its turn: it stays answered, so confirmable."""
+    spec["turn"] = _latest_user_message_id(conversation_id)
+    if raw := db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id):
+        previous: Spec = json.loads(raw)
+        if {k: v for k, v in previous.items() if k != "turn"} == {
+            k: v for k, v in spec.items() if k != "turn"
+        }:
+            spec["turn"] = previous["turn"]
+    db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(spec))
+
+
+def _stored_spec(spec: Spec) -> Spec:
+    """The spec as JSON-safe values (instants as ISO strings)."""
+    return {k: v.isoformat() if isinstance(v, datetime) else v for k, v in spec.items()}
+
+
+def _instant(value: object) -> datetime | None:
+    # tz-naive: values are isoformats of aware UTC instants this module built
+    return datetime.fromisoformat(str(value)) if value else None
+
+
+def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledItem:
+    return ScheduledItem(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        conversation_id=conversation_id,
+        kind=pending["kind"],
+        text=pending["text"],
+        end_condition=pending.get("end_condition"),
+        schedule=pending.get("schedule"),
+        interval_hours=pending.get("interval_hours"),
+        # tz-naive: an isoformat of an aware UTC instant this module built
+        next_run_at=datetime.fromisoformat(str(pending["next_run_at"])),
+        expires_at=_instant(pending.get("expires_at")),
+        status="active",
+        last_result=None,
+        quiet_runs=0,
+        failures=0,
+        created_at=utc_now(),
+    )
+
+
+def _confirm_refusal(user_id: str, conversation_id: str, pending: Spec) -> str | None:
     if pending["turn"] == _latest_user_message_id(conversation_id):
         return tool_error(
             "The user has not answered the preview yet - show it and ask them; confirm "
             "only after they agree in their reply."
         )
     tz = Config.APP_TIMEZONE
-    # tz-naive: value is the isoformat of the aware UTC instant one_off_instant built
-    if pending["kind"] == "reminder" and datetime.fromisoformat(pending["value"]) <= utc_now():
+    due = _instant(pending["next_run_at"])
+    if pending["kind"] in _ONE_OFFS and due is not None and due <= utc_now():
         return tool_error(
             f"That time has passed - it is now {describe_instant(utc_now(), tz)} ({tz}). "
             "Preview a new time."
         )
     cap = Config.SCHEDULE_MAX_ACTIVE_PER_USER
-    if (active := _active_count(user_id)) >= cap:
+    if (count := db.count_items(user_id)) >= cap:
         return tool_error(
-            f"You already have {active} active schedules (limit {cap}); delete one first."
+            f"You already have {count} scheduled items (limit {cap}); delete one first."
         )
+    return None
+
+
+def _confirm(user_id: str, conversation_id: str) -> str:
+    """Store the conversation's pending preview, once the user has answered it."""
+    raw = db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id)
+    if not raw:
+        return tool_error(
+            "Nothing was previewed in this chat to confirm: call create without confirm "
+            "first, show the preview and ask the user."
+        )
+    pending: Spec = json.loads(raw)
+    if refusal := _confirm_refusal(user_id, conversation_id, pending):
+        return refusal
     db.kv_delete(user_id, _PENDING_NAMESPACE, conversation_id)
-    return _store(
-        user_id,
-        conversation_id,
-        pending["kind"],
-        pending["text"],
-        pending["value"],
-        pending["described"],
-    ) + _push_note(user_id, pending["kind"])
-
-
-def _keep_pending(
-    user_id: str, conversation_id: str, kind: str, text: str, value: str, described: str
-) -> None:
-    """Hold the preview for the user's answer. Re-previewing the very item
-    they already saw keeps its turn: it stays answered, so confirmable."""
-    turn = _latest_user_message_id(conversation_id)
-    if raw := db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id):
-        previous: dict[str, str] = json.loads(raw)
-        if (previous["kind"], previous["text"], previous["value"]) == (kind, text, value):
-            turn = previous["turn"]
-    pending = {"kind": kind, "text": text, "value": value, "described": described, "turn": turn}
-    db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(pending))
+    item = db.add_item(_new_item(user_id, conversation_id, pending))
+    logger.info(
+        "Scheduled item created from chat",
+        extra={"user_id": user_id, "item_id": item.id, "kind": item.kind},
+    )
+    label = _KIND_LABELS[item.kind]
+    return (
+        f"Scheduled {label} id={item.id} - {pending['when']} ({Config.APP_TIMEZONE}), "
+        f'{pending["ends"]}: "{item.text}".' + _push_note(user_id)
+    )
 
 
 def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object]) -> str:
+    if not conversation_id:
+        return tool_error("Scheduling needs a chat to belong to.", retriable=False)
     if args.get("confirm"):
         return _confirm(user_id, conversation_id)
     text = str(args.get("text") or "").strip()
     if not text:
-        return tool_error("'text' is required: what to remind about, or the task to run.")
+        return tool_error("'text' is required: the reminder, the question, or what to check.")
     if reason := find_injection(text):
-        return tool_error(f"Refused: {reason}. Describe the reminder or task in your own words.")
-    kind = args.get("kind")
-    days = args.get("days")
-    when = _when(
-        str(kind) if kind else None,
-        str(args.get("date") or ""),
-        str(args.get("time") or ""),
-        [str(d) for d in days] if isinstance(days, list) else None,
-    )
-    if isinstance(when, str):
-        return when
-    value, described = when
-    if conversation_id:
-        _keep_pending(user_id, conversation_id, str(kind), text, value, described)
+        return tool_error(f"Refused: {reason}. Describe it in your own words.")
+    kind = str(args.get("kind") or "")
+    spec = _build(kind, args, utc_now())
+    if isinstance(spec, str):
+        return spec
+    spec |= {"kind": kind, "text": text}
+    _keep_pending(user_id, conversation_id, _stored_spec(spec))
     return (
-        f'PREVIEW: {described} ({Config.APP_TIMEZONE}) - "{text}". Nothing is scheduled yet: show '
-        "this to the user and ask; when they agree in their reply, call create with confirm=true."
-        + _push_note(user_id, str(kind))
+        f"PREVIEW: {_KIND_LABELS[kind]} - {spec['when']} ({Config.APP_TIMEZONE}), "
+        f'{spec["ends"]}: "{text}". Nothing is scheduled yet: show this to the user and ask; '
+        "when they agree in their reply, call create with confirm=true." + _push_note(user_id)
     )
+
+
+def describe_when(item: ScheduledItem) -> str:
+    """When the item next acts, for lists and previews."""
+    if item.kind == "watcher" and item.interval_hours:
+        return f"checks {describe_interval(item.interval_hours)}"
+    if item.kind == "recurring" and item.schedule:
+        return describe_cron(item.schedule)
+    return describe_instant(item.next_run_at, Config.APP_TIMEZONE)
+
+
+def describe_ends(item: ScheduledItem) -> str:
+    """How the item ends, for lists and previews."""
+    if item.kind in _ONE_OFFS:
+        return "then done"
+    if item.kind == "watcher":
+        limit = f", at most until {_short(item.expires_at)}" if item.expires_at else ""
+        return f"until {item.end_condition}{limit}"
+    return f"until {_short(item.expires_at)}" if item.expires_at else "until cancelled"
 
 
 def _list(user_id: str) -> str:
-    tz = Config.APP_TIMEZONE
+    items = db.list_items(user_id)
+    if not items:
+        return "Nothing is scheduled from chat."
     lines = [
-        f'- reminder id={r.id}: {describe_instant(r.due_at, tz)} - "{r.text}"'
-        for r in db.list_reminders(user_id)
+        f"- {_KIND_LABELS[i.kind]} id={i.id} ({i.status}): {describe_when(i)}, "
+        f'{describe_ends(i)} - "{i.text}"'
+        for i in items
     ]
-    lines += [
-        f'- task id={a.id} ({"active" if a.enabled else "paused"}): {describe_cron(a.schedule or "")} - "{a.name}"'
-        for a in _chat_tasks(user_id)
-        if a.schedule
-    ]
-    if not lines:
-        return "No reminders or recurring tasks set from chat."
-    return f"Reminders and recurring tasks ({tz}):\n" + "\n".join(lines)
+    return f"Scheduled from chat ({Config.APP_TIMEZONE}):\n" + "\n".join(lines)
 
 
 def _manage(action: str, user_id: str, item_id: str) -> str:
-    if action == "delete" and db.cancel_reminder(item_id, user_id):
-        return f"Deleted reminder id={item_id}."
-    agent = next((a for a in _chat_tasks(user_id) if a.id == item_id), None)
-    if agent is None:
-        if action in {"pause", "resume"} and any(
-            r.id == item_id for r in db.list_reminders(user_id)
-        ):
-            return tool_error("A reminder cannot be paused: delete it and create it again later.")
-        return tool_error(
-            f"No reminder or chat-created task with id={item_id} - call schedule(action='list')."
-        )
+    item = db.get_item(item_id, user_id)
+    if item is None:
+        return tool_error(f"No scheduled item with id={item_id} - call schedule(action='list').")
+    label: ItemKind = item.kind
     if action == "delete":
-        db.delete_agent(agent.id, user_id)
-        return f'Deleted recurring task "{agent.name}".'
-    db.update_agent(agent.id, user_id, enabled=action == "resume")
-    return f'{"Resumed" if action == "resume" else "Paused"} recurring task "{agent.name}".'
+        db.delete_item(item.id, user_id)
+        return f'Deleted {_KIND_LABELS[label]} "{item.text}".'
+    if item.kind in _ONE_OFFS:
+        return tool_error(f"A {_KIND_LABELS[label]} cannot be paused: delete it instead.")
+    db.set_item_paused(item.id, user_id, paused=action == "pause")
+    return f'{"Paused" if action == "pause" else "Resumed"} {_KIND_LABELS[label]} "{item.text}".'
 
 
 @tool
@@ -249,34 +313,47 @@ def schedule(
     date: str | None = None,
     time: str | None = None,
     days: list[str] | None = None,
+    until: str | None = None,
+    interval: str | None = None,
+    end_condition: str | None = None,
     item_id: str | None = None,
     confirm: bool = False,
 ) -> str:
-    """Set reminders and recurring tasks for the user, and manage them.
+    """Set reminders, check-ins, watchers and recurring checks for the user, and manage them.
 
-    Use for "remind me ...", "every Monday check ...", "what reminders do I
-    have?", "cancel/pause ...". Times are in the household's local time.
+    Everything belongs to this chat: results arrive here as a new message
+    (and a push), and deleting the chat deletes them. Times are local.
 
     create: first call WITHOUT confirm - it returns a preview and stores
     nothing. Show the preview to the user and ask; only after they agree in
     their reply, call create with confirm=true (no other fields needed): it
     stores exactly the item previewed in this chat.
       - kind="reminder": a one-off push. text = what to remind about,
-        date = YYYY-MM-DD, time = HH:MM.
-      - kind="task": a recurring check you will run and report on. text =
-        the task in your own words (what to check and what to tell the user;
-        reply exactly [SILENT] when there is nothing new), days = list of
-        mon..sun or ["daily"] / ["weekdays"] / ["weekends"], time = HH:MM.
-    list: the reminders and chat-created tasks, with their ids.
-    pause / resume (tasks) and delete (reminders or tasks): item_id from list.
+        date + time.
+      - kind="check_in": at date + time, ask the user a question back in
+        this chat ("check with me Friday how it's healing"). text = the
+        question to ask then, written now from this conversation.
+      - kind="watcher": check a public web page until something happens,
+        then report and stop ("tell me when the school posts a teacher job").
+        text = what to check (with its URL if known), end_condition = when
+        to stop, interval = 6h, daily or weekly (how urgent), optional
+        until = last day. Only public pages - not email, mail or accounts.
+      - kind="recurring": a regular check you run and report on. text = the
+        task, days = mon..sun or ["daily"] / ["weekdays"] / ["weekends"],
+        time, optional until.
+    list: everything scheduled from chat, with ids.
+    pause / resume (watchers, recurring) and delete (any): item_id from list.
 
     Args:
         action: create, list, pause, resume or delete.
-        kind: reminder or task (create).
-        text: The reminder text, or the task to run (create).
-        date: YYYY-MM-DD (reminder).
-        time: HH:MM, 24-hour, local time (create).
-        days: Days for a task: mon..sun, or daily, weekdays, weekends.
+        kind: reminder, check_in, watcher or recurring (create).
+        text: The reminder, the check-in question, or what to check or do.
+        date: YYYY-MM-DD (reminder, check_in).
+        time: HH:MM, 24-hour, local time (reminder, check_in, recurring).
+        days: Days for recurring: mon..sun, or daily, weekdays, weekends.
+        until: YYYY-MM-DD, the last day (watcher, recurring; optional).
+        interval: 6h, daily or weekly (watcher).
+        end_condition: When a watcher stops (watcher).
         item_id: The id from list (pause, resume, delete).
         confirm: true only after the user agreed to the preview in their reply.
     """
@@ -294,6 +371,9 @@ def schedule(
             "date": date,
             "time": time,
             "days": days,
+            "until": until,
+            "interval": interval,
+            "end_condition": end_condition,
             "confirm": confirm,
         }
         return _create(user_id, conversation_id, args)

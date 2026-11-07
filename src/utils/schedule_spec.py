@@ -9,7 +9,10 @@ up the same, and the model never writes cron or converts timezones itself.
 import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from datetime import time as day_time
 from zoneinfo import ZoneInfo
+
+from croniter import croniter
 
 _TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -17,6 +20,9 @@ _DAY_NUMBERS = {"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat
 _DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 _ALIASES = {"daily": "*", "weekdays": "1-5", "weekends": "0,6"}
 _ALIAS_TEXT = {"*": "every day", "1-5": "every weekday", "0,6": "every weekend day"}
+# How often a watcher may check: never more often than every 6 hours
+_WATCH_INTERVALS = {"6h": 6, "daily": 24, "weekly": 168}
+_HOURS_PER_DAY = 24
 
 
 @dataclass(frozen=True)
@@ -81,3 +87,42 @@ def describe_cron(cron: str) -> str:
         return f"{_ALIAS_TEXT[dow]} at {at}"
     days = [_DAY_NAMES[int(n)] for n in dow.split(",")]
     return f"every {' and '.join(days)} at {at}"
+
+
+def watch_interval_hours(hint: str) -> int | ScheduleError:
+    """Hours between a watcher's checks: 6h, daily or weekly."""
+    hours = _WATCH_INTERVALS.get(hint.strip().lower())
+    if hours is None:
+        return ScheduleError(f"interval must be 6h, daily or weekly (got {hint!r}).")
+    return hours
+
+
+def until_instant(day: str, tz: str, now: datetime) -> datetime | ScheduleError:
+    """The UTC instant `day` (YYYY-MM-DD) ends in `tz`; a past day is refused."""
+    if not _DATE.match(day.strip()):
+        return ScheduleError(f"Use the end date as YYYY-MM-DD (got {day!r}).")
+    try:
+        parsed = date.fromisoformat(day.strip())
+    except ValueError:
+        return ScheduleError(f"{day!r} is not a calendar date.")
+    end = datetime.combine(parsed, day_time(23, 59, 59), tzinfo=ZoneInfo(tz)).astimezone(UTC)
+    if end <= now:
+        return ScheduleError(f"{day} has already passed.")
+    return end
+
+
+def describe_interval(hours: int) -> str:
+    """'every 6 hours', 'daily', 'weekly' or 'every N days'."""
+    if hours == _HOURS_PER_DAY:
+        return "daily"
+    if hours == _WATCH_INTERVALS["weekly"]:
+        return "weekly"
+    if hours % _HOURS_PER_DAY == 0:
+        return f"every {hours // _HOURS_PER_DAY} days"
+    return f"every {hours} hours"
+
+
+def next_cron_run(cron: str, tz: str, after: datetime) -> datetime:
+    """The first UTC instant after `after` that matches `cron` in `tz`."""
+    nxt: datetime = croniter(cron, after.astimezone(ZoneInfo(tz))).get_next(datetime)
+    return nxt.astimezone(UTC)

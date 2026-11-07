@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from src.agent.tool_display import TOOL_METADATA, extract_tool_detail
 from src.agent.tools import get_all_tool_names
 
@@ -457,3 +459,18 @@ class TestSearchAndReadDetails:
         with patch("src.agent.tool_display._fetch_conversation_title", return_value=None):
             result = extract_tool_detail("read_conversation", {"conversation_id": "c1"})
         assert result is None
+
+
+@pytest.mark.parametrize(
+    ("args", "detail"),
+    [
+        (
+            {"action": "create", "kind": "watcher", "text": "the school's job board"},
+            "preview: the school's job board",
+        ),
+        ({"action": "create", "confirm": True}, "confirmed"),
+        ({"action": "list"}, "list"),
+    ],
+)
+def test_schedule_detail(args: dict[str, object], detail: str) -> None:
+    assert extract_tool_detail("schedule", args) == detail
