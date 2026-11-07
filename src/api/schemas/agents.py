@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
+from src.api.schemas.schedules import ScheduledItemResponse
 from src.config import Config
 
 
@@ -215,6 +216,10 @@ class CommandCenterResponse(ResponseModel):
         default_factory=list, description="Recent execution history across all agents"
     )
     total_unread: int = Field(default=0, description="Total unread messages across all agents")
+    chat_items: list[ScheduledItemResponse] = Field(
+        default_factory=list,
+        description="Reminders, check-ins, watchers and recurring checks set from chats, soonest first",
+    )
     agents_waiting: int = Field(default=0, description="Number of agents blocked on approval")
     stats: AgentStatsBlock = Field(
         default_factory=AgentStatsBlock,

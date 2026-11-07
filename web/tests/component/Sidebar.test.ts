@@ -605,7 +605,7 @@ describe('Sidebar', () => {
         user: createUser(),
         commandCenterData: {
           agents: [], pending_approvals: [], recent_executions: [],
-          total_unread: unread, agents_waiting: waiting, agents_with_errors: 0,
+          total_unread: unread, agents_waiting: waiting, agents_with_errors: 0, chat_items: [],
           stats: {} as never,
         },
       });

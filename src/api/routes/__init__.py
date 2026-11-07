@@ -12,6 +12,7 @@ Route Organization:
 - conversation_organize.py: Archive, unarchive, pin, archived list (5 routes, on conversations.api)
 - conversation_search.py: Full-text search (1 route, on conversations.api)
 - conversation_trash.py: Trash list, restore, permanent delete, empty (4 routes, on conversations.api)
+- schedules.py: Scheduled items - a chat's items, cancel, pause, resume (4 routes, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
 - agents.py: Autonomous agents CRUD and execution (9 routes)
 - agent_command_center.py: Agents command center (1 route, on agents.api)
@@ -66,6 +67,7 @@ from src.api.routes import (
     planner,
     push,
     rouvy,
+    schedules,  # noqa: F401 - imported for its routes
     settings,
     sports,
     system,

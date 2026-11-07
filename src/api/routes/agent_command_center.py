@@ -9,6 +9,7 @@ from src.api.helpers.agent_responses import (
     approval_to_response,
     execution_to_response,
 )
+from src.api.helpers.schedule_responses import items_to_response
 from src.api.routes.agents import api
 from src.api.schemas.agents import CommandCenterResponse
 from src.auth.jwt_auth import require_auth
@@ -92,4 +93,5 @@ def get_command_center(user: User) -> dict[str, Any]:
         "agents_waiting": data["agents_waiting"],
         "agents_with_errors": data["agents_with_errors"],
         "stats": stats_block,
+        "chat_items": items_to_response(user.id, db.list_items(user.id)),
     }

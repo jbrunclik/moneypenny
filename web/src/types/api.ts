@@ -183,6 +183,11 @@ export type DeepResearchStart = Schemas['ChatRequest.DeepResearchStart'];
 
 /** What a user message sent on the user's behalf was (rendered as an action row) */
 export type MessageAction = NonNullable<Schemas['MessageResponse']['action']>;
+/** The scheduled item (check-in, watcher, recurring) that delivered an assistant turn */
+export type MessageDelivery = NonNullable<Schemas['MessageResponse']['delivery']>;
+/** A reminder, check-in, watcher or recurring check set from a chat */
+export type ScheduledItem = Schemas['ConversationSchedulesResponse.ScheduledItemResponse'];
+export type ConversationSchedulesResponse = Schemas['ConversationSchedulesResponse'];
 
 /** This device's Web Push state, as the settings show it (core/push) */
 export type PushState =

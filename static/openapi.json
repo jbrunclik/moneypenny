@@ -2440,6 +2440,39 @@
         "summary": "Permanently delete every conversation in the trash."
       }
     },
+    "/api/schedules/{item_id}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Cancel one of the user's scheduled items."
+      }
+    },
     "/api/kv/{namespace}": {
       "get": {
         "parameters": [
@@ -3745,6 +3778,56 @@
         "summary": "Reset the program conversation (delete messages)."
       }
     },
+    "/api/schedules/{item_id}/pause": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledItemResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Pause a watcher or recurring check."
+      }
+    },
     "/api/kv/{namespace}/{key}": {
       "get": {
         "parameters": [
@@ -4002,6 +4085,56 @@
             }
           }
         }
+      }
+    },
+    "/api/schedules/{item_id}/resume": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduledItemResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Resume a paused watcher or recurring check (it runs on the next tick when due)."
       }
     },
     "/api/messages/{message_id}/cost": {
@@ -5503,6 +5636,46 @@
           "Conversations"
         ],
         "summary": "Permanently delete a conversation that is in the trash."
+      }
+    },
+    "/api/conversations/{conv_id}/schedules": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conv_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSchedulesResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "The chat's scheduled items, for its header chip."
       }
     },
     "/api/conversations/{conv_id}/chat/stop": {
@@ -11314,6 +11487,32 @@
         "title": "DeepResearchActionResponse",
         "type": "object"
       },
+      "PlannerConversationResponse.DeliveryResponse": {
+        "description": "The scheduled item that delivered an assistant turn.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "e.g. 'Check-in \u00b7 Fri 18:00', 'Watcher \u00b7 found'",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "DeliveryResponse",
+        "type": "object"
+      },
       "PlannerConversationResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -11614,6 +11813,18 @@
             "description": "What a message sent on the user's behalf was",
             "title": "Action"
           },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerConversationResponse.DeliveryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The scheduled item that delivered this turn"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -11635,6 +11846,7 @@
           "research",
           "artifacts",
           "action",
+          "delivery",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -11893,6 +12105,32 @@
           "minutes"
         ],
         "title": "DeepResearchActionResponse",
+        "type": "object"
+      },
+      "MessageResponse.DeliveryResponse": {
+        "description": "The scheduled item that delivered an assistant turn.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "e.g. 'Check-in \u00b7 Fri 18:00', 'Watcher \u00b7 found'",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "DeliveryResponse",
         "type": "object"
       },
       "MessageResponse.FileMetadataResponse": {
@@ -12260,6 +12498,18 @@
             "description": "What a message sent on the user's behalf was",
             "title": "Action"
           },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageResponse.DeliveryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The scheduled item that delivered this turn"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -12281,6 +12531,7 @@
           "research",
           "artifacts",
           "action",
+          "delivery",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -12927,6 +13178,76 @@
         "title": "ApprovalStatus",
         "type": "string"
       },
+      "CommandCenterResponse.ScheduledItemResponse": {
+        "description": "One item, described for people (household timezone).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "conversation_title": {
+            "description": "Title of the chat the item belongs to",
+            "title": "Conversation Title",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "description": "The item's text, shortened",
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "description": "e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'",
+            "title": "When",
+            "type": "string"
+          },
+          "ends": {
+            "description": "e.g. 'then done', 'until a job is posted, at most until 7 Dec'",
+            "title": "Ends",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "running"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "next_run_at": {
+            "format": "date-time",
+            "title": "Next Run At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "conversation_id",
+          "conversation_title",
+          "kind",
+          "title",
+          "when",
+          "ends",
+          "status",
+          "next_run_at"
+        ],
+        "title": "ScheduledItemResponse",
+        "type": "object"
+      },
       "CommandCenterResponse": {
         "description": "Complete command center dashboard data.",
         "properties": {
@@ -12960,6 +13281,14 @@
             "title": "Total Unread",
             "type": "integer"
           },
+          "chat_items": {
+            "description": "Reminders, check-ins, watchers and recurring checks set from chats, soonest first",
+            "items": {
+              "$ref": "#/components/schemas/CommandCenterResponse.ScheduledItemResponse"
+            },
+            "title": "Chat Items",
+            "type": "array"
+          },
           "agents_waiting": {
             "default": 0,
             "description": "Number of agents blocked on approval",
@@ -12982,6 +13311,7 @@
           "pending_approvals",
           "recent_executions",
           "total_unread",
+          "chat_items",
           "agents_waiting",
           "stats",
           "agents_with_errors"
@@ -13378,6 +13708,32 @@
         "title": "DeepResearchActionResponse",
         "type": "object"
       },
+      "ConversationDetailPaginatedResponse.DeliveryResponse": {
+        "description": "The scheduled item that delivered an assistant turn.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "e.g. 'Check-in \u00b7 Fri 18:00', 'Watcher \u00b7 found'",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "DeliveryResponse",
+        "type": "object"
+      },
       "ConversationDetailPaginatedResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -13678,6 +14034,18 @@
             "description": "What a message sent on the user's behalf was",
             "title": "Action"
           },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.DeliveryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The scheduled item that delivered this turn"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -13699,6 +14067,7 @@
           "research",
           "artifacts",
           "action",
+          "delivery",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -14725,6 +15094,76 @@
         "title": "LanguageResetResponse",
         "type": "object"
       },
+      "ScheduledItemResponse": {
+        "description": "One item, described for people (household timezone).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "conversation_title": {
+            "description": "Title of the chat the item belongs to",
+            "title": "Conversation Title",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "description": "The item's text, shortened",
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "description": "e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'",
+            "title": "When",
+            "type": "string"
+          },
+          "ends": {
+            "description": "e.g. 'then done', 'until a job is posted, at most until 7 Dec'",
+            "title": "Ends",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "running"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "next_run_at": {
+            "format": "date-time",
+            "title": "Next Run At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "conversation_id",
+          "conversation_title",
+          "kind",
+          "title",
+          "when",
+          "ends",
+          "status",
+          "next_run_at"
+        ],
+        "title": "ScheduledItemResponse",
+        "type": "object"
+      },
       "KVValueResponse": {
         "description": "Single key value.",
         "properties": {
@@ -15476,6 +15915,32 @@
         "title": "DeepResearchActionResponse",
         "type": "object"
       },
+      "MessagesListResponse.DeliveryResponse": {
+        "description": "The scheduled item that delivered an assistant turn.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "e.g. 'Check-in \u00b7 Fri 18:00', 'Watcher \u00b7 found'",
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "DeliveryResponse",
+        "type": "object"
+      },
       "MessagesListResponse.FileMetadataResponse": {
         "description": "File metadata in message responses (excludes full data for performance).",
         "properties": {
@@ -15776,6 +16241,18 @@
             "description": "What a message sent on the user's behalf was",
             "title": "Action"
           },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessagesListResponse.DeliveryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The scheduled item that delivered this turn"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -15797,6 +16274,7 @@
           "research",
           "artifacts",
           "action",
+          "delivery",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -15941,6 +16419,98 @@
           "pagination"
         ],
         "title": "MessagesListResponse",
+        "type": "object"
+      },
+      "ConversationSchedulesResponse.ScheduledItemResponse": {
+        "description": "One item, described for people (household timezone).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "conversation_title": {
+            "description": "Title of the chat the item belongs to",
+            "title": "Conversation Title",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "description": "The item's text, shortened",
+            "title": "Title",
+            "type": "string"
+          },
+          "when": {
+            "description": "e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'",
+            "title": "When",
+            "type": "string"
+          },
+          "ends": {
+            "description": "e.g. 'then done', 'until a job is posted, at most until 7 Dec'",
+            "title": "Ends",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "running"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "next_run_at": {
+            "format": "date-time",
+            "title": "Next Run At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "conversation_id",
+          "conversation_title",
+          "kind",
+          "title",
+          "when",
+          "ends",
+          "status",
+          "next_run_at"
+        ],
+        "title": "ScheduledItemResponse",
+        "type": "object"
+      },
+      "ConversationSchedulesResponse": {
+        "description": "A chat's items, for its header chip.",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationSchedulesResponse.ScheduledItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "items"
+        ],
+        "title": "ConversationSchedulesResponse",
         "type": "object"
       },
       "StopChatRequest": {

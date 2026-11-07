@@ -14,6 +14,7 @@ from src.api.schemas.files import (
     GeneratedImageResponse,
     SourceResponse,
 )
+from src.api.schemas.schedules import DeliveryResponse
 from src.config import Config
 
 
@@ -249,6 +250,9 @@ class MessageResponse(ResponseModel):
     )
     action: MessageActionResponse | None = Field(
         default=None, description="What a message sent on the user's behalf was"
+    )
+    delivery: DeliveryResponse | None = Field(
+        default=None, description="The scheduled item that delivered this turn"
     )
     created_at: Timestamp
 

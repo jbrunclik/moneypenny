@@ -116,6 +116,13 @@ def add_action(data: dict[str, Any], msg: Any) -> None:
         data["action"] = action
 
 
+def add_delivery(data: dict[str, Any], msg: Any) -> None:
+    """The scheduled item that delivered this turn, when one did."""
+    delivery = getattr(msg, "delivery", None)
+    if delivery:
+        data["delivery"] = delivery
+
+
 def add_research(data: dict[str, Any], msg: Any) -> None:
     """Deep-research offer or run data, when the message has it."""
     research = getattr(msg, "research", None)
@@ -291,6 +298,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
         add_research(msg_data, m)
         add_artifacts(msg_data, m)
         add_action(msg_data, m)
+        add_delivery(msg_data, m)
 
         optimized_messages.append(msg_data)
     return optimized_messages

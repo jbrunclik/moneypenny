@@ -2986,6 +2986,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schedules/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel one of the user's scheduled items. */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kv/{namespace}": {
         parameters: {
             query?: never;
@@ -4355,6 +4400,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schedules/{item_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause a watcher or recurring check. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduledItemResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kv/{namespace}/{key}": {
         parameters: {
             query?: never;
@@ -4568,6 +4669,62 @@ export interface paths {
                 };
                 /** @description Too Many Requests */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/schedules/{item_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume a paused watcher or recurring check (it runs on the next tick when due). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduledItemResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6191,6 +6348,53 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{conv_id}/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The chat's scheduled items, for its header chip. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conv_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConversationSchedulesResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -9800,6 +10004,22 @@ export interface components {
             minutes: number;
         };
         /**
+         * DeliveryResponse
+         * @description The scheduled item that delivered an assistant turn.
+         */
+        "PlannerConversationResponse.DeliveryResponse": {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Label
+             * @description e.g. 'Check-in · Fri 18:00', 'Watcher · found'
+             */
+            label: string;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -9925,6 +10145,11 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["PlannerConversationResponse.VerifyClaimActionResponse"] | components["schemas"]["PlannerConversationResponse.DeepResearchActionResponse"]) | null;
+            /**
+             * @description The scheduled item that delivered this turn
+             * @default null
+             */
+            delivery: components["schemas"]["PlannerConversationResponse.DeliveryResponse"] | null;
             /**
              * Created At
              * Format: date-time
@@ -10081,6 +10306,22 @@ export interface components {
              * @default 0
              */
             minutes: number;
+        };
+        /**
+         * DeliveryResponse
+         * @description The scheduled item that delivered an assistant turn.
+         */
+        "MessageResponse.DeliveryResponse": {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Label
+             * @description e.g. 'Check-in · Fri 18:00', 'Watcher · found'
+             */
+            label: string;
         };
         /**
          * FileMetadataResponse
@@ -10241,6 +10482,11 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["MessageResponse.VerifyClaimActionResponse"] | components["schemas"]["MessageResponse.DeepResearchActionResponse"]) | null;
+            /**
+             * @description The scheduled item that delivered this turn
+             * @default null
+             */
+            delivery: components["schemas"]["MessageResponse.DeliveryResponse"] | null;
             /**
              * Created At
              * Format: date-time
@@ -10597,6 +10843,51 @@ export interface components {
          */
         "CommandCenterResponse.ApprovalStatus": "pending" | "approved" | "rejected";
         /**
+         * ScheduledItemResponse
+         * @description One item, described for people (household timezone).
+         */
+        "CommandCenterResponse.ScheduledItemResponse": {
+            /** Id */
+            id: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Conversation Title
+             * @description Title of the chat the item belongs to
+             */
+            conversation_title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Title
+             * @description The item's text, shortened
+             */
+            title: string;
+            /**
+             * When
+             * @description e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'
+             */
+            when: string;
+            /**
+             * Ends
+             * @description e.g. 'then done', 'until a job is posted, at most until 7 Dec'
+             */
+            ends: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "running";
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+        };
+        /**
          * CommandCenterResponse
          * @description Complete command center dashboard data.
          */
@@ -10622,6 +10913,11 @@ export interface components {
              * @default 0
              */
             total_unread: number;
+            /**
+             * Chat Items
+             * @description Reminders, check-ins, watchers and recurring checks set from chats, soonest first
+             */
+            chat_items: components["schemas"]["CommandCenterResponse.ScheduledItemResponse"][];
             /**
              * Agents Waiting
              * @description Number of agents blocked on approval
@@ -10851,6 +11147,22 @@ export interface components {
             minutes: number;
         };
         /**
+         * DeliveryResponse
+         * @description The scheduled item that delivered an assistant turn.
+         */
+        "ConversationDetailPaginatedResponse.DeliveryResponse": {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Label
+             * @description e.g. 'Check-in · Fri 18:00', 'Watcher · found'
+             */
+            label: string;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -10976,6 +11288,11 @@ export interface components {
              * @default null
              */
             action: (components["schemas"]["ConversationDetailPaginatedResponse.VerifyClaimActionResponse"] | components["schemas"]["ConversationDetailPaginatedResponse.DeepResearchActionResponse"]) | null;
+            /**
+             * @description The scheduled item that delivered this turn
+             * @default null
+             */
+            delivery: components["schemas"]["ConversationDetailPaginatedResponse.DeliveryResponse"] | null;
             /**
              * Created At
              * Format: date-time
@@ -11468,6 +11785,51 @@ export interface components {
             message: string;
         };
         /**
+         * ScheduledItemResponse
+         * @description One item, described for people (household timezone).
+         */
+        ScheduledItemResponse: {
+            /** Id */
+            id: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Conversation Title
+             * @description Title of the chat the item belongs to
+             */
+            conversation_title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Title
+             * @description The item's text, shortened
+             */
+            title: string;
+            /**
+             * When
+             * @description e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'
+             */
+            when: string;
+            /**
+             * Ends
+             * @description e.g. 'then done', 'until a job is posted, at most until 7 Dec'
+             */
+            ends: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "running";
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+        };
+        /**
          * KVValueResponse
          * @description Single key value.
          */
@@ -11888,6 +12250,22 @@ export interface components {
             minutes: number;
         };
         /**
+         * DeliveryResponse
+         * @description The scheduled item that delivered an assistant turn.
+         */
+        "MessagesListResponse.DeliveryResponse": {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Label
+             * @description e.g. 'Check-in · Fri 18:00', 'Watcher · found'
+             */
+            label: string;
+        };
+        /**
          * FileMetadataResponse
          * @description File metadata in message responses (excludes full data for performance).
          */
@@ -12014,6 +12392,11 @@ export interface components {
              */
             action: (components["schemas"]["MessagesListResponse.VerifyClaimActionResponse"] | components["schemas"]["MessagesListResponse.DeepResearchActionResponse"]) | null;
             /**
+             * @description The scheduled item that delivered this turn
+             * @default null
+             */
+            delivery: components["schemas"]["MessagesListResponse.DeliveryResponse"] | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -12093,6 +12476,61 @@ export interface components {
             /** Messages */
             messages: components["schemas"]["MessagesListResponse.MessageResponse"][];
             pagination: components["schemas"]["MessagesListResponse.MessagesPaginationResponse"];
+        };
+        /**
+         * ScheduledItemResponse
+         * @description One item, described for people (household timezone).
+         */
+        "ConversationSchedulesResponse.ScheduledItemResponse": {
+            /** Id */
+            id: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Conversation Title
+             * @description Title of the chat the item belongs to
+             */
+            conversation_title: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /**
+             * Title
+             * @description The item's text, shortened
+             */
+            title: string;
+            /**
+             * When
+             * @description e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'
+             */
+            when: string;
+            /**
+             * Ends
+             * @description e.g. 'then done', 'until a job is posted, at most until 7 Dec'
+             */
+            ends: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "running";
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+        };
+        /**
+         * ConversationSchedulesResponse
+         * @description A chat's items, for its header chip.
+         */
+        ConversationSchedulesResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Items */
+            items: components["schemas"]["ConversationSchedulesResponse.ScheduledItemResponse"][];
         };
         /**
          * StopChatRequest

@@ -35,6 +35,7 @@ vi.mock('@/api/agents', () => ({
       total_unread: 0,
       agents_waiting: 0,
       agents_with_errors: 0,
+      chat_items: [],
     }),
   },
   aiAssist: {
@@ -1858,6 +1859,7 @@ describe('SyncManager', () => {
         total_unread: 3,
         agents_waiting: 1,
         agents_with_errors: 0,
+        chat_items: [],
       });
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
 
@@ -1910,6 +1912,7 @@ describe('Agent State Management', () => {
         total_unread: 5,
         agents_waiting: 0,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -1933,6 +1936,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -1994,6 +1998,7 @@ describe('Agent State Management', () => {
         total_unread: 3,
         agents_waiting: 1,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       };
 
@@ -2017,6 +2022,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -2037,6 +2043,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -2061,6 +2068,7 @@ describe('Agent State Management', () => {
         total_unread: 10,
         agents_waiting: 0,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -2075,6 +2083,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 2,
         agents_with_errors: 0,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
@@ -2089,6 +2098,7 @@ describe('Agent State Management', () => {
         total_unread: 0,
         agents_waiting: 0,
         agents_with_errors: 1,
+        chat_items: [],
         stats: EMPTY_AGENT_STATS,
       });
 
