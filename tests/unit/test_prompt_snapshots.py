@@ -128,3 +128,18 @@ def test_snapshots_cover_every_profile_and_tool() -> None:
     names = [d["name"] for d in json.loads(files["tools.json"])]
     assert names == [t.name for t in _all_tools()]
     assert {"manage_memory", "todoist", "create_artifact", "propose_deep_research"} <= set(names)
+
+
+def test_no_tool_sends_its_description_twice() -> None:
+    """langchain-google-genai copies a BaseTool's args-model docstring into
+    `parameters.description`, beside the function description it already is -
+    10.2k of the 24.5k tool tokens on every call (measured Nov 2026). The
+    tools drop that duplicate from their args JSON schema."""
+    doubled = [
+        str(d["name"])
+        for d in _declarations()
+        if isinstance(d.get("parameters"), dict)
+        and d["parameters"].get("description")  # type: ignore[union-attr]
+        and d["parameters"]["description"] == d.get("description")  # type: ignore[index]
+    ]
+    assert doubled == []

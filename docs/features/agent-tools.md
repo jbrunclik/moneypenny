@@ -233,6 +233,13 @@ When adding a new tool for autonomous agents, update these locations:
 
 13. **`tests/unit/test_<tool>.py`** - Unit tests for the tool
 14. **`web/tests/visual/agents.visual.ts`** - Update visual snapshots if UI changed
+**Pitfall - the docstring sent twice (Nov 2026):** langchain-google-genai copies a
+`@tool`'s args-model docstring into the declaration's `parameters.description`, beside
+the function description it already is - 10.2k of 24.5k tool tokens per call before the
+fix. `_drop_duplicate_schema_descriptions()` (end of `tools/__init__.py`) removes it from
+every exported tool's args JSON schema (validation unchanged); `test_prompt_snapshots.py`
+fails if a tool sends it again.
+
 15. **`make prompt-snapshots`** - A new tool, or a changed docstring or schema, changes `tests/fixtures/prompt_snapshots/tools.json` and `sizes.txt`; regenerate and commit them (`test_prompt_snapshots.py` fails until you do)
 
 > **Pitfall — type every tool parameter concretely.** A parameter typed `Any`

@@ -8,6 +8,8 @@ from typing import Any
 
 # Import tools from submodules
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel
+from pydantic.config import JsonDict
 
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
@@ -477,6 +479,40 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
 
 
 # Export all public symbols
+def _pop_schema_description(schema: JsonDict) -> None:
+    schema.pop("description", None)
+
+
+def _drop_duplicate_schema_descriptions(tools: list[BaseTool]) -> None:
+    """Stop sending each tool's docstring twice.
+
+    langchain-google-genai turns a BaseTool's args JSON schema into the
+    declaration's `parameters`, keeping the schema's top-level description -
+    the same docstring LangChain already sends as the function description.
+    That duplicate was 10.2k of the 24.5k tool tokens on every model call
+    (measured Nov 2026). Dropped from the JSON schema only (argument
+    validation is unchanged), and only where it is that exact duplicate.
+    """
+    for tool in tools:
+        args_model = tool.args_schema
+        if not (isinstance(args_model, type) and issubclass(args_model, BaseModel)):
+            continue
+        if "json_schema_extra" in args_model.model_config:
+            continue
+        if args_model.model_json_schema().get("description") != tool.description:
+            continue
+        # A fresh dict: never mutate a config another model might share
+        args_model.model_config = {
+            **args_model.model_config,
+            "json_schema_extra": _pop_schema_description,
+        }
+
+
+_drop_duplicate_schema_descriptions(
+    [t for t in list(globals().values()) if isinstance(t, BaseTool)]
+)
+
+
 __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     # Tools
     "fetch_url",
