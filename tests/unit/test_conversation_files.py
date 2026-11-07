@@ -104,3 +104,18 @@ def test_index_out_of_range_names_the_file_count(
 
     assert isinstance(result, str)
     assert "1 file(s)" in json.loads(result)["error"]
+
+
+def test_unicode_digits_are_not_an_index() -> None:
+    """'²'.isdigit() is True but int('²') raises: refuse, don't crash."""
+    assert parse_file_id("m1:²") is None
+    assert parse_file_id("m1:١") is None
+
+
+def test_a_negative_index_is_refused(test_database: Database, conversation: str) -> None:
+    message_id = _upload(test_database, conversation)
+
+    result = load_conversation_file(message_id, -1)
+
+    assert isinstance(result, str)
+    assert "File index -1 not found" in json.loads(result)["error"]

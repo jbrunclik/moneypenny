@@ -33,7 +33,8 @@ class ConversationFile:
 def parse_file_id(file_id: str) -> tuple[str, int] | None:
     """``message_id:file_index`` -> (message_id, index); None when malformed."""
     message_id, sep, index = file_id.rpartition(":")
-    if not sep or not message_id or not index.isdigit():
+    # ASCII only: '²'.isdigit() is True, but int('²') raises
+    if not sep or not message_id or not (index.isascii() and index.isdigit()):
         return None
     return message_id, int(index)
 
@@ -88,7 +89,7 @@ def load_conversation_file(message_id: str, file_index: int) -> ConversationFile
         return tool_error("Message does not belong to this conversation.")
 
     # Check file exists
-    if not message.files or file_index >= len(message.files):
+    if not message.files or not 0 <= file_index < len(message.files):
         logger.warning(
             "conversation file: file not found",
             extra={
