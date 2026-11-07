@@ -13,12 +13,24 @@ preference and must still save. Tests pin both directions
 """
 
 import re
+import unicodedata
 
-# Zero-width, word-joiner and BOM characters, bidi embeddings/overrides and
-# isolates, and Unicode tag characters: invisible in the UI, so they can hide
-# instructions in plain sight. ZWJ (U+200D) and ZWNJ (U+200C) stay allowed -
-# emoji sequences (a family emoji) and some scripts need them.
-_INVISIBLE = re.compile("[​‎‏‪-‮⁠-⁤⁦-⁩﻿\U000e0000-\U000e007f]")
+# Invisible in the UI, so they can hide instructions in plain sight: zero-width
+# characters, the word joiner family and BOM, bidi marks, embeddings,
+# overrides and isolates, invisible fillers (combining grapheme joiner, Hangul
+# fillers, Mongolian vowel separator, Khmer inherent vowels) and Unicode tag
+# characters and supplementary variation selectors. Raw string: `re` expands
+# the escapes, and the source stays readable. Still allowed: ZWJ/ZWNJ
+# (U+200D/U+200C - emoji sequences, some scripts), the emoji variation
+# selectors (U+FE00-FE0F - the red heart) and the soft hyphen (pasted text);
+# _for_matching strips them, so they cannot split a keyword either.
+_INVISIBLE = re.compile(
+    r"[\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b\u200e\u200f\u202a-\u202e"
+    r"\u2060-\u2064\u2066-\u2069\u3164\ufeff\uffa0\U000e0000-\U000e007f\U000e0100-\U000e01ef]"
+)
+
+# Variation selectors are combining marks (category Mn), not format characters
+_VARIATION_SELECTORS = re.compile(r"[\ufe00-\ufe0f]")
 
 _INSTRUCTIONS = r"(?:instructions?|prompts?|rules|directions|guidelines|directives)"
 
@@ -89,6 +101,14 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 
+def _for_matching(text: str) -> str:
+    """`text` with keyword-splitting tricks undone: format characters (soft
+    hyphen, ZWJ...) and variation selectors removed, lookalike forms
+    (fullwidth letters, ligatures) folded by NFKC."""
+    stripped = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    return unicodedata.normalize("NFKC", _VARIATION_SELECTORS.sub("", stripped))
+
+
 def find_injection(text: str) -> str | None:
     """Why `text` looks like a prompt injection, or None when it doesn't.
 
@@ -98,7 +118,8 @@ def find_injection(text: str) -> str | None:
     invisible = _INVISIBLE.search(text)
     if invisible:
         return f"invisible or direction-changing character U+{ord(invisible.group()):04X}"
+    folded = _for_matching(text)
     for reason, pattern in _PATTERNS:
-        if pattern.search(text):
+        if pattern.search(folded):
             return f"looks like instructions to an AI ({reason})"
     return None

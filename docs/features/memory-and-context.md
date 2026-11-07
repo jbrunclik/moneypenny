@@ -141,7 +141,7 @@ Additional guards:
   reads as instructions to an AI is refused - instruction overrides ("ignore previous
   instructions", Czech variants), role hijacks, fake prompt markup, requests for the system
   prompt, "send ... to http" exfiltration - as is invisible or direction-changing Unicode
-  (zero-width, bidi overrides, tag characters; ZWJ stays allowed for emoji). Anchored on attack
+  (zero-width, bidi overrides, invisible fillers, tag characters; ZWJ, emoji variation selectors and the soft hyphen stay allowed but are stripped - with an NFKC fold - before matching, so they cannot split a keyword). KV values are scanned decoded (JSON escapes cannot hide the text), and KV and fact keys are scanned too. Anchored on attack
   vocabulary, not bossy English: "Always answer in Czech" saves. Memory and KV writes get a
   REJECTED/refused result naming the rule (never the text); facts, applied after the turn, are
   dropped with a `Conversation fact dropped` log. Both corpora live in

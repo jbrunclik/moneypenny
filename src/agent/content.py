@@ -269,7 +269,7 @@ def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
 def _set_fact(edits: dict[str, str | None], key: str, text: str) -> None:
     """Record a fact set, unless it reads as a prompt injection: facts are
     injected into every later turn of the conversation."""
-    if reason := find_injection(text):
+    if reason := find_injection(f"{key}: {text}"):
         logger.warning("Conversation fact dropped", extra={"key": key[:40], "reason": reason})
         return
     edits[key] = text
