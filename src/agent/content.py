@@ -16,6 +16,7 @@ from langdetect.lang_detect_exception import LangDetectException
 
 from src.config import Config
 from src.utils.logging import get_logger
+from src.utils.threat_patterns import find_injection
 
 logger = get_logger(__name__)
 
@@ -265,6 +266,15 @@ def extract_read_sources(messages: list[BaseMessage]) -> list[dict[str, str]]:
     return [{"title": p.title, "url": p.url} for p in turn_pages(messages)]
 
 
+def _set_fact(edits: dict[str, str | None], key: str, text: str) -> None:
+    """Record a fact set, unless it reads as a prompt injection: facts are
+    injected into every later turn of the conversation."""
+    if reason := find_injection(text):
+        logger.warning("Conversation fact dropped", extra={"key": key[:40], "reason": reason})
+        return
+    edits[key] = text
+
+
 def extract_fact_edits(messages: list[BaseMessage]) -> tuple[list[tuple[str, str]], list[str]]:
     """The turn's record_conversation_facts edits as (sets, removes).
 
@@ -283,7 +293,7 @@ def extract_fact_edits(messages: list[BaseMessage]) -> tuple[list[tuple[str, str
                 edits[str(key)] = None
             for fact in args.get("set") or []:
                 if isinstance(fact, dict) and fact.get("key") and fact.get("text"):
-                    edits[str(fact["key"])] = str(fact["text"])
+                    _set_fact(edits, str(fact["key"]), str(fact["text"]))
     sets = [(key, text) for key, text in edits.items() if text is not None]
     return sets, [key for key, text in edits.items() if text is None]
 

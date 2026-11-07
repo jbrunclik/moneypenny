@@ -136,6 +136,16 @@ a bank approaching the 200-entry cap.
 
 Additional guards:
 
+- **Injection scan** (Nov 2026, `src/utils/threat_patterns.py`): a memory, a program
+  KV value or a conversation fact is injected into every later turn, so a write whose text
+  reads as instructions to an AI is refused - instruction overrides ("ignore previous
+  instructions", Czech variants), role hijacks, fake prompt markup, requests for the system
+  prompt, "send ... to http" exfiltration - as is invisible or direction-changing Unicode
+  (zero-width, bidi overrides, tag characters; ZWJ stays allowed for emoji). Anchored on attack
+  vocabulary, not bossy English: "Always answer in Czech" saves. Memory and KV writes get a
+  REJECTED/refused result naming the rule (never the text); facts, applied after the turn, are
+  dropped with a `Conversation fact dropped` log. Both corpora live in
+  `tests/unit/test_threat_patterns.py` - add a false positive there before loosening a pattern.
 - **Protected memories** (`protected` column) cannot be deleted by the LLM or the defrag
   job - only by the user. This replaces the prompt-only "never delete family facts" rule.
 - **Provenance** (`source_conversation_id`) records which conversation taught each memory.
