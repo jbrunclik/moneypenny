@@ -217,8 +217,8 @@ def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
     # Deep research offers: those have their own cost and approval models
     if Config.DEEP_RESEARCH_ENABLED:
         tools.append(propose_deep_research)
-    # Conversation facts are kept in ordinary, non-anonymous chats only:
-    # elsewhere the tool's edits would be discarded while it answers "recorded"
+    # Conversation facts are kept in every non-anonymous chat (ordinary and
+    # standing); an anonymous chat keeps nothing, so the tool would lie "recorded"
     if Config.CONVERSATION_FACTS_ENABLED and not anonymous_mode:
         tools.append(record_conversation_facts)
     # Reminders and recurring tasks from chat: not in anonymous chats, and never

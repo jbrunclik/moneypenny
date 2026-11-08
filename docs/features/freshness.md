@@ -77,8 +77,9 @@ client as it writes, and it runs on a Gemini context cache whose tools and tool
 config cannot be changed per request, so it can neither be forced to call a
 tool nor have a streamed draft taken back.
 
-Where it runs: regular chats (anonymous included) that have `research` bound;
-never autonomous agents, programs, the planner or `delegate_task` subagents
+Where it runs: every chat (anonymous included) that has `research` bound -
+standing chats (the user writing in an agent, sports or language chat) too;
+never unattended agent runs, the planner or `delegate_task` subagents
 (`ChatAgent.freshness_gate`). It fails open: an error, or no answer within
 `FRESHNESS_GATE_TIMEOUT_SECONDS` (wall clock; the API deadline itself is floored
 at `GEMINI_MIN_REQUEST_DEADLINE_SECONDS`), means the turn goes ahead without it.

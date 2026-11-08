@@ -112,6 +112,17 @@ def seed_data() -> tuple[dict[str, Any], int]:
     return {"status": "seeded", "conversation_ids": created_ids}, 200
 
 
+@test_bp.route("/test/seed-item", methods=["POST"])
+def seed_item() -> tuple[dict[str, Any], int]:
+    """Seed one scheduled item into an existing chat (e.g. an agent's)."""
+    from flask import request
+
+    data = request.get_json() or {}
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    _seed_item(user.id, data["conversation_id"], data["item"])
+    return {"status": "seeded"}, 200
+
+
 def _seed_item(user_id: str, conversation_id: str, spec: dict[str, Any]) -> None:
     import uuid
     from datetime import timedelta

@@ -32,9 +32,9 @@ This page covers what the user sees. The rest of the feature:
   them and stores the offer on that assistant message. An invalid plan stores
   nothing; the tool itself runs `validate_plan()` first and answers "Offer NOT
   recorded: <error> Fix the plan and call propose_deep_research again." so the
-  model can retry instead of promising a card that never appears. It is bound for ordinary chats only (including anonymous ones), never
-  for planner, sports or language programs or agent conversations, and not
-  inside subagents. The [product-research skill](../../src/agent/skills/product-research/SKILL.md)
+  model can retry instead of promising a card that never appears. It is bound in every chat but the planner (including anonymous ones and
+  standing chats - the user writing in an agent, sports or language chat), never
+  in unattended agent runs, and not inside subagents. The [product-research skill](../../src/agent/skills/product-research/SKILL.md)
   step 2 tells the agent to offer it for a real multi-product comparison
   instead of researching a long list itself.
 - **The card** ([research-offer.ts](../../web/src/components/messages/research-offer.ts))

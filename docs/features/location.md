@@ -52,8 +52,8 @@ in [prompts.py](../../src/agent/prompts.py). Users can also view/delete
 entries on the Data page. Saved place names work directly in
 search_places/get_route and are listed in the user-context prompt.
 
-Note: the generic `kv_store` tool is bound only in sports/language/agent
-conversations — regular chats cannot use it, which is why the dedicated
+Note: the generic `kv_store` tool is bound only in standing chats
+(sports/language/agent conversations) and agent runs — regular chats cannot use it, which is why the dedicated
 places tools exist. `save_place`/`delete_place` are excluded in anonymous
 mode (they write persistent user data, like `manage_memory`) and are NOT in
 `ALWAYS_SAFE_TOOLS` (autonomous agents need an explicit permission grant to

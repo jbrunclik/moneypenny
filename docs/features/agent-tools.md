@@ -4,8 +4,10 @@ Which tools the agent can use, how availability and permissions are decided, and
 
 ## Tools for Autonomous Agents
 
-Interactive chat binds every available tool (`get_tools_for_request()`); autonomous agents
-get `get_tools_for_agent()`, filtered by the agent's `tool_permissions`. Two lists matter:
+Interactive chat binds every available tool (`get_tools_for_request(anonymous_mode,
+is_planning, standing)`) - in standing chats (the user writing in an agent, sports or
+language chat) too, plus `kv_store`; autonomous agent **runs** get `get_tools_for_agent()`,
+filtered by the agent's `tool_permissions`. Two lists matter:
 
 - **Always bound** for every agent: `web_search`, `fetch_url`, `research`, `retrieve_file`,
   `create_file`, `load_skill`, `request_approval`, `kv_store`.
@@ -76,8 +78,9 @@ run unrestricted), and the tool re-checks the grant at call time via
 Whether a tool actually works for an agent depends on **three** independent layers that must
 all agree — the first two are the obvious ones, the third is easy to miss:
 
-1. **Binding** — `get_tools_for_request(..., is_agent=True)` / `get_tools_for_agent()` decide
-   which tools the LLM is even offered.
+1. **Binding** — `get_tools_for_agent()` decides which tools a run's LLM is even offered
+   (chat turns, standing chats included, use `get_tools_for_request()` and no permission
+   layer).
 2. **Enforcement** — the graph's tool node calls `check_tool_permission()`
    ([`src/agent/permissions.py`](../../src/agent/permissions.py)); tools not in the agent's
    explicit `tool_permissions` are blocked unless listed in `ALWAYS_SAFE_TOOLS`.
@@ -87,7 +90,7 @@ all agree — the first two are the obvious ones, the third is easy to miss:
    contextvars do **not** cross thread boundaries, so the producer calls
    `TurnContext.apply()` ([`chat_turn.py`](../../src/api/helpers/chat_turn.py)) to re-set
    every per-turn contextvar (request id, message files, conversation, location, planner
-   dashboard, agent context, sports/language program). The batch path calls the same
+   dashboard, the standing chat's kv namespace). The batch path calls the same
    `apply()` in the request thread, and both call `clear()` when the turn ends. Any tool that
    reads a contextvar depends on this.
 
@@ -155,8 +158,8 @@ skill tells the agent when to offer it.
 `create_artifact(title, html)`, `update_artifact(artifact_id, edits | html,
 title)` and `read_artifact(artifact_id)` build and revise sandboxed HTML/JS
 shown inline under the reply - see [Artifacts](artifacts.md). They are in
-`_NON_PERMISSIONED_TOOLS` (never granted to agents) and
-`_SPORTS_EXCLUDED_TOOLS`; `create_artifact`'s description is the design-system
+`_NON_PERMISSIONED_TOOLS` (never granted to agent runs, though bound when the
+user writes in a standing chat); `create_artifact`'s description is the design-system
 guide in [prompt_texts/artifacts.py](../../src/agent/prompt_texts/artifacts.py).
 
 ## Skills
@@ -266,9 +269,9 @@ Autonomous agents have access to a per-user key-value store for persisting data 
 
 1. Agents call the `kv_store` tool with an `action` and a `key` (and optionally a `value`)
 2. Keys are automatically namespaced so each context has its own isolated storage:
-   - Autonomous agents: `agent:<agent_id>`
+   - Autonomous agent runs, and the user's turns in the agent's chat: `agent:<agent_id>`
    - Sports conversations: namespace `sports`, keys `<program_id>:<suffix>` (goals, preferences, routine, progress, last_session); language conversations likewise under `language`
-3. The namespace is injected by the tool at runtime - agents/programs never need to specify it explicitly
+3. The namespace is injected by the tool at runtime (the run's agent context, or `get_standing_namespace()` set from the turn's `StandingContext.kv_namespace`); outside runs `kv_store` is bound only in standing chats - agents/programs never need to specify it explicitly
 4. Data is stored in the `kv_store` SQLite table and scoped per user
 5. The app keeps its own per-user state in the same table (steering, stop flags, compaction, lost-turn notes, OAuth state, search quotas, file caches). The model may still name a namespace explicitly, so those are refused (`RESERVED_NAMESPACES` in `agent_kv.py`): a page read in the same turn must not be able to plant steering or a guidance note. A new internal namespace joins that set (a test checks the known ones)
 

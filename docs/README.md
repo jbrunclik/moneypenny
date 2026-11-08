@@ -8,8 +8,8 @@ This directory contains detailed documentation for the Moneypenny project, organ
 Feature-specific documentation covering user-facing functionality:
 
 - **[admin.md](features/admin.md)** - Admin page (ADMIN_EMAILS: spend, agent health, web-search quotas, response quality, browser errors, system facts, device check runs), browser error reporting, the in-app device check runner, and the daily spend warning banner
-- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention, lightweight items set from chat (reminders, check-ins, watchers, recurring checks)
-- **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
+- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, talking to an agent (standing chat), approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention, lightweight items set from chat (reminders, check-ins, watchers, recurring checks)
+- **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (chat and standing chats vs agent runs, always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
 - **[freshness.md](features/freshness.md)** - Current facts: freshness gate (lookup before the turn, dated queries, failed-lookup note), `published` dates and the `_recency` note on search results, snippets-are-not-verification directive, recent-news grounding scope, config, evals
 - **[conversation-facts.md](features/conversation-facts.md)** - Settled facts per conversation: the extract-only recording tool, the every-turn context block, caps, the read-only chip and popup, the flag
 - **[grounding.md](features/grounding.md)** - Post-answer grounding check: numbered turn pages, two-list verifier, claim validation, annotations storage and API, `MSG_CONTEXT` entry, claim card / claims sheet / footer UI
@@ -33,7 +33,7 @@ Feature-specific documentation covering user-facing functionality:
 - **[garmin.md](features/garmin.md)** - Garmin Connect health data (`garmin_connect`) and workout editing (`garmin_workout`)
 - **[whatsapp.md](features/whatsapp.md)** - WhatsApp notifications for autonomous agents (Meta Cloud API templates)
 - **[push-notifications.md](features/push-notifications.md)** - Web Push (VAPID) to the user's devices; the primary notification rail for autonomous agents
-- **[language-learning.md](features/language-learning.md)** - Language programs: AI tutor, assessments, lessons, quizzes
+- **[language-learning.md](features/language-learning.md)** - Language programs: AI tutor (a standing chat), assessments, lessons, quizzes
 - **[rouvy.md](features/rouvy.md)** - Rouvy indoor-cycling workout CRUD (headless login + cookie-authed httpx; upload agent-authored ZWO)
 - **[location.md](features/location.md)** - Places search and routing (Mapy.com), device location sharing, saved places, location-aware prompt context and briefing
 - **[memory-and-context.md](features/memory-and-context.md)** - User memory, custom instructions, user context, anonymous mode, memory defragmentation
@@ -53,7 +53,7 @@ System design and architectural decisions:
 - **[rate-limiting.md](architecture/rate-limiting.md)** - Flask-Limiter categories, key strategy, headers, decorators, shared SQLite counter storage (fail open)
 - **[error-handling.md](architecture/error-handling.md)** - Standard error format and codes, frontend toasts/modals, API client timeouts, failed chat sends
 - **[agent-graph.md](architecture/agent-graph.md)** - LangGraph loop: chat node retries and the `retry` event, tool node, self-correction, mid-run steering, tool round economics, stopped-early replies
-- **[conversation-context.md](architecture/conversation-context.md)** - History enrichment (MSG_CONTEXT), tool-output digests, segmented conversation compaction, agent compaction
+- **[conversation-context.md](architecture/conversation-context.md)** - History enrichment (MSG_CONTEXT), tool-output digests, segmented conversation compaction (chats and agent runs alike)
 - **[streaming-metadata.md](architecture/streaming-metadata.md)** - MSG_CONTEXT stripping in the stream, placeholder messages and client-side stream recovery
 - **[scheduled-jobs.md](architecture/scheduled-jobs.md)** - Time-scheduled work: systemd timers in production, dev_scheduler loop in development, job inventory, how to add a new job
 

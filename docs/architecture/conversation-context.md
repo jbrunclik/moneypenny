@@ -103,10 +103,10 @@ HISTORY_SESSION_GAP_HOURS=4  # Gap threshold for session markers (hours)
 
 ## Conversation Compaction
 
-Long chats re-send their entire history to the LLM on every turn, so cost grows ~O(n²) over a conversation. [conversation_compaction.py](../../src/agent/conversation_compaction.py) bounds the history *sent to the model* on regular (non-agent) conversations by replacing older turns with a running summary while keeping recent turns verbatim.
+Long chats re-send their entire history to the LLM on every turn, so cost grows ~O(n²) over a conversation. [conversation_compaction.py](../../src/agent/conversation_compaction.py) bounds the history *sent to the model* on every conversation (ordinary chats, standing chats and agent runs) by replacing older turns with a running summary while keeping recent turns verbatim.
 
 **Key properties:**
-- **Non-destructive** — unlike the autonomous-agent path in [compaction.py](../../src/agent/compaction.py), the full message history stays in the database for display. Only the enriched history handed to the agent is compacted.
+- **Non-destructive** — the full message history stays in the database for display. Only the enriched history handed to the agent is compacted.
 - **Segmented, from full text** — the summary is a list of segments ([compaction_segments.py](../../src/agent/compaction_segments.py)). Each batch of `CONVERSATION_COMPACTION_RESUMMARIZE_BATCH` messages is summarized **once**, from full message text (8k chars/message cap), into a segment of ~`CONVERSATION_COMPACTION_SEGMENT_WORDS` words that is appended. Only when the total exceeds `CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS` are two adjacent segments merged — always the pair with the fewest passes (oldest first), so merge depth grows logarithmically. Appending keeps the summary's prefix stable between refreshes (friendly to prefix caching).
 - **Lazy & off the request path** — state is persisted in `kv_store` (namespace `conv_compaction`, key = `conversation_id`; DB-backed, safe across gunicorn workers) and refreshed on a background thread; the current turn uses whatever state already exists.
 - **Failure-safe** — a failed refresh never drops context (prior segments + the un-summarized middle, or the full history when there is no summary yet) and backs off exponentially (30 min doubling to 1 day, `failures`/`retry_after` in the state) instead of retrying every turn. `run_summary_model` logs the finish/block reason when the model returns no text.
@@ -116,7 +116,7 @@ Long chats re-send their entire history to the LLM on every turn, so cost grows 
 
 **Legacy state:** pre-segment `{summary, covered_count[, generation]}` values are served as a single segment and rebuilt from full text (chunked to fit the cap) on the conversation's next turn.
 
-`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is called once, from `build_turn_context()` in [chat_turn.py](../../src/api/helpers/chat_turn.py), so batch and streaming turns share it; it is skipped for interactive agent conversations (`is_autonomous`), which use the agent compaction below.
+`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is called once per chat turn, from `build_turn_context()` in [chat_turn.py](../../src/api/helpers/chat_turn.py), so batch and streaming turns share it - in every chat, standing chats (agents, programs) included - and once per agent run, from `_run_history()` in [executor.py](../../src/agent/executor.py) (fresh-context agents send no history). A program reset clears the conversation's `conv_compaction` state with its messages.
 
 **Configuration:**
 - `CONVERSATION_COMPACTION_ENABLED` (default: `true`)
@@ -132,25 +132,11 @@ Long chats re-send their entire history to the LLM on every turn, so cost grows 
 
 ## Autonomous-Agent Compaction
 
-Scheduled agents append to one conversation forever and can accumulate many messages over time, potentially exceeding LLM context limits. Compaction automatically summarizes older messages to keep conversations manageable.
-
-**How it works:**
-1. Before each execution, check if message count exceeds `AGENT_COMPACTION_THRESHOLD` (default: 50)
-2. If over threshold, summarize the older messages with the **segmented** summarizer shared with regular chats ([compaction_segments.py](../../src/agent/compaction_segments.py)): the previous compaction's `[Previous conversation summary]` message is kept verbatim as the first segment, and only the messages after it are summarized - from full text, in batches, with agent framing (`Trigger`/`Agent` labels, agent name and description). Segments merge only past `CONVERSATION_COMPACTION_SUMMARY_MAX_WORDS`. (Previously the prior summary was re-folded into one new summary each time, compounding the loss.)
-3. Replace old messages with a single summary message (the rendered segments)
-4. Keep the most recent `AGENT_COMPACTION_KEEP_RECENT` messages (default: 10)
-5. If summarization fails, compaction is **skipped** (messages kept, retried next run) - it used to delete them behind a placeholder "history was compacted" text
-
-The summary captures:
-- Key actions taken by the agent
-- Important information discovered
-- Ongoing tasks or goals
-- Any errors or issues encountered
-
-Unlike chat compaction this path is **destructive** - the summarized messages are replaced
-in the database - and runs in the executor before each run
-(`compact_conversation()` in [compaction.py](../../src/agent/compaction.py)). Both paths
-share `run_summary_model()` and the segment helpers.
+There is no separate agent compaction any more (removed Nov 2026). The old one ran before each
+agent run and *replaced* all but the last 10 messages of a conversation past 50 with a summary,
+which deleted the user's own messages in a chat they also wrote in. Agent runs now read their
+history through `build_compacted_history()` like any chat turn, so runs and the user's turns in
+the same conversation share one non-destructive summary.
 
 ## Key Files
 
@@ -158,8 +144,8 @@ share `run_summary_model()` and the segment helpers.
 - [tool_outputs.py](../../src/agent/tool_outputs.py) - tool-output digests
 - [conversation_compaction.py](../../src/agent/conversation_compaction.py) - chat compaction, `build_compacted_history()`, `get_compaction_status()`
 - [compaction_segments.py](../../src/agent/compaction_segments.py) - segment summarize / merge / render
-- [compaction.py](../../src/agent/compaction.py) - agent compaction, `run_summary_model()`
-- [chat_turn.py](../../src/api/helpers/chat_turn.py) - where both are applied to a turn
+- [compaction.py](../../src/agent/compaction.py) - `run_summary_model()`, the shared summarizer call
+- [chat_turn.py](../../src/api/helpers/chat_turn.py) / [executor.py](../../src/agent/executor.py) - where compaction is applied to a chat turn / an agent run
 
 ## See Also
 

@@ -1,0 +1,16 @@
+id: agent_chat_remind_me
+description: >
+  "Remind me" typed in an agent's own chat works like in any chat (standing
+  chats get the full chat tools): a schedule preview, nothing stored yet
+mode: agent
+user: "Připomeň mi zítra v 9 ráno, ať zaliju rajčata."
+expect:
+  rubric: >
+    Answers in Czech. Previews a reminder for tomorrow at 09:00 to water the
+    tomatoes and asks the user to confirm. Must NOT say it cannot set
+    reminders here, and must not claim the reminder is already set.
+  required_tools: [schedule]
+  forbidden_arg_patterns:
+    schedule.confirm:
+      - "^True$"
+  max_tool_rounds: 2

@@ -47,8 +47,12 @@ id: web_lookup_cited
 description: Current-fact question requires a web tool and a citation
 user: What is the current price of Bitcoin in USD?
 requires: [code_sandbox]        # optional: skip when unavailable
-mode: sports                    # optional: run with a canned cycling program
-program_kv:                     # optional (sports mode): stored program data
+mode: sports                    # optional: chat (default) / sports / language / agent -
+                                # a canned standing chat (cycling program, Italian
+                                # program, garden agent) built like production
+                                # (standing_for_program); e.g. language_quiz_block,
+                                # agent_chat_remind_me
+program_kv:                     # optional (sports / language mode): stored program data
   "cycling:routine": "po: kliky, st: trenazer 60min"
 history:                        # optional: prior turns for multi-turn cases
   - role: user

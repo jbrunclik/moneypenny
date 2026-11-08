@@ -52,7 +52,7 @@ All cookie-authed; responses are turbo-stream (`text/x-script`), parsed by regex
 `rouvy_workout(action, workout_id?, content?, name?, description?)` — actions:
 `list`, `get`, `create` (upload ZWO), `delete`, and `update` (= delete + create, so
 the workout id/URL **changes**). Gated on the browser tool (Chromium, needed for
-login) and per-user connect state. Available to the sports agent (not excluded).
+login) and per-user connect state. Available in sports program chats (they get the full chat tools).
 
 ## Key files
 

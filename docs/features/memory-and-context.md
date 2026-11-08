@@ -149,8 +149,9 @@ Additional guards:
 - **Protected memories** (`protected` column) cannot be deleted by the LLM or the defrag
   job - only by the user. This replaces the prompt-only "never delete family facts" rule.
 - **Provenance** (`source_conversation_id`) records which conversation taught each memory.
-- **Autonomous agents** only get `manage_memory` if it is in their `tool_permissions`
-  (or they run unrestricted). An unattended agent that reads the web must not be able to
+- **Autonomous agent runs** only get `manage_memory` if it is in their `tool_permissions`
+  (or they run unrestricted); the user's own turns in an agent's chat are ordinary chat turns
+  and have it. An unattended agent that reads the web must not be able to
   persist attacker-controlled text into memory. Enforced both at tool binding and at call
   time via `check_autonomous_permission`.
 - **Anonymous mode** does not bind the tool at all, so no write can be attempted.

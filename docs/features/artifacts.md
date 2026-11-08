@@ -266,10 +266,9 @@ go through `db.get_artifact_for_user()` and answer 404 otherwise.
 - Bound in regular chats, including anonymous ones (artifacts are conversation
   data, not user memory), behind `ARTIFACTS_ENABLED` (`get_available_tools()` in
   [tools/\_\_init\_\_.py](../../src/agent/tools/__init__.py)).
-- Not in sports or language programs (`_SPORTS_EXCLUDED_TOOLS`, inherited by
-  `_LANGUAGE_EXCLUDED_TOOLS`): they answer in text and trim declarations for
-  tokens.
-- Never for autonomous agents: the three tools are in `_NON_PERMISSIONED_TOOLS`
+- Also in standing chats (the user writing in an agent, sports or language
+  chat), which get the full chat tools.
+- Never for autonomous agent runs: the three tools are in `_NON_PERMISSIONED_TOOLS`
   (agent output is push and digest text), so the agent editor does not offer
   them. See [Agent Tools](agent-tools.md#three-layers-decide-tool-availability).
 - `update_artifact.edits` is typed `list[ArtifactEdit]` (Pydantic), not

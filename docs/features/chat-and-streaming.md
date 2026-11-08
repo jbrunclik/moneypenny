@@ -45,11 +45,12 @@ streaming producer re-set a hand-picked subset of them):
    resolves the anchor message - no new row), clears any stale interjection, and builds
    the enriched history.
 2. **`build_turn_context(user, turn, request_id)`** → `TurnContext`: planner dashboard,
-   sports/language program context, interactive-agent context, and the compacted history
+   the standing-chat context of an agent or program chat (`load_standing_context()`), the
+   conversation facts, and the compacted history
    ([Conversation Context](../architecture/conversation-context.md)).
 3. **`TurnContext.apply()` / `clear()`** own **every** per-turn contextvar (request id,
-   message files, conversation, location, planner dashboard, agent context, sports /
-   language program). Contextvars do not cross threads, so the streaming producer calls
+   message files, conversation, location, planner dashboard, the standing chat's kv
+   namespace). Contextvars do not cross threads, so the streaming producer calls
    `apply()` again in its own thread. A new contextvar a tool reads must be added to
    both methods - see [Agent Tools](agent-tools.md#three-layers-decide-tool-availability).
 4. `create_agent()` + `agent_call_kwargs()` build the `ChatAgent` and its arguments.
@@ -378,7 +379,7 @@ chat_save.py from both the stream save pipeline and the batch endpoint):
    `generate_title`), applied to the DB, and delivered to the UI via the existing `title`
    field on the `done` event / batch response — no new SSE event type, no frontend changes.
 
-Rules: program conversations (sports / language / planner) are never retitled and get no
+Rules: program conversations (sports / language / planner) are never retitled (agent chats can be) and get no
 title context in their prompt; retitling to the identical title is a no-op; a title failure
 never aborts the message save. Manual renames are not protected — the agent may retitle a
 manually renamed conversation on a later scope change.

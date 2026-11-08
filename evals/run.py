@@ -97,8 +97,8 @@ class EvalCase:
     # tail stays verbatim, and the summarized part is searchable - long-chat
     # memory end to end
     compact_history: bool = False
-    # "chat" (default), "sports" or "language" (a canned program chat - cycling /
-    # Italian - as a standing chat; program_kv is its stored data)
+    # "chat" (default), "sports" / "language" (a canned program chat - cycling /
+    # Italian; program_kv is its stored data) or "agent" (a canned agent's chat)
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
     program_kv: dict[str, str] = field(default_factory=dict)
@@ -709,9 +709,24 @@ def _saved_attachments(case: EvalCase, db: Any, conversation_id: str) -> list[An
 _CANNED_PROGRAMS = {"sports": ("Cyklistika", "cycling"), "language": ("Italština", "italian")}
 
 
+# Agent mode: a canned agent chat (the user writes in an agent's own chat)
+_CANNED_AGENT = (
+    "Garden helper",
+    'This chat belongs to the agent "Garden helper"; it runs every day at 07:00 '
+    "and its reports appear in this chat. The user is here now, talking to it "
+    "directly.\n\nIts standing instructions:\nEach morning check the weather "
+    "and tell the user whether the garden needs watering.",
+)
+
+
 def _standing(case: EvalCase) -> Any:
-    """Sports / language mode: a canned program chat's standing context, built
-    the way production builds it (standing_for_program)."""
+    """Sports / language / agent mode: a canned standing chat's context, built
+    the way production builds it (standing_for_program for programs)."""
+    if case.mode == "agent":
+        from src.agent.standing import StandingContext
+
+        name, instructions = _CANNED_AGENT
+        return StandingContext("agent", name, instructions, None, "agent:eval", agent_id="eval")
     if case.mode not in _CANNED_PROGRAMS:
         return None
     from src.api.helpers.standing_context import standing_for_program

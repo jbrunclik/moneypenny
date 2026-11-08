@@ -112,3 +112,36 @@ test.describe('Scheduled items', () => {
     await expect(page.locator('.command-center-section--chat-items')).toHaveCount(0);
   });
 });
+
+test.describe('Scheduled items in a standing chat', () => {
+  async function agentChat(page: Page): Promise<string> {
+    const created = await page.request.post('/api/agents', {
+      data: { name: 'Garden helper', system_prompt: 'Help with the garden', schedule: null },
+    });
+    expect(created.ok()).toBeTruthy();
+    const agent = (await created.json()) as { conversation_id: string };
+    const seeded = await page.request.post('/test/seed-item', {
+      data: { conversation_id: agent.conversation_id, item: { kind: 'reminder', text: 'Water the tomatoes' } },
+    });
+    expect(seeded.ok()).toBeTruthy();
+    return agent.conversation_id;
+  }
+
+  test('the chip shows in an agent chat (desktop)', async ({ page }) => {
+    const convId = await agentChat(page);
+    await page.goto(`/#/conversations/${convId}`);
+
+    const chip = page.locator('#conversation-schedules');
+    await expect(chip).toBeVisible();
+    await chip.click();
+    await expect(page.locator('#schedules-popup')).toContainText('Water the tomatoes');
+  });
+
+  test('the chip shows in an agent chat (mobile)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const convId = await agentChat(page);
+    await page.goto(`/#/conversations/${convId}`);
+
+    await expect(page.locator('#conversation-schedules-mobile')).toBeVisible();
+  });
+});

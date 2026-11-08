@@ -79,7 +79,6 @@ Actionable work only, grouped by area; **Next up** is the working order. Complet
 - [ ] **Gmail integration** - read-only inbox triage via OAuth (reuse the Calendar OAuth pattern): what needs a reply, invoices, feed for briefings/agents. (Bespoke module: an MCP client is parked, decided Oct 26 2026.)
 - [ ] **Quieter, smarter watchers** (Oct 26 2026, Hermes cron/loops) - silent runs and lightweight items from chat (self-stopping watchers, check-ins, results delivered into their chat) shipped Nov 7 2026; still open:
   - **One alert per failure** - a broken agent pushes an error once per error signature, with a later reminder, not on every run (`cron.md`, incidents).
-  - **Replies continue the delivery for full agents** - chat items already deliver labelled turns into their chat; the Daily Briefing and other Command Center agents still report into their own conversation, so "tell me more about point 3" after the briefing push lacks context.
   - **Goal mode / keep going** (later) - a judge decides done / continue / blocked / wait for long tasks (`hermes_cli/heartbeat.py`, `hermes_cli/goals.py`).
 - [ ] **Web Push Phase 3** (Phases 1-2 + Daily Briefing shipped Jun 2026; docs/features/push-notifications.md):
   - Planner event reminders (needs a small scheduler loop), program nudges (opt-in per program), budget alerts (threshold check in the cost-recording path)

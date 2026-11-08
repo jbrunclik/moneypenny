@@ -4,7 +4,7 @@ Language Learning allows users to create dedicated language programs where an AI
 
 ## Overview
 
-Each language program gets its own conversation with a specialized system prompt that instructs the AI to act as a language tutor. The AI uses KV storage to persist learner data (profile, assessment, vocabulary, grammar, weak points, session history) across sessions. All quiz evaluation is done by the LLM, not client-side.
+Each language program gets its own conversation, a **standing chat** ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)): every turn is an ordinary chat turn (the normal chat prompt and the user's full chat tools - reminders, facts, calendar, memory, artifacts...) plus a `# This Chat: <program name>` prompt section carrying the tutor instructions and the program's stored data. The AI uses KV storage to persist learner data (profile, assessment, vocabulary, grammar, weak points, session history) across sessions. All quiz evaluation is done by the LLM, not client-side.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ Namespace: `language`
 
 ### Agent Integration
 
-The language tutor system prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_texts/language.py`) includes:
+`standing_for_program("language", ...)` in [standing_context.py](../../src/api/helpers/standing_context.py) fills the tutor prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_texts/language.py`) with the real program name and id, appends the quick-action note, and adds the program's KV data (loaded by `program_context.py`) as the section's Data part. `kv_store` is bound with the `language` namespace as its default. The tutor prompt includes:
 - KV storage rules and key documentation
 - Quiz format specifications (multiple-choice, fill-blank, translate, batch)
 - Spaced repetition system (interval doubling to 60d, mastery retirement, leech re-teaching at 3+ lapses, overdue-first ordering, 10-item session cap)
@@ -53,7 +53,7 @@ The language tutor system prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_text
 - First session (assessment) and returning session (new lesson) workflows
 - L1-aware teaching and comprehensible input (i+1) guidelines
 
-Context caching is disabled for language conversations to ensure fresh KV data is always included.
+Language turns use the standard context-cache profile: the standing section (instructions and fresh KV data) rides in the per-turn dynamic context, not the cached prefix. Eval: `language_quiz_block`.
 
 ## Quiz Blocks
 
@@ -159,7 +159,7 @@ Zustand store fields:
 
 - **New program**: Auto-sends "Let's start!" → LLM sees no KV data → runs assessment
 - **Returning (open existing)**: Conversation has message history → LLM continues from context
-- **New Lesson (reset)**: Messages cleared, KV data persists → auto-sends "Let's start!" → LLM sees KV data → starts a new lesson (not reassessment)
+- **New Lesson (reset)**: Messages cleared (with their conversation facts and the chat compaction's running summary), KV data persists → auto-sends "Let's start!" → LLM sees KV data → starts a new lesson (not reassessment)
 
 ## Testing
 

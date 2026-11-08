@@ -281,8 +281,10 @@ into the `#chat-header` mount in the app shell (above `#messages`):
 
 - Regular conversations: title (click to rename inline), compaction chip
   (`#conversation-compaction`, hidden until the conversation is compacted -
-  see `CompactionIndicator.ts` below), per-conversation cost chip
-  (`#conversation-cost`), archive + delete actions.
+  see `CompactionIndicator.ts` below), scheduled-items chip
+  (`#conversation-schedules`, `ScheduleIndicator.ts`, hidden without items),
+  per-conversation cost chip (`#conversation-cost`), archive + delete actions.
+  Agent and program headers render the same chips.
 - Program variants: sports/language/agent conversation headers delegate to
   the same component via `renderSportsProgramHeader` /
   `renderLanguageProgramHeader` / `renderAgentConversationHeader`, passing
@@ -290,8 +292,8 @@ into the `#chat-header` mount in the app shell (above `#messages`):
   Edit). The variant's legacy class (e.g. `.sports-program-header`) is kept
   on the mount as a styling/test hook.
 - Mobile (<= 768px) hides the header; `.mobile-header` shows the title, the
-  compaction chip (`#conversation-compaction-mobile`, depth only) and a
-  compact cost chip (`#conversation-cost-mobile`).
+  compaction chip (`#conversation-compaction-mobile`, depth only), the
+  scheduled-items chip (`#conversation-schedules-mobile`) and a compact cost chip (`#conversation-cost-mobile`).
 - Dashboards hide it with `renderChatHeader(null)`.
 
 `updateChatTitle()` (messages/utils.ts) keeps both the mobile header title

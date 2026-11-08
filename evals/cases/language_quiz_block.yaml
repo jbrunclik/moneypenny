@@ -1,0 +1,15 @@
+id: language_quiz_block
+description: >
+  A language-program chat answers a quiz request with a ```quiz block (the
+  quiz XOR conversation contract the client renderer depends on) - not prose
+  or an artifact, now that program chats carry the full chat tools
+mode: language
+user: "Dej mi krátký kvíz na slovíčka z jídla."
+expect:
+  rubric: >
+    The reply contains a ```quiz fenced code block with valid quiz JSON
+    (Italian food vocabulary questions) and at most a short line of text
+    around it. It does not present the quiz as plain prose questions and does
+    not build an artifact or interactive page instead.
+  forbidden_tools: [create_artifact]
+  max_tool_rounds: 2

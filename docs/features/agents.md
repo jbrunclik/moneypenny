@@ -2,6 +2,8 @@
 
 Autonomous agents run on cron schedules to perform tasks independently. Each agent has a dedicated conversation showing its activity and can request approval for dangerous operations.
 
+The agent's conversation is a **standing chat** ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)): when the user writes in it, that is an ordinary chat turn (the normal chat prompt, the user's full chat tools, freshness gate, standard context cache and compaction) plus a `# This Chat: <name>` prompt section with the agent's goals and schedule - see [Talking to an agent](#talking-to-an-agent). Unattended **runs** keep the agent's own grants, approvals and prompt.
+
 ## Overview
 
 The autonomous agents feature enables:
@@ -95,7 +97,7 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `src/db/models/agent_schedule.py` | Cron next-run math, due agents, last/next run updates |
 | `src/db/models/agent_approvals.py` | Approval requests (create, resolve, consume) |
 | `src/db/models/agent_executions.py` | Execution tracking, cooldown, zombie cleanup |
-| `src/db/models/agent_conversation.py` | Agent conversation, unread state, compaction |
+| `src/db/models/agent_conversation.py` | Agent conversation, unread state |
 | `src/db/models/agent_stats.py` | Command center, observability stats, spend/budget |
 | `src/api/routes/agents.py` | REST API: agent CRUD and execution |
 | `src/api/routes/agent_command_center.py` | REST API: command center dashboard |
@@ -104,8 +106,8 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `src/api/helpers/agent_responses.py` | Agent/execution/approval response dicts |
 | `src/agent/executor.py` | Agent execution engine |
 | `src/agent/permissions.py` | Tool permission checking |
-| `src/agent/compaction.py` | Conversation compaction logic |
 | `src/agent/daily_briefing.py` | Stock prompt for the system-managed Daily Briefing agent |
+| `src/api/helpers/standing_context.py` | The agent chat's standing context when the user writes in it |
 | `src/agent/retry.py` | Transient failure retry logic (used per model call by the graph) |
 | `src/agent/dev_scheduler.py` | Development mode scheduler |
 | `scripts/run_agent_scheduler.py` | Production scheduler script |
@@ -188,8 +190,9 @@ In production a systemd timer runs `scripts/run_agent_scheduler.py` every minute
 
 ## Lightweight Agents From Chat (Nov 2026)
 
-The `schedule` tool (`src/agent/tools/scheduling.py`, ordinary non-anonymous chats only -
-never agents, so a scheduled run cannot schedule more) sets four kinds of item from a
+The `schedule` tool (`src/agent/tools/scheduling.py`, every non-anonymous chat but the
+planner - standing chats included - and never unattended runs, so a scheduled run cannot
+schedule more) sets four kinds of item from a
 message, each belonging to the chat that set it
 ([spec](../superpowers/specs/2026-11-07-lightweight-agents-design.md)):
 
@@ -243,7 +246,8 @@ message, each belonging to the chat that set it
   `delivery` label (`{"kind", "label"}`, e.g. "Check-in · Fri 18:00", "Watcher · found"),
   plus a push opening the chat - so the user just replies, in context. Reminders push
   only.
-- **UI:** a header chip in the chat (desktop and mobile; `ScheduleIndicator.ts`) opens a
+- **UI:** a header chip in the chat (desktop and mobile, agent and program chats too;
+  `ScheduleIndicator.ts`) opens a
   sheet listing its items with cancel, and pause/resume for watchers and recurring checks;
   the Command Center has a "From chats" lane above the agents (hidden when empty).
   API: `GET /api/conversations/<id>/schedules`, `DELETE /api/schedules/<id>`,
@@ -262,17 +266,30 @@ message, each belonging to the chat that set it
 
 1. **Check pending approvals**: Skip if agent has an unresolved/unexpired approval request
 2. **Check budget limit**: Skip if agent has exceeded its daily budget
-3. **Compact conversation**: Summarize old messages if `AGENT_COMPACTION_THRESHOLD` is reached
-4. **Create execution record**: Track the run in `agent_executions`
-5. **Load conversation history**: Get agent's conversation messages (skipped for `fresh_context` agents, which run each turn from a clean slate)
-6. **Set up ChatAgent**: Configure with agent's tools and permissions
-7. **Run the turn**: `ChatAgent.chat_batch()` in autonomous mode (model calls are retried inside the graph, see below)
-8. **Save messages**: Add user trigger and assistant response (with source chips from `extract_read_sources()`, generated files and cost) to the conversation
-9. **Update timestamps**: Set `last_run_at` and calculate `next_run_at`
+3. **Create execution record**: Track the run in `agent_executions`
+4. **Load conversation history**: The regular chat compaction's view of the conversation (`build_compacted_history()`; skipped for `fresh_context` agents, which run each turn from a clean slate)
+5. **Set up ChatAgent**: Configure with agent's tools and permissions
+6. **Run the turn**: `ChatAgent.chat_batch()` in autonomous mode (model calls are retried inside the graph, see below)
+7. **Save messages**: Add user trigger and assistant response (with source chips from `extract_read_sources()`, generated files and cost) to the conversation
+8. **Update timestamps**: Set `last_run_at` and calculate `next_run_at`
 
 ## Conversation Compaction
 
-Before each run, an agent conversation over `AGENT_COMPACTION_THRESHOLD` (50) messages has its older messages replaced by a segmented summary, keeping the latest `AGENT_COMPACTION_KEEP_RECENT` (10). Unlike chat compaction this is destructive, and a failed summary skips compaction rather than dropping messages. Details: [Conversation Context](../architecture/conversation-context.md#autonomous-agent-compaction).
+Runs and the user's own turns in an agent chat share the regular, non-destructive chat compaction (a running summary plus recent messages; nothing is deleted). The destructive agent compaction and its `AGENT_COMPACTION_*` settings were removed in Nov 2026. Details: [Conversation Context](../architecture/conversation-context.md#conversation-compaction).
+
+## Talking to an Agent
+
+Writing in an agent's chat is an ordinary chat turn, not a run: `load_standing_context()`
+([standing_context.py](../../src/api/helpers/standing_context.py)) builds a
+`StandingContext` ([standing.py](../../src/agent/standing.py)) with the agent's goals
+(`resolve_agent_system_prompt()`, so the Daily Briefing's stock prompt comes from code)
+and a plain description of its schedule, rendered as the `# This Chat: <name>` section by
+`format_standing_section()` ([prompts.py](../../src/agent/prompts.py), text in
+`prompt_texts/standing.py`). The turn binds the user's chat tools plus `kv_store`
+defaulting to the agent's `agent:<id>` namespace; the agent's `tool_permissions` and the
+unattended approval gate do not apply while the user is present. A pending approval from a
+run still blocks sending (`prepare_turn` refuses with a validation error until it is
+resolved). Eval: `agent_chat_remind_me`.
 
 ## Transient Failure Retries
 
@@ -341,8 +358,6 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max execution time before considered stale |
 | `AGENT_EXECUTION_COOLDOWN_SECONDS` | 5 | Minimum seconds between manual runs |
 | `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum agent-to-agent trigger chain length (cycles are always blocked) |
-| `AGENT_COMPACTION_THRESHOLD` | 50 | Message count to trigger compaction |
-| `AGENT_COMPACTION_KEEP_RECENT` | 10 | Messages to keep after compaction |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |

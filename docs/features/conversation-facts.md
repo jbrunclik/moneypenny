@@ -45,9 +45,10 @@ memory, where nothing tied them to this conversation.
   caps"). A longer fact is clipped at a word with `…`, never dropped - a
   silently dropped fact left the agent believing it was recorded (review of
   Nov 1 2026).
-- **Scope** - ordinary, non-anonymous chats. Planner, sports and language
-  conversations keep their own kv_store notebooks; agent conversations are
-  not the user's chat. The tool is bound only where facts are kept
+- **Scope** - every non-anonymous chat but the planner: ordinary chats and
+  standing chats (agent, sports and language conversations) alike
+  (`facts_eligible()` in `src/api/helpers/conversation_facts.py`). Agent
+  runs never record facts. The tool is bound only where facts are kept
   (`_ordinary_chat_tools` in `src/agent/tools/__init__.py`, next to
   `propose_deep_research`): bound elsewhere it would answer "recorded" while
   its edits were discarded.

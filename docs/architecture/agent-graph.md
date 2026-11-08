@@ -34,7 +34,7 @@ The signature knows tool NAMES only: callers whose tools are per-run closures
 earlier run's tool instances.
 Context-cache names rotate when a Gemini cache lapses or is recreated, so each
 otherwise-identical signature keeps only its 3 most-recently-used names (the
-uncached fallback plus SPORTS and LANGUAGE, which bind the same tools). Without
+uncached fallback, the live cache name and its successor while a lapsed cache is recreated). Without
 that cap dead names filled the LRU and each prod worker grew ~200 MB in a day.
 
 ## Chat Node and Transient-Error Retries

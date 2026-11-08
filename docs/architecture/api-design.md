@@ -118,7 +118,7 @@ approximate - check the module when it matters.
 - [chat_streaming.py](../../src/api/helpers/chat_streaming.py), [stream_producer.py](../../src/api/helpers/stream_producer.py), [stream_finalize.py](../../src/api/helpers/stream_finalize.py) - streaming consumer / producer / finalize
 - [chat_save.py](../../src/api/helpers/chat_save.py) - saving a finished turn
 - [stream_resume.py](../../src/api/helpers/stream_resume.py) - stream journal and resume
-- [program_context.py](../../src/api/helpers/program_context.py) - sports / language context for a turn
+- [standing_context.py](../../src/api/helpers/standing_context.py) - a standing chat's (agent / sports / language) instructions, data and kv namespace for a turn; [program_context.py](../../src/api/helpers/program_context.py) loads a program's stored data for it
 
 ## Request Validation
 
