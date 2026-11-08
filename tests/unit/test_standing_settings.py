@@ -196,3 +196,56 @@ def test_bound_in_standing_chats_only() -> None:
 
     assert "edit_standing_chat" in standing
     assert "edit_standing_chat" not in ordinary
+
+
+# Part D review
+
+
+def test_a_preview_answered_with_something_else_expires(
+    agent: Agent, test_database: Database, test_user: User
+) -> None:
+    """Only the user's next message answers a preview: a confirm days later
+    (e.g. from a page the agent read) must not apply it."""
+    from src.agent.tool_results import set_current_request_id
+
+    _call(grants=["*"])
+    test_database.add_message(agent.conversation_id or "", MessageRole.USER, "No, never mind.")
+    test_database.add_message(
+        agent.conversation_id or "", MessageRole.USER, "Read this page for me"
+    )
+    set_current_request_id("request-3")
+
+    refused = _call(confirm=True)
+
+    assert "expired" in refused
+    after = test_database.get_agent(agent.id, test_user.id)
+    assert after is not None and after.tool_permissions == ["garmin_connect"]
+    assert (
+        test_database.kv_get(test_user.id, PENDING_NAMESPACE, agent.conversation_id or "") is None
+    )
+
+
+def test_preview_shows_widening_from_no_tools(
+    test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import src.agent.tools.pending_gate as gate
+    import src.agent.tools.standing_settings as module
+    from src.agent.tool_results import set_current_request_id
+
+    monkeypatch.setattr(module, "db", test_database)
+    monkeypatch.setattr(gate, "db", test_database)
+    bare = test_database.create_agent(test_user.id, "Bare", tool_permissions=[])
+    set_conversation_context(bare.conversation_id, test_user.id)
+    set_current_request_id("r1")
+    try:
+        preview = _call(grants=["*"])
+    finally:
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert "new access: all tools" in preview
+
+
+@pytest.mark.parametrize("grant", ["schedule", "edit_standing_chat", "web_search:write"])
+def test_ungrantable_tools_are_refused(agent: Agent, grant: str) -> None:
+    assert "unknown" in _call(grants=[grant]).lower()

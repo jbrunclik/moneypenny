@@ -314,16 +314,27 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
   - `<tool>` lets a run read there; `<tool>:write` also lets it change things, for
     `WRITE_LEVEL_TOOLS` (todoist, google_calendar, garmin_workout, rouvy_workout).
   - A write without the level is a draft: `permission_check` requires one consumed
-    approval per change.
-  - Destructive operations still need an approval per call, even with `:write`.
+    approval per change. Every writable tool calls the check itself (Garmin workouts and
+    Rouvy included).
+  - An approval authorizes only the operation it names (`request_approval(operation=...)`,
+    plus `target_id` for destructive ones). An approval naming neither authorizes nothing,
+    so an approved "add task" can never be spent on a delete.
+  - Destructive operations (Todoist and Calendar deletes, Rouvy delete) still need an
+    approval per call, even with `:write`.
   - `*` (all tools) writes.
   - WhatsApp only messages the user, so it is a notification, not a write.
   - Migration 0081 gave existing grants their write levels, so no agent lost a power.
   - The editor sees tool names only; saving keeps the write levels of tools still granted.
-- **Always allow:** the approval card's third button, shown for writable integrations,
-  sends `POST /api/approvals/<id>/approve` with `{"always": true}`. It adds `<tool>:write`
-  to the job's grants. It is refused for settings changes, so grants never widen
-  implicitly.
+- **Always allow:** the approval card's third button ("Always allow Todoist changes"),
+  shown for writable integrations, sends `POST /api/approvals/<id>/approve` with
+  `{"always": true}`.
+  - It adds `<tool>:write` only when the job already holds that tool. A run names the tool
+    in its own request, so it can never gain a new tool this way.
+  - It is refused for settings changes, and for an approval already handled.
+- **Previews expire:** only the user's next message answers a preview (`pending_gate.expired`).
+  A preview left behind cannot be confirmed later, for example from a page the agent read.
+- An approved settings change is validated again before it applies (`validated_change`).
+  `request_approval` cannot file a request under `edit_standing_chat`'s name.
 
 ## Agent Execution Flow
 

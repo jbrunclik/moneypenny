@@ -117,7 +117,8 @@ function parseApprovalRequestMessage(content: string): { approvalId: string; des
   if (approvalId === undefined) return null;
 
   // Extract description from "I need your permission to: **description**"
-  const descMatch = content.match(/I need your permission to: \*\*(.+?)\*\*/);
+  // [\s\S]: a settings change's description spans several lines
+  const descMatch = content.match(/I need your permission to: \*\*([\s\S]+?)\*\*/);
   const description = descMatch?.[1] ?? 'Unknown action';
 
   // Extract tool name from "Tool: `tool_name`"
@@ -592,19 +593,25 @@ function approvalResult(approved: boolean): HTMLElement {
   ]);
 }
 
-/** Approve/reject buttons of a pending approval request. */
 /**
  * Integrations where "Always allow" grants the agent write access, so later
  * changes there need no approval (mirrors WRITE_LEVEL_TOOLS in
  * src/agent/permissions.py; the server refuses any other tool).
  */
-const ALWAYS_ALLOWABLE_TOOLS = new Set(['todoist', 'google_calendar', 'garmin_workout', 'rouvy_workout']);
+const ALWAYS_ALLOWABLE_TOOLS: Record<string, string> = {
+  todoist: 'Todoist',
+  google_calendar: 'Calendar',
+  garmin_workout: 'Garmin workout',
+  rouvy_workout: 'Rouvy',
+};
 
+/** Approve / Always allow / Reject buttons of a pending approval request. */
 function approvalButtons(approvalId: string, toolName: string): HTMLElement[] {
-  const always = ALWAYS_ALLOWABLE_TOOLS.has(toolName)
+  const label = ALWAYS_ALLOWABLE_TOOLS[toolName];
+  const always = label
     ? [
         createElement('button', { class: 'btn btn-always-allow', 'data-approval-id': approvalId }, [
-          createElement('span', {}, ['Always allow']),
+          createElement('span', {}, [`Always allow ${label} changes`]),
         ]),
       ]
     : [];

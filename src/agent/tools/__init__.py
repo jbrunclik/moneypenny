@@ -322,6 +322,12 @@ _NON_PERMISSIONED_TOOLS = frozenset(
 )
 
 
+def grantable_tool_names() -> set[str]:
+    """The tools a job can be granted (bound by permission, never the
+    chat-only or metadata tools)."""
+    return set(_TOOL_MAP)
+
+
 def get_all_tool_names() -> set[str]:
     """Every tool name that exists, regardless of local configuration.
 

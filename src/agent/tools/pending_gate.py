@@ -3,8 +3,10 @@
 Shared by the tools that change something lasting from chat (schedule,
 edit_standing_chat): the first call stores a preview in a reserved kv
 namespace, keyed by conversation, with the turn and request that made it; the
-confirm is refused until a newer user message answers it. A re-preview of the
-very same change keeps its markers (it stays answered).
+confirm is refused until a newer user message answers it, and only the user's
+next message is the answer: a preview left behind expires (a confirm days later
+- say from a page the agent read - never applies it). Re-previewing the very
+same change keeps its markers (the user already answered exactly that).
 """
 
 from __future__ import annotations
@@ -53,3 +55,12 @@ def unanswered(conversation_id: str, pending: Mapping[str, object]) -> bool:
     request = get_current_request_id()
     same_turn = bool(request) and request == pending.get("request")
     return same_turn or pending.get("turn") == latest_user_message_id(conversation_id)
+
+
+def expired(conversation_id: str, pending: Mapping[str, object]) -> bool:
+    """More than one user message since the preview: the next one was its
+    answer, so the preview is stale."""
+    turn = pending.get("turn")
+    user_ids = [m.id for m in db.get_messages(conversation_id) if m.role == MessageRole.USER]
+    later = user_ids[user_ids.index(turn) + 1 :] if turn in user_ids else user_ids
+    return len(later) > 1

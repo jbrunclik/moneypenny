@@ -471,3 +471,20 @@ def test_the_tool_cannot_touch_an_agents_job(
     assert "Agents" in result
     job = test_database.get_item(agent.id, test_user.id)
     assert job is not None and job.status == "active"
+
+
+def test_a_reminder_preview_answered_with_something_else_expires(
+    ctx: tuple[Database, User],
+) -> None:
+    from src.agent.tool_results import set_current_request_id
+
+    set_current_request_id("r1")
+    _reminder()
+    _user_replies()  # the next message (not a yes, here)...
+    _user_replies()  # ...and a later one
+    set_current_request_id("r3")
+
+    result = _call(action="create", confirm=True)
+    set_current_request_id(None)
+
+    assert "expired" in result

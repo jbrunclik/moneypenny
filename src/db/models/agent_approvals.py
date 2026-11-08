@@ -138,7 +138,11 @@ class AgentApprovalMixin:
             return row is not None
 
     def consume_approved_request(
-        self, agent_id: str, tool_name: str, target_id: str | None = None
+        self,
+        agent_id: str,
+        tool_name: str,
+        target_id: str | None = None,
+        operation: str | None = None,
     ) -> bool:
         """Atomically consume one approved, unexpired approval for a tool.
 
@@ -151,8 +155,10 @@ class AgentApprovalMixin:
         Argument-level matching: an approval whose tool_args carry a
         `target_id` only authorizes the call acting on that exact entity
         (a hijacked agent cannot spend an approval for item X on item Y).
-        Approvals without a target_id authorize any one call (matching
-        approvals are preferred over generic ones).
+        Operation matching: an approval records the operation it was asked
+        for; it never authorizes a different one (an approved "add task"
+        cannot spend itself on "delete project"). An approval with neither a
+        target nor that operation authorizes nothing.
         """
         with self._pool.get_connection() as conn:
             now = to_db(utc_now())
@@ -168,17 +174,15 @@ class AgentApprovalMixin:
             chosen_id: str | None = None
             generic_id: str | None = None
             for row in rows:
-                approval_target = None
-                if row["tool_args"]:
-                    try:
-                        approval_target = json.loads(row["tool_args"]).get("target_id")
-                    except json.JSONDecodeError:
-                        approval_target = None
-                if approval_target:
-                    if target_id and approval_target == target_id:
+                args = _approval_args(row["tool_args"])
+                approved_op, approved_target = args.get("operation"), args.get("target_id")
+                if approved_op and approved_op != operation:
+                    continue  # approved for another operation
+                if approved_target:
+                    if target_id and approved_target == target_id:
                         chosen_id = row["id"]
                         break
-                elif generic_id is None:
+                elif approved_op and generic_id is None:
                     generic_id = row["id"]
 
             chosen_id = chosen_id or generic_id
@@ -242,3 +246,18 @@ class AgentApprovalMixin:
         )
 
         return self.get_approval_request(request_id, user_id)
+
+
+def _approval_args(raw: str | None) -> dict[str, str]:
+    """An approval's stored args (operation, target_id), {} when unreadable."""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return (
+        {k: str(v) for k, v in parsed.items() if isinstance(v, str)}
+        if isinstance(parsed, dict)
+        else {}
+    )

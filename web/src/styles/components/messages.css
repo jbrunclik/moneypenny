@@ -1477,6 +1477,8 @@ a.document-name:hover {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     line-height: 1.5;
+    /* A settings change lists each change on its own line */
+    white-space: pre-line;
 }
 
 .approval-request-tool {

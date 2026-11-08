@@ -302,3 +302,71 @@ def test_always_allow_refused_for_settings_changes(
     assert test_database.get_pending_approvals(test_user.id) != []
     after = test_database.get_agent(agent.id, test_user.id)
     assert after is not None and after.tool_permissions == ["garmin_connect"]
+
+
+def test_always_allow_only_raises_a_granted_tool_to_write(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    resume: MagicMock,
+) -> None:
+    """A run can name any tool in its request: Always allow must not grant
+    a tool the job never had."""
+    agent = test_database.create_agent(test_user.id, "Gardener", tool_permissions=["web_search"])
+    approval = test_database.create_approval_request(
+        agent.id, test_user.id, "google_calendar", {"operation": "create_event"}, "Water plants"
+    )
+
+    response = client.post(
+        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
+    )
+
+    assert response.status_code == 400
+    after = test_database.get_agent(agent.id, test_user.id)
+    assert after is not None and after.tool_permissions == ["web_search"]
+
+
+def test_always_allow_on_a_handled_approval_grants_nothing(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    resume: MagicMock,
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Planner", tool_permissions=["todoist"])
+    approval = test_database.create_approval_request(
+        agent.id, test_user.id, "todoist", {"operation": "add_task"}, "Add milk"
+    )
+    test_database.resolve_approval(approval.id, test_user.id, approved=False)
+
+    response = client.post(
+        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
+    )
+
+    assert response.status_code == 404
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and job.grants == ["todoist"]
+
+
+def test_an_approved_settings_change_is_checked_again(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    resume: MagicMock,
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", tool_permissions=["garmin_connect"])
+    approval = test_database.create_approval_request(
+        agent.id,
+        test_user.id,
+        "edit_standing_chat",
+        {"grants": ["root_shell"], "description": "x"},
+        "Change settings",
+    )
+
+    response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
+
+    assert response.status_code == 400
+    after = test_database.get_agent(agent.id, test_user.id)
+    assert after is not None and after.tool_permissions == ["garmin_connect"]

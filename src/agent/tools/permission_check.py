@@ -47,6 +47,7 @@ class ApprovalRequiredError(Exception):
 DESTRUCTIVE_OPERATIONS: dict[str, frozenset[str]] = {
     "todoist": frozenset({"delete_task", "delete_project", "delete_section", "archive_project"}),
     "google_calendar": frozenset({"delete_event"}),
+    "rouvy_workout": frozenset({"delete"}),
 }
 
 # Which tool argument identifies the entity a destructive operation acts
@@ -59,6 +60,7 @@ _OPERATION_TARGET_PARAM: dict[str, str] = {
     "archive_project": "project_id",
     "delete_event": "event_id",
     "update_event": "event_id",
+    "delete": "workout_id",
 }
 
 # update_event is gated only when it actually reschedules or changes
@@ -68,7 +70,7 @@ _UPDATE_EVENT_GATED_FIELDS = ("start_time", "end_time", "attendees")
 
 def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | None:
     """The operation name when this call needs an approval, else None."""
-    operation = tool_args.get("operation")
+    operation = tool_args.get("operation") or tool_args.get("action")
     if operation in DESTRUCTIVE_OPERATIONS.get(tool_name, frozenset()):
         return str(operation)
     if (
@@ -84,7 +86,7 @@ def _check_destructive_approval(
     agent_id: str, tool_name: str, operation: str, target_id: str | None
 ) -> None:
     """Require + consume an approved request for a destructive operation."""
-    if db.consume_approved_request(agent_id, tool_name, target_id=target_id):
+    if db.consume_approved_request(agent_id, tool_name, target_id=target_id, operation=operation):
         logger.info(
             "Destructive action authorized by consumed approval",
             extra={
@@ -100,7 +102,8 @@ def _check_destructive_approval(
         f"'{operation}' is a destructive change and requires explicit user approval - "
         f"this is enforced, the action cannot run without it. Call request_approval "
         f"with a description of exactly what will change, "
-        f'tool_name="{tool_name}", and target_id="{target_id or "<entity id>"}" '
+        f'tool_name="{tool_name}", operation="{operation}" and '
+        f'target_id="{target_id or "<entity id>"}" '
         f"(the id of the item being changed), then wait for the user's decision. "
         f"Each approval authorizes one matching call; for several changes, request "
         f"approval for each."
@@ -110,7 +113,7 @@ def _check_destructive_approval(
 def _check_write_approval(agent_id: str, tool_name: str, tool_args: Mapping[str, object]) -> None:
     """Require + consume an approval for a change the job may only draft."""
     operation = str(tool_args.get("operation") or tool_args.get("action") or "change")
-    if db.consume_approved_request(agent_id, tool_name, target_id=None):
+    if db.consume_approved_request(agent_id, tool_name, target_id=None, operation=operation):
         logger.info(
             "Drafted change authorized by consumed approval",
             extra={"agent_id": agent_id, "tool_name": tool_name, "operation": operation},
@@ -118,8 +121,8 @@ def _check_write_approval(agent_id: str, tool_name: str, tool_args: Mapping[str,
         return
     raise ApprovalRequiredError(
         f"This agent may only read {tool_name}: '{operation}' changes something, so it is a "
-        f"draft the user must approve. Call request_approval with exactly what will change "
-        f'and tool_name="{tool_name}", then wait for the user\'s decision.'
+        f"draft the user must approve. Call request_approval with exactly what will change, "
+        f'tool_name="{tool_name}" and operation="{operation}", then wait for the user\'s decision.'
     )
 
 

@@ -16,15 +16,16 @@ edit stores the user's own copy (the preview says so).
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, TypedDict, cast
 
 from croniter import croniter
 from langchain_core.tools import tool
 
-from src.agent.permissions import base_tool
+from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
-from src.agent.tools.pending_gate import keep_pending, unanswered
+from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
 from src.db.models import db
@@ -57,7 +58,7 @@ def _changes(**fields: object) -> Change:
 
 def _invalid(changes: Change) -> str | None:
     """Why the change cannot be made, if it cannot."""
-    from src.agent.tools import get_all_tool_names  # noqa: PLC0415 - cycle: tools imports this module
+    from src.agent.tools import grantable_tool_names  # noqa: PLC0415 - cycle: tools imports this module
 
     if not changes:
         return "Say what to change: instructions, schedule, model, budget_usd, fresh_context or grants."
@@ -73,11 +74,24 @@ def _invalid(changes: Change) -> str | None:
     unknown = {
         grant
         for grant in changes.get("grants") or []
-        if base_tool(grant) not in get_all_tool_names() and grant != ALL_GRANTS
+        if not _grantable(grant, grantable_tool_names())
     }
     if unknown:
         return f"Unknown tools: {', '.join(sorted(unknown))}."
     return None
+
+
+def _grantable(grant: str, tools: set[str]) -> bool:
+    """A tool a job can hold, or a write level of a writable integration."""
+    if grant == ALL_GRANTS:
+        return True
+    if grant.endswith(WRITE_SUFFIX):
+        return base_tool(grant) in WRITE_LEVEL_TOOLS
+    return grant in tools
+
+
+def _tools_text(grants: set[str]) -> str:
+    return ", ".join("all tools" if g == ALL_GRANTS else g for g in sorted(grants)) or "none"
 
 
 def _describe(agent: Agent, changes: Change) -> str:
@@ -101,15 +115,26 @@ def _describe(agent: Agent, changes: Change) -> str:
         )
         lines.append(f"- History: {state}")
     if "grants" in changes:
-        before = set(agent.tool_permissions or [ALL_GRANTS])
+        # None = all tools; [] = none (never read as "all")
+        perms = agent.tool_permissions
+        before = {ALL_GRANTS} if perms is None else set(perms)
         after = set(changes["grants"])
-        added, removed = sorted(after - before), sorted(before - after)
+        added, removed = after - before, before - after
         lines.append(
-            f"- Tools: {', '.join(sorted(after)) or 'none'}"
-            + (f" (new access: {', '.join(added)})" if added else "")
-            + (f" (removed: {', '.join(removed)})" if removed else "")
+            f"- Tools: {_tools_text(after)}"
+            + (f" (new access: {_tools_text(added)})" if added else "")
+            + (f" (removed: {_tools_text(removed)})" if removed else "")
         )
     return "\n".join(lines)
+
+
+def validated_change(raw: Mapping[str, object]) -> Change | str:
+    """An approved change re-checked before it applies: only known fields,
+    valid values (a stale or forged approval changes nothing); or why not."""
+    change = cast("Change", {k: v for k, v in raw.items() if k in Change.__annotations__})
+    if problem := _invalid(change):
+        return problem
+    return change
 
 
 def apply_standing_changes(job_id: str, user_id: str, changes: Change) -> Agent | None:
@@ -161,6 +186,11 @@ def _in_chat(conversation_id: str, user_id: str, changes: Change, confirm: bool)
     if not raw:
         return tool_error("Nothing was previewed in this chat: preview the change first.")
     pending: dict[str, Change] = json.loads(raw)
+    if expired(conversation_id, pending):
+        db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
+        return tool_error(
+            "That preview expired - the user moved on. Preview again and ask, if still wanted."
+        )
     if unanswered(conversation_id, pending):
         return tool_error(
             "The user has not answered the preview yet - show it and ask them; confirm only "

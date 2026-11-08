@@ -23,7 +23,7 @@ from langchain_core.tools import tool
 
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
-from src.agent.tools.pending_gate import keep_pending, unanswered
+from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import ItemKind, ScheduledItem
@@ -193,6 +193,11 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
 
 
 def _confirm_refusal(user_id: str, conversation_id: str, pending: Spec) -> str | None:
+    if expired(conversation_id, pending):
+        db.kv_delete(user_id, _PENDING_NAMESPACE, conversation_id)
+        return tool_error(
+            "That preview expired - the user moved on. Preview again and ask, if still wanted."
+        )
     if unanswered(conversation_id, pending):
         return tool_error(
             "The user has not answered the preview yet - show it and ask them; confirm "

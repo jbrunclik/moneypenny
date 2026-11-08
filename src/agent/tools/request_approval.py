@@ -12,6 +12,10 @@ from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# edit_standing_chat files its own approvals (with the change as args); a
+# request_approval under its name could pose as one
+SETTINGS_TOOL = "edit_standing_chat"
+
 
 def build_approval_message(
     approval_id: str,
@@ -66,7 +70,10 @@ class ApprovalRequestedException(Exception):  # noqa: N818 - control flow (pause
 
 @tool
 def request_approval(
-    action_description: str, tool_name: str = "custom_action", target_id: str = ""
+    action_description: str,
+    tool_name: str = "custom_action",
+    target_id: str = "",
+    operation: str = "",
 ) -> str:
     """Request user approval before performing a sensitive action.
 
@@ -89,6 +96,9 @@ def request_approval(
         target_id: For gated destructive actions, the id of the entity being changed
             (task_id/project_id/section_id/event_id). The approval then authorizes
             ONLY the call acting on that exact entity.
+        operation: For a gated change, the tool's operation or action (e.g.
+            "add_task", "delete_event", "update"). The approval authorizes only
+            that operation.
 
     Returns:
         A message indicating that approval has been requested and the agent should wait.
@@ -107,6 +117,8 @@ def request_approval(
 
     agent = agent_context.agent
     user_id = agent_context.user.id
+    if tool_name == SETTINGS_TOOL:  # filed only by edit_standing_chat itself
+        return tool_error("Use edit_standing_chat to propose a settings change.", retriable=False)
 
     logger.info(
         "Agent requesting approval",
@@ -123,6 +135,8 @@ def request_approval(
     tool_args: dict[str, str] = {"description": action_description}
     if target_id:
         tool_args["target_id"] = target_id
+    if operation:
+        tool_args["operation"] = operation
     approval = db.create_approval_request(
         agent_id=agent.id,
         user_id=user_id,
@@ -133,4 +147,5 @@ def request_approval(
 
     # Raise exception to pause execution
     # The executor will catch this and handle the approval flow
-    raise ApprovalRequestedException(approval.id, action_description)
+    # The tool name reaches the chat's approval card (Always allow)
+    raise ApprovalRequestedException(approval.id, action_description, tool_name)

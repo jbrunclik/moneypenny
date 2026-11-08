@@ -6,7 +6,7 @@ static prompt
   planning       37048
   standing       33900
 
-tool declarations (37 tools, 62255 chars)
+tool declarations (37 tools, 62469 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
@@ -29,7 +29,7 @@ tool declarations (37 tools, 62255 chars)
   read_conversation              913
   record_conversation_facts     1137
   refresh_planner_dashboard     1019
-  request_approval              1553
+  request_approval              1767
   research                      1574
   retrieve_file                 1587
   rouvy_workout                 1035

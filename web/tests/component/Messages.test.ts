@@ -527,6 +527,23 @@ describe('Messages - addMessageToUI special messages', () => {
     await vi.waitFor(() => expect(approve).toHaveBeenCalledWith('ab12', true));
   });
 
+  it('shows a multi-line settings request in full', () => {
+    // As build_approval_message writes an edit_standing_chat request
+    const settings =
+      "[approval-request:5e771e9]\n**Action requires approval**\n\nI need your permission to: **Change Coach's settings:\n- Tools: all tools (new access: all tools)**\n\nTool: `edit_standing_chat`\n\nPlease approve or reject this request.";
+    addMessageToUI(createMessage('a1', settings, 'assistant'), container);
+
+    const description = container.querySelector('.approval-request-description')?.textContent;
+    expect(description).toContain("Change Coach's settings:");
+    expect(description).toContain('new access: all tools');
+  });
+
+  it('names what Always allow grants', () => {
+    const calendar = '[approval-request:ca1e]\nI need your permission to: **Add an event**\nTool: `google_calendar`';
+    addMessageToUI(createMessage('a1', calendar, 'assistant'), container);
+    expect(container.querySelector('.btn-always-allow')?.textContent).toBe('Always allow Calendar changes');
+  });
+
   it('has no Always allow for other requests', () => {
     addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container);
     expect(container.querySelector('.btn-always-allow')).toBeNull();

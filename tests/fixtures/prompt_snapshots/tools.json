@@ -651,7 +651,7 @@
     }
   },
   {
-    "description": "Request user approval before performing a sensitive action.\n\nUse this tool when you are about to perform an action that:\n- Is destructive or irreversible (deleting data, removing access)\n- Affects other users (sending messages, sharing content)\n- Posts content externally (social media, emails, public APIs)\n- Involves financial transactions or commitments\n- Could have significant real-world consequences\n\nAfter calling this tool, you MUST stop and wait. Do not proceed with the action\nuntil you receive confirmation that the user has approved it.\n\nArgs:\n    action_description: Clear description of what you want to do and why.\n        Be specific about what will happen if approved.\n        Example: \"Send email to team@company.com about the project deadline\"\n    tool_name: The name of the tool/action category (e.g., \"email\", \"todoist\", \"calendar\").\n        For tool-gated actions use the actual tool name (\"todoist\", \"google_calendar\").\n    target_id: For gated destructive actions, the id of the entity being changed\n        (task_id/project_id/section_id/event_id). The approval then authorizes\n        ONLY the call acting on that exact entity.\n\nReturns:\n    A message indicating that approval has been requested and the agent should wait.",
+    "description": "Request user approval before performing a sensitive action.\n\nUse this tool when you are about to perform an action that:\n- Is destructive or irreversible (deleting data, removing access)\n- Affects other users (sending messages, sharing content)\n- Posts content externally (social media, emails, public APIs)\n- Involves financial transactions or commitments\n- Could have significant real-world consequences\n\nAfter calling this tool, you MUST stop and wait. Do not proceed with the action\nuntil you receive confirmation that the user has approved it.\n\nArgs:\n    action_description: Clear description of what you want to do and why.\n        Be specific about what will happen if approved.\n        Example: \"Send email to team@company.com about the project deadline\"\n    tool_name: The name of the tool/action category (e.g., \"email\", \"todoist\", \"calendar\").\n        For tool-gated actions use the actual tool name (\"todoist\", \"google_calendar\").\n    target_id: For gated destructive actions, the id of the entity being changed\n        (task_id/project_id/section_id/event_id). The approval then authorizes\n        ONLY the call acting on that exact entity.\n    operation: For a gated change, the tool's operation or action (e.g.\n        \"add_task\", \"delete_event\", \"update\"). The approval authorizes only\n        that operation.\n\nReturns:\n    A message indicating that approval has been requested and the agent should wait.",
     "name": "request_approval",
     "parameters": {
       "properties": {
@@ -662,6 +662,9 @@
           "type": "STRING"
         },
         "target_id": {
+          "type": "STRING"
+        },
+        "operation": {
           "type": "STRING"
         }
       },

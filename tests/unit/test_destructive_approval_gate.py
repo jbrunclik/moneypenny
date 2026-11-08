@@ -47,7 +47,7 @@ class TestDestructiveApprovalGate:
             agent_id=agent_ctx.id,
             user_id=test_user.id,
             tool_name="todoist",
-            tool_args={"description": "delete task X"},
+            tool_args={"description": "delete task X", "operation": "delete_task"},
             description="delete task X",
         )
         test_database.resolve_approval(approval.id, test_user.id, approved=True)
@@ -90,10 +90,12 @@ class TestDestructiveApprovalGate:
             check_autonomous_permission("google_calendar", {"operation": "delete_event"})
 
 
-def _approve(test_database, agent, user, tool_name="todoist", target_id=None):
+def _approve(test_database, agent, user, tool_name="todoist", target_id=None, operation=None):
     tool_args = {"description": "x"}
     if target_id:
         tool_args["target_id"] = target_id
+    if operation:
+        tool_args["operation"] = operation
     approval = test_database.create_approval_request(
         agent_id=agent.id,
         user_id=user.id,
@@ -152,16 +154,26 @@ class TestTargetMatching:
                 "todoist", {"operation": "delete_task", "task_id": "task-X"}
             )
 
-    def test_generic_approval_authorizes_any_single_call(
+    def test_an_untargeted_approval_for_the_operation_authorizes_one_call(
         self, agent_ctx, test_database, test_user
     ) -> None:
-        _approve(test_database, agent_ctx, test_user, target_id=None)
+        _approve(test_database, agent_ctx, test_user, target_id=None, operation="delete_task")
         check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-Y"})
+
+    def test_an_approval_naming_neither_target_nor_operation_authorizes_nothing(
+        self, agent_ctx, test_database, test_user
+    ) -> None:
+        """Part D review: an approved "add task" must not be spendable on a delete."""
+        _approve(test_database, agent_ctx, test_user, target_id=None)
+        with pytest.raises(ApprovalRequiredError):
+            check_autonomous_permission(
+                "todoist", {"operation": "delete_task", "task_id": "task-Y"}
+            )
 
     def test_targeted_approval_preferred_over_generic(
         self, agent_ctx, test_database, test_user
     ) -> None:
-        generic = _approve(test_database, agent_ctx, test_user, target_id=None)
+        generic = _approve(test_database, agent_ctx, test_user, operation="delete_task")
         targeted = _approve(test_database, agent_ctx, test_user, target_id="task-X")
 
         check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-X"})
