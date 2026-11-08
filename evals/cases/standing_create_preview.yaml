@@ -1,0 +1,17 @@
+id: standing_create_preview
+description: >
+  A lasting role with its own schedule is previewed as a new standing chat
+  with create_standing_chat and confirmed with the user - nothing is created
+  without a yes (standing chats phase 3, F1)
+user: "Buď můj cyklistický trenér, každý večer v 8 se podívej na Garmin a zeptej se, jak se cítím."
+expect:
+  rubric: >
+    Answers in Czech. Proposes a new standing chat (a cycling coach) that runs
+    every evening at 20:00, checks Garmin and asks how the user feels, and
+    asks the user to confirm. Must NOT claim it is already set up.
+  required_tools: [create_standing_chat]
+  forbidden_tools: [schedule]
+  forbidden_arg_patterns:
+    create_standing_chat.confirm:
+      - "^True$"
+  max_tool_rounds: 2

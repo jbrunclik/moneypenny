@@ -39,6 +39,7 @@ RESERVED_NAMESPACES = frozenset(
         "oauth_state",
         "schedule_pending",
         "standing_pending",
+        "standing_create_pending",
         "search-usage",
         "gemini_files",
     }

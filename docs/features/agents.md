@@ -431,6 +431,26 @@ The sidebar shows:
 
 ## Creating an Agent
 
+### By talking (standing chats phase 3, Nov 2026)
+
+In an ordinary chat, "be my cycling coach, check my Garmin every evening at 8 and ask how
+I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
+
+- The first call previews it and creates nothing: name, instructions, the schedule in
+  words, and each tool, with write access spelled out ("todoist (can change your
+  Todoist)", "garmin_connect (read only)").
+- The user's yes in their next message confirms it (the pending gate shared with
+  `schedule` and `edit_standing_chat`, namespace `standing_create_pending`). A preview
+  left behind expires, and a confirm in the same turn is refused.
+- The confirm creates the standing chat and its job with exactly the previewed settings,
+  re-checked, and returns the chat's link `#/conversations/<id>`.
+- Refused in standing chats and in unattended runs; never bound in anonymous chats. Names
+  are unique, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing chats.
+- A one-off reminder or watcher stays with `schedule`; the two docstrings point at each
+  other. Evals: `standing_create_preview`, `standing_vs_schedule`.
+
+### From the Command Center
+
 1. Click the robot icon in the sidebar or navigate to Command Center
 2. Click "New Agent"
 3. Fill in:
@@ -467,6 +487,7 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
+| `STANDING_CHATS_MAX_PER_USER` | 10 | Standing chats a user may have; guards against creating them in a loop |
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
 | `GUNICORN_MAX_REQUESTS` | 1000 | Recycle workers after N requests (memory leak safety net) |
 | `GUNICORN_MAX_REQUESTS_JITTER` | 50 | Random jitter to stagger worker recycling |

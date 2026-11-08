@@ -123,6 +123,47 @@
     }
   },
   {
+    "description": "Set up a new standing chat - a lasting role with its own schedule, like\n\"be my cycle coach, check my Garmin every evening and ask how I feel\" or\n\"watch my bills every Monday\". It appears under Agents with its own chat.\nFor a one-off reminder or a single check, use schedule instead.\n\nCall it WITHOUT confirm first: it returns a preview and creates nothing.\nShow the preview and ask; only after the user agrees in their reply, call\nit with confirm=true (no other fields): it creates exactly what was\npreviewed.\n\nArgs:\n    name: A short name, e.g. \"Cycling coach\".\n    instructions: Its standing instructions, written as to the agent.\n    days: mon..sun, or [\"daily\"] / [\"weekdays\"] / [\"weekends\"]; omit (and\n        time) for a chat that runs only when asked.\n    time: HH:MM, local time.\n    grants: The tools it may use on its runs, e.g. [\"garmin_connect\"]. A\n        write level (\"todoist:write\") lets it change things there;\n        without it, changes wait for the user's approval.\n    fresh_context: true = each run starts fresh; false = runs see the chat.\n    confirm: true only after the user agreed to the preview in their reply.",
+    "name": "create_standing_chat",
+    "parameters": {
+      "properties": {
+        "name": {
+          "type": "STRING"
+        },
+        "instructions": {
+          "type": "STRING"
+        },
+        "days": {
+          "items": {
+            "type": "STRING"
+          },
+          "nullable": true,
+          "type": "ARRAY"
+        },
+        "time": {
+          "nullable": true,
+          "type": "STRING"
+        },
+        "grants": {
+          "items": {
+            "type": "STRING"
+          },
+          "nullable": true,
+          "type": "ARRAY"
+        },
+        "fresh_context": {
+          "type": "BOOLEAN"
+        },
+        "confirm": {
+          "type": "BOOLEAN"
+        }
+      },
+      "required": [],
+      "title": "create_standing_chat",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Delegate a self-contained research task to a focused subagent.\n\nUse for DEEP research (3+ sources, multi-step digging, comparisons that\nneed verification) so the bulky intermediate pages stay out of this\nconversation. The subagent can search the web and read pages; it returns\na digest with sources. Give it a complete, self-contained brief - it\ncannot see this conversation.\n\nArgs:\n    task: Complete description of what to find out. Include ALL relevant\n        context (names, dates, constraints) - the subagent starts blank.\n    expected_output: Optional description of the desired answer format.\n\nReturns:\n    JSON: {result, sources: [{title, url}]}.",
     "name": "delegate_task",
     "parameters": {
@@ -771,7 +812,7 @@
     }
   },
   {
-    "description": "Set reminders, check-ins, watchers and recurring checks for the user, and manage them.\n\nEverything belongs to this chat: results arrive here as a new message\n(and a push), and deleting the chat deletes them. Times are local.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree in\ntheir reply, call create with confirm=true (no other fields needed): it\nstores exactly the item previewed in this chat.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date + time.\n  - kind=\"check_in\": at date + time, ask the user a question back in\n    this chat (\"check with me Friday how it's healing\"). text = the\n    question to ask then, written now from this conversation.\n  - kind=\"watcher\": check a public web page until something happens,\n    then report and stop (\"tell me when the school posts a teacher job\").\n    text = what to check (with its URL if known), end_condition = when\n    to stop, interval = 6h, daily or weekly (how urgent), optional\n    until = last day. Only public pages - not email, mail or accounts.\n  - kind=\"recurring\": a regular check you run and report on. text = the\n    task, days = mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"],\n    time, optional until.\nlist: everything scheduled from chat, with ids.\npause / resume (watchers, recurring) and delete (any): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder, check_in, watcher or recurring (create).\n    text: The reminder, the check-in question, or what to check or do.\n    date: YYYY-MM-DD (reminder, check_in).\n    time: HH:MM, 24-hour, local time (reminder, check_in, recurring).\n    days: Days for recurring: mon..sun, or daily, weekdays, weekends.\n    until: YYYY-MM-DD, the last day (watcher, recurring; optional).\n    interval: 6h, daily or weekly (watcher).\n    end_condition: When a watcher stops (watcher).\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview in their reply.",
+    "description": "Set reminders, check-ins, watchers and recurring checks for the user, and manage them.\n\nEverything belongs to this chat: results arrive here as a new message\n(and a push), and deleting the chat deletes them. Times are local. A\nlasting role with its own chat (\"be my coach, check in every evening\")\nis a standing chat instead: create_standing_chat.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree in\ntheir reply, call create with confirm=true (no other fields needed): it\nstores exactly the item previewed in this chat.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date + time.\n  - kind=\"check_in\": at date + time, ask the user a question back in\n    this chat (\"check with me Friday how it's healing\"). text = the\n    question to ask then, written now from this conversation.\n  - kind=\"watcher\": check a public web page until something happens,\n    then report and stop (\"tell me when the school posts a teacher job\").\n    text = what to check (with its URL if known), end_condition = when\n    to stop, interval = 6h, daily or weekly (how urgent), optional\n    until = last day. Only public pages - not email, mail or accounts.\n  - kind=\"recurring\": a regular check you run and report on. text = the\n    task, days = mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"],\n    time, optional until.\nlist: everything scheduled from chat, with ids.\npause / resume (watchers, recurring) and delete (any): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder, check_in, watcher or recurring (create).\n    text: The reminder, the check-in question, or what to check or do.\n    date: YYYY-MM-DD (reminder, check_in).\n    time: HH:MM, 24-hour, local time (reminder, check_in, recurring).\n    days: Days for recurring: mon..sun, or daily, weekdays, weekends.\n    until: YYYY-MM-DD, the last day (watcher, recurring; optional).\n    interval: 6h, daily or weekly (watcher).\n    end_condition: When a watcher stops (watcher).\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview in their reply.",
     "name": "schedule",
     "parameters": {
       "properties": {

@@ -474,3 +474,14 @@ class TestSearchAndReadDetails:
 )
 def test_schedule_detail(args: dict[str, object], detail: str) -> None:
     assert extract_tool_detail("schedule", args) == detail
+
+
+@pytest.mark.parametrize(
+    ("args", "detail"),
+    [
+        ({"name": "Cycling coach", "instructions": "..."}, "preview: Cycling coach"),
+        ({"confirm": True}, "confirmed"),
+    ],
+)
+def test_standing_create_detail(args: dict[str, object], detail: str) -> None:
+    assert extract_tool_detail("create_standing_chat", args) == detail

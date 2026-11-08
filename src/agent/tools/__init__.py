@@ -60,6 +60,7 @@ from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
 from src.agent.tools.scheduling import schedule
 from src.agent.tools.skills import load_skill
+from src.agent.tools.standing_create import create_standing_chat
 from src.agent.tools.standing_settings import edit_standing_chat
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
@@ -267,6 +268,9 @@ def get_tools_for_request(
         # An agent's chat: it may propose changes to its own settings (the
         # tool refuses in chats without an agent)
         tools.append(edit_standing_chat)
+    elif not anonymous_mode and not is_planning:
+        # Ordinary chats set up new standing chats ("be my coach...")
+        tools.append(create_standing_chat)
 
     return tools
 
@@ -314,6 +318,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "propose_deep_research",  # ordinary chats only, never for agents
         "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
         "edit_standing_chat",  # standing chats and their jobs, never a grant
+        "create_standing_chat",  # ordinary chats only, never a grant
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",
         "update_artifact",

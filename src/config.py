@@ -700,6 +700,9 @@ class Config:
     # per call (each also capped at MAX_FILE_SIZE_BYTES)
     CODE_SANDBOX_MAX_ATTACHMENTS: int = int(os.getenv("CODE_SANDBOX_MAX_ATTACHMENTS", "5"))
     # Items a user may have scheduled from chat at once, paused included (schedule tool)
+    # Standing chats (agents) a user may have; a guard against a runaway loop
+    # creating them by talking, not a product limit
+    STANDING_CHATS_MAX_PER_USER: int = int(os.getenv("STANDING_CHATS_MAX_PER_USER", "10"))
     SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
     # A watcher with no end date stops after this many days
     SCHEDULE_WATCH_EXPIRY_DAYS: int = int(os.getenv("SCHEDULE_WATCH_EXPIRY_DAYS", "30"))

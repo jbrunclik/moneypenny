@@ -1,0 +1,13 @@
+id: standing_vs_schedule
+description: >
+  A one-off reminder stays a scheduled item - create_standing_chat is for a
+  lasting role, not for "remind me tomorrow" (standing chats phase 3, F1)
+user: "Remind me tomorrow at 9 to renew the parking permit."
+expect:
+  rubric: >
+    Answers in English. States the reminder it would set (renew the parking
+    permit, tomorrow at 09:00) and asks the user to confirm. Must NOT claim
+    the reminder is already set.
+  required_tools: [schedule]
+  forbidden_tools: [create_standing_chat]
+  max_tool_rounds: 2

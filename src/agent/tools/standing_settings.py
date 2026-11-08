@@ -81,6 +81,14 @@ def _invalid(changes: Change) -> str | None:
     return None
 
 
+def unknown_grants(grants: list[str]) -> set[str]:
+    """The grants no job can hold (shared with create_standing_chat)."""
+    from src.agent.tools import grantable_tool_names  # noqa: PLC0415 - cycle: tools imports this module
+
+    tools = grantable_tool_names()
+    return {grant for grant in grants if not _grantable(grant, tools)}
+
+
 def _grantable(grant: str, tools: set[str]) -> bool:
     """A tool a job can hold, or a write level of a writable integration."""
     if grant == ALL_GRANTS:

@@ -349,7 +349,9 @@ def schedule(
     """Set reminders, check-ins, watchers and recurring checks for the user, and manage them.
 
     Everything belongs to this chat: results arrive here as a new message
-    (and a push), and deleting the chat deletes them. Times are local.
+    (and a push), and deleting the chat deletes them. Times are local. A
+    lasting role with its own chat ("be my coach, check in every evening")
+    is a standing chat instead: create_standing_chat.
 
     create: first call WITHOUT confirm - it returns a preview and stores
     nothing. Show the preview to the user and ask; only after they agree in

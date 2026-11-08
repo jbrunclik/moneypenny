@@ -216,6 +216,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Scheduled",
         "icon": "history",
     },
+    "create_standing_chat": {
+        "label": "Setting up a standing chat",
+        "label_past": "Set up a standing chat",
+        "icon": "history",
+    },
     "edit_standing_chat": {
         "label": "Changing settings",
         "label_past": "Proposed a settings change",
@@ -242,6 +247,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "propose_deep_research",
         "record_conversation_facts",  # behind CONVERSATION_FACTS_ENABLED
         "schedule",  # ordinary non-anonymous chats only
+        "create_standing_chat",  # ordinary non-anonymous chats only
     }
 )
 
@@ -646,6 +652,14 @@ def _schedule_detail(tool_args: dict[str, object]) -> str | None:
     return f"preview: {_snippet(text, 50)}" if text else "preview"
 
 
+def _standing_create_detail(tool_args: dict[str, object]) -> str | None:
+    """'preview: Cycling coach' or 'confirmed'."""
+    if tool_args.get("confirm"):
+        return "confirmed"
+    name = str(tool_args.get("name") or "")
+    return f"preview: {_snippet(name, 50)}" if name else "preview"
+
+
 def _facts_detail(tool_args: dict[str, object]) -> str | None:
     """Fact edits as their keys - e.g. 'partition-walls, -blinds'."""
     sets = tool_args.get("set")
@@ -687,6 +701,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "set_conversation_title": _truthy_arg("title"),
     "record_conversation_facts": _facts_detail,
     "schedule": _schedule_detail,
+    "create_standing_chat": _standing_create_detail,
 }
 
 
