@@ -1,0 +1,15 @@
+id: memory_review_saves_fact
+description: The background memory review keeps a household schedule mentioned in passing
+memory_review: true
+history:
+  - role: user
+    content: "Any quick dinner ideas for this week? Nothing with mushrooms."
+  - role: assistant
+    content: "Sure - a lemon chicken traybake, a tomato risotto and fish tacos are all quick. None have mushrooms."
+user: "Risotto on Tuesday then - Ema has ballet every Tuesday until 17:00, so we always eat late that day."
+expect:
+  rubric: >
+    The response lists what the memory review saved. It must include that Ema
+    has ballet every Tuesday (until 17:00); saving the mushroom dislike as well
+    is fine. It must not save the one-off plan to cook risotto this Tuesday.
+  required_tools: [manage_memory]

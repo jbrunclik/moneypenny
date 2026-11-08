@@ -1,0 +1,20 @@
+id: memory_review_patches
+description: A changed fact the bank already holds is patched, not added again
+memory_review: true
+memories:
+  - content: "Ema has swimming lessons every Monday at 16:00"
+    category: fact
+history:
+  - role: user
+    content: "Can you help me plan the week? Work is busy Thursday."
+  - role: assistant
+    content: "Of course - let's keep Thursday light. Anything fixed on the other days?"
+user: "Ema's swimming moved to Wednesdays at 16:00 from this month, otherwise nothing special."
+expect:
+  rubric: >
+    The response shows the saved memory now says Ema's swimming is on
+    Wednesdays at 16:00 (an update of the existing memory, not a new one).
+  required_tools: [manage_memory]
+  forbidden_arg_patterns:
+    manage_memory.operations:
+      - "'action': 'add'"

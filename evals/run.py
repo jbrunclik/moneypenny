@@ -126,6 +126,9 @@ class EvalCase:
     # Settled conversation facts ([{key, text}], [] for an empty list): the
     # case runs with CONVERSATION_FACTS_ENABLED on; None leaves it off
     conversation_facts: list[dict[str, str]] | None = None
+    # The background memory review instead of an agent turn: the history plus
+    # `user` are reviewed, the ops it applied graded as one manage_memory call
+    memory_review: bool = False
 
 
 def _placeholder_date(placeholder: str, today: date) -> date | None:
@@ -221,6 +224,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     for e in (data.get("kv") or [])
                 ],
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
+                memory_review=bool(data.get("memory_review", False)),
                 deep_research=dict(data.get("deep_research") or {}),
                 conversation_facts=(
                     None
@@ -751,6 +755,8 @@ def _run_turn(
     """The agent turn: (response, tool_results, usage, result_messages, integration changes)."""
     from src.config import Config
 
+    if case.memory_review:
+        return _memory_review_turn(case, user, conversation_id, history)
     facts = _case_facts(case)
     # The flag binds the facts tool when the agent is built; restored after.
     # Switched on for the whole run, every case gets the (empty) facts block
@@ -768,6 +774,46 @@ def _run_turn(
             return _agent_turn(case, user, conversation_id, request_id, history, standing, facts)
     finally:
         Config.CONVERSATION_FACTS_ENABLED = facts_were_enabled
+
+
+def _memory_review_turn(
+    case: EvalCase, user: Any, conversation_id: str, history: list[dict[str, Any]] | None
+) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
+    """Run the background memory review over the case's chat (no agent turn).
+
+    The ops it applied come back as one manage_memory tool call, so the usual
+    required/forbidden tool and argument checks grade it.
+    """
+    from langchain_core.messages import AIMessage
+
+    from src.agent import memory_review
+    from src.config import Config
+    from src.db import models
+
+    db = models.db
+    # Earlier cases' soft-deleted memories would read as "removed by the user"
+    db.purge_deleted_memories(retention_days=0)
+    for turn in history or []:
+        db.add_message(conversation_id, str(turn["role"]), str(turn["content"]))
+    db.add_message(conversation_id, "user", case.user)
+    result = memory_review.review_messages(
+        user.id, conversation_id, db.get_messages(conversation_id)
+    )
+    # The review's own adds go too (cases run in parallel as one user: only
+    # memories learned in this case's conversation are its own)
+    for memory in db.list_memories(user.id):
+        if memory.source_conversation_id == conversation_id:
+            db.delete_memory(memory.id, user.id)
+    calls = [{"name": "manage_memory", "args": {"operations": result.ops}, "id": "review"}]
+    saved = memory_review.format_note(result.applied)
+    response = f"Memory updated: {saved}" if result.ops else "Memory review: nothing saved."
+    usage = {
+        "answer_model": Config.AI_ASSIST_MODEL,
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+    }
+    message = AIMessage(content=response, tool_calls=calls if result.ops else [])
+    return response, [], usage, [message], ""
 
 
 def _case_facts(case: EvalCase) -> list[Any] | None:

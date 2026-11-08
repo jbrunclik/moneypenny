@@ -1,0 +1,14 @@
+id: memory_review_ignores_oneoffs
+description: The background memory review saves nothing from one-off tasks and a broken-tool complaint
+memory_review: true
+history:
+  - role: user
+    content: "Can you find a table for tonight somewhere near the centre? Around 19:30."
+  - role: assistant
+    content: "I can't book directly, but Lokál and Café Savoy both take online reservations for 19:30."
+user: "Thanks. Also your weather tool seems broken today, it just gave me an error."
+expect:
+  rubric: >
+    The response says nothing was saved. A memory about tonight's table or
+    about the weather tool being broken would be a failure.
+  forbidden_tools: [manage_memory]
