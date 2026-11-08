@@ -301,6 +301,17 @@ by guessing):
 
 ## E2E Stability Pitfalls (Aug 2026)
 
+- **A click that "succeeded" but did nothing: was the target replaced
+  mid-click?** (Nov 2026, `conversation-switch.spec.ts:291`.) A click fires
+  only when the press and the release hit the same element. The sidebar
+  re-renders by replacing every row, and a stream finishing (retitling its
+  row) landed between Playwright's mousedown and mouseup, so the switch never
+  happened. Playwright still logs "click action done". The trace gives it
+  away: a stream-done console line between "performing click action" and
+  "click action done", and no request the click should have made. The fix
+  was in the app, since a real tap is lost the same way:
+  `components/sidebar-press-hold.ts` holds list re-renders while a pointer
+  is down and runs them right after the release.
 - **A "short of the bottom" scroll flake: tell a frame stall from a bug**
   (Nov 2026, `scroll-button.spec.ts`). Under heavy load headless Chromium can
   stop delivering animation frames to a visible page for seconds (they resume

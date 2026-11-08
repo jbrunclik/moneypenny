@@ -674,3 +674,10 @@ export const DEVICE_CHECK_SETTLE_MS = 700;
 export const DEVICE_CHECK_SETTLE_TIMEOUT_MS = 5000;
 /** A keyboard that hasn't shrunk the viewport by then never appeared (hardware keyboard) */
 export const DEVICE_CHECK_KEYBOARD_APPEAR_MS = 2500;
+
+/**
+ * Longest a sidebar re-render waits for a press on the list to end. A press
+ * normally ends in a release or a cancel; the cap only guards a release the
+ * list never hears about.
+ */
+export const LIST_PRESS_RENDER_HOLD_MAX_MS = 2 * MS_PER_SECOND;

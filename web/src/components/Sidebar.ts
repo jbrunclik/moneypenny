@@ -13,6 +13,7 @@ import { getSyncManager } from '../sync/SyncManager';
 import { isSearchResultsVisible, renderSearchResults } from './SearchResults';
 import { renderTrashEntry, renderTrashView } from './TrashView';
 import { selectionCheckbox } from './SidebarSelection';
+import { holdRenderWhilePressed, watchListPresses } from './sidebar-press-hold';
 import { isConversationSelected } from '../state/slices/selection';
 import {
   LOAD_MORE_THRESHOLD_PX,
@@ -232,6 +233,9 @@ function loadMoreDots(className: string, loading: boolean): HTMLElement {
 export function renderConversationsList(): void {
   const container = getElementById<HTMLDivElement>('conversations-list');
   if (!container) return;
+  watchListPresses(container);
+  // A row replaced mid-press would swallow the click
+  if (holdRenderWhilePressed(renderConversationsList)) return;
 
   if (renderAlternateList(container)) {
     lastRenderedList = null;
