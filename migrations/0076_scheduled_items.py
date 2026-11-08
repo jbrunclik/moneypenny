@@ -25,6 +25,26 @@ _REMOVE_CHAT_AGENTS = (
 )
 
 
+def _restore_reminders(conn: Any) -> None:
+    cursor = conn.cursor()
+    cursor.execute(
+        """CREATE TABLE reminders (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            conversation_id TEXT,
+            text TEXT NOT NULL,
+            due_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL
+        )"""
+    )
+    cursor.execute(
+        """INSERT INTO reminders (id, user_id, conversation_id, text, due_at, status, created_at)
+           SELECT id, user_id, conversation_id, text, next_run_at, 'pending', created_at
+           FROM scheduled_items WHERE kind = 'reminder'"""
+    )
+
+
 def _remove_chat_agents(conn: Any) -> None:
     cursor = conn.cursor()
     for statement in _REMOVE_CHAT_AGENTS:
@@ -74,18 +94,9 @@ steps = [
            FROM reminders WHERE status = 'pending' AND conversation_id IS NOT NULL""",
         "DELETE FROM scheduled_items",
     ),
-    step(
-        "DROP TABLE reminders",
-        """CREATE TABLE reminders (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            conversation_id TEXT,
-            text TEXT NOT NULL,
-            due_at TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created_at TEXT NOT NULL
-        )""",
-    ),
+    # Rollback brings the reminders back (watchers and the other new kinds
+    # have no place in that table and are dropped)
+    step("DROP TABLE reminders", _restore_reminders),
     step(
         """CREATE TRIGGER scheduled_items_follow_conversation
            AFTER DELETE ON conversations

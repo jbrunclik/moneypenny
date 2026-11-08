@@ -248,7 +248,9 @@ message, each belonging to the chat that set it
   the Command Center has a "From chats" lane above the agents (hidden when empty).
   API: `GET /api/conversations/<id>/schedules`, `DELETE /api/schedules/<id>`,
   `POST /api/schedules/<id>/pause|resume`, `chat_items` on the Command Center payload.
-- **Limits:** at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included;
+- **Limits:** at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included
+  (the cap gates creating; restoring trashed or archived chats can bring a user above it -
+  their items come back as they were rather than being dropped);
   a reminder's preview warns when none of the user's devices has notifications on.
 - **Silent runs** (full agents too): the autonomous-agent prompt says to reply exactly
   `[SILENT]` when a check finds nothing new; the executor saves it as "Nothing new." and
