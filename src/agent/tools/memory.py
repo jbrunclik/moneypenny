@@ -351,6 +351,42 @@ def _run_batch(user_id: str, conversation_id: str | None, operations: list[Memor
     ]
 
 
+def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> str | None:
+    """Apply one add or patch through the tool's guards (the background review).
+
+    Returns the memory's new text, or None when the op was rejected or failed
+    (logged). Deletes are refused: the review only adds and patches.
+    """
+    action = str(op.get("action"))
+    if action not in ("add", "patch"):
+        logger.info("Memory review op rejected", extra={"user_id": user_id, "reason": action})
+        return None
+    try:
+        [planned], count = _plan_batch(user_id, [op])
+        if isinstance(planned, str):
+            logger.info(
+                "Memory review op rejected", extra={"user_id": user_id, "reason": planned[:200]}
+            )
+            return None
+        [new_id] = db.apply_memory_batch(user_id, conversation_id, [planned.write])
+    except Exception:
+        logger.warning("Memory review op failed", extra={"user_id": user_id}, exc_info=True)
+        return None
+    _applied_line(user_id, planned, new_id, count)
+    content = str(planned.write.content)
+    logger.info(
+        "Memory review applied",
+        extra={
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "action": action,
+            "memory_id": new_id or planned.write.memory_id,
+            "excerpt": content[:80],
+        },
+    )
+    return content
+
+
 @tool
 def manage_memory(operations: list[dict[str, Any]]) -> str:
     """Store, edit, or delete user memories for personalization.

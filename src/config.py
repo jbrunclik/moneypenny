@@ -644,6 +644,14 @@ class Config:
     # bank, and the operation list can be influenced by fetched content, so a
     # mass delete/overwrite is refused rather than applied.
     MEMORY_MAX_OPS_PER_CALL: int = int(os.getenv("MEMORY_MAX_OPS_PER_CALL", "10"))
+    # Background memory review (agent/memory_review.py): every N user turns of a
+    # chat, a cheap pass rereads the turns since its last review and may add or
+    # patch a few memories. Conservative on purpose - a wrong memory is injected
+    # into every later prompt. MAX_TURNS caps the turns one pass reads.
+    MEMORY_REVIEW_ENABLED: bool = os.getenv("MEMORY_REVIEW_ENABLED", "true").lower() == "true"
+    MEMORY_REVIEW_EVERY_TURNS: int = int(os.getenv("MEMORY_REVIEW_EVERY_TURNS", "6"))
+    MEMORY_REVIEW_MAX_TURNS: int = int(os.getenv("MEMORY_REVIEW_MAX_TURNS", "12"))
+    MEMORY_REVIEW_MAX_OPS: int = int(os.getenv("MEMORY_REVIEW_MAX_OPS", "3"))
     # Tiered injection: at or below MEMORY_INJECT_FULL_MAX every memory is
     # injected into the prompt (small banks, current behavior). Above it, only
     # core entries (protected + preference + goal) plus the most recently
