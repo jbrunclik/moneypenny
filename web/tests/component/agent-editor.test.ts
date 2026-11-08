@@ -9,16 +9,17 @@ const api = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
-  getCommandCenter: vi.fn(),
+  overview: vi.fn(),
   settingsGet: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
 
 vi.mock('@/api/agents', () => ({
-  agents: { create: api.create, update: api.update, delete: api.delete, getCommandCenter: api.getCommandCenter },
+  agents: { create: api.create, update: api.update, delete: api.delete },
   aiAssist: { parseSchedule: vi.fn(), enhancePrompt: vi.fn() },
 }));
+vi.mock('@/api/jobs', () => ({ jobs: { overview: api.overview } }));
 vi.mock('@/api/settings', () => ({ settings: { get: api.settingsGet } }));
 vi.mock('@/components/Toast', () => ({ toast: { success: api.toastSuccess, error: api.toastError } }));
 

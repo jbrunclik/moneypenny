@@ -23,6 +23,7 @@ interface LegacyCommandCenter {
   recent_executions?: Array<{ agent_id: string; status: string; trigger_type: string; started_at: string; [unused: string]: unknown }>;
   total_unread?: number;
   agents_waiting?: number;
+  stats?: { days: number; total_runs: number; total_completed: number; total_failed: number; total_cost_display: string };
 }
 
 /** Seed the job list (GET /api/jobs) from agent-shaped fixtures: each agent is its standing job. */
@@ -53,7 +54,7 @@ async function setCommandCenter(page: import('@playwright/test').Page, cc: Legac
   const overview = {
     jobs,
     pending_approvals: (cc.pending_approvals ?? []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a })),
-    stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
+    stats: cc.stats ?? { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: cc.total_unread ?? 0,
     jobs_waiting: cc.agents_waiting ?? 0,
     jobs_with_errors: 0,
@@ -283,6 +284,7 @@ test.describe('Visual: Command Center - Desktop', () => {
               completed_at: new Date(Date.now() - 7100000).toISOString(),
             },
           ],
+          stats: { days: 7, total_runs: 12, total_completed: 11, total_failed: 1, total_cost_display: '0.40 Kč' },
           total_unread: 2,
           agents_waiting: 0,
     });
@@ -604,6 +606,8 @@ test.describe('Visual: Agent Editor Modal', () => {
     await page.locator('.agent-editor-body').evaluate((el) => {
       el.scrollTop = 0;
     });
+    // A smooth scroll from the fills can still be moving: capture once it rests
+    await scrollSettled(page, '.agent-editor-body');
 
     await expect(page.locator('.agent-editor-modal')).toHaveScreenshot('agent-editor-filled.png');
   });

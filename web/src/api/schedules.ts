@@ -1,7 +1,6 @@
 /**
  * Scheduled items set from chat: a chat's items (header chip) and cancel /
- * pause / resume. The Command Center's 'From chats' lane arrives with its
- * dashboard (agents.getCommandCenter).
+ * pause / resume / run. The Command Center's job list comes from api/jobs.ts.
  */
 import type { ConversationSchedulesResponse, ScheduledItem } from '../types/api';
 import { request, requestWithRetry } from './http';

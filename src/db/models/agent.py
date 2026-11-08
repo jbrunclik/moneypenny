@@ -61,11 +61,13 @@ def _set_clauses(fields: list[tuple[str, Any]]) -> tuple[list[str], list[Any]]:
 
 # Conversation columns a None update must not blank
 _NOT_NULL = frozenset({"title", "model", "standing_name"})
-# enabled=True only undoes a disable (a job paused after failures stays paused);
-# SET expressions all read the row's old values
+# enabled=True means "run again": it undoes a disable and a pause after
+# failures (clearing the count); SET expressions all read the row's old values
 _ENABLE_SQL = (
-    "status = CASE WHEN paused_reason = 'disabled' THEN 'active' ELSE status END",
-    "paused_reason = CASE WHEN paused_reason = 'disabled' THEN NULL ELSE paused_reason END",
+    "status = CASE WHEN paused_reason IN ('disabled', 'failures') THEN 'active' ELSE status END",
+    "failures = CASE WHEN paused_reason = 'failures' THEN 0 ELSE failures END",
+    "paused_reason = CASE WHEN paused_reason IN ('disabled', 'failures') THEN NULL "
+    "ELSE paused_reason END",
 )
 _DISABLE_SQL = (
     "status = CASE WHEN status = 'running' THEN status ELSE 'paused' END",

@@ -8,6 +8,7 @@ import { createLogger } from '../utils/logger';
 import { agents } from '../api/agents';
 import { jobs } from '../api/jobs';
 import { schedules } from '../api/schedules';
+import { ApiError } from '../api/http';
 import { toast } from '../components/Toast';
 import {
   setActiveConversation,
@@ -291,7 +292,8 @@ async function handleJobRun(job: Job): Promise<void> {
   } catch (error) {
     log.error('Failed to run job', { error });
     loadingToast.dismiss();
-    toast.error('Could not run it right now.');
+    // The server says why (over budget, waiting for approval, running)
+    toast.error(error instanceof ApiError ? error.message : 'Could not run it right now.');
   }
 }
 
@@ -303,7 +305,7 @@ async function handleJobAction(job: Job, action: () => Promise<unknown>, done: s
     await navigateToAgents(true);
   } catch (error) {
     log.error('Job action failed', { jobId: job.id, error });
-    toast.error('That did not work - try again.');
+    toast.error(error instanceof ApiError ? error.message : 'That did not work - try again.');
   }
 }
 

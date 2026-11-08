@@ -53,10 +53,12 @@ def _set_paused(user: User, item_id: str, paused: bool) -> tuple[dict[str, objec
         raise_not_found_error("Scheduled item")
     if item.kind in _ONE_OFFS:
         raise_conflict_error("A reminder or check-in cannot be paused; cancel it instead.")
-    # Pausing a standing job disables it: the agent editor, the briefing's
-    # Settings toggle and the job list all read the same "disabled"
-    reason = "disabled" if paused and item.standing else None
-    if not db.set_item_paused(item_id, user.id, paused=paused, reason=reason):
+    if db.is_agent_job(item_id):
+        # An agent pauses and resumes exactly as the editor and the briefing's
+        # Settings toggle do: disabled, and on resume the next run from its
+        # schedule (never a stale one, never "no next run")
+        db.update_agent(item_id, user.id, enabled=not paused)
+    elif not db.set_item_paused(item_id, user.id, paused=paused):
         raise_conflict_error(
             "The item is running right now, or already in that state; try again shortly."
         )

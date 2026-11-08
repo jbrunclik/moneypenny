@@ -189,7 +189,7 @@ function actionButton(className: string, label: string, onClick: () => void): HT
 function jobActions(job: Job, h: CommandCenterHandlers): HTMLButtonElement[] {
   const actions: HTMLButtonElement[] = [];
   if (job.standing && job.status !== 'running') actions.push(actionButton('job-run', 'Run', () => void h.onRun(job)));
-  if (job.kind === 'watcher' || job.kind === 'recurring') {
+  if ((job.kind === 'watcher' || job.kind === 'recurring') && job.status !== 'running') {
     actions.push(
       job.status === 'paused'
         ? actionButton('job-resume', 'Resume', () => void h.onResume(job))
@@ -197,7 +197,10 @@ function jobActions(job: Job, h: CommandCenterHandlers): HTMLButtonElement[] {
     );
   }
   if (job.editable) actions.push(actionButton('job-edit', 'Edit', () => h.onEdit(job)));
-  if (job.area !== 'agents') actions.push(actionButton('job-cancel', 'Cancel', () => void h.onCancel(job)));
+  // An agent's own job is deleted with the agent (its editor); anything else
+  // set in a chat - an agent's chat included - can be cancelled here
+  const agentJob = job.editable || job.system_type !== null;
+  if (!agentJob) actions.push(actionButton('job-cancel', 'Cancel', () => void h.onCancel(job)));
   return actions;
 }
 
@@ -206,7 +209,13 @@ function renderJobRow(job: Job, h: CommandCenterHandlers): HTMLElement {
   const icon = AREA_ICONS[job.area] ?? SCHEDULE_KIND_ICONS[job.kind];
   // Paused by the user is a state, not a problem: no attention border
   const attention = status !== '' && status !== 'paused';
-  const row = createElement('div', { class: `job-row${attention ? ' job-row--attention' : ''}`, 'data-job-id': job.id }, [
+  const row = createElement('div', {
+    class: `job-row${attention ? ' job-row--attention' : ''}`,
+    'data-job-id': job.id,
+    tabindex: '0',
+    role: 'button',
+    'aria-label': `Open the chat of ${job.title}`,
+  }, [
     createIconElement('job-icon', icon),
     createElement('div', { class: 'job-body' }, [
       createElement('div', { class: 'job-head' }, [
@@ -223,6 +232,11 @@ function renderJobRow(job: Job, h: CommandCenterHandlers): HTMLElement {
   // The row opens the job's chat; buttons and the runs summary do their own thing
   row.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('button, details')) return;
+    void h.onOpenChat(job.conversation_id);
+  });
+  row.addEventListener('keydown', (e) => {
+    if (e.target !== row || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
     void h.onOpenChat(job.conversation_id);
   });
   return row;

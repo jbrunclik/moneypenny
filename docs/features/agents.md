@@ -135,7 +135,7 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `/api/agents/<id>/mark-viewed` | POST | Mark agent's conversation as viewed |
 | `/api/agents/<id>/executions` | GET | Execution history |
 | `/api/agents/<id>/conversation/sync` | GET | Sync agent conversation state |
-| `/api/agents/command-center` | GET | Dashboard data |
+| `/api/jobs` | GET | The Command Center's job list (every scheduled item and standing job) |
 | `/api/agents/approvals` | GET | All pending approvals |
 | `/api/ai-assist/parse-schedule` | POST | Helper to parse/validate cron strings |
 | `/api/ai-assist/enhance-prompt` | POST | AI helper to refine system prompts |
@@ -500,7 +500,8 @@ cd web && npx playwright test tests/visual/agents.visual.ts --update-snapshots
 
 In E2E test mode, these endpoints control agent state:
 
-- `POST /test/set-agents-command-center` - Set mock command center data
+- `POST /test/set-jobs-overview` - Set the job list (`GET /api/jobs`) a test renders
+- `POST /test/seed-agent` - Seed a real agent (standing chat + job)
 - `POST /test/clear-agents-config` - Reset to defaults
 
 ## Routing Race Condition Prevention
@@ -530,7 +531,7 @@ async function navigateToAgents(): Promise<void> {
   const navToken = store.startNavigation();
 
   // 2. Start async load
-  const data = await agents.getCommandCenter();
+  const data = await jobs.overview();
 
   // 3. Check token AFTER async completes - cancel if invalid
   if (!store.isNavigationValid(navToken)) {

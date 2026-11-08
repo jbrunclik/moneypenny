@@ -336,3 +336,59 @@ def test_deleting_an_agent_job_still_refused(
     response = client.delete(f"/api/schedules/{agent.id}", headers=auth_headers)
 
     assert response.status_code == 409
+
+
+def test_resume_after_settings_turned_the_briefing_off_runs_it_again(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Part E review C1: Settings off (next run NEVER), then Resume in the job
+    list must schedule the next 07:15 again, not leave it never running."""
+    from src.agent import daily_briefing
+    from src.db.models.scheduled_items import NEVER_RUN_AT
+
+    monkeypatch.setattr(daily_briefing, "db", test_database)
+    daily_briefing.set_briefing(test_user, enabled=True, time_str="07:15", timezone="Europe/Prague")
+    user = test_database.get_user_by_id(test_user.id)
+    assert user is not None and user.daily_briefing_agent_id
+    job_id = user.daily_briefing_agent_id
+    daily_briefing.set_briefing(user, enabled=False, time_str="07:15", timezone="Europe/Prague")
+
+    response = client.post(f"/api/schedules/{job_id}/resume", headers=auth_headers)
+
+    assert response.status_code == 200
+    job = test_database.get_item(job_id, test_user.id)
+    assert job is not None and job.status == "active"
+    assert datetime.now(UTC) < job.next_run_at < NEVER_RUN_AT
+
+
+def test_resume_after_a_long_pause_does_not_catch_up(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    client.post(f"/api/schedules/{agent.id}/pause", headers=auth_headers)
+    test_database.finish_item_run(agent.id, datetime.now(UTC) - timedelta(days=2), None, 0, 0)
+    test_database.set_item_paused(agent.id, test_user.id, True, reason="disabled")
+
+    client.post(f"/api/schedules/{agent.id}/resume", headers=auth_headers)
+
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and job.next_run_at > datetime.now(UTC)
+
+
+def test_resume_an_agent_paused_after_failures(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    test_database.finish_item_run(agent.id, datetime.now(UTC) - timedelta(days=1), None, 0, 3)
+    test_database.set_item_paused(agent.id, test_user.id, True, reason="failures")
+
+    client.post(f"/api/schedules/{agent.id}/resume", headers=auth_headers)
+
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None
+    assert (job.status, job.paused_reason, job.failures) == ("active", None, 0)
+    assert job.next_run_at > datetime.now(UTC)

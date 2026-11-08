@@ -206,4 +206,34 @@ describe('renderCommandCenter', () => {
     );
     expect(el.querySelector('.command-center-stats')?.textContent).toContain('75% success');
   });
+
+  it('a chat item in an agent\'s chat can be cancelled; the agent job cannot', () => {
+    const el = renderCommandCenter(
+      payload({
+        jobs: [
+          job({ id: 'agent' }),
+          job({ id: 'item', standing: false, kind: 'reminder', editable: false, system_type: null }),
+        ],
+      }),
+      handlers()
+    );
+    const [agentRow, itemRow] = rows(el);
+    expect(agentRow?.querySelector('.job-cancel')).toBeNull();
+    expect(itemRow?.querySelector('.job-cancel')).not.toBeNull();
+  });
+
+  it('a running job offers neither Run nor Pause', () => {
+    const el = renderCommandCenter(payload({ jobs: [job({ status: 'running' })] }), handlers());
+    expect(el.querySelector('.job-run')).toBeNull();
+    expect(el.querySelector('.job-pause')).toBeNull();
+  });
+
+  it('a row is reachable by keyboard and opens its chat on Enter', () => {
+    const h = handlers();
+    const el = renderCommandCenter(payload({ jobs: [job()] }), h);
+    const row = rows(el)[0]!;
+    expect(row.getAttribute('tabindex')).toBe('0');
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(h.onOpenChat).toHaveBeenCalledWith('c1');
+  });
 });
