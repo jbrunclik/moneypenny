@@ -411,16 +411,9 @@ class TestKVStoreTool:
 
         assert result == "Key 'ghost' not found in namespace 'agent:agent-abc'."
 
-    @pytest.mark.parametrize(
-        ("sports", "language", "namespace"),
-        [
-            ("cycling", None, "sports"),
-            (None, "czech", "language"),
-            ("cycling", "czech", "language"),
-        ],
-    )
-    def test_kv_store_program_conversations_default_their_namespace(
-        self, mock_db_for_tool: MagicMock, sports: str | None, language: str | None, namespace: str
+    @pytest.mark.parametrize("namespace", ["sports", "language", "agent:a1"])
+    def test_kv_store_standing_chats_default_their_namespace(
+        self, mock_db_for_tool: MagicMock, namespace: str
     ) -> None:
         mock_db_for_tool.kv_get.return_value = "1"
 
@@ -430,8 +423,7 @@ class TestKVStoreTool:
                 return_value=("conv-1", "user-1"),
             ),
             patch("src.agent.executor.get_agent_context", return_value=None),
-            patch("src.agent.tools.agent_kv.get_sports_context", return_value=sports),
-            patch("src.agent.tools.agent_kv.get_language_context", return_value=language),
+            patch("src.agent.tools.agent_kv.get_standing_namespace", return_value=namespace),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             _invoke_kv_store(action="get", key="k")
@@ -528,7 +520,7 @@ class TestKVStoreTool:
         ):
             result = _invoke_kv_store(action="get", key="k", namespace="ns")
 
-        assert "only available during autonomous agent" in result
+        assert "only available in agent runs" in result
         mock_db_for_tool.kv_get.assert_not_called()
 
     def test_kv_store_key_length_limit(

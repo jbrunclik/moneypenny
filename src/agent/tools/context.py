@@ -83,33 +83,18 @@ def get_agent_name() -> str | None:
     return _current_agent_name.get()
 
 
-# Contextvar to hold the current sports program context
-_sports_program: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "_sports_program", default=None
+# The kv_store namespace of the standing chat this turn is in (agent:<id>,
+# sports, language); None in ordinary chats, where kv_store is not bound
+_standing_namespace: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_standing_namespace", default=None
 )
 
 
-def set_sports_context(program: str | None) -> None:
-    """Set the current sports program context for tool access."""
-    _sports_program.set(program)
+def set_standing_namespace(namespace: str | None) -> None:
+    """Set the standing chat's kv namespace for this turn (None clears it)."""
+    _standing_namespace.set(namespace)
 
 
-def get_sports_context() -> str | None:
-    """Get the current sports program (for KV store namespace defaulting)."""
-    return _sports_program.get()
-
-
-# Contextvar to hold the current language program context
-_language_program: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "_language_program", default=None
-)
-
-
-def set_language_context(program: str | None) -> None:
-    """Set the current language program context for tool access."""
-    _language_program.set(program)
-
-
-def get_language_context() -> str | None:
-    """Get the current language program (for KV store namespace defaulting)."""
-    return _language_program.get()
+def get_standing_namespace() -> str | None:
+    """The standing chat's kv namespace for this turn, if any."""
+    return _standing_namespace.get()

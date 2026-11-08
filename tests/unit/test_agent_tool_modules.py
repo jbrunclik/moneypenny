@@ -209,8 +209,7 @@ class _KVHarness:
         self,
         user_id: str | None = "user-1",
         agent_context: MagicMock | None = None,
-        sports: str | None = None,
-        language: str | None = None,
+        standing: str | None = None,
     ) -> None:
         self.patches = [
             patch(
@@ -218,8 +217,7 @@ class _KVHarness:
                 return_value=("conv-1", user_id),
             ),
             patch("src.agent.executor.get_agent_context", return_value=agent_context),
-            patch("src.agent.tools.agent_kv.get_sports_context", return_value=sports),
-            patch("src.agent.tools.agent_kv.get_language_context", return_value=language),
+            patch("src.agent.tools.agent_kv.get_standing_namespace", return_value=standing),
             patch("src.agent.tools.agent_kv.db"),
         ]
 
@@ -241,7 +239,7 @@ class TestKvStoreTool:
     def test_requires_feature_context(self) -> None:
         with _KVHarness():
             result = kv_store.invoke({"action": "get", "key": "k"})
-        assert "only available during" in result
+        assert "only available in" in result
 
     def test_namespace_defaults_to_agent(self) -> None:
         ctx = _context(agent_id="agent-9")
@@ -251,42 +249,36 @@ class TestKvStoreTool:
         mock_db.kv_get.assert_called_once_with("user-1", "agent:agent-9", "k")
         assert result == '{"a": 1}'
 
-    def test_namespace_defaults_to_sports(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+    def test_namespace_defaults_to_the_standing_chats(self) -> None:
+        with _KVHarness(standing="sports") as mock_db:
             mock_db.kv_get.return_value = "{}"
             kv_store.invoke({"action": "get", "key": "k"})
         assert mock_db.kv_get.call_args.args[1] == "sports"
 
-    def test_language_wins_namespace_default(self) -> None:
-        with _KVHarness(sports="running", language="spanish") as mock_db:
-            mock_db.kv_get.return_value = "{}"
-            kv_store.invoke({"action": "get", "key": "k"})
-        assert mock_db.kv_get.call_args.args[1] == "language"
-
     def test_invalid_action(self) -> None:
-        with _KVHarness(sports="running"):
+        with _KVHarness(standing="sports"):
             result = kv_store.invoke({"action": "drop"})
         assert "Invalid action" in result
 
     def test_key_length_limit(self) -> None:
-        with _KVHarness(sports="running"):
+        with _KVHarness(standing="sports"):
             result = kv_store.invoke({"action": "get", "key": "k" * 257})
         assert "Key too long" in result
 
     def test_set_rejects_invalid_json(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+        with _KVHarness(standing="sports") as mock_db:
             result = kv_store.invoke({"action": "set", "key": "k", "value": "not json"})
         assert "must be valid JSON" in result
         mock_db.kv_set.assert_not_called()
 
     def test_set_rejects_oversized_value(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+        with _KVHarness(standing="sports") as mock_db:
             result = kv_store.invoke({"action": "set", "key": "k", "value": "x" * 65537})
         assert "too large" in result
         mock_db.kv_set.assert_not_called()
 
     def test_set_enforces_key_cap_for_new_keys_only(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+        with _KVHarness(standing="sports") as mock_db:
             mock_db.kv_count.return_value = 1000
             mock_db.kv_get.return_value = None  # new key
             result = kv_store.invoke({"action": "set", "key": "new", "value": "{}"})
@@ -297,13 +289,13 @@ class TestKvStoreTool:
             assert "Stored" in result
 
     def test_delete_reports_missing_key(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+        with _KVHarness(standing="sports") as mock_db:
             mock_db.kv_delete.return_value = False
             result = kv_store.invoke({"action": "delete", "key": "k"})
         assert "not found" in result
 
     def test_list_uses_key_as_prefix(self) -> None:
-        with _KVHarness(sports="running") as mock_db:
+        with _KVHarness(standing="sports") as mock_db:
             mock_db.kv_list.return_value = [("run:goals", '{"goal": 1}')]
             result = kv_store.invoke({"action": "list", "key": "run:"})
         mock_db.kv_list.assert_called_once_with("user-1", "sports", prefix="run:")

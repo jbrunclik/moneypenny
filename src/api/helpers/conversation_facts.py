@@ -1,8 +1,8 @@
 """Conversation facts around a chat turn: loaded into it, recorded after it.
 
-Ordinary chats only - planner, sports and language conversations keep their
-own notebooks, agent conversations are not the user's chat, and an anonymous
-conversation keeps nothing (docs/features/conversation-facts.md).
+Every chat but the planner - ordinary and standing chats (agent, sports,
+language) alike; an anonymous conversation keeps nothing
+(docs/features/conversation-facts.md).
 """
 
 from langchain_core.messages import BaseMessage
@@ -18,12 +18,7 @@ logger = get_logger(__name__)
 def facts_eligible(conv: Conversation, anonymous_mode: bool) -> bool:
     """Whether this conversation keeps a facts list."""
     return Config.CONVERSATION_FACTS_ENABLED and not (
-        anonymous_mode
-        or conv.anonymous_mode
-        or conv.is_planning
-        or conv.is_sports
-        or conv.is_language
-        or conv.is_agent
+        anonymous_mode or conv.anonymous_mode or conv.is_planning
     )
 
 

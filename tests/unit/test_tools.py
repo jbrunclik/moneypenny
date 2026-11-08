@@ -12,25 +12,6 @@ from src.agent.tools import (
 )
 from src.config import Config
 
-# What each program conversation withholds: their declarations cost ~7-10k
-# tokens re-sent every tool round, for tools a fitness or language program
-# never uses (the spec; src/agent/tools/__init__.py implements it)
-SPORTS_WITHHELD = {
-    "todoist",
-    "whatsapp",
-    "google_calendar",
-    "generate_image",
-    "execute_code",
-    "search_places",
-    "save_place",
-    "delete_place",
-    "list_places",
-    "get_route",
-    "create_artifact",
-    "update_artifact",
-    "read_artifact",
-}
-LANGUAGE_WITHHELD = SPORTS_WITHHELD | {"garmin_connect", "garmin_workout"}
 ANONYMOUS_WITHHELD = {
     "todoist",
     "google_calendar",
@@ -61,7 +42,7 @@ def _names(**kwargs: Any) -> set[str]:
     return {t.name for t in get_tools_for_request(**kwargs)}
 
 
-# Bound in ordinary chats on top of get_available_tools(), never for agents/programs
+# Bound in every interactive chat but the planner on top of get_available_tools()
 _ORDINARY_CHAT_ONLY = {"propose_deep_research", "schedule"}
 
 
@@ -115,36 +96,20 @@ class TestGetToolsForRequest:
         assert [t for t in tools if t.name not in _ORDINARY_CHAT_ONLY] == get_available_tools()
 
     @pytest.mark.usefixtures("every_tool_available")
-    def test_sports_mode_excludes_irrelevant_tools(self) -> None:
-        """Sports conversations must not carry todoist/whatsapp/calendar/
-        places/image-gen/code declarations - ~7k tokens re-sent every tool
-        round for tools a fitness program never uses."""
-        names = _names(is_sports=True)
-        assert not SPORTS_WITHHELD & names
-        # Core sports tools must survive
-        assert {"kv_store", "web_search", "manage_memory"} <= names
-        # create_file replaces execute_code for producing downloadable files
-        # (e.g. ZWO workouts) in the context-lean sports profile.
-        assert "create_file" in names
-
-    def test_sports_mode_keeps_create_file(self) -> None:
-        """execute_code is dropped for sports, so create_file must remain the
-        way the sports trainer hands the user a downloadable file (ZWO/CSV/etc)."""
-        tool_names = {t.name for t in get_tools_for_request(is_sports=True)}
-        assert "create_file" in tool_names
-        assert "execute_code" not in tool_names
-
-    @pytest.mark.usefixtures("every_tool_available")
-    def test_sports_mode_keeps_the_training_tools(self) -> None:
-        """Garmin and Rouvy are the core of the sports feature - never withheld."""
-        assert {"garmin_connect", "garmin_workout", "rouvy_workout"} <= _names(is_sports=True)
-
-    @pytest.mark.usefixtures("every_tool_available")
-    def test_language_mode_excludes_irrelevant_tools(self) -> None:
-        """Language conversations additionally drop the garmin pair."""
-        names = _names(is_language=True)
-        assert not LANGUAGE_WITHHELD & names
-        assert {"kv_store", "web_search"} <= names
+    def test_standing_chat_gets_the_full_chat_tools(self) -> None:
+        """An agent / sports / language chat is an ordinary chat turn when the
+        user writes in it: every chat tool, plus kv_store for its namespace."""
+        names = {t.name for t in get_tools_for_request(standing=True)}
+        assert {
+            "schedule",
+            "record_conversation_facts",
+            "google_calendar",
+            "todoist",
+            "manage_memory",
+            "create_artifact",
+            "garmin_connect",
+            "kv_store",
+        } <= names
 
     def test_regular_chat_keeps_all_tools(self) -> None:
         """Subsetting applies only to program conversations."""
@@ -152,44 +117,11 @@ class TestGetToolsForRequest:
         available = {t.name for t in get_available_tools()}
         assert tool_names == available | _ORDINARY_CHAT_ONLY
 
-    def test_agent_permissions_always_include_kv_store(self) -> None:
-        """Interactive agent turns must get kv_store, matching get_tools_for_agent."""
-        tools = get_tools_for_request(agent_tool_permissions=["web_search"])
-        tool_names = {t.name for t in tools}
-        assert "kv_store" in tool_names
-
-    def test_agent_empty_permissions_include_kv_store(self) -> None:
-        """Even an agent with no extra integrations gets kv_store."""
-        tools = get_tools_for_request(agent_tool_permissions=[])
-        tool_names = {t.name for t in tools}
-        assert "kv_store" in tool_names
-
-    def test_agent_unrestricted_permissions_include_kv_store(self) -> None:
-        """Agent with tool_permissions=None (all tools) still gets kv_store via is_agent."""
-        tools = get_tools_for_request(agent_tool_permissions=None, is_agent=True)
-        tool_names = {t.name for t in tools}
-        assert "kv_store" in tool_names
-
     def test_non_agent_request_excludes_kv_store(self) -> None:
         """Regular (non-agent, non-sports, non-language) chats must not get kv_store."""
         tools = get_tools_for_request()
         tool_names = {t.name for t in tools}
         assert "kv_store" not in tool_names
-
-    def test_restricted_agent_does_not_get_manage_memory(self) -> None:
-        """Memory writes are a granted capability for agents, not a baseline one.
-
-        An unattended run that reads the web could otherwise persist
-        attacker-controlled text into memory that is injected into every later
-        conversation.
-        """
-        tools = get_tools_for_request(agent_tool_permissions=["web_search"])
-        assert "manage_memory" not in {t.name for t in tools}
-
-    def test_agent_granted_manage_memory_gets_it(self) -> None:
-        """An explicit grant is honoured."""
-        tools = get_tools_for_request(agent_tool_permissions=["manage_memory"])
-        assert "manage_memory" in {t.name for t in tools}
 
 
 class TestGetToolsForAgent:
@@ -286,9 +218,7 @@ class TestPermittedIntegrationAvailability:
         from src.agent.tools import get_tools_for_agent
 
         with patch(check, return_value=False), patch.object(Config, "BROWSER_ENABLED", True):
-            requested = get_tools_for_request(agent_tool_permissions=[tool_name])
             agent_run = get_tools_for_agent(self._agent([tool_name]))
-        assert tool_name not in {t.name for t in requested}
         assert tool_name not in {t.name for t in agent_run}
 
     @pytest.mark.parametrize(("tool_name", "check"), _INTEGRATIONS)
@@ -296,9 +226,7 @@ class TestPermittedIntegrationAvailability:
         from src.agent.tools import get_tools_for_agent
 
         with patch(check, return_value=True), patch.object(Config, "BROWSER_ENABLED", True):
-            requested = get_tools_for_request(agent_tool_permissions=[tool_name])
             agent_run = get_tools_for_agent(self._agent([tool_name]))
-        assert tool_name in {t.name for t in requested}
         assert tool_name in {t.name for t in agent_run}
 
     @pytest.mark.parametrize("enabled", [True, False])
@@ -311,26 +239,24 @@ class TestPermittedIntegrationAvailability:
             patch.object(Config, "BROWSER_ENABLED", enabled),
             patch.object(Config, "CODE_SANDBOX_ENABLED", enabled),
         ):
-            requested = {t.name for t in get_tools_for_request(agent_tool_permissions=names)}
             agent_run = {t.name for t in get_tools_for_agent(self._agent(names))}
-        assert (set(names) <= requested) is enabled
         assert (set(names) <= agent_run) is enabled
 
-    def test_whatsapp_needs_the_app_for_requests_and_a_phone_for_agents(self) -> None:
+    def test_whatsapp_needs_a_phone_for_agents(self) -> None:
         from src.agent.tools import get_tools_for_agent
 
         with (
             patch("src.agent.tools.is_whatsapp_available", return_value=True),
             patch("src.agent.tools._is_whatsapp_available_for_user", return_value=False) as phone,
         ):
-            requested = get_tools_for_request(agent_tool_permissions=["whatsapp"])
             agent_run = get_tools_for_agent(self._agent(["whatsapp"]))
-        assert "whatsapp" in {t.name for t in requested}
         assert "whatsapp" not in {t.name for t in agent_run}
         phone.assert_called_with("user-1")
 
     def test_unknown_permissions_and_duplicates_are_ignored(self) -> None:
-        tools = get_tools_for_request(agent_tool_permissions=["no_such_tool", "web_search"])
+        from src.agent.tools import get_tools_for_agent
+
+        tools = get_tools_for_agent(self._agent(["no_such_tool", "web_search"]))
         assert [t.name for t in tools].count("web_search") == 1
 
     def test_unrestricted_agent_gets_every_available_integration(self) -> None:

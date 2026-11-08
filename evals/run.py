@@ -97,7 +97,8 @@ class EvalCase:
     # tail stays verbatim, and the summarized part is searchable - long-chat
     # memory end to end
     compact_history: bool = False
-    # "chat" (default) or "sports" (runs with a canned cycling program context)
+    # "chat" (default), "sports" or "language" (a canned program chat - cycling /
+    # Italian - as a standing chat; program_kv is its stored data)
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
     program_kv: dict[str, str] = field(default_factory=dict)
@@ -705,15 +706,19 @@ def _saved_attachments(case: EvalCase, db: Any, conversation_id: str) -> list[An
     return payload
 
 
-def _sports_context(case: EvalCase) -> dict[str, Any] | None:
-    """Sports mode: canned cycling program (mirrors load_sports_context's shape)."""
-    if case.mode != "sports":
+_CANNED_PROGRAMS = {"sports": ("Cyklistika", "cycling"), "language": ("Italština", "italian")}
+
+
+def _standing(case: EvalCase) -> Any:
+    """Sports / language mode: a canned program chat's standing context, built
+    the way production builds it (standing_for_program)."""
+    if case.mode not in _CANNED_PROGRAMS:
         return None
-    return {
-        "program_name": "Cyklistika",
-        "program_id": "cycling",
-        "kv_data": dict(case.program_kv),
-    }
+    from src.api.helpers.standing_context import standing_for_program
+
+    name, program_id = _CANNED_PROGRAMS[case.mode]
+    context = {"program_name": name, "program_id": program_id, "kv_data": dict(case.program_kv)}
+    return standing_for_program(case.mode, context)  # type: ignore[arg-type]
 
 
 def _run_turn(
@@ -722,7 +727,7 @@ def _run_turn(
     conversation_id: str,
     request_id: str,
     history: list[dict[str, Any]] | None,
-    sports_context: dict[str, Any] | None,
+    standing: Any,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
     """The agent turn: (response, tool_results, usage, result_messages, integration changes)."""
     from src.config import Config
@@ -736,7 +741,7 @@ def _run_turn(
         facts = []
     Config.CONVERSATION_FACTS_ENABLED = facts is not None
     try:
-        return _agent_turn(case, user, conversation_id, request_id, history, sports_context, facts)
+        return _agent_turn(case, user, conversation_id, request_id, history, standing, facts)
     finally:
         Config.CONVERSATION_FACTS_ENABLED = facts_were_enabled
 
@@ -760,7 +765,7 @@ def _agent_turn(
     conversation_id: str,
     request_id: str,
     history: list[dict[str, Any]] | None,
-    sports_context: dict[str, Any] | None,
+    standing: Any,
     facts: list[Any] | None,
 ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[Any], str]:
     """_run_turn's agent call, with the case's facts flag already set."""
@@ -769,12 +774,7 @@ def _agent_turn(
     from src.config import Config
     from src.db.models import db
 
-    is_sports = sports_context is not None
-    agent = ChatAgent(
-        model_name=Config.DEFAULT_MODEL,
-        is_sports=is_sports,
-        sports_context=sports_context,
-    )
+    agent = ChatAgent(model_name=Config.DEFAULT_MODEL, standing=standing)
     # Fake integration backends replace only the HTTP/client seams, so
     # the real tool code runs (no-op when the case declares none)
     with fake_integrations(case.integrations) as fakes:
@@ -792,8 +792,6 @@ def _agent_turn(
                 user_name="Eval User",
                 user_id=user.id,
                 conversation_id=conversation_id,
-                is_sports=is_sports,
-                sports_context=sports_context,
                 conversation_facts=facts,
             )
         return response, tool_results, usage, result_messages, describe_actions(fakes)
@@ -856,7 +854,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     import uuid
 
     from src.agent.tool_results import set_current_request_id
-    from src.agent.tools import set_sports_context
+    from src.agent.tools import set_standing_namespace
     from src.agent.tools.context import set_conversation_context
     from src.agent.tools.turn_usage import reset_turn_usage
     from src.config import Config
@@ -871,20 +869,20 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     set_current_request_id(request_id)
 
     seeded_memory_ids, history, summarizer_usage = _seed_case(case, user, db, conversation.id)
-    sports_context = _sports_context(case)
-    if sports_context:
-        set_sports_context("cycling")
+    standing = _standing(case)
+    if standing is not None:
+        set_standing_namespace(standing.kv_namespace)
     try:
         turn_started = time.monotonic()
         response, tool_results, usage, result_messages, integration_changes = _run_turn(
-            case, user, conversation.id, request_id, history, sports_context
+            case, user, conversation.id, request_id, history, standing
         )
     finally:
         set_conversation_context(None, None)
         reset_turn_usage()
         set_current_request_id(None)
-        if sports_context:
-            set_sports_context(None)
+        if standing is not None:
+            set_standing_namespace(None)
         for memory_id in seeded_memory_ids:
             db.delete_memory(memory_id, user.id)
 

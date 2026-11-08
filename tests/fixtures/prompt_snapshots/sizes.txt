@@ -4,8 +4,6 @@ static prompt
   standard       33900
   anonymous      22053
   planning       37048
-  sports         41757
-  language       46859
 
 tool declarations (36 tools, 60702 chars)
   browser                       4257

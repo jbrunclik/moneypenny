@@ -72,22 +72,22 @@ def test_stream_events_breaks_at_deadline(monkeypatch) -> None:
     assert final_results["ready"] is False  # no final event arrived
 
 
-def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
-    """The producer thread must see the interactive agent context.
+def test_stream_events_forwards_the_standing_namespace_to_worker_thread() -> None:
+    """The producer thread must see the standing chat's kv namespace.
 
-    kv_store's guard and the graph's permission checks read get_agent_context()
-    at tool-execution time, which happens inside the producer thread - the
+    kv_store reads it at tool-execution time, inside the producer thread - the
     contextvar set in the request thread does not cross threads on its own.
     """
     import threading
 
-    from src.agent.executor import AgentContext, get_agent_context
+    from src.agent.standing import StandingContext
+    from src.agent.tools import get_standing_namespace
 
     captured: dict = {}
 
     class _CapturingAgent:
         def stream_chat_events(self, *args, **kwargs):
-            captured["ctx"] = get_agent_context()
+            captured["namespace"] = get_standing_namespace()
             yield {
                 "type": "final",
                 "content": "",
@@ -96,11 +96,6 @@ def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
                 "usage_info": {},
             }
 
-    agent_ctx = AgentContext(
-        agent=types.SimpleNamespace(id="agent-1"),  # type: ignore[arg-type]
-        user=types.SimpleNamespace(id="user-1"),  # type: ignore[arg-type]
-        trigger_chain=["agent-1"],
-    )
     q: queue.Queue = queue.Queue()
     final_results: dict = {"ready": False, "saved": False}
 
@@ -116,7 +111,7 @@ def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
                 user_id="user-1",
                 message_text="hello",
                 user_name="Alice",
-                agent_execution_context=agent_ctx,
+                standing=StandingContext("sports", "Cycling", "Coach", None, "sports"),
             ),
         ),
     )
@@ -124,7 +119,8 @@ def test_stream_events_forwards_agent_context_to_worker_thread() -> None:
     thread.join(timeout=10)
     assert not thread.is_alive()
 
-    assert captured["ctx"] is agent_ctx
+    assert captured["namespace"] == "sports"
+    assert get_standing_namespace() is None  # the request thread is untouched
 
 
 def _make_ctx(items=()) -> types.SimpleNamespace:

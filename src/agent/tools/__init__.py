@@ -20,15 +20,13 @@ from src.agent.tools.context import (
     get_agent_name,
     get_conversation_context,
     get_current_message_files,
-    get_language_context,
     get_location_context,
-    get_sports_context,
+    get_standing_namespace,
     set_agent_name,
     set_conversation_context,
     set_current_message_files,
-    set_language_context,
     set_location_context,
-    set_sports_context,
+    set_standing_namespace,
 )
 from src.agent.tools.conversation_search import read_conversation, search_conversations
 from src.agent.tools.deep_research import propose_deep_research
@@ -89,33 +87,6 @@ _ANONYMOUS_EXCLUDED_TOOLS = _INTEGRATION_TOOLS | {
     # stepped away from back into an anonymous chat.
     "search_conversations",
     "read_conversation",
-}
-
-# Tools withheld in program conversations (sports/language): their
-# declarations cost ~7-10k tokens and are re-sent every tool round, but a
-# fitness or language program never uses them. Regular chat keeps everything.
-# NOTE: changing these sets changes the content hash of the corresponding
-# context-cache profile - the old cache is recreated once (harmless drift).
-_SPORTS_EXCLUDED_TOOLS = {
-    "todoist",
-    "whatsapp",
-    "google_calendar",
-    "generate_image",
-    "execute_code",
-    "search_places",
-    "save_place",
-    "delete_place",
-    "list_places",
-    "get_route",
-    # Artifacts: programs answer in text and trim tool declarations for tokens
-    "create_artifact",
-    "update_artifact",
-    "read_artifact",
-}
-
-_LANGUAGE_EXCLUDED_TOOLS = _SPORTS_EXCLUDED_TOOLS | {
-    "garmin_connect",
-    "garmin_workout",
 }
 
 
@@ -241,7 +212,7 @@ def _add_permitted_tools(
 
 
 def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
-    """Tools for ordinary chats only - not programs, the planner or agents."""
+    """Chat-only tools: every interactive chat but the planner (never unattended runs)."""
     tools: list[BaseTool] = []
     # Deep research offers: those have their own cost and approval models
     if Config.DEEP_RESEARCH_ENABLED:
@@ -260,77 +231,35 @@ def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
 def get_tools_for_request(
     anonymous_mode: bool = False,
     is_planning: bool = False,
-    is_sports: bool = False,
-    is_language: bool = False,
-    agent_tool_permissions: list[str] | None = None,
-    is_agent: bool = False,
+    standing: bool = False,
 ) -> list[Any]:
-    """Get tools for a specific request, optionally excluding integration tools.
+    """The tools to bind for an interactive chat turn.
+
+    Every chat but the planner gets the ordinary chat tools; a standing chat
+    (agent / sports / language) also gets `kv_store` for its own namespace.
+    Unattended agent runs use get_tools_for_agent instead.
 
     Args:
-        anonymous_mode: If True, excludes Todoist and Google Calendar tools.
-        is_planning: If True, includes the refresh_planner_dashboard tool.
-        is_sports: If True, includes the kv_store tool.
-        is_language: If True, includes the kv_store tool.
-        agent_tool_permissions: If provided, only include these tools plus basic safe tools.
-            This is used for autonomous agents to restrict their capabilities.
-        is_agent: If True, this is an interactive turn in an agent conversation;
-            includes kv_store so chat turns have the same K/V access as auto runs.
-
-    Returns:
-        List of tools to bind to the LLM for this request.
+        anonymous_mode: If True, excludes personal integrations (Todoist, Calendar...).
+        is_planning: If True, the planner's tools (refresh_planner_dashboard).
+        standing: If True, a standing chat - adds kv_store.
     """
-    # For autonomous agents with specific permissions
-    if agent_tool_permissions is not None:
-        # Always include basic safe tools + metadata tools + kv_store
-        # (kv_store parity with get_tools_for_agent, which always binds it).
-        # manage_memory is NOT here: writing to the user's long-term memory is a
-        # granted capability, not a baseline one - see get_tools_for_agent.
-        tools: list[Any] = [
-            fetch_url,
-            web_search,
-            research,
-            retrieve_file,
-            create_file,
-            load_skill,
-            kv_store,
-        ]
-
-        # Add permitted tools
-        _add_permitted_tools(tools, agent_tool_permissions, is_whatsapp_available)
-        return tools
-
-    # Standard request handling. The tool list is computed per request (not a
-    # frozen import-time constant) so availability changes - e.g. Playwright
-    # installed, integration configured - apply without a process restart.
+    # Computed per request (not a frozen import-time constant) so availability
+    # changes - Playwright installed, an integration configured - apply without
+    # a process restart.
     available = get_available_tools()
     if anonymous_mode:
         tools = [t for t in available if t.name not in _ANONYMOUS_EXCLUDED_TOOLS]
-    elif is_sports:
-        tools = [t for t in available if t.name not in _SPORTS_EXCLUDED_TOOLS]
-    elif is_language:
-        tools = [t for t in available if t.name not in _LANGUAGE_EXCLUDED_TOOLS]
     else:
         tools = available
 
-    if not (is_planning or is_sports or is_language or is_agent):
+    if not is_planning:
         tools = [*tools, *_ordinary_chat_tools(anonymous_mode)]
 
-    # Add refresh_planner_dashboard tool only in planner mode
     if is_planning and is_refresh_planner_dashboard_available():
         tools.append(refresh_planner_dashboard)
 
-    # Add kv_store tool in sports mode (for storing goals, progress, etc.)
-    if is_sports and kv_store not in tools:
-        tools.append(kv_store)
-
-    # Add kv_store tool in language mode (for storing vocabulary, assessment, etc.)
-    if is_language and kv_store not in tools:
-        tools.append(kv_store)
-
-    # Interactive agent conversation with unrestricted permissions (None) falls
-    # through to here - still needs kv_store for parity with auto execution
-    if is_agent and kv_store not in tools:
+    if standing and kv_store not in tools:
         tools.append(kv_store)
 
     return tools
@@ -563,10 +492,8 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "get_conversation_context",
     "set_agent_name",
     "get_agent_name",
-    "set_sports_context",
-    "get_sports_context",
-    "set_language_context",
-    "get_language_context",
+    "set_standing_namespace",
+    "get_standing_namespace",
     "set_location_context",
     "get_location_context",
     # Availability checks

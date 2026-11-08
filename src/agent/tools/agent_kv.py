@@ -13,8 +13,7 @@ from langchain_core.tools import tool
 
 from src.agent.tools.context import (
     get_conversation_context,
-    get_language_context,
-    get_sports_context,
+    get_standing_namespace,
 )
 from src.agent.tools.errors import tool_error
 from src.db.models import db
@@ -86,24 +85,17 @@ def kv_store(
     if not user_id:
         return tool_error("No user context available. Cannot access K/V store.", retriable=False)
 
-    # Available during autonomous agent execution, sports, or language conversations
+    # Available in agent runs and standing chats (agent / sports / language);
+    # the namespace defaults to the run's agent or the standing chat's own
     agent_context = get_agent_context()
-    sports_program = get_sports_context()
-    language_program = get_language_context()
-    if not agent_context and not sports_program and not language_program:
+    standing_namespace = get_standing_namespace()
+    if not agent_context and not standing_namespace:
         return tool_error(
-            "kv_store is only available during autonomous agent, sports, or language conversations.",
+            "kv_store is only available in agent runs and agent, sports or language chats.",
             retriable=False,
         )
-
-    # Auto-default namespace
     if not namespace:
-        if language_program:
-            namespace = "language"
-        elif sports_program:
-            namespace = "sports"
-        elif agent_context:
-            namespace = f"agent:{agent_context.agent.id}"
+        namespace = f"agent:{agent_context.agent.id}" if agent_context else str(standing_namespace)
 
     if namespace in RESERVED_NAMESPACES:
         return tool_error(

@@ -21,6 +21,7 @@ from src.agent.graph import get_graph_config
 from src.agent.graph_cache import get_compiled_graph
 from src.agent.message_content import build_message_content, history_to_messages
 from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
+from src.agent.standing import StandingContext
 from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
 from src.agent.turn_usage import batch_usage_info
@@ -97,10 +98,7 @@ class ChatAgent:
         is_autonomous: bool = False,
         agent_context: dict[str, Any] | None = None,
         tools: list[Any] | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
+        standing: StandingContext | None = None,
         enable_context_cache: bool = True,
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
@@ -112,10 +110,9 @@ class ChatAgent:
         self.is_planning = is_planning
         self.is_autonomous = is_autonomous
         self.agent_context = agent_context
-        self.is_sports = is_sports
-        self.sports_context = sports_context
-        self.is_language = is_language
-        self.language_context = language_context
+        # A standing chat (agent / sports / language): ordinary chat turn plus
+        # its standing instructions and data (src/agent/standing.py)
+        self.standing = standing
         # A custom system prompt (delegate subagents) replaces the standard
         # prompt assembly entirely and forces uncached mode - the shared cache
         # profiles all embed the standard static prompt.
@@ -123,23 +120,16 @@ class ChatAgent:
         # Use provided tools, or get filtered tools based on mode
         if tools is not None:
             active_tools = tools
-        elif is_autonomous and agent_context and "tools" in agent_context:
-            # Interactive agent conversation - use agent's tool permissions
-            # Note: tools=None means all tools, tools=[] means no extra integrations
-            agent_tools = agent_context.get("tools")
-            active_tools = get_tools_for_request(
-                anonymous_mode, is_planning, agent_tool_permissions=agent_tools, is_agent=True
-            )
         else:
             active_tools = get_tools_for_request(
-                anonymous_mode, is_planning, is_sports=is_sports, is_language=is_language
+                anonymous_mode, is_planning, standing=standing is not None
             )
 
-        # Look current facts up before the turn (src/agent/freshness.py) - regular
-        # chats that can research; never agents, programs, the planner or subagents
+        # Look current facts up before the turn (src/agent/freshness.py) - chats
+        # that can research, standing chats included; never runs, the planner or subagents
         self.freshness_gate = (
             with_tools
-            and not (is_autonomous or is_sports or is_language or is_planning)
+            and not (is_autonomous or is_planning)
             and system_prompt_override is None
             and any(t.name == "research" for t in active_tools)
         )
@@ -221,10 +211,6 @@ class ChatAgent:
         # No caching for autonomous agents (variable tools) or no-tools mode
         if self.is_autonomous or not self.with_tools:
             return None
-        if self.is_sports:
-            return CacheProfile.SPORTS
-        if self.is_language:
-            return CacheProfile.LANGUAGE
         if self.is_planning:
             return CacheProfile.PLANNING
         if self.anonymous_mode:
@@ -242,10 +228,6 @@ class ChatAgent:
         custom_instructions: str | None = None,
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[ConversationFact] | None = None,
     ) -> list[BaseMessage]:
@@ -277,10 +259,7 @@ class ChatAgent:
                 is_planning=is_planning,
                 dashboard_data=dashboard_data,
                 planner_dashboard_context=refreshed_dashboard,
-                is_sports=is_sports,
-                sports_context=sports_context,
-                is_language=is_language,
-                language_context=language_context,
+                standing=self.standing,
                 conversation_title=conversation_title,
                 conversation_facts=conversation_facts,
             )
@@ -301,10 +280,7 @@ class ChatAgent:
                         planner_dashboard_context=refreshed_dashboard,
                         is_autonomous=self.is_autonomous,
                         agent_context=self.agent_context,
-                        is_sports=is_sports,
-                        sports_context=sports_context,
-                        is_language=is_language,
-                        language_context=language_context,
+                        standing=self.standing,
                         conversation_title=conversation_title,
                         conversation_facts=conversation_facts,
                     )
@@ -337,10 +313,6 @@ class ChatAgent:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[ConversationFact] | None = None,
     ) -> tuple[str, list[dict[str, Any]], dict[str, Any], list[BaseMessage]]:
@@ -357,8 +329,6 @@ class ChatAgent:
             custom_instructions: Optional user-provided custom instructions for LLM behavior
             is_planning: If True, use planner-specific system prompt with dashboard context
             dashboard_data: Dashboard data to inject into planner prompt (required if is_planning=True)
-            is_sports: If True, use sports trainer system prompt
-            sports_context: Sports context dict with program info
 
         Returns:
             Tuple of (response_text, tool_results, usage_info, result_messages)
@@ -373,10 +343,6 @@ class ChatAgent:
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
-            is_sports=is_sports,
-            sports_context=sports_context,
-            is_language=is_language,
-            language_context=language_context,
             conversation_title=conversation_title,
             conversation_facts=conversation_facts,
         )
@@ -435,10 +401,6 @@ class ChatAgent:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[ConversationFact] | None = None,
     ) -> Generator[dict[str, Any]]:
@@ -474,10 +436,6 @@ class ChatAgent:
             custom_instructions=custom_instructions,
             is_planning=is_planning,
             dashboard_data=dashboard_data,
-            is_sports=is_sports,
-            sports_context=sports_context,
-            is_language=is_language,
-            language_context=language_context,
             conversation_title=conversation_title,
             conversation_facts=conversation_facts,
         )

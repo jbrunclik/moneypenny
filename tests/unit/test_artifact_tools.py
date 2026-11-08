@@ -119,7 +119,7 @@ def test_converts_to_genai_declarations() -> None:
 _NAMES = {"create_artifact", "update_artifact", "read_artifact"}
 
 
-def test_bound_in_chats_but_not_programs_or_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bound_in_every_chat_but_not_unattended_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.agent.tools import get_tools_for_request
 
     monkeypatch.setattr(Config, "ARTIFACTS_ENABLED", True)
@@ -129,9 +129,8 @@ def test_bound_in_chats_but_not_programs_or_agents(monkeypatch: pytest.MonkeyPat
 
     assert names(get_tools_for_request()) >= _NAMES
     assert names(get_tools_for_request(anonymous_mode=True)) >= _NAMES
-    assert not _NAMES & names(get_tools_for_request(is_sports=True))
-    assert not _NAMES & names(get_tools_for_request(is_language=True))
-    assert not _NAMES & names(get_tools_for_request(agent_tool_permissions=sorted(_NAMES)))
+    assert names(get_tools_for_request(standing=True)) >= _NAMES
+    assert not _NAMES & _agent_run_names(sorted(_NAMES))
     monkeypatch.setattr(Config, "ARTIFACTS_ENABLED", False)
     assert not _NAMES & names(get_tools_for_request())
 
@@ -169,3 +168,13 @@ def test_description_names_checklists_and_explainers_and_the_prose_cases() -> No
     for prose in ("short answer", "copy", "todoist", "calendar"):
         assert prose in text, prose
     assert "never for plain answers, lists, tables" not in text
+
+
+def _agent_run_names(tool_permissions: list[str] | None) -> set[str]:
+    from unittest.mock import MagicMock
+
+    from src.agent.tools import get_tools_for_agent
+
+    agent = MagicMock()
+    agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", tool_permissions
+    return {t.name for t in get_tools_for_agent(agent)}

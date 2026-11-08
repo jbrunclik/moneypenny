@@ -15,13 +15,6 @@ from src.agent.prompt_memory import (
     get_user_memories_list_prompt,
     get_user_memories_prompt,
 )
-from src.agent.prompt_programs import (
-    PROGRAM_STATIC_KV_NOTE,
-    PROGRAM_STATIC_PREAMBLE,
-    format_language_kv_data,
-    format_program_dynamic_context,
-    format_sports_kv_data,
-)
 from src.agent.prompt_texts.core import (
     BASE_SYSTEM_PROMPT,
     CONVERSATION_FACTS_EMPTY,
@@ -33,11 +26,11 @@ from src.agent.prompt_texts.core import (
     TOOLS_SYSTEM_PROMPT_CONTEXT,
     TOOLS_SYSTEM_PROMPT_PLACES,
 )
-from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
 from src.agent.prompt_texts.planner import PLANNER_SYSTEM_PROMPT
 from src.agent.prompt_texts.productivity import TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
-from src.agent.prompt_texts.sports import SPORTS_TRAINER_SYSTEM_PROMPT
+from src.agent.prompt_texts.standing import STANDING_CHAT_DATA, STANDING_CHAT_SECTION
 from src.agent.skills import skills_index_prompt
+from src.agent.standing import StandingContext
 from src.agent.tools import get_available_tools
 from src.agent.tools.context import get_location_context
 from src.config import Config
@@ -104,18 +97,16 @@ def _get_saved_places_lines(user_id: str | None) -> list[str]:
 # ============ Custom Instructions and Memory ============
 
 
-def _get_conversation_title_context(
-    conversation_title: str | None,
-    is_sports: bool,
-    is_language: bool,
-    is_planning: bool,
-) -> str | None:
-    """Title-awareness block for normal conversations.
+def _fixed_title(is_planning: bool, standing: StandingContext | None) -> bool:
+    """Program chats and the planner keep their titles (agents can be retitled)."""
+    return is_planning or (standing is not None and standing.kind != "agent")
 
-    Program conversations (sports/language/planner) keep their titles, so the
-    agent is not told about retitling there.
-    """
-    if not conversation_title or is_sports or is_language or is_planning:
+
+def _get_conversation_title_context(
+    conversation_title: str | None, fixed_title: bool
+) -> str | None:
+    """Title-awareness block for conversations whose title may change."""
+    if not conversation_title or fixed_title:
         return None
     return CONVERSATION_TITLE_CONTEXT_PROMPT.format(title=conversation_title)
 
@@ -223,6 +214,19 @@ The user's primary language is {preferred_language}. Always respond in {preferre
     return "\n\n# User Context\n" + "\n\n".join(context_parts)
 
 
+def format_standing_section(standing: StandingContext) -> str:
+    """A standing chat's name, standing instructions and data."""
+    section = STANDING_CHAT_SECTION.format(name=standing.name, instructions=standing.instructions)
+    if standing.data:
+        section += STANDING_CHAT_DATA.format(data=standing.data)
+    return section
+
+
+def _standing_prompt(standing: StandingContext | None) -> str:
+    """The standing-chat section for the uncached system prompt ('' otherwise)."""
+    return "\n\n" + format_standing_section(standing) if standing is not None else ""
+
+
 def get_static_prompt_for_profile(profile: str) -> str:
     """Return only the static (cacheable) portion of the system prompt for a given profile.
 
@@ -231,7 +235,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     is added separately.
 
     Args:
-        profile: One of "standard", "anonymous", "planning", "sports", "language"
+        profile: One of "standard", "anonymous", "planning"
 
     Returns:
         Static prompt string suitable for caching
@@ -244,7 +248,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     if is_mapy_configured():
         prompt += TOOLS_SYSTEM_PROMPT_PLACES
     # All non-anonymous profiles get productivity tools (mirrors get_system_prompt)
-    if profile in ("standard", "planning", "sports", "language"):
+    if profile in ("standard", "planning"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # All profiles get context/citation section
     prompt += TOOLS_SYSTEM_PROMPT_CONTEXT
@@ -255,35 +259,17 @@ def get_static_prompt_for_profile(profile: str) -> str:
     # Planning profile gets the planner prompt
     if profile == "planning":
         prompt += PLANNER_SYSTEM_PROMPT
-    # Program profiles get the full (program-agnostic) instructions; the
-    # program identity and KV data arrive via the dynamic context
-    if profile == "sports":
-        prompt += PROGRAM_STATIC_PREAMBLE + SPORTS_TRAINER_SYSTEM_PROMPT.format(
-            program_name="<program_name>",
-            program_id="<program_id>",
-            kv_data_section=PROGRAM_STATIC_KV_NOTE,
-        )
-    if profile == "language":
-        prompt += PROGRAM_STATIC_PREAMBLE + LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
-            program_name="<program_name>",
-            program_id="<program_id>",
-            kv_data_section=PROGRAM_STATIC_KV_NOTE,
-        )
     return prompt
 
 
 def _conversation_parts(
     conversation_title: str | None,
     conversation_facts: list[ConversationFact] | None,
-    is_sports: bool,
-    is_language: bool,
-    is_planning: bool,
+    fixed_title: bool,
 ) -> list[str]:
     """The conversation's title and settled facts for the dynamic context."""
     parts: list[str] = []
-    title_context = _get_conversation_title_context(
-        conversation_title, is_sports, is_language, is_planning
-    )
+    title_context = _get_conversation_title_context(conversation_title, fixed_title)
     if title_context:
         parts.append(title_context)
     # None: not an ordinary chat or the feature is off; [] still explains it
@@ -301,10 +287,7 @@ def get_dynamic_prompt_parts(
     is_planning: bool = False,
     dashboard_data: dict[str, Any] | None = None,
     planner_dashboard_context: Any | None = None,
-    is_sports: bool = False,
-    sports_context: dict[str, Any] | None = None,
-    is_language: bool = False,
-    language_context: dict[str, Any] | None = None,
+    standing: StandingContext | None = None,
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
 ) -> str:
@@ -322,10 +305,7 @@ def get_dynamic_prompt_parts(
         is_planning: If True, include dashboard context
         dashboard_data: Dashboard data dict for planner
         planner_dashboard_context: Refreshed dashboard data
-        is_sports: If True, include sports context
-        sports_context: Sports context dict with program info
-        is_language: If True, include language context
-        language_context: Language context dict with program info
+        standing: A standing chat's instructions and data (agent / program chats)
 
     Returns:
         Dynamic prompt string
@@ -342,7 +322,7 @@ def get_dynamic_prompt_parts(
 
     parts.extend(
         _conversation_parts(
-            conversation_title, conversation_facts, is_sports, is_language, is_planning
+            conversation_title, conversation_facts, _fixed_title(is_planning, standing)
         )
     )
 
@@ -357,11 +337,8 @@ def get_dynamic_prompt_parts(
         if active_dashboard:
             parts.append(get_dashboard_context_prompt(active_dashboard))
 
-    if is_sports and sports_context:
-        parts.append(format_program_dynamic_context("sports", sports_context))
-
-    if is_language and language_context:
-        parts.append(format_program_dynamic_context("language", language_context))
+    if standing is not None:
+        parts.append(format_standing_section(standing))
 
     if force_tools:
         parts.append(get_force_tools_prompt(force_tools))
@@ -384,29 +361,6 @@ def _tools_prompt(anonymous_mode: bool) -> str:
     return prompt + TOOLS_SYSTEM_PROMPT_CONTEXT
 
 
-def _program_prompts(
-    sports_context: dict[str, Any] | None, language_context: dict[str, Any] | None
-) -> str:
-    """The sports trainer and language tutor prompts for the active program mode."""
-    prompt = ""
-    # Add sports trainer prompt if in sports mode
-    if sports_context:
-        prompt += SPORTS_TRAINER_SYSTEM_PROMPT.format(
-            program_name=sports_context.get("program_name", "Training"),
-            program_id=sports_context.get("program_id", "program"),
-            kv_data_section=format_sports_kv_data(sports_context),
-        )
-
-    # Add language tutor prompt if in language mode
-    if language_context:
-        prompt += LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
-            program_name=language_context.get("program_name", "Language"),
-            program_id=language_context.get("program_id", "program"),
-            kv_data_section=format_language_kv_data(language_context),
-        )
-    return prompt
-
-
 def get_system_prompt(
     with_tools: bool = True,
     force_tools: list[str] | None = None,
@@ -419,10 +373,7 @@ def get_system_prompt(
     planner_dashboard_context: Any | None = None,
     is_autonomous: bool = False,
     agent_context: dict[str, Any] | None = None,
-    is_sports: bool = False,
-    sports_context: dict[str, Any] | None = None,
-    is_language: bool = False,
-    language_context: dict[str, Any] | None = None,
+    standing: StandingContext | None = None,
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
 ) -> str:
@@ -440,10 +391,7 @@ def get_system_prompt(
         planner_dashboard_context: Contextvar value for refreshed dashboard data (optional)
         is_autonomous: If True, include autonomous agent-specific system prompt
         agent_context: Agent context dict with keys: name, description, schedule, timezone, goals, tools, trigger_type
-        is_sports: If True, include sports trainer system prompt
-        sports_context: Sports context dict with keys: program_name, program_id
-        is_language: If True, include language tutor system prompt
-        language_context: Language context dict with keys: program_name, program_id
+        standing: A standing chat's instructions and data (agent / program chats)
     """
     # The household's local time, with its zone abbreviation
     now = to_local(utc_now())
@@ -455,7 +403,7 @@ def get_system_prompt(
     prompt += get_user_context(user_name, user_id)
 
     title_context = _get_conversation_title_context(
-        conversation_title, is_sports, is_language, is_planning
+        conversation_title, _fixed_title(is_planning, standing)
     )
     if title_context:
         prompt += title_context
@@ -478,9 +426,7 @@ def get_system_prompt(
         if active_dashboard:
             prompt += get_dashboard_context_prompt(active_dashboard)
 
-    prompt += _program_prompts(
-        sports_context if is_sports else None, language_context if is_language else None
-    )
+    prompt += _standing_prompt(standing)
 
     # Add autonomous agent prompt if running as an agent
     if is_autonomous and agent_context:

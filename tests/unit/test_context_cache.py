@@ -78,9 +78,10 @@ class TestCacheProfile:
     def test_planning_profile(self) -> None:
         assert CacheProfile.PLANNING.value == "planning"
 
-    def test_program_profiles(self) -> None:
-        assert CacheProfile.SPORTS.value == "sports"
-        assert CacheProfile.LANGUAGE.value == "language"
+    def test_no_program_cache_profiles(self) -> None:
+        """Standing chats (agent / sports / language) use the standard profile;
+        their instructions ride in the dynamic part."""
+        assert {p.name for p in CacheProfile} == {"STANDARD", "ANONYMOUS", "PLANNING"}
 
 
 # ============ get_static_prompt_for_profile Tests ============
@@ -118,35 +119,6 @@ class TestGetStaticPromptForProfile:
 
         prompt = get_static_prompt_for_profile("standard")
         assert "Planner Mode" not in prompt
-
-    def test_sports_is_program_agnostic(self) -> None:
-        """The sports static prompt carries the full trainer instructions but
-        no per-program values - those would fragment the cache per program."""
-        from src.agent.prompts import get_static_prompt_for_profile
-
-        prompt = get_static_prompt_for_profile("sports")
-        assert "Personal Sports Trainer" in prompt
-        assert "<program_name>" in prompt
-        assert "<program_id>" in prompt
-        assert "{program_id}" not in prompt  # all placeholders resolved
-
-    def test_language_is_program_agnostic(self) -> None:
-        from src.agent.prompts import get_static_prompt_for_profile
-
-        prompt = get_static_prompt_for_profile("language")
-        assert "Language Tutor" in prompt
-        assert "Spaced Repetition System" in prompt
-        assert "<program_id>" in prompt
-        assert "{program_id}" not in prompt
-
-    def test_program_static_prompts_are_stable(self) -> None:
-        """Same profile must produce byte-identical prompts (cache key)."""
-        from src.agent.prompts import get_static_prompt_for_profile
-
-        assert get_static_prompt_for_profile("sports") == get_static_prompt_for_profile("sports")
-        assert get_static_prompt_for_profile("language") == get_static_prompt_for_profile(
-            "language"
-        )
 
 
 # ============ get_dynamic_prompt_parts Tests ============
@@ -215,38 +187,46 @@ class TestGetDynamicPromptParts:
         assert "Mandatory Tool Usage" in result
         assert "web_search" in result
 
-    def test_includes_program_identity_and_kv_for_sports(self) -> None:
-        """In cached mode the program identity + KV data must ride in the
-        dynamic context - the static prompt is program-agnostic."""
+    def test_includes_the_standing_chat_section(self) -> None:
         from src.agent.prompts import get_dynamic_prompt_parts
+        from src.agent.standing import StandingContext
 
         result = get_dynamic_prompt_parts(
-            is_sports=True,
-            sports_context={
-                "program_name": "Marathon Prep",
-                "program_id": "marathon-prep",
-                "kv_data": {"marathon-prep:goals": '{"goal": "sub-4h"}'},
-            },
+            standing=StandingContext(
+                "sports", "Marathon Prep", "Coach the marathon plan", '{"goal": "sub-4h"}', "sports"
+            )
         )
-        assert "Active Program" in result
-        assert "Marathon Prep" in result
-        assert "marathon-prep" in result
+        assert "# This Chat: Marathon Prep" in result
+        assert "Coach the marathon plan" in result
         assert "sub-4h" in result
 
-    def test_includes_program_identity_and_kv_for_language(self) -> None:
+    def test_language_instructions_reach_the_prompt(self) -> None:
+        """A language chat's quiz rules ride in the per-turn part (the quiz XOR
+        conversation contract the client's quiz renderer depends on)."""
+        from src.agent.prompt_programs import format_program_kv_data
+        from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
         from src.agent.prompts import get_dynamic_prompt_parts
+        from src.agent.standing import StandingContext
 
-        result = get_dynamic_prompt_parts(
-            is_language=True,
-            language_context={
-                "program_name": "Spanish",
-                "program_id": "spanish",
-                "kv_data": {},
-            },
+        instructions = LANGUAGE_TUTOR_SYSTEM_PROMPT.format(
+            program_name="Spanish", program_id="spanish", kv_data_section=""
         )
-        assert "Active Program" in result
-        assert "Spanish" in result
+        data = format_program_kv_data("language", {"kv_data": {}})
+        result = get_dynamic_prompt_parts(
+            standing=StandingContext("language", "Spanish", instructions, data, "language")
+        )
+        assert "```quiz" in result
         assert "No data stored yet" in result
+
+    def test_standing_section_in_the_uncached_prompt(self) -> None:
+        from src.agent.prompts import get_system_prompt
+        from src.agent.standing import StandingContext
+
+        prompt = get_system_prompt(
+            standing=StandingContext("agent", "VWCE Watcher", "Watch VWCE weekly", None, "agent:a1")
+        )
+        assert "# This Chat: VWCE Watcher" in prompt
+        assert "Watch VWCE weekly" in prompt
 
 
 # ============ Cache invalidation by content ============

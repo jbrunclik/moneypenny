@@ -437,7 +437,7 @@ class TestManage:
 
 
 class TestBinding:
-    def test_bound_in_ordinary_chats_but_not_anonymous_or_agents(self) -> None:
+    def test_bound_in_chats_but_not_anonymous_or_unattended_runs(self) -> None:
         from src.agent.tools import get_tools_for_request
 
         def names(tools: list) -> set[str]:
@@ -445,4 +445,11 @@ class TestBinding:
 
         assert "schedule" in names(get_tools_for_request())
         assert "schedule" not in names(get_tools_for_request(anonymous_mode=True))
-        assert "schedule" not in names(get_tools_for_request(is_agent=True))
+        assert "schedule" in names(get_tools_for_request(standing=True))
+        from unittest.mock import MagicMock
+
+        from src.agent.tools import get_tools_for_agent
+
+        agent = MagicMock()
+        agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", None
+        assert "schedule" not in names(get_tools_for_agent(agent))

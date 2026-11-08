@@ -84,9 +84,6 @@ def test_bound_only_when_enabled(monkeypatch: pytest.MonkeyPatch, enabled: bool)
     [
         {"anonymous_mode": True},
         {"is_planning": True},
-        {"is_sports": True},
-        {"is_language": True},
-        {"is_agent": True},
     ],
 )
 def test_not_bound_where_facts_are_not_kept(

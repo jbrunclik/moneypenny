@@ -10,13 +10,14 @@ namespace its `kv_store` writes to. Loaded once per turn.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Literal
 
 from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.prompt_programs import PROGRAM_QUICK_ACTION_NOTE, format_program_kv_data
 from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
 from src.agent.prompt_texts.sports import SPORTS_TRAINER_SYSTEM_PROMPT
+from src.agent.standing import StandingContext
 from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.db.models import db
 from src.utils.schedule_spec import describe_cron
@@ -24,24 +25,10 @@ from src.utils.schedule_spec import describe_cron
 if TYPE_CHECKING:
     from src.db.models import Conversation, User
 
-StandingKind = Literal["agent", "sports", "language"]
-
 # Where a program's coaching prompt points for its stored data
 _DATA_POINTER = (
     "## Stored Data\n\nThe stored program data is in the Data part of this standing-chat section."
 )
-
-
-@dataclass(frozen=True)
-class StandingContext:
-    """A standing chat's additions to the ordinary chat turn."""
-
-    kind: StandingKind
-    name: str
-    instructions: str
-    data: str | None
-    kv_namespace: str
-    agent_id: str | None = None
 
 
 def _describe_schedule(schedule: str | None) -> str:
@@ -68,14 +55,12 @@ def _agent_context(conv: Conversation, user: User) -> StandingContext | None:
     )
 
 
-def _program_context(
-    kind: Literal["sports", "language"], conv: Conversation, user: User
-) -> StandingContext | None:
-    program_id = conv.sports_program if kind == "sports" else conv.language_program
-    load = load_sports_context if kind == "sports" else load_language_context
-    context = load(user.id, program_id or "")
-    if context is None:
-        return None
+def standing_for_program(
+    kind: Literal["sports", "language"], context: Mapping[str, object]
+) -> StandingContext:
+    """A program chat's standing context from its loaded program context
+    ({program_name, program_id, kv_data}; program_context.py) - shared with
+    the eval harness so evals see what production builds."""
     template = SPORTS_TRAINER_SYSTEM_PROMPT if kind == "sports" else LANGUAGE_TUTOR_SYSTEM_PROMPT
     instructions = (
         template.format(
@@ -92,6 +77,15 @@ def _program_context(
         format_program_kv_data(kind, context),
         kind,
     )
+
+
+def _program_context(
+    kind: Literal["sports", "language"], conv: Conversation, user: User
+) -> StandingContext | None:
+    program_id = conv.sports_program if kind == "sports" else conv.language_program
+    load = load_sports_context if kind == "sports" else load_language_context
+    context = load(user.id, program_id or "")
+    return standing_for_program(kind, context) if context is not None else None
 
 
 def load_standing_context(conv: Conversation, user: User) -> StandingContext | None:

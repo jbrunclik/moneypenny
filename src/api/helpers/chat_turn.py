@@ -20,7 +20,6 @@ from typing import Any
 
 from src.agent.agent import ChatAgent, planner_dashboard_context
 from src.agent.conversation_compaction import build_compacted_history
-from src.agent.daily_briefing import resolve_agent_system_prompt
 from src.agent.deep_research.offer import PlanError
 from src.agent.deep_research.plan import (
     DeepResearchPlan,
@@ -28,23 +27,22 @@ from src.agent.deep_research.plan import (
     OfferNotFoundError,
     start_plan,
 )
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
 from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids
+from src.agent.standing import StandingContext
 from src.agent.tool_results import set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
     set_current_message_files,
-    set_language_context,
     set_location_context,
-    set_sports_context,
+    set_standing_namespace,
 )
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.conversation_facts import load_turn_facts
 from src.api.helpers.lost_actions import pop_lost_actions_note
-from src.api.helpers.program_context import load_language_context, load_sports_context
+from src.api.helpers.standing_context import load_standing_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
@@ -322,14 +320,9 @@ class TurnContext:
     client_location: dict[str, Any] | None = None
     is_planning: bool = False
     dashboard_data: dict[str, Any] | None = None
-    sports_program: str | None = None
-    sports_context: dict[str, Any] | None = None
-    language_program: str | None = None
-    language_context: dict[str, Any] | None = None
-    # Interactive agent conversation: tool filtering for the ChatAgent, and
-    # the AgentContext permission checks and kv_store read
-    agent_context: dict[str, Any] | None = None
-    agent_execution_context: AgentContext | None = None
+    # A standing chat (agent / sports / language): an ordinary turn plus its
+    # standing instructions, data and kv namespace (standing_context.py)
+    standing: StandingContext | None = None
     # Set for a deep-research turn (the stream producer runs the pipeline)
     deep_research: DeepResearchPlan | None = None
     lost_actions_note: str | None = None
@@ -345,10 +338,6 @@ class TurnContext:
             else Config.CHAT_TIMEOUT_SECONDS
         )
 
-    @property
-    def is_autonomous(self) -> bool:
-        return self.agent_execution_context is not None
-
     def apply(self) -> None:
         """Set this turn's contextvars in the current thread."""
         set_current_request_id(self.request_id)
@@ -358,12 +347,8 @@ class TurnContext:
         if self.dashboard_data is not None:
             # Initial dashboard for potential refresh_planner_dashboard calls
             planner_dashboard_context.set(self.dashboard_data)
-        if self.agent_execution_context is not None:
-            set_agent_context(self.agent_execution_context)
-        if self.sports_program:
-            set_sports_context(self.sports_program)
-        if self.language_program:
-            set_language_context(self.language_program)
+        if self.standing is not None:
+            set_standing_namespace(self.standing.kv_namespace)
 
     def clear(self) -> None:
         """Reset every contextvar apply() set (threads are reused across requests)."""
@@ -373,12 +358,8 @@ class TurnContext:
         set_location_context(None)
         if self.dashboard_data is not None:
             planner_dashboard_context.set(None)
-        if self.agent_execution_context is not None:
-            clear_agent_context()
-        if self.sports_program:
-            set_sports_context(None)
-        if self.language_program:
-            set_language_context(None)
+        if self.standing is not None:
+            set_standing_namespace(None)
 
     def create_agent(self, include_thoughts: bool = False) -> ChatAgent:
         return ChatAgent(
@@ -386,12 +367,7 @@ class TurnContext:
             include_thoughts=include_thoughts,
             anonymous_mode=self.anonymous_mode,
             is_planning=self.is_planning,
-            is_autonomous=self.is_autonomous,
-            agent_context=self.agent_context,
-            is_sports=self.sports_program is not None,
-            sports_context=self.sports_context,
-            is_language=self.language_program is not None,
-            language_context=self.language_context,
+            standing=self.standing,
         )
 
     def _agent_text(self) -> str:
@@ -417,10 +393,6 @@ class TurnContext:
             "is_planning": self.is_planning,
             "dashboard_data": self.dashboard_data,
             "conversation_id": self.conv_id,
-            "is_sports": self.sports_program is not None,
-            "sports_context": self.sports_context,
-            "is_language": self.language_program is not None,
-            "language_context": self.language_context,
             "conversation_title": self.conversation_title,
             "conversation_facts": self.conversation_facts,
         }
@@ -447,23 +419,12 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         lost_actions_note=turn.lost_actions_note,
         conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
+        standing=load_standing_context(conv, user),
     )
     if conv.is_planning:
         ctx.dashboard_data = _load_planner_dashboard(user)
-    if conv.is_sports and conv.sports_program:
-        ctx.sports_program = conv.sports_program
-        ctx.sports_context = load_sports_context(user.id, conv.sports_program)
-    if conv.is_language and conv.language_program:
-        ctx.language_program = conv.language_program
-        ctx.language_context = load_language_context(user.id, conv.language_program)
-    if conv.is_agent and conv.agent_id:
-        _attach_agent_context(ctx, user, conv.agent_id)
-
-    # Compact long histories for regular (non-agent) conversations to bound
-    # per-turn input cost. Agent conversations use their own destructive
-    # compaction, so they are left untouched.
-    if not ctx.is_autonomous:
-        ctx.history = build_compacted_history(user.id, conv.id, ctx.history)
+    # Every chat compacts its long history the same way (non-destructive)
+    ctx.history = build_compacted_history(user.id, conv.id, ctx.history)
     return ctx
 
 
@@ -479,33 +440,3 @@ def _load_planner_dashboard(user: User) -> dict[str, Any]:
         db=db,
     )
     return asdict(dashboard)
-
-
-def _attach_agent_context(ctx: TurnContext, user: User, agent_id: str) -> None:
-    """Apply an interactive agent conversation's tool permissions and goals."""
-
-    agent_record = db.get_agent(agent_id, user.id)
-    if not agent_record:
-        return
-    logger.debug(
-        "Interactive agent conversation - applying tool permissions",
-        extra={
-            "user_id": user.id,
-            "conversation_id": ctx.conv_id,
-            "agent_id": agent_record.id,
-            "tool_permissions": agent_record.tool_permissions,
-        },
-    )
-    ctx.agent_execution_context = AgentContext(
-        agent=agent_record, user=user, trigger_chain=[agent_record.id]
-    )
-    # tool_permissions=None means all tools, [] means no tools
-    ctx.agent_context = {
-        "name": agent_record.name,
-        "description": agent_record.description,
-        "schedule": agent_record.schedule,
-        "timezone": agent_record.timezone,
-        "goals": resolve_agent_system_prompt(agent_record),
-        "tools": agent_record.tool_permissions,
-        "trigger_type": "interactive",
-    }

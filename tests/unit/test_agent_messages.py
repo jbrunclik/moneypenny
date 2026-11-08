@@ -214,6 +214,7 @@ class TestBuildMessagesConversationTitle:
         agent.anonymous_mode = False
         agent.is_autonomous = False
         agent.agent_context = None
+        agent.standing = None
         return agent
 
     def test_uncached_system_prompt_contains_title(self) -> None:

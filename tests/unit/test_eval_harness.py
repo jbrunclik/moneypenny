@@ -685,8 +685,8 @@ class TestRunCase:
         )
         result = eval_run._run_case(case, test_user, test_database)
 
-        assert calls["init"]["is_sports"] is True
-        assert calls["chat"]["sports_context"]["kv_data"] == {"ftp": "250"}
+        assert calls["init"]["standing"].kind == "sports"
+        assert "250" in calls["init"]["standing"].data
         assert calls["chat"]["files"][0]["name"] == "opening_hours_sign.png"
         assert calls["chat"]["files"][0]["type"] == "image/png"
         assert "{artifact_0}" not in calls["chat"]["history"][0]["content"]

@@ -22,8 +22,8 @@ _compiled_graph_lock = threading.Lock()
 # Context-cache names kept per otherwise-identical signature. The name rotates
 # whenever a Gemini cache lapses or is recreated, so without this cap every dead
 # name stays compiled until the global LRU evicts it (~2.5 MB per graph). Three
-# covers the live set: the uncached fallback (None) plus SPORTS and LANGUAGE,
-# the two profiles that bind the same tools.
+# covers the live set: the uncached fallback (None), the live cache name and
+# its successor while a lapsed cache is recreated.
 _MAX_CACHE_NAMES_PER_SIGNATURE = 3
 
 

@@ -67,13 +67,11 @@ class TestResolve:
 
 
 class TestPromptPreamble:
-    def test_program_profiles_explain_quick_action_blocks(self) -> None:
-        from src.agent.prompts import get_static_prompt_for_profile
+    def test_program_chats_explain_quick_action_blocks(self) -> None:
+        from src.agent.prompt_programs import PROGRAM_QUICK_ACTION_NOTE
 
-        for profile in ("sports", "language"):
-            prompt = get_static_prompt_for_profile(profile)
-            assert "quick action" in prompt.lower(), profile
-            assert "Label: value" in prompt, profile
+        assert "quick action" in PROGRAM_QUICK_ACTION_NOTE.lower()
+        assert "Label: value" in PROGRAM_QUICK_ACTION_NOTE
 
     def test_standard_profile_is_unaffected(self) -> None:
         from src.agent.prompts import get_static_prompt_for_profile

@@ -65,7 +65,7 @@ def test_saving_a_new_offer_supersedes_the_open_one(
     assert stored[second.message_id].research["offer"]["status"] == "offered"
 
 
-def test_the_tool_is_bound_for_chat_not_for_agents_or_programs() -> None:
+def test_the_tool_is_bound_in_chats_not_in_unattended_runs() -> None:
     from src.agent.tools import get_tools_for_request
 
     def names(tools: list[Any]) -> set[str]:
@@ -73,9 +73,9 @@ def test_the_tool_is_bound_for_chat_not_for_agents_or_programs() -> None:
 
     assert "propose_deep_research" in names(get_tools_for_request())
     assert "propose_deep_research" in names(get_tools_for_request(anonymous_mode=True))
-    assert "propose_deep_research" not in names(get_tools_for_request(is_sports=True))
-    assert "propose_deep_research" not in names(get_tools_for_request(is_agent=True))
-    assert "propose_deep_research" not in names(get_tools_for_request(agent_tool_permissions=[]))
+    assert "propose_deep_research" in names(get_tools_for_request(standing=True))
+    assert "propose_deep_research" not in _agent_run_names([])
+    assert "propose_deep_research" not in _agent_run_names(None)
 
 
 @pytest.mark.parametrize(
@@ -133,3 +133,13 @@ def test_the_offer_tool_does_not_promise_an_autostart() -> None:
         {"question": "Q", "context": "", "sub_questions": ["a?"], "run_now": True}
     )
     assert "will start right after" not in out
+
+
+def _agent_run_names(tool_permissions: list[str] | None) -> set[str]:
+    from unittest.mock import MagicMock
+
+    from src.agent.tools import get_tools_for_agent
+
+    agent = MagicMock()
+    agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", tool_permissions
+    return {t.name for t in get_tools_for_agent(agent)}

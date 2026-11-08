@@ -34,12 +34,14 @@ class TestChatAgentOverrides:
         assert messages[0].content == "You are a test."
 
 
-class TestInteractiveAgentToolWiring:
-    """Interactive turns in an agent conversation must bind kv_store (parity with auto runs)."""
+class TestStandingChatToolWiring:
+    """A standing chat binds the ordinary chat tools plus kv_store, and keeps
+    the freshness check and the standard cache profile."""
 
     @staticmethod
-    def _captured_tool_names(monkeypatch, agent_tools) -> set[str]:
+    def _agent(monkeypatch):
         import src.agent.agent as agent_mod
+        from src.agent.standing import StandingContext
 
         captured: dict[str, list] = {}
 
@@ -48,18 +50,19 @@ class TestInteractiveAgentToolWiring:
             return object()
 
         monkeypatch.setattr(agent_mod, "get_compiled_graph", fake_get_compiled_graph)
-
-        agent_mod.ChatAgent(
+        agent = agent_mod.ChatAgent(
             model_name="gemini-test",
-            is_autonomous=True,
-            agent_context={"name": "watcher", "tools": agent_tools},
+            standing=StandingContext("agent", "Watcher", "Watch", None, "agent:a1"),
         )
-        return {t.name for t in captured["tools"]}
+        return agent, {t.name for t in captured["tools"]}
 
-    def test_agent_with_explicit_permissions_gets_kv_store(self, monkeypatch) -> None:
-        names = self._captured_tool_names(monkeypatch, agent_tools=["web_search"])
-        assert "kv_store" in names
+    def test_gets_kv_store_and_the_chat_tools(self, monkeypatch) -> None:
+        _, names = self._agent(monkeypatch)
+        assert {"kv_store", "schedule", "manage_memory"} <= names
 
-    def test_agent_with_unrestricted_permissions_gets_kv_store(self, monkeypatch) -> None:
-        names = self._captured_tool_names(monkeypatch, agent_tools=None)
-        assert "kv_store" in names
+    def test_freshness_gate_and_standard_cache(self, monkeypatch) -> None:
+        from src.agent.context_cache import CacheProfile
+
+        agent, names = self._agent(monkeypatch)
+        assert agent.freshness_gate is ("research" in names)
+        assert agent._get_cache_profile() == CacheProfile.STANDARD

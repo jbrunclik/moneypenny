@@ -8,6 +8,9 @@ Cache profiles:
 - anonymous: BASE + TOOLS_BASE + CONTEXT (anonymous mode)
 - planning: BASE + TOOLS_BASE + PRODUCTIVITY + CONTEXT + PLANNER (planner view)
 
+Standing chats (agent / sports / language) use the standard profile; their
+standing instructions and data ride in the dynamic part.
+
 Dynamic content (date/time, user context, memories) is NOT cached and is
 passed as a HumanMessage with [CONTEXT] markers.
 
@@ -43,11 +46,6 @@ class CacheProfile(StrEnum):
     STANDARD = "standard"
     ANONYMOUS = "anonymous"
     PLANNING = "planning"
-    # Program profiles: one cache entry per FEATURE, not per program - the
-    # static prompt is program-agnostic and the program identity + KV data
-    # ride in the per-request dynamic context
-    SPORTS = "sports"
-    LANGUAGE = "language"
 
 
 @dataclass

@@ -122,7 +122,7 @@ class TestKvMerge:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("c1", "u1"),
             ),
-            patch("src.agent.tools.agent_kv.get_sports_context", return_value="cycling"),
+            patch("src.agent.tools.agent_kv.get_standing_namespace", return_value="sports"),
             patch("src.agent.tools.agent_kv.db") as mock_db,
         ):
             mock_db.kv_get.return_value = stored

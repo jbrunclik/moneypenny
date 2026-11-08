@@ -237,12 +237,6 @@ def create_mock_stream_chat_events() -> Any:
         is_planning: bool = False,
         dashboard_data: dict[str, Any] | None = None,
         conversation_id: str | None = None,
-        is_autonomous: bool = False,
-        agent_context: dict[str, Any] | None = None,
-        is_sports: bool = False,
-        sports_context: dict[str, Any] | None = None,
-        is_language: bool = False,
-        language_context: dict[str, Any] | None = None,
         conversation_title: str | None = None,
         conversation_facts: list[Any] | None = None,
     ) -> Generator[dict[str, Any]]:

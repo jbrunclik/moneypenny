@@ -12,7 +12,7 @@ from pathlib import Path
 
 _SRC = Path(__file__).parents[2] / "src"
 
-ANY_BASELINE = 1062  # Nov 7 2026 (Todoist client JSON aliases)
+ANY_BASELINE = 1041  # Nov 8 2026 (standing chats: program contexts gone)
 
 
 def _any_uses(path: Path) -> int:

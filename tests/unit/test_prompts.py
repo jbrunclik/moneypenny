@@ -71,20 +71,21 @@ class TestConversationTitleContext:
         prompt = get_system_prompt(with_tools=False)
         assert "set_conversation_title" not in prompt
 
-    def test_no_title_context_in_program_modes(self) -> None:
-        """Sports/language/planner conversations keep their titles — no nudge."""
+    def test_no_title_context_in_program_chats_or_the_planner(self) -> None:
+        """Sports/language chats and the planner keep their titles - no nudge;
+        an agent chat can be retitled."""
         from src.agent.prompts import get_dynamic_prompt_parts
+        from src.agent.standing import StandingContext
 
-        for kwargs in (
-            {"is_sports": True},
-            {"is_language": True},
-            {"is_planning": True},
-        ):
-            dynamic = get_dynamic_prompt_parts(
-                conversation_title="🏃 Running Program",
-                **kwargs,  # type: ignore[arg-type]
-            )
-            assert "set_conversation_title" not in dynamic
+        def dynamic(**kwargs: object) -> str:
+            return get_dynamic_prompt_parts(conversation_title="🏃 Running Program", **kwargs)  # type: ignore[arg-type]
+
+        for kind in ("sports", "language"):
+            standing = StandingContext(kind, "Running", "Coach", None, kind)  # type: ignore[arg-type]
+            assert "set_conversation_title" not in dynamic(standing=standing)
+        assert "set_conversation_title" not in dynamic(is_planning=True)
+        agent = StandingContext("agent", "Helper", "Help", None, "agent:a1")
+        assert "set_conversation_title" in dynamic(standing=agent)
 
 
 class TestConversationFacts:
