@@ -151,6 +151,29 @@ tests and docs, after checking it is truly unused.
    standing) with run now, pause, edit, approvals; the form editor stays for fine-tuning
    grants. One alert per failure for standing jobs.
 
+## Learnings from current personal agents (Nov 8 2026)
+
+OpenAI's Dots (Sep 29 2026) and Meta's Muse (Sep 8 2026) are always-on personal agents.
+What they do that shapes phases 2-3 (phase 1 unchanged):
+
+- **Goals, not just schedules** (Muse: "builds a personalized plan for a shared goal, then
+  advances the work"): a standing chat can carry a *goal* - the agent drafts a plan, works it
+  through jobs, and checks in on progress (phase 3; the TODO's "goal mode").
+- **Proactive notices** (Muse suggests unprompted from memory): a *notice* job type that scans
+  memory, calendar and Todoist and speaks only when something is worth flagging (phase 3).
+- **Audit trail of done and planned** (Muse; Dots' launch reopened "what did my assistant
+  do?"): the Command Center shows each job's recent actions and its upcoming runs (phase 3).
+- **Per-connector access levels** (Muse: read email vs also send): grants are per
+  integration *and* level, e.g. Todoist read vs write (phase 2).
+- **Read-only when the user is absent, never send to others unasked** (Dots): already our
+  rule - unattended writes need approval; state it in the agent prompt (phase 2).
+- **Later:** an egress check on unattended `fetch_url` (Muse's Sentinel), inbound channels
+  and an agent email address (event triggers).
+
+Family use cases these enable: a household logistics chat, a trip planner with a goal and
+price watchers, recipe to Todoist shopping list, bill and subscription watchers (Gmail), and
+the training coach adjusting its plan.
+
 ## Non-goals
 
 - The planner (its own dashboard and refresh flow) - unchanged.
