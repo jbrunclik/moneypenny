@@ -97,7 +97,7 @@ def test_endpoints_send_instants_with_an_offset(
         f"/api/agents/{seeded['agent']}/executions",
         f"/api/agents/{seeded['agent']}/conversation/sync",
         "/api/agents/approvals",
-        "/api/agents/command-center",
+        "/api/jobs",
         "/api/memories",
     ]
     seen = 0

@@ -400,11 +400,28 @@ Agents can have per-agent daily spending limits to prevent runaway costs.
 
 ## Command Center UI
 
-The Command Center dashboard shows:
+Since standing chats phase 3 the Command Center is **one list of every job**: the
+reminders, check-ins, watchers and recurring checks set from chats, and the standing
+jobs (agents). It comes from `GET /api/jobs` (`src/api/routes/jobs.py`,
+`src/api/helpers/job_responses.py`), rendered by `web/src/components/CommandCenter.ts`.
 
-- **Pending Approvals**: Cards with approve/reject buttons
-- **Your Agents**: Grid of agent cards with status, schedule, unread count
-- **Recent Activity**: List of recent executions
+- **Pending Approvals** sit at the top, as cards with approve and reject buttons and the
+  job's schedule.
+- **Week stats**: runs, success rate and cost of the jobs' own runs. Shown only when
+  there were runs.
+- **Jobs**: needs attention first (waiting for approval, paused after failing, last run
+  failed), then soonest next run.
+  - Each row shows the area or kind icon, the title (an agent's name, or the item's text),
+    a status chip, the schedule, the next run, the week's runs and cost for standing jobs,
+    and the chat for chat items.
+  - **Recent runs** expand from a summary: time, outcome and error, the last 3.
+  - Actions: **Run** (standing jobs), **Pause/Resume** (watchers, recurring, agents),
+    **Edit** (agents that are not built-in), **Cancel** (chat items).
+  - Clicking the row opens the job's chat.
+  - Pausing an agent's job disables it (`paused_reason='disabled'`), so the editor and
+    the Daily Briefing's Settings toggle agree.
+  - A Run is refused while the job waits for an approval or is over its daily budget. So
+    are a resume and a `trigger_agent` run (`hold_reason` in `item_scheduler.py`).
 
 ### Sidebar Badge
 

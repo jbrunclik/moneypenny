@@ -106,8 +106,9 @@ approximate - check the module when it matters.
 - [routes/files.py](../../src/api/routes/files.py) - File serving, thumbnails (2)
 - [routes/costs.py](../../src/api/routes/costs.py) - Cost tracking, compaction status (5)
 - [routes/planner.py](../../src/api/routes/planner.py) - Planner dashboard (4)
+- [routes/jobs.py](../../src/api/routes/jobs.py) - The job list (`/api/jobs`): every scheduled item and standing job (1)
 - [routes/agents.py](../../src/api/routes/agents.py) - Agent CRUD and execution (9); owns the shared `Agents` blueprint that
-  [agent_command_center.py](../../src/api/routes/agent_command_center.py) (1), [agent_approvals.py](../../src/api/routes/agent_approvals.py) (3)
+  [agent_approvals.py](../../src/api/routes/agent_approvals.py) (3)
   and [agent_assist.py](../../src/api/routes/agent_assist.py) (AI-assist helpers, 2) attach their routes to
 - [routes/kv_store.py](../../src/api/routes/kv_store.py) - K/V store (`/api/kv`, 6)
 - [routes/push.py](../../src/api/routes/push.py) - Web Push (`/api/push`, 4)

@@ -65,12 +65,11 @@ function headerActions(): AgentHeaderActions | null {
   return agentHeaderActions;
 }
 
-/** Look up agent name from command center data in the store. */
+/** The agent's name from the job list in the store (its job has the agent's id). */
 function getAgentNameById(agentId: string): string | null {
   const { commandCenterData } = useStore.getState();
-  if (!commandCenterData) return null;
-  const agent = commandCenterData.agents.find(a => a.id === agentId);
-  return agent?.name ?? null;
+  const job = commandCenterData?.jobs.find((j) => j.id === agentId);
+  return job?.title ?? null;
 }
 
 /**

@@ -12,7 +12,7 @@ from pathlib import Path
 
 _SRC = Path(__file__).parents[2] / "src"
 
-ANY_BASELINE = 1029  # Nov 8 2026 (standing chats: program contexts gone)
+ANY_BASELINE = 1024  # Nov 8 2026 (standing chats: program contexts gone)
 
 
 def _any_uses(path: Path) -> int:

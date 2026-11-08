@@ -8,8 +8,17 @@ each with its reason. There is no baseline: dead code is deleted.
 
 # --- API wire format: Pydantic fields and StrEnum members, read by the client
 # and by (de)serialization, never as Python attributes --------------------------
-# src/api/schemas/agents.py (AgentWindowStats)
-waiting_approval
+# src/api/schemas/jobs.py (the job list, built as dicts in job_responses.py)
+area
+editable
+cost_7d_display
+jobs_waiting
+jobs_with_errors
+pending_approvals
+total_runs
+total_completed
+total_failed
+total_unread
 # src/api/schemas/admin.py
 month_chats
 month_turns

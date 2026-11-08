@@ -100,20 +100,20 @@ def clear_garmin_config() -> tuple[dict[str, str], int]:
 # =============================================================================
 
 
-@fixtures_bp.route("/test/set-agents-command-center", methods=["POST"])
-def set_agents_command_center() -> tuple[dict[str, Any], int]:
-    """Set custom agents command center data for testing."""
+@fixtures_bp.route("/test/set-jobs-overview", methods=["POST"])
+def set_jobs_overview() -> tuple[dict[str, Any], int]:
+    """Set the job list (GET /api/jobs) a test renders."""
     from flask import request
 
     data = request.get_json() or {}
-    MOCK_CONFIG["agents_command_center"] = data.get("command_center")
+    MOCK_CONFIG["jobs_overview"] = data.get("overview")
     return {"status": "set"}, 200
 
 
 @fixtures_bp.route("/test/clear-agents-config", methods=["POST"])
 def clear_agents_config() -> tuple[dict[str, str], int]:
     """Clear agents mock config to restore defaults."""
-    MOCK_CONFIG["agents_command_center"] = None
+    MOCK_CONFIG["jobs_overview"] = None
     MOCK_CONFIG["agents_by_id"] = {}
     return {"status": "cleared"}, 200
 
@@ -132,6 +132,23 @@ def set_agent() -> tuple[dict[str, Any], int]:
         MOCK_CONFIG["agents_by_id"] = {}
     MOCK_CONFIG["agents_by_id"][agent_id] = data
     return {"status": "set"}, 200
+
+
+@fixtures_bp.route("/test/seed-agent", methods=["POST"])
+def seed_agent() -> tuple[dict[str, Any], int]:
+    """Seed a real agent (a standing chat + its standing job) for job list tests."""
+    from flask import request
+
+    data = request.get_json() or {}
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    agent = g.db.create_agent(
+        user_id=user.id,
+        name=data.get("name", "Coach"),
+        system_prompt=data.get("instructions", "Coach my rides."),
+        schedule=data.get("schedule", "0 20 * * *"),
+        timezone="Europe/Prague",
+    )
+    return {"job_id": agent.id, "conversation_id": agent.conversation_id}, 200
 
 
 @fixtures_bp.route("/test/seed-agent-with-approval", methods=["POST"])

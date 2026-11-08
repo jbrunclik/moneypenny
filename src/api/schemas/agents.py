@@ -8,7 +8,6 @@ from typing import Any
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
-from src.api.schemas.schedules import ScheduledItemResponse
 from src.config import Config
 
 
@@ -175,59 +174,6 @@ class AgentExecutionsListResponse(ResponseModel):
     """List of agent executions."""
 
     executions: list[AgentExecutionResponse]
-
-
-class AgentWindowStats(ResponseModel):
-    """One agent's runs and cost over the stats window."""
-
-    agent_id: str
-    runs: int = 0
-    completed: int = 0
-    failed: int = 0
-    waiting_approval: int = 0
-    cost_usd: float = 0.0
-    cost_display: str = Field(default="", description="Cost formatted in the display currency")
-    input_tokens: int = 0
-    output_tokens: int = 0
-
-
-class AgentStatsBlock(ResponseModel):
-    """Aggregated observability stats for the command center."""
-
-    days: int = 7
-    total_runs: int = 0
-    total_completed: int = 0
-    total_failed: int = 0
-    total_cost_usd: float = 0.0
-    total_cost_display: str = ""
-    per_agent: list[AgentWindowStats] = Field(default_factory=list)
-
-
-class CommandCenterResponse(ResponseModel):
-    """Complete command center dashboard data."""
-
-    agents: list[AgentResponse] = Field(
-        ..., description="All agents with unread counts and pending status"
-    )
-    pending_approvals: list[ApprovalRequestResponse] = Field(
-        default_factory=list, description="All pending approval requests"
-    )
-    recent_executions: list[AgentExecutionResponse] = Field(
-        default_factory=list, description="Recent execution history across all agents"
-    )
-    total_unread: int = Field(default=0, description="Total unread messages across all agents")
-    chat_items: list[ScheduledItemResponse] = Field(
-        default_factory=list,
-        description="Reminders, check-ins, watchers and recurring checks set from chats, soonest first",
-    )
-    agents_waiting: int = Field(default=0, description="Number of agents blocked on approval")
-    stats: AgentStatsBlock = Field(
-        default_factory=AgentStatsBlock,
-        description="Run/cost aggregates over the trailing window",
-    )
-    agents_with_errors: int = Field(
-        default=0, description="Number of agents whose last execution failed"
-    )
 
 
 class TriggerAgentResponse(ResponseModel):

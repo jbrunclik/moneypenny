@@ -6,6 +6,8 @@
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import { agents } from '../api/agents';
+import { jobs } from '../api/jobs';
+import { schedules } from '../api/schedules';
 import { toast } from '../components/Toast';
 import {
   setActiveConversation,
@@ -32,7 +34,7 @@ import {
   focusMessageInput,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
-import type { Agent } from '../types/api';
+import type { Job } from '../types/api';
 
 import { renderChatHeader } from '../components/ChatHeader';
 import { createWelcomeMessage } from '../components/WelcomeMessage';
@@ -57,7 +59,7 @@ export function initAgents(): void {
 
   // Subscribe to command center data changes to update sidebar badges
   useStore.subscribe(
-    (state) => ({ unread: state.commandCenterData?.total_unread, waiting: state.commandCenterData?.agents_waiting }),
+    (state) => ({ unread: state.commandCenterData?.total_unread, waiting: state.commandCenterData?.jobs_waiting }),
     () => {
       // Re-render sidebar when badge counts change
       renderConversationsList();
@@ -153,7 +155,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
 
   if (needsRefresh) {
     try {
-      commandCenterData = await agents.getCommandCenter();
+      commandCenterData = await jobs.overview();
       store.setCommandCenterData(commandCenterData);
     } catch (error) {
       log.error('Failed to fetch command center data', { error });
@@ -188,15 +190,17 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   }
 
   // Render command center (with stale warning if fetch failed)
-  const commandCenterEl = renderCommandCenter(
-    commandCenterData,
-    handleAgentsRefresh,
-    handleApproval,
-    handleAgentSelect,
-    handleAgentRun,
-    (agent) => void handleAgentEdit(agent),
-    () => void handleNewAgent().catch((error: unknown) => log.error('Failed to create agent', { error })),
-  );
+  const commandCenterEl = renderCommandCenter(commandCenterData, {
+    onRefresh: handleAgentsRefresh,
+    onApproval: handleApproval,
+    onOpenChat: selectConversation,
+    onRun: handleJobRun,
+    onPause: (job) => handleJobAction(job, () => schedules.pause(job.id), 'Paused.'),
+    onResume: (job) => handleJobAction(job, () => schedules.resume(job.id), 'Resumed.'),
+    onCancel: (job) => handleJobAction(job, () => schedules.remove(job.id), 'Cancelled.'),
+    onEdit: (job) => void handleAgentEditById(job.id),
+    onNewAgent: () => void handleNewAgent().catch((error: unknown) => log.error('Failed to create agent', { error })),
+  });
 
   // Add stale data warning banner if fetch failed but we have cached data
   if (fetchFailed) {
@@ -272,49 +276,34 @@ async function handleApproval(approvalId: string, approved: boolean): Promise<vo
 }
 
 /**
- * Handle agent selection (navigate to agent's conversation).
+ * Run a standing job now: a toast while it runs, its outcome after.
  */
-async function handleAgentSelect(agentId: string): Promise<void> {
-  log.debug('Agent selected', { agentId });
-
+async function handleJobRun(job: Job): Promise<void> {
+  log.debug('Job run triggered', { jobId: job.id });
+  const loadingToast = toast.loading(`Running "${job.title}"...`);
   try {
-    const agent = await agents.get(agentId);
-    if (agent.conversation_id) {
-      await selectConversation(agent.conversation_id);
-    } else {
-      toast.error('Agent has no conversation.');
-    }
+    const { status } = await schedules.run(job.id);
+    loadingToast.dismiss();
+    if (status === 'failed') toast.error('The run failed.');
+    else if (status === 'approval') toast.warning('Waiting for your approval in the chat.');
+    else toast.success(status === 'silent' ? 'Ran: nothing new.' : 'Done.');
+    await navigateToAgents(true);
   } catch (error) {
-    log.error('Failed to select agent', { error });
-    toast.error('Failed to load agent conversation.');
+    log.error('Failed to run job', { error });
+    loadingToast.dismiss();
+    toast.error('Could not run it right now.');
   }
 }
 
-/**
- * Handle manual agent run trigger.
- * Shows immediate feedback and runs the agent.
- */
-async function handleAgentRun(agentId: string, agentName: string): Promise<void> {
-  log.debug('Agent run triggered', { agentId, agentName });
-
-  // Show immediate loading feedback with agent name
-  const loadingToast = toast.loading(`Running "${agentName}"...`);
-
+/** Pause, resume or cancel a job, then show the refreshed list. */
+async function handleJobAction(job: Job, action: () => Promise<unknown>, done: string): Promise<void> {
   try {
-    const result = await agents.run(agentId);
-
-    // Dismiss loading toast and show success
-    loadingToast.dismiss();
-    toast.success(result.message || 'Agent completed.');
-
-    // Refresh command center
+    await action();
+    toast.success(done);
     await navigateToAgents(true);
   } catch (error) {
-    log.error('Failed to run agent', { error });
-
-    // Dismiss loading toast and show error
-    loadingToast.dismiss();
-    toast.error('Failed to run agent.');
+    log.error('Job action failed', { jobId: job.id, error });
+    toast.error('That did not work - try again.');
   }
 }
 
@@ -336,11 +325,7 @@ async function handleNewAgent(): Promise<void> {
 }
 
 /**
- * Handle agent edit.
- * Opens the agent editor modal with existing agent data.
- */
-/**
- * Handle agent edit by ID (used from agent conversation header).
+ * Edit an agent by its id (the job list's Edit, the agent chat's header).
  */
 export async function handleAgentEditById(agentId: string): Promise<void> {
   try {
@@ -349,26 +334,6 @@ export async function handleAgentEditById(agentId: string): Promise<void> {
     const result = await showAgentEditor(fullAgent);
     if (result) {
       log.info('Agent updated', { agentId: result.id });
-      await navigateToAgents(true);
-      renderConversationsList();
-    }
-  } catch (error) {
-    log.error('Failed to load agent for editing', { error });
-    toast.error('Failed to load agent.');
-  }
-}
-
-async function handleAgentEdit(agent: Agent): Promise<void> {
-  log.debug('Edit agent clicked', { agentId: agent.id });
-
-  // Fetch full agent details including system_prompt
-  try {
-    const fullAgent = await agents.get(agent.id);
-    const { showAgentEditor } = await import('../components/AgentEditor');
-    const result = await showAgentEditor(fullAgent);
-    if (result) {
-      log.info('Agent updated', { agentId: result.id });
-      // Refresh command center to show the updated agent
       await navigateToAgents(true);
       renderConversationsList();
     }

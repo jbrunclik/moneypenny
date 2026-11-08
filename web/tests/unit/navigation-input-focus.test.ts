@@ -38,9 +38,12 @@ vi.mock('@/api/planner', () => ({
   },
 }));
 
+vi.mock('@/api/jobs', () => ({
+  jobs: { overview: vi.fn() },
+}));
+
 vi.mock('@/api/agents', () => ({
   agents: {
-    getCommandCenter: vi.fn(),
     get: vi.fn(),
     approveRequest: vi.fn(),
     rejectRequest: vi.fn(),
@@ -153,7 +156,6 @@ vi.mock('@/core/toolbar', () => ({
 }));
 
 import { useStore } from '@/state/store';
-import { agents } from '@/api/agents';
 import { planner } from '@/api/planner';
 import { getElementById } from '@/utils/dom';
 
@@ -222,11 +224,14 @@ describe('Navigation Input Visibility', () => {
 
   describe('navigateToAgents hides input area', () => {
     it('should add hidden class to input-area when navigating to agents', async () => {
-      (agents.getCommandCenter as Mock).mockResolvedValue({
-        total_unread: 0,
-        agents_waiting: 0,
-        agents: [],
+      const { jobs } = await import('@/api/jobs');
+      (jobs.overview as Mock).mockResolvedValue({
+        jobs: [],
         pending_approvals: [],
+        stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
+        total_unread: 0,
+        jobs_waiting: 0,
+        jobs_with_errors: 0,
       });
 
       const { navigateToAgents } = await import('@/core/agents');

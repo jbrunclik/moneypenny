@@ -1,9 +1,9 @@
-import type { Agent, CommandCenterResponse } from '../../types/api';
+import type { Agent, JobsOverviewResponse } from '../../types/api';
 import type { AppSlice } from '../store';
 
 export interface AgentsData {
   agents: Agent[];
-  commandCenterData: CommandCenterResponse | null;
+  commandCenterData: JobsOverviewResponse | null;
   commandCenterLastFetch: number | null; // Timestamp for cache invalidation
   isAgentsView: boolean;
 }
@@ -13,7 +13,7 @@ export interface AgentsSlice extends AgentsData {
   addAgent: (agent: Agent) => void;
   updateAgent: (id: string, updates: Partial<Agent>) => void;
   removeAgent: (id: string) => void;
-  setCommandCenterData: (data: CommandCenterResponse | null) => void;
+  setCommandCenterData: (data: JobsOverviewResponse | null) => void;
   invalidateCommandCenterCache: () => void;
   clearAgentsState: () => void;
 }

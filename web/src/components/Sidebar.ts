@@ -5,7 +5,7 @@ import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferen
 import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
-import type { CommandCenterResponse, Conversation, User } from '../types/api';
+import type { Conversation, JobsOverviewResponse, User } from '../types/api';
 import { conversations as conversationsApi } from '../api/conversations';
 import { costs } from '../api/costs';
 import { createLogger } from '../utils/logger';
@@ -151,12 +151,12 @@ function renderAlternateList(container: HTMLDivElement): boolean {
 }
 
 /** The agents entry with the command center's unread, waiting and error counts. */
-function agentsEntryWithCounts(isAgentsView: boolean, commandCenterData: CommandCenterResponse | null): HTMLElement {
+function agentsEntryWithCounts(isAgentsView: boolean, commandCenterData: JobsOverviewResponse | null): HTMLElement {
   return agentsEntry(
     isAgentsView,
     commandCenterData?.total_unread ?? 0,
-    commandCenterData?.agents_waiting ?? 0,
-    commandCenterData?.agents_with_errors ?? 0
+    commandCenterData?.jobs_waiting ?? 0,
+    commandCenterData?.jobs_with_errors ?? 0
   );
 }
 

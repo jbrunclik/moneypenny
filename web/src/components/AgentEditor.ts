@@ -3,6 +3,7 @@
  * Allows creating and editing autonomous agents.
  */
 
+import { jobs } from '../api/jobs';
 import { agents, aiAssist } from '../api/agents';
 import { settings } from '../api/settings';
 import { useStore } from '../state/store';
@@ -940,7 +941,7 @@ async function handleDelete(): Promise<void> {
 
     // Refresh command center data to update the UI
     try {
-      const data = await agents.getCommandCenter();
+      const data = await jobs.overview();
       setCommandCenterData(data);
 
       // If we are currently in the agents view, we need to re-render it

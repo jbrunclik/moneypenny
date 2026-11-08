@@ -6,11 +6,9 @@ Command center aggregation, per-agent run/cost stats and budget spend.
 from __future__ import annotations
 
 import sqlite3
-from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from src.db.models.agent_rows import row_to_agent, row_to_approval_request
-from src.db.models.dataclasses import AgentExecution
+from src.db.models.agent_rows import row_to_agent
 from src.db.models.timestamps import to_db
 from src.utils.clock import local_day_start, utc_now
 from src.utils.logging import get_logger
@@ -34,11 +32,6 @@ class AgentStatsMixin:
     ) -> sqlite3.Cursor:
         """Execute query with timing (defined in base class)."""
         raise NotImplementedError
-
-    if TYPE_CHECKING:
-
-        def get_recent_executions(self, user_id: str, limit: int = 20) -> list[AgentExecution]:
-            """Defined in AgentExecutionMixin."""
 
     def list_agents_with_status(self, user_id: str) -> list[dict[str, Any]]:
         """List agents with unread/pending/last-execution status in one query.
@@ -88,70 +81,6 @@ class AgentStatsMixin:
                 )
             return result
 
-    def get_agent_observability_stats(self, user_id: str, days: int = 7) -> dict[str, Any]:
-        """Per-agent run and cost aggregates over a trailing window.
-
-        Returns {"days", "per_agent": {agent_id: {runs, completed, failed,
-        waiting_approval, cost_usd, input_tokens, output_tokens}}}.
-        """
-        since = utc_now() - timedelta(days=days)
-
-        per_agent: dict[str, dict[str, Any]] = {}
-
-        def bucket(agent_id: str) -> dict[str, Any]:
-            return per_agent.setdefault(
-                agent_id,
-                {
-                    "runs": 0,
-                    "completed": 0,
-                    "failed": 0,
-                    "waiting_approval": 0,
-                    "cost_usd": 0.0,
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                },
-            )
-
-        with self._pool.get_connection() as conn:
-            exec_rows = self._execute_with_timing(
-                conn,
-                """SELECT e.agent_id, e.status, COUNT(*) as cnt
-                   FROM agent_executions e
-                   JOIN autonomous_agents a ON e.agent_id = a.id
-                   WHERE a.user_id = ? AND e.started_at >= ?
-                   GROUP BY e.agent_id, e.status""",
-                (user_id, to_db(since)),
-            ).fetchall()
-            cost_rows = self._execute_with_timing(
-                conn,
-                """SELECT c.agent_id,
-                          COALESCE(SUM(mc.cost_usd), 0) as cost_usd,
-                          COALESCE(SUM(mc.input_tokens), 0) as input_tokens,
-                          COALESCE(SUM(mc.output_tokens), 0) as output_tokens
-                   FROM message_costs mc
-                   JOIN conversations c ON mc.conversation_id = c.id
-                   WHERE c.user_id = ? AND c.agent_id IS NOT NULL
-                     AND mc.created_at >= ?
-                   GROUP BY c.agent_id""",
-                (user_id, to_db(since)),
-            ).fetchall()
-
-        for row in exec_rows:
-            stats = bucket(row["agent_id"])
-            count = int(row["cnt"])
-            stats["runs"] += count
-            status = row["status"]
-            if status in ("completed", "failed", "waiting_approval"):
-                stats[status] += count
-
-        for row in cost_rows:
-            stats = bucket(row["agent_id"])
-            stats["cost_usd"] = float(row["cost_usd"])
-            stats["input_tokens"] = int(row["input_tokens"])
-            stats["output_tokens"] = int(row["output_tokens"])
-
-        return {"days": days, "per_agent": per_agent}
-
     def get_agents_daily_spending(self, user_id: str) -> dict[str, float]:
         """Get today's spending per agent in one query (agent_id -> USD).
 
@@ -172,52 +101,6 @@ class AgentStatsMixin:
                 (user_id, to_db(today_start)),
             ).fetchall()
             return {row["agent_id"]: float(row["total"]) for row in rows}
-
-    def get_command_center_data(self, user_id: str) -> dict[str, Any]:
-        """Get aggregated data for the command center dashboard.
-
-        Returns:
-            Dictionary with:
-            - agents: List of agents with unread counts and pending status
-            - pending_approvals: List of pending approval requests
-            - recent_executions: List of recent executions
-            - total_unread: Total unread messages across all agents
-            - agents_waiting: Number of agents blocked on approval
-        """
-        agents = self.list_agents_with_status(user_id)
-        total_unread = sum(a["unread_count"] for a in agents)
-        agents_waiting = sum(1 for a in agents if a["has_pending_approval"])
-        agents_with_errors = sum(1 for a in agents if a["has_error"])
-
-        now = utc_now()
-        with self._pool.get_connection() as conn:
-            # Get pending (non-expired) approvals with agent names
-            approval_rows = self._execute_with_timing(
-                conn,
-                """SELECT r.*, a.name as agent_name
-                   FROM agent_approval_requests r
-                   JOIN autonomous_agents a ON r.agent_id = a.id
-                   WHERE r.user_id = ? AND r.status = 'pending'
-                   AND (r.expires_at IS NULL OR r.expires_at > ?)
-                   ORDER BY r.created_at DESC""",
-                (user_id, to_db(now)),
-            ).fetchall()
-
-        pending_approvals = [
-            {"approval": row_to_approval_request(row), "agent_name": row["agent_name"]}
-            for row in approval_rows
-        ]
-
-        return {
-            "agents": agents,
-            "pending_approvals": pending_approvals,
-            "recent_executions": self.get_recent_executions(user_id, limit=10),
-            "total_unread": total_unread,
-            "agents_waiting": agents_waiting,
-            "agents_with_errors": agents_with_errors,
-        }
-
-    # ============ Budget Tracking ============
 
     def get_agent_daily_spending(self, agent_id: str) -> float:
         """Get the total spending for an agent today (in USD).

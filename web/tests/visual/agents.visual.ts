@@ -4,6 +4,63 @@
 import { test, expect, waitForSidebarSettled } from '../global-setup';
 import { appReady, nextFrames, pageSettled, scrollSettled } from '../e2e/waits';
 
+interface LegacyAgent {
+  id: string;
+  name: string;
+  schedule?: string | null;
+  enabled?: boolean;
+  has_pending_approval?: boolean;
+  unread_count?: number;
+  next_run_at?: string | null;
+  system_type?: string | null;
+  // Agent fields the job list doesn't show (kept so the fixtures read as agents)
+  [unused: string]: unknown;
+}
+
+interface LegacyCommandCenter {
+  agents?: LegacyAgent[];
+  pending_approvals?: Array<Record<string, unknown>>;
+  recent_executions?: Array<{ agent_id: string; status: string; trigger_type: string; started_at: string; [unused: string]: unknown }>;
+  total_unread?: number;
+  agents_waiting?: number;
+}
+
+/** Seed the job list (GET /api/jobs) from agent-shaped fixtures: each agent is its standing job. */
+async function setCommandCenter(page: import('@playwright/test').Page, cc: LegacyCommandCenter): Promise<void> {
+  const jobs = (cc.agents ?? []).map((agent) => ({
+    id: agent.id,
+    kind: 'recurring',
+    standing: true,
+    area: 'agents',
+    title: agent.name,
+    conversation_id: `conv-${agent.id}`,
+    conversation_title: `Agent: ${agent.name}`,
+    when: agent.schedule ? 'every day at 09:00' : 'on demand',
+    ends: 'until cancelled',
+    status: agent.enabled === false ? 'paused' : 'active',
+    paused_reason: agent.enabled === false ? 'disabled' : null,
+    next_run_at: agent.next_run_at ?? null,
+    system_type: agent.system_type ?? null,
+    editable: !agent.system_type,
+    unread_count: agent.unread_count ?? 0,
+    has_pending_approval: agent.has_pending_approval ?? false,
+    cost_7d_display: null,
+    runs_7d: 0,
+    recent_runs: (cc.recent_executions ?? [])
+      .filter((run) => run.agent_id === agent.id)
+      .map((run) => ({ status: run.status, trigger_type: run.trigger_type, started_at: run.started_at, error: null })),
+  }));
+  const overview = {
+    jobs,
+    pending_approvals: (cc.pending_approvals ?? []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a })),
+    stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
+    total_unread: cc.total_unread ?? 0,
+    jobs_waiting: cc.agents_waiting ?? 0,
+    jobs_with_errors: 0,
+  };
+  await page.request.post('/test/set-jobs-overview', { data: { overview } });
+}
+
 test.describe('Visual: Agents Sidebar Entry', () => {
   test('agents entry default state', async ({ page }) => {
     await page.goto('/');
@@ -35,9 +92,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
   });
 
   test('agents entry with badge', async ({ page }) => {
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [],
           agents: [
             {
@@ -55,8 +110,6 @@ test.describe('Visual: Agents Sidebar Entry', () => {
           recent_executions: [],
           total_unread: 3,
           agents_waiting: 0,
-        },
-      },
     });
 
     await page.goto('/');
@@ -68,9 +121,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
   });
 
   test('agents entry with waiting indicator', async ({ page }) => {
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [
             {
               id: 'approval-1',
@@ -98,8 +149,6 @@ test.describe('Visual: Agents Sidebar Entry', () => {
           recent_executions: [],
           total_unread: 0,
           agents_waiting: 1,
-        },
-      },
     });
 
     await page.goto('/');
@@ -121,9 +170,7 @@ test.describe('Visual: Agents Sidebar Entry', () => {
     });
 
     // Set command center data with badges
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [
             {
               id: 'approval-1',
@@ -151,8 +198,6 @@ test.describe('Visual: Agents Sidebar Entry', () => {
           recent_executions: [],
           total_unread: 5,
           agents_waiting: 1,
-        },
-      },
     });
 
     await page.goto('/');
@@ -176,9 +221,7 @@ test.describe('Visual: Command Center - Desktop', () => {
   });
 
   test('command center with agents', async ({ page }) => {
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [],
           agents: [
             {
@@ -242,8 +285,6 @@ test.describe('Visual: Command Center - Desktop', () => {
           ],
           total_unread: 2,
           agents_waiting: 0,
-        },
-      },
     });
 
     await page.goto('/#/agents');
@@ -254,9 +295,7 @@ test.describe('Visual: Command Center - Desktop', () => {
   });
 
   test('command center with pending approvals', async ({ page }) => {
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [
             {
               id: 'approval-1',
@@ -304,8 +343,6 @@ test.describe('Visual: Command Center - Desktop', () => {
           recent_executions: [],
           total_unread: 1,
           agents_waiting: 2,
-        },
-      },
     });
 
     await page.goto('/#/agents');
@@ -318,7 +355,7 @@ test.describe('Visual: Command Center - Desktop', () => {
 
   test('command center loading state', async ({ page }) => {
     // Set a delay on the response
-    await page.route('**/api/agents/command-center', async (route) => {
+    await page.route('**/api/jobs', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 5000));
       await route.continue();
     });
@@ -336,9 +373,7 @@ test.describe('Visual: Command Center - Mobile', () => {
   test.use({ viewport: { width: 375, height: 667 } });
 
   test('command center mobile view', async ({ page }) => {
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [
             {
               id: 'approval-1',
@@ -377,8 +412,6 @@ test.describe('Visual: Command Center - Mobile', () => {
           recent_executions: [],
           total_unread: 2,
           agents_waiting: 1,
-        },
-      },
     });
 
     await page.goto('/#/agents');
@@ -628,16 +661,12 @@ test.describe('Visual: Agent Editor Modal', () => {
     };
 
     // Set up a mock agent via test endpoint
-    await page.request.post('/test/set-agents-command-center', {
-      data: {
-        command_center: {
+    await setCommandCenter(page, {
           pending_approvals: [],
           agents: [mockAgent],
           recent_executions: [],
           total_unread: 0,
           agents_waiting: 0,
-        },
-      },
     });
 
     // Mock the individual agent fetch endpoint
@@ -651,10 +680,10 @@ test.describe('Visual: Agent Editor Modal', () => {
 
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
-    await page.waitForSelector('.agent-card');
+    await page.waitForSelector('.job-row');
 
     // Click on the agent card to open editor in edit mode
-    await page.click('.agent-card[data-agent-id="test-agent-1"] .btn-edit');
+    await page.click('.job-row[data-job-id="test-agent-1"] .job-edit');
     await page.waitForSelector('.agent-editor');
     // The modal overlay leaves the sidebar visible - wait for the
     // conversation list to settle (skeletons gone) to keep shots stable

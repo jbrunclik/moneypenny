@@ -107,6 +107,27 @@ class AgentExecutionMixin:
             )
             conn.commit()
 
+    def recent_runs(self, job_ids: list[str], per_job: int = 3) -> dict[str, list[AgentExecution]]:
+        """Each job's newest runs (one query), newest first."""
+        if not job_ids:
+            return {}
+        marks = ", ".join("?" for _ in job_ids)
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"""SELECT * FROM (
+                        SELECT *, ROW_NUMBER() OVER (
+                            PARTITION BY agent_id ORDER BY started_at DESC, rowid DESC
+                        ) AS rank
+                        FROM agent_executions WHERE agent_id IN ({marks})
+                    ) WHERE rank <= ? ORDER BY agent_id, rank""",
+                (*job_ids, per_job),
+            ).fetchall()
+        runs: dict[str, list[AgentExecution]] = {}
+        for row in rows:
+            runs.setdefault(row["agent_id"], []).append(row_to_execution(row))
+        return runs
+
     def get_agent_executions(self, agent_id: str, limit: int = 20) -> list[AgentExecution]:
         """Get recent executions for an agent."""
         with self._pool.get_connection() as conn:
@@ -117,21 +138,6 @@ class AgentExecutionMixin:
                    ORDER BY started_at DESC
                    LIMIT ?""",
                 (agent_id, limit),
-            ).fetchall()
-
-            return [row_to_execution(row) for row in rows]
-
-    def get_recent_executions(self, user_id: str, limit: int = 20) -> list[AgentExecution]:
-        """Get recent executions across all agents for a user."""
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT e.* FROM agent_executions e
-                   JOIN autonomous_agents a ON e.agent_id = a.id
-                   WHERE a.user_id = ?
-                   ORDER BY e.started_at DESC
-                   LIMIT ?""",
-                (user_id, limit),
             ).fetchall()
 
             return [row_to_execution(row) for row in rows]

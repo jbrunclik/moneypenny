@@ -63,7 +63,6 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
     ("GET", "/auth/garmin/status", {"garmin_connected": True, "garmin_needs_reconnect": True}),
     ("GET", "/auth/rouvy/status", {}),
     ("GET", "/auth/rouvy/status", {"rouvy_connected": True}),
-    ("GET", "/api/agents/command-center", {}),
     ("GET", "/api/kv", {"kv_namespaces": []}),
     ("GET", "/api/kv/sports", {"kv_keys": {"sports": []}}),
     ("GET", "/api/memories", {"memories": []}),
@@ -74,9 +73,7 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
 # payload, so its shape is that test's business, not the mock's
 PASS_THROUGH = {
     "planner_dashboard": "GET /api/planner returns the dashboard posted to /test/set-planner-dashboard",
-    "agents_command_center": (
-        "GET /api/agents/command-center returns the payload posted to /test/set-agents-command-center"
-    ),
+    "jobs_overview": "GET /api/jobs returns the overview posted to /test/set-jobs-overview",
     "agents_by_id": "GET /api/agents/<id> returns the agent posted to /test/set-agent",
 }
 

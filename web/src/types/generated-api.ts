@@ -199,6 +199,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every job, needs attention first: each with its recent runs and next run. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobsOverviewResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ready": {
         parameters: {
             query?: never;
@@ -3457,59 +3502,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agents/command-center": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get command center dashboard data.
-         * @description Returns aggregated data for the agents command center:
-         *     - agents: All agents with unread counts and pending status
-         *     - pending_approvals: All pending approval requests
-         *     - recent_executions: Recent execution history
-         *     - total_unread: Total unread messages across all agents
-         *     - agents_waiting: Number of agents blocked on approval
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["CommandCenterResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7623,6 +7615,218 @@ export interface components {
             user: components["schemas"]["UserContainerResponse.UserResponse"];
         };
         /**
+         * ApprovalRequestResponse
+         * @description Approval request information.
+         */
+        "JobsOverviewResponse.ApprovalRequestResponse": {
+            /** Id */
+            id: string;
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Agent Name
+             * @description Name of the agent requesting approval
+             */
+            agent_name: string;
+            /** Tool Name */
+            tool_name: string;
+            /**
+             * Tool Args
+             * @default null
+             */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string;
+            status: components["schemas"]["JobsOverviewResponse.ApprovalStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Resolved At
+             * @default null
+             */
+            resolved_at: string | null;
+        };
+        /**
+         * ApprovalStatus
+         * @description Status of an approval request.
+         * @enum {string}
+         */
+        "JobsOverviewResponse.ApprovalStatus": "pending" | "approved" | "rejected";
+        /**
+         * JobResponse
+         * @description One job: a light item set from a chat, or a standing job (an agent).
+         */
+        "JobsOverviewResponse.JobResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reminder" | "check_in" | "watcher" | "recurring";
+            /** Standing */
+            standing: boolean;
+            /**
+             * Area
+             * @description Where its chat lives
+             * @enum {string}
+             */
+            area: "agents" | "sports" | "language" | "chat";
+            /**
+             * Title
+             * @description The agent's name, or the item's text shortened
+             */
+            title: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /** Conversation Title */
+            conversation_title: string;
+            /** When */
+            when: string;
+            /** Ends */
+            ends: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "running";
+            /**
+             * Paused Reason
+             * @default null
+             */
+            paused_reason: string | null;
+            /**
+             * Next Run At
+             * @description None: runs only on demand
+             * @default null
+             */
+            next_run_at: string | null;
+            /**
+             * System Type
+             * @description Built-in (daily_briefing)
+             * @default null
+             */
+            system_type: string | null;
+            /**
+             * Editable
+             * @description Opens in the agent editor
+             */
+            editable: boolean;
+            /**
+             * Unread Count
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Has Pending Approval
+             * @default false
+             */
+            has_pending_approval: boolean;
+            /**
+             * Cost 7D Display
+             * @default null
+             */
+            cost_7d_display: string | null;
+            /**
+             * Runs 7D
+             * @default 0
+             */
+            runs_7d: number;
+            /** Recent Runs */
+            recent_runs: components["schemas"]["JobsOverviewResponse.JobRunResponse"][];
+        };
+        /**
+         * JobRunResponse
+         * @description One run of a standing job (its audit trail).
+         */
+        "JobsOverviewResponse.JobRunResponse": {
+            /**
+             * Status
+             * @description running, completed, failed, waiting_approval
+             */
+            status: string;
+            /**
+             * Trigger Type
+             * @description scheduled, manual, agent_trigger
+             */
+            trigger_type: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Error
+             * @description Why it failed, shortened
+             * @default null
+             */
+            error: string | null;
+        };
+        /**
+         * JobStatsBlock
+         * @description The standing jobs' runs and cost over the trailing week.
+         */
+        "JobsOverviewResponse.JobStatsBlock": {
+            /**
+             * Days
+             * @default 7
+             */
+            days: number;
+            /**
+             * Total Runs
+             * @default 0
+             */
+            total_runs: number;
+            /**
+             * Total Completed
+             * @default 0
+             */
+            total_completed: number;
+            /**
+             * Total Failed
+             * @default 0
+             */
+            total_failed: number;
+            /**
+             * Total Cost Display
+             * @default
+             */
+            total_cost_display: string;
+        };
+        /**
+         * JobsOverviewResponse
+         * @description The job list: needs attention first, then soonest.
+         */
+        JobsOverviewResponse: {
+            /** Jobs */
+            jobs: components["schemas"]["JobsOverviewResponse.JobResponse"][];
+            /** Pending Approvals */
+            pending_approvals: components["schemas"]["JobsOverviewResponse.ApprovalRequestResponse"][];
+            stats: components["schemas"]["JobsOverviewResponse.JobStatsBlock"];
+            /**
+             * Total Unread
+             * @default 0
+             */
+            total_unread: number;
+            /**
+             * Jobs Waiting
+             * @description Jobs waiting for an approval
+             * @default 0
+             */
+            jobs_waiting: number;
+            /**
+             * Jobs With Errors
+             * @description Jobs whose last run failed
+             * @default 0
+             */
+            jobs_with_errors: number;
+        };
+        /**
          * HealthCheckDetail
          * @description Individual health check result.
          */
@@ -10633,401 +10837,6 @@ export interface components {
              * @default Agent triggered
              */
             message: string;
-        };
-        /**
-         * AgentExecutionResponse
-         * @description Agent execution record.
-         */
-        "CommandCenterResponse.AgentExecutionResponse": {
-            /** Id */
-            id: string;
-            /** Agent Id */
-            agent_id: string;
-            status: components["schemas"]["CommandCenterResponse.AgentStatus"];
-            trigger_type: components["schemas"]["CommandCenterResponse.AgentTriggerType"];
-            /**
-             * Triggered By Agent Id
-             * @default null
-             */
-            triggered_by_agent_id: string | null;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Completed At
-             * @default null
-             */
-            completed_at: string | null;
-            /**
-             * Error Message
-             * @default null
-             */
-            error_message: string | null;
-        };
-        /**
-         * AgentResponse
-         * @description Agent information.
-         */
-        "CommandCenterResponse.AgentResponse": {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * System Prompt
-             * @default null
-             */
-            system_prompt: string | null;
-            /**
-             * Schedule
-             * @default null
-             */
-            schedule: string | null;
-            /** Timezone */
-            timezone: string;
-            /** Enabled */
-            enabled: boolean;
-            /**
-             * Tool Permissions
-             * @default null
-             */
-            tool_permissions: string[] | null;
-            /**
-             * Model
-             * @description LLM model for the agent
-             */
-            model: string;
-            /**
-             * Conversation Id
-             * @default null
-             */
-            conversation_id: string | null;
-            /**
-             * Last Run At
-             * @default null
-             */
-            last_run_at: string | null;
-            /**
-             * Next Run At
-             * @default null
-             */
-            next_run_at: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Budget Limit
-             * @description Daily budget limit in USD (null = unlimited)
-             * @default null
-             */
-            budget_limit: number | null;
-            /**
-             * Fresh Context
-             * @description Run each execution without prior conversation history
-             * @default false
-             */
-            fresh_context: boolean;
-            /**
-             * System Type
-             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
-             * @default null
-             */
-            system_type: string | null;
-            /**
-             * Effective System Prompt
-             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
-             * @default null
-             */
-            effective_system_prompt: string | null;
-            /**
-             * Daily Spending
-             * @description Today's spending in USD
-             * @default 0
-             */
-            daily_spending: number;
-            /**
-             * Has Pending Approval
-             * @description Whether agent is blocked waiting for approval
-             * @default false
-             */
-            has_pending_approval: boolean;
-            /**
-             * Has Error
-             * @description Whether the last execution failed
-             * @default false
-             */
-            has_error: boolean;
-            /**
-             * Unread Count
-             * @description Number of unread messages in agent conversation
-             * @default 0
-             */
-            unread_count: number;
-            /**
-             * Last Execution Status
-             * @description Status of the most recent execution (completed, failed, etc.)
-             * @default null
-             */
-            last_execution_status: string | null;
-        };
-        /**
-         * AgentStatsBlock
-         * @description Aggregated observability stats for the command center.
-         */
-        "CommandCenterResponse.AgentStatsBlock": {
-            /**
-             * Days
-             * @default 7
-             */
-            days: number;
-            /**
-             * Total Runs
-             * @default 0
-             */
-            total_runs: number;
-            /**
-             * Total Completed
-             * @default 0
-             */
-            total_completed: number;
-            /**
-             * Total Failed
-             * @default 0
-             */
-            total_failed: number;
-            /**
-             * Total Cost Usd
-             * @default 0
-             */
-            total_cost_usd: number;
-            /**
-             * Total Cost Display
-             * @default
-             */
-            total_cost_display: string;
-            /** Per Agent */
-            per_agent: components["schemas"]["CommandCenterResponse.AgentWindowStats"][];
-        };
-        /**
-         * AgentStatus
-         * @description Status of an agent execution.
-         * @enum {string}
-         */
-        "CommandCenterResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
-        /**
-         * AgentTriggerType
-         * @description How an agent execution was triggered.
-         * @enum {string}
-         */
-        "CommandCenterResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
-        /**
-         * AgentWindowStats
-         * @description One agent's runs and cost over the stats window.
-         */
-        "CommandCenterResponse.AgentWindowStats": {
-            /** Agent Id */
-            agent_id: string;
-            /**
-             * Runs
-             * @default 0
-             */
-            runs: number;
-            /**
-             * Completed
-             * @default 0
-             */
-            completed: number;
-            /**
-             * Failed
-             * @default 0
-             */
-            failed: number;
-            /**
-             * Waiting Approval
-             * @default 0
-             */
-            waiting_approval: number;
-            /**
-             * Cost Usd
-             * @default 0
-             */
-            cost_usd: number;
-            /**
-             * Cost Display
-             * @description Cost formatted in the display currency
-             * @default
-             */
-            cost_display: string;
-            /**
-             * Input Tokens
-             * @default 0
-             */
-            input_tokens: number;
-            /**
-             * Output Tokens
-             * @default 0
-             */
-            output_tokens: number;
-        };
-        /**
-         * ApprovalRequestResponse
-         * @description Approval request information.
-         */
-        "CommandCenterResponse.ApprovalRequestResponse": {
-            /** Id */
-            id: string;
-            /** Agent Id */
-            agent_id: string;
-            /**
-             * Agent Name
-             * @description Name of the agent requesting approval
-             */
-            agent_name: string;
-            /** Tool Name */
-            tool_name: string;
-            /**
-             * Tool Args
-             * @default null
-             */
-            tool_args: {
-                [key: string]: unknown;
-            } | null;
-            /** Description */
-            description: string;
-            status: components["schemas"]["CommandCenterResponse.ApprovalStatus"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Resolved At
-             * @default null
-             */
-            resolved_at: string | null;
-        };
-        /**
-         * ApprovalStatus
-         * @description Status of an approval request.
-         * @enum {string}
-         */
-        "CommandCenterResponse.ApprovalStatus": "pending" | "approved" | "rejected";
-        /**
-         * ScheduledItemResponse
-         * @description One item, described for people (household timezone).
-         */
-        "CommandCenterResponse.ScheduledItemResponse": {
-            /** Id */
-            id: string;
-            /** Conversation Id */
-            conversation_id: string;
-            /**
-             * Conversation Title
-             * @description Title of the chat the item belongs to
-             */
-            conversation_title: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "reminder" | "check_in" | "watcher" | "recurring";
-            /**
-             * Title
-             * @description The item's text, shortened
-             */
-            title: string;
-            /**
-             * When
-             * @description e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'
-             */
-            when: string;
-            /**
-             * Ends
-             * @description e.g. 'then done', 'until a job is posted, at most until 7 Dec'
-             */
-            ends: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "active" | "paused" | "running";
-            /**
-             * Next Run At
-             * Format: date-time
-             */
-            next_run_at: string;
-            /**
-             * Standing
-             * @description A standing job (an agent's schedule): it can be run by hand
-             * @default false
-             */
-            standing: boolean;
-            /**
-             * Paused Reason
-             * @description Why it is paused: 'failures' (kept failing), 'disabled'
-             * @default null
-             */
-            paused_reason: string | null;
-        };
-        /**
-         * CommandCenterResponse
-         * @description Complete command center dashboard data.
-         */
-        CommandCenterResponse: {
-            /**
-             * Agents
-             * @description All agents with unread counts and pending status
-             */
-            agents: components["schemas"]["CommandCenterResponse.AgentResponse"][];
-            /**
-             * Pending Approvals
-             * @description All pending approval requests
-             */
-            pending_approvals: components["schemas"]["CommandCenterResponse.ApprovalRequestResponse"][];
-            /**
-             * Recent Executions
-             * @description Recent execution history across all agents
-             */
-            recent_executions: components["schemas"]["CommandCenterResponse.AgentExecutionResponse"][];
-            /**
-             * Total Unread
-             * @description Total unread messages across all agents
-             * @default 0
-             */
-            total_unread: number;
-            /**
-             * Chat Items
-             * @description Reminders, check-ins, watchers and recurring checks set from chats, soonest first
-             */
-            chat_items: components["schemas"]["CommandCenterResponse.ScheduledItemResponse"][];
-            /**
-             * Agents Waiting
-             * @description Number of agents blocked on approval
-             * @default 0
-             */
-            agents_waiting: number;
-            /** @description Run/cost aggregates over the trailing window */
-            stats: components["schemas"]["CommandCenterResponse.AgentStatsBlock"];
-            /**
-             * Agents With Errors
-             * @description Number of agents whose last execution failed
-             * @default 0
-             */
-            agents_with_errors: number;
         };
         /**
          * PushKeysResponse

@@ -37,27 +37,40 @@ async function setCommandCenterData(page: import('@playwright/test').Page, data:
     status?: string;
     created_at?: string;
   }>;
-  recent_executions?: Array<{
-    id: string;
-    agent_id: string;
-    status: string;
-    trigger_type: string;
-    started_at: string;
-    completed_at?: string;
-  }>;
   total_unread?: number;
   agents_waiting?: number;
 }) {
-  const commandCenter = {
-    agents: data.agents || [],
-    pending_approvals: data.pending_approvals || [],
-    recent_executions: data.recent_executions || [],
+  // The job list (GET /api/jobs): each agent is its standing job
+  const jobs = (data.agents || []).map((agent) => ({
+    id: agent.id,
+    kind: 'recurring',
+    standing: true,
+    area: 'agents',
+    title: agent.name,
+    conversation_id: `conv-${agent.id}`,
+    conversation_title: `Agent: ${agent.name}`,
+    when: agent.schedule ?? 'on demand',
+    ends: 'until cancelled',
+    status: agent.enabled === false ? 'paused' : 'active',
+    paused_reason: agent.enabled === false ? 'disabled' : null,
+    next_run_at: agent.next_run_at ?? null,
+    system_type: null,
+    editable: true,
+    unread_count: agent.unread_count ?? 0,
+    has_pending_approval: agent.has_pending_approval ?? false,
+    cost_7d_display: null,
+    runs_7d: 0,
+    recent_runs: [],
+  }));
+  const overview = {
+    jobs,
+    pending_approvals: (data.pending_approvals || []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a })),
+    stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: data.total_unread || 0,
-    agents_waiting: data.agents_waiting || 0,
+    jobs_waiting: data.agents_waiting || 0,
+    jobs_with_errors: 0,
   };
-  await page.request.post('/test/set-agents-command-center', {
-    data: { command_center: commandCenter },
-  });
+  await page.request.post('/test/set-jobs-overview', { data: { overview } });
 }
 
 test.describe('Agents - Sidebar Entry', () => {
@@ -163,9 +176,9 @@ test.describe('Agents - Navigation', () => {
     await page.waitForSelector('.command-center');
 
     // Should show empty message
-    const emptyMessage = page.locator('.empty-state');
+    const emptyMessage = page.locator('.jobs-empty');
     await expect(emptyMessage).toBeVisible();
-    await expect(emptyMessage).toContainText('No agents yet');
+    await expect(emptyMessage).toContainText('Nothing scheduled yet');
   });
 });
 
@@ -202,18 +215,13 @@ test.describe('Agents - Command Center Display', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
 
-    // Should show agent cards
-    const agentCards = page.locator('.agent-card');
-    await expect(agentCards).toHaveCount(2);
+    // One row per job (each agent is its standing job)
+    const rows = page.locator('.job-row');
+    await expect(rows).toHaveCount(2);
 
-    // First agent should show name and description
-    const firstCard = agentCards.first();
-    await expect(firstCard).toContainText('Daily Briefing');
-    await expect(firstCard).toContainText('Summarizes your schedule');
-
-    // Badge should show unread count
-    const badge = firstCard.locator('.unread-badge');
-    await expect(badge).toContainText('2');
+    const first = rows.first();
+    await expect(first.locator('.job-title')).toHaveText('Daily Briefing');
+    await expect(first.locator('.job-unread')).toHaveText('2');
   });
 
   test('displays pending approvals section', async ({ page }) => {
@@ -258,7 +266,7 @@ test.describe('Agents - Command Center Display', () => {
     await expect(approvalCard).toContainText('todoist');
   });
 
-  test('shows disabled agent with dimmed styling', async ({ page }) => {
+  test('shows a disabled agent as a paused job', async ({ page }) => {
     await setCommandCenterData(page, {
       agents: [
         {
@@ -277,9 +285,10 @@ test.describe('Agents - Command Center Display', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.command-center');
 
-    // Disabled agent should have dimmed class
-    const agentCard = page.locator('.agent-card');
-    await expect(agentCard).toHaveClass(/agent-card--disabled/);
+    // A disabled agent is a paused job: it says so and offers Resume
+    const row = page.locator('.job-row');
+    await expect(row.locator('.job-status')).toHaveText('paused');
+    await expect(row.locator('.job-resume')).toBeVisible();
   });
 });
 
@@ -443,7 +452,7 @@ test.describe('Agents - Agent Creation', () => {
 });
 
 test.describe('Agents - Agent Actions', () => {
-  test('shows edit button on agent cards', async ({ page }) => {
+  test('shows the edit button on an agent job', async ({ page }) => {
     await setCommandCenterData(page, {
       agents: [
         {
@@ -460,14 +469,14 @@ test.describe('Agents - Agent Actions', () => {
     });
 
     await page.goto('/#/agents');
-    await page.waitForSelector('.agent-card');
+    await page.waitForSelector('.job-row');
 
     // Edit button should be visible
-    const editBtn = page.locator('.agent-card .btn-edit');
+    const editBtn = page.locator('.job-row .job-edit');
     await expect(editBtn).toBeVisible();
   });
 
-  test('shows run button on agent cards', async ({ page }) => {
+  test('shows the run button on an agent job', async ({ page }) => {
     await setCommandCenterData(page, {
       agents: [
         {
@@ -484,10 +493,10 @@ test.describe('Agents - Agent Actions', () => {
     });
 
     await page.goto('/#/agents');
-    await page.waitForSelector('.agent-card');
+    await page.waitForSelector('.job-row');
 
     // Run button should be visible
-    const runBtn = page.locator('.agent-card .btn-run');
+    const runBtn = page.locator('.job-row .job-run');
     await expect(runBtn).toBeVisible();
   });
 
@@ -529,10 +538,10 @@ test.describe('Agents - Agent Actions', () => {
     });
 
     await page.goto('/#/agents');
-    await page.waitForSelector('.agent-card');
+    await page.waitForSelector('.job-row');
 
     // Click edit button
-    await page.locator('.agent-card .btn-edit').click();
+    await page.locator('.job-row .job-edit').click();
 
     // Modal should open with "Edit Agent" title
     const modal = page.getByRole('dialog', { name: 'Edit Agent' });

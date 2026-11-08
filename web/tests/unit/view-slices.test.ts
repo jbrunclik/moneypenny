@@ -12,7 +12,7 @@ import { initialStorageData } from '@/state/slices/storage';
 import { initialSearchData } from '@/state/slices/search';
 import type {
   Agent,
-  CommandCenterResponse,
+  JobsOverviewResponse,
   KVNamespacesResponse,
   LanguageProgram,
   SearchResult,
@@ -39,7 +39,7 @@ const s = () => useStore.getState();
 const cases: CacheCase[] = [
   {
     name: 'agents command center',
-    set: (d) => s().setCommandCenterData(d as CommandCenterResponse | null),
+    set: (d) => s().setCommandCenterData(d as JobsOverviewResponse | null),
     invalidate: () => s().invalidateCommandCenterCache(),
     clear: () => s().clearAgentsState(),
     data: () => s().commandCenterData,

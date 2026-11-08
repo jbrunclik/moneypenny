@@ -15,7 +15,6 @@ Route Organization:
 - schedules.py: Scheduled items - a chat's items, cancel, pause, resume (4 routes, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
 - agents.py: Autonomous agents CRUD and execution (9 routes)
-- agent_command_center.py: Agents command center (1 route, on agents.api)
 - agent_approvals.py: Agent approval requests (3 routes, on agents.api)
 - agent_assist.py: Agent AI assist - schedule parsing, prompt enhancer (2 routes, on agents.api)
 - chat.py: Chat endpoints (2 routes)
@@ -35,7 +34,7 @@ Total: 78 endpoints across 20 modules
 from apiflask import APIFlask
 
 # Import all route modules. agent_approvals, agent_assist and
-# agent_command_center attach their routes to agents.api (one shared "Agents"
+# attach their routes to agents.api (one shared "Agents"
 # blueprint keeps a single OpenAPI tag and the original endpoint names), so
 # they are imported only for that side effect (admin_device_checks does the
 # same for admin.api). conversation_messages,
@@ -46,7 +45,6 @@ from src.api.routes import (
     admin_device_checks,  # noqa: F401 - imported for its routes
     agent_approvals,  # noqa: F401 - imported for its routes
     agent_assist,  # noqa: F401 - imported for its routes
-    agent_command_center,  # noqa: F401 - imported for its routes
     agents,
     artifacts,
     auth,
@@ -61,6 +59,7 @@ from src.api.routes import (
     costs,
     files,
     garmin,
+    jobs,
     kv_store,
     language,
     memory,
@@ -100,6 +99,7 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(conversations.api)
     app.register_blueprint(planner.api)
     app.register_blueprint(agents.api)
+    app.register_blueprint(jobs.api)
     app.register_blueprint(chat.api)
     app.register_blueprint(files.api)
     app.register_blueprint(artifacts.api)

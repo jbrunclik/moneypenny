@@ -135,6 +135,11 @@ class JobBusyError(Exception):
     """The job is running already (the scheduler or another hand-started run)."""
 
 
+class JobHeldError(Exception):
+    """The job must not run now (waiting for an approval, over its budget);
+    the message says why."""
+
+
 def run_job_now(
     item: ScheduledItem,
     user: User,
@@ -151,6 +156,8 @@ def run_job_now(
     second tap) cannot run it at the same time - writes would happen twice.
     Raises JobBusyError when it is running already.
     """
+    if (reason := hold_reason(item)) is not None:
+        raise JobHeldError(reason)
     claim = db.claim_item(item.id, utc_now())
     if claim is None:
         raise JobBusyError(item.id)
@@ -168,19 +175,27 @@ def run_job_now(
     return outcome
 
 
-def _job_held(item: ScheduledItem, now: datetime) -> bool:
-    """A standing job that must not run now: it waits for its pending approval,
-    or it spent its daily budget (recorded, not a failure). Given back on its
-    schedule."""
+def hold_reason(item: ScheduledItem) -> str | None:
+    """Why a standing job must not run now, by any path: it waits for an
+    approval it asked for, or it spent its daily budget."""
     if db.has_pending_approval(item.id):
-        _give_back(item, now, failed=False)
-        return True
+        return "waiting for your approval"
     budget = item.budget_usd
-    if budget is None or budget <= 0 or db.job_spend_today(item.id) < budget:
+    if budget is not None and budget > 0 and db.job_spend_today(item.id) >= budget:
+        return f"over its daily budget (${budget:.2f})"
+    return None
+
+
+def _job_held(item: ScheduledItem, now: datetime) -> bool:
+    """A held standing job is given back on its schedule; an over-budget one
+    records a skipped run (not a failure)."""
+    reason = hold_reason(item)
+    if reason is None:
         return False
-    execution = db.create_execution(item.id, "scheduled")
-    db.update_execution(execution.id, "failed", f"Skipped: over its daily budget (${budget:.2f})")
-    logger.info("Standing job over budget", extra={"item_id": item.id, "budget_usd": budget})
+    if "budget" in reason:
+        execution = db.create_execution(item.id, "scheduled")
+        db.update_execution(execution.id, "failed", f"Skipped: {reason}")
+        logger.info("Standing job over budget", extra={"item_id": item.id})
     _give_back(item, now, failed=False)
     return True
 

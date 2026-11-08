@@ -515,20 +515,18 @@ export type CreateAgentRequest = Schemas['CreateAgentRequest'];
 
 export type UpdateAgentRequest = Schemas['UpdateAgentRequest'];
 
-export type AgentExecution = Schemas['AgentExecutionsListResponse.AgentExecutionResponse'];
-
 export type ApprovalRequest = Schemas['PendingApprovalsResponse.ApprovalRequestResponse'];
 
 export type AgentsListResponse = Schemas['AgentsListResponse'];
 
 export type AgentExecutionsListResponse = Schemas['AgentExecutionsListResponse'];
 
-/** `cost_display`: cost formatted in the display currency (e.g. "12.40 Kč") */
-export type AgentWindowStats = Schemas['CommandCenterResponse.AgentWindowStats'];
+/** The job list: every scheduled item and standing job (GET /api/jobs) */
+export type JobsOverviewResponse = Schemas['JobsOverviewResponse'];
 
-export type AgentStatsBlock = Schemas['CommandCenterResponse.AgentStatsBlock'];
+export type Job = Schemas['JobsOverviewResponse.JobResponse'];
 
-export type CommandCenterResponse = Schemas['CommandCenterResponse'];
+export type JobRun = Schemas['JobsOverviewResponse.JobRunResponse'];
 
 export type TriggerAgentResponse = Schemas['TriggerAgentResponse'];
 

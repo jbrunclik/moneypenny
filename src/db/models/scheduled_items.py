@@ -134,6 +134,51 @@ class ScheduledItemsMixin:
             rows = self._execute_with_timing(conn, query + " ORDER BY next_run_at", params)
             return [_row_to_item(row) for row in rows.fetchall()]
 
+    def list_all_items(self, user_id: str) -> list[ScheduledItem]:
+        """Every item and job of the user in live chats - agents' jobs
+        included (the job list), soonest first."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"SELECT * FROM scheduled_items WHERE user_id = ? AND {_LIVE_CHAT} ORDER BY next_run_at",
+                (user_id,),
+            )
+            return [_row_to_item(row) for row in rows.fetchall()]
+
+    def job_week_stats(self, user_id: str, days: int = 7) -> dict[str, dict[str, float]]:
+        """Each standing job's runs (by outcome) and its own cost over the
+        trailing window: {job_id: {runs, completed, failed, cost_usd}}."""
+        since = to_db(utc_now() - timedelta(days=days))
+        stats: dict[str, dict[str, float]] = {}
+        with self._pool.get_connection() as conn:
+            runs = self._execute_with_timing(
+                conn,
+                """SELECT e.agent_id AS job_id, e.status, COUNT(*) AS n
+                   FROM agent_executions e JOIN scheduled_items s ON s.id = e.agent_id
+                   WHERE s.user_id = ? AND e.started_at >= ? GROUP BY 1, 2""",
+                (user_id, since),
+            ).fetchall()
+            costs = self._execute_with_timing(
+                conn,
+                """SELECT mc.job_id, COALESCE(SUM(mc.cost_usd), 0) AS cost
+                   FROM message_costs mc JOIN scheduled_items s ON s.id = mc.job_id
+                   WHERE s.user_id = ? AND mc.created_at >= ? GROUP BY 1""",
+                (user_id, since),
+            ).fetchall()
+        for row in runs:
+            job = stats.setdefault(
+                row["job_id"], {"runs": 0, "completed": 0, "failed": 0, "cost_usd": 0.0}
+            )
+            job["runs"] += row["n"]
+            if row["status"] in ("completed", "failed"):
+                job[row["status"]] += row["n"]
+        for row in costs:
+            job = stats.setdefault(
+                row["job_id"], {"runs": 0, "completed": 0, "failed": 0, "cost_usd": 0.0}
+            )
+            job["cost_usd"] = float(row["cost"])
+        return stats
+
     def count_items(self, user_id: str) -> int:
         """The user's light items in live chats, paused included (the cap counts
         them); standing jobs have no count limit."""

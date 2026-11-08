@@ -616,3 +616,15 @@ def test_run_job_now_keeps_a_paused_job_paused(
 
     stored = _stored(db, job)
     assert (stored.status, stored.paused_reason) == ("paused", "failures")
+
+
+def test_run_job_now_refuses_a_job_waiting_for_approval(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation)
+    db.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+
+    with pytest.raises(item_scheduler.JobHeldError, match="approval"):
+        item_scheduler.run_job_now(job, test_user)
+
+    runs.assert_not_called()

@@ -1,9 +1,9 @@
 /**
- * Command center sync: keeps the sidebar's agent badges current by fetching
- * the latest command center summary into the store.
+ * Command center sync: keeps the sidebar's Agents badge current by fetching
+ * the job list summary into the store.
  */
 
-import { agents as agentsApi } from '../api/agents';
+import { jobs } from '../api/jobs';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 
@@ -12,7 +12,7 @@ const log = createLogger('sync');
 /** Fetch the command center summary; the store only changes when a badge count did. */
 export async function syncCommandCenter(): Promise<void> {
   try {
-    const data = await agentsApi.getCommandCenter();
+    const data = await jobs.overview();
     const store = useStore.getState();
 
     // Only update if values changed (to avoid unnecessary re-renders)
@@ -20,14 +20,14 @@ export async function syncCommandCenter(): Promise<void> {
     if (
       !currentData ||
       currentData.total_unread !== data.total_unread ||
-      currentData.agents_waiting !== data.agents_waiting ||
-      currentData.agents_with_errors !== data.agents_with_errors
+      currentData.jobs_waiting !== data.jobs_waiting ||
+      currentData.jobs_with_errors !== data.jobs_with_errors
     ) {
       store.setCommandCenterData(data);
       log.debug('Command center sync updated', {
         totalUnread: data.total_unread,
-        agentsWaiting: data.agents_waiting,
-        agentsWithErrors: data.agents_with_errors,
+        jobsWaiting: data.jobs_waiting,
+        jobsWithErrors: data.jobs_with_errors,
       });
     }
   } catch (error) {

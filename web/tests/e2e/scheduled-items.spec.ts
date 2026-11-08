@@ -102,27 +102,25 @@ test.describe('Scheduled items', () => {
     await expect(page.locator('#conversation-schedules')).toBeHidden();
   });
 
-  test('the Command Center shows them above the agents, linking to the chat', async ({ page }) => {
+  test('the Command Center lists them as jobs; a row opens its chat', async ({ page }) => {
     const convId = await seedChat(page, [WATCHER]);
     await page.goto('/#/agents');
-    await page.waitForSelector('.command-center');
 
-    const lane = page.locator('.command-center-section--chat-items');
-    await expect(lane).toContainText('From chats');
-    await expect(lane).toContainText("the school's job board");
-    await lane.locator('.chat-item-chat').click();
+    const row = page.locator('.job-row', { hasText: "the school's job board" });
+    await expect(row.locator('.job-meta')).toContainText("Dog's tail");
+    await row.locator('.job-title').click();
     await expect(page).toHaveURL(new RegExp(`#/conversations/${convId}$`));
     await expect(page.locator('#conversation-schedules')).toBeVisible();
   });
 
-  test("a trashed chat's items are not in the lane", async ({ page }) => {
+  test("a trashed chat's items are not in the job list", async ({ page }) => {
     const convId = await seedChat(page, [WATCHER]);
     const trashed = await page.request.delete(`/api/conversations/${convId}`);
     expect(trashed.ok()).toBeTruthy();
 
     await page.goto('/#/agents');
-    await page.waitForSelector('.command-center');
-    await expect(page.locator('.command-center-section--chat-items')).toHaveCount(0);
+    await expect(page.locator('.jobs-empty')).toBeVisible();
+    await expect(page.locator('.job-row')).toHaveCount(0);
   });
 });
 

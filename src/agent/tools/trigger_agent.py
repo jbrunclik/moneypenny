@@ -52,6 +52,7 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     )
     from src.agent.item_scheduler import (  # noqa: PLC0415 - cycle: item_scheduler -> item_runner -> tools
         JobBusyError,
+        JobHeldError,
         run_job_now,
     )
 
@@ -89,6 +90,8 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
         outcome = run_job_now(
             job, context.user, message=message, trigger="agent_trigger", trigger_chain=chain
         )
+    except JobHeldError as held:
+        return f"Agent '{agent_name}' did not run: it is {held}"
     except JobBusyError:
         return f"Agent '{agent_name}' is already running"
     except Exception as e:  # a tool must never raise into the graph

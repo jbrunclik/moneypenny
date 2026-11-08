@@ -353,3 +353,21 @@ class TestRetrieveFile:
             mock_db.get_message_by_id.return_value = message
             result = retrieve_file.invoke({"message_id": "msg-1", "file_index": 5})
         assert "File index 5 not found" in json.loads(result)["error"]
+
+
+def test_trigger_agent_refused_over_budget() -> None:
+    from src.agent.item_scheduler import JobHeldError
+
+    target = _agent(agent_id="agent-2")
+    with (
+        patch("src.agent.executor.get_agent_context", return_value=_context()),
+        patch("src.agent.executor.get_trigger_chain", return_value=[]),
+        patch("src.agent.tools.trigger_agent.db") as mock_db,
+        patch(
+            "src.agent.item_scheduler.run_job_now",
+            side_effect=JobHeldError("over its daily budget ($0.10)"),
+        ),
+    ):
+        mock_db.get_agent_by_name.return_value = target
+        result = trigger_agent.invoke({"agent_name": "helper"})
+    assert "over its daily budget" in result

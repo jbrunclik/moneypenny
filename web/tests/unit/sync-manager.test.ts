@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
-import type { AgentStatsBlock, Conversation, ConversationSummary, SyncResponse } from '@/types/api';
+import type { Conversation, ConversationSummary, JobsOverviewResponse, SyncResponse } from '@/types/api';
 
 // Mock the API client
 vi.mock('@/api/conversations', () => ({
@@ -20,6 +20,19 @@ vi.mock('@/api/planner', () => ({
   },
 }));
 
+vi.mock('@/api/jobs', () => ({
+  jobs: {
+    overview: vi.fn().mockResolvedValue({
+      jobs: [],
+      pending_approvals: [],
+      stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
+      total_unread: 0,
+      jobs_waiting: 0,
+      jobs_with_errors: 0,
+    }),
+  },
+}));
+
 vi.mock('@/api/agents', () => ({
   agents: {
     list: vi.fn(),
@@ -28,15 +41,6 @@ vi.mock('@/api/agents', () => ({
     update: vi.fn(),
     delete: vi.fn(),
     syncConversation: vi.fn(),
-    getCommandCenter: vi.fn().mockResolvedValue({
-      agents: [],
-      pending_approvals: [],
-      recent_executions: [],
-      total_unread: 0,
-      agents_waiting: 0,
-      agents_with_errors: 0,
-      chat_items: [],
-    }),
   },
   aiAssist: {
     parseSchedule: vi.fn(),
@@ -67,15 +71,18 @@ function at<T>(items: ArrayLike<T>, i: number): T {
   return item;
 }
 
-const EMPTY_AGENT_STATS: AgentStatsBlock = {
-  days: 7,
-  total_runs: 0,
-  total_completed: 0,
-  total_failed: 0,
-  total_cost_usd: 0,
-  total_cost_display: '$0.00',
-  per_agent: [],
-};
+/** A job list summary (GET /api/jobs) with overrides */
+function overview(extra: Partial<JobsOverviewResponse> = {}): JobsOverviewResponse {
+  return {
+    jobs: [],
+    pending_approvals: [],
+    stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
+    total_unread: 0,
+    jobs_waiting: 0,
+    jobs_with_errors: 0,
+    ...extra,
+  };
+}
 
 // Helper to reset store state
 function resetStore() {
@@ -1851,16 +1858,9 @@ describe('SyncManager', () => {
 
   describe('command center sync', () => {
     it('stores the latest command center summary', async () => {
-      const mockCommandCenter = agentsApi.getCommandCenter as unknown as ReturnType<typeof vi.fn>;
-      mockCommandCenter.mockResolvedValueOnce({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 3,
-        agents_waiting: 1,
-        agents_with_errors: 0,
-        chat_items: [],
-      });
+      const { jobs } = await import('@/api/jobs');
+      const mockOverview = jobs.overview as unknown as ReturnType<typeof vi.fn>;
+      mockOverview.mockResolvedValueOnce(overview({ total_unread: 3, jobs_waiting: 1 }));
       syncManager = new SyncManager(callbacks, RECOVERY, toast);
 
       await syncManager.start();
@@ -1878,231 +1878,60 @@ describe('Agent State Management', () => {
 
   describe('clearAgentsState', () => {
     it('resets commandCenterData to null on logout', () => {
-      // Set some command center data
-      useStore.getState().setCommandCenterData({
-        agents: [
-          {
-            id: 'agent-1',
-            name: 'Test Agent',
-            description: 'A test agent',
-            schedule: '0 9 * * *',
-            timezone: 'UTC',
-            enabled: true,
-            model: 'gemini-3-flash-preview',
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z',
-            conversation_id: 'conv-1',
-            unread_count: 5,
-            has_pending_approval: false,
-            has_error: false,
-            fresh_context: false,
-            daily_spending: 0,
-            system_prompt: null,
-            tool_permissions: null,
-            last_run_at: null,
-            next_run_at: null,
-            budget_limit: null,
-            system_type: null,
-            effective_system_prompt: null,
-            last_execution_status: null,
-          },
-        ],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 5,
-        agents_waiting: 0,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      // Verify data is set
-      expect(useStore.getState().commandCenterData).not.toBeNull();
+      useStore.getState().setCommandCenterData(overview({ total_unread: 5 }));
       expect(useStore.getState().commandCenterData?.total_unread).toBe(5);
 
-      // Clear agents state (simulates logout)
       useStore.getState().clearAgentsState();
 
-      // Verify commandCenterData is cleared
       expect(useStore.getState().commandCenterData).toBeNull();
     });
 
     it('clears commandCenterLastFetch timestamp on logout', () => {
-      // Set command center data (also sets lastFetch)
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 0,
-        agents_waiting: 0,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      // Verify lastFetch is set
+      useStore.getState().setCommandCenterData(overview());
       expect(useStore.getState().commandCenterLastFetch).not.toBeNull();
 
-      // Clear agents state
       useStore.getState().clearAgentsState();
 
-      // Verify lastFetch is also cleared
       expect(useStore.getState().commandCenterLastFetch).toBeNull();
     });
   });
 
   describe('setCommandCenterData', () => {
     it('updates commandCenterData with new data', () => {
-      const data = {
-        agents: [
-          {
-            id: 'agent-1',
-            name: 'My Agent',
-            description: '',
-            schedule: '0 8 * * *',
-            timezone: 'America/New_York',
-            enabled: true,
-            model: 'gemini-3-flash-preview',
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z',
-            conversation_id: 'conv-1',
-            unread_count: 3,
-            has_pending_approval: true,
-            has_error: false,
-            fresh_context: false,
-            daily_spending: 0,
-            system_prompt: null,
-            tool_permissions: null,
-            last_run_at: null,
-            next_run_at: null,
-            budget_limit: null,
-            system_type: null,
-            effective_system_prompt: null,
-            last_execution_status: null,
-          },
-        ],
-        pending_approvals: [
-          {
-            id: 'approval-1',
-            agent_id: 'agent-1',
-            agent_name: 'My Agent',
-            description: 'Send email?',
-            tool_name: 'send_email',
-            status: 'pending' as const,
-            created_at: '2024-01-01T00:00:00Z',
-            tool_args: null,
-            resolved_at: null,
-          },
-        ],
-        recent_executions: [],
-        total_unread: 3,
-        agents_waiting: 1,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      };
+      const data = overview({ total_unread: 3, jobs_waiting: 1 });
 
       useStore.getState().setCommandCenterData(data);
 
-      const state = useStore.getState();
-      expect(state.commandCenterData).toEqual(data);
-      expect(state.commandCenterData?.total_unread).toBe(3);
-      expect(state.commandCenterData?.agents_waiting).toBe(1);
-      expect(state.commandCenterData?.agents.length).toBe(1);
-      expect(state.commandCenterData?.pending_approvals.length).toBe(1);
+      expect(useStore.getState().commandCenterData).toEqual(data);
     });
 
     it('updates timestamp when data is set', () => {
       const before = Date.now();
-
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 0,
-        agents_waiting: 0,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      const after = Date.now();
-      const lastFetch = useStore.getState().commandCenterLastFetch;
-
-      expect(lastFetch).not.toBeNull();
-      expect(lastFetch).toBeGreaterThanOrEqual(before);
-      expect(lastFetch).toBeLessThanOrEqual(after);
+      useStore.getState().setCommandCenterData(overview());
+      expect(useStore.getState().commandCenterLastFetch).toBeGreaterThanOrEqual(before);
     });
 
-    it('sets timestamp to null when data is null', () => {
-      // First set some data
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 0,
-        agents_waiting: 0,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      // Verify it's set
-      expect(useStore.getState().commandCenterLastFetch).not.toBeNull();
-
-      // Set to null
+    it('clears timestamp when data is set to null', () => {
+      useStore.getState().setCommandCenterData(overview());
       useStore.getState().setCommandCenterData(null);
-
-      // Both should be null
-      expect(useStore.getState().commandCenterData).toBeNull();
       expect(useStore.getState().commandCenterLastFetch).toBeNull();
     });
   });
 
   describe('agent badge counts from commandCenterData', () => {
-    it('provides unread count from total_unread', () => {
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 10,
-        agents_waiting: 0,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
+    it('provides total unread count', () => {
+      useStore.getState().setCommandCenterData(overview({ total_unread: 10 }));
       expect(useStore.getState().commandCenterData?.total_unread).toBe(10);
     });
 
-    it('provides waiting count from agents_waiting', () => {
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 0,
-        agents_waiting: 2,
-        agents_with_errors: 0,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      expect(useStore.getState().commandCenterData?.agents_waiting).toBe(2);
+    it('provides waiting count from jobs_waiting', () => {
+      useStore.getState().setCommandCenterData(overview({ jobs_waiting: 2 }));
+      expect(useStore.getState().commandCenterData?.jobs_waiting).toBe(2);
     });
 
-    it('provides error count from agents_with_errors', () => {
-      useStore.getState().setCommandCenterData({
-        agents: [],
-        pending_approvals: [],
-        recent_executions: [],
-        total_unread: 0,
-        agents_waiting: 0,
-        agents_with_errors: 1,
-        chat_items: [],
-        stats: EMPTY_AGENT_STATS,
-      });
-
-      expect(useStore.getState().commandCenterData?.agents_with_errors).toBe(1);
+    it('provides error count from jobs_with_errors', () => {
+      useStore.getState().setCommandCenterData(overview({ jobs_with_errors: 1 }));
+      expect(useStore.getState().commandCenterData?.jobs_with_errors).toBe(1);
     });
   });
 });

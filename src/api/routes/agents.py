@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from apiflask import APIBlueprint
 from croniter import croniter
 
-from src.agent.item_scheduler import JobBusyError, run_job_now
+from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.agent_responses import agent_to_response, execution_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -381,6 +381,8 @@ def trigger_agent(user: User, agent_id: str) -> dict[str, Any]:
         raise_not_found_error("Agent")
     try:
         outcome = run_job_now(job, user)
+    except JobHeldError as held:
+        raise_validation_error(f"Agent not run: it is {held}.")
     except JobBusyError:
         raise_validation_error("Agent is already running")
     message = _RUN_MESSAGES.get(outcome.status, "Agent executed successfully")

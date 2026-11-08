@@ -87,7 +87,7 @@ DEFAULT_CONFIG = {
     "garmin_connected": False,
     "garmin_needs_reconnect": False,
     # Agents mock config
-    "agents_command_center": None,  # Custom command center data
+    "jobs_overview": None,  # Custom job list (GET /api/jobs) data
     # fnmatch patterns of /static/assets files that answer 404, as if a
     # deploy had deleted them (a page older than the build asks for them)
     "missing_assets": (),

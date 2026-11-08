@@ -604,9 +604,9 @@ describe('Sidebar', () => {
       useStore.setState({
         user: createUser(),
         commandCenterData: {
-          agents: [], pending_approvals: [], recent_executions: [],
-          total_unread: unread, agents_waiting: waiting, agents_with_errors: 0, chat_items: [],
-          stats: {} as never,
+          jobs: [], pending_approvals: [],
+          total_unread: unread, jobs_waiting: waiting, jobs_with_errors: 0,
+          stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
         },
       });
       renderConversationsList();

@@ -6,7 +6,6 @@ import {
   type AgentConversationSyncResponse,
   type AgentExecutionsListResponse,
   type AgentsListResponse,
-  type CommandCenterResponse,
   type CreateAgentRequest,
   type EnhancePromptRequest,
   type EnhancePromptResponse,
@@ -98,13 +97,6 @@ export const agents = {
     return requestWithRetry<AgentConversationSyncResponse>(`/api/agents/${agentId}/conversation/sync`);
   },
 
-  /**
-   * Get command center dashboard data.
-   * Includes all agents, pending approvals, and recent executions.
-   */
-  async getCommandCenter(): Promise<CommandCenterResponse> {
-    return requestWithRetry<CommandCenterResponse>('/api/agents/command-center');
-  },
 
   /**
    * Approve a pending approval request.

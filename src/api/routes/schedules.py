@@ -4,7 +4,7 @@ Attached to conversations.api (items belong to chats). The Command Center's
 "From chats" lane comes with its dashboard (agent_command_center.py).
 """
 
-from src.agent.item_scheduler import JobBusyError, run_job_now
+from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now
 from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.helpers.schedule_responses import items_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -48,13 +48,15 @@ def _refuse_agent_job(item_id: str) -> None:
 
 
 def _set_paused(user: User, item_id: str, paused: bool) -> tuple[dict[str, object], int]:
-    _refuse_agent_job(item_id)
     item = db.get_item(item_id, user.id)
     if item is None:
         raise_not_found_error("Scheduled item")
     if item.kind in _ONE_OFFS:
         raise_conflict_error("A reminder or check-in cannot be paused; cancel it instead.")
-    if not db.set_item_paused(item_id, user.id, paused=paused):
+    # Pausing a standing job disables it: the agent editor, the briefing's
+    # Settings toggle and the job list all read the same "disabled"
+    reason = "disabled" if paused and item.standing else None
+    if not db.set_item_paused(item_id, user.id, paused=paused, reason=reason):
         raise_conflict_error(
             "The item is running right now, or already in that state; try again shortly."
         )
@@ -95,10 +97,9 @@ def run_schedule(user: User, item_id: str) -> tuple[dict[str, object], int]:
         raise_not_found_error("Scheduled item")
     if not item.standing:
         raise_conflict_error("Only a standing job can be run by hand.")
-    busy = "The job is running or waiting for your approval."
-    if db.has_pending_approval(item.id):
-        raise_conflict_error(busy)
     try:
         return {"status": run_job_now(item, user).status}, 200
+    except JobHeldError as held:
+        raise_conflict_error(f"Not run: it is {held}.")
     except JobBusyError:
-        raise_conflict_error(busy)
+        raise_conflict_error("The job is running right now.")

@@ -137,44 +137,6 @@ def test_a_reminder_cannot_be_paused(
     assert response.status_code == 409
 
 
-def test_a_trashed_chats_items_are_hidden_until_restored(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    test_conversation: Conversation,
-) -> None:
-    _add(test_database, test_user, test_conversation)
-    test_database.trash_conversation(test_conversation.id, test_user.id)
-
-    lane = client.get("/api/agents/command-center", headers=auth_headers).get_json()
-    assert lane["chat_items"] == []
-
-    test_database.restore_conversation(test_conversation.id, test_user.id)
-    lane = client.get("/api/agents/command-center", headers=auth_headers).get_json()
-    assert [i["title"] for i in lane["chat_items"]] == ["Call the plumber"]
-
-
-def test_the_command_center_lists_items_from_chats(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    test_conversation: Conversation,
-) -> None:
-    _add(
-        test_database,
-        test_user,
-        test_conversation,
-        next_run_at=datetime.now(UTC) + timedelta(days=2),
-    )
-    _watcher(test_database, test_user, test_conversation)
-
-    body = client.get("/api/agents/command-center", headers=auth_headers).get_json()
-
-    assert [i["kind"] for i in body["chat_items"]] == ["watcher", "reminder"]
-
-
 def test_a_delivered_turn_carries_its_label(
     client: FlaskClient,
     auth_headers: dict[str, str],
@@ -314,25 +276,63 @@ def test_run_now_refused_while_the_scheduler_runs_it(
     assert response.status_code == 409
 
 
-@pytest.mark.parametrize("action", ["delete", "pause", "resume"])
-def test_an_agents_job_cannot_be_managed_as_a_chat_item(
-    action: str,
+# Standing chats phase 3 (E2): every job pauses and resumes from the job list
+
+
+def test_pause_resume_an_agent_job_keeps_settings_in_step(
     client: FlaskClient,
     auth_headers: dict[str, str],
     test_database: Database,
     test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
-    method, path = (
-        ("delete", f"/api/schedules/{agent.id}")
-        if action == "delete"
-        else (
-            "post",
-            f"/api/schedules/{agent.id}/{action}",
-        )
+    from src.agent import daily_briefing
+
+    monkeypatch.setattr(daily_briefing, "db", test_database)
+    daily_briefing.set_briefing(test_user, enabled=True, time_str="07:15", timezone="Europe/Prague")
+    user = test_database.get_user_by_id(test_user.id)
+    assert user is not None and user.daily_briefing_agent_id
+    job_id = user.daily_briefing_agent_id
+
+    paused = client.post(f"/api/schedules/{job_id}/pause", headers=auth_headers)
+
+    assert paused.status_code == 200
+    agent = test_database.get_agent(job_id, test_user.id)
+    assert agent is not None and agent.enabled is False
+    assert daily_briefing.get_briefing_status(user)["enabled"] is False
+
+    resumed = client.post(f"/api/schedules/{job_id}/resume", headers=auth_headers)
+
+    assert resumed.status_code == 200
+    agent = test_database.get_agent(job_id, test_user.id)
+    assert agent is not None and agent.enabled is True
+    assert daily_briefing.get_briefing_status(user)["enabled"] is True
+
+
+def test_run_now_refused_over_budget_or_awaiting_approval(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    job = _job(test_database, test_user, test_conversation, budget_usd=0.1)
+    spent = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "run")
+    test_database.save_message_cost(
+        spent.id, test_conversation.id, test_user.id, "m", 1, 1, 0.2, job_id=job.id
     )
 
-    response = getattr(client, method)(path, headers=auth_headers)
+    response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
 
     assert response.status_code == 409
-    assert test_database.get_agent(agent.id, test_user.id) is not None
+    assert "budget" in response.get_json()["error"]["message"]
+
+
+def test_deleting_an_agent_job_still_refused(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+
+    response = client.delete(f"/api/schedules/{agent.id}", headers=auth_headers)
+
+    assert response.status_code == 409

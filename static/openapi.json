@@ -38,6 +38,9 @@
       "name": "Agents"
     },
     {
+      "name": "Jobs"
+    },
+    {
       "name": "Chat"
     },
     {
@@ -168,6 +171,37 @@
           }
         },
         "summary": "Privacy Policy"
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Jobs"
+        ],
+        "summary": "Every job, needs attention first: each with its recent runs and next run."
       }
     },
     "/api/ready": {
@@ -2843,38 +2877,6 @@
         ],
         "summary": "Manually trigger an agent to run.",
         "description": "Creates an execution record and runs the agent.\nIf the agent is disabled or waiting for approval, returns an error.\n\nReturns the execution record with status."
-      }
-    },
-    "/api/agents/command-center": {
-      "get": {
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommandCenterResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          }
-        },
-        "tags": [
-          "Agents"
-        ],
-        "summary": "Get command center dashboard data.",
-        "description": "Returns aggregated data for the agents command center:\n- agents: All agents with unread counts and pending status\n- pending_approvals: All pending approval requests\n- recent_executions: Recent execution history\n- total_unread: Total unread messages across all agents\n- agents_waiting: Number of agents blocked on approval"
       }
     },
     "/api/push/vapid-public-key": {
@@ -6905,6 +6907,383 @@
           "user"
         ],
         "title": "UserContainerResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.ApprovalRequestResponse": {
+        "description": "Approval request information.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "agent_name": {
+            "description": "Name of the agent requesting approval",
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "tool_name": {
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Args"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobsOverviewResponse.ApprovalStatus"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resolved At"
+          }
+        },
+        "required": [
+          "id",
+          "agent_id",
+          "agent_name",
+          "tool_name",
+          "tool_args",
+          "description",
+          "status",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "ApprovalRequestResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.ApprovalStatus": {
+        "description": "Status of an approval request.",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "ApprovalStatus",
+        "type": "string"
+      },
+      "JobsOverviewResponse.JobResponse": {
+        "description": "One job: a light item set from a chat, or a standing job (an agent).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "reminder",
+              "check_in",
+              "watcher",
+              "recurring"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "standing": {
+            "title": "Standing",
+            "type": "boolean"
+          },
+          "area": {
+            "description": "Where its chat lives",
+            "enum": [
+              "agents",
+              "sports",
+              "language",
+              "chat"
+            ],
+            "title": "Area",
+            "type": "string"
+          },
+          "title": {
+            "description": "The agent's name, or the item's text shortened",
+            "title": "Title",
+            "type": "string"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "conversation_title": {
+            "title": "Conversation Title",
+            "type": "string"
+          },
+          "when": {
+            "title": "When",
+            "type": "string"
+          },
+          "ends": {
+            "title": "Ends",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "running"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Paused Reason"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "None: runs only on demand",
+            "title": "Next Run At"
+          },
+          "system_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Built-in (daily_briefing)",
+            "title": "System Type"
+          },
+          "editable": {
+            "description": "Opens in the agent editor",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "unread_count": {
+            "default": 0,
+            "title": "Unread Count",
+            "type": "integer"
+          },
+          "has_pending_approval": {
+            "default": false,
+            "title": "Has Pending Approval",
+            "type": "boolean"
+          },
+          "cost_7d_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cost 7D Display"
+          },
+          "runs_7d": {
+            "default": 0,
+            "title": "Runs 7D",
+            "type": "integer"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/JobsOverviewResponse.JobRunResponse"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "standing",
+          "area",
+          "title",
+          "conversation_id",
+          "conversation_title",
+          "when",
+          "ends",
+          "status",
+          "paused_reason",
+          "next_run_at",
+          "system_type",
+          "editable",
+          "unread_count",
+          "has_pending_approval",
+          "cost_7d_display",
+          "runs_7d",
+          "recent_runs"
+        ],
+        "title": "JobResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.JobRunResponse": {
+        "description": "One run of a standing job (its audit trail).",
+        "properties": {
+          "status": {
+            "description": "running, completed, failed, waiting_approval",
+            "title": "Status",
+            "type": "string"
+          },
+          "trigger_type": {
+            "description": "scheduled, manual, agent_trigger",
+            "title": "Trigger Type",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why it failed, shortened",
+            "title": "Error"
+          }
+        },
+        "required": [
+          "status",
+          "trigger_type",
+          "started_at",
+          "error"
+        ],
+        "title": "JobRunResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.JobStatsBlock": {
+        "description": "The standing jobs' runs and cost over the trailing week.",
+        "properties": {
+          "days": {
+            "default": 7,
+            "title": "Days",
+            "type": "integer"
+          },
+          "total_runs": {
+            "default": 0,
+            "title": "Total Runs",
+            "type": "integer"
+          },
+          "total_completed": {
+            "default": 0,
+            "title": "Total Completed",
+            "type": "integer"
+          },
+          "total_failed": {
+            "default": 0,
+            "title": "Total Failed",
+            "type": "integer"
+          },
+          "total_cost_display": {
+            "default": "",
+            "title": "Total Cost Display",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "total_runs",
+          "total_completed",
+          "total_failed",
+          "total_cost_display"
+        ],
+        "title": "JobStatsBlock",
+        "type": "object"
+      },
+      "JobsOverviewResponse": {
+        "description": "The job list: needs attention first, then soonest.",
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobsOverviewResponse.JobResponse"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "pending_approvals": {
+            "items": {
+              "$ref": "#/components/schemas/JobsOverviewResponse.ApprovalRequestResponse"
+            },
+            "title": "Pending Approvals",
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/JobsOverviewResponse.JobStatsBlock"
+          },
+          "total_unread": {
+            "default": 0,
+            "title": "Total Unread",
+            "type": "integer"
+          },
+          "jobs_waiting": {
+            "default": 0,
+            "description": "Jobs waiting for an approval",
+            "title": "Jobs Waiting",
+            "type": "integer"
+          },
+          "jobs_with_errors": {
+            "default": 0,
+            "description": "Jobs whose last run failed",
+            "title": "Jobs With Errors",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobs",
+          "pending_approvals",
+          "stats",
+          "total_unread",
+          "jobs_waiting",
+          "jobs_with_errors"
+        ],
+        "title": "JobsOverviewResponse",
         "type": "object"
       },
       "ReadinessResponse.HealthCheckDetail": {
@@ -12747,695 +13126,6 @@
           "message"
         ],
         "title": "TriggerAgentResponse",
-        "type": "object"
-      },
-      "CommandCenterResponse.AgentExecutionResponse": {
-        "description": "Agent execution record.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "agent_id": {
-            "title": "Agent Id",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/CommandCenterResponse.AgentStatus"
-          },
-          "trigger_type": {
-            "$ref": "#/components/schemas/CommandCenterResponse.AgentTriggerType"
-          },
-          "triggered_by_agent_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Triggered By Agent Id"
-          },
-          "started_at": {
-            "format": "date-time",
-            "title": "Started At",
-            "type": "string"
-          },
-          "completed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Completed At"
-          },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Error Message"
-          }
-        },
-        "required": [
-          "id",
-          "agent_id",
-          "status",
-          "trigger_type",
-          "triggered_by_agent_id",
-          "started_at",
-          "completed_at",
-          "error_message"
-        ],
-        "title": "AgentExecutionResponse",
-        "type": "object"
-      },
-      "CommandCenterResponse.AgentResponse": {
-        "description": "Agent information.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Description"
-          },
-          "system_prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "System Prompt"
-          },
-          "schedule": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Schedule"
-          },
-          "timezone": {
-            "title": "Timezone",
-            "type": "string"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "tool_permissions": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Tool Permissions"
-          },
-          "model": {
-            "description": "LLM model for the agent",
-            "title": "Model",
-            "type": "string"
-          },
-          "conversation_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Conversation Id"
-          },
-          "last_run_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Last Run At"
-          },
-          "next_run_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Next Run At"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          },
-          "budget_limit": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Daily budget limit in USD (null = unlimited)",
-            "title": "Budget Limit"
-          },
-          "fresh_context": {
-            "default": false,
-            "description": "Run each execution without prior conversation history",
-            "title": "Fresh Context",
-            "type": "boolean"
-          },
-          "system_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "System-managed agent marker (e.g. 'daily_briefing'); null for regular agents",
-            "title": "System Type"
-          },
-          "effective_system_prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Resolved prompt: the stock default for system-managed agents on a NULL prompt",
-            "title": "Effective System Prompt"
-          },
-          "daily_spending": {
-            "default": 0,
-            "description": "Today's spending in USD",
-            "title": "Daily Spending",
-            "type": "number"
-          },
-          "has_pending_approval": {
-            "default": false,
-            "description": "Whether agent is blocked waiting for approval",
-            "title": "Has Pending Approval",
-            "type": "boolean"
-          },
-          "has_error": {
-            "default": false,
-            "description": "Whether the last execution failed",
-            "title": "Has Error",
-            "type": "boolean"
-          },
-          "unread_count": {
-            "default": 0,
-            "description": "Number of unread messages in agent conversation",
-            "title": "Unread Count",
-            "type": "integer"
-          },
-          "last_execution_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Status of the most recent execution (completed, failed, etc.)",
-            "title": "Last Execution Status"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "system_prompt",
-          "schedule",
-          "timezone",
-          "enabled",
-          "tool_permissions",
-          "model",
-          "conversation_id",
-          "last_run_at",
-          "next_run_at",
-          "created_at",
-          "updated_at",
-          "budget_limit",
-          "fresh_context",
-          "system_type",
-          "effective_system_prompt",
-          "daily_spending",
-          "has_pending_approval",
-          "has_error",
-          "unread_count",
-          "last_execution_status"
-        ],
-        "title": "AgentResponse",
-        "type": "object"
-      },
-      "CommandCenterResponse.AgentStatsBlock": {
-        "description": "Aggregated observability stats for the command center.",
-        "properties": {
-          "days": {
-            "default": 7,
-            "title": "Days",
-            "type": "integer"
-          },
-          "total_runs": {
-            "default": 0,
-            "title": "Total Runs",
-            "type": "integer"
-          },
-          "total_completed": {
-            "default": 0,
-            "title": "Total Completed",
-            "type": "integer"
-          },
-          "total_failed": {
-            "default": 0,
-            "title": "Total Failed",
-            "type": "integer"
-          },
-          "total_cost_usd": {
-            "default": 0.0,
-            "title": "Total Cost Usd",
-            "type": "number"
-          },
-          "total_cost_display": {
-            "default": "",
-            "title": "Total Cost Display",
-            "type": "string"
-          },
-          "per_agent": {
-            "items": {
-              "$ref": "#/components/schemas/CommandCenterResponse.AgentWindowStats"
-            },
-            "title": "Per Agent",
-            "type": "array"
-          }
-        },
-        "required": [
-          "days",
-          "total_runs",
-          "total_completed",
-          "total_failed",
-          "total_cost_usd",
-          "total_cost_display",
-          "per_agent"
-        ],
-        "title": "AgentStatsBlock",
-        "type": "object"
-      },
-      "CommandCenterResponse.AgentStatus": {
-        "description": "Status of an agent execution.",
-        "enum": [
-          "running",
-          "completed",
-          "failed",
-          "waiting_approval"
-        ],
-        "title": "AgentStatus",
-        "type": "string"
-      },
-      "CommandCenterResponse.AgentTriggerType": {
-        "description": "How an agent execution was triggered.",
-        "enum": [
-          "scheduled",
-          "manual",
-          "agent_trigger"
-        ],
-        "title": "AgentTriggerType",
-        "type": "string"
-      },
-      "CommandCenterResponse.AgentWindowStats": {
-        "description": "One agent's runs and cost over the stats window.",
-        "properties": {
-          "agent_id": {
-            "title": "Agent Id",
-            "type": "string"
-          },
-          "runs": {
-            "default": 0,
-            "title": "Runs",
-            "type": "integer"
-          },
-          "completed": {
-            "default": 0,
-            "title": "Completed",
-            "type": "integer"
-          },
-          "failed": {
-            "default": 0,
-            "title": "Failed",
-            "type": "integer"
-          },
-          "waiting_approval": {
-            "default": 0,
-            "title": "Waiting Approval",
-            "type": "integer"
-          },
-          "cost_usd": {
-            "default": 0.0,
-            "title": "Cost Usd",
-            "type": "number"
-          },
-          "cost_display": {
-            "default": "",
-            "description": "Cost formatted in the display currency",
-            "title": "Cost Display",
-            "type": "string"
-          },
-          "input_tokens": {
-            "default": 0,
-            "title": "Input Tokens",
-            "type": "integer"
-          },
-          "output_tokens": {
-            "default": 0,
-            "title": "Output Tokens",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "agent_id",
-          "runs",
-          "completed",
-          "failed",
-          "waiting_approval",
-          "cost_usd",
-          "cost_display",
-          "input_tokens",
-          "output_tokens"
-        ],
-        "title": "AgentWindowStats",
-        "type": "object"
-      },
-      "CommandCenterResponse.ApprovalRequestResponse": {
-        "description": "Approval request information.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "agent_id": {
-            "title": "Agent Id",
-            "type": "string"
-          },
-          "agent_name": {
-            "description": "Name of the agent requesting approval",
-            "title": "Agent Name",
-            "type": "string"
-          },
-          "tool_name": {
-            "title": "Tool Name",
-            "type": "string"
-          },
-          "tool_args": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Tool Args"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/CommandCenterResponse.ApprovalStatus"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "resolved_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Resolved At"
-          }
-        },
-        "required": [
-          "id",
-          "agent_id",
-          "agent_name",
-          "tool_name",
-          "tool_args",
-          "description",
-          "status",
-          "created_at",
-          "resolved_at"
-        ],
-        "title": "ApprovalRequestResponse",
-        "type": "object"
-      },
-      "CommandCenterResponse.ApprovalStatus": {
-        "description": "Status of an approval request.",
-        "enum": [
-          "pending",
-          "approved",
-          "rejected"
-        ],
-        "title": "ApprovalStatus",
-        "type": "string"
-      },
-      "CommandCenterResponse.ScheduledItemResponse": {
-        "description": "One item, described for people (household timezone).",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "conversation_id": {
-            "title": "Conversation Id",
-            "type": "string"
-          },
-          "conversation_title": {
-            "description": "Title of the chat the item belongs to",
-            "title": "Conversation Title",
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "reminder",
-              "check_in",
-              "watcher",
-              "recurring"
-            ],
-            "title": "Kind",
-            "type": "string"
-          },
-          "title": {
-            "description": "The item's text, shortened",
-            "title": "Title",
-            "type": "string"
-          },
-          "when": {
-            "description": "e.g. 'Fri 13 Nov 2026 18:00', 'checks daily', 'every Monday at 09:00'",
-            "title": "When",
-            "type": "string"
-          },
-          "ends": {
-            "description": "e.g. 'then done', 'until a job is posted, at most until 7 Dec'",
-            "title": "Ends",
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "active",
-              "paused",
-              "running"
-            ],
-            "title": "Status",
-            "type": "string"
-          },
-          "next_run_at": {
-            "format": "date-time",
-            "title": "Next Run At",
-            "type": "string"
-          },
-          "standing": {
-            "default": false,
-            "description": "A standing job (an agent's schedule): it can be run by hand",
-            "title": "Standing",
-            "type": "boolean"
-          },
-          "paused_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Why it is paused: 'failures' (kept failing), 'disabled'",
-            "title": "Paused Reason"
-          }
-        },
-        "required": [
-          "id",
-          "conversation_id",
-          "conversation_title",
-          "kind",
-          "title",
-          "when",
-          "ends",
-          "status",
-          "next_run_at",
-          "standing",
-          "paused_reason"
-        ],
-        "title": "ScheduledItemResponse",
-        "type": "object"
-      },
-      "CommandCenterResponse": {
-        "description": "Complete command center dashboard data.",
-        "properties": {
-          "agents": {
-            "description": "All agents with unread counts and pending status",
-            "items": {
-              "$ref": "#/components/schemas/CommandCenterResponse.AgentResponse"
-            },
-            "title": "Agents",
-            "type": "array"
-          },
-          "pending_approvals": {
-            "description": "All pending approval requests",
-            "items": {
-              "$ref": "#/components/schemas/CommandCenterResponse.ApprovalRequestResponse"
-            },
-            "title": "Pending Approvals",
-            "type": "array"
-          },
-          "recent_executions": {
-            "description": "Recent execution history across all agents",
-            "items": {
-              "$ref": "#/components/schemas/CommandCenterResponse.AgentExecutionResponse"
-            },
-            "title": "Recent Executions",
-            "type": "array"
-          },
-          "total_unread": {
-            "default": 0,
-            "description": "Total unread messages across all agents",
-            "title": "Total Unread",
-            "type": "integer"
-          },
-          "chat_items": {
-            "description": "Reminders, check-ins, watchers and recurring checks set from chats, soonest first",
-            "items": {
-              "$ref": "#/components/schemas/CommandCenterResponse.ScheduledItemResponse"
-            },
-            "title": "Chat Items",
-            "type": "array"
-          },
-          "agents_waiting": {
-            "default": 0,
-            "description": "Number of agents blocked on approval",
-            "title": "Agents Waiting",
-            "type": "integer"
-          },
-          "stats": {
-            "$ref": "#/components/schemas/CommandCenterResponse.AgentStatsBlock",
-            "description": "Run/cost aggregates over the trailing window"
-          },
-          "agents_with_errors": {
-            "default": 0,
-            "description": "Number of agents whose last execution failed",
-            "title": "Agents With Errors",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "agents",
-          "pending_approvals",
-          "recent_executions",
-          "total_unread",
-          "chat_items",
-          "agents_waiting",
-          "stats",
-          "agents_with_errors"
-        ],
-        "title": "CommandCenterResponse",
         "type": "object"
       },
       "PushKeysResponse": {

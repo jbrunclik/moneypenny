@@ -399,218 +399,157 @@
 }
 
 /* ----------------------------------------
-   Agent Cards
+   Job List (standing chats phase 3): one row per job - items set from
+   chats and standing jobs (agents) - with its status and recent runs
    ---------------------------------------- */
 
-.agents-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-4);
+.jobs-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
-.agent-card {
+.job-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: var(--space-4);
+    padding: var(--space-3) var(--space-4);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: border-color var(--transition-fast);
 }
 
-.agent-card:hover {
+.job-row:hover {
     border-color: var(--accent);
-    box-shadow: 0 4px 12px var(--black-a10);
-    transform: translateY(-2px);
 }
 
-.agent-card--disabled {
-    opacity: 0.6;
+.job-row--attention {
+    border-color: var(--color-warning-500);
 }
 
-.agent-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-2);
+.job-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--text-secondary);
 }
 
-.agent-card-title-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+.job-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.job-body {
     flex: 1;
     min-width: 0;
 }
 
-/* Override global unread-badge margin for agent cards */
-.agent-card-title-row .unread-badge {
-    margin-left: 0;
-    font-size: 10px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-}
-
-.status-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.status-indicator--warning {
-    background: var(--color-warning-500);
-    animation: waiting-pulse 2s ease-in-out infinite;
-}
-
-.status-indicator--disabled {
-    background: var(--text-muted);
-}
-
-.status-indicator--success {
-    background: var(--color-success-500);
-}
-
-.status-indicator--error {
-    background: var(--color-error-500);
-}
-
-.agent-name {
-    font-size: var(--font-size-ui);
-    font-weight: 600;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.agent-card-actions {
+.job-head {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-2);
 }
 
-/* Observability strip: runs + cost over the trailing week */
-.command-center-stats {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    margin-bottom: var(--space-6);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-}
-
-.command-center-stats .stats-window {
+.job-title {
     font-weight: 600;
     color: var(--text-primary);
+    overflow-wrap: anywhere;
 }
 
-.command-center-stats .stats-item--failed {
-    color: var(--color-error-500);
-    font-weight: 500;
-}
-
-.command-center-stats .stats-item--cost {
-    margin-left: auto;
-    font-weight: 600;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-}
-
-.agent-window-stats {
-    white-space: nowrap;
-}
-
-.agent-window-stats--failed {
-    color: var(--color-error-500);
-}
-
-/* Badge marking system-managed agents (Daily Briefing, ...) */
-.agent-system-badge {
-    padding: 1px var(--space-2);
-    border: 1px solid var(--accent);
+.job-builtin,
+.job-unread,
+.job-status {
+    font-size: var(--font-size-xs);
     border-radius: var(--radius-full);
-    color: var(--accent);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    white-space: nowrap;
-    flex-shrink: 0;
+    padding: 1px var(--space-2);
 }
 
-/* Run is the card's primary action - full accent weight, unlike the
-   quiet Edit icon button next to it */
-.btn-run.btn-icon {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-}
-
-.btn-run.btn-icon:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-    color: white;
-}
-
-.agent-card--disabled .btn-icon.btn-run {
+.job-builtin {
+    color: var(--text-secondary);
     background: var(--bg-tertiary);
-    border-color: var(--border);
-    color: var(--text-muted);
 }
 
-.btn-run-labeled {
-    gap: var(--space-1);
+.job-unread {
+    color: white;
+    background: var(--accent);
 }
 
-.btn-run-label {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+.job-status {
+    color: var(--color-warning-500);
+    background: var(--bg-tertiary);
 }
 
-@media (max-width: 480px) {
-    .btn-run-label {
-        /* Hide label on very small screens */
-        display: none;
-    }
-}
-
-.agent-description {
+.job-meta {
+    margin-top: var(--space-1);
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    margin: 0 0 var(--space-3) 0;
-    line-height: 1.5;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
 }
 
-.agent-card-meta {
+.job-runs {
+    margin-top: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.job-runs summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    cursor: pointer;
+    list-style: none;
+}
+
+.job-runs summary svg {
+    width: 14px;
+    height: 14px;
+}
+
+.job-runs ul {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.job-run-item {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
-    font-size: var(--font-size-xs);
+    padding: 2px 0;
+}
+
+.job-run-item--failed .job-run-status {
+    color: var(--color-error-500);
+}
+
+.job-run-error {
+    flex-basis: 100%;
     color: var(--text-muted);
+    overflow-wrap: anywhere;
 }
 
-.agent-schedule {
+.job-actions {
     display: flex;
-    align-items: center;
-    gap: var(--space-1);
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    flex-shrink: 0;
 }
 
-.agent-last-run,
-.agent-next-run {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
+.job-action {
+    font: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
     background: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 2px var(--space-2-5);
+    cursor: pointer;
+}
+
+.job-action:hover {
+    color: var(--text-primary);
 }
 
 /* ----------------------------------------
@@ -853,12 +792,14 @@
         font-size: var(--font-size-xl);
     }
 
-    .agents-list {
-        grid-template-columns: 1fr;
+    .job-row {
+        flex-wrap: wrap;
+        padding: var(--space-3);
     }
 
-    .agent-card {
-        padding: var(--space-3);
+    .job-actions {
+        flex-basis: 100%;
+        padding-left: calc(18px + var(--space-3));
     }
 
     .approval-card-actions {
@@ -871,142 +812,6 @@
     }
 }
 
-/* ----------------------------------------
-   Recent Executions
-   ---------------------------------------- */
-
-.command-center-section--executions {
-    margin-top: var(--space-6);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--border);
-}
-
-.section-title--collapsible {
-    cursor: pointer;
-    user-select: none;
-    transition: color var(--transition-fast);
-}
-
-.section-title--collapsible:hover {
-    color: var(--accent);
-}
-
-.section-toggle {
-    /* Sits next to the badge - a lone chevron pushed to the far edge
-       reads as disconnected from the header it toggles */
-    display: inline-flex;
-    align-items: center;
-    color: var(--text-muted);
-    transition: transform var(--transition-fast);
-}
-
-.section-toggle svg {
-    width: 14px;
-    height: 14px;
-}
-
-.section-title--collapsible[data-collapsed="true"] .section-toggle {
-    transform: rotate(-90deg);
-}
-
-/* Empty-state note for sections with nothing to show */
-.section-empty-note {
-    color: var(--text-muted);
-    font-size: var(--font-size-ui);
-    margin: 0;
-    padding: var(--space-1) 0;
-}
-
-/* Limited view shows the first 3 executions */
-.executions-list--limited .execution-item:nth-child(n + 4) {
-    display: none;
-}
-
-.executions-show-all {
-    background: none;
-    border: none;
-    color: var(--accent);
-    font-size: var(--font-size-sm);
-    font-family: inherit;
-    cursor: pointer;
-    padding: var(--space-2) 0 0;
-    text-align: left;
-}
-
-.executions-show-all:hover {
-    color: var(--accent-hover);
-}
-
-.executions-show-all.hidden {
-    display: none;
-}
-
-.executions-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.executions-list.collapsed {
-    display: none;
-}
-
-.execution-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-2) var(--space-3);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    border-left: 3px solid var(--border);
-}
-
-.execution-item--completed {
-    border-left-color: var(--color-success-500);
-}
-
-.execution-item--failed {
-    border-left-color: var(--color-error-500);
-}
-
-.execution-item--running {
-    border-left-color: var(--accent);
-}
-
-.execution-item--waiting_approval {
-    border-left-color: var(--color-warning-500);
-}
-
-.execution-item-main {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex: 1;
-    min-width: 0;
-}
-
-.execution-status {
-    font-size: var(--font-size-sm);
-    flex-shrink: 0;
-}
-
-.execution-item--completed .execution-status {
-    color: var(--color-success-500);
-}
-
-.execution-item--failed .execution-status {
-    color: var(--color-error-500);
-}
-
-.execution-item--running .execution-status {
-    color: var(--accent);
-    animation: spin 1s linear infinite;
-}
-
-.execution-item--waiting_approval .execution-status {
-    color: var(--color-warning-500);
-}
-
 @keyframes spin {
     from {
         transform: rotate(0deg);
@@ -1014,44 +819,6 @@
     to {
         transform: rotate(360deg);
     }
-}
-
-.execution-agent-name {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.execution-trigger {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    background: var(--bg-tertiary);
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-}
-
-.execution-item-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-shrink: 0;
-}
-
-.execution-time {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-}
-
-.execution-duration {
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-sm);
 }
 
 /* ----------------------------------------
@@ -1064,20 +831,15 @@
     background-color: var(--bg-hover);
 }
 
-.agent-card:focus-visible {
+.job-row:focus-visible {
     outline: 3px solid var(--accent);
     outline-offset: 2px;
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-    .agents-entry .waiting-badge,
-    .status-indicator--warning {
+    .agents-entry .waiting-badge {
         animation: none;
-    }
-
-    .agent-card:hover {
-        transform: none;
     }
 }
 

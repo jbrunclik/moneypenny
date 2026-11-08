@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agent.item_scheduler import JobBusyError, run_job_now
+from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now
 from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
 from src.agent.tools.standing_settings import TOOL_NAME as SETTINGS_TOOL
 from src.agent.tools.standing_settings import Change, apply_standing_changes, validated_change
@@ -164,6 +164,10 @@ def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest
     db.add_message(job.conversation_id, MessageRole.USER, resume_message)
     try:
         run_job_now(job, user, message=resume_message)
+    except JobHeldError as held:  # e.g. over budget now: the approval stands
+        logger.info(
+            "Job held on approval; not resumed", extra={"item_id": job.id, "reason": str(held)}
+        )
     except JobBusyError:  # the scheduler is running it: that run sees the approval
         logger.info("Job busy on approval; not resumed", extra={"item_id": job.id})
     except Exception:  # the approval went through: the run's crash is logged, not a 500

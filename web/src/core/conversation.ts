@@ -11,6 +11,7 @@ import { createLogger } from '../utils/logger';
 import { agents } from '../api/agents';
 import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
+import { jobs } from '../api/jobs';
 import { reconcileOutboxWithServer } from './outbox';
 import {
   renderConversationsList,
@@ -120,7 +121,7 @@ export function toConversation(
  */
 export function markAgentViewedAndRefresh(agentId: string): void {
   agents.markViewed(agentId)
-    .then(() => agents.getCommandCenter())
+    .then(() => jobs.overview())
     .then((data) => {
       useStore.getState().setCommandCenterData(data);
     })

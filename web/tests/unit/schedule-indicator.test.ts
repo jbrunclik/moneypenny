@@ -5,14 +5,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useStore } from '@/state/store';
 import { schedules } from '@/api/schedules';
-import type { CommandCenterResponse, Conversation, ScheduledItem } from '@/types/api';
+import type { Conversation, ScheduledItem } from '@/types/api';
 import {
   createSchedulesPopupShell,
   initScheduleIndicator,
   updateScheduleIndicator,
 } from '@/components/ScheduleIndicator';
 import { renderDeliveryLabel } from '@/components/messages/delivery-label';
-import { renderCommandCenter } from '@/components/CommandCenter';
 
 vi.mock('@/api/schedules', () => ({
   schedules: {
@@ -173,49 +172,5 @@ describe('renderDeliveryLabel', () => {
     const el = renderDeliveryLabel({ kind: 'check_in', label: 'Check-in · Fri 18:00' });
     expect(el.className).toContain('message-delivery');
     expect(el.querySelector('.message-delivery-text')?.textContent).toBe('Check-in · Fri 18:00');
-  });
-});
-
-describe('Command Center "From chats" lane', () => {
-  function payload(chatItems: ScheduledItem[]): CommandCenterResponse {
-    return {
-      agents: [],
-      pending_approvals: [],
-      recent_executions: [],
-      total_unread: 0,
-      agents_waiting: 0,
-      agents_with_errors: 0,
-      chat_items: chatItems,
-    } as unknown as CommandCenterResponse;
-  }
-
-  function render(chatItems: ScheduledItem[]) {
-    const refresh = vi.fn(async () => {});
-    const noop = vi.fn(async () => {});
-    const el = renderCommandCenter(payload(chatItems), refresh, noop, noop, noop, vi.fn(), vi.fn());
-    return { el, refresh };
-  }
-
-  it('is hidden with no items', () => {
-    expect(render([]).el.querySelector('.command-center-section--chat-items')).toBeNull();
-  });
-
-  it('sits above the agents with a link to each chat', () => {
-    const { el } = render([item()]);
-    const section = el.querySelector('.command-center-section--chat-items')!;
-    expect(section.textContent).toContain('From chats');
-    const sections = [...el.querySelectorAll('.command-center > div')];
-    expect(sections.indexOf(section)).toBeLessThan(sections.indexOf(el.querySelector('.command-center-section--agents')!));
-    const link = section.querySelector<HTMLAnchorElement>('.chat-item-chat')!;
-    expect(link.getAttribute('href')).toBe(`#/conversations/${CONV_ID}`);
-    expect(link.textContent).toBe("Dog's tail");
-    expect(section.textContent).toContain('Fri 13 Nov 2026 18:00 · then done');
-  });
-
-  it('cancel removes the item and refreshes the dashboard', async () => {
-    const { el, refresh } = render([item()]);
-    el.querySelector<HTMLButtonElement>('.chat-item-cancel')!.click();
-    await vi.waitFor(() => expect(schedules.remove).toHaveBeenCalledWith('i1'));
-    await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 });

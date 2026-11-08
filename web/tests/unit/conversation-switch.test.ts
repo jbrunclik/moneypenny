@@ -8,7 +8,7 @@
  * marks it read with the server's total count (not the loaded page size).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { ArtifactRef, CommandCenterResponse, Conversation, Message } from '@/types/api';
+import type { ArtifactRef, JobsOverviewResponse, Conversation, Message } from '@/types/api';
 
 const m = vi.hoisted(() => ({
   offerLostReplyRetry: vi.fn(),
@@ -206,7 +206,7 @@ describe('switchToConversation', () => {
   describe('agent conversations', () => {
     it('hide the regular header and show the agent header with its name', () => {
       useStore.setState({
-        commandCenterData: { agents: [{ id: 'a1', name: 'Watcher' }] } as unknown as CommandCenterResponse,
+        commandCenterData: { jobs: [{ id: 'a1', title: 'Watcher' }] } as unknown as JobsOverviewResponse,
       });
       switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
 

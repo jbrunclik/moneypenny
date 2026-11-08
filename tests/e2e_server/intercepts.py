@@ -254,27 +254,10 @@ def _rouvy_status() -> Any:
     )
 
 
-def _command_center() -> Any:
-    """For agents testing: the test's command center, else an empty one
-    (with the seeded user's real items set from chats)."""
-    from src.api.helpers.schedule_responses import items_to_response
-    from src.api.schemas.agents import CommandCenterResponse
-
-    if MOCK_CONFIG.get("agents_command_center"):
-        return jsonify(MOCK_CONFIG["agents_command_center"])
-    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
-    return _as_response(
-        CommandCenterResponse,
-        {
-            "pending_approvals": [],
-            "agents": [],
-            "recent_executions": [],
-            "total_unread": 0,
-            "agents_waiting": 0,
-            "stats": {},
-            "chat_items": items_to_response(user.id, g.db.list_items(user.id)),
-        },
-    )
+def _jobs_overview() -> Any:
+    """For job list tests: the test's overview if one is set; else None, so
+    the real /api/jobs answers from the E2E database."""
+    return jsonify(MOCK_CONFIG["jobs_overview"]) if MOCK_CONFIG.get("jobs_overview") else None
 
 
 _PLANNER_INTERCEPTS: dict[tuple[str, str], Callable[[], Any]] = {
@@ -285,7 +268,7 @@ _PLANNER_INTERCEPTS: dict[tuple[str, str], Callable[[], Any]] = {
     ("GET", "/auth/calendar/status"): _calendar_status,
     ("GET", "/auth/garmin/status"): _garmin_status,
     ("GET", "/auth/rouvy/status"): _rouvy_status,
-    ("GET", "/api/agents/command-center"): _command_center,
+    ("GET", "/api/jobs"): _jobs_overview,
 }
 
 

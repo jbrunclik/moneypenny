@@ -1,23 +1,21 @@
 /* ----------------------------------------
-   Scheduled items: the chat sheet (ScheduleIndicator.ts), the Command
-   Center's "From chats" lane (CommandCenter.ts) and the label on a turn an
-   item delivered (messages/delivery-label.ts)
+   Scheduled items: the chat sheet (ScheduleIndicator.ts) and the label on
+   a turn an item delivered (messages/delivery-label.ts); the Command
+   Center's job list is in agents.css
    ---------------------------------------- */
 
 .schedules-content {
     padding: var(--space-4);
 }
 
-.schedules-list,
-.chat-items-list {
+.schedules-list {
     list-style: none;
     margin: 0;
     padding: 0;
     font-size: var(--font-size-sm);
 }
 
-.schedule-item,
-.chat-item {
+.schedule-item {
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -25,26 +23,22 @@
     border-bottom: 1px solid var(--border);
 }
 
-.schedule-item:last-child,
-.chat-item:last-child {
+.schedule-item:last-child {
     border-bottom: none;
 }
 
-.schedule-item-icon,
-.chat-item-icon {
+.schedule-item-icon {
     display: inline-flex;
     color: var(--text-muted);
     flex-shrink: 0;
 }
 
-.schedule-item-icon svg,
-.chat-item-icon svg {
+.schedule-item-icon svg {
     width: 16px;
     height: 16px;
 }
 
-.schedule-item-body,
-.chat-item-body {
+.schedule-item-body {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
@@ -52,14 +46,12 @@
     flex: 1;
 }
 
-.schedule-item-title,
-.chat-item-title {
+.schedule-item-title {
     color: var(--text-primary);
     overflow-wrap: anywhere;
 }
 
-.schedule-item-meta,
-.chat-item-meta {
+.schedule-item-meta {
     color: var(--text-secondary);
 }
 
@@ -71,8 +63,7 @@
 
 .schedule-item-run,
 .schedule-item-pause,
-.schedule-item-cancel,
-.chat-item-cancel {
+.schedule-item-cancel {
     font: inherit;
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
@@ -86,8 +77,7 @@
 
 .schedule-item-run:hover,
 .schedule-item-pause:hover,
-.schedule-item-cancel:hover,
-.chat-item-cancel:hover {
+.schedule-item-cancel:hover {
     color: var(--text-primary);
 }
 
@@ -95,24 +85,6 @@
     margin: var(--space-3) 0 0;
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-}
-
-.chat-item-chat {
-    color: var(--accent-text);
-    text-decoration: none;
-    font-size: var(--font-size-sm);
-    overflow-wrap: anywhere;
-}
-
-.chat-item-chat:hover {
-    text-decoration: underline;
-}
-
-.command-center-section--chat-items .chat-items-list {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 0 var(--space-4);
 }
 
 /* The label above a delivered turn: quiet, one line */
