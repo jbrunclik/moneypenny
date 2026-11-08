@@ -32,6 +32,7 @@ from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids
 from src.agent.standing import StandingContext
+from src.agent.standing_context import load_standing_context
 from src.agent.tool_results import set_current_request_id
 from src.agent.tools import (
     set_conversation_context,
@@ -42,7 +43,6 @@ from src.agent.tools import (
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.conversation_facts import load_turn_facts
 from src.api.helpers.lost_actions import pop_lost_actions_note
-from src.api.helpers.standing_context import load_standing_context
 from src.api.helpers.turn_steering import discard_dead_placeholders
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest

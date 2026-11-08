@@ -458,3 +458,118 @@ def test_a_result_after_the_chat_is_trashed_is_dropped(
     db.restore_conversation(test_conversation.id, test_user.id)
     stored = db.get_item(item.id, test_user.id)
     assert stored is not None and stored.status == "active"  # runs again once restored
+
+
+# Standing jobs (phase 2 plan, A3): looser limits, pause with one alert, budget
+
+
+def _job(
+    db: Database, user: User, conversation: Conversation, **overrides: object
+) -> ScheduledItem:
+    fields: dict[str, object] = {
+        "kind": "recurring",
+        "text": "Send the morning briefing.",
+        "schedule": "15 7 * * *",
+        "grants": ["*"],
+    }
+    return _add(db, user, conversation, **(fields | overrides))
+
+
+def _stored(db: Database, item: ScheduledItem) -> ScheduledItem:
+    stored = db.get_item(item.id, item.user_id)
+    assert stored is not None
+    return stored
+
+
+def test_standing_job_has_no_expiry(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation, expires_at=_NOW - timedelta(days=1))
+
+    item_scheduler.run_due_items(_NOW)
+
+    runs.assert_called_once()
+    assert _stored(db, job).status == "active"
+
+
+def test_standing_job_cron_runs_in_its_timezone(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation, timezone="America/New_York")
+
+    item_scheduler.run_due_items(_NOW)
+
+    # Fri 12:00 in New York -> next 07:15 there is Sat 12:15 UTC
+    assert _stored(db, job).next_run_at == datetime(2026, 11, 14, 12, 15, tzinfo=UTC)
+
+
+def test_any_cron_for_standing_hourly_ok(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation, schedule="0 * * * *")
+
+    item_scheduler.run_due_items(_NOW)
+
+    assert _stored(db, job).next_run_at == _NOW + timedelta(hours=1)
+
+
+def test_over_budget_skips_without_counting_a_failure(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation, budget_usd=0.1)
+    earlier = db.add_message(test_conversation.id, "assistant", "earlier run")
+    db.save_message_cost(
+        earlier.id, test_conversation.id, test_user.id, "m", 1, 1, 0.2, job_id=job.id
+    )
+
+    item_scheduler.run_due_items(_NOW)
+
+    runs.assert_not_called()
+    stored = _stored(db, job)
+    assert (stored.failures, stored.status) == (0, "active")
+    assert stored.next_run_at > _NOW
+    [execution] = db.get_agent_executions(job.id)
+    assert execution.status == "failed"
+    assert "over its daily budget" in (execution.error_message or "")
+
+
+def test_standing_job_pauses_after_failures_with_one_alert(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation, failures=2)
+    runs.return_value = RunOutcome("failed", "", error="Garmin login expired")
+
+    item_scheduler.run_due_items(_NOW)
+
+    stored = _stored(db, job)
+    assert (stored.status, stored.paused_reason, stored.grants) == ("paused", "failures", ["*"])
+    [(text, label)] = _deliveries(db, test_conversation)
+    assert text.startswith("Paused after 3 failed runs: Garmin login expired")
+    assert label is not None and "paused" in label
+    push.assert_called_once()
+
+
+def test_resume_clears_failures_and_reason(
+    db: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    job = _job(db, test_user, test_conversation, failures=3)
+    db.set_item_paused(job.id, test_user.id, True, reason="failures")
+
+    db.set_item_paused(job.id, test_user.id, False)
+
+    stored = _stored(db, job)
+    assert (stored.status, stored.failures, stored.paused_reason) == ("active", 0, None)
+
+
+def test_standing_job_waits_while_its_approval_is_pending(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation)
+    db.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+
+    item_scheduler.run_due_items(_NOW)
+
+    runs.assert_not_called()
+    stored = _stored(db, job)
+    assert (stored.status, stored.failures) == ("active", 0)
+    assert stored.next_run_at > _NOW

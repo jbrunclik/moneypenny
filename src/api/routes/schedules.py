@@ -1,12 +1,15 @@
-"""Scheduled item routes: a chat's items, cancel, pause, resume.
+"""Scheduled item routes: a chat's items, cancel, pause, resume, and run a standing job now.
 
 Attached to conversations.api (items belong to chats). The Command Center's
 "From chats" lane comes with its dashboard (agent_command_center.py).
 """
 
+from src.agent.item_scheduler import run_job_now
 from src.api.errors import raise_conflict_error, raise_not_found_error
 from src.api.helpers.schedule_responses import items_to_response
+from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
+from src.api.schemas.common import StatusResponse
 from src.api.schemas.schedules import ConversationSchedulesResponse, ScheduledItemResponse
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
@@ -68,3 +71,21 @@ def pause_schedule(user: User, item_id: str) -> tuple[dict[str, object], int]:
 def resume_schedule(user: User, item_id: str) -> tuple[dict[str, object], int]:
     """Resume a paused watcher or recurring check (it runs on the next tick when due)."""
     return _set_paused(user, item_id, paused=False)
+
+
+@api.route("/schedules/<item_id>/run", methods=["POST"])
+@api.output(StatusResponse)
+@api.doc(responses=[404, 409])
+@rate_limit_conversations
+@require_auth
+def run_schedule(user: User, item_id: str) -> tuple[dict[str, object], int]:
+    """Run a standing job now; the status is the run's outcome (report,
+    silent, done, failed, approval). Light items only run on their schedule."""
+    item = db.get_item(item_id, user.id)
+    if item is None:
+        raise_not_found_error("Scheduled item")
+    if not item.standing:
+        raise_conflict_error("Only a standing job can be run by hand.")
+    if item.status == "running" or db.has_pending_approval(item.id):
+        raise_conflict_error("The job is running or waiting for your approval.")
+    return {"status": run_job_now(item, user).status}, 200

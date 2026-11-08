@@ -107,7 +107,7 @@ Conversations are extended with `is_agent` and `agent_id` fields.
 | `src/agent/executor.py` | Agent execution engine |
 | `src/agent/permissions.py` | Tool permission checking |
 | `src/agent/daily_briefing.py` | Stock prompt for the system-managed Daily Briefing agent |
-| `src/api/helpers/standing_context.py` | The agent chat's standing context when the user writes in it |
+| `src/agent/standing_context.py` | The agent chat's standing context when the user writes in it |
 | `src/agent/retry.py` | Transient failure retry logic (used per model call by the graph) |
 | `src/agent/dev_scheduler.py` | Development mode scheduler |
 | `scripts/run_agent_scheduler.py` | Production scheduler script |
@@ -262,6 +262,40 @@ message, each belonging to the chat that set it
 - Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_check_in_preview`,
   `schedule_watcher_preview`, `schedule_weekly_task`.
 
+### Standing jobs (Nov 2026, standing chats phase 2)
+
+A scheduled item with `grants` set is a **standing job**: an agent's schedule.
+[Spec](../superpowers/specs/2026-11-08-standing-chats-design.md),
+[plan](../superpowers/plans/2026-11-08-standing-chats-phase-2.md). Part A is shipped. The
+agents move onto standing jobs in Part B; until then nothing creates one except tests.
+
+- **Columns** (migration 0078): `grants` (tool names, or `["*"]` for all tools), `model`,
+  `budget_usd` (daily), `fresh_context`, `timezone` (the cron's zone), `paused_reason`.
+  `message_costs.job_id` attributes an unattended run's cost to its job.
+- **Run** (`run_model_item` in `src/agent/item_runner.py`, one path for light items and
+  jobs):
+  - A job gets its grants plus the safe basics, `request_approval` and `kv_store`, never the
+    user's full tools.
+  - It also gets its model, the chat's standing context (`src/agent/standing_context.py`),
+    and the chat's history unless `fresh_context`.
+  - It sees the user's memories only when `manage_memory` (or `*`) is granted.
+  - Its synthetic `Agent` carries the job's id, so execution rows and approval requests
+    name the job.
+- **Light items in a standing chat** (agent, sports or language) see that chat's instructions
+  and state, so a coach's check-in knows the program. Their tools stay web-only.
+- **Limits** (`src/agent/item_scheduler.py`):
+  - no expiry and no slow-down; any cron, evaluated in the job's timezone;
+  - not counted toward the 20-item cap;
+  - waits while an approval it asked for is pending;
+  - a run over its daily budget (`job_spend_today`: its own runs only, not the user's turns
+    in the chat) is skipped and recorded, not counted as a failure;
+  - after `SCHEDULE_ITEM_MAX_FAILURES` it pauses with one alert ("Paused after 3 failed
+    runs: ...") and one push, keeping its setup. Resume clears the failures.
+- **API:** `POST /api/schedules/<id>/run` runs a job now (409 for light items, or while
+  running or awaiting approval); `ScheduledItemResponse` has `standing` and `paused_reason`.
+  Approving a job's request resumes it through `run_job_now` with "[Action approved: ...]".
+- **UI:** the schedule chip's sheet shows Run for a job and "paused after failing".
+
 ## Agent Execution Flow
 
 1. **Check pending approvals**: Skip if agent has an unresolved/unexpired approval request
@@ -280,7 +314,7 @@ Runs and the user's own turns in an agent chat share the regular, non-destructiv
 ## Talking to an Agent
 
 Writing in an agent's chat is an ordinary chat turn, not a run: `load_standing_context()`
-([standing_context.py](../../src/api/helpers/standing_context.py)) builds a
+([standing_context.py](../../src/agent/standing_context.py)) builds a
 `StandingContext` ([standing.py](../../src/agent/standing.py)) with the agent's goals
 (`resolve_agent_system_prompt()`, so the Daily Briefing's stock prompt comes from code)
 and a plain description of its schedule, rendered as the `# This Chat: <name>` section by

@@ -25,3 +25,7 @@ Your previous report: {last_result}
 Do it now with your tools. Then reply in the language the task above is written in: a short report - or exactly [SILENT], and nothing else, when there is nothing worth telling this time."""
 
 NO_PREVIOUS_RESULT = "(none - this is the first run)"
+
+# A standing job's task line, after the chat's standing instructions (the run
+# message itself is the "[Scheduled run at ...]" trigger, as agent runs had)
+STANDING_JOB_TASK = "## This run\n\n{text}"

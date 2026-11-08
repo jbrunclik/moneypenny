@@ -4,26 +4,27 @@
  * Reminders, check-ins, watchers and recurring checks set from a chat belong
  * to it (docs/features/agents.md). Surfaces: a header chip (desktop chat
  * header + mobile header) with the count, and a sheet listing the items -
- * when, how each ends - with cancel, and pause/resume for watchers and
- * recurring checks. Hidden when the chat has none.
+ * when, how each ends - with cancel, pause/resume for watchers and
+ * recurring checks, and Run for standing jobs (an agent's schedule). Hidden
+ * when the chat has none.
  */
 
-import { schedules } from '../api/schedules';
-import { useStore } from '../state/store';
-import type { ScheduledItem } from '../types/api';
-import { createElement, getElementById } from '../utils/dom';
-import { CLOCK_ICON, createIconElement, setIcon } from '../utils/icons';
-import { createLogger } from '../utils/logger';
-import { createPopup, createPopupShell, type PopupInstance } from './InfoPopup';
-import { SCHEDULE_KIND_ICONS } from './messages/delivery-label';
+import { schedules } from "../api/schedules";
+import { useStore } from "../state/store";
+import type { ScheduledItem } from "../types/api";
+import { createElement, getElementById } from "../utils/dom";
+import { CLOCK_ICON, createIconElement, setIcon } from "../utils/icons";
+import { createLogger } from "../utils/logger";
+import { createPopup, createPopupShell, type PopupInstance } from "./InfoPopup";
+import { SCHEDULE_KIND_ICONS } from "./messages/delivery-label";
 
-const POPUP_ID = 'schedules-popup';
-const EVENT_NAME = 'schedules:open';
-const CHIP_CLASS = 'chat-header-schedules';
-const CHIP_IDS = ['conversation-schedules', 'conversation-schedules-mobile'];
-const PAUSABLE = new Set<ScheduledItem['kind']>(['watcher', 'recurring']);
+const POPUP_ID = "schedules-popup";
+const EVENT_NAME = "schedules:open";
+const CHIP_CLASS = "chat-header-schedules";
+const CHIP_IDS = ["conversation-schedules", "conversation-schedules-mobile"];
+const PAUSABLE = new Set<ScheduledItem["kind"]>(["watcher", "recurring"]);
 
-const log = createLogger('components/ScheduleIndicator');
+const log = createLogger("components/ScheduleIndicator");
 
 /** The open conversation's items; null when it has none to show */
 // UI-local (F2): the open conversation's chip only, refetched on every switch
@@ -34,40 +35,75 @@ function itemsForOpenConversation(): ScheduledItem[] | null {
   return current?.items ?? null;
 }
 
+function pausedNote(item: ScheduledItem): string {
+  if (item.status !== "paused") return "";
+  return item.paused_reason === "failures" ? " · paused after failing" : " · paused";
+}
+
 function itemRow(item: ScheduledItem): HTMLElement {
   const actions: HTMLElement[] = [];
-  if (PAUSABLE.has(item.kind)) {
-    const paused = item.status === 'paused';
+  if (item.standing) {
     actions.push(
-      createElement('button', { type: 'button', class: 'schedule-item-pause', 'data-item-id': item.id, 'data-paused': String(paused) }, [
-        paused ? 'Resume' : 'Pause',
-      ])
+      createElement(
+        "button",
+        { type: "button", class: "schedule-item-run", "data-item-id": item.id },
+        ["Run"],
+      ),
     );
   }
-  actions.push(createElement('button', { type: 'button', class: 'schedule-item-cancel', 'data-item-id': item.id }, ['Cancel']));
-  const meta = `${item.when} · ${item.ends}${item.status === 'paused' ? ' · paused' : ''}`;
-  return createElement('li', { class: 'schedule-item' }, [
-    createIconElement('schedule-item-icon', SCHEDULE_KIND_ICONS[item.kind]),
-    createElement('div', { class: 'schedule-item-body' }, [
-      createElement('span', { class: 'schedule-item-title' }, [item.title]),
-      createElement('span', { class: 'schedule-item-meta' }, [meta]),
+  if (PAUSABLE.has(item.kind)) {
+    const paused = item.status === "paused";
+    actions.push(
+      createElement(
+        "button",
+        {
+          type: "button",
+          class: "schedule-item-pause",
+          "data-item-id": item.id,
+          "data-paused": String(paused),
+        },
+        [paused ? "Resume" : "Pause"],
+      ),
+    );
+  }
+  actions.push(
+    createElement(
+      "button",
+      { type: "button", class: "schedule-item-cancel", "data-item-id": item.id },
+      ["Cancel"],
+    ),
+  );
+  const meta = `${item.when} · ${item.ends}${pausedNote(item)}`;
+  return createElement("li", { class: "schedule-item" }, [
+    createIconElement("schedule-item-icon", SCHEDULE_KIND_ICONS[item.kind]),
+    createElement("div", { class: "schedule-item-body" }, [
+      createElement("span", { class: "schedule-item-title" }, [item.title]),
+      createElement("span", { class: "schedule-item-meta" }, [meta]),
     ]),
-    createElement('div', { class: 'schedule-item-actions' }, actions),
+    createElement("div", { class: "schedule-item-actions" }, actions),
   ]);
 }
 
 function sheetContent(items: ScheduledItem[]): HTMLElement[] {
   return [
-    createElement('div', { class: 'schedules-content' }, [
-      createElement('ul', { class: 'schedules-list' }, items.map(itemRow)),
-      createElement('p', { class: 'schedules-note' }, ['Results arrive in this chat. Deleting the chat deletes them.']),
+    createElement("div", { class: "schedules-content" }, [
+      createElement("ul", { class: "schedules-list" }, items.map(itemRow)),
+      createElement("p", { class: "schedules-note" }, [
+        "Results arrive in this chat. Deleting the chat deletes them.",
+      ]),
     ]),
   ];
 }
 
 const schedulesPopup: PopupInstance<ScheduledItem[]> = createPopup(
-  { id: POPUP_ID, eventName: EVENT_NAME, icon: CLOCK_ICON, title: 'Scheduled in this chat', styleClass: 'schedules' },
-  sheetContent
+  {
+    id: POPUP_ID,
+    eventName: EVENT_NAME,
+    icon: CLOCK_ICON,
+    title: "Scheduled in this chat",
+    styleClass: "schedules",
+  },
+  sheetContent,
 );
 
 /** The popup's shell (embedded in the app shell by core/startup/app-shell.ts) */
@@ -80,11 +116,12 @@ async function act(button: HTMLElement): Promise<void> {
   const convId = useStore.getState().currentConversation?.id;
   if (!itemId || !convId) return;
   try {
-    if (button.classList.contains('schedule-item-cancel')) await schedules.remove(itemId);
-    else if (button.dataset.paused === 'true') await schedules.resume(itemId);
+    if (button.classList.contains("schedule-item-cancel")) await schedules.remove(itemId);
+    else if (button.classList.contains("schedule-item-run")) await schedules.run(itemId);
+    else if (button.dataset.paused === "true") await schedules.resume(itemId);
     else await schedules.pause(itemId);
   } catch (error) {
-    log.warn('Scheduled item action failed', { itemId, error });
+    log.warn("Scheduled item action failed", { itemId, error });
   }
   await updateScheduleIndicator(convId);
   const items = itemsForOpenConversation();
@@ -96,9 +133,11 @@ async function act(button: HTMLElement): Promise<void> {
 export function initScheduleIndicator(): void {
   schedulesPopup.init();
   // Delegated: the desktop chip is re-created whenever the chat header re-renders
-  document.addEventListener('click', (e) => {
+  document.addEventListener("click", (e) => {
     const target = e.target as HTMLElement | null;
-    const action = target?.closest<HTMLElement>('.schedule-item-cancel, .schedule-item-pause');
+    const action = target?.closest<HTMLElement>(
+      ".schedule-item-cancel, .schedule-item-pause, .schedule-item-run",
+    );
     if (action) {
       void act(action);
       return;
@@ -114,16 +153,16 @@ function renderChips(): void {
     const chip = getElementById<HTMLElement>(id);
     if (!chip) continue;
     if (!items) {
-      chip.classList.add('hidden');
-      chip.textContent = '';
+      chip.classList.add("hidden");
+      chip.textContent = "";
       continue;
     }
-    chip.classList.remove('hidden');
+    chip.classList.remove("hidden");
     setIcon(chip, CLOCK_ICON);
-    chip.append(createElement('span', {}, [String(items.length)]));
+    chip.append(createElement("span", {}, [String(items.length)]));
     const label = `${items.length} scheduled in this chat`;
     chip.title = label;
-    chip.setAttribute('aria-label', label);
+    chip.setAttribute("aria-label", label);
   }
 }
 

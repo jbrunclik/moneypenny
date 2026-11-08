@@ -4001,6 +4001,65 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/schedules/{item_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a standing job now; the status is the run's outcome (report,
+         * @description silent, done, failed, approval). Light items only run on their schedule.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/device-check-runs": {
         parameters: {
             query?: never;
@@ -10898,6 +10957,18 @@ export interface components {
              * Format: date-time
              */
             next_run_at: string;
+            /**
+             * Standing
+             * @description A standing job (an agent's schedule): it can be run by hand
+             * @default false
+             */
+            standing: boolean;
+            /**
+             * Paused Reason
+             * @description Why it is paused: 'failures' (kept failing), 'disabled'
+             * @default null
+             */
+            paused_reason: string | null;
         };
         /**
          * CommandCenterResponse
@@ -11846,6 +11917,18 @@ export interface components {
              * Format: date-time
              */
             next_run_at: string;
+            /**
+             * Standing
+             * @description A standing job (an agent's schedule): it can be run by hand
+             * @default false
+             */
+            standing: boolean;
+            /**
+             * Paused Reason
+             * @description Why it is paused: 'failures' (kept failing), 'disabled'
+             * @default null
+             */
+            paused_reason: string | null;
         };
         /**
          * KVValueResponse
@@ -12545,6 +12628,18 @@ export interface components {
              * Format: date-time
              */
             next_run_at: string;
+            /**
+             * Standing
+             * @description A standing job (an agent's schedule): it can be run by hand
+             * @default false
+             */
+            standing: boolean;
+            /**
+             * Paused Reason
+             * @description Why it is paused: 'failures' (kept failing), 'disabled'
+             * @default null
+             */
+            paused_reason: string | null;
         };
         /**
          * ConversationSchedulesResponse

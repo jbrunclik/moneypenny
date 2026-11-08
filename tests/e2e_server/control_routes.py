@@ -150,6 +150,8 @@ def _seed_item(user_id: str, conversation_id: str, spec: dict[str, Any]) -> None
             quiet_runs=0,
             failures=0,
             created_at=now,
+            grants=spec.get("grants"),
+            paused_reason=spec.get("paused_reason"),
         )
     )
 

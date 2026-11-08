@@ -263,3 +263,187 @@ def test_delivery_labels() -> None:
     assert delivery_label("check_in", friday_18, "Europe/Prague") == "Check-in · Fri 18:00"
     assert delivery_label("watcher", friday_18, "Europe/Prague", "found") == "Watcher · found"
     assert delivery_label("recurring", friday_18, "Europe/Prague") == "Recurring · Fri 18:00"
+
+
+# Standing jobs (phase 2 plan, A2): grants, the chat's context, history, budget
+
+
+def _job(user: User, conversation: Conversation, **overrides: Any) -> ScheduledItem:
+    from dataclasses import replace
+
+    job = ScheduledItem(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        conversation_id=conversation.id,
+        kind="recurring",
+        text="Send the morning briefing.",
+        end_condition=None,
+        schedule="15 7 * * *",
+        interval_hours=None,
+        next_run_at=_NOW,
+        expires_at=None,
+        status="running",
+        last_result=None,
+        quiet_runs=0,
+        failures=0,
+        created_at=_NOW,
+        grants=["generate_image"],
+    )
+    return replace(job, **overrides)
+
+
+def _agent_chat(db: Database, user: User, goals: str) -> Conversation:
+    agent = db.create_agent(user.id, "VWCE Watcher", system_prompt=goals)
+    conv = db.get_conversation(agent.conversation_id, user.id)
+    assert conv is not None
+    return conv
+
+
+def test_light_item_in_ordinary_chat_is_context_free(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    item = _watcher(test_user, test_conversation)
+
+    run_model_item(item, test_user)
+
+    assert fake_llm.instances[0].init_kwargs["agent_context"]["goals"] == item.text
+
+
+def test_light_item_in_standing_chat_sees_its_instructions(
+    db: Database, test_user: User, fake_llm: type[FakeChatAgent]
+) -> None:
+    conv = _agent_chat(db, test_user, "Track the VWCE price against 120 EUR.")
+    item = _watcher(test_user, conv)
+
+    run_model_item(item, test_user)
+
+    goals = fake_llm.instances[0].init_kwargs["agent_context"]["goals"]
+    assert "Track the VWCE price against 120 EUR." in goals
+    assert item.text in goals
+    names = {t.name for t in fake_llm.instances[0].init_kwargs["tools"]}
+    assert names == {"web_search", "fetch_url", "research"}  # still web-only
+
+
+def test_standing_job_gets_its_grants_not_full_tools(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    job = _job(test_user, test_conversation)
+
+    run_model_item(job, test_user)
+
+    names = {t.name for t in fake_llm.instances[0].init_kwargs["tools"]}
+    assert {"generate_image", "request_approval", "web_search"} <= names
+    assert not names & {"manage_memory", "schedule", "create_artifact", "trigger_agent"}
+    context = fake_llm.instances[0].context_during_call
+    assert context is not None
+    assert (context.agent.id, context.agent.tool_permissions) == (job.id, ["generate_image"])
+
+
+@pytest.mark.parametrize(
+    ("grants", "remembers"), [(["generate_image"], False), (["manage_memory"], True), (["*"], True)]
+)
+def test_standing_job_memory_only_when_granted(
+    grants: list[str],
+    remembers: bool,
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+) -> None:
+    run_model_item(_job(test_user, test_conversation, grants=grants), test_user)
+
+    user_id = fake_llm.instances[0].chat_kwargs["user_id"]
+    assert user_id == (test_user.id if remembers else None)
+
+
+@pytest.mark.parametrize("fresh", [True, False])
+def test_standing_job_uses_history_unless_fresh(
+    fresh: bool,
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+) -> None:
+    db.add_message(test_conversation.id, "user", "How was my ride?")
+    db.add_message(test_conversation.id, "assistant", "Solid tempo work.")
+
+    run_model_item(_job(test_user, test_conversation, fresh_context=fresh), test_user)
+
+    history = fake_llm.instances[0].chat_kwargs["history"]
+    assert (history == []) is fresh
+
+
+def test_standing_job_cost_rows_carry_job_id(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+    push: MagicMock,
+) -> None:
+    fake_llm.response = "Good morning: two meetings today."
+    job = _job(test_user, test_conversation)
+
+    outcome = run_model_item(job, test_user)
+    deliver(job, outcome.text, "Recurring · Mon 07:15", outcome=outcome)
+
+    assert db.job_spend_today(job.id) > 0
+
+
+def test_standing_job_runs_the_chat_model_of_its_choice(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    run_model_item(_job(test_user, test_conversation, model="gemini-3.1-pro-preview"), test_user)
+
+    assert fake_llm.instances[0].init_kwargs["model_name"] == "gemini-3.1-pro-preview"
+
+
+def test_standing_job_approval_request_is_recorded_and_pushed(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+    push: MagicMock,
+) -> None:
+    from src.agent.tools.request_approval import ApprovalRequestedException
+
+    fake_llm.error = ApprovalRequestedException("ap-1", "Delete the Todoist task", "todoist")
+    job = _job(test_user, test_conversation)
+
+    with patch("src.agent.executor.send_push_to_user") as approval_push:
+        outcome = run_model_item(job, test_user)
+
+    assert outcome.status == "approval"
+    assert any(
+        "[approval-request:ap-1]" in m.content for m in db.get_messages(test_conversation.id)
+    )
+    assert approval_push.call_args.kwargs["tag"] == "approval-ap-1"
+    [execution] = db.get_agent_executions(job.id)
+    assert execution.status == "waiting_approval"
+
+
+def test_standing_job_records_an_execution(
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    fake_llm: type[FakeChatAgent],
+) -> None:
+    fake_llm.response = "Good morning."
+    job = _job(test_user, test_conversation)
+
+    run_model_item(job, test_user, trigger="manual")
+
+    [execution] = db.get_agent_executions(job.id)
+    assert (execution.status, execution.trigger_type) == ("completed", "manual")
+
+
+def test_standing_job_push_names_the_chat(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock
+) -> None:
+    job = _job(test_user, test_conversation)
+
+    deliver(job, "Good morning: two meetings.\nDetails...", "Recurring · Mon 07:15")
+
+    args, kwargs = push.call_args
+    assert args[1] == test_conversation.title
+    assert args[2] == "Good morning: two meetings."
+    assert kwargs["tag"] == f"job-{job.id}"

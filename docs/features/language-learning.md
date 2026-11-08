@@ -44,7 +44,7 @@ Namespace: `language`
 
 ### Agent Integration
 
-`standing_for_program("language", ...)` in [standing_context.py](../../src/api/helpers/standing_context.py) fills the tutor prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_texts/language.py`) with the real program name and id, appends the quick-action note, and adds the program's KV data (loaded by `program_context.py`) as the section's Data part. `kv_store` is bound with the `language` namespace as its default. The tutor prompt includes:
+`standing_for_program("language", ...)` in [standing_context.py](../../src/agent/standing_context.py) fills the tutor prompt (`LANGUAGE_TUTOR_SYSTEM_PROMPT` in `prompt_texts/language.py`) with the real program name and id, appends the quick-action note, and adds the program's KV data (loaded by `program_context.py`) as the section's Data part. `kv_store` is bound with the `language` namespace as its default. The tutor prompt includes:
 - KV storage rules and key documentation
 - Quiz format specifications (multiple-choice, fill-blank, translate, batch)
 - Spaced repetition system (interval doubling to 60d, mastery retirement, leech re-teaching at 3+ lapses, overdue-first ordering, 10-item session cap)

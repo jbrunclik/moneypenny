@@ -162,3 +162,86 @@ class TestReject:
         assert (
             client.post(f"/api/approvals/{approval.id}/reject", headers=headers).status_code == 404
         )
+
+
+class TestStandingJobApprovals:
+    """A standing job's run that paused for approval (phase 2 plan, A4): its
+    approval names the job, and approving resumes the job's run."""
+
+    @pytest.fixture
+    def job_paused(self, test_database: Database, test_user: User) -> tuple[Any, ApprovalRequest]:
+        import uuid
+        from datetime import UTC, datetime
+
+        from src.db.models.dataclasses import ScheduledItem
+
+        conv = test_database.create_conversation(test_user.id, "Coach")
+        now = datetime.now(UTC)
+        job = test_database.add_item(
+            ScheduledItem(
+                id=str(uuid.uuid4()),
+                user_id=test_user.id,
+                conversation_id=conv.id,
+                kind="recurring",
+                text="Plan tomorrow's ride.",
+                end_condition=None,
+                schedule="0 20 * * *",
+                interval_hours=None,
+                next_run_at=now,
+                expires_at=None,
+                status="active",
+                last_result=None,
+                quiet_runs=0,
+                failures=0,
+                created_at=now,
+                grants=["todoist"],
+            )
+        )
+        execution = test_database.create_execution(job.id, "scheduled")
+        test_database.update_execution(execution.id, status="waiting_approval")
+        approval = test_database.create_approval_request(
+            job.id, test_user.id, "todoist", None, "Delete the old ride task"
+        )
+        return job, approval
+
+    def test_approving_a_job_request_resumes_the_job(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        job_paused: tuple[Any, ApprovalRequest],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        job, approval = job_paused
+        resumed: list[tuple[str, str | None]] = []
+
+        def run_job_now(item: Any, user: User, *, message: str | None = None) -> Any:
+            resumed.append((item.id, message))
+
+        monkeypatch.setattr(agent_approvals, "run_job_now", run_job_now)
+
+        response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
+
+        assert response.status_code == 200
+        assert resumed == [(job.id, "[Action approved: Delete the old ride task]")]
+        [paused_run] = test_database.get_agent_executions(job.id)
+        assert paused_run.status == "completed"
+        last = test_database.get_messages(job.conversation_id)[-1]
+        assert last.content == "[Action approved: Delete the old ride task]"
+
+    def test_rejecting_a_job_request_is_recorded_in_its_chat(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        job_paused: tuple[Any, ApprovalRequest],
+    ) -> None:
+        job, approval = job_paused
+
+        response = client.post(f"/api/approvals/{approval.id}/reject", headers=auth_headers)
+
+        assert response.status_code == 200
+        last = test_database.get_messages(job.conversation_id)[-1]
+        assert last.content == "[Action rejected: Delete the old ride task]"
+        [paused_run] = test_database.get_agent_executions(job.id)
+        assert paused_run.status == "failed"

@@ -167,7 +167,7 @@ class AgentExecutor:
 # ============ Main Executor Function ============
 
 
-def _build_trigger_message(trigger_type: str, extra_message: str | None = None) -> str:
+def build_trigger_message(trigger_type: str, extra_message: str | None = None) -> str:
     """Build the synthetic user message that starts an autonomous run.
 
     extra_message carries instructions from a triggering agent (trigger_agent's
@@ -203,7 +203,7 @@ def _over_budget_error(agent: Agent) -> str | None:
     return None
 
 
-def _run_history(agent: Agent, conversation_id: str) -> list[dict[str, Any]]:
+def run_history(agent: Agent, conversation_id: str) -> list[dict[str, Any]]:
     """The conversation history sent with the run (excluding the trigger message).
 
     Fresh-context agents run every turn from a clean slate (prior runs stay
@@ -314,7 +314,7 @@ def _save_response(
     return assistant_msg, clean_response
 
 
-def _record_approval_request(
+def record_approval_request(
     e: ApprovalRequestedException,
     agent: Agent,
     user: User,
@@ -550,7 +550,7 @@ def execute_agent(
 
     # Build the trigger message based on trigger type (+ any message passed
     # by a triggering agent)
-    trigger_message = _build_trigger_message(trigger_type, extra_message)
+    trigger_message = build_trigger_message(trigger_type, extra_message)
 
     # Save trigger message
     logger.debug(
@@ -560,7 +560,7 @@ def execute_agent(
     db.add_message(conv.id, MessageRole.USER, trigger_message)
 
     # Get conversation history (excluding the just-added message)
-    history = _run_history(agent, conv.id)
+    history = run_history(agent, conv.id)
 
     # Get tools for the agent (includes request_approval, trigger_agent, etc.)
     agent_tools = get_tools_for_agent(agent)
@@ -582,7 +582,7 @@ def execute_agent(
 
     except ApprovalRequestedException as e:
         # Agent used request_approval tool - waiting for user approval
-        _record_approval_request(e, agent, user, conv.id, execution_id)
+        record_approval_request(e, agent, user, conv.id, execution_id)
 
         # Return special status to indicate approval is required
         # The calling code should NOT override the execution status

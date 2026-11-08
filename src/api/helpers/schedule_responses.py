@@ -23,6 +23,8 @@ def item_to_response(item: ScheduledItem, conversation_title: str) -> dict[str, 
         "ends": describe_ends(item),
         "status": item.status,
         "next_run_at": to_api(item.next_run_at),
+        "standing": item.standing,
+        "paused_reason": item.paused_reason,
     }
 
 

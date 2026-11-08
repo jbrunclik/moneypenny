@@ -220,3 +220,72 @@ def test_finishing_a_superseded_run_changes_nothing(
         second.claimed_at,
         None,
     )
+
+
+# Standing jobs (docs/superpowers/plans/2026-11-08-standing-chats-phase-2.md, A1)
+
+
+def test_standing_fields_round_trip(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    job = test_database.add_item(
+        _item(
+            test_user,
+            test_conversation,
+            kind="recurring",
+            schedule="15 7 * * *",
+            grants=["garmin_connect", "todoist"],
+            model="gemini-3.8-flash",
+            budget_usd=0.5,
+            fresh_context=False,
+            timezone="Europe/Prague",
+        )
+    )
+
+    stored = test_database.get_item(job.id, test_user.id)
+
+    assert stored == job
+    assert stored is not None and stored.standing
+    assert not _item(test_user, test_conversation).standing
+
+
+def test_standing_jobs_do_not_count_toward_the_cap(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    test_database.add_item(_item(test_user, test_conversation))
+    test_database.add_item(
+        _item(test_user, test_conversation, kind="recurring", schedule="0 * * * *", grants=["*"])
+    )
+
+    assert test_database.count_items(test_user.id) == 1
+
+
+def test_job_spend_today_counts_only_that_job(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    job = test_database.add_item(
+        _item(test_user, test_conversation, kind="recurring", schedule="0 * * * *", grants=["*"])
+    )
+    run = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "report")
+    turn = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "chat reply")
+    common = (test_conversation.id, test_user.id, "m", 1, 1)
+    test_database.save_message_cost(run.id, *common, 0.25, job_id=job.id)
+    test_database.save_message_cost(turn.id, *common, 0.75)  # the user's own turn
+
+    assert test_database.job_spend_today(job.id) == 0.25
+
+
+def test_pause_reason_is_kept_and_cleared(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    job = test_database.add_item(
+        _item(test_user, test_conversation, kind="recurring", schedule="0 * * * *", grants=["*"])
+    )
+
+    assert test_database.set_item_paused(job.id, test_user.id, True, reason="failures")
+    paused = test_database.get_item(job.id, test_user.id)
+    assert paused is not None and paused.paused_reason == "failures"
+
+    assert test_database.set_item_paused(job.id, test_user.id, False)
+    resumed = test_database.get_item(job.id, test_user.id)
+    assert resumed is not None and resumed.paused_reason is None

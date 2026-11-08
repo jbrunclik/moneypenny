@@ -295,7 +295,10 @@ def describe_when(item: ScheduledItem) -> str:
     if item.kind == "watcher" and item.interval_hours:
         return f"checks {describe_interval(item.interval_hours)}"
     if item.kind == "recurring" and item.schedule:
-        return describe_cron(item.schedule)
+        try:
+            return describe_cron(item.schedule)
+        except ValueError:  # a standing job's cron, beyond what the tool builds
+            return f"on the schedule `{item.schedule}`"
     return describe_instant(item.next_run_at, Config.APP_TIMEZONE)
 
 

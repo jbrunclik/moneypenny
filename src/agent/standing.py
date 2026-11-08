@@ -2,7 +2,7 @@
 
 Agents and sports / language programs are standing chats
 (docs/superpowers/specs/2026-11-08-standing-chats-design.md); the loader is
-src/api/helpers/standing_context.py, the prompt section src/agent/prompts.py.
+src/agent/standing_context.py, the prompt section src/agent/prompts.py.
 """
 
 from dataclasses import dataclass

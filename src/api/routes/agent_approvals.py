@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.executor import execute_agent
+from src.agent.item_scheduler import run_job_now
 from src.api.errors import raise_not_found_error
 from src.api.helpers.agent_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -13,6 +14,7 @@ from src.api.schemas.agents import PendingApprovalsResponse
 from src.api.schemas.common import StatusResponse
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
+from src.db.models.dataclasses import ApprovalRequest
 from src.enums import MessageRole
 from src.utils.logging import get_logger
 
@@ -60,10 +62,10 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     if not approval:
         raise_not_found_error("Approval request")
 
-    # Get the agent
+    # Get the agent (or the standing job the approval names)
     agent = db.get_agent(approval.agent_id, user.id)
     if not agent:
-        raise_not_found_error("Agent")
+        return _approve_job_request(user, approval_id, approval)
 
     # Resolve the approval
     resolved = db.resolve_approval(approval_id, user.id, approved=True)
@@ -140,8 +142,10 @@ def reject_request(user: User, approval_id: str) -> dict[str, Any]:
     if not approval:
         raise_not_found_error("Approval request")
 
-    # Get the agent to find the conversation
+    # The agent's (or the standing job's) conversation
     agent = db.get_agent(approval.agent_id, user.id)
+    job = None if agent else db.get_item(approval.agent_id, user.id)
+    conversation_id = agent.conversation_id if agent else (job.conversation_id if job else None)
 
     # Resolve the approval
     resolved = db.resolve_approval(approval_id, user.id, approved=False)
@@ -149,17 +153,31 @@ def reject_request(user: User, approval_id: str) -> dict[str, Any]:
         raise_not_found_error("Approval request")
 
     # Add rejection message to the conversation
-    if agent and agent.conversation_id:
+    if conversation_id:
         rejection_message = f"[Action rejected: {approval.description}]"
-        db.add_message(
-            agent.conversation_id,
-            MessageRole.USER,
-            rejection_message,
-        )
+        db.add_message(conversation_id, MessageRole.USER, rejection_message)
 
     _close_waiting_execution(approval.agent_id, status="failed", error="Action rejected by user")
 
     return {"status": "rejected"}
+
+
+def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest) -> dict[str, str]:
+    """Approve a standing job's request and resume its run with the outcome."""
+    job = db.get_item(approval.agent_id, user.id)
+    if job is None or not job.standing:
+        raise_not_found_error("Agent")
+    if not db.resolve_approval(approval_id, user.id, approved=True):
+        raise_not_found_error("Approval request")
+    _close_waiting_execution(job.id, status="completed")
+    resume_message = f"[Action approved: {approval.description}]"
+    db.add_message(job.conversation_id, MessageRole.USER, resume_message)
+    try:
+        run_job_now(job, user, message=resume_message)
+    except Exception:  # the approval went through: the run's crash is logged, not a 500
+        logger.exception("Resumed job run crashed", extra={"item_id": job.id})
+    logger.info("Approval processed and job resumed", extra={"approval_id": approval_id})
+    return {"status": "approved"}
 
 
 def _close_waiting_execution(agent_id: str, status: str, error: str | None = None) -> None:

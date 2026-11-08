@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from src.api.helpers.standing_context import load_standing_context
+from src.agent.standing_context import load_standing_context
 from src.db.models import use_database
 
 if TYPE_CHECKING:

@@ -371,3 +371,15 @@ class ScheduledItem:
     failures: int
     created_at: datetime
     claimed_at: datetime | None = None
+    # Standing jobs (an agent's schedule) carry grants; light items leave
+    # them None. Grants are tool names, or ["*"] for all tools
+    grants: list[str] | None = None
+    model: str | None = None
+    budget_usd: float | None = None  # daily, the job's own runs only
+    fresh_context: bool = True
+    timezone: str | None = None  # the cron's zone; None = APP_TIMEZONE
+    paused_reason: str | None = None  # "failures", "disabled"
+
+    @property
+    def standing(self) -> bool:
+        return self.grants is not None

@@ -3405,6 +3405,57 @@
         "description": "Agent and program conversations (planner, sports, language) have no\ntrash view and are deleted immediately, as before."
       }
     },
+    "/api/schedules/{item_id}/run": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Run a standing job now; the status is the run's outcome (report,",
+        "description": "silent, done, failed, approval). Light items only run on their schedule."
+      }
+    },
     "/api/admin/device-check-runs": {
       "get": {
         "parameters": [
@@ -13260,6 +13311,25 @@
             "format": "date-time",
             "title": "Next Run At",
             "type": "string"
+          },
+          "standing": {
+            "default": false,
+            "description": "A standing job (an agent's schedule): it can be run by hand",
+            "title": "Standing",
+            "type": "boolean"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why it is paused: 'failures' (kept failing), 'disabled'",
+            "title": "Paused Reason"
           }
         },
         "required": [
@@ -13271,7 +13341,9 @@
           "when",
           "ends",
           "status",
-          "next_run_at"
+          "next_run_at",
+          "standing",
+          "paused_reason"
         ],
         "title": "ScheduledItemResponse",
         "type": "object"
@@ -15190,6 +15262,25 @@
             "format": "date-time",
             "title": "Next Run At",
             "type": "string"
+          },
+          "standing": {
+            "default": false,
+            "description": "A standing job (an agent's schedule): it can be run by hand",
+            "title": "Standing",
+            "type": "boolean"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why it is paused: 'failures' (kept failing), 'disabled'",
+            "title": "Paused Reason"
           }
         },
         "required": [
@@ -15201,7 +15292,9 @@
           "when",
           "ends",
           "status",
-          "next_run_at"
+          "next_run_at",
+          "standing",
+          "paused_reason"
         ],
         "title": "ScheduledItemResponse",
         "type": "object"
@@ -16531,6 +16624,25 @@
             "format": "date-time",
             "title": "Next Run At",
             "type": "string"
+          },
+          "standing": {
+            "default": false,
+            "description": "A standing job (an agent's schedule): it can be run by hand",
+            "title": "Standing",
+            "type": "boolean"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Why it is paused: 'failures' (kept failing), 'disabled'",
+            "title": "Paused Reason"
           }
         },
         "required": [
@@ -16542,7 +16654,9 @@
           "when",
           "ends",
           "status",
-          "next_run_at"
+          "next_run_at",
+          "standing",
+          "paused_reason"
         ],
         "title": "ScheduledItemResponse",
         "type": "object"

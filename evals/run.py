@@ -737,7 +737,7 @@ def _standing(case: EvalCase) -> Any:
         return StandingContext("agent", name, instructions, None, "agent:eval", agent_id="eval")
     if case.mode not in _CANNED_PROGRAMS:
         return None
-    from src.api.helpers.standing_context import standing_for_program
+    from src.agent.standing_context import standing_for_program
 
     name, program_id = _CANNED_PROGRAMS[case.mode]
     context = {"program_name": name, "program_id": program_id, "kv_data": dict(case.program_kv)}

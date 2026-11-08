@@ -23,6 +23,12 @@ class ScheduledItemResponse(ResponseModel):
     ends: str = Field(description="e.g. 'then done', 'until a job is posted, at most until 7 Dec'")
     status: Literal["active", "paused", "running"]
     next_run_at: Timestamp
+    standing: bool = Field(
+        default=False, description="A standing job (an agent's schedule): it can be run by hand"
+    )
+    paused_reason: str | None = Field(
+        default=None, description="Why it is paused: 'failures' (kept failing), 'disabled'"
+    )
 
 
 class ConversationSchedulesResponse(ResponseModel):

@@ -54,6 +54,7 @@ class CostMixin:
         duration_ms: int | None = None,
         tool_errors: int = 0,
         tools_used: list[str] | None = None,
+        job_id: str | None = None,
     ) -> None:
         """Save cost information for a message.
 
@@ -72,6 +73,7 @@ class CostMixin:
             duration_ms: Wall-clock of the whole agent turn (None if unmeasured)
             tool_errors: ToolMessages structurally detected as failures
             tools_used: Unique tool names executed in the turn (stored as JSON)
+            job_id: The standing job whose unattended run this was (its budget)
         """
         cost_id = str(uuid.uuid4())
         logger.debug(
@@ -98,8 +100,8 @@ class CostMixin:
                     input_tokens, output_tokens, cached_input_tokens,
                     tool_rounds, tool_call_count,
                     cost_usd, image_generation_cost_usd, created_at,
-                    duration_ms, tool_errors, tools_used
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_ms, tool_errors, tools_used, job_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -117,6 +119,7 @@ class CostMixin:
                     duration_ms,
                     tool_errors,
                     json.dumps(tools_used) if tools_used else None,
+                    job_id,
                 ),
             )
             conn.commit()

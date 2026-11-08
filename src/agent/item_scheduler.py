@@ -8,6 +8,11 @@ silent run backs a watcher off, a report is delivered, [DONE] ends a watcher,
 SCHEDULE_ITEM_MAX_FAILURES failures in a row stop the item, and an item past
 its end stops with a note in its chat. Each item is handled on its own: one
 bad item never stops the tick.
+
+Standing jobs (grants set: an agent's schedule) have looser limits: no expiry,
+any cron (in the job's timezone), no slow-down; they wait while an approval
+they asked for is pending, skip a run over their daily budget (not a failure),
+and after the failure limit pause with one alert instead of being deleted.
 """
 
 from __future__ import annotations
@@ -23,10 +28,12 @@ from src.agent.tools.scheduling import watch_expiry
 from src.config import Config
 from src.db.models import db
 from src.services.push import send_push_to_user
+from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.schedule_spec import describe_instant, next_cron_run
 
 if TYPE_CHECKING:
+    from src.db.models import User
     from src.db.models.dataclasses import ScheduledItem
 
 logger = get_logger(__name__)
@@ -108,7 +115,7 @@ def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
     if item.kind in {"reminder", "check_in"}:
         _fire_one_off(item, now, result)
         return
-    expiry = watch_expiry(item)
+    expiry = None if item.standing else watch_expiry(item)
     if expiry is not None and expiry <= now:
         _stop(item, now, _expired_text(item))
         result.expired += 1
@@ -117,8 +124,37 @@ def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
     if user is None:
         db.delete_item(item.id)
         return
+    if item.standing and _job_held(item, now):
+        return
     result.run += 1
     _apply_outcome(item, now, run_model_item(item, user))
+
+
+def run_job_now(item: ScheduledItem, user: User, *, message: str | None = None) -> RunOutcome:
+    """Run a standing job by hand (Run now, or resuming after an approval) and
+    post its report; no push (the user is in the app) and no failure counting."""
+    outcome = run_model_item(item, user, trigger="manual", message=message)
+    if outcome.status in {"report", "done"} and outcome.text:
+        label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "run now")
+        deliver(item, outcome.text, label, push=False, outcome=outcome)
+    return outcome
+
+
+def _job_held(item: ScheduledItem, now: datetime) -> bool:
+    """A standing job that must not run now: it waits for its pending approval,
+    or it spent its daily budget (recorded, not a failure). Given back on its
+    schedule."""
+    if db.has_pending_approval(item.id):
+        _give_back(item, now, failed=False)
+        return True
+    budget = item.budget_usd
+    if budget is None or budget <= 0 or db.job_spend_today(item.id) < budget:
+        return False
+    execution = db.create_execution(item.id, "scheduled")
+    db.update_execution(execution.id, "failed", f"Skipped: over its daily budget (${budget:.2f})")
+    logger.info("Standing job over budget", extra={"item_id": item.id, "budget_usd": budget})
+    _give_back(item, now, failed=False)
+    return True
 
 
 def _fire_one_off(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
@@ -145,10 +181,12 @@ def _fire_one_off(item: ScheduledItem, now: datetime, result: ItemsResult) -> No
 def _apply_outcome(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> None:
     tz = Config.APP_TIMEZONE
     if outcome.status == "failed":
-        if item.failures + 1 >= Config.SCHEDULE_ITEM_MAX_FAILURES:
-            _stop(item, now, f"{_stopped_title(item)} - kept failing: {item.text}")
-        else:
+        if item.failures + 1 < Config.SCHEDULE_ITEM_MAX_FAILURES:
             _give_back(item, now, failed=True)
+        elif item.standing:
+            _pause_job(item, now, outcome.error or "unknown error")
+        else:
+            _stop(item, now, f"{_stopped_title(item)} - kept failing: {item.text}")
         return
     found = outcome.status == "done" and item.kind == "watcher"
     if outcome.status == "silent" or (not outcome.text and not found):  # nothing to tell
@@ -184,12 +222,12 @@ def _may_deliver(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> boo
 
 def _next_run(item: ScheduledItem, now: datetime, quiet_runs: int) -> datetime:
     if item.kind == "recurring" and item.schedule:
-        nxt = next_cron_run(item.schedule, Config.APP_TIMEZONE, now)
+        nxt = next_cron_run(item.schedule, item.timezone or Config.APP_TIMEZONE, now)
     else:
         nxt = next_watch_run(
             now, item.interval_hours or 24, quiet_runs, item.expires_at is not None
         )
-    expiry = watch_expiry(item)
+    expiry = None if item.standing else watch_expiry(item)
     return min(nxt, expiry) if expiry is not None else nxt
 
 
@@ -228,6 +266,27 @@ def _expired_text(item: ScheduledItem) -> str:
     if item.kind == "watcher":
         return f'Stopped watching: {item.text} - no "{item.end_condition}" within its time.'
     return f"Stopped: reached its end date - {item.text}"
+
+
+def _pause_job(item: ScheduledItem, now: datetime, error: str) -> None:
+    """A standing job that kept failing pauses - one alert, one push - and keeps
+    its setup; the user resumes it from the chat's schedule chip."""
+    failures = item.failures + 1
+    text = (
+        f"Paused after {failures} failed runs: {error[:_PUSH_BODY_CHARS]}. "
+        "Resume it from the chat's schedule chip."
+    )
+    deliver(item, text, delivery_label(item.kind, now, Config.APP_TIMEZONE, "paused"))
+    db.finish_item_run(
+        item.id,
+        _next_run(item, now, item.quiet_runs),
+        item.last_result,
+        item.quiet_runs,
+        failures,
+        claimed_at=item.claimed_at,
+    )
+    db.set_item_paused(item.id, item.user_id, True, reason="failures")
+    logger.warning("Standing job paused after failures", extra={"item_id": item.id})
 
 
 def _stop(item: ScheduledItem, now: datetime, text: str) -> None:

@@ -8,6 +8,8 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+import pytest
+
 from src.db.models.dataclasses import ScheduledItem
 from src.enums import MessageRole
 
@@ -203,5 +205,95 @@ def test_pausing_a_running_item_is_a_conflict(
     test_database.claim_due_items(item.next_run_at)
 
     response = client.post(f"/api/schedules/{item.id}/pause", headers=auth_headers)
+
+    assert response.status_code == 409
+
+
+# Standing jobs (phase 2 plan, A4): run now, paused reason, any cron
+
+
+def _job(
+    db: Database, user: User, conversation: Conversation, **overrides: object
+) -> ScheduledItem:
+    fields: dict[str, object] = {
+        "kind": "recurring",
+        "text": "Send the morning briefing.",
+        "schedule": "0 * * * *",  # hourly: a cron the schedule tool would not build
+        "grants": ["*"],
+    }
+    return _add(db, user, conversation, **(fields | overrides))
+
+
+def test_standing_job_is_listed_with_its_reason_and_any_cron(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    job = _job(test_database, test_user, test_conversation)
+    test_database.set_item_paused(job.id, test_user.id, True, reason="failures")
+
+    response = client.get(
+        f"/api/conversations/{test_conversation.id}/schedules", headers=auth_headers
+    )
+
+    [item] = response.get_json()["items"]
+    assert (item["standing"], item["paused_reason"], item["status"]) == (True, "failures", "paused")
+    assert "0 * * * *" in item["when"]
+
+
+def test_run_now_standing_job(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.agent.item_runner import RunOutcome
+    from src.api.routes import schedules
+
+    ran: list[ScheduledItem] = []
+
+    def run_job_now(item: ScheduledItem, user: User, *, message: str | None = None) -> RunOutcome:
+        ran.append(item)
+        return RunOutcome("report", "Good morning.")
+
+    monkeypatch.setattr(schedules, "run_job_now", run_job_now)
+    job = _job(test_database, test_user, test_conversation)
+
+    response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "report"}
+    assert [i.id for i in ran] == [job.id]
+
+
+def test_run_now_refused_for_light_items(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    item = _watcher(test_database, test_user, test_conversation)
+
+    response = client.post(f"/api/schedules/{item.id}/run", headers=auth_headers)
+
+    assert response.status_code == 409
+
+
+def test_run_now_refused_while_awaiting_approval(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    job = _job(test_database, test_user, test_conversation)
+    test_database.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+
+    response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
 
     assert response.status_code == 409

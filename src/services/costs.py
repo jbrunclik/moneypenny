@@ -232,6 +232,7 @@ def calculate_and_save_message_cost(
     tool_results: list[dict[str, Any]],
     response_length: int,
     mode: str = "batch",
+    job_id: str | None = None,
 ) -> float:
     """Calculate and save cost for a message; returns the cost in USD.
 
@@ -244,6 +245,7 @@ def calculate_and_save_message_cost(
         tool_results: List of tool result dicts
         response_length: Length of the response content (used for logging warnings when token metadata is missing)
         mode: 'batch' or 'stream' (for logging)
+        job_id: The standing job whose unattended run this was (its budget)
     """
     input_tokens = usage_info.get("input_tokens", 0)
     output_tokens = usage_info.get("output_tokens", 0)
@@ -295,6 +297,7 @@ def calculate_and_save_message_cost(
         duration_ms=usage_info.get("duration_ms"),
         tool_errors=usage_info.get("tool_errors", 0),
         tools_used=usage_info.get("tools_used"),
+        job_id=job_id,
     )
 
     logger.info(

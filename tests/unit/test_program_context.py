@@ -1,4 +1,4 @@
-"""The program-conversation context loaders (src/api/helpers/program_context.py).
+"""The program-conversation context loaders (src/agent/program_context.py).
 
 Runs against a real test database (the global ``db`` swapped via
 ``use_database``); nothing is faked. Covers the happy-path shape, the
@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from src.api.helpers.program_context import load_language_context, load_sports_context
+from src.agent.program_context import load_language_context, load_sports_context
 from src.db.models import Database, User, use_database
 
 Loader = Callable[[str, str], dict[str, Any] | None]

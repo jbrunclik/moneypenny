@@ -11,6 +11,7 @@ RETURNING, so two overlapping scheduler runs never handle one twice.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import astuple, fields
 from datetime import datetime, timedelta
@@ -18,6 +19,7 @@ from typing import TYPE_CHECKING, Literal
 
 from src.db.models.dataclasses import ScheduledItem
 from src.db.models.timestamps import from_db, from_db_or_none, to_db, to_db_or_none
+from src.utils.clock import local_day_start, utc_now
 
 if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
@@ -26,6 +28,10 @@ _LIVE_CHAT = """conversation_id IN (SELECT id FROM conversations
     WHERE deleted_at IS NULL AND (archived = 0 OR archived IS NULL))"""
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
 _TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at"}
+
+
+def _grants(raw: str | None) -> list[str] | None:
+    return [str(g) for g in json.loads(raw)] if raw is not None else None
 
 
 def _row_to_item(row: sqlite3.Row) -> ScheduledItem:
@@ -46,13 +52,26 @@ def _row_to_item(row: sqlite3.Row) -> ScheduledItem:
         failures=row["failures"],
         created_at=from_db(row["created_at"]),
         claimed_at=from_db_or_none(row["claimed_at"]),
+        grants=_grants(row["grants"]),
+        model=row["model"],
+        budget_usd=row["budget_usd"],
+        fresh_context=bool(row["fresh_context"]),
+        timezone=row["timezone"],
+        paused_reason=row["paused_reason"],
     )
+
+
+def _stored_value(name: str, value: object) -> object:
+    if name in _TIMES:
+        return to_db_or_none(value)  # type: ignore[arg-type]
+    if name == "grants":
+        return json.dumps(value) if value is not None else None
+    return value
 
 
 def _stored(item: ScheduledItem) -> tuple[object, ...]:
     return tuple(
-        to_db_or_none(value) if name in _TIMES else value
-        for name, value in zip(_COLUMNS, astuple(item), strict=True)
+        _stored_value(name, value) for name, value in zip(_COLUMNS, astuple(item), strict=True)
     )
 
 
@@ -98,26 +117,46 @@ class ScheduledItemsMixin:
             return [_row_to_item(row) for row in rows.fetchall()]
 
     def count_items(self, user_id: str) -> int:
-        """All the user's items in live chats, paused included (the cap counts them)."""
+        """The user's light items in live chats, paused included (the cap counts
+        them); standing jobs have no count limit."""
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                f"SELECT COUNT(*) FROM scheduled_items WHERE user_id = ? AND {_LIVE_CHAT}",
+                f"""SELECT COUNT(*) FROM scheduled_items
+                    WHERE user_id = ? AND grants IS NULL AND {_LIVE_CHAT}""",
                 (user_id,),
             ).fetchone()
         return int(row[0])
 
-    def set_item_paused(self, item_id: str, user_id: str, paused: bool) -> bool:
-        """Pause or resume one of the user's items; False if none matched."""
+    def set_item_paused(
+        self, item_id: str, user_id: str, paused: bool, reason: str | None = None
+    ) -> bool:
+        """Pause (with an optional reason) or resume one of the user's items;
+        resuming clears the reason and the failure count. False if none matched."""
         source, target = ("active", "paused") if paused else ("paused", "active")
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE scheduled_items SET status = ? WHERE id = ? AND user_id = ? AND status = ?",
-                (target, item_id, user_id, source),
+                """UPDATE scheduled_items
+                   SET status = ?, paused_reason = ?,
+                       failures = CASE WHEN ? THEN failures ELSE 0 END
+                   WHERE id = ? AND user_id = ? AND status = ?""",
+                (target, reason if paused else None, paused, item_id, user_id, source),
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def job_spend_today(self, job_id: str) -> float:
+        """A standing job's own unattended spend since local midnight (its
+        daily budget; the user's turns in the same chat are not counted)."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                """SELECT COALESCE(SUM(cost_usd), 0) FROM message_costs
+                   WHERE job_id = ? AND created_at >= ?""",
+                (job_id, to_db(local_day_start(utc_now()))),
+            ).fetchone()
+        return float(row[0])
 
     def delete_item(self, item_id: str, user_id: str | None = None) -> bool:
         """Delete an item (the user's own, or any for the scheduler); False if none."""

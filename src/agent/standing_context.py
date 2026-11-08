@@ -14,11 +14,11 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Literal
 
 from src.agent.daily_briefing import resolve_agent_system_prompt
+from src.agent.program_context import load_language_context, load_sports_context
 from src.agent.prompt_programs import PROGRAM_QUICK_ACTION_NOTE, format_program_kv_data
 from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
 from src.agent.prompt_texts.sports import SPORTS_TRAINER_SYSTEM_PROMPT
 from src.agent.standing import StandingContext
-from src.api.helpers.program_context import load_language_context, load_sports_context
 from src.db.models import db
 from src.utils.schedule_spec import describe_cron
 

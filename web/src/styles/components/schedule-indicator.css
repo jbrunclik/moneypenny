@@ -69,6 +69,7 @@
     flex-shrink: 0;
 }
 
+.schedule-item-run,
 .schedule-item-pause,
 .schedule-item-cancel,
 .chat-item-cancel {
@@ -83,6 +84,7 @@
     flex-shrink: 0;
 }
 
+.schedule-item-run:hover,
 .schedule-item-pause:hover,
 .schedule-item-cancel:hover,
 .chat-item-cancel:hover {
