@@ -746,12 +746,6 @@ class Config:
     # misconfigured fleet cannot fan out unbounded LLM runs.
     AGENT_MAX_TRIGGER_DEPTH: int = int(os.getenv("AGENT_MAX_TRIGGER_DEPTH", "3"))
 
-    # Conversation compaction settings
-    # Maximum messages before compaction is triggered (keeps conversation within context limits)
-    AGENT_COMPACTION_THRESHOLD: int = int(os.getenv("AGENT_COMPACTION_THRESHOLD", "50"))
-    # Number of recent messages to keep uncompacted (for immediate context)
-    AGENT_COMPACTION_KEEP_RECENT: int = int(os.getenv("AGENT_COMPACTION_KEEP_RECENT", "10"))
-
     # Regular (non-agent) conversation compaction: bounds the history sent to the
     # LLM on long chats by replacing older turns with a running summary, keeping
     # recent turns verbatim. Non-destructive — the full history stays in the DB

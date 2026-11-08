@@ -187,18 +187,45 @@ class TestExecuteAgentSuccess:
         _run(db, agent, user)
 
         history = fake_llm.instances[0].chat_kwargs["history"]
-        assert history == [
-            {"role": "user", "content": "[Scheduled run at earlier]"},
-            {"role": "assistant", "content": "Yesterday's report"},
+        # Enriched like a chat turn's history (timestamps in metadata)
+        assert [(h["role"], h["content"]) for h in history] == [
+            ("user", "[Scheduled run at earlier]"),
+            ("assistant", "Yesterday's report"),
         ]
 
-    def test_compaction_failure_does_not_block_the_run(
+    def test_run_history_uses_chat_compaction_and_keeps_messages(
         self, db: Database, user: User, fake_llm: type[FakeChatAgent], push: MagicMock
     ) -> None:
-        agent = _agent(db, user)
+        """One non-destructive compaction for runs and chats: a long agent
+        conversation is compacted for the model, never deleted."""
+        agent = _agent(db, user, fresh_context=False)
+        assert agent.conversation_id
+        for i in range(30):
+            db.add_message(agent.conversation_id, MessageRole.USER, f"[Scheduled run {i}]")
+            db.add_message(agent.conversation_id, MessageRole.ASSISTANT, f"Report {i}")
 
-        with patch("src.agent.executor.compact_conversation", side_effect=RuntimeError("llm down")):
+        with patch(
+            "src.agent.executor.build_compacted_history", side_effect=lambda u, c, h: h[-4:]
+        ) as compact:
             assert _run(db, agent, user) == (True, None)
+
+        assert compact.call_args.args[:2] == (user.id, agent.conversation_id)
+        assert len(fake_llm.instances[0].chat_kwargs["history"]) == 4
+        # 60 seeded + the run's trigger and reply: nothing was deleted
+        assert len(db.get_messages(agent.conversation_id)) == 62
+
+    def test_fresh_context_run_has_no_history(
+        self, db: Database, user: User, fake_llm: type[FakeChatAgent], push: MagicMock
+    ) -> None:
+        agent = _agent(db, user, fresh_context=True)
+        assert agent.conversation_id
+        db.add_message(agent.conversation_id, MessageRole.ASSISTANT, "Old report")
+
+        with patch("src.agent.executor.build_compacted_history") as compact:
+            _run(db, agent, user)
+
+        compact.assert_not_called()
+        assert fake_llm.instances[0].chat_kwargs["history"] == []
 
 
 class TestExecuteAgentPreflightFailures:

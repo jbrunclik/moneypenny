@@ -168,6 +168,14 @@ class ProgramConversationMixin:
             self._execute_with_timing(
                 conn, "DELETE FROM messages WHERE conversation_id = ?", (conv_id,)
             )
+            # The running summary of the deleted history (chat compaction's kv
+            # state, namespace conv_compaction) would otherwise be reused once
+            # the new history grows; facts go with their messages (trigger)
+            self._execute_with_timing(
+                conn,
+                "DELETE FROM kv_store WHERE user_id = ? AND namespace = 'conv_compaction' AND key = ?",
+                (user_id, conv_id),
+            )
 
             now = utc_now()
             self._execute_with_timing(

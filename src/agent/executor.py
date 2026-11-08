@@ -12,13 +12,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from src.agent.agent import ChatAgent
-from src.agent.compaction import compact_conversation
 from src.agent.content import (
     detect_response_language,
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
+from src.agent.conversation_compaction import build_compacted_history
 from src.agent.daily_briefing import resolve_agent_system_prompt
+from src.agent.history import enrich_history
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import (
     get_tools_for_agent,
@@ -202,21 +203,19 @@ def _over_budget_error(agent: Agent) -> str | None:
     return None
 
 
-def _run_history(agent: Agent, conversation_id: str) -> list[dict[str, str]]:
+def _run_history(agent: Agent, conversation_id: str) -> list[dict[str, Any]]:
     """The conversation history sent with the run (excluding the trigger message).
 
-    Fresh-context agents run every turn from a clean slate: prior runs
-    stay readable in the conversation but aren't sent to the LLM
-    (saves tokens; right default for report-style agents like the
-    Daily Briefing whose runs are independent).
+    Fresh-context agents run every turn from a clean slate (prior runs stay
+    readable in the chat but aren't sent - right for report-style agents like
+    the Daily Briefing). Others get it through the regular chat compaction -
+    the same non-destructive summary + recent messages a chat turn uses, so
+    the user's own turns in that chat and the runs never clash over it.
     """
     if agent.fresh_context:
         return []
     messages = db.get_messages(conversation_id)
-    return [
-        {"role": m.role.value, "content": m.content}
-        for m in messages[:-1]  # Exclude the trigger message
-    ]
+    return build_compacted_history(agent.user_id, conversation_id, enrich_history(messages[:-1]))
 
 
 def _prompt_context(agent: Agent, trigger_type: str, tool_names: list[str]) -> dict[str, Any]:
@@ -355,7 +354,7 @@ def _record_approval_request(
 
 
 def _load_run_conversation(agent: Agent, user: User) -> tuple[Conversation | None, str | None]:
-    """The agent's conversation, after the pre-run checks and compaction; or the error."""
+    """The agent's conversation, after the pre-run checks; or the error."""
     # Check if agent has a conversation
     if not agent.conversation_id:
         error_msg = f"Agent has no conversation: {agent.id}"
@@ -366,16 +365,6 @@ def _load_run_conversation(agent: Agent, user: User) -> tuple[Conversation | Non
     budget_error = _over_budget_error(agent)
     if budget_error:
         return None, budget_error
-
-    # Check if conversation needs compaction
-    try:
-        compact_conversation(agent)
-    except Exception as e:  # compaction is best-effort; the run continues
-        logger.warning(
-            "Conversation compaction failed",
-            extra={"agent_id": agent.id, "error": str(e)},
-            exc_info=True,
-        )
 
     # Get the agent's conversation
     conv = db.get_conversation(agent.conversation_id, user.id)

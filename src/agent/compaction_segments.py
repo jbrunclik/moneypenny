@@ -27,8 +27,21 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.agent import compaction
-from src.agent.compaction import SUMMARY_FOCUS, SUMMARY_MESSAGE_MAX_CHARS
 from src.config import Config
+
+# Per-message cap for what the summarizer sees (an earlier 500-char cap showed
+# it ~25% of the text it replaced); only guards pathological messages
+SUMMARY_MESSAGE_MAX_CHARS = 8000
+
+# What a conversation summary should preserve
+SUMMARY_FOCUS = (
+    "1. Key topics, questions, and decisions\n"
+    "2. Important facts, preferences, or context the user shared\n"
+    "3. Conclusions reached or actions the assistant took\n"
+    "4. Any ongoing tasks or open threads\n"
+    "5. Exact identifiers needed to continue the work verbatim: names, "
+    "dates, numbers, amounts, URLs, and file or message references"
+)
 
 # Earlier segments shown to the summarizer as context (not re-summarized) so a
 # new segment does not repeat what is already covered.
