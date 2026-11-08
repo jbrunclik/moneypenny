@@ -234,7 +234,11 @@ turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
 - **When**: `save_message_to_db` calls `note_turn`
   (`src/api/helpers/memory_review_trigger.py`). Per chat, kv namespace
   `memory_review` (reserved: the model cannot write it) keeps a turn counter
-  and a cursor - the last message a pass reviewed. A turn that called
+  (`<conv>:turns`, bumped atomically; a pass fires on each multiple) and,
+  under a separate key, a cursor - the last message a pass reviewed. Separate
+  because two workers write them: a turn touches only the counter, a pass only
+  the cursor. A pass stops at its triggering reply, so a turn still in flight
+  is left for the next one. A turn that called
   `manage_memory` resets the counter but not the cursor, so nothing said before
   it is skipped. One pass reads at most `MEMORY_REVIEW_MAX_TURNS` (12) user
   turns. Runs in every non-anonymous, non-planning chat, Sports and Language
@@ -254,18 +258,21 @@ turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
 - **Writes**: adds and patches only, each applied on its own through the tool's
   guards (`apply_single_op` in `tools/memory.py`) - a rejected op is logged and
   dropped, the rest still apply. A full bank rejects adds; patches still apply.
-- **The note**: the triggering reply gets `messages.memory_note` ("Memory
+- **The note**: the triggering reply (or, if the user regenerated it
+  mid-pass, the reply that replaced it) gets `messages.memory_note` ("Memory
   updated: Ema - ballet on Tuesdays", two items then "and N more"), rendered by
   `messages/memory-note.ts`; a tap opens Memories. The update bumps the sync
   change log and the open chat's merge patches it in place
   (`patchMemoryNotes` in `core/remote-merge.ts`), no re-render.
-- **Cost**: added to the triggering reply's cost row (`add_message_cost_usd`);
-  about $0.0006 a pass in the evals.
+- **Cost**: added to that reply's cost row (`add_message_cost_usd`), thinking
+  tokens billed as output; about $0.0006 a pass in the evals.
 - **Logs**: "Memory review pass" (per pass: messages reviewed, applied, cost)
   and "Memory review applied" (per write: action, memory id, length - no text).
 - **Evals**: `memory_review: true` cases call the pass directly on a seeded
   chat and grade its ops as one `manage_memory` call
-  (`evals/cases/memory_review_*.yaml`).
+  (`evals/cases/memory_review_*.yaml`). Each runs as its own fresh user: the
+  pass reads the whole bank and the recently deleted memories, which parallel
+  cases sharing one user would pollute.
 - **Tests**: `test_memory_review.py`, `test_memory_single_op.py`,
   `test_memory_review_trigger.py`, `test_message_memory_note.py`,
   `web/tests/unit/memory-note-merge.test.ts`, `web/tests/e2e/memory-note.spec.ts`.

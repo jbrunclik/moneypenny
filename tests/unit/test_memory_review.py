@@ -62,12 +62,17 @@ class _FakeModels:
     def __init__(self, reply: str) -> None:
         self.reply = reply
         self.prompts: list[str] = []
+        self.thoughts = 0
 
     def generate_content(self, *, model: str, contents: str, config: Any) -> Any:
         self.prompts.append(contents)
         return SimpleNamespace(
             text=self.reply,
-            usage_metadata=SimpleNamespace(prompt_token_count=900, candidates_token_count=40),
+            usage_metadata=SimpleNamespace(
+                prompt_token_count=900,
+                candidates_token_count=40,
+                thoughts_token_count=self.thoughts,
+            ),
         )
 
 
@@ -156,3 +161,15 @@ def test_review_messages_applies_each_op_independently(
         {"action": "add", "content": "Ema - ballet on Tuesdays", "category": "fact"}
     ]
     assert (result.input_tokens, result.output_tokens) == (900, 40)
+
+
+def test_thinking_tokens_are_billed_as_output(
+    fake_model: _FakeModels, test_database: Database, test_conversation: Conversation
+) -> None:
+    fake_model.thoughts = 60
+
+    result = memory_review.review_messages(
+        test_conversation.user_id, test_conversation.id, _chat(test_database, test_conversation)
+    )
+
+    assert result.output_tokens == 100

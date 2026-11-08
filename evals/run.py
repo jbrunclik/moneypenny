@@ -791,19 +791,13 @@ def _memory_review_turn(
     from src.db import models
 
     db = models.db
-    # Earlier cases' soft-deleted memories would read as "removed by the user"
-    db.purge_deleted_memories(retention_days=0)
     for turn in history or []:
         db.add_message(conversation_id, str(turn["role"]), str(turn["content"]))
     db.add_message(conversation_id, "user", case.user)
+    # The case runs as its own user (_case_user): nothing to clean up after
     result = memory_review.review_messages(
         user.id, conversation_id, db.get_messages(conversation_id)
     )
-    # The review's own adds go too (cases run in parallel as one user: only
-    # memories learned in this case's conversation are its own)
-    for memory in db.list_memories(user.id):
-        if memory.source_conversation_id == conversation_id:
-            db.delete_memory(memory.id, user.id)
     calls = [{"name": "manage_memory", "args": {"operations": result.ops}, "id": "review"}]
     saved = memory_review.format_note(result.applied)
     response = f"Memory updated: {saved}" if result.ops else "Memory review: nothing saved."
@@ -919,6 +913,18 @@ def _judge(
     return score, judge_pass, reasoning, *_judge_tokens(judge_reply)
 
 
+def _case_user(case: EvalCase, user: Any, db: Any) -> Any:
+    """The user a case runs as. Cases share one user and run in parallel; a
+    memory-review case gets a fresh one, since the review reads the whole
+    bank and the recently deleted memories (cleanups read as "removed by the
+    user - do not re-add")."""
+    if not case.memory_review:
+        return user
+    import uuid
+
+    return db.get_or_create_user(f"eval-{case.id}-{uuid.uuid4().hex[:8]}@example.com", "Eval User")
+
+
 def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     """Execute one case through ChatAgent and judge it."""
     import uuid
@@ -930,6 +936,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     from src.config import Config
     from src.services.costs import calculate_token_cost
 
+    user = _case_user(case, user, db)
     conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
     set_conversation_context(conversation.id, user.id)
     # Per-turn tool bookkeeping (batching nudges, web_search -> research

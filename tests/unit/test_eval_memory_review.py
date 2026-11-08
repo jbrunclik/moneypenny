@@ -82,3 +82,19 @@ def test_memory_review_case_with_nothing_saved_calls_no_tool(
 
     assert _tools_used(result_messages) == set()
     assert "nothing" in response.lower()
+
+
+def test_memory_review_cases_each_get_a_fresh_user(
+    test_database: Database, test_user: User
+) -> None:
+    """Cases run in parallel as one user: a review case would see the others'
+    memories and their deleted ones ("removed by the user - do not re-add")."""
+    review = run.EvalCase(id="r", description="d", user="u", memory_review=True)
+    plain = run.EvalCase(id="p", description="d", user="u")
+
+    first = run._case_user(review, test_user, test_database)
+    second = run._case_user(review, test_user, test_database)
+
+    assert first.id != test_user.id
+    assert first.id != second.id
+    assert run._case_user(plain, test_user, test_database) is test_user

@@ -57,6 +57,11 @@ def _state(db: Database, conv: Conversation) -> dict[str, Any]:
     return json.loads(raw) if raw else {}
 
 
+def _turns(db: Database, conv: Conversation) -> int | None:
+    raw = db.kv_get(conv.user_id, trigger.KV_NAMESPACE, f"{conv.id}:turns")
+    return int(raw) if raw is not None else None
+
+
 def _note(db: Database, conv: Conversation, message_id: str) -> str | None:
     return next(m.memory_note for m in db.get_messages(conv.id) if m.id == message_id)
 
@@ -66,7 +71,7 @@ def test_counts_turns_and_fires_at_threshold(
 ) -> None:
     ids = [_turn(test_database, test_conversation, i) for i in range(5)]
     assert reviewer.calls == []
-    assert _state(test_database, test_conversation)["turns"] == 5
+    assert _turns(test_database, test_conversation) == 5
 
     sixth = _turn(test_database, test_conversation, 5)
 
@@ -74,7 +79,6 @@ def test_counts_turns_and_fires_at_threshold(
     assert len(reviewer.calls[0]) == 12
     assert _note(test_database, test_conversation, sixth) == "Ema - ballet on Tuesdays"
     assert _note(test_database, test_conversation, ids[0]) is None
-    assert _state(test_database, test_conversation)["turns"] == 0
 
 
 def test_manage_memory_turn_resets_counter_keeps_cursor(
@@ -84,9 +88,8 @@ def test_manage_memory_turn_resets_counter_keeps_cursor(
         _turn(test_database, test_conversation, i)
     _turn(test_database, test_conversation, 4, tools=["manage_memory"])
 
-    state = _state(test_database, test_conversation)
-    assert state["turns"] == 0
-    assert state.get("cursor") is None
+    assert _turns(test_database, test_conversation) == 0
+    assert _state(test_database, test_conversation).get("cursor") is None
 
     for i in range(5, 11):
         _turn(test_database, test_conversation, i)
@@ -128,9 +131,7 @@ def test_failure_keeps_cursor_and_never_raises(
     for i in range(6):
         _turn(test_database, test_conversation, i)
 
-    state = _state(test_database, test_conversation)
-    assert state.get("cursor") is None
-    assert state["turns"] == 0
+    assert _state(test_database, test_conversation).get("cursor") is None
 
 
 def test_all_rejected_moves_cursor_without_label(
@@ -186,6 +187,7 @@ def test_skips_anonymous_planning_and_disabled(
 
     assert reviewer.calls == []
     assert _state(test_database, conv) == {}
+    assert _turns(test_database, conv) is None
 
 
 def test_records_cost_on_the_triggering_reply(
@@ -217,3 +219,122 @@ def test_deleted_cursor_falls_back_to_its_time(
         _turn(test_database, test_conversation, i)
 
     assert reviewer.calls[1][0].content == "question 6"
+
+
+def test_a_turn_never_overwrites_a_finished_pass_cursor(
+    reviewer: _Reviewer,
+    test_database: Database,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Another worker's pass moves the cursor while this turn is counted: the
+    turn must not write the old cursor back (two gunicorn workers)."""
+    first = _turn(test_database, test_conversation, 0)
+    moved = json.dumps({"cursor": first, "cursor_at": None})
+    real_get, real_inc = test_database.kv_get, test_database.kv_increment
+    fired: list[bool] = []
+
+    def pass_lands_meanwhile() -> None:
+        if not fired:
+            fired.append(True)
+            test_database.kv_set(
+                test_conversation.user_id, trigger.KV_NAMESPACE, test_conversation.id, moved
+            )
+
+    def kv_get(user_id: str, namespace: str, key: str) -> str | None:
+        value = real_get(user_id, namespace, key)
+        if namespace == trigger.KV_NAMESPACE:
+            pass_lands_meanwhile()
+        return value
+
+    def kv_increment(user_id: str, namespace: str, key: str, delta: int = 1) -> int:
+        if namespace == trigger.KV_NAMESPACE:
+            pass_lands_meanwhile()
+        return real_inc(user_id, namespace, key, delta)
+
+    monkeypatch.setattr(test_database, "kv_get", kv_get)
+    monkeypatch.setattr(test_database, "kv_increment", kv_increment)
+
+    _turn(test_database, test_conversation, 1)
+
+    assert fired
+    assert _state(test_database, test_conversation)["cursor"] == first
+
+
+def test_state_saved_before_the_counter_split_keeps_its_cursor(
+    reviewer: _Reviewer, test_database: Database, test_conversation: Conversation
+) -> None:
+    test_database.add_message(test_conversation.id, MessageRole.USER, "old question")
+    old = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "old answer")
+    test_database.kv_set(
+        test_conversation.user_id,
+        trigger.KV_NAMESPACE,
+        test_conversation.id,
+        json.dumps({"turns": 3, "cursor": old.id, "cursor_at": None}),
+    )
+
+    for i in range(6):
+        _turn(test_database, test_conversation, i)
+
+    assert reviewer.calls[0][0].content == "question 0"
+
+
+def test_pass_stops_at_its_triggering_reply(
+    reviewer: _Reviewer,
+    test_database: Database,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The next turn may already be in flight when the pass reads: it must not
+    review (or move the cursor past) a half-finished turn."""
+    held: list[Callable[[], None]] = []
+    monkeypatch.setattr(trigger, "_start", held.append)
+    trigger_id = [_turn(test_database, test_conversation, i) for i in range(6)][-1]
+    test_database.add_message(test_conversation.id, MessageRole.USER, "next question")
+    test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "")  # streaming
+
+    held[0]()
+
+    assert reviewer.calls[0][-1].content == "answer 5"
+    assert _state(test_database, test_conversation)["cursor"] == trigger_id
+
+
+def test_regenerated_reply_gets_the_note_and_cost(
+    reviewer: _Reviewer,
+    test_database: Database,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    held: list[Callable[[], None]] = []
+    monkeypatch.setattr(trigger, "_start", held.append)
+    trigger_id = [_turn(test_database, test_conversation, i) for i in range(6)][-1]
+    test_database.delete_message(trigger_id, test_conversation.user_id)
+    redo = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "answer 5 again")
+    test_database.save_message_cost(
+        redo.id, test_conversation.id, test_conversation.user_id, "m", 1, 1, 0.01
+    )
+
+    held[0]()
+
+    assert reviewer.calls[0][-1].content == "question 5"
+    assert _note(test_database, test_conversation, redo.id) == "Ema - ballet on Tuesdays"
+    cost = test_database.get_message_cost(redo.id)
+    assert cost is not None and cost["cost_usd"] > 0.01
+
+
+def test_trigger_failure_log_names_the_chat(
+    reviewer: _Reviewer,
+    test_conversation: Conversation,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def boom(conv_id: str, user_id: str) -> bool:
+        raise RuntimeError("db gone")
+
+    monkeypatch.setattr(trigger, "_eligible", boom)
+
+    trigger.note_turn(test_conversation.id, test_conversation.user_id, "m1", [])
+
+    [record] = [r for r in caplog.records if r.getMessage() == "Memory review trigger failed"]
+    assert getattr(record, "conversation_id", None) == test_conversation.id
+    assert getattr(record, "user_id", None) == test_conversation.user_id

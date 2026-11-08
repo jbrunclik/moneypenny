@@ -119,7 +119,10 @@ def _call_model(prompt: str) -> tuple[str, int, int]:
     )
     usage = getattr(response, "usage_metadata", None)
     tokens_in = int(getattr(usage, "prompt_token_count", 0) or 0)
-    tokens_out = int(getattr(usage, "candidates_token_count", 0) or 0)
+    # Thinking is billed at the output rate
+    tokens_out = int(getattr(usage, "candidates_token_count", 0) or 0) + int(
+        getattr(usage, "thoughts_token_count", 0) or 0
+    )
     return response.text or "", tokens_in, tokens_out
 
 

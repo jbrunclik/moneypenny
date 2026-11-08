@@ -1,13 +1,16 @@
 """When the background memory review runs, and what it leaves behind.
 
 Called after every saved chat turn (chat_save.py). Per chat, kv_store keeps a
-turn counter and a review cursor (the last message a pass reviewed). Every
-MEMORY_REVIEW_EVERY_TURNS turns a daemon thread reviews the messages after the
-cursor (agent/memory_review.py), labels the triggering reply with what it
-saved, adds the pass's cost to that reply and moves the cursor. A turn that
-called manage_memory resets the counter but not the cursor: the next pass still
-reads the turns before it. A failed pass leaves the cursor, so the next retries.
-Agent runs never come through here (the executor saves its own turns).
+turn counter (key "<conv>:turns", bumped atomically) and, separately, a review
+cursor (key "<conv>": the last message a pass reviewed). Separate keys because
+two workers write them: a turn only touches the counter, a pass only the
+cursor. Every MEMORY_REVIEW_EVERY_TURNS turns a daemon thread reviews the
+messages after the cursor, up to the triggering reply
+(agent/memory_review.py), labels that reply with what it saved, adds the
+pass's cost to it and moves the cursor. A turn that called manage_memory
+resets the counter but not the cursor: the next pass still reads the turns
+before it. A failed pass leaves the cursor, so the next retries. Agent runs
+never come through here (the executor saves its own turns).
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from dataclasses import dataclass
 
 from langchain_core.messages import AIMessage, BaseMessage
 
-from src.agent.memory_review import ReviewResult, format_note, review_messages
+from src.agent.memory_review import format_note, review_messages
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Message
@@ -39,28 +42,37 @@ _running_lock = threading.Lock()
 
 
 @dataclass
-class _State:
-    turns: int = 0
-    cursor: str | None = None
+class _Cursor:
+    message_id: str | None = None
     # The cursor message's time: a regenerate deletes that message, and the
     # next pass then starts after this time instead of from the beginning
-    cursor_at: str | None = None
+    at: str | None = None
 
 
-def _load(user_id: str, conv_id: str) -> _State:
+@dataclass
+class _Window:
+    """What one pass reviews: after the cursor, up to the triggering reply."""
+
+    cursor: _Cursor
+    until_id: str
+    # The trigger's time: if a regenerate deletes it, the window still ends there
+    until_at: str | None
+
+
+def _turns_key(conv_id: str) -> str:
+    return f"{conv_id}:turns"
+
+
+def _load_cursor(user_id: str, conv_id: str) -> _Cursor:
     raw = db.kv_get(user_id, KV_NAMESPACE, conv_id)
     if not raw:
-        return _State()
-    data = json.loads(raw)
-    return _State(
-        turns=int(data.get("turns", 0)),
-        cursor=data.get("cursor"),
-        cursor_at=data.get("cursor_at"),
-    )
+        return _Cursor()
+    data = json.loads(raw)  # a record from before the split also holds "turns"
+    return _Cursor(message_id=data.get("cursor"), at=data.get("cursor_at"))
 
 
-def _save(user_id: str, conv_id: str, state: _State) -> None:
-    value = json.dumps({"turns": state.turns, "cursor": state.cursor, "cursor_at": state.cursor_at})
+def _save_cursor(user_id: str, conv_id: str, cursor: _Cursor) -> None:
+    value = json.dumps({"cursor": cursor.message_id, "cursor_at": cursor.at})
     db.kv_set(user_id, KV_NAMESPACE, conv_id, value)
 
 
@@ -96,7 +108,11 @@ def note_turn(
     try:
         _note_turn(conv_id, user_id, message_id, result_messages)
     except Exception:
-        logger.warning("Memory review trigger failed", exc_info=True)
+        logger.warning(
+            "Memory review trigger failed",
+            extra={"user_id": user_id, "conversation_id": conv_id},
+            exc_info=True,
+        )
 
 
 def _note_turn(
@@ -104,37 +120,50 @@ def _note_turn(
 ) -> None:
     if not _eligible(conv_id, user_id):
         return
-    state = _load(user_id, conv_id)
     if _called_manage_memory(result_messages):
-        state.turns = 0  # the agent just curated memory itself
-        _save(user_id, conv_id, state)
+        # The agent just curated memory itself
+        db.kv_set(user_id, KV_NAMESPACE, _turns_key(conv_id), "0")
         return
-    state.turns += 1
-    due = state.turns >= Config.MEMORY_REVIEW_EVERY_TURNS
-    if due:
-        state.turns = 0
-    _save(user_id, conv_id, state)
-    if not due:
+    turns = db.kv_increment(user_id, KV_NAMESPACE, _turns_key(conv_id))
+    # Exactly one turn hits each multiple, whichever worker counts it
+    if turns % Config.MEMORY_REVIEW_EVERY_TURNS != 0:
         return
+    # Read before claiming the chat: a raise after the claim would leave it
+    # claimed for the life of the worker
+    trigger = db.get_message_by_id(message_id)
+    window = _Window(
+        cursor=_load_cursor(user_id, conv_id),
+        until_id=message_id,
+        until_at=to_db(trigger.created_at) if trigger else None,
+    )
     with _running_lock:
         if conv_id in _running:
             return
         _running.add(conv_id)
-    cursor, cursor_at = state.cursor, state.cursor_at
-    _start(lambda: _run_pass(conv_id, user_id, message_id, cursor, cursor_at))
+    _start(lambda: _run_pass(conv_id, user_id, window))
 
 
-def messages_to_review(
-    conv_id: str, cursor: str | None, cursor_at: str | None = None
-) -> list[Message]:
-    """Messages after the cursor, from at most MEMORY_REVIEW_MAX_TURNS user turns back."""
-    messages = db.get_messages(conv_id)
+def _bounded(messages: list[Message], window: _Window) -> list[Message]:
+    """Cut to after the cursor and up to the trigger (never a turn in flight)."""
     ids = [m.id for m in messages]
-    if cursor in ids:
-        messages = messages[ids.index(cursor) + 1 :]
-    elif cursor_at is not None:  # the cursor message is gone (regenerated)
-        after = from_db(cursor_at)
-        messages = [m for m in messages if m.created_at > after]
+    if window.until_id in ids:
+        messages = messages[: ids.index(window.until_id) + 1]
+    elif window.until_at is not None:  # the trigger is gone (regenerated)
+        until = from_db(window.until_at)
+        messages = [m for m in messages if m.created_at <= until]
+    ids = [m.id for m in messages]
+    cursor = window.cursor
+    if cursor.message_id in ids:
+        return messages[ids.index(cursor.message_id) + 1 :]
+    if cursor.at is not None:  # the cursor message is gone (regenerated)
+        after = from_db(cursor.at)
+        return [m for m in messages if m.created_at > after]
+    return messages
+
+
+def messages_to_review(conv_id: str, window: _Window) -> list[Message]:
+    """The window's messages, from at most MEMORY_REVIEW_MAX_TURNS user turns back."""
+    messages = _bounded(db.get_messages(conv_id), window)
     user_starts = [i for i, m in enumerate(messages) if m.role == "user"]
     if len(user_starts) > Config.MEMORY_REVIEW_MAX_TURNS:
         skipped = user_starts[-Config.MEMORY_REVIEW_MAX_TURNS]
@@ -146,21 +175,36 @@ def messages_to_review(
     return messages
 
 
-def _run_pass(
-    conv_id: str, user_id: str, message_id: str, cursor: str | None, cursor_at: str | None
-) -> None:
+def _note_target(conv_id: str, window: _Window) -> str | None:
+    """The reply that carries the note and cost: the trigger, or the reply
+    that replaced it when the user regenerated mid-pass."""
+    if db.get_message_by_id(window.until_id) is not None:
+        return window.until_id
+    if window.until_at is None:
+        return None
+    until = from_db(window.until_at)
+    return next(
+        (m.id for m in db.get_messages(conv_id) if m.role == "assistant" and m.created_at > until),
+        None,
+    )
+
+
+def _run_pass(conv_id: str, user_id: str, window: _Window) -> None:
     try:
-        messages = messages_to_review(conv_id, cursor, cursor_at)
+        messages = messages_to_review(conv_id, window)
         if not messages:
             return
         result = review_messages(user_id, conv_id, messages)
-        if result.applied:
-            db.set_memory_note(message_id, format_note(result.applied))
-        cost = _record_cost(message_id, result)
-        state = _load(user_id, conv_id)  # turns may have moved on meanwhile
-        state.cursor = messages[-1].id
-        state.cursor_at = to_db(messages[-1].created_at)
-        _save(user_id, conv_id, state)
+        target = _note_target(conv_id, window)
+        cost = calculate_token_cost(
+            Config.AI_ASSIST_MODEL, result.input_tokens, result.output_tokens
+        )
+        if target is not None:
+            if result.applied:
+                db.set_memory_note(target, format_note(result.applied))
+            _record_cost(target, cost)
+        last = messages[-1]
+        _save_cursor(user_id, conv_id, _Cursor(last.id, to_db(last.created_at)))
         logger.info(
             "Memory review pass",
             extra={
@@ -182,10 +226,8 @@ def _run_pass(
             _running.discard(conv_id)
 
 
-def _record_cost(message_id: str, result: ReviewResult) -> float:
-    cost = calculate_token_cost(Config.AI_ASSIST_MODEL, result.input_tokens, result.output_tokens)
+def _record_cost(message_id: str, cost: float) -> None:
     try:
         db.add_message_cost_usd(message_id, cost)
     except Exception:  # the memories landed: a lost cost row is not a failed pass
         logger.warning("Memory review cost not recorded", exc_info=True)
-    return cost
