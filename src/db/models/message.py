@@ -357,6 +357,14 @@ class MessageMixin:
             )
             conn.commit()
 
+    def set_memory_note(self, message_id: str, note: str) -> None:
+        """Label a reply with what the background memory review saved."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn, "UPDATE messages SET memory_note = ? WHERE id = ?", (note, message_id)
+            )
+            conn.commit()
+
     def decide_research_offer(
         self, message_id: str, status_path: str, research: dict[str, Any]
     ) -> bool:

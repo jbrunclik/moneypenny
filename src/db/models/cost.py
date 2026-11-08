@@ -123,6 +123,19 @@ class CostMixin:
 
         logger.debug("Message cost saved", extra={"cost_id": cost_id, "message_id": message_id})
 
+    def add_message_cost_usd(self, message_id: str, cost_usd: float) -> None:
+        """Add a later background call's cost (memory review) to a reply's row.
+
+        No row (an unpriced reply) is a no-op.
+        """
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                "UPDATE message_costs SET cost_usd = cost_usd + ? WHERE message_id = ?",
+                (cost_usd, message_id),
+            )
+            conn.commit()
+
     def get_message_cost(self, message_id: str) -> dict[str, Any] | None:
         """Get cost information for a specific message.
 

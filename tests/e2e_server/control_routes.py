@@ -67,6 +67,8 @@ def seed_data() -> tuple[dict[str, Any], int]:
             added = g.db.add_message(
                 conv.id, role, content, files=files, delivery=msg.get("delivery")
             )
+            if msg.get("memory_note"):
+                g.db.set_memory_note(added.id, msg["memory_note"])
             # Optional per-turn cost row (message_costs): tool rounds,
             # e.g. a reply cut off by the tool-round cap, or spend
             # (cost_usd) for the spend warning and the admin page

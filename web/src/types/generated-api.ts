@@ -10151,6 +10151,12 @@ export interface components {
              */
             delivery: components["schemas"]["PlannerConversationResponse.DeliveryResponse"] | null;
             /**
+             * Memory Note
+             * @description What the background memory review saved after this reply
+             * @default null
+             */
+            memory_note: string | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -10487,6 +10493,12 @@ export interface components {
              * @default null
              */
             delivery: components["schemas"]["MessageResponse.DeliveryResponse"] | null;
+            /**
+             * Memory Note
+             * @description What the background memory review saved after this reply
+             * @default null
+             */
+            memory_note: string | null;
             /**
              * Created At
              * Format: date-time
@@ -11293,6 +11305,12 @@ export interface components {
              * @default null
              */
             delivery: components["schemas"]["ConversationDetailPaginatedResponse.DeliveryResponse"] | null;
+            /**
+             * Memory Note
+             * @description What the background memory review saved after this reply
+             * @default null
+             */
+            memory_note: string | null;
             /**
              * Created At
              * Format: date-time
@@ -12396,6 +12414,12 @@ export interface components {
              * @default null
              */
             delivery: components["schemas"]["MessagesListResponse.DeliveryResponse"] | null;
+            /**
+             * Memory Note
+             * @description What the background memory review saved after this reply
+             * @default null
+             */
+            memory_note: string | null;
             /**
              * Created At
              * Format: date-time

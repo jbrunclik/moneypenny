@@ -254,6 +254,9 @@ class MessageResponse(ResponseModel):
     delivery: DeliveryResponse | None = Field(
         default=None, description="The scheduled item that delivered this turn"
     )
+    memory_note: str | None = Field(
+        default=None, description="What the background memory review saved after this reply"
+    )
     created_at: Timestamp
 
 

@@ -31,6 +31,7 @@ def row_to_message(row: sqlite3.Row) -> Message:
         action=_json_column(row, "action"),
         artifacts=_json_column(row, "artifacts"),
         delivery=_json_column(row, "delivery"),
+        memory_note=row["memory_note"],
     )
 
 

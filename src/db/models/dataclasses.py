@@ -166,6 +166,8 @@ class Message:
     artifacts: list[ArtifactShown] | None = None
     # Delivered by a scheduled item (check-in, watcher, recurring)
     delivery: MessageDelivery | None = None
+    # What the background memory review saved after this reply
+    memory_note: str | None = None
 
 
 @dataclass

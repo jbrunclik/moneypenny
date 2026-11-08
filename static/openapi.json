@@ -11825,6 +11825,19 @@
             "default": null,
             "description": "The scheduled item that delivered this turn"
           },
+          "memory_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the background memory review saved after this reply",
+            "title": "Memory Note"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -11847,6 +11860,7 @@
           "artifacts",
           "action",
           "delivery",
+          "memory_note",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -12510,6 +12524,19 @@
             "default": null,
             "description": "The scheduled item that delivered this turn"
           },
+          "memory_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the background memory review saved after this reply",
+            "title": "Memory Note"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -12532,6 +12559,7 @@
           "artifacts",
           "action",
           "delivery",
+          "memory_note",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -14046,6 +14074,19 @@
             "default": null,
             "description": "The scheduled item that delivered this turn"
           },
+          "memory_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the background memory review saved after this reply",
+            "title": "Memory Note"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -14068,6 +14109,7 @@
           "artifacts",
           "action",
           "delivery",
+          "memory_note",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -16253,6 +16295,19 @@
             "default": null,
             "description": "The scheduled item that delivered this turn"
           },
+          "memory_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the background memory review saved after this reply",
+            "title": "Memory Note"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -16275,6 +16330,7 @@
           "artifacts",
           "action",
           "delivery",
+          "memory_note",
           "created_at"
         ],
         "title": "MessageResponse",

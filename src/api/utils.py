@@ -122,6 +122,12 @@ def add_delivery(data: dict[str, object], msg: Message) -> None:
         data["delivery"] = msg.delivery
 
 
+def add_memory_note(data: dict[str, object], msg: Message) -> None:
+    """What the background memory review saved after this reply, when it did."""
+    if msg.memory_note:
+        data["memory_note"] = msg.memory_note
+
+
 def add_research(data: dict[str, Any], msg: Any) -> None:
     """Deep-research offer or run data, when the message has it."""
     research = getattr(msg, "research", None)
@@ -298,6 +304,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
         add_artifacts(msg_data, m)
         add_action(msg_data, m)
         add_delivery(msg_data, m)
+        add_memory_note(msg_data, m)
 
         optimized_messages.append(msg_data)
     return optimized_messages
