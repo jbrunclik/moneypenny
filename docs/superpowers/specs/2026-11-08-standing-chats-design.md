@@ -74,14 +74,41 @@ need looser limits.
 | Budget | none | per-job daily budget, as agents have today |
 | Slow-down when quiet | watchers only | none (a digest keeps its schedule) |
 
-"Make this a proper agent" promotes a light item by adding grants.
+"Make this a proper agent" promotes a light item by adding grants - and **moves its chat out
+of the inbox into Agents** (Jiri). "Standing" is a property of the chat: every job with grants
+lives in a standing chat, so archiving an inbox chat can only ever pause light items, never an
+agent.
+
+- **Budget** (my call): a standing job's daily budget covers its unattended runs only; the
+  user's own turns in that chat are ordinary chat spend, so a long talk with the coach cannot
+  block its next run. Runs are attributed to the job, not the conversation.
+- **Run history and stats** (my call): standing jobs keep their run history and cost stats
+  (today's executions and Command Center observability); the jobs list shows recent runs.
+- **Context** (my call): jobs in a standing chat see that chat's standing instructions and
+  state (a coach's Sunday plan knows the program); light items in ordinary chats stay
+  context-free (web tools only), as shipped.
+
+## Agents that work together
+
+Agent-to-agent triggering stays (Jiri): a standing job can trigger another standing chat's
+job (today's `trigger_agent`, with its chain/cycle protection), and the agent prompt tells
+the model it can in principle build a small multi-agent setup - e.g. propose a helper agent
+and have one trigger the other - always through the same approval gates.
+
+## The Daily Briefing
+
+Stays **system-provided** (Jiri): the Settings toggle creates it for any user as a standing
+chat + daily job; it keeps the stock prompt from code (improvements arrive with deploys)
+until the user edits it - the first edit ("add the weather") freezes that user's own copy,
+and the agent says so when proposing the change. "All tools" remains a valid grant.
 
 ## Where things live
 
 - **Standing chats never appear in the conversation list** (Jiri works inbox zero:
   archives and deletes chats often; open-ended things like the VWCE Watcher must not sit
   there). Agents live under Agents (the Command Center), programs under Sports / Language,
-  as today; deliveries push and bump the area's unread badge.
+  as today; deliveries push and bump the area's unread badge. The scheduled-items chip also
+  shows in standing chat headers (items created there with `schedule` are visible in place).
 - **Chats the user started stay in the conversation list.** Archiving or trashing such a
   chat stops its light items; unarchiving or restoring brings them back (as shipped Nov 7).
 
