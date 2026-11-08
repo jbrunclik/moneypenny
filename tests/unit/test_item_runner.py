@@ -120,7 +120,9 @@ def test_a_cost_failure_does_not_fail_the_run(
     # The user already got (or will get) the result; a broken cost row must
     # not count as a failed run or skip the result
     fake_llm.response = "A caretaker job was posted."
-    with patch("src.agent.item_runner.calculate_and_save_message_cost", side_effect=RuntimeError("db")):
+    with patch(
+        "src.agent.item_runner.calculate_and_save_message_cost", side_effect=RuntimeError("db")
+    ):
         outcome = run_model_item(_watcher(test_user, test_conversation), test_user)
         assert outcome.status == "report"
         assert outcome.record_cost is not None
