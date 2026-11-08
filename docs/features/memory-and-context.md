@@ -223,6 +223,51 @@ outside production. Backfill for pre-existing rows:
 - **Routes**: [test_routes_memory.py](../../tests/integration/test_routes_memory.py), [test_routes_kv_store.py](../../tests/integration/test_routes_kv_store.py)
 - **Visual tests**: [popups.visual.ts](../../web/tests/visual/popups.visual.ts)
 
+### Background Memory Review (Nov 2026)
+
+The agent saves a memory only when it decides to call `manage_memory` mid-turn,
+which misses facts mentioned in passing. Every `MEMORY_REVIEW_EVERY_TURNS` (6)
+user turns of a chat, a cheap pass (`AI_ASSIST_MODEL`, low thinking) rereads the
+turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
+(3) memories. Design: [spec](../superpowers/specs/2026-11-08-background-memory-review-design.md).
+
+- **When**: `save_message_to_db` calls `note_turn`
+  (`src/api/helpers/memory_review_trigger.py`). Per chat, kv namespace
+  `memory_review` (reserved: the model cannot write it) keeps a turn counter
+  and a cursor - the last message a pass reviewed. A turn that called
+  `manage_memory` resets the counter but not the cursor, so nothing said before
+  it is skipped. One pass reads at most `MEMORY_REVIEW_MAX_TURNS` (12) user
+  turns. Runs in every non-anonymous, non-planning chat, standing chats
+  included; never in agent runs (the executor saves its own turns).
+  `MEMORY_REVIEW_ENABLED` switches it off.
+- **The pass** (`src/agent/memory_review.py`): a daemon thread; a failure only
+  logs and leaves the cursor, so the next pass retries. Conservative by design
+  (people, places, schedules, stable preferences, decisions; never moods,
+  one-offs, errors or "tool X is broken"). The prompt carries the current bank
+  (to patch, not duplicate) and memories the user deleted within the retention
+  window as "do not re-add". The conversation sits inside a random boundary tag
+  as data; tool outputs are left out and facts must come from what the user
+  said.
+- **Writes**: adds and patches only, each applied on its own through the tool's
+  guards (`apply_single_op` in `tools/memory.py`) - a rejected op is logged and
+  dropped, the rest still apply. A full bank rejects adds; patches still apply.
+- **The note**: the triggering reply gets `messages.memory_note` ("Memory
+  updated: Ema - ballet on Tuesdays", two items then "and N more"), rendered by
+  `messages/memory-note.ts`; a tap opens Memories. The update bumps the sync
+  change log and the open chat's merge patches it in place
+  (`patchMemoryNotes` in `core/remote-merge.ts`), no re-render. Known limit:
+  agent chats sync by message count, so there the note shows after a reload.
+- **Cost**: added to the triggering reply's cost row (`add_message_cost_usd`);
+  about $0.0006 a pass in the evals.
+- **Logs**: "Memory review pass" (per pass: messages reviewed, applied, cost)
+  and "Memory review applied" (per write: action, memory id, length - no text).
+- **Evals**: `memory_review: true` cases call the pass directly on a seeded
+  chat and grade its ops as one `manage_memory` call
+  (`evals/cases/memory_review_*.yaml`).
+- **Tests**: `test_memory_review.py`, `test_memory_single_op.py`,
+  `test_memory_review_trigger.py`, `test_message_memory_note.py`,
+  `web/tests/unit/memory-note-merge.test.ts`, `web/tests/e2e/memory-note.spec.ts`.
+
 ### Memory Defragmentation
 
 A nightly systemd timer consolidates and cleans up user memories using an LLM.
@@ -333,7 +378,8 @@ conversations, and without integration tools (Todoist, Google Calendar).
 ### What Anonymous Mode Disables
 
 - **Memory retrieval**: user memories are not injected into the system prompt
-- **Memory writes**: `manage_memory` is not bound, so no write can be attempted
+- **Memory writes**: `manage_memory` is not bound, so no write can be attempted, and
+  the background memory review skips the chat
 - **Conversation search**: `search_conversations` / `read_conversation` are not bound -
   otherwise a "private" chat could pull back the history the user stepped away from
 - **Integration tools**: Todoist and Google Calendar are excluded

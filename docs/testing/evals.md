@@ -75,6 +75,10 @@ deep_research:                  # optional: run the deep-research pipeline on
   question: Headphones under 7 000 Kč   # this fixed plan instead of a chat
   context: Runs outside, rides the tram # turn (docs/features/deep-research-ops.md#evals);
   sub_questions: [Fit when running?, ANC on a tram?]  # gets the run timeout
+memory_review: true             # optional: run the background memory review
+                                # over `history` + `user` instead of a turn;
+                                # its applied ops are graded as one
+                                # manage_memory call (memory-and-context.md)
 artifacts:                      # optional: seeded in the case's conversation;
   - title: Tip calculator       # their ids replace {artifact_0}, {artifact_1}...
     html: <div class="mp-card">...</div>  # in `history` (e.g. metadata
