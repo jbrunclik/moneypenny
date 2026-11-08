@@ -42,7 +42,10 @@ def _set_paused(user: User, item_id: str, paused: bool) -> tuple[dict[str, objec
         raise_not_found_error("Scheduled item")
     if item.kind in _ONE_OFFS:
         raise_conflict_error("A reminder or check-in cannot be paused; cancel it instead.")
-    db.set_item_paused(item_id, user.id, paused=paused)
+    if not db.set_item_paused(item_id, user.id, paused=paused):
+        raise_conflict_error(
+            "The item is running right now, or already in that state; try again shortly."
+        )
     updated = db.get_item(item_id, user.id)
     if updated is None:
         raise_not_found_error("Scheduled item")

@@ -332,6 +332,41 @@ class TestConfirmGate:
 
         assert len(database.list_items(user.id)) == 1
 
+    def test_an_interjection_does_not_confirm_in_the_same_turn(
+        self, ctx: tuple[Database, User]
+    ) -> None:
+        # A message sent while the turn runs is saved as a user message too;
+        # only a later turn (a new request) may confirm
+        from src.agent.tool_results import set_current_request_id
+
+        database, user = ctx
+        set_current_request_id("turn-1")
+        try:
+            _reminder()
+            _user_replies()  # an interjection during the same turn
+            assert "not answered" in _call(action="create", confirm=True)
+            assert database.list_items(user.id) == []
+
+            set_current_request_id("turn-2")
+            _call(action="create", confirm=True)
+            assert [i.text for i in database.list_items(user.id)] == ["Call the plumber"]
+        finally:
+            set_current_request_id(None)
+
+    def test_a_recurring_item_confirmed_late_runs_at_its_next_time(
+        self, ctx: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.utils import clock
+
+        database, user = ctx
+        _recurring(days=["daily"], time="19:30")  # previewed Sat 19:00: next 19:30 today
+        monkeypatch.setattr(clock, "_now", lambda: datetime(2026, 11, 7, 18, 45, tzinfo=UTC))
+
+        _confirm()  # confirmed 19:45, after today's time
+
+        [item] = database.list_items(user.id)
+        assert item.next_run_at == datetime(2026, 11, 8, 18, 30, tzinfo=UTC)
+
 
 class TestNoPushDevice:
     def test_a_reminder_warns_when_no_device_gets_pushes(self, ctx: tuple[Database, User]) -> None:
@@ -376,6 +411,17 @@ class TestManage:
         assert database.list_items(user.id)[0].status == "paused"
         _call(action="resume", item_id=item_id)
         assert database.list_items(user.id)[0].status == "active"
+
+    def test_pausing_a_running_item_says_so(self, ctx: tuple[Database, User]) -> None:
+        database, user = ctx
+        _watcher()
+        _confirm()
+        database.claim_due_items(_NOW)  # its run is in progress
+
+        result = _call(action="pause", item_id=database.list_items(user.id)[0].id)
+
+        assert "running" in result
+        assert database.list_items(user.id)[0].status == "running"
 
     def test_a_one_off_cannot_be_paused(self, ctx: tuple[Database, User]) -> None:
         database, user = ctx

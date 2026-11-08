@@ -190,3 +190,18 @@ def test_a_delivered_turn_carries_its_label(
 
     [message] = body["messages"]
     assert message["delivery"] == {"kind": "check_in", "label": "Check-in · Fri 18:00"}
+
+
+def test_pausing_a_running_item_is_a_conflict(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    item = _watcher(test_database, test_user, test_conversation)
+    test_database.claim_due_items(item.next_run_at)
+
+    response = client.post(f"/api/schedules/{item.id}/pause", headers=auth_headers)
+
+    assert response.status_code == 409

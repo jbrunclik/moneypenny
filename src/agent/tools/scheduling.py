@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 
+from src.agent.tool_results import get_current_request_id
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.config import Config
@@ -74,6 +75,7 @@ class Spec(TypedDict, total=False):
     when: str
     ends: str
     turn: str
+    request: str  # the chat turn that previewed it (a confirm needs a later turn)
 
 
 def _until(args: Mapping[str, object], now: datetime) -> datetime | str | None:
@@ -169,18 +171,30 @@ def _keep_pending(user_id: str, conversation_id: str, spec: Spec) -> None:
     """Hold the preview for the user's answer. Re-previewing the very item
     they already saw keeps its turn: it stays answered, so confirmable."""
     spec["turn"] = _latest_user_message_id(conversation_id)
+    spec["request"] = get_current_request_id() or ""
     if raw := db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id):
         previous: Spec = json.loads(raw)
-        if {k: v for k, v in previous.items() if k != "turn"} == {
-            k: v for k, v in spec.items() if k != "turn"
+        markers = {"turn", "request"}
+        if {k: v for k, v in previous.items() if k not in markers} == {
+            k: v for k, v in spec.items() if k not in markers
         }:
             spec["turn"] = previous["turn"]
+            spec["request"] = previous.get("request", "")
     db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(spec))
 
 
 def _instant(value: str | None) -> datetime | None:
     # tz-naive: values are isoformats of aware UTC instants this module built
     return datetime.fromisoformat(value) if value else None
+
+
+def _confirmed_next_run(pending: Spec) -> datetime:
+    """When the item first acts; a recurring check counts from the confirm (one
+    confirmed after the previewed time would otherwise run at once, off-schedule)."""
+    if pending["kind"] == "recurring" and pending.get("schedule"):
+        return next_cron_run(pending["schedule"], Config.APP_TIMEZONE, utc_now())
+    # tz-naive: an isoformat of an aware UTC instant this module built
+    return datetime.fromisoformat(pending["next_run_at"])
 
 
 def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledItem:
@@ -193,8 +207,7 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
         end_condition=pending.get("end_condition"),
         schedule=pending.get("schedule"),
         interval_hours=pending.get("interval_hours"),
-        # tz-naive: an isoformat of an aware UTC instant this module built
-        next_run_at=datetime.fromisoformat(pending["next_run_at"]),
+        next_run_at=_confirmed_next_run(pending),
         expires_at=_instant(pending.get("expires_at")),
         status="active",
         last_result=None,
@@ -205,7 +218,10 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
 
 
 def _confirm_refusal(user_id: str, conversation_id: str, pending: Spec) -> str | None:
-    if pending["turn"] == _latest_user_message_id(conversation_id):
+    request = get_current_request_id()
+    same_turn = bool(request) and request == pending.get("request")
+    # A newer user message in the same turn is an interjection, not an answer
+    if same_turn or pending["turn"] == _latest_user_message_id(conversation_id):
         return tool_error(
             "The user has not answered the preview yet - show it and ask them; confirm "
             "only after they agree in their reply."
@@ -324,7 +340,10 @@ def _manage(action: str, user_id: str, item_id: str) -> str:
         return f'Deleted {_KIND_LABELS[label]} "{item.text}".'
     if item.kind in _ONE_OFFS:
         return tool_error(f"A {_KIND_LABELS[label]} cannot be paused: delete it instead.")
-    db.set_item_paused(item.id, user_id, paused=action == "pause")
+    if not db.set_item_paused(item.id, user_id, paused=action == "pause"):
+        return tool_error(
+            f"The {_KIND_LABELS[label]} is running right now (or already {action}d) - try again in a minute."
+        )
     return f'{"Paused" if action == "pause" else "Resumed"} {_KIND_LABELS[label]} "{item.text}".'
 
 
