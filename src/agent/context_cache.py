@@ -8,7 +8,8 @@ Cache profiles:
 - anonymous: BASE + TOOLS_BASE + CONTEXT (anonymous mode)
 - planning: BASE + TOOLS_BASE + PRODUCTIVITY + CONTEXT + PLANNER (planner view)
 
-Standing chats (agent / sports / language) use the standard profile; their
+Standing chats (agent / sports / language) use the standing profile - the
+standard static prompt under its own key (their tools add kv_store); their
 standing instructions and data ride in the dynamic part.
 
 Dynamic content (date/time, user context, memories) is NOT cached and is
@@ -46,6 +47,10 @@ class CacheProfile(StrEnum):
     STANDARD = "standard"
     ANONYMOUS = "anonymous"
     PLANNING = "planning"
+    # Standing chats (agent / sports / language): the standard static prompt,
+    # but a different tool set (+ kv_store) - so its own key, or the two would
+    # evict each other's cache on every switch
+    STANDING = "standing"
 
 
 @dataclass

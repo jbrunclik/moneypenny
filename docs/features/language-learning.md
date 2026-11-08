@@ -53,7 +53,7 @@ Namespace: `language`
 - First session (assessment) and returning session (new lesson) workflows
 - L1-aware teaching and comprehensible input (i+1) guidelines
 
-Language turns use the standard context-cache profile: the standing section (instructions and fresh KV data) rides in the per-turn dynamic context, not the cached prefix. Eval: `language_quiz_block`.
+Language turns use the standing-chat context-cache profile (`CacheProfile.STANDING`: the standard static prompt under its own key, because standing chats also bind `kv_store`): the standing section (instructions and fresh KV data) rides in the per-turn dynamic context, not the cached prefix. Eval: `language_quiz_block`.
 
 ## Quiz Blocks
 

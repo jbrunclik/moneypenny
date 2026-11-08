@@ -4,6 +4,7 @@ static prompt
   standard       33900
   anonymous      22053
   planning       37048
+  standing       33900
 
 tool declarations (36 tools, 60702 chars)
   browser                       4257

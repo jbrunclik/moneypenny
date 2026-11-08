@@ -235,7 +235,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     is added separately.
 
     Args:
-        profile: One of "standard", "anonymous", "planning"
+        profile: One of "standard", "anonymous", "planning", "standing" (= standard)
 
     Returns:
         Static prompt string suitable for caching
@@ -248,7 +248,7 @@ def get_static_prompt_for_profile(profile: str) -> str:
     if is_mapy_configured():
         prompt += TOOLS_SYSTEM_PROMPT_PLACES
     # All non-anonymous profiles get productivity tools (mirrors get_system_prompt)
-    if profile in ("standard", "planning"):
+    if profile in ("standard", "planning", "standing"):
         prompt += TOOLS_SYSTEM_PROMPT_PRODUCTIVITY
     # All profiles get context/citation section
     prompt += TOOLS_SYSTEM_PROMPT_CONTEXT

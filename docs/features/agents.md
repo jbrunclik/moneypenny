@@ -2,7 +2,7 @@
 
 Autonomous agents run on cron schedules to perform tasks independently. Each agent has a dedicated conversation showing its activity and can request approval for dangerous operations.
 
-The agent's conversation is a **standing chat** ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)): when the user writes in it, that is an ordinary chat turn (the normal chat prompt, the user's full chat tools, freshness gate, standard context cache and compaction) plus a `# This Chat: <name>` prompt section with the agent's goals and schedule - see [Talking to an agent](#talking-to-an-agent). Unattended **runs** keep the agent's own grants, approvals and prompt.
+The agent's conversation is a **standing chat** ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)): when the user writes in it, that is an ordinary chat turn (the normal chat prompt, the user's full chat tools, freshness gate - always at full thinking - the standing chats' context cache (the standard static prompt under its own key, since their tools add `kv_store`) and compaction) plus a `# This Chat: <name>` prompt section with the agent's goals and schedule - see [Talking to an agent](#talking-to-an-agent). Unattended **runs** keep the agent's own grants, approvals and prompt.
 
 ## Overview
 

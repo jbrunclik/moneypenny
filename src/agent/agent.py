@@ -170,11 +170,13 @@ class ChatAgent:
             "memoize": memoize_graph,
         }
         self.graph = get_compiled_graph(model_name, **graph_args)
-        # Turns the gate judges easy run lighter (src/agent/freshness.py)
+        # Turns the gate judges easy run lighter (src/agent/freshness.py) - in
+        # ordinary chats only: a standing chat's easy-looking session start or
+        # quiz grading still needs full thinking (the lookups stay)
         light_level = Config.FRESHNESS_GATE_LIGHT_THINKING_LEVEL
         self.light_graph = (
             get_compiled_graph(model_name, thinking_level=light_level, **graph_args)
-            if self.freshness_gate and light_level
+            if self.freshness_gate and light_level and standing is None
             else None
         )
 
@@ -211,6 +213,8 @@ class ChatAgent:
         # No caching for autonomous agents (variable tools) or no-tools mode
         if self.is_autonomous or not self.with_tools:
             return None
+        if self.standing is not None:
+            return CacheProfile.STANDING
         if self.is_planning:
             return CacheProfile.PLANNING
         if self.anonymous_mode:

@@ -142,7 +142,8 @@ def test_pending_approval_still_blocks(
 
     response = _batch(client, agent.conversation_id, auth_headers)
 
-    assert response.status_code == 400  # validation error naming the pending approval
+    assert response.status_code == 400
+    assert "awaiting approval" in str(response.get_json())
 
 
 def test_batch_response_includes_code_output_files(

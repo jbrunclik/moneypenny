@@ -1,6 +1,6 @@
 """Agent dedicated-conversation database operations mixin.
 
-Unread state, the agent's conversation lookup and history compaction.
+Unread state of an agent's dedicated conversation.
 """
 
 from __future__ import annotations
@@ -74,5 +74,3 @@ class AgentConversationMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
-
-    # ============ Conversation Compaction ============

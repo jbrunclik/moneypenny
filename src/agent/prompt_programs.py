@@ -41,7 +41,3 @@ def format_program_kv_data(kind: str, context: Mapping[str, object]) -> str:
             )
         lines.append(f"### {key}\n```json\n{text}\n```\n")
     return "\n".join(lines)
-
-
-# replaced by indirection tokens resolved from the per-request dynamic context.
-# This keeps one cache entry per feature instead of one per program.

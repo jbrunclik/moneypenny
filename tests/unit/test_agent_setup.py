@@ -60,9 +60,15 @@ class TestStandingChatToolWiring:
         _, names = self._agent(monkeypatch)
         assert {"kv_store", "schedule", "manage_memory"} <= names
 
-    def test_freshness_gate_and_standard_cache(self, monkeypatch) -> None:
+    def test_freshness_gate_and_standing_cache(self, monkeypatch) -> None:
         from src.agent.context_cache import CacheProfile
 
         agent, names = self._agent(monkeypatch)
         assert agent.freshness_gate is ("research" in names)
-        assert agent._get_cache_profile() == CacheProfile.STANDARD
+        assert agent._get_cache_profile() == CacheProfile.STANDING
+
+    def test_standing_chats_always_think_fully(self, monkeypatch) -> None:
+        """Review: an easy-looking session start or quiz grading must not drop
+        to light thinking - the freshness lookups stay, the light graph goes."""
+        agent, _ = self._agent(monkeypatch)
+        assert agent.light_graph is None

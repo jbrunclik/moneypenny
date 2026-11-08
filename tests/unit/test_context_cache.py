@@ -79,9 +79,52 @@ class TestCacheProfile:
         assert CacheProfile.PLANNING.value == "planning"
 
     def test_no_program_cache_profiles(self) -> None:
-        """Standing chats (agent / sports / language) use the standard profile;
-        their instructions ride in the dynamic part."""
-        assert {p.name for p in CacheProfile} == {"STANDARD", "ANONYMOUS", "PLANNING"}
+        """One profile for all standing chats (agent / sports / language) - their
+        instructions ride in the dynamic part - and none per program."""
+        assert {p.name for p in CacheProfile} == {"STANDARD", "ANONYMOUS", "PLANNING", "STANDING"}
+
+    def test_standing_profile_has_the_standard_static_prompt(self) -> None:
+        from src.agent.prompts import get_static_prompt_for_profile
+
+        assert get_static_prompt_for_profile("standing") == get_static_prompt_for_profile(
+            "standard"
+        )
+
+    def test_ordinary_and_standing_chats_keep_separate_caches(self) -> None:
+        """Review I1: both shared one key with different tool sets (kv_store),
+        so alternating chats evicted each other's cache - every switch ran
+        uncached and recreated a Gemini cache."""
+        import time
+        from unittest.mock import patch
+
+        from src.agent import context_cache as cc
+        from src.agent.tools import get_tools_for_request
+
+        manager = type(cc._manager)()
+        ordinary, standing = get_tools_for_request(), get_tools_for_request(standing=True)
+        created: list[str] = []
+
+        def fake_create(self: object, *args: object, **kwargs: object) -> str:
+            created.append(f"cache-{len(created) + 1}")
+            return created[-1]
+
+        with (
+            patch.object(type(manager), "_create_cache", fake_create),
+            patch.object(type(manager), "_load_shared_entry", lambda *a, **k: None),
+            patch.object(type(manager), "_store_shared_entry", lambda *a, **k: None),
+        ):
+            results = []
+            for profile, tools in [
+                (CacheProfile.STANDARD, ordinary),
+                (CacheProfile.STANDING, standing),
+                (CacheProfile.STANDARD, ordinary),
+                (CacheProfile.STANDING, standing),
+            ]:
+                results.append(manager.get_or_create(profile, "gemini-x", tools))
+                time.sleep(0.3)  # the create runs in the background
+
+        assert results[2:] == ["cache-1", "cache-2"]
+        assert len(created) == 2
 
 
 # ============ get_static_prompt_for_profile Tests ============
