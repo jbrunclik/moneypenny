@@ -437,13 +437,19 @@ In an ordinary chat, "be my cycling coach, check my Garmin every evening at 8 an
 I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
 
 - The first call previews it and creates nothing: name, instructions, the schedule in
-  words, and each tool, with write access spelled out ("todoist (can change your
-  Todoist)", "garmin_connect (read only)").
+  words, and each tool with what it lets a run do ("todoist (can change your Todoist)",
+  "manage_memory (can edit your memories)", "garmin_connect (read only)"). The user
+  sees the model's retelling, not the tool output, so the labels must be true.
+- All tools (`*`) cannot be granted from a chat (a steered model could otherwise get
+  a daily agent with every write level); the user widens it under Agents. Names and
+  instructions have the API's length limits (`AGENT_NAME_MAX_CHARS`,
+  `AGENT_INSTRUCTIONS_MAX_CHARS`).
 - The user's yes in their next message confirms it (the pending gate shared with
   `schedule` and `edit_standing_chat`, namespace `standing_create_pending`). A preview
   left behind expires, and a confirm in the same turn is refused.
 - The confirm creates the standing chat and its job with exactly the previewed settings,
-  re-checked, and returns the chat's link `#/conversations/<id>`.
+  re-checked, and returns the chat's link `#/conversations/<id>` with the stored settings.
+  A confirm carrying other fields is refused: a changed version needs a new preview.
 - Refused in standing chats and in unattended runs; never bound in anonymous chats. Names
   are unique, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing chats.
 - A one-off reminder or watcher stays with `schedule`; the two docstrings point at each

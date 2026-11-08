@@ -35,6 +35,9 @@ BYTES_PER_MB = 1024 * BYTES_PER_KB
 # =============================================================================
 # Skills (src/agent/skills/<name>/SKILL.md)
 # =============================================================================
+# A standing chat's name and instructions (the agent API and create_standing_chat)
+AGENT_NAME_MAX_CHARS = 100
+AGENT_INSTRUCTIONS_MAX_CHARS = 10_000
 SKILL_MAX_DESCRIPTION_CHARS = 300  # index entry - always in the prompt
 SKILL_MAX_BODY_CHARS = 12_000  # ~3k tokens per load
 

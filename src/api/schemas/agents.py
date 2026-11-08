@@ -9,6 +9,7 @@ from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
 from src.config import Config
+from src.constants import AGENT_INSTRUCTIONS_MAX_CHARS, AGENT_NAME_MAX_CHARS
 
 
 class AgentStatus(StrEnum):
@@ -39,9 +40,9 @@ class ApprovalStatus(StrEnum):
 class CreateAgentRequest(RequestModel):
     """Schema for POST /api/agents."""
 
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=AGENT_NAME_MAX_CHARS)
     description: str | None = Field(None, max_length=500)
-    system_prompt: str | None = Field(None, max_length=10000)
+    system_prompt: str | None = Field(None, max_length=AGENT_INSTRUCTIONS_MAX_CHARS)
     schedule: str | None = Field(
         None,
         description="Cron expression (e.g., '0 9 * * *' for daily at 9am)",
@@ -71,9 +72,9 @@ class CreateAgentRequest(RequestModel):
 class UpdateAgentRequest(RequestModel):
     """Schema for PATCH /api/agents/<id>."""
 
-    name: str | None = Field(None, min_length=1, max_length=100)
+    name: str | None = Field(None, min_length=1, max_length=AGENT_NAME_MAX_CHARS)
     description: str | None = Field(None, max_length=500)
-    system_prompt: str | None = Field(None, max_length=10000)
+    system_prompt: str | None = Field(None, max_length=AGENT_INSTRUCTIONS_MAX_CHARS)
     schedule: str | None = None
     timezone: str | None = None
     tool_permissions: list[str] | None = None

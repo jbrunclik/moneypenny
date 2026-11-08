@@ -11,15 +11,17 @@ in a standing chat or an unattended run.
 from __future__ import annotations
 
 import json
+from typing import TypedDict
 
 from langchain_core.tools import tool
 
-from src.agent.permissions import WRITE_SUFFIX, base_tool
+from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.agent.tools.standing_settings import ALL_GRANTS, unknown_grants
 from src.config import Config
+from src.constants import AGENT_INSTRUCTIONS_MAX_CHARS, AGENT_NAME_MAX_CHARS
 from src.db.models import db
 from src.utils.logging import get_logger
 from src.utils.schedule_spec import ScheduleError, describe_cron, recurring_cron
@@ -28,6 +30,18 @@ from src.utils.threat_patterns import find_injection
 logger = get_logger(__name__)
 
 PENDING_NAMESPACE = "standing_create_pending"
+
+
+class Spec(TypedDict):
+    """The previewed standing chat, kept in the pending gate until the yes."""
+
+    name: str
+    instructions: str
+    schedule: str | None
+    grants: list[str]
+    fresh_context: bool
+
+
 _TOOL_LABELS = {
     "todoist": "Todoist",
     "google_calendar": "Calendar",
@@ -36,18 +50,37 @@ _TOOL_LABELS = {
 }
 
 
+# Tools that act without a write level: what each one lets a run do
+_ACTING_TOOLS = {
+    "browser": "can browse and fill in web forms",
+    "create_file": "can attach files",
+    "delegate_task": "can hand work to a helper agent",
+    "delete_place": "can delete your saved places",
+    "execute_code": "can run code",
+    "generate_image": "can create images",
+    "kv_store": "keeps its own notes",
+    "manage_memory": "can edit your memories",
+    "save_place": "can save places for you",
+    "trigger_agent": "can start your other agents",
+    "whatsapp": "can send WhatsApp messages",
+}
+# What every run may use without a grant (ALWAYS_SAFE_TOOLS, in words)
+_BASE_TOOLS_TEXT = "web lookups, files, places lookups and its own notes"
+
+
+def _tool_text(tool_name: str, writes: set[str]) -> str:
+    if tool_name in writes:
+        return f"{tool_name} (can change your {_TOOL_LABELS.get(tool_name, tool_name)})"
+    if tool_name in WRITE_LEVEL_TOOLS:
+        return f"{tool_name} (reads; changes wait for your approval)"
+    return f"{tool_name} ({_ACTING_TOOLS.get(tool_name, 'read only')})"
+
+
 def _tools_text(grants: list[str]) -> str:
-    """Each tool, and whether it can change things there."""
-    if ALL_GRANTS in grants:
-        return "all tools, including changing things in your Todoist, Calendar and workouts"
+    """Each tool, and what it lets a run do - changes spelled out."""
     writes = {base_tool(g) for g in grants if g.endswith(WRITE_SUFFIX)}
-    parts = []
-    for tool_name in dict.fromkeys(base_tool(g) for g in grants):
-        if tool_name in writes:
-            parts.append(f"{tool_name} (can change your {_TOOL_LABELS.get(tool_name, tool_name)})")
-        else:
-            parts.append(f"{tool_name} (read only)")
-    return ", ".join(parts) or "web search only"
+    parts = [_tool_text(t, writes) for t in dict.fromkeys(base_tool(g) for g in grants)]
+    return ", ".join(parts) or f"none beyond {_BASE_TOOLS_TEXT}"
 
 
 def _schedule(days: list[str] | None, time: str | None) -> str | ScheduleError | None:
@@ -60,6 +93,10 @@ def _schedule(days: list[str] | None, time: str | None) -> str | ScheduleError |
 def _refusal(user_id: str, name: str, instructions: str, grants: list[str]) -> str | None:
     if not name.strip() or not instructions.strip():
         return "Give the new chat a name and its standing instructions."
+    if len(name.strip()) > AGENT_NAME_MAX_CHARS:
+        return f"The name is too long (at most {AGENT_NAME_MAX_CHARS} characters)."
+    if len(instructions.strip()) > AGENT_INSTRUCTIONS_MAX_CHARS:
+        return f"The instructions are too long (at most {AGENT_INSTRUCTIONS_MAX_CHARS} characters)."
     for value in (name, instructions):
         if reason := find_injection(value):
             return f"Refused: {reason}. Describe it in your own words."
@@ -68,22 +105,33 @@ def _refusal(user_id: str, name: str, instructions: str, grants: list[str]) -> s
     cap = Config.STANDING_CHATS_MAX_PER_USER
     if len(db.list_agents_with_status(user_id)) >= cap:
         return f"You have reached the limit of {cap} standing chats; remove one first."
+    if ALL_GRANTS in grants:
+        return (
+            "All tools cannot be granted from a chat: list the tools it needs (the user can "
+            "widen it later under Agents)."
+        )
     if unknown := unknown_grants(grants):
         return f"Unknown tools: {', '.join(sorted(unknown))}."
     return None
 
 
-def _preview(spec: dict[str, object]) -> str:
+def _settings_text(spec: Spec) -> str:
     cron = spec["schedule"]
-    when = describe_cron(str(cron)) if cron else "only when you ask it"
+    when = describe_cron(cron) if cron else "only when you ask it"
     return (
-        f'PREVIEW (nothing created yet): a new standing chat "{spec["name"]}" under Agents.\n'
         f"- Instructions: {spec['instructions']}\n"
         f"- Runs: {when} ({Config.APP_TIMEZONE})\n"
-        f"- Tools: {_tools_text(list(spec['grants']))}\n"  # type: ignore[call-overload]
-        f"- Each run {'starts fresh' if spec['fresh_context'] else 'sees the chat so far'}\n\n"
-        "Show this to the user and ask; call create_standing_chat(confirm=true) only after "
-        "they agree in their reply."
+        f"- Tools: {_tools_text(spec['grants'])}\n"
+        f"- Each run {'starts fresh' if spec['fresh_context'] else 'sees the chat so far'}"
+    )
+
+
+def _preview(spec: Spec) -> str:
+    return (
+        f'PREVIEW (nothing created yet): a new standing chat "{spec["name"]}" under Agents.\n'
+        f"{_settings_text(spec)}\n\n"
+        "Show all of this to the user - the tools and what they can change too - and ask; "
+        "call create_standing_chat(confirm=true) only after they agree in their reply."
     )
 
 
@@ -91,7 +139,7 @@ def _confirm(conversation_id: str, user_id: str) -> str:
     raw = db.kv_get(user_id, PENDING_NAMESPACE, conversation_id)
     if not raw:
         return tool_error("Nothing was previewed in this chat: preview it first.")
-    spec = json.loads(raw)
+    spec: Spec = json.loads(raw)
     if expired(conversation_id, spec):
         db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
         return tool_error("That preview expired - the user moved on. Preview again and ask.")
@@ -103,20 +151,20 @@ def _confirm(conversation_id: str, user_id: str) -> str:
     if refusal := _refusal(user_id, spec["name"], spec["instructions"], spec["grants"]):
         return tool_error(refusal)
     db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-    grants = spec["grants"]
     agent = db.create_agent(
         user_id,
         spec["name"],
         system_prompt=spec["instructions"],
         schedule=spec["schedule"],
         timezone=Config.APP_TIMEZONE,
-        tool_permissions=None if ALL_GRANTS in grants else grants,
+        tool_permissions=spec["grants"],
         fresh_context=spec["fresh_context"],
     )
     logger.info("Standing chat created by talking", extra={"user_id": user_id, "job_id": agent.id})
     return (
         f'Created "{agent.name}" under Agents: #/conversations/{agent.conversation_id} - its '
-        "reports arrive there. Tell the user where to find it."
+        f"reports arrive there.\n{_settings_text(spec)}\n\n"
+        "Tell the user where to find it and what was set up."
     )
 
 
@@ -165,6 +213,11 @@ def create_standing_chat(
             "This is a standing chat: set up new ones from an ordinary chat.", retriable=False
         )
     if confirm:
+        if name or instructions or days or time or grants is not None:
+            return tool_error(
+                "confirm=true creates exactly what was previewed and takes no other fields: "
+                "preview the changed version first, and ask again."
+            )
         return _confirm(conversation_id, user_id)
     grant_list = list(grants or [])
     if refusal := _refusal(user_id, name, instructions, grant_list):
@@ -172,7 +225,7 @@ def create_standing_chat(
     cron = _schedule(days, time)
     if isinstance(cron, ScheduleError):
         return tool_error(str(cron))
-    spec: dict[str, object] = {
+    spec: Spec = {
         "name": name.strip(),
         "instructions": instructions.strip(),
         "schedule": cron,

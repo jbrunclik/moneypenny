@@ -180,3 +180,57 @@ def test_bound_in_ordinary_chats_only() -> None:
 
     assert "create_standing_chat" in ordinary
     assert "create_standing_chat" not in standing | anonymous
+
+
+def test_preview_names_what_acting_tools_can_do(chat: Conversation) -> None:
+    preview = _call(**{**COACH, "grants": ["delete_place", "manage_memory", "todoist"]})
+
+    assert "delete_place (read only)" not in preview
+    assert "manage_memory (read only)" not in preview
+    assert "can delete your saved places" in preview
+    assert "can edit your memories" in preview
+    assert "changes wait for your approval" in preview  # todoist without :write
+
+
+def test_preview_without_grants_is_honest(chat: Conversation) -> None:
+    preview = _call(**{**COACH, "grants": []})
+
+    assert "web search only" not in preview
+    assert "files" in preview
+
+
+def test_all_tools_grant_refused(chat: Conversation) -> None:
+    result = _call(**{**COACH, "grants": ["*"]})
+
+    assert "PREVIEW" not in result
+    assert "list the tools" in result.lower()
+
+
+@pytest.mark.parametrize(("field", "size"), [("name", 101), ("instructions", 10_001)])
+def test_overlong_fields_refused(chat: Conversation, field: str, size: int) -> None:
+    result = _call(**{**COACH, field: "x" * size})
+
+    assert "PREVIEW" not in result
+    assert "too long" in result
+
+
+def test_confirm_with_changes_is_refused(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    _call(**COACH)
+    _user_says(test_database, chat, "Yes, but call it Coach", "r2")
+
+    result = _call(confirm=True, name="Coach")
+
+    assert "preview" in result.lower()
+    assert test_database.get_agent_by_name(test_user.id, "Cycling coach") is None
+
+
+def test_confirm_echoes_the_created_settings(chat: Conversation, test_database: Database) -> None:
+    _call(**COACH)
+    _user_says(test_database, chat, "Yes", "r2")
+
+    created = _call(confirm=True)
+
+    assert "every day at 20:00" in created
+    assert "can change your Todoist" in created
