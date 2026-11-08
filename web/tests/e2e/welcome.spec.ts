@@ -58,9 +58,15 @@ for (const [label, vars] of [
       const pill = (await page.locator('.input-container').boundingBox())!;
       return pill.y - (h.y + h.height);
     };
-    // The composer glides up; measure once it has settled
-    const settled = (): Promise<unknown> =>
-      page.waitForFunction(() => document.getAnimations().length === 0);
+    // The composer glides up; measure once it has settled. Two frames first:
+    // right after a style change the transition may not be registered yet,
+    // and "no animations" would pass before it even started (CI flake)
+    const settled = async (): Promise<void> => {
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      );
+      await page.waitForFunction(() => document.getAnimations().length === 0);
+    };
     await settled();
     const normalGap = await gap();
     expect(normalGap).toBeGreaterThan(0);
@@ -68,8 +74,7 @@ for (const [label, vars] of [
       for (const [k, val] of Object.entries(v)) document.documentElement.style.setProperty(k, val);
     }, vars);
     await settled();
-    const shrunkGap = await gap();
-    expect(shrunkGap).toBeGreaterThan(normalGap - 4);
-    expect(shrunkGap).toBeLessThan(normalGap + 4);
+    await expect.poll(gap).toBeLessThan(normalGap + 4);
+    expect(await gap()).toBeGreaterThan(normalGap - 4);
   });
 }
