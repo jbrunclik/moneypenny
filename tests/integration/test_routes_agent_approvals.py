@@ -19,9 +19,12 @@ from src.db.models.dataclasses import Agent, ApprovalRequest
 
 @pytest.fixture
 def resume(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
-    """The faked execute_agent the approve route resumes the agent with."""
-    fake = MagicMock(return_value=(True, None))
-    monkeypatch.setattr(agent_approvals, "execute_agent", fake)
+    """The faked run_job_now the approve route resumes the agent's job with
+    (agents are standing jobs with the agent's id)."""
+    from src.agent.item_runner import RunOutcome
+
+    fake = MagicMock(return_value=RunOutcome("report", "Sent."))
+    monkeypatch.setattr(agent_approvals, "run_job_now", fake)
     yield fake
 
 
@@ -61,14 +64,13 @@ class TestApprove:
         assert response.get_json() == {"status": "approved"}
 
         assert resume.call_args.args[0].id == agent.id
+        assert resume.call_args.kwargs["message"] == "[Action approved: Send the weekly summary]"
         assert _last_message(test_database, agent) == "[Action approved: Send the weekly summary]"
         executions = _executions(test_database, agent)
         assert executions[paused_id].status == "completed"  # superseded by the resumed run
-        resumed = [e for i, e in executions.items() if i != paused_id]
-        assert [e.status for e in resumed] == ["completed"]
         assert test_database.get_pending_approvals(agent.user_id) == []
 
-    def test_a_failing_resumed_run_is_recorded(
+    def test_a_crashing_resumed_run_still_approves(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
@@ -76,29 +78,11 @@ class TestApprove:
         paused: tuple[Agent, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
-        agent, approval, paused_id = paused
-        resume.return_value = (False, "Mail server refused")
-        assert (
-            client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers).status_code
-            == 200
-        )
-        resumed = [e for i, e in _executions(test_database, agent).items() if i != paused_id]
-        assert [(e.status, e.error_message) for e in resumed] == [("failed", "Mail server refused")]
-
-    def test_a_crashing_resumed_run_is_recorded_not_left_running(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        agent, approval, paused_id = paused
+        agent, approval, _ = paused
         resume.side_effect = RuntimeError("model unavailable")
         response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
         assert response.status_code == 200  # the approval itself went through
-        resumed = [e for i, e in _executions(test_database, agent).items() if i != paused_id]
-        assert [e.status for e in resumed] == ["failed"]
+        assert test_database.get_pending_approvals(agent.user_id) == []
 
     def test_approving_twice_finds_nothing_the_second_time(
         self,

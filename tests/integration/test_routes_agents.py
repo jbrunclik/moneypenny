@@ -1,7 +1,7 @@
 """Integration tests for autonomous agent routes."""
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
@@ -484,25 +484,35 @@ class TestDeleteAgent:
 class TestTriggerAgent:
     """Tests for POST /api/agents/<agent_id>/run endpoint."""
 
+    @staticmethod
+    def _fake_run(test_database: Any, status: str, error: str | None = None) -> Any:
+        """run_job_now as the route sees it: one execution row, an outcome."""
+        from src.agent.item_runner import RunOutcome
+
+        def run(job: Any, user: Any, **kwargs: Any) -> RunOutcome:
+            execution = test_database.create_execution(job.id, "manual")
+            final = "failed" if status == "failed" else "completed"
+            test_database.update_execution(execution.id, status=final, error_message=error)
+            return RunOutcome(status, "Report", error=error)  # type: ignore[arg-type]
+
+        return run
+
     def test_triggers_agent_execution(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_agent: Agent,
+        test_database: Any,
     ) -> None:
-        """Should trigger agent and return execution record."""
-        # Mock the execute_agent function to avoid actual LLM calls
-        with patch("src.api.routes.agents.execute_agent") as mock_execute:
-            mock_execute.return_value = (True, None)
-
-            response = client.post(
-                f"/api/agents/{test_agent.id}/run",
-                headers=auth_headers,
-            )
+        """Should run the agent's standing job and return the execution record."""
+        with patch(
+            "src.api.routes.agents.run_job_now", side_effect=self._fake_run(test_database, "report")
+        ) as run:
+            response = client.post(f"/api/agents/{test_agent.id}/run", headers=auth_headers)
 
             assert response.status_code == 200
             data = json.loads(response.data)
-            assert "execution" in data
+            assert run.call_args.args[0].id == test_agent.id
             assert data["execution"]["agent_id"] == test_agent.id
             assert data["execution"]["trigger_type"] == "manual"
             assert data["message"] == "Agent executed successfully"
@@ -512,15 +522,14 @@ class TestTriggerAgent:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_agent: Agent,
+        test_database: Any,
     ) -> None:
         """Should return failure message on execution error."""
-        with patch("src.api.routes.agents.execute_agent") as mock_execute:
-            mock_execute.return_value = (False, "LLM error")
-
-            response = client.post(
-                f"/api/agents/{test_agent.id}/run",
-                headers=auth_headers,
-            )
+        with patch(
+            "src.api.routes.agents.run_job_now",
+            side_effect=self._fake_run(test_database, "failed", "LLM error"),
+        ):
+            response = client.post(f"/api/agents/{test_agent.id}/run", headers=auth_headers)
 
             assert response.status_code == 200
             data = json.loads(response.data)

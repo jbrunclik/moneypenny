@@ -17,9 +17,15 @@ from typing import TYPE_CHECKING, Any
 
 from src.config import Config
 from src.db.models.agent_rows import row_to_agent
-from src.db.models.dataclasses import Agent
+from src.db.models.dataclasses import Agent, ScheduledItem
 from src.db.models.helpers import delete_messages_blobs
-from src.db.models.timestamps import to_db, to_db_or_none
+from src.db.models.scheduled_items import (
+    ITEM_INSERT_SQL,
+    NEVER_RUN_AT,
+    STANDING_JOB_TEXT,
+    stored_item,
+)
+from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -27,6 +33,20 @@ if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
 
 logger = get_logger(__name__)
+
+ALL_GRANTS = "*"
+# Conversation columns a None update must not blank
+_NOT_NULL = frozenset({"title", "model", "standing_name"})
+# enabled=True only undoes a disable (a job paused after failures stays paused);
+# SET expressions all read the row's old values
+_ENABLE_SQL = (
+    "status = CASE WHEN paused_reason = 'disabled' THEN 'active' ELSE status END",
+    "paused_reason = CASE WHEN paused_reason = 'disabled' THEN NULL ELSE paused_reason END",
+)
+_DISABLE_SQL = (
+    "status = CASE WHEN status = 'running' THEN status ELSE 'paused' END",
+    "paused_reason = 'disabled'",
+)
 
 
 class AgentMixin:
@@ -84,34 +104,45 @@ class AgentMixin:
         Returns:
             The created Agent object
         """
+        if self.get_agent_by_name(user_id, name) is not None:
+            raise sqlite3.IntegrityError(f"An agent named {name!r} exists already")
         agent_model = model or Config.DEFAULT_MODEL
-        agent_id = str(uuid.uuid4())
+        job_id = str(uuid.uuid4())
         conv_id = str(uuid.uuid4())
         now = utc_now()
-
-        logger.debug(
-            "Creating agent",
-            extra={"user_id": user_id, "agent_id": agent_id, "agent_name": name},
+        next_run_at = self.calculate_next_run(schedule, timezone) if schedule else None
+        job = ScheduledItem(
+            id=job_id,
+            user_id=user_id,
+            conversation_id=conv_id,
+            kind="recurring",
+            text=STANDING_JOB_TEXT,
+            end_condition=None,
+            schedule=schedule,
+            interval_hours=None,
+            next_run_at=next_run_at or NEVER_RUN_AT,
+            expires_at=None,
+            status="active" if enabled else "paused",
+            last_result=None,
+            quiet_runs=0,
+            failures=0,
+            created_at=now,
+            # "is not None": [] means "only the safe tools", None "all tools"
+            grants=tool_permissions if tool_permissions is not None else [ALL_GRANTS],
+            model=agent_model,
+            budget_usd=budget_limit,
+            fresh_context=fresh_context,
+            timezone=timezone,
+            paused_reason=None if enabled else "disabled",
         )
-
-        # "is not None": [] means "only the safe tools", None means "all tools" -
-        # a falsy check stored [] as NULL and the agent got every tool
-        tool_permissions_json = (
-            json.dumps(tool_permissions) if tool_permissions is not None else None
-        )
-
-        # Calculate next run time if schedule is provided
-        next_run_at = None
-        if schedule and enabled:
-            next_run_at = self.calculate_next_run(schedule, timezone)
-
         with self._pool.get_connection() as conn:
-            # Create the dedicated conversation first (use agent's model)
+            # The standing chat (its settings) and its job, together
             self._execute_with_timing(
                 conn,
                 """INSERT INTO conversations
-                   (id, user_id, title, model, created_at, updated_at, is_agent, agent_id)
-                   VALUES (?, ?, ?, ?, ?, ?, 1, ?)""",
+                   (id, user_id, title, model, created_at, updated_at, is_agent, agent_id,
+                    standing_name, standing_instructions, standing_type, standing_description)
+                   VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)""",
                 (
                     conv_id,
                     user_id,
@@ -119,62 +150,21 @@ class AgentMixin:
                     agent_model,
                     to_db(now),
                     to_db(now),
-                    agent_id,
-                ),
-            )
-
-            # Create the agent
-            self._execute_with_timing(
-                conn,
-                """INSERT INTO autonomous_agents
-                   (id, user_id, conversation_id, name, description, system_prompt,
-                    schedule, timezone, enabled, tool_permissions, model, created_at, updated_at,
-                    next_run_at, budget_limit, fresh_context, system_type)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    agent_id,
-                    user_id,
-                    conv_id,
+                    job_id,
                     name,
-                    description,
                     system_prompt,
-                    schedule,
-                    timezone,
-                    1 if enabled else 0,
-                    tool_permissions_json,
-                    agent_model,
-                    to_db(now),
-                    to_db(now),
-                    to_db_or_none(next_run_at),
-                    budget_limit,
-                    1 if fresh_context else 0,
                     system_type,
+                    description,
                 ),
             )
+            self._execute_with_timing(conn, ITEM_INSERT_SQL, stored_item(job))
             conn.commit()
 
-        logger.info("Agent created", extra={"agent_id": agent_id, "user_id": user_id})
-
-        return Agent(
-            id=agent_id,
-            user_id=user_id,
-            conversation_id=conv_id,
-            name=name,
-            description=description,
-            system_prompt=system_prompt,
-            schedule=schedule,
-            timezone=timezone,
-            enabled=enabled,
-            tool_permissions=tool_permissions,
-            model=agent_model,
-            created_at=now,
-            updated_at=now,
-            last_run_at=None,
-            next_run_at=next_run_at,
-            budget_limit=budget_limit,
-            fresh_context=fresh_context,
-            system_type=system_type,
-        )
+        logger.info("Agent created", extra={"agent_id": job_id, "user_id": user_id})
+        agent = self.get_agent(job_id, user_id)
+        if agent is None:  # just written in this transaction
+            raise RuntimeError(f"Agent {job_id} vanished after create")
+        return agent
 
     def get_agent(self, agent_id: str, user_id: str) -> Agent | None:
         """Get an agent by ID and user ID."""
@@ -239,56 +229,70 @@ class AgentMixin:
         if not current_agent:
             return None
 
-        updates: list[str] = ["updated_at = ?"]
-        # datetimes are stored in the column's format once a connection is open
-        params: list[Any] = [utc_now()]
-
-        # (column, new value or Ellipsis, value as stored)
-        fields: list[tuple[str, Any, Any]] = [
-            ("name", name, name),
-            ("description", description, description),
-            ("system_prompt", system_prompt, system_prompt),
-            ("schedule", schedule, schedule),
-            ("timezone", timezone, timezone),
-            (
-                "tool_permissions",
-                tool_permissions,
-                json.dumps(tool_permissions) if isinstance(tool_permissions, list) else None,
-            ),
-            ("enabled", enabled, 1 if enabled else 0),
-            ("fresh_context", fresh_context, 1 if fresh_context else 0),
-            ("model", model, model),
-            ("budget_limit", budget_limit, budget_limit),
+        now = utc_now()
+        conv_fields: list[tuple[str, Any]] = [
+            ("standing_name", name),
+            ("title", name if isinstance(name, EllipsisType) or name is None else f"Agent: {name}"),
+            ("standing_description", description),
+            ("standing_instructions", system_prompt),
+            ("model", model),
         ]
-        for column, value, stored in fields:
-            if not isinstance(value, EllipsisType):
-                updates.append(f"{column} = ?")
-                params.append(stored)
+        conv_updates = ["updated_at = ?"]
+        conv_params: list[Any] = [to_db(now)]
+        for column, value in conv_fields:
+            if not isinstance(value, EllipsisType) and not (column in _NOT_NULL and value is None):
+                conv_updates.append(f"{column} = ?")
+                conv_params.append(value)
 
+        grants = (
+            ...
+            if isinstance(tool_permissions, EllipsisType)
+            else json.dumps(tool_permissions if tool_permissions is not None else [ALL_GRANTS])
+        )
+        job_fields: list[tuple[str, Any]] = [
+            ("schedule", schedule),
+            ("timezone", timezone),
+            ("grants", grants),
+            ("model", model),
+            ("budget_usd", budget_limit),
+            (
+                "fresh_context",
+                fresh_context
+                if isinstance(fresh_context, EllipsisType)
+                else int(bool(fresh_context)),
+            ),
+        ]
+        job_updates: list[str] = []
+        job_params: list[Any] = []
+        for column, value in job_fields:
+            if not isinstance(value, EllipsisType):
+                job_updates.append(f"{column} = ?")
+                job_params.append(value)
+        if not isinstance(enabled, EllipsisType):
+            job_updates.extend(_ENABLE_SQL if enabled else _DISABLE_SQL)
         next_run_at = self._rescheduled_next_run(current_agent, schedule, timezone, enabled)
         if not isinstance(next_run_at, EllipsisType):
-            updates.append("next_run_at = ?")
-            params.append(next_run_at)
-
-        params.extend([agent_id, user_id])
+            job_updates.append("next_run_at = ?")
+            job_params.append(to_db(next_run_at or NEVER_RUN_AT))
 
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                f"UPDATE autonomous_agents SET {', '.join(updates)} WHERE id = ? AND user_id = ?",
-                tuple(to_db(p) if isinstance(p, datetime) else p for p in params),
+                f"UPDATE conversations SET {', '.join(conv_updates)} WHERE agent_id = ? AND user_id = ?",
+                (*conv_params, agent_id, user_id),
             )
-
-            if cursor.rowcount == 0:
-                # The UPDATE matched nothing but still opened a transaction
+            if cursor.rowcount == 0:  # deleted meanwhile; release the write lock
                 conn.rollback()
                 return None
-
-            self._sync_agent_conversation(conn, agent_id, user_id, name, model)
+            if job_updates:
+                self._execute_with_timing(
+                    conn,
+                    f"UPDATE scheduled_items SET {', '.join(job_updates)} WHERE id = ? AND user_id = ?",
+                    (*job_params, agent_id, user_id),
+                )
             conn.commit()
 
-            # Fetch and return the updated agent
-            return self.get_agent(agent_id, user_id)
+        return self.get_agent(agent_id, user_id)
 
     def _rescheduled_next_run(
         self,
@@ -327,33 +331,6 @@ class AgentMixin:
             return None
         # Recalculate next_run_at
         return self.calculate_next_run(effective_schedule, effective_timezone or "UTC")
-
-    def _sync_agent_conversation(
-        self,
-        conn: sqlite3.Connection,
-        agent_id: str,
-        user_id: str,
-        name: str | EllipsisType | None,
-        model: str | EllipsisType | None,
-    ) -> None:
-        """Carry a name or model change over to the agent's conversation."""
-        # Update conversation title if name changed
-        if not isinstance(name, EllipsisType) and name is not None:
-            self._execute_with_timing(
-                conn,
-                """UPDATE conversations SET title = ?
-                   WHERE agent_id = ? AND user_id = ?""",
-                (f"Agent: {name}", agent_id, user_id),
-            )
-
-        # Update conversation model if agent model changed
-        if not isinstance(model, EllipsisType) and model is not None:
-            self._execute_with_timing(
-                conn,
-                """UPDATE conversations SET model = ?
-                   WHERE agent_id = ? AND user_id = ?""",
-                (model, agent_id, user_id),
-            )
 
     def delete_agent(self, agent_id: str, user_id: str) -> bool:
         """Delete an agent and its associated conversation.
@@ -407,10 +384,10 @@ class AgentMixin:
                 (user_id, f"agent:{agent_id}"),
             )
 
-            # Delete the agent
+            # Delete the agent's standing job (the chat goes below)
             self._execute_with_timing(
                 conn,
-                "DELETE FROM autonomous_agents WHERE id = ? AND user_id = ?",
+                "DELETE FROM scheduled_items WHERE id = ? AND user_id = ?",
                 (agent_id, user_id),
             )
 

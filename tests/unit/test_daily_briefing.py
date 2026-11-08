@@ -118,3 +118,58 @@ def test_briefing_prompt_mentions_leave_by_routing() -> None:
 
     assert "get_route" in BRIEFING_SYSTEM_PROMPT
     assert "leave by" in BRIEFING_SYSTEM_PROMPT.lower()
+
+
+class TestBriefingIsAStandingChat:
+    """Standing chats phase 2 (B4): the Settings toggle makes a standing chat
+    plus a daily standing job; turning it off pauses the job."""
+
+    def _briefing(self, test_database, test_user, monkeypatch, enabled: bool = True):
+        monkeypatch.setattr("src.agent.daily_briefing.db", test_database)
+        from src.agent.daily_briefing import set_briefing
+
+        current = test_database.get_user_by_id(test_user.id)  # with its briefing id
+        set_briefing(current, enabled=enabled, time_str="07:15", timezone="Europe/Prague")
+        user = test_database.get_user_by_id(test_user.id)
+        return user.daily_briefing_agent_id
+
+    def test_settings_toggle_creates_chat_and_job(self, test_database, test_user, monkeypatch):
+        from src.agent.daily_briefing import SYSTEM_TYPE_DAILY_BRIEFING
+
+        job_id = self._briefing(test_database, test_user, monkeypatch)
+
+        job = test_database.get_item(job_id, test_user.id)
+        assert job is not None and job.standing
+        assert (job.schedule, job.timezone, job.grants) == ("15 7 * * *", "Europe/Prague", ["*"])
+        conv = test_database.get_conversation(job.conversation_id, test_user.id)
+        assert conv.is_agent and conv.agent_id == job_id
+        assert (conv.standing_instructions, conv.standing_type) == (
+            None,
+            SYSTEM_TYPE_DAILY_BRIEFING,
+        )
+
+    def test_toggle_off_pauses_the_job(self, test_database, test_user, monkeypatch):
+        job_id = self._briefing(test_database, test_user, monkeypatch)
+
+        self._briefing(test_database, test_user, monkeypatch, enabled=False)
+
+        job = test_database.get_item(job_id, test_user.id)
+        assert (job.status, job.paused_reason) == ("paused", "disabled")
+
+
+def test_create_agent_makes_chat_and_job(test_database, test_user) -> None:
+    agent = test_database.create_agent(
+        test_user.id,
+        "Coach",
+        system_prompt="Coach my rides",
+        schedule="0 20 * * *",
+        tool_permissions=["garmin_connect"],
+        budget_limit=0.3,
+        fresh_context=False,
+    )
+
+    job = test_database.get_item(agent.id, test_user.id)
+    conv = test_database.get_conversation(agent.conversation_id, test_user.id)
+    assert (job.grants, job.budget_usd, job.fresh_context) == (["garmin_connect"], 0.3, False)
+    assert (conv.standing_name, conv.standing_instructions) == ("Coach", "Coach my rides")
+    assert test_database.count_items(test_user.id) == 0  # outside the light-item cap

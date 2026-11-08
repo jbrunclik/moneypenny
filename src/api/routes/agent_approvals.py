@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agent.executor import execute_agent
 from src.agent.item_scheduler import JobBusyError, run_job_now
 from src.api.errors import raise_not_found_error
 from src.api.helpers.agent_responses import approval_to_response
@@ -62,63 +61,8 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     if not approval:
         raise_not_found_error("Approval request")
 
-    # Get the agent (or the standing job the approval names)
-    agent = db.get_agent(approval.agent_id, user.id)
-    if not agent:
-        return _approve_job_request(user, approval_id, approval)
-
-    # Resolve the approval
-    resolved = db.resolve_approval(approval_id, user.id, approved=True)
-    if not resolved:
-        raise_not_found_error("Approval request")
-
-    # The paused run is done: the resumed one below carries on. Left alone it
-    # stayed waiting_approval until the zombie sweep marked it failed.
-    _close_waiting_execution(agent.id, status="completed")
-
-    # Resume agent execution with a message about the approved action
-    # Create a new execution record for the resumed run
-    execution = db.create_execution(
-        agent_id=agent.id,
-        trigger_type="manual",  # Resuming after approval
-    )
-
-    # Execute the agent with a message indicating the approved action
-    resume_message = f"[Action approved: {approval.description}]"
-
-    # Add the approval confirmation to the conversation first
-    if agent.conversation_id:
-        db.add_message(
-            agent.conversation_id,
-            MessageRole.USER,
-            resume_message,
-        )
-
-    try:
-        result, error_msg = execute_agent(agent, user, "manual", execution.id)
-    except Exception as e:
-        # The approval went through: record the resumed run's crash, don't 500
-        logger.exception("Resumed agent run crashed", extra={"agent_id": agent.id})
-        result, error_msg = False, str(e)
-
-    if result is True:
-        db.update_execution(execution.id, status="completed")
-    elif result == "waiting_approval":
-        # Agent needs another approval (shouldn't happen in normal flow)
-        pass
-    else:
-        db.update_execution(execution.id, status="failed", error_message=error_msg)
-
-    logger.info(
-        "Approval processed and agent resumed",
-        extra={
-            "approval_id": approval_id,
-            "agent_id": agent.id,
-            "result": str(result),
-        },
-    )
-
-    return {"status": "approved"}
+    # Agents are standing jobs (same id): resume the job
+    return _approve_job_request(user, approval_id, approval)
 
 
 @api.route("/approvals/<approval_id>/reject", methods=["POST"])

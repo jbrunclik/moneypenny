@@ -9,9 +9,6 @@ from zoneinfo import ZoneInfo
 
 from croniter import croniter
 
-from src.db.models.agent_rows import row_to_agent
-from src.db.models.dataclasses import Agent
-from src.db.models.timestamps import to_db, to_db_or_none
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
@@ -57,86 +54,3 @@ class AgentScheduleMixin:
                 exc_info=True,
             )
             return None
-
-    def get_due_agents(self, now: datetime | None = None) -> list[Agent]:
-        """Get agents that are due for execution.
-
-        Args:
-            now: The current instant (aware). If None, uses the current time.
-
-        Returns:
-            Enabled agents where next_run_at <= now.
-        """
-        if now is None:
-            now = utc_now()
-
-        with self._pool.get_connection() as conn:
-            rows = self._execute_with_timing(
-                conn,
-                """SELECT * FROM autonomous_agents
-                   WHERE enabled = 1
-                   AND next_run_at IS NOT NULL
-                   AND next_run_at <= ?
-                   ORDER BY next_run_at ASC""",
-                (to_db(now),),
-            ).fetchall()
-
-            return [row_to_agent(row) for row in rows]
-
-    def update_agent_last_run(self, agent_id: str) -> None:
-        """Update an agent's last_run_at and recalculate next_run_at.
-
-        Only schedules the next run if the agent is still enabled.
-        """
-        now = utc_now()
-
-        with self._pool.get_connection() as conn:
-            # Get the agent's schedule, timezone, and enabled status
-            row = self._execute_with_timing(
-                conn,
-                "SELECT schedule, timezone, enabled FROM autonomous_agents WHERE id = ?",
-                (agent_id,),
-            ).fetchone()
-
-            if not row:
-                return
-
-            next_run_at = None
-            # Only calculate next run if agent is enabled and has a schedule
-            if row["enabled"] and row["schedule"]:
-                next_run_at = self.calculate_next_run(row["schedule"], row["timezone"] or "UTC")
-
-            self._execute_with_timing(
-                conn,
-                """UPDATE autonomous_agents
-                   SET last_run_at = ?, next_run_at = ?, updated_at = ?
-                   WHERE id = ?""",
-                (
-                    to_db(now),
-                    to_db_or_none(next_run_at),
-                    to_db(now),
-                    agent_id,
-                ),
-            )
-            conn.commit()
-
-    def update_agent_next_run(self, agent_id: str, next_run_at: datetime) -> None:
-        """Update an agent's next_run_at directly.
-
-        Used by the scheduler when manually setting the next run time.
-        """
-        now = utc_now()
-
-        with self._pool.get_connection() as conn:
-            self._execute_with_timing(
-                conn,
-                """UPDATE autonomous_agents
-                   SET next_run_at = ?, updated_at = ?
-                   WHERE id = ?""",
-                (
-                    to_db(next_run_at),
-                    to_db(now),
-                    agent_id,
-                ),
-            )
-            conn.commit()

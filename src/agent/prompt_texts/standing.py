@@ -7,8 +7,9 @@ data.
 
 STANDING_CHAT_SECTION = """# This Chat: {name}
 
-This is a standing chat. Follow its standing instructions below for anything
-in their scope; all your usual abilities and tools stay available.
+This is a standing chat, and the user is here now, talking to you directly.
+Follow its standing instructions below for anything in their scope; all your
+usual abilities and tools stay available.
 
 {instructions}"""
 

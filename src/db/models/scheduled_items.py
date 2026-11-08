@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import astuple, fields
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 
 from src.db.models.dataclasses import ScheduledItem
@@ -28,6 +28,14 @@ _LIVE_CHAT = """conversation_id IN (SELECT id FROM conversations
     WHERE deleted_at IS NULL AND (archived = 0 OR archived IS NULL))"""
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
 _TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at"}
+# A standing job with no schedule (run by hand or by another agent only)
+NEVER_RUN_AT = datetime(9999, 12, 31, tzinfo=UTC)
+# A migrated or new agent's job: its chat's standing instructions say what to do
+STANDING_JOB_TEXT = "Do what this chat's standing instructions describe."
+ITEM_INSERT_SQL = (
+    f"INSERT INTO scheduled_items ({', '.join(_COLUMNS)}) "
+    f"VALUES ({', '.join('?' for _ in _COLUMNS)})"
+)
 
 
 def _grants(raw: str | None) -> list[str] | None:
@@ -69,7 +77,8 @@ def _stored_value(name: str, value: object) -> object:
     return value
 
 
-def _stored(item: ScheduledItem) -> tuple[object, ...]:
+def stored_item(item: ScheduledItem) -> tuple[object, ...]:
+    """An item's column values, in ITEM_INSERT_SQL's order."""
     return tuple(
         _stored_value(name, value) for name, value in zip(_COLUMNS, astuple(item), strict=True)
     )
@@ -89,9 +98,8 @@ class ScheduledItemsMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                f"INSERT INTO scheduled_items ({', '.join(_COLUMNS)}) "
-                f"VALUES ({', '.join('?' for _ in _COLUMNS)})",
-                _stored(item),
+                ITEM_INSERT_SQL,
+                stored_item(item),
             )
             conn.commit()
         return item

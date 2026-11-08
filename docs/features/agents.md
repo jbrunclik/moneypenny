@@ -266,8 +266,8 @@ message, each belonging to the chat that set it
 
 A scheduled item with `grants` set is a **standing job**: an agent's schedule.
 [Spec](../superpowers/specs/2026-11-08-standing-chats-design.md),
-[plan](../superpowers/plans/2026-11-08-standing-chats-phase-2.md). Part A is shipped. The
-agents move onto standing jobs in Part B; until then nothing creates one except tests.
+[plan](../superpowers/plans/2026-11-08-standing-chats-phase-2.md). Parts A and B are shipped:
+every agent is a standing chat with a standing job (see "Agent Execution Flow").
 
 - **Columns** (migration 0078): `grants` (tool names, or `["*"]` for all tools), `model`,
   `budget_usd` (daily), `fresh_context`, `timezone` (the cron's zone), `paused_reason`.
@@ -298,14 +298,29 @@ agents move onto standing jobs in Part B; until then nothing creates one except 
 
 ## Agent Execution Flow
 
-1. **Check pending approvals**: Skip if agent has an unresolved/unexpired approval request
-2. **Check budget limit**: Skip if agent has exceeded its daily budget
-3. **Create execution record**: Track the run in `agent_executions`
-4. **Load conversation history**: The regular chat compaction's view of the conversation (`build_compacted_history()`; skipped for `fresh_context` agents, which run each turn from a clean slate)
-5. **Set up ChatAgent**: Configure with agent's tools and permissions
-6. **Run the turn**: `ChatAgent.chat_batch()` in autonomous mode (model calls are retried inside the graph, see below)
-7. **Save messages**: Add user trigger and assistant response (with source chips from `extract_read_sources()`, generated files and cost) to the conversation
-8. **Update timestamps**: Set `last_run_at` and calculate `next_run_at`
+Since standing chats phase 2 (Part B, migration 0080) an agent **is** a standing chat plus
+a standing job with the agent's id: its run goes through the one items pass
+(`run_due_items` -> `run_model_item`, see "Standing jobs" above), not a separate agent
+scheduler.
+
+1. **Claim**: the scheduler claims the due job (or Run / an approval resume claims it, so
+   two runs never overlap).
+2. **Hold**: a job waiting for an approval, or over its daily budget, is given back on its
+   schedule without running.
+3. **Execution record** in `agent_executions` (`agent_id` = the job id).
+4. **History**: the regular chat compaction's view of the chat, including its newest message
+   (`run_history(keep_last=True)`); none for `fresh_context` jobs.
+5. **Run**: `ChatAgent.chat_batch()` in autonomous mode with the job's grants and model;
+   the goals are the chat's standing instructions and data plus the job's task line.
+6. **Deliver**: a report is posted into the chat and pushed (titled with the chat);
+   `[SILENT]` posts nothing; cost rows carry `job_id`.
+
+**The facade:** `autonomous_agents` is a SQL **view** over `conversations` (the
+`standing_*` columns: name, instructions, type, description, unread marker) joined to the
+job, so `get_agent`, the Command Center stats and the agents API read unchanged.
+`create_agent` / `update_agent` / `delete_agent` write the chat and the job. Part C drops
+the view and the agent code (the pre-0080 table is kept as `_autonomous_agents_0080`
+for rollback until then).
 
 ## Conversation Compaction
 
@@ -390,7 +405,6 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 |----------|---------|-------------|
 | `AGENT_APPROVAL_TTL_HOURS` | 24 | Hours until approval requests expire |
 | `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max execution time before considered stale |
-| `AGENT_EXECUTION_COOLDOWN_SECONDS` | 5 | Minimum seconds between manual runs |
 | `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum agent-to-agent trigger chain length (cycles are always blocked) |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
@@ -533,7 +547,7 @@ other views, the input area must be restored. This is handled by `ensureInputAre
 
 ## Key Files
 
-- [executor.py](../../src/agent/executor.py) - `execute_agent()`, agent context, trigger chain
+- [executor.py](../../src/agent/executor.py) - the run context (`AgentContext`, trigger chain), trigger message, run history, approval recording
 - [routes/agents.py](../../src/api/routes/agents.py) - REST endpoints (CRUD, execution)
 - [routes/agent_assist.py](../../src/api/routes/agent_assist.py) - AI assist endpoints, `_PROMPT_TOOL_DESCRIPTIONS`
 - [models/agent.py](../../src/db/models/agent.py) - agents, approvals, executions

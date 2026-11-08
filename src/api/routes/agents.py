@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from apiflask import APIBlueprint
 from croniter import croniter
 
-from src.agent.executor import execute_agent
+from src.agent.item_scheduler import JobBusyError, run_job_now
 from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.agent_responses import agent_to_response, execution_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -328,6 +328,11 @@ def mark_agent_viewed(user: User, agent_id: str) -> dict[str, Any]:
 # Agent Execution Routes
 # ============================================================================
 
+_RUN_MESSAGES = {
+    "approval": "Agent is waiting for approval",
+    "silent": "Agent ran: nothing new",
+}
+
 
 @api.route("/agents/<agent_id>/run", methods=["POST"])
 @api.output(TriggerAgentResponse)
@@ -360,37 +365,23 @@ def trigger_agent(user: User, agent_id: str) -> dict[str, Any]:
     if db.has_pending_approval(agent.id):
         raise_validation_error("Agent is waiting for approval")
 
-    # Check if agent is already running (prevent overlapping executions)
-    if db.has_running_execution(agent.id):
+    # The agent is a standing job (same id): run it now, claimed like a due
+    # run so the scheduler cannot start it at the same time
+    job = db.get_item(agent.id, user.id)
+    if job is None:
+        raise_not_found_error("Agent")
+    try:
+        outcome = run_job_now(job, user)
+    except JobBusyError:
         raise_validation_error("Agent is already running")
+    message = _RUN_MESSAGES.get(outcome.status, "Agent executed successfully")
+    if outcome.status == "failed":
+        message = f"Agent execution failed: {outcome.error}"
 
-    # Check if agent is in cooldown period (prevent spamming)
-    if db.is_in_cooldown(agent.id):
-        raise_validation_error("Agent was recently executed. Please wait a few seconds.")
-
-    # Create execution record
-    execution = db.create_execution(
-        agent_id=agent.id,
-        trigger_type="manual",
-    )
-
-    # Execute the agent
-    result, error_message = execute_agent(agent, user, "manual", execution.id)
-
-    if result is True:
-        db.update_execution(execution.id, status="completed")
-        message = "Agent executed successfully"
-    elif result == "waiting_approval":
-        # Don't override status - executor already set it to waiting_approval
-        message = "Agent is waiting for approval"
-    else:
-        db.update_execution(execution.id, status="failed", error_message=error_message)
-        message = f"Agent execution failed: {error_message}"
-
-    # Refresh execution to get updated status
     executions = db.get_agent_executions(agent.id, limit=1)
-    if executions:
-        execution = executions[0]
+    if not executions:
+        raise_not_found_error("Agent execution")
+    execution = executions[0]
 
     return {
         "execution": execution_to_response(execution),

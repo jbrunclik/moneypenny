@@ -24,8 +24,9 @@ def test_rollback_drops_standing_columns(test_db_path: Path) -> None:
     backend = get_backend(f"sqlite:///{test_db_path}")
     migrations = read_migrations(str(db_base.MIGRATIONS_DIR))
     with backend.lock():
-        target = backend.to_rollback(migrations).filter(lambda m: m.id == "0078_standing_jobs")
-        assert len(target) == 1
+        # 0078 and everything built on it (0079-0080: the agents' standing chats)
+        target = backend.to_rollback(migrations).filter(lambda m: m.id >= "0078_standing_jobs")
+        assert "0078_standing_jobs" in {m.id for m in target}
         backend.rollback_migrations(target)
 
     conn = sqlite3.connect(test_db_path)

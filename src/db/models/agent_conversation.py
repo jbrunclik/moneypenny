@@ -67,9 +67,8 @@ class AgentConversationMixin:
             now = to_db(utc_now())
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE autonomous_agents
-                   SET last_viewed_at = ?
-                   WHERE id = ? AND user_id = ?""",
+                """UPDATE conversations SET standing_viewed_at = ?
+                   WHERE agent_id = ? AND user_id = ? AND is_agent = 1""",
                 (now, agent_id, user_id),
             )
             conn.commit()

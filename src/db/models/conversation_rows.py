@@ -56,6 +56,9 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         is_language=bool(row["is_language"]),
         language_program=row["language_program"],
         anonymous_mode=bool(row["anonymous_mode"]),
+        standing_name=row["standing_name"],
+        standing_instructions=row["standing_instructions"],
+        standing_type=row["standing_type"],
         deleted_at=from_db_or_none(row["deleted_at"]),
         read_message_count=int(row["read_message_count"] or 0),
     )

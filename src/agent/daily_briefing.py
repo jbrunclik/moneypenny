@@ -20,7 +20,7 @@ from src.utils.cron import daily_cron, daily_cron_time
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, User
+    from src.db.models import Agent, Conversation, User
 
 logger = get_logger(__name__)
 
@@ -88,6 +88,16 @@ SYSTEM_TYPE_DAILY_BRIEFING = "daily_briefing"
 SYSTEM_AGENT_PROMPTS: dict[str, str] = {
     SYSTEM_TYPE_DAILY_BRIEFING: BRIEFING_SYSTEM_PROMPT,
 }
+
+
+def resolve_standing_instructions(conv: Conversation) -> str | None:
+    """A standing chat's effective instructions: the stored ones, else the
+    stock prompt for its standing_type (improvements arrive with deploys)."""
+    if conv.standing_instructions:
+        return conv.standing_instructions
+    if conv.standing_type:
+        return SYSTEM_AGENT_PROMPTS.get(conv.standing_type)
+    return None
 
 
 def _resolve_agent(user: User) -> Agent | None:

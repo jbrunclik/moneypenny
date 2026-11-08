@@ -8,6 +8,7 @@ namespace defaulting) and file_retrieval.py (authorization guards).
 import json
 from unittest.mock import MagicMock, patch
 
+from src.agent.item_runner import RunOutcome
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.file_retrieval import retrieve_file
 from src.agent.tools.metadata import (
@@ -107,12 +108,12 @@ class TestTriggerAgent:
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=["agent-2"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "circular" in result
-        mock_executor.assert_not_called()
+        run_job.assert_not_called()
 
     def test_trigger_depth_is_bounded(self) -> None:
         """A distinct-agent chain at AGENT_MAX_TRIGGER_DEPTH must stop (S5)."""
@@ -124,62 +125,54 @@ class TestTriggerAgent:
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=deep_chain),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "maximum trigger depth" in result
-        mock_executor.assert_not_called()
+        run_job.assert_not_called()
 
     def test_trigger_below_depth_limit_proceeds(self) -> None:
         target = _agent(agent_id="agent-2")
-        run_result = MagicMock()
-        run_result.status = "completed"
         with (
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=["agent-1"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor_cls,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
-            mock_executor_cls.return_value.run.return_value = run_result
+            run_job.return_value = RunOutcome("report", "Done.")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "completed successfully" in result
 
     def test_successful_trigger(self) -> None:
         target = _agent(agent_id="agent-2")
-        run_result = MagicMock()
-        run_result.status = "completed"
         with (
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=["agent-1"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor_cls,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
-            mock_executor_cls.return_value.run.return_value = run_result
+            run_job.return_value = RunOutcome("report", "Done.")
             result = trigger_agent.invoke({"agent_name": "helper", "message": "do the thing"})
 
         assert "completed successfully" in result
-        # The triggering agent must be recorded for chain/cycle tracking
-        kwargs = mock_executor_cls.call_args.kwargs
-        assert kwargs["triggered_by_agent_id"] == "agent-1"
-        assert kwargs["trigger_type"] == "agent_trigger"
+        # The chain so far travels with the run, for cycle and depth checks
+        kwargs = run_job.call_args.kwargs
+        assert kwargs["trigger_chain"] == ["agent-1"]
+        assert (kwargs["trigger"], kwargs["message"]) == ("agent_trigger", "do the thing")
 
     def test_approval_pause_is_reported(self) -> None:
-        from src.agent.tools.request_approval import ApprovalRequestedException
-
         target = _agent(agent_id="agent-2")
         with (
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=[]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor_cls,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
-            mock_executor_cls.return_value.run.side_effect = ApprovalRequestedException(
-                "ap-1", "send email"
-            )
+            run_job.return_value = RunOutcome("approval", "")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "waiting for user approval" in result
 
@@ -190,10 +183,10 @@ class TestTriggerAgent:
             patch("src.agent.executor.get_agent_context", return_value=_context()),
             patch("src.agent.executor.get_trigger_chain", return_value=[]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
-            patch("src.agent.executor.AgentExecutor") as mock_executor_cls,
+            patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
             mock_db.get_agent_by_name.return_value = target
-            mock_executor_cls.return_value.run.side_effect = RuntimeError("boom")
+            run_job.side_effect = RuntimeError("boom")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "failed" in result
         assert "boom" in result

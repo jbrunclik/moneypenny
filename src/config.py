@@ -748,7 +748,6 @@ class Config:
     AGENT_APPROVAL_TTL_HOURS: int = int(os.getenv("AGENT_APPROVAL_TTL_HOURS", "24"))
     # Cooldown period between manual agent executions in seconds (default: 5 seconds)
     # Prevents spamming the "Run" button
-    AGENT_EXECUTION_COOLDOWN_SECONDS: int = int(os.getenv("AGENT_EXECUTION_COOLDOWN_SECONDS", "5"))
     # Maximum agent-to-agent trigger chain length (S5). Cycles are already
     # blocked; this bounds DISTINCT-agent chains (A->B->C->...) so a
     # misconfigured fleet cannot fan out unbounded LLM runs.

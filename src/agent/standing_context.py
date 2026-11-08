@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Literal
 
-from src.agent.daily_briefing import resolve_agent_system_prompt
+from src.agent.daily_briefing import resolve_standing_instructions
 from src.agent.program_context import load_language_context, load_sports_context
 from src.agent.prompt_programs import PROGRAM_QUICK_ACTION_NOTE, format_program_kv_data
 from src.agent.prompt_texts.language import LANGUAGE_TUTOR_SYSTEM_PROMPT
@@ -41,18 +41,19 @@ def _describe_schedule(schedule: str | None) -> str:
 
 
 def _agent_context(conv: Conversation, user: User) -> StandingContext | None:
-    agent = db.get_agent(conv.agent_id or "", user.id)
-    if agent is None:
-        return None
-    goals = resolve_agent_system_prompt(agent) or "(no instructions yet)"
+    """An agent's chat: its own settings, its job's schedule. The same text
+    feeds the job's unattended runs, so it never says the user is present."""
+    job_id = conv.agent_id or ""
+    name = conv.standing_name or conv.title
+    job = db.get_item(job_id, user.id)
+    goals = resolve_standing_instructions(conv) or "(no instructions yet)"
+    schedule = job.schedule if job is not None else None
     instructions = (
-        f'This chat belongs to the agent "{agent.name}"; {_describe_schedule(agent.schedule)} '
-        "and its reports appear in this chat. The user is here now, talking to it directly.\n\n"
+        f'This chat belongs to the agent "{name}"; {_describe_schedule(schedule)} '
+        "and its reports appear in this chat.\n\n"
         f"Its standing instructions:\n{goals}"
     )
-    return StandingContext(
-        "agent", agent.name, instructions, None, f"agent:{agent.id}", agent_id=agent.id
-    )
+    return StandingContext("agent", name, instructions, None, f"agent:{job_id}", agent_id=job_id)
 
 
 def standing_for_program(

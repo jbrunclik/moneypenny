@@ -121,53 +121,6 @@ class AgentExecutionMixin:
 
             return [row_to_execution(row) for row in rows]
 
-    def has_running_execution(self, agent_id: str) -> bool:
-        """Check if an agent has a currently running execution.
-
-        Used to prevent overlapping executions of the same agent.
-        Ignores executions older than AGENT_EXECUTION_TIMEOUT_MINUTES to prevent
-        permanently locked agents due to stuck executions.
-        """
-        # Calculate the cutoff time (executions older than this are considered stuck)
-        cutoff = utc_now() - timedelta(minutes=Config.AGENT_EXECUTION_TIMEOUT_MINUTES)
-
-        with self._pool.get_connection() as conn:
-            row = self._execute_with_timing(
-                conn,
-                """SELECT 1 FROM agent_executions
-                   WHERE agent_id = ? AND status = 'running'
-                   AND started_at > ?
-                   LIMIT 1""",
-                (agent_id, to_db(cutoff)),
-            ).fetchone()
-
-            return row is not None
-
-    def is_in_cooldown(self, agent_id: str) -> bool:
-        """Check if an agent is within its execution cooldown period.
-
-        Used to prevent spamming manual runs. Returns True if the agent
-        completed an execution within AGENT_EXECUTION_COOLDOWN_SECONDS.
-        """
-        # Calculate the cooldown cutoff time
-        now = utc_now()
-        cutoff = now - timedelta(seconds=Config.AGENT_EXECUTION_COOLDOWN_SECONDS)
-
-        with self._pool.get_connection() as conn:
-            # completed_at <= now clamps bogus future timestamps (e.g. rows
-            # written under the pre-UTC local-naive convention on a UTC+N
-            # host) so they can't pin the agent in cooldown
-            row = self._execute_with_timing(
-                conn,
-                """SELECT 1 FROM agent_executions
-                   WHERE agent_id = ? AND completed_at IS NOT NULL
-                   AND completed_at > ? AND completed_at <= ?
-                   LIMIT 1""",
-                (agent_id, to_db(cutoff), to_db(now)),
-            ).fetchone()
-
-            return row is not None
-
     def get_recent_executions(self, user_id: str, limit: int = 20) -> list[AgentExecution]:
         """Get recent executions across all agents for a user."""
         with self._pool.get_connection() as conn:

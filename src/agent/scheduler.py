@@ -1,28 +1,22 @@
-"""Shared scheduler logic for autonomous agents.
+"""Shared scheduler logic: the every-minute pass.
 
-This module provides the core scheduling logic used by both:
+Used by both:
 - Production: systemd timer script (scripts/run_agent_scheduler.py)
 - Development: background thread (src/agent/dev_scheduler.py)
 
-The only difference between environments is how the scheduler is triggered:
-- Production: External systemd timer invokes the script every minute
-- Development: Internal background thread calls run_scheduled_agents() every minute
+Agents are standing jobs since standing chats phase 2 (migration 0080), so
+one pass over scheduled items (src/agent/item_scheduler.py) runs reminders,
+check-ins, watchers, recurring items and agents alike.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from src.agent.executor import AgentBlockedError, execute_agent
 from src.agent.item_scheduler import run_due_items
-from src.agent.tools.request_approval import ApprovalRequestedException
 from src.db.models import db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
-
-if TYPE_CHECKING:
-    from src.db.models.dataclasses import Agent
 
 logger = get_logger(__name__)
 
@@ -31,181 +25,28 @@ logger = get_logger(__name__)
 class SchedulerResult:
     """Result of a scheduler run."""
 
-    executed: int = 0
-    skipped: int = 0
-    failed: int = 0
-    waiting_approval: int = 0
     items_fired: int = 0  # reminders and check-ins sent
-    items_run: int = 0  # watcher and recurring runs
+    items_run: int = 0  # watcher, recurring and standing-job runs
 
 
 def run_scheduled_agents() -> SchedulerResult:
-    """Execute all agents that are due to run.
-
-    This is the shared core logic used by both production (systemd timer)
-    and development (background thread) schedulers.
-
-    Returns:
-        SchedulerResult with counts of executed, skipped, and failed agents.
-    """
+    """Run everything due: one pass over scheduled items (agents included)."""
     now = utc_now()
-    logger.info("Scheduler: evaluating agent schedules", extra={"now": now.isoformat()})
 
     # Clean up zombie executions (stuck in running/waiting_approval for too long)
     zombies_cleaned = db.cleanup_zombie_executions()
     if zombies_cleaned > 0:
-        logger.warning(
-            "Scheduler: cleaned up zombie executions",
-            extra={"count": zombies_cleaned},
-        )
+        logger.warning("Scheduler: cleaned up zombie executions", extra={"count": zombies_cleaned})
 
-    # Items set from chat first: a reminder is a push with no model call, it
-    # must not wait behind an agent run that takes a minute
     items = run_due_items(now)
-
-    # Get agents due for execution (enabled, has schedule, next_run_at <= now)
-    due_agents = db.get_due_agents(now)
-    logger.info(
-        "Scheduler: found due agents",
-        extra={"count": len(due_agents), "agent_ids": [a.id for a in due_agents]},
-    )
-
     result = SchedulerResult(items_fired=items.fired, items_run=items.run)
-
-    for agent in due_agents:
-        _run_due_agent(agent, result)
-
     logger.info(
         "Scheduler: completed",
         extra={
-            "executed": result.executed,
-            "skipped": result.skipped,
-            "failed": result.failed,
-            "waiting_approval": result.waiting_approval,
             "items_fired": result.items_fired,
             "items_run": result.items_run,
             "items_missed": items.missed,
             "items_expired": items.expired,
         },
     )
-
     return result
-
-
-def _run_due_agent(agent: Agent, result: SchedulerResult) -> None:
-    """Run one due agent unless it is waiting or running, counting the outcome."""
-    # Skip agents with pending approval
-    if db.has_pending_approval(agent.id):
-        logger.debug(
-            "Scheduler: skipping agent with pending approval",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-        result.skipped += 1
-        return
-
-    # Skip agents that are already running (prevent overlapping executions)
-    if db.has_running_execution(agent.id):
-        logger.debug(
-            "Scheduler: skipping agent with running execution",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-        result.skipped += 1
-        return
-
-    # Get the user
-    user = db.get_user_by_id(agent.user_id)
-    if not user:
-        logger.warning(
-            "Scheduler: user not found for agent",
-            extra={"agent_id": agent.id, "user_id": agent.user_id},
-        )
-        result.failed += 1
-        return
-
-    # Create execution record
-    execution = db.create_execution(
-        agent_id=agent.id,
-        trigger_type="scheduled",
-    )
-
-    try:
-        logger.info(
-            "Scheduler: executing agent",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-
-        # Execute the agent
-        exec_result, error_msg = execute_agent(agent, user, "scheduled", execution.id)
-        _record_outcome(agent, execution.id, exec_result, error_msg, result)
-
-    except ApprovalRequestedException:
-        # Agent used request_approval tool - already handled by executor
-        result.waiting_approval += 1
-        logger.info(
-            "Scheduler: agent requested approval",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-
-    except AgentBlockedError as e:
-        result.skipped += 1
-        logger.warning(
-            "Scheduler: agent blocked",
-            extra={"agent_id": agent.id, "error": str(e)},
-        )
-
-    except Exception as e:
-        db.update_execution(execution.id, status="failed", error_message=str(e))
-        result.failed += 1
-        logger.exception(
-            "Scheduler: agent execution error",
-            extra={"agent_id": agent.id, "error": str(e)},
-        )
-        _update_next_run_on_failure(agent)
-
-
-def _record_outcome(
-    agent: Agent,
-    execution_id: str,
-    exec_result: bool | str,
-    error_msg: str | None,
-    result: SchedulerResult,
-) -> None:
-    """Record what execute_agent returned on the execution and in the counts."""
-    if exec_result is True:
-        db.update_execution(execution_id, status="completed")
-        result.executed += 1
-        logger.info(
-            "Scheduler: agent execution completed",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-    elif exec_result == "waiting_approval":
-        # Executor already set status to waiting_approval
-        result.waiting_approval += 1
-        logger.info(
-            "Scheduler: agent waiting for approval",
-            extra={"agent_id": agent.id, "agent_name": agent.name},
-        )
-    else:
-        db.update_execution(execution_id, status="failed", error_message=error_msg)
-        result.failed += 1
-        logger.warning(
-            "Scheduler: agent execution failed",
-            extra={"agent_id": agent.id, "error": error_msg},
-        )
-        _update_next_run_on_failure(agent)
-
-
-def _update_next_run_on_failure(agent: Agent) -> None:
-    """Update next_run_at after a failed execution.
-
-    On success, execute_agent() updates next_run_at via update_agent_last_run().
-    On failure, we need to manually advance the schedule to prevent retry loops.
-    """
-    if agent.schedule:
-        next_run = db.calculate_next_run(agent.schedule, agent.timezone)
-        if next_run:
-            db.update_agent_next_run(agent.id, next_run)
-            logger.debug(
-                "Scheduler: updated next_run_at after failure",
-                extra={"agent_id": agent.id, "next_run": next_run.isoformat()},
-            )

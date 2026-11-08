@@ -246,19 +246,3 @@ class AgentStatsMixin:
             ).fetchone()
 
             return float(row["total"]) if row else 0.0
-
-    def is_agent_over_budget(self, agent_id: str, budget_limit: float | None) -> bool:
-        """Check if an agent has exceeded its daily budget.
-
-        Args:
-            agent_id: The agent ID
-            budget_limit: Daily budget limit in USD (None = unlimited)
-
-        Returns:
-            True if over budget, False otherwise.
-        """
-        if budget_limit is None or budget_limit <= 0:
-            return False
-
-        daily_spending = self.get_agent_daily_spending(agent_id)
-        return daily_spending >= budget_limit

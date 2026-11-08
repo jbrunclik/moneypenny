@@ -119,7 +119,7 @@ class Conversation:
     is_planning: bool = False
     last_reset: datetime | None = None  # For planner conversations
     is_agent: bool = False  # Whether this is an autonomous agent's conversation
-    agent_id: str | None = None  # Link to autonomous_agents table
+    agent_id: str | None = None  # The agent's standing job (scheduled_items id)
     archived: bool = False  # Whether conversation is archived (hidden from main list)
     pinned: bool = False  # Pinned to the top of the sidebar
     is_sports: bool = False  # Whether this is a sports training conversation
@@ -128,6 +128,11 @@ class Conversation:
     language_program: str | None = None  # Program ID (e.g., "spanish")
     # No memory read/write and no integration tools. Persisted so the setting
     # survives a page reload instead of silently reverting to off.
+    # A standing chat's own settings (agents): its name, standing instructions
+    # (None with a standing_type = the stock prompt from code) and type
+    standing_name: str | None = None
+    standing_instructions: str | None = None
+    standing_type: str | None = None
     anonymous_mode: bool = False
     # Set while the conversation is in the trash (NULL = live)
     deleted_at: datetime | None = None

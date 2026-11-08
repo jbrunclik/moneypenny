@@ -23,10 +23,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from src.agent.item_runner import RunOutcome, deliver, delivery_label, run_model_item
+from src.agent.item_runner import RunOutcome, RunTrigger, deliver, delivery_label, run_model_item
 from src.agent.tools.scheduling import watch_expiry
 from src.config import Config
 from src.db.models import db
+from src.db.models.scheduled_items import NEVER_RUN_AT
 from src.services.push import send_push_to_user
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -134,9 +135,17 @@ class JobBusyError(Exception):
     """The job is running already (the scheduler or another hand-started run)."""
 
 
-def run_job_now(item: ScheduledItem, user: User, *, message: str | None = None) -> RunOutcome:
-    """Run a standing job by hand (Run now, or resuming after an approval) and
-    post its report; no push (the user is in the app) and no failure counting.
+def run_job_now(
+    item: ScheduledItem,
+    user: User,
+    *,
+    message: str | None = None,
+    trigger: RunTrigger = "manual",
+    trigger_chain: list[str] | None = None,
+) -> RunOutcome:
+    """Run a standing job now - by hand (Run, resuming after an approval) or
+    triggered by another agent - and post its report; no failure counting.
+    A hand-started run does not push (the user is in the app).
 
     The job is claimed for the run like a due one, so the scheduler (or a
     second tap) cannot run it at the same time - writes would happen twice.
@@ -147,10 +156,13 @@ def run_job_now(item: ScheduledItem, user: User, *, message: str | None = None) 
         raise JobBusyError(item.id)
     prior_status, claimed_at = claim
     try:
-        outcome = run_model_item(item, user, trigger="manual", message=message)
+        outcome = run_model_item(
+            item, user, trigger=trigger, message=message, trigger_chain=trigger_chain
+        )
         if outcome.status in {"report", "done"} and outcome.text:
-            label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "run now")
-            deliver(item, outcome.text, label, push=False, outcome=outcome)
+            tag = "run now" if trigger == "manual" else "triggered"
+            label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
+            deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
     finally:
         db.release_item(item.id, claimed_at, prior_status)
     return outcome
@@ -237,6 +249,8 @@ def _may_deliver(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> boo
 
 
 def _next_run(item: ScheduledItem, now: datetime, quiet_runs: int) -> datetime:
+    if item.standing and not item.schedule:  # runs only by hand or when triggered
+        return NEVER_RUN_AT
     if item.kind == "recurring" and item.schedule:
         nxt = next_cron_run(item.schedule, item.timezone or Config.APP_TIMEZONE, now)
     else:
