@@ -327,6 +327,10 @@ const MESSAGE_ACTIONS: readonly ClickAction[] = [
   { selector: '.document-download', run: downloadDocument },
   { selector: '.message-copy-btn', run: (el) => void copyMessageContent(el as HTMLButtonElement) },
   { selector: '.message-actions-overflow', run: toggleMessageActionsOverflow },
+  {
+    selector: '.message-memory-note',
+    run: () => void navigateToStorage().catch((error: unknown) => log.error('Failed to open storage', { error })),
+  },
   // Inline copy button (code blocks, tables)
   { selector: '.inline-copy-btn', run: (el) => void copyInlineContent(el as HTMLButtonElement) },
   // Quiz option click (multiple-choice)

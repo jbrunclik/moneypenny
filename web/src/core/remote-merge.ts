@@ -12,7 +12,7 @@
  */
 
 import { conversations } from '../api/conversations';
-import { addMessageToUI, lockOlderQuizBlocks, updateLatestAssistantMarker } from '../components/messages';
+import { addMessageToUI, lockOlderQuizBlocks, setMemoryNote, updateLatestAssistantMarker } from '../components/messages';
 import { showNewMessagesPill } from '../components/ScrollToBottom';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';
@@ -155,6 +155,7 @@ async function mergeOnce(convId: string): Promise<void> {
   }
 
   reconcileUnfinished(convId, container, local, server);
+  patchMemoryNotes(convId, container, local, server);
 
   const localById = new Map(local.map((m) => [m.id, m]));
   const rendered = new Set(
@@ -183,6 +184,27 @@ async function mergeOnce(convId: string): Promise<void> {
   if (toRender.length > 0) markAgentConversationViewed(response);
 
   if (live && !rendered.has(live)) void followRemoteStream(convId, live);
+}
+
+/**
+ * The background memory review labels a reply after it is on screen: patch
+ * the label into the rendered reply (not an edit - no re-render).
+ */
+function patchMemoryNotes(
+  convId: string,
+  container: HTMLElement,
+  local: readonly Message[],
+  server: readonly Message[]
+): void {
+  const localById = new Map(local.map((m) => [m.id, m]));
+  for (const message of server) {
+    const known = localById.get(message.id);
+    const note = message.memory_note;
+    if (!known || !note || known.memory_note === note) continue;
+    const el = container.querySelector<HTMLElement>(`:scope > [data-message-id="${message.id}"]`);
+    if (el) setMemoryNote(el, note);
+    useStore.getState().updateMessage(convId, message.id, { memory_note: note });
+  }
 }
 
 /**

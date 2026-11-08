@@ -3,6 +3,7 @@
  */
 
 import { renderDeliveryLabel } from './delivery-label';
+import { renderMemoryNote } from './memory-note';
 import { resetTurnAnchor } from './turn-anchor';
 import { createElement, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
@@ -361,14 +362,7 @@ export function addMessageToUI(
 
   const messageEl = createMessageElement(message, options?.animate ?? false);
 
-  // Content wrapper
-  const contentWrapper = document.createElement('div');
-  contentWrapper.className = 'message-content-wrapper';
-  // A turn a scheduled item delivered (check-in, watcher, recurring) says so
-  if (message.role === 'assistant' && message.delivery) {
-    contentWrapper.appendChild(renderDeliveryLabel(message.delivery));
-  }
-  contentWrapper.appendChild(renderMessageContent(message));
+  const contentWrapper = renderContentWrapper(message);
 
   // Create message actions with all buttons and handlers
   if (message.role === 'assistant' && (message.stop_reason === 'user' || message.stopped_early)) {
@@ -470,6 +464,22 @@ function createMessageElement(message: Message, animate: boolean): HTMLDivElemen
 }
 
 /** The bubble's content: text first, then files inside the bubble. */
+/** The message's content with the labels around a reply. */
+function renderContentWrapper(message: Message): HTMLDivElement {
+  const contentWrapper = document.createElement('div');
+  contentWrapper.className = 'message-content-wrapper';
+  // A turn a scheduled item delivered (check-in, watcher, recurring) says so
+  if (message.role === 'assistant' && message.delivery) {
+    contentWrapper.appendChild(renderDeliveryLabel(message.delivery));
+  }
+  contentWrapper.appendChild(renderMessageContent(message));
+  // What the background memory review saved after this reply
+  if (message.role === 'assistant' && message.memory_note) {
+    contentWrapper.appendChild(renderMemoryNote(message.memory_note));
+  }
+  return contentWrapper;
+}
+
 function renderMessageContent(message: Message): HTMLDivElement {
   const content = document.createElement('div');
   content.className = 'message-content';
