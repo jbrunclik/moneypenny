@@ -421,3 +421,40 @@ def test_a_failing_recovery_does_not_stop_the_tick(
     result = item_scheduler.run_due_items(_NOW)  # must not raise
 
     assert result.run == 1
+
+
+def test_a_result_after_cancel_is_dropped(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    item = _watcher(db, test_user, test_conversation)
+
+    def cancel_during_run(*_: object) -> RunOutcome:
+        db.delete_item(item.id, test_user.id)  # the user cancels while it runs
+        return RunOutcome("report", "A caretaker job was posted.")
+
+    runs.side_effect = cancel_during_run
+
+    item_scheduler.run_due_items(_NOW)
+
+    assert db.get_messages(test_conversation.id) == []
+    push.assert_not_called()
+
+
+def test_a_result_after_the_chat_is_trashed_is_dropped(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    item = _watcher(db, test_user, test_conversation)
+
+    def trash_during_run(*_: object) -> RunOutcome:
+        db.trash_conversation(test_conversation.id, test_user.id)
+        return RunOutcome("done", "A teacher job is posted.")
+
+    runs.side_effect = trash_during_run
+
+    item_scheduler.run_due_items(_NOW)
+
+    assert db.get_messages(test_conversation.id) == []
+    push.assert_not_called()
+    db.restore_conversation(test_conversation.id, test_user.id)
+    stored = db.get_item(item.id, test_user.id)
+    assert stored is not None and stored.status == "active"  # runs again once restored

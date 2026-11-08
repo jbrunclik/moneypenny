@@ -198,3 +198,25 @@ def test_a_stale_reset_counts_a_failure(
 
     stored = test_database.get_item(item.id, test_user.id)
     assert stored is not None and stored.failures == 2
+
+
+def test_finishing_a_superseded_run_changes_nothing(
+    test_database: Database, test_user: User, test_conversation: Conversation
+) -> None:
+    item = test_database.add_item(_item(test_user, test_conversation, kind="watcher"))
+    [first] = test_database.claim_due_items(_NOW)
+    test_database.reset_stale_runs(_NOW + timedelta(minutes=31), 30)
+    [second] = test_database.claim_due_items(_NOW + timedelta(minutes=31))
+
+    finished = test_database.finish_item_run(
+        item.id, _NOW + timedelta(days=1), "old run", 0, 0, claimed_at=first.claimed_at
+    )
+
+    assert finished is False
+    stored = test_database.get_item(item.id, test_user.id)
+    assert stored is not None
+    assert (stored.status, stored.claimed_at, stored.last_result) == (
+        "running",
+        second.claimed_at,
+        None,
+    )

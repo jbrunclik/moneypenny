@@ -100,6 +100,33 @@ def test_done_marker_variants(raw: str, text: str) -> None:
     assert (outcome.status, outcome.text) == ("done", text)
 
 
+@pytest.mark.parametrize(
+    ("raw", "text"),
+    [
+        ("Found it.\n[DONE]\nSource: https://example.cz", "Found it.\nSource: https://example.cz"),
+        ("[DONE]: a teacher job is posted", "a teacher job is posted"),
+        ("[DONE] - a teacher job is posted", "a teacher job is posted"),
+    ],
+)
+def test_a_marker_on_its_own_line_or_with_punctuation_is_done(raw: str, text: str) -> None:
+    outcome = parse_reply(raw)
+
+    assert (outcome.status, outcome.text) == ("done", text)
+
+
+def test_a_cost_failure_does_not_fail_the_run(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    # The user already got (or will get) the result; a broken cost row must
+    # not count as a failed run or skip the result
+    fake_llm.response = "A caretaker job was posted."
+    with patch("src.agent.item_runner.calculate_and_save_message_cost", side_effect=RuntimeError("db")):
+        outcome = run_model_item(_watcher(test_user, test_conversation), test_user)
+        assert outcome.status == "report"
+        assert outcome.record_cost is not None
+        outcome.record_cost("m1")  # must not raise
+
+
 def test_a_marker_quoted_mid_sentence_is_a_report() -> None:
     outcome = parse_reply("The page says [DONE] is a tag")
 

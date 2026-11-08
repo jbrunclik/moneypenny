@@ -13,6 +13,7 @@ bad item never stops the tick.
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -78,7 +79,12 @@ def run_due_items(now: datetime) -> ItemsResult:
             and _monotonic() - started > Config.SCHEDULE_TICK_BUDGET_SECONDS
         ):
             db.finish_item_run(
-                item.id, item.next_run_at, item.last_result, item.quiet_runs, item.failures
+                item.id,
+                item.next_run_at,
+                item.last_result,
+                item.quiet_runs,
+                item.failures,
+                claimed_at=item.claimed_at,
             )
             continue
         try:
@@ -144,18 +150,36 @@ def _apply_outcome(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> N
         else:
             _give_back(item, now, failed=True)
         return
-    if outcome.status == "done" and item.kind == "watcher":
+    found = outcome.status == "done" and item.kind == "watcher"
+    if outcome.status == "silent" or (not outcome.text and not found):  # nothing to tell
+        _finish(item, now, item.last_result, item.quiet_runs + 1)
+        return
+    if not _may_deliver(item, now, outcome):
+        return
+    if found:
         # A bare [DONE] still says what was found (the watcher is gone after this)
         text = outcome.text or f"Found: {item.end_condition} ({item.text})"
         deliver(item, text, delivery_label(item.kind, now, tz, "found"), outcome=outcome)
         db.delete_item(item.id)
         return
-    if outcome.status == "silent" or not outcome.text:  # an empty report tells nothing
-        _finish(item, now, item.last_result, item.quiet_runs + 1)
-        return
     tag = "update" if item.kind == "watcher" else None
     deliver(item, outcome.text, delivery_label(item.kind, now, tz, tag), outcome=outcome)
     _finish(item, now, outcome.text, 0)
+
+
+def _may_deliver(item: ScheduledItem, now: datetime, outcome: RunOutcome) -> bool:
+    """A result reaches the chat only while the item's claim holds and its chat
+    is live: one cancelled mid-run, or whose chat was trashed or archived
+    meanwhile, is dropped (its cost still recorded); a suspended item waits."""
+    state = db.item_claim_state(item.id, item.claimed_at)
+    if state == "live":
+        return True
+    if outcome.record_cost is not None:
+        outcome.record_cost(f"silent:{uuid.uuid4()}")
+    if state == "suspended":
+        _finish(item, now, item.last_result, item.quiet_runs)
+    logger.info("Scheduled item result dropped", extra={"item_id": item.id, "state": state})
+    return False
 
 
 def _next_run(item: ScheduledItem, now: datetime, quiet_runs: int) -> datetime:
@@ -171,7 +195,12 @@ def _next_run(item: ScheduledItem, now: datetime, quiet_runs: int) -> datetime:
 
 def _finish(item: ScheduledItem, now: datetime, last_result: str | None, quiet_runs: int) -> None:
     db.finish_item_run(
-        item.id, _next_run(item, now, quiet_runs), last_result, quiet_runs, failures=0
+        item.id,
+        _next_run(item, now, quiet_runs),
+        last_result,
+        quiet_runs,
+        0,
+        claimed_at=item.claimed_at,
     )
 
 
@@ -182,7 +211,12 @@ def _give_back(item: ScheduledItem, now: datetime, failed: bool) -> None:
         return
     failures = item.failures + 1 if failed else item.failures
     db.finish_item_run(
-        item.id, _next_run(item, now, item.quiet_runs), item.last_result, item.quiet_runs, failures
+        item.id,
+        _next_run(item, now, item.quiet_runs),
+        item.last_result,
+        item.quiet_runs,
+        failures,
+        claimed_at=item.claimed_at,
     )
 
 

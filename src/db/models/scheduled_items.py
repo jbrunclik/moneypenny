@@ -14,7 +14,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import astuple, fields
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from src.db.models.dataclasses import ScheduledItem
 from src.db.models.timestamps import from_db, from_db_or_none, to_db, to_db_or_none
@@ -150,17 +150,45 @@ class ScheduledItemsMixin:
         last_result: str | None,
         quiet_runs: int,
         failures: int,
-    ) -> None:
-        """Hand a run item back to the scheduler for its next run."""
-        with self._pool.get_connection() as conn:
-            self._execute_with_timing(
-                conn,
-                """UPDATE scheduled_items SET status = 'active', claimed_at = NULL,
+        claimed_at: datetime | None = None,
+    ) -> bool:
+        """Hand a run item back to the scheduler for its next run; with
+        `claimed_at`, only if that claim still holds (a run that outlived a
+        stale reset must not overwrite the newer claim). False if nothing matched."""
+        query = """UPDATE scheduled_items SET status = 'active', claimed_at = NULL,
                        next_run_at = ?, last_result = ?, quiet_runs = ?, failures = ?
-                   WHERE id = ?""",
-                (to_db(next_run_at), last_result, quiet_runs, failures, item_id),
-            )
+                   WHERE id = ?"""
+        params: tuple[object, ...] = (
+            to_db(next_run_at),
+            last_result,
+            quiet_runs,
+            failures,
+            item_id,
+        )
+        if claimed_at is not None:
+            query += " AND status = 'running' AND claimed_at = ?"
+            params = (*params, to_db(claimed_at))
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(conn, query, params)
             conn.commit()
+            return cursor.rowcount > 0
+
+    def item_claim_state(
+        self, item_id: str, claimed_at: datetime | None
+    ) -> Literal["gone", "suspended", "live"]:
+        """Whether a run's result may be delivered: its claim is gone (the item
+        was cancelled or re-claimed), its chat is suspended (trashed or
+        archived meanwhile), or it is live."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                f"""SELECT {_LIVE_CHAT} AS live FROM scheduled_items
+                    WHERE id = ? AND status = 'running' AND claimed_at IS ?""",
+                (item_id, to_db_or_none(claimed_at)),
+            ).fetchone()
+        if row is None:
+            return "gone"
+        return "live" if row["live"] else "suspended"
 
     def reset_stale_runs(self, now: datetime, stale_minutes: int) -> int:
         """Give back items whose run never finished (a crashed or killed scheduler),

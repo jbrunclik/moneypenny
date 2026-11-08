@@ -49,8 +49,15 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 _MARKS = r"[`*]*"
-_DONE_AT_START = re.compile(rf"^\s*{_MARKS}\[done\]{_MARKS}\.?\s*", re.IGNORECASE)
+# [DONE] opening the reply (with a following '.', ':' or dash), closing it,
+# or alone on a line of its own anywhere - never quoted inside a sentence
+_DONE_AT_START = re.compile(
+    rf"^\s*{_MARKS}\[done\]{_MARKS}\s*[.:\-\u2013\u2014]?\s*", re.IGNORECASE
+)
 _DONE_AT_END = re.compile(rf"\s*{_MARKS}\[done\]{_MARKS}\.?\s*$", re.IGNORECASE)
+_DONE_LINE = re.compile(
+    rf"^[ \t]*{_MARKS}\[done\]{_MARKS}\.?[ \t]*(?:\n|$)", re.IGNORECASE | re.MULTILINE
+)
 _NAME_MAX_CHARS = 40
 RUN_TOOL_NAMES = frozenset({"web_search", "fetch_url", "research"})
 _PUSH_BODY_CHARS = 160
@@ -78,7 +85,7 @@ def parse_reply(raw: str) -> RunOutcome:
     """Silent, done (the [DONE] marker at the very start or end), or a report."""
     if is_silent_reply(raw):
         return RunOutcome("silent", "")
-    for pattern in (_DONE_AT_START, _DONE_AT_END):
+    for pattern in (_DONE_AT_START, _DONE_AT_END, _DONE_LINE):
         if pattern.search(raw):
             return RunOutcome("done", pattern.sub("", raw, count=1).strip())
     return RunOutcome("report", raw.strip())
@@ -150,6 +157,14 @@ def _chat(
     tool_results = get_full_tool_results(request_id)  # pops: read once, now
 
     def record_cost(message_id: str) -> None:
+        try:
+            _save_cost(message_id)
+        except Exception:  # the result reached the user: a lost cost row is not a failed run
+            logger.warning(
+                "Scheduled item cost not recorded", extra={"item_id": item.id}, exc_info=True
+            )
+
+    def _save_cost(message_id: str) -> None:
         calculate_and_save_message_cost(
             message_id,
             item.conversation_id,
