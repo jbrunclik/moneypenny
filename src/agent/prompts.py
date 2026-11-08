@@ -290,6 +290,7 @@ def get_dynamic_prompt_parts(
     standing: StandingContext | None = None,
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
+    include_memories: bool = True,
 ) -> str:
     """Return only the dynamic (per-request) parts of the prompt.
 
@@ -326,7 +327,7 @@ def get_dynamic_prompt_parts(
         )
     )
 
-    if user_id and not anonymous_mode:
+    if user_id and not anonymous_mode and include_memories:
         # Instructions live in the cached static prefix; only the list is dynamic
         parts.append(get_user_memories_list_prompt(user_id))
 
@@ -376,6 +377,7 @@ def get_system_prompt(
     standing: StandingContext | None = None,
     conversation_title: str | None = None,
     conversation_facts: list[ConversationFact] | None = None,
+    include_memories: bool = True,
 ) -> str:
     """Build the system prompt, optionally including tool instructions.
 
@@ -448,7 +450,7 @@ def get_system_prompt(
         )
 
     # Add user memories if user_id is provided (skip in anonymous mode)
-    if user_id and not anonymous_mode:
+    if user_id and not anonymous_mode and include_memories:
         prompt += "\n\n" + get_user_memories_prompt(user_id)
 
     # Add force tools instruction if specified

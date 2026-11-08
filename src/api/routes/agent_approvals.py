@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.executor import execute_agent
-from src.agent.item_scheduler import run_job_now
+from src.agent.item_scheduler import JobBusyError, run_job_now
 from src.api.errors import raise_not_found_error
 from src.api.helpers.agent_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -174,6 +174,8 @@ def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest
     db.add_message(job.conversation_id, MessageRole.USER, resume_message)
     try:
         run_job_now(job, user, message=resume_message)
+    except JobBusyError:  # the scheduler is running it: that run sees the approval
+        logger.info("Job busy on approval; not resumed", extra={"item_id": job.id})
     except Exception:  # the approval went through: the run's crash is logged, not a 500
         logger.exception("Resumed job run crashed", extra={"item_id": job.id})
     logger.info("Approval processed and job resumed", extra={"approval_id": approval_id})

@@ -352,8 +352,7 @@ def test_standing_job_memory_only_when_granted(
 ) -> None:
     run_model_item(_job(test_user, test_conversation, grants=grants), test_user)
 
-    user_id = fake_llm.instances[0].chat_kwargs["user_id"]
-    assert user_id == (test_user.id if remembers else None)
+    assert fake_llm.instances[0].init_kwargs["include_memories"] is remembers
 
 
 @pytest.mark.parametrize("fresh", [True, False])
@@ -447,3 +446,47 @@ def test_standing_job_push_names_the_chat(
     assert args[1] == test_conversation.title
     assert args[2] == "Good morning: two meetings."
     assert kwargs["tag"] == f"job-{job.id}"
+
+
+def test_standing_job_history_keeps_the_newest_message(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    """No trigger message is saved for a job run, so the chat's newest message
+    is real history (the reviewer's "skip tomorrow" -> "moved it" case)."""
+    db.add_message(test_conversation.id, "user", "Skip tomorrow, I'm sick.")
+    db.add_message(test_conversation.id, "assistant", "OK, moved Thursday's ride.")
+
+    run_model_item(_job(test_user, test_conversation, fresh_context=False), test_user)
+
+    contents = [m["content"] for m in fake_llm.instances[0].chat_kwargs["history"]]
+    assert "OK, moved Thursday's ride." in contents
+
+
+def test_restricted_job_keeps_language_and_places_but_no_memories(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    run_model_item(_job(test_user, test_conversation, grants=["generate_image"]), test_user)
+
+    agent = fake_llm.instances[0]
+    assert agent.chat_kwargs["user_id"] == test_user.id  # language + saved places
+    assert agent.init_kwargs["include_memories"] is False
+
+
+def test_light_item_in_standing_chat_never_gets_the_chats_data(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    """A web-reading light item must not hold the program's personal data (an
+    injected page could exfiltrate it via fetch_url); a granted job may."""
+    from src.agent.standing import StandingContext
+
+    standing = StandingContext(
+        "sports", "Cycling", "Coach the rides.", "FTP 250 W, knee pain", "sports"
+    )
+    with patch("src.agent.item_runner.load_standing_context", return_value=standing):
+        run_model_item(_watcher(test_user, test_conversation), test_user)
+        run_model_item(_job(test_user, test_conversation), test_user)
+
+    light_goals = fake_llm.instances[0].init_kwargs["agent_context"]["goals"]
+    job_goals = fake_llm.instances[1].init_kwargs["agent_context"]["goals"]
+    assert "Coach the rides." in light_goals and "knee pain" not in light_goals
+    assert "knee pain" in job_goals

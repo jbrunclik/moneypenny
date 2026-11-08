@@ -130,7 +130,9 @@ def _standing_goals(item: ScheduledItem, user: User) -> str:
     if standing is None:
         return task
     parts = [f"# This chat: {standing.name}", standing.instructions]
-    if standing.data:
+    # A light item reads the web with no grants: never hand it the chat's
+    # personal data (an injected page could send it out via fetch_url)
+    if standing.data and item.standing:
         parts.append(standing.data)
     return "\n\n".join([*parts, task])
 
@@ -177,14 +179,22 @@ def _run_message(item: ScheduledItem, trigger: str, message: str | None) -> str:
     return RECURRING_RUN_PROMPT.format(text=item.text, last_result=previous)
 
 
+RunTrigger = Literal["scheduled", "manual", "agent_trigger"]
+
+
 def _tools(agent: Agent, item: ScheduledItem) -> list[BaseTool]:
     tools = get_tools_for_agent(agent)
     return tools if item.standing else [t for t in tools if t.name in RUN_TOOL_NAMES]
 
 
 def _chat(
-    agent: Agent, user: User, item: ScheduledItem, request_id: str, run_message: str
+    agent: Agent,
+    user: User,
+    item: ScheduledItem,
+    request_id: str,
+    run: tuple[RunTrigger, str | None],
 ) -> tuple[str, Callable[[str], None]]:
+    trigger, message = run
     tools = _tools(agent, item)
     chat_agent = ChatAgent(
         model_name=agent.model,
@@ -202,17 +212,26 @@ def _chat(
             "fresh_context": agent.fresh_context,
         },
         tools=tools,
+        # The user's memories only for a job granted manage_memory; the rest
+        # of the user context (language, saved places) always
+        include_memories=_remembers(item),
     )
-    history = [] if agent.fresh_context else run_history(agent, item.conversation_id)
+    # A resumed run's message was saved into the chat already (the approval
+    # route): it is the run message, so it must not repeat in the history
+    resumed = trigger == "manual" and message is not None
+    history = (
+        []
+        if agent.fresh_context
+        else run_history(agent, item.conversation_id, keep_last=not resumed)
+    )
     raw, _, usage, _ = chat_agent.chat_batch(
-        text=run_message,
+        text=_run_message(item, trigger, message),
         files=None,
         history=history,
         force_tools=None,
         user_name=user.name,
-        # Only feeds the user's memories in: kept out of unattended runs
-        # unless a standing job was granted manage_memory
-        user_id=user.id if _remembers(item) else None,
+        # Light items get no user context at all (web-reading, no grants)
+        user_id=user.id if item.standing else None,
         custom_instructions=user.custom_instructions,
         is_planning=False,
         conversation_id=item.conversation_id,
@@ -243,9 +262,6 @@ def _chat(
     return raw, record_cost
 
 
-RunTrigger = Literal["scheduled", "manual", "agent_trigger"]
-
-
 def run_model_item(
     item: ScheduledItem,
     user: User,
@@ -267,9 +283,7 @@ def run_model_item(
     chain = [*(trigger_chain or []), agent.id]
     set_agent_context(AgentContext(agent=agent, user=user, trigger_chain=chain))
     try:
-        raw, record_cost = _chat(
-            agent, user, item, request_id, _run_message(item, trigger, message)
-        )
+        raw, record_cost = _chat(agent, user, item, request_id, (trigger, message))
     except ApprovalRequestedException as e:
         if execution_id is None:  # a light item has no request_approval tool
             return RunOutcome("failed", "", error=str(e))

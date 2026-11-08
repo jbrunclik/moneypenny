@@ -102,8 +102,12 @@ class ChatAgent:
         enable_context_cache: bool = True,
         system_prompt_override: str | None = None,
         memoize_graph: bool = True,
+        include_memories: bool = True,
     ) -> None:
         self.model_name = model_name
+        # False: the prompt carries the user's context (language, saved
+        # places) but not their memories - a standing job without manage_memory
+        self.include_memories = include_memories
         self.with_tools = with_tools
         self.include_thoughts = include_thoughts
         self.anonymous_mode = anonymous_mode
@@ -264,6 +268,7 @@ class ChatAgent:
                 dashboard_data=dashboard_data,
                 planner_dashboard_context=refreshed_dashboard,
                 standing=self.standing,
+                include_memories=self.include_memories,
                 conversation_title=conversation_title,
                 conversation_facts=conversation_facts,
             )
@@ -285,6 +290,7 @@ class ChatAgent:
                         is_autonomous=self.is_autonomous,
                         agent_context=self.agent_context,
                         standing=self.standing,
+                        include_memories=self.include_memories,
                         conversation_title=conversation_title,
                         conversation_facts=conversation_facts,
                     )

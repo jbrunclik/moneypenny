@@ -130,13 +130,29 @@ def _handle(item: ScheduledItem, now: datetime, result: ItemsResult) -> None:
     _apply_outcome(item, now, run_model_item(item, user))
 
 
+class JobBusyError(Exception):
+    """The job is running already (the scheduler or another hand-started run)."""
+
+
 def run_job_now(item: ScheduledItem, user: User, *, message: str | None = None) -> RunOutcome:
     """Run a standing job by hand (Run now, or resuming after an approval) and
-    post its report; no push (the user is in the app) and no failure counting."""
-    outcome = run_model_item(item, user, trigger="manual", message=message)
-    if outcome.status in {"report", "done"} and outcome.text:
-        label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "run now")
-        deliver(item, outcome.text, label, push=False, outcome=outcome)
+    post its report; no push (the user is in the app) and no failure counting.
+
+    The job is claimed for the run like a due one, so the scheduler (or a
+    second tap) cannot run it at the same time - writes would happen twice.
+    Raises JobBusyError when it is running already.
+    """
+    claim = db.claim_item(item.id, utc_now())
+    if claim is None:
+        raise JobBusyError(item.id)
+    prior_status, claimed_at = claim
+    try:
+        outcome = run_model_item(item, user, trigger="manual", message=message)
+        if outcome.status in {"report", "done"} and outcome.text:
+            label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, "run now")
+            deliver(item, outcome.text, label, push=False, outcome=outcome)
+    finally:
+        db.release_item(item.id, claimed_at, prior_status)
     return outcome
 
 

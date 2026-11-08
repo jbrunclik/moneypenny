@@ -297,3 +297,18 @@ def test_run_now_refused_while_awaiting_approval(
     response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
 
     assert response.status_code == 409
+
+
+def test_run_now_refused_while_the_scheduler_runs_it(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    job = _job(test_database, test_user, test_conversation, next_run_at=datetime.now(UTC))
+    [_] = test_database.claim_due_items(datetime.now(UTC) + timedelta(seconds=1))
+
+    response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
+
+    assert response.status_code == 409

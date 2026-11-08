@@ -573,3 +573,46 @@ def test_standing_job_waits_while_its_approval_is_pending(
     stored = _stored(db, job)
     assert (stored.status, stored.failures) == ("active", 0)
     assert stored.next_run_at > _NOW
+
+
+def test_run_job_now_claims_the_job_so_the_scheduler_skips_it(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation)
+    claimed_meanwhile: list[list[ScheduledItem]] = []
+
+    def run(item: ScheduledItem, user: User, **kwargs: object) -> RunOutcome:
+        claimed_meanwhile.append(db.claim_due_items(_NOW))  # the scheduler's tick
+        return RunOutcome("silent", "")
+
+    runs.side_effect = run
+
+    item_scheduler.run_job_now(job, test_user)
+
+    assert claimed_meanwhile == [[]]
+    stored = _stored(db, job)
+    assert (stored.status, stored.next_run_at) == ("active", job.next_run_at)
+
+
+def test_run_job_now_refuses_a_job_already_running(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation)
+    [_] = db.claim_due_items(_NOW)  # the scheduler is running it
+
+    with pytest.raises(item_scheduler.JobBusyError):
+        item_scheduler.run_job_now(job, test_user)
+
+    runs.assert_not_called()
+
+
+def test_run_job_now_keeps_a_paused_job_paused(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    job = _job(db, test_user, test_conversation)
+    db.set_item_paused(job.id, test_user.id, True, reason="failures")
+
+    item_scheduler.run_job_now(job, test_user)
+
+    stored = _stored(db, job)
+    assert (stored.status, stored.paused_reason) == ("paused", "failures")

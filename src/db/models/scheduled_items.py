@@ -182,6 +182,36 @@ class ScheduledItemsMixin:
             conn.commit()
         return sorted((_row_to_item(row) for row in rows), key=lambda i: i.next_run_at)
 
+    def claim_item(self, item_id: str, now: datetime) -> tuple[str, datetime] | None:
+        """Claim one item for a hand-started run, as the scheduler claims due
+        ones (so neither runs it twice); returns the status to restore and the
+        claim, or None when it is running already or gone."""
+        for prior in ("active", "paused"):
+            with self._pool.get_connection() as conn:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """UPDATE scheduled_items SET status = 'running', claimed_at = ?
+                       WHERE id = ? AND status = ?""",
+                    (to_db(now), item_id, prior),
+                )
+                conn.commit()
+            if cursor.rowcount > 0:
+                return prior, now
+        return None
+
+    def release_item(self, item_id: str, claimed_at: datetime, status: str) -> bool:
+        """End a hand-started run's claim, back to `status`, keeping the
+        schedule; only if that claim still holds."""
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE scheduled_items SET status = ?, claimed_at = NULL
+                   WHERE id = ? AND status = 'running' AND claimed_at = ?""",
+                (status, item_id, to_db(claimed_at)),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def finish_item_run(
         self,
         item_id: str,

@@ -1,10 +1,17 @@
 """Unit tests for system prompt assembly in src/agent/prompts.py."""
 
+from typing import TYPE_CHECKING
+
+import pytest
+
 from src.agent.prompts import (
     get_force_tools_prompt,
     get_system_prompt,
     get_user_context,
 )
+
+if TYPE_CHECKING:
+    from src.db.models import Database, User
 
 
 class TestGetSystemPrompt:
@@ -317,3 +324,23 @@ def test_the_agent_knows_it_can_draw_mermaid_diagrams() -> None:
     from src.agent.prompt_texts.core import BASE_SYSTEM_PROMPT
 
     assert "```mermaid" in BASE_SYSTEM_PROMPT
+
+
+def test_include_memories_false_keeps_language_but_drops_memories(
+    test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A standing job without manage_memory: the user's language and places
+    stay in its prompt, their memories do not."""
+    from src.agent import prompts
+
+    monkeypatch.setattr(prompts, "get_user_memories_prompt", lambda user_id: "MEMORIES-BLOCK")
+    monkeypatch.setattr(prompts, "_get_preferred_language", lambda user_id: "Czech")
+
+    with_memories = prompts.get_system_prompt(user_id=test_user.id, is_autonomous=True)
+    without = prompts.get_system_prompt(
+        user_id=test_user.id, is_autonomous=True, include_memories=False
+    )
+
+    assert "MEMORIES-BLOCK" in with_memories
+    assert "MEMORIES-BLOCK" not in without
+    assert "Czech" in without

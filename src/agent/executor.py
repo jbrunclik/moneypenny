@@ -203,7 +203,9 @@ def _over_budget_error(agent: Agent) -> str | None:
     return None
 
 
-def run_history(agent: Agent, conversation_id: str) -> list[dict[str, Any]]:
+def run_history(
+    agent: Agent, conversation_id: str, *, keep_last: bool = False
+) -> list[dict[str, Any]]:
     """The conversation history sent with the run (excluding the trigger message).
 
     Fresh-context agents run every turn from a clean slate (prior runs stay
@@ -215,7 +217,10 @@ def run_history(agent: Agent, conversation_id: str) -> list[dict[str, Any]]:
     if agent.fresh_context:
         return []
     messages = db.get_messages(conversation_id)
-    return build_compacted_history(agent.user_id, conversation_id, enrich_history(messages[:-1]))
+    # An agent run just saved its trigger message (sent separately); a job run
+    # saves none, so its newest message is real history (keep_last)
+    kept = messages if keep_last else messages[:-1]
+    return build_compacted_history(agent.user_id, conversation_id, enrich_history(kept))
 
 
 def _prompt_context(agent: Agent, trigger_type: str, tool_names: list[str]) -> dict[str, Any]:
