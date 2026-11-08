@@ -46,6 +46,7 @@ const m = vi.hoisted(() => ({
   updateAnonymousButtonState: vi.fn(),
   navigateToAgents: vi.fn(() => Promise.resolve()),
   handleAgentEditById: vi.fn(() => Promise.resolve()),
+  handleStandingRun: vi.fn(() => Promise.resolve()),
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
@@ -107,6 +108,7 @@ vi.mock('@/core/toolbar', () => ({
 vi.mock('@/core/agents', () => ({
   navigateToAgents: m.navigateToAgents,
   handleAgentEditById: m.handleAgentEditById,
+  handleStandingRun: m.handleStandingRun,
   leaveAgentsView: vi.fn(),
 }));
 vi.mock('@/core/sports', () => ({ leaveSportsView: vi.fn() }));
@@ -208,38 +210,51 @@ describe('switchToConversation', () => {
       useStore.setState({
         commandCenterData: { jobs: [{ id: 'a1', title: 'Watcher' }] } as unknown as JobsOverviewResponse,
       });
-      switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
+      switchToConversation(conv({ is_agent: true, job_id: 'a1' }));
 
       expect(m.renderChatHeader).toHaveBeenCalledWith(null);
       expect(m.renderChatHeaderForConversation).not.toHaveBeenCalled();
-      expect(m.renderAgentConversationHeader).toHaveBeenCalledWith('Watcher', expect.any(Function), expect.any(Function));
-    });
-
-    it('fall back to the conversation title when the agent is unknown', () => {
-      switchToConversation(conv({ is_agent: true, agent_id: 'a9', title: 'Agent chat' }));
       expect(m.renderAgentConversationHeader).toHaveBeenCalledWith(
-        'Agent chat',
+        'Watcher',
+        expect.any(Function),
         expect.any(Function),
         expect.any(Function)
       );
     });
 
-    it("wire the header's back and edit actions set at startup", () => {
+    it('fall back to the conversation title when the agent is unknown', () => {
+      switchToConversation(conv({ is_agent: true, job_id: 'a9', title: 'Agent chat' }));
+      expect(m.renderAgentConversationHeader).toHaveBeenCalledWith(
+        'Agent chat',
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function)
+      );
+    });
+
+    it("wire the header's back, edit and run actions set at startup", () => {
       initNavigation();
-      switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
-      const [, onBack, onEdit] = m.renderAgentConversationHeader.mock.lastCall as [string, () => void, () => void];
+      switchToConversation(conv({ is_agent: true, job_id: 'a1' }));
+      const [, onBack, onEdit, onRun] = m.renderAgentConversationHeader.mock.lastCall as [
+        string,
+        () => void,
+        () => void,
+        () => void,
+      ];
 
       onBack();
       onEdit();
+      onRun();
 
       expect(m.navigateToAgents).toHaveBeenCalled();
       expect(m.handleAgentEditById).toHaveBeenCalledWith('a1');
+      expect(m.handleStandingRun).toHaveBeenCalledWith('a1');
     });
 
     it('log instead of throwing when startup has not set the header actions', async () => {
       vi.resetModules();
       const fresh = await import('@/core/conversation-switch');
-      fresh.switchToConversation(conv({ is_agent: true, agent_id: 'a1' }));
+      fresh.switchToConversation(conv({ is_agent: true, job_id: 'a1' }));
       const [, onBack, onEdit] = m.renderAgentConversationHeader.mock.lastCall as [string, () => void, () => void];
 
       expect(() => {

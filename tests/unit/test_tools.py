@@ -128,40 +128,34 @@ class TestGetToolsForAgent:
     """Tool binding for autonomous agent runs."""
 
     @staticmethod
-    def _agent(tool_permissions: list[str] | None) -> MagicMock:
-        """Minimal agent stub for tool selection."""
-        agent = MagicMock()
-        agent.id = "agent-1"
-        agent.user_id = "user-1"
-        agent.tool_permissions = tool_permissions
-        return agent
+    def _bound(tool_permissions: list[str] | None) -> list[Any]:
+        """A job run's tools: None = all tools (the "*" grant)."""
+        from src.agent.tools import tools_for_grants
+
+        return tools_for_grants(["*"] if tool_permissions is None else tool_permissions, "user-1")
 
     def test_restricted_agent_does_not_get_manage_memory(self) -> None:
         """Baseline agent tools must not include long-term memory writes."""
-        from src.agent.tools import get_tools_for_agent
 
-        tools = get_tools_for_agent(self._agent(["web_search"]))
+        tools = self._bound(["web_search"])
         assert "manage_memory" not in {t.name for t in tools}
 
     def test_agent_with_empty_permissions_does_not_get_manage_memory(self) -> None:
         """tool_permissions=[] means no extra capabilities at all."""
-        from src.agent.tools import get_tools_for_agent
 
-        tools = get_tools_for_agent(self._agent([]))
+        tools = self._bound([])
         assert "manage_memory" not in {t.name for t in tools}
 
     def test_agent_granted_manage_memory_gets_it(self) -> None:
         """An explicit grant is honoured."""
-        from src.agent.tools import get_tools_for_agent
 
-        tools = get_tools_for_agent(self._agent(["manage_memory"]))
+        tools = self._bound(["manage_memory"])
         assert "manage_memory" in {t.name for t in tools}
 
     def test_unrestricted_agent_keeps_manage_memory(self) -> None:
         """tool_permissions=None means unrestricted, including memory."""
-        from src.agent.tools import get_tools_for_agent
 
-        tools = get_tools_for_agent(self._agent(None))
+        tools = self._bound(None)
         assert "manage_memory" in {t.name for t in tools}
 
     def test_every_bound_tool_passes_the_permission_gate(self) -> None:
@@ -172,22 +166,19 @@ class TestGetToolsForAgent:
         kv_store fix in 0be1fb1).
         """
         from src.agent.permissions import PermissionResult, check_tool_permission
-        from src.agent.tools import get_tools_for_agent
 
         for permissions in ([], ["web_search"], ["todoist"]):
-            agent = self._agent(permissions)
-            for tool in get_tools_for_agent(agent):
-                result = check_tool_permission(agent, tool.name, {})
+            for tool in self._bound(permissions):
+                result = check_tool_permission(permissions, tool.name, {})
                 assert result == PermissionResult.ALLOWED, (permissions, tool.name)
 
     def test_trigger_agent_only_when_granted(self) -> None:
         """Handing another agent a message is a capability, not a baseline tool."""
-        from src.agent.tools import get_tools_for_agent
 
-        assert "trigger_agent" not in {t.name for t in get_tools_for_agent(self._agent([]))}
-        granted = get_tools_for_agent(self._agent(["trigger_agent"]))
+        assert "trigger_agent" not in {t.name for t in self._bound([])}
+        granted = self._bound(["trigger_agent"])
         assert "trigger_agent" in {t.name for t in granted}
-        assert "trigger_agent" in {t.name for t in get_tools_for_agent(self._agent(None))}
+        assert "trigger_agent" in {t.name for t in self._bound(None)}
 
 
 # Each integration tool, the availability check that gates it and a value that
@@ -206,32 +197,28 @@ class TestPermittedIntegrationAvailability:
     """A permitted integration tool is bound only when this deployment can run it."""
 
     @staticmethod
-    def _agent(tool_permissions: list[str] | None) -> MagicMock:
-        agent = MagicMock()
-        agent.id = "agent-1"
-        agent.user_id = "user-1"
-        agent.tool_permissions = tool_permissions
-        return agent
+    def _bound(tool_permissions: list[str] | None) -> list[Any]:
+        """A job run's tools: None = all tools (the "*" grant)."""
+        from src.agent.tools import tools_for_grants
+
+        return tools_for_grants(["*"] if tool_permissions is None else tool_permissions, "user-1")
 
     @pytest.mark.parametrize(("tool_name", "check"), _INTEGRATIONS)
     def test_unavailable_integration_is_dropped(self, tool_name: str, check: str) -> None:
-        from src.agent.tools import get_tools_for_agent
 
         with patch(check, return_value=False), patch.object(Config, "BROWSER_ENABLED", True):
-            agent_run = get_tools_for_agent(self._agent([tool_name]))
+            agent_run = self._bound([tool_name])
         assert tool_name not in {t.name for t in agent_run}
 
     @pytest.mark.parametrize(("tool_name", "check"), _INTEGRATIONS)
     def test_available_integration_is_bound(self, tool_name: str, check: str) -> None:
-        from src.agent.tools import get_tools_for_agent
 
         with patch(check, return_value=True), patch.object(Config, "BROWSER_ENABLED", True):
-            agent_run = get_tools_for_agent(self._agent([tool_name]))
+            agent_run = self._bound([tool_name])
         assert tool_name in {t.name for t in agent_run}
 
     @pytest.mark.parametrize("enabled", [True, False])
     def test_config_switches_gate_browser_and_code(self, enabled: bool) -> None:
-        from src.agent.tools import get_tools_for_agent
 
         names = ["browser", "execute_code"]
         with (
@@ -239,28 +226,25 @@ class TestPermittedIntegrationAvailability:
             patch.object(Config, "BROWSER_ENABLED", enabled),
             patch.object(Config, "CODE_SANDBOX_ENABLED", enabled),
         ):
-            agent_run = {t.name for t in get_tools_for_agent(self._agent(names))}
+            agent_run = {t.name for t in self._bound(names)}
         assert (set(names) <= agent_run) is enabled
 
     def test_whatsapp_needs_a_phone_for_agents(self) -> None:
-        from src.agent.tools import get_tools_for_agent
 
         with (
             patch("src.agent.tools.is_whatsapp_available", return_value=True),
             patch("src.agent.tools._is_whatsapp_available_for_user", return_value=False) as phone,
         ):
-            agent_run = get_tools_for_agent(self._agent(["whatsapp"]))
+            agent_run = self._bound(["whatsapp"])
         assert "whatsapp" not in {t.name for t in agent_run}
         phone.assert_called_with("user-1")
 
     def test_unknown_permissions_and_duplicates_are_ignored(self) -> None:
-        from src.agent.tools import get_tools_for_agent
 
-        tools = get_tools_for_agent(self._agent(["no_such_tool", "web_search"]))
+        tools = self._bound(["no_such_tool", "web_search"])
         assert [t.name for t in tools].count("web_search") == 1
 
     def test_unrestricted_agent_gets_every_available_integration(self) -> None:
-        from src.agent.tools import get_tools_for_agent
 
         with (
             patch("src.agent.tools.is_todoist_available", return_value=True),
@@ -271,7 +255,7 @@ class TestPermittedIntegrationAvailability:
             patch.object(Config, "CODE_SANDBOX_ENABLED", False),
             patch.object(Config, "BROWSER_ENABLED", False),
         ):
-            names = [t.name for t in get_tools_for_agent(self._agent(None))]
+            names = [t.name for t in self._bound(None)]
         # After the baseline tools, in this order
         assert names[-7:] == [
             "todoist",

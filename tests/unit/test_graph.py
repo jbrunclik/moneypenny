@@ -1013,14 +1013,14 @@ class TestToolNodePermissionFiltering:
     @pytest.fixture(autouse=True)
     def _agent_context(self) -> Any:
         """Install an autonomous-agent context permitting only `echo`."""
-        from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+        from src.agent.run_context import JobContext, clear_job_context, set_job_context
 
-        agent = MagicMock()
-        agent.id = "agent-1"
-        agent.tool_permissions = ["echo"]
-        set_agent_context(AgentContext(agent=agent, user=MagicMock(), trigger_chain=[]))
+        item = MagicMock()
+        item.id = "agent-1"
+        item.grants = ["echo"]
+        set_job_context(JobContext(item=item, user=MagicMock(), name="agent", trigger_chain=[]))
         yield
-        clear_agent_context()
+        clear_job_context()
 
     def test_blocked_call_does_not_drop_allowed_sibling(self) -> None:
         """One blocked + one allowed call → two ToolMessages, allowed executed."""

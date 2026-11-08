@@ -5,7 +5,6 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { agents } from '../api/agents';
 import { jobs } from '../api/jobs';
 import { schedules } from '../api/schedules';
 import { ApiError } from '../api/http';
@@ -258,10 +257,10 @@ async function handleApproval(approvalId: string, approved: boolean): Promise<vo
 
   try {
     if (approved) {
-      await agents.approveRequest(approvalId);
+      await jobs.approveRequest(approvalId);
       toast.success('Request approved.');
     } else {
-      await agents.rejectRequest(approvalId);
+      await jobs.rejectRequest(approvalId);
       toast.info('Request rejected.');
     }
 
@@ -297,6 +296,25 @@ async function handleJobRun(job: Job): Promise<void> {
   }
 }
 
+/**
+ * Run a standing chat's job now from its chat header. The run's result
+ * arrives in the chat (its sync picks it up); the toast says what happened.
+ */
+export async function handleStandingRun(jobId: string): Promise<void> {
+  const loadingToast = toast.loading('Running...');
+  try {
+    const { run, message } = await jobs.run(jobId);
+    loadingToast.dismiss();
+    if (run.status === 'failed') toast.error(message);
+    else if (run.status === 'waiting_approval') toast.warning(message);
+    else toast.success(message);
+  } catch (error) {
+    log.error('Failed to run standing chat', { jobId, error });
+    loadingToast.dismiss();
+    toast.error(error instanceof ApiError ? error.message : 'Could not run it right now.');
+  }
+}
+
 /** Pause, resume or cancel a job, then show the refreshed list. */
 async function handleJobAction(job: Job, action: () => Promise<unknown>, done: string): Promise<void> {
   try {
@@ -316,7 +334,7 @@ async function handleJobAction(job: Job, action: () => Promise<unknown>, done: s
 async function handleNewAgent(): Promise<void> {
   log.debug('New agent button clicked');
 
-  const { showAgentEditor } = await import('../components/AgentEditor');
+  const { showAgentEditor } = await import('../components/JobEditor');
   const result = await showAgentEditor();
   if (result) {
     log.info('Agent created', { agentId: result.id });
@@ -331,8 +349,8 @@ async function handleNewAgent(): Promise<void> {
  */
 export async function handleAgentEditById(agentId: string): Promise<void> {
   try {
-    const fullAgent = await agents.get(agentId);
-    const { showAgentEditor } = await import('../components/AgentEditor');
+    const fullAgent = await jobs.get(agentId);
+    const { showAgentEditor } = await import('../components/JobEditor');
     const result = await showAgentEditor(fullAgent);
     if (result) {
       log.info('Agent updated', { agentId: result.id });

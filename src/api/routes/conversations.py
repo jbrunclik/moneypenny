@@ -202,8 +202,8 @@ def get_conversation(
 
     # Check if this is an agent conversation with pending approval
     has_pending_approval = False
-    if conv.is_agent and conv.agent_id:
-        has_pending_approval = db.has_pending_approval(conv.agent_id)
+    if conv.is_agent and conv.job_id:
+        has_pending_approval = db.has_pending_approval(conv.job_id)
 
     return {
         "id": conv.id,
@@ -212,7 +212,7 @@ def get_conversation(
         "created_at": to_api(conv.created_at),
         "updated_at": to_api(conv.updated_at),
         "is_agent": conv.is_agent,
-        "agent_id": conv.agent_id,
+        "job_id": conv.job_id,
         "has_pending_approval": has_pending_approval,
         "archived": conv.archived,
         "anonymous_mode": conv.anonymous_mode,

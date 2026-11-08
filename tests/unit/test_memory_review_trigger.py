@@ -177,7 +177,7 @@ def test_skips_anonymous_planning_and_disabled(
     elif kind == "agent":
         # Agent runs save their trigger (with another agent's text) as user
         # messages: never a source of memories
-        agent = test_database.create_agent(test_user.id, "Watcher", "Watch VWCE")
+        agent = test_database.create_standing_chat(test_user.id, "Watcher", "Watch VWCE")
         conv = test_database.get_conversation(agent.conversation_id, test_user.id)
         assert conv is not None
     else:

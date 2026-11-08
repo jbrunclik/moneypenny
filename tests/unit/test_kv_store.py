@@ -281,11 +281,11 @@ def mock_db_for_tool() -> MagicMock:
 
 @pytest.fixture
 def mock_agent_context() -> MagicMock:
-    """Mock AgentContext with a test agent."""
+    """Mock JobContext with a test agent."""
     agent = MagicMock()
     agent.id = "agent-abc"
     context = MagicMock()
-    context.agent = agent
+    context.item = agent
     return context
 
 
@@ -310,7 +310,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key="my-key", namespace="agent:agent-abc")
@@ -328,7 +328,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="my-key", value='"my-value"')
@@ -349,7 +349,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="delete", key="my-key")
@@ -368,7 +368,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="delete", key="ghost-key")
@@ -383,7 +383,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             delete = _invoke_kv_store(action="delete")
@@ -404,7 +404,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key="ghost")
@@ -422,7 +422,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=None),
+            patch("src.agent.run_context.get_job_context", return_value=None),
             patch("src.agent.tools.agent_kv.get_standing_namespace", return_value=namespace),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
@@ -444,7 +444,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="list", namespace="agent:agent-abc")
@@ -466,7 +466,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="list", namespace="empty-ns")
@@ -485,7 +485,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             # No namespace argument — should auto-default
@@ -500,7 +500,7 @@ class TestKVStoreTool:
         """Without user context the tool returns an error string."""
         with (
             patch("src.agent.tools.agent_kv.get_conversation_context", return_value=(None, None)),
-            patch("src.agent.executor.get_agent_context", return_value=MagicMock()),
+            patch("src.agent.run_context.get_job_context", return_value=MagicMock()),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key="k", namespace="ns")
@@ -515,7 +515,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=None),
+            patch("src.agent.run_context.get_job_context", return_value=None),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key="k", namespace="ns")
@@ -534,7 +534,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key=too_long_key, namespace="ns")
@@ -554,7 +554,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", key=max_key, namespace="ns")
@@ -573,7 +573,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="k", value=oversized_value)
@@ -593,7 +593,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="new-key", value='"v"', namespace="ns")
@@ -613,7 +613,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(
@@ -632,7 +632,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="explode", key="k", namespace="ns")
@@ -649,7 +649,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="get", namespace="ns")
@@ -665,7 +665,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="k", value="not json", namespace="ns")
@@ -682,7 +682,7 @@ class TestKVStoreTool:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="k", namespace="ns")
@@ -1076,7 +1076,7 @@ class TestKVStoreReservedNamespaces:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action="set", key="conv-1", value='"x"', namespace=value)
@@ -1101,7 +1101,7 @@ class TestKVStoreInjectionScan:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=mock_agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=mock_agent_context),
             patch("src.agent.tools.agent_kv.db", mock_db_for_tool),
         ):
             result = _invoke_kv_store(action=action, key="plan", value=planted)
@@ -1119,7 +1119,7 @@ class TestKVStoreInjectionScanDecoded:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", "user-1"),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=ctx),
+            patch("src.agent.run_context.get_job_context", return_value=ctx),
             patch("src.agent.tools.agent_kv.db", mock_db),
         ):
             return _invoke_kv_store(**kwargs)

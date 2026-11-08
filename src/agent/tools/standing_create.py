@@ -100,10 +100,10 @@ def _refusal(user_id: str, name: str, instructions: str, grants: list[str]) -> s
     for value in (name, instructions):
         if reason := find_injection(value):
             return f"Refused: {reason}. Describe it in your own words."
-    if db.get_agent_by_name(user_id, name.strip()) is not None:
+    if db.get_standing_chat_by_name(user_id, name.strip()) is not None:
         return f'An agent named "{name.strip()}" exists already - pick another name.'
     cap = Config.STANDING_CHATS_MAX_PER_USER
-    if len(db.list_agents_with_status(user_id)) >= cap:
+    if len(db.list_standing_chats(user_id)) >= cap:
         return f"You have reached the limit of {cap} standing chats; remove one first."
     if ALL_GRANTS in grants:
         return (
@@ -151,18 +151,18 @@ def _confirm(conversation_id: str, user_id: str) -> str:
     if refusal := _refusal(user_id, spec["name"], spec["instructions"], spec["grants"]):
         return tool_error(refusal)
     db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-    agent = db.create_agent(
+    chat = db.create_standing_chat(
         user_id,
         spec["name"],
-        system_prompt=spec["instructions"],
+        spec["instructions"],
         schedule=spec["schedule"],
         timezone=Config.APP_TIMEZONE,
-        tool_permissions=spec["grants"],
+        grants=spec["grants"],
         fresh_context=spec["fresh_context"],
     )
-    logger.info("Standing chat created by talking", extra={"user_id": user_id, "job_id": agent.id})
+    logger.info("Standing chat created by talking", extra={"user_id": user_id, "job_id": chat.id})
     return (
-        f'Created "{agent.name}" under Agents: #/conversations/{agent.conversation_id} - its '
+        f'Created "{chat.name}" under Agents: #/conversations/{chat.conversation_id} - its '
         f"reports arrive there.\n{_settings_text(spec)}\n\n"
         "Tell the user where to find it and what was set up."
     )
@@ -200,9 +200,9 @@ def create_standing_chat(
         fresh_context: true = each run starts fresh; false = runs see the chat.
         confirm: true only after the user agreed to the preview in their reply.
     """
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor imports the tools
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports the tools
 
-    if get_agent_context() is not None:
+    if get_job_context() is not None:
         return tool_error("A scheduled run cannot set up new chats.", retriable=False)
     conversation_id, user_id = get_conversation_context()
     if not conversation_id or not user_id:

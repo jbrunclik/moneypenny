@@ -20,4 +20,4 @@ class StandingContext:
     instructions: str
     data: str | None
     kv_namespace: str
-    agent_id: str | None = None
+    job_id: str | None = None

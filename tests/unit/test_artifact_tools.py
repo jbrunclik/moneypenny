@@ -171,10 +171,7 @@ def test_description_names_checklists_and_explainers_and_the_prose_cases() -> No
 
 
 def _agent_run_names(tool_permissions: list[str] | None) -> set[str]:
-    from unittest.mock import MagicMock
+    from src.agent.tools import tools_for_grants
 
-    from src.agent.tools import get_tools_for_agent
-
-    agent = MagicMock()
-    agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", tool_permissions
-    return {t.name for t in get_tools_for_agent(agent)}
+    grants = ["*"] if tool_permissions is None else tool_permissions
+    return {t.name for t in tools_for_grants(grants, "u1")}

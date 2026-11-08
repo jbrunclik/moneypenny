@@ -72,32 +72,33 @@ def _agent(agent_id: str = "agent-2", name: str = "helper", enabled: bool = True
 
 def _context(agent_id: str = "agent-1") -> MagicMock:
     ctx = MagicMock()
-    ctx.agent = _agent(agent_id=agent_id, name="source")
+    ctx.item = _agent(agent_id=agent_id, name="source")
+    ctx.name = "source"
     ctx.user.id = "user-1"
     return ctx
 
 
 class TestTriggerAgent:
     def test_requires_agent_context(self) -> None:
-        with patch("src.agent.executor.get_agent_context", return_value=None):
+        with patch("src.agent.run_context.get_job_context", return_value=None):
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "only be used by autonomous agents" in result
 
     def test_unknown_agent(self) -> None:
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
         ):
-            mock_db.get_agent_by_name.return_value = None
+            mock_db.get_standing_chat_by_name.return_value = None
             result = trigger_agent.invoke({"agent_name": "ghost"})
         assert "not found" in result
 
     def test_disabled_agent(self) -> None:
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
         ):
-            mock_db.get_agent_by_name.return_value = _agent(enabled=False)
+            mock_db.get_standing_chat_by_name.return_value = _agent(enabled=False)
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "disabled" in result
 
@@ -105,12 +106,12 @@ class TestTriggerAgent:
         """An agent already in the trigger chain must not be re-triggered."""
         target = _agent(agent_id="agent-2")
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=["agent-2"]),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=["agent-2"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "circular" in result
         run_job.assert_not_called()
@@ -122,12 +123,12 @@ class TestTriggerAgent:
         target = _agent(agent_id="agent-4")
         deep_chain = ["agent-1", "agent-2", "agent-3"][: Config.AGENT_MAX_TRIGGER_DEPTH]
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=deep_chain),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=deep_chain),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "maximum trigger depth" in result
         run_job.assert_not_called()
@@ -135,12 +136,12 @@ class TestTriggerAgent:
     def test_trigger_below_depth_limit_proceeds(self) -> None:
         target = _agent(agent_id="agent-2")
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=["agent-1"]),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=["agent-1"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             run_job.return_value = RunOutcome("report", "Done.")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "completed successfully" in result
@@ -148,12 +149,12 @@ class TestTriggerAgent:
     def test_successful_trigger(self) -> None:
         target = _agent(agent_id="agent-2")
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=["agent-1"]),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=["agent-1"]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             run_job.return_value = RunOutcome("report", "Done.")
             result = trigger_agent.invoke({"agent_name": "helper", "message": "do the thing"})
 
@@ -166,12 +167,12 @@ class TestTriggerAgent:
     def test_approval_pause_is_reported(self) -> None:
         target = _agent(agent_id="agent-2")
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=[]),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=[]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             run_job.return_value = RunOutcome("approval", "")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "waiting for user approval" in result
@@ -180,12 +181,12 @@ class TestTriggerAgent:
         """A crash in the target agent must not propagate into the caller's run."""
         target = _agent(agent_id="agent-2")
         with (
-            patch("src.agent.executor.get_agent_context", return_value=_context()),
-            patch("src.agent.executor.get_trigger_chain", return_value=[]),
+            patch("src.agent.run_context.get_job_context", return_value=_context()),
+            patch("src.agent.run_context.get_trigger_chain", return_value=[]),
             patch("src.agent.tools.trigger_agent.db") as mock_db,
             patch("src.agent.item_scheduler.run_job_now") as run_job,
         ):
-            mock_db.get_agent_by_name.return_value = target
+            mock_db.get_standing_chat_by_name.return_value = target
             run_job.side_effect = RuntimeError("boom")
             result = trigger_agent.invoke({"agent_name": "helper"})
         assert "failed" in result
@@ -209,7 +210,7 @@ class _KVHarness:
                 "src.agent.tools.agent_kv.get_conversation_context",
                 return_value=("conv-1", user_id),
             ),
-            patch("src.agent.executor.get_agent_context", return_value=agent_context),
+            patch("src.agent.run_context.get_job_context", return_value=agent_context),
             patch("src.agent.tools.agent_kv.get_standing_namespace", return_value=standing),
             patch("src.agent.tools.agent_kv.db"),
         ]
@@ -360,14 +361,14 @@ def test_trigger_agent_refused_over_budget() -> None:
 
     target = _agent(agent_id="agent-2")
     with (
-        patch("src.agent.executor.get_agent_context", return_value=_context()),
-        patch("src.agent.executor.get_trigger_chain", return_value=[]),
+        patch("src.agent.run_context.get_job_context", return_value=_context()),
+        patch("src.agent.run_context.get_trigger_chain", return_value=[]),
         patch("src.agent.tools.trigger_agent.db") as mock_db,
         patch(
             "src.agent.item_scheduler.run_job_now",
             side_effect=JobHeldError("over its daily budget ($0.10)"),
         ),
     ):
-        mock_db.get_agent_by_name.return_value = target
+        mock_db.get_standing_chat_by_name.return_value = target
         result = trigger_agent.invoke({"agent_name": "helper"})
     assert "over its daily budget" in result

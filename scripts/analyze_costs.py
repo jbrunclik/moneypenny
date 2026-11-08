@@ -26,7 +26,7 @@ from src.utils.clock import utc_now
 def _conv_type_case() -> str:
     return """
         CASE
-            WHEN c.agent_id IS NOT NULL THEN 'agent'
+            WHEN c.job_id IS NOT NULL THEN 'agent'
             WHEN c.is_planning = 1 THEN 'planner'
             WHEN c.is_sports = 1 THEN 'sports'
             WHEN c.is_language = 1 THEN 'language'

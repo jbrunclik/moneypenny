@@ -338,6 +338,97 @@ conversation. Use it to eyeball all four variants after UI changes -
 project rule: every UI change is verified on desktop and mobile in both
 themes.
 
+## Routing Race Condition Prevention
+
+When users rapidly navigate between different views (conversations, planner, agents), async operations
+from the first view might complete after the user has already switched to another view. Without
+protection, this would render stale content in the wrong view.
+
+### The Navigation Token Pattern
+
+The solution uses a navigation token that increments on each navigation:
+
+```typescript
+// In store.ts
+navigationToken: number;
+startNavigation: () => number;       // Increments and returns new token
+isNavigationValid: (token) => boolean; // Checks if token matches current
+```
+
+### Usage in Navigation Functions
+
+Each async navigation function follows this pattern:
+
+```typescript
+async function navigateToAgents(): Promise<void> {
+  // 1. Get token BEFORE async operations
+  const navToken = store.startNavigation();
+
+  // 2. Start async load
+  const data = await jobs.overview();
+
+  // 3. Check token AFTER async completes - cancel if invalid
+  if (!store.isNavigationValid(navToken)) {
+    log.info('User navigated away, aborting render');
+    return;
+  }
+
+  // 4. Safe to render
+  renderCommandCenter(data);
+}
+```
+
+### Why This Works
+
+- Each navigation increments the token
+- If user clicks Agents → Planner → Agents rapidly:
+  - First Agents click: token = 1
+  - Planner click: token = 2
+  - Second Agents click: token = 3
+- When first Agents load completes (token was 1, current is 3) → cancelled
+- Only the final navigation renders
+
+A navigation with nothing to load must still take a token: `createConversation()`
+(New Chat) calls `startNavigation()` first. Without it a New Chat clicked while
+the planner was loading (its loading placeholder already carries
+`#planner-dashboard`) let the planner render its dashboard over the new chat -
+the intermittent `UI state is properly reset when leaving planner` E2E failure
+(Oct 2026, 2 of 10 runs).
+
+### Adding New Screens
+
+When adding a new screen:
+1. Import `useStore` and call `startNavigation()` before async operations
+2. After async completes, check `isNavigationValid(token)` before rendering
+3. If invalid, return early without rendering
+
+This pattern automatically handles race conditions with all other screens
+without needing screen-specific flag checks.
+
+### Input Area Visibility During Navigation
+
+The agents view hides the input area (since it's not a chat). When navigating away from agents to
+other views, the input area must be restored. This is handled by `ensureInputAreaVisible()` in
+[MessageInput.ts](../../web/src/components/MessageInput.ts).
+
+**The bug scenario:**
+1. User is in agents view (input area hidden)
+2. User navigates to planner while it's loading
+3. Planner sets `isAgentsView = false` but the async fetch hasn't completed
+4. User navigates to a conversation before planner finishes
+5. Neither navigation restores the input area → input box invisible
+
+**The fix:**
+- `ensureInputAreaVisible()` is a defensive helper that removes `hidden` class from input area
+- Called in multiple places to ensure coverage regardless of navigation path:
+  - `navigateToPlanner()` - when coming from agents view
+  - `switchToConversation()` - defensive call for all conversation switches
+  - `createConversation()` - defensive call for new conversations
+  - `leaveAgentsView()` - primary restore point when leaving agents
+  - `leavePlannerView()` - ensures input visible after leaving planner
+
+**Regression tests:** [navigation-input-focus.test.ts](../../web/tests/unit/navigation-input-focus.test.ts)
+
 ## Key Files
 
 **Components:**

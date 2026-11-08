@@ -115,7 +115,7 @@ Messages containing Markdown are automatically converted to WhatsApp-compatible 
 
 **Frontend:**
 - [settings/notifications.ts](../../web/src/components/settings/notifications.ts) - Phone number input
-- [AgentEditor.ts](../../web/src/components/AgentEditor.ts) - Tool availability gating
+- [JobEditor.ts](../../web/src/components/JobEditor.ts) - Tool availability gating
 
 **Migration:**
 - [0026_add_whatsapp_phone.py](../../migrations/0026_add_whatsapp_phone.py) - User phone column
@@ -147,5 +147,5 @@ Messages containing Markdown are automatically converted to WhatsApp-compatible 
 
 - [Integrations](integrations.md) - all integrations
 - [Push Notifications](push-notifications.md) - the primary notification rail for autonomous agents
-- [Autonomous Agents](agents.md) - agent configuration and scheduling
+- [Standing Chats and Jobs](agents.md) - agent configuration and scheduling
 - [Setup](../setup.md) - WhatsApp Business setup

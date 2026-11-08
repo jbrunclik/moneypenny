@@ -48,7 +48,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         is_planning=bool(row["is_planning"]),
         last_reset=from_db_or_none(row["last_reset"]),
         is_agent=bool(row["is_agent"]),
-        agent_id=row["agent_id"],
+        job_id=row["job_id"],
         archived=bool(row["archived"]),
         pinned=bool(row["pinned"]),
         is_sports=bool(row["is_sports"]),

@@ -174,7 +174,8 @@ offset is an error on read.
 History ([the timezone design](../superpowers/specs/2026-10-26-timezone-aware-datetimes-design.md)):
 until Nov 2026 columns held one of two naive formats - **local-naive** (host
 wall-clock time, Europe/Prague) for conversation data, costs, memories, users,
-push subscriptions, client errors and `autonomous_agents.last_viewed_at`, and
+push subscriptions, client errors and the agents' `last_viewed_at` (now
+`conversations.standing_viewed_at`), and
 **UTC-naive** for the rest of the agent tables, caches, kv_store, settings and
 artifacts (only since Jun 10 2026; older rows there were local too). Migration
 0072 (Nov 1 2026) rewrote every column as fixed-width UTC from its `COLUMNS`

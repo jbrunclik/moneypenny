@@ -43,7 +43,7 @@ def _describe_schedule(schedule: str | None) -> str:
 def _agent_context(conv: Conversation, user: User) -> StandingContext | None:
     """An agent's chat: its own settings, its job's schedule. The same text
     feeds the job's unattended runs, so it never says the user is present."""
-    job_id = conv.agent_id or ""
+    job_id = conv.job_id or ""
     name = conv.standing_name or conv.title
     job = db.get_item(job_id, user.id)
     goals = resolve_standing_instructions(conv) or "(no instructions yet)"
@@ -53,7 +53,7 @@ def _agent_context(conv: Conversation, user: User) -> StandingContext | None:
         "and its reports appear in this chat.\n\n"
         f"Its standing instructions:\n{goals}"
     )
-    return StandingContext("agent", name, instructions, None, f"agent:{job_id}", agent_id=job_id)
+    return StandingContext("agent", name, instructions, None, f"agent:{job_id}", job_id=job_id)
 
 
 def standing_for_program(

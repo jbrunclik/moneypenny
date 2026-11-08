@@ -53,7 +53,7 @@ async function setCommandCenter(page: import('@playwright/test').Page, cc: Legac
   }));
   const overview = {
     jobs,
-    pending_approvals: (cc.pending_approvals ?? []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a })),
+    pending_approvals: (cc.pending_approvals ?? []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a, item_id: a.agent_id, job_name: a.agent_name })),
     stats: cc.stats ?? { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: cc.total_unread ?? 0,
     jobs_waiting: cc.agents_waiting ?? 0,
@@ -648,20 +648,21 @@ test.describe('Visual: Agent Editor Modal', () => {
       id: 'test-agent-1',
       name: 'Test Agent for Edit',
       description: 'Agent to test edit mode',
-      system_prompt: 'You are a test agent.',
+      instructions: 'You are a test agent.',
       schedule: '0 9 * * *',
       timezone: 'UTC',
       enabled: true,
-      tool_permissions: ['todoist', 'google_calendar', 'whatsapp'],
+      grants: ['todoist', 'todoist:write', 'google_calendar', 'whatsapp'],
       model: 'gemini-3-flash-preview',
-      conversation_id: null,
+      conversation_id: 'conv-test-agent-1',
       last_run_at: null,
       next_run_at: null,
       created_at: '2026-01-17T10:00:00Z',
       updated_at: '2026-01-17T10:00:00Z',
       has_pending_approval: false,
       unread_count: 0,
-      last_execution_status: null,
+      last_run_status: null,
+      fresh_context: true,
     };
 
     // Set up a mock agent via test endpoint
@@ -674,7 +675,7 @@ test.describe('Visual: Agent Editor Modal', () => {
     });
 
     // Mock the individual agent fetch endpoint
-    await page.route('**/api/agents/test-agent-1', async (route) => {
+    await page.route('**/api/jobs/test-agent-1', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

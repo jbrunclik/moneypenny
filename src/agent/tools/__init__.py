@@ -11,7 +11,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 from pydantic.config import JsonDict
 
-from src.agent.permissions import base_tool
+from src.agent.permissions import base_tool, run_permissions
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
 from src.agent.tools.attachment import create_file
@@ -69,7 +69,6 @@ from src.agent.tools.web_content import FETCHABLE_BINARY_TYPES
 from src.agent.tools.whatsapp import is_whatsapp_available, whatsapp
 from src.config import Config
 from src.db.models import db
-from src.db.models.dataclasses import Agent
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -240,7 +239,7 @@ def get_tools_for_request(
 
     Every chat but the planner gets the ordinary chat tools; a standing chat
     (agent / sports / language) also gets `kv_store` for its own namespace.
-    Unattended agent runs use get_tools_for_agent instead.
+    Unattended job runs use tools_for_grants instead.
 
     Args:
         anonymous_mode: If True, excludes personal integrations (Todoist, Calendar...).
@@ -344,8 +343,8 @@ def get_all_tool_names() -> set[str]:
     return set(_TOOL_MAP) | set(_NON_PERMISSIONED_TOOLS)
 
 
-def _unrestricted_agent_tools(agent: Agent) -> list[Any]:
-    """The extra tools of an agent with no permission list: every available one."""
+def _unrestricted_job_tools(user_id: str) -> list[Any]:
+    """The extra tools of an all-tools job: every available one."""
     tools: list[Any] = []
     if is_todoist_available():
         tools.append(todoist)
@@ -357,7 +356,7 @@ def _unrestricted_agent_tools(agent: Agent) -> list[Any]:
     if is_rouvy_available():
         tools.append(rouvy_workout)
     # WhatsApp requires both app config AND user phone number
-    if _is_whatsapp_available_for_user(agent.user_id):
+    if _is_whatsapp_available_for_user(user_id):
         tools.append(whatsapp)
     if Config.CODE_SANDBOX_ENABLED:
         tools.append(execute_code)
@@ -372,20 +371,14 @@ def _unrestricted_agent_tools(agent: Agent) -> list[Any]:
     return tools
 
 
-def get_tools_for_agent(agent: Agent) -> list[Any]:
-    """Get tools for an autonomous agent based on its permissions.
+def tools_for_grants(grants: list[str] | None, user_id: str) -> list[Any]:
+    """The tools a job's run is bound with, from the job's grants.
 
-    Args:
-        agent: The agent with tool_permissions
-
-    Returns:
-        List of tools the agent is allowed to use
-
-    Note:
-        - tool_permissions=None: No restrictions, agent gets all available tools
-        - tool_permissions=[]: Explicitly no extra tools, only basic safe tools
-        - tool_permissions=["todoist", ...]: Only these specific tools plus basic safe tools
+    - ["*"]: every available tool
+    - ["todoist", ...]: those tools plus the basic safe tools
+    - [] or None (a light item): only the basic safe tools
     """
+    permissions = run_permissions(grants)
     # Always include basic safe tools + metadata tools.
     #
     # manage_memory is deliberately excluded: an unattended run that reads the
@@ -411,26 +404,12 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
     # A standing job may ask the user to change its own settings (approval only)
     tools.append(edit_standing_chat)
 
-    # If agent has specific permissions (including empty list), filter tools
-    if agent.tool_permissions is not None:
-        # Explicit permission list - only add permitted tools.
+    if permissions is not None:
         # WhatsApp requires both app config AND user phone number
-        _add_permitted_tools(
-            tools,
-            agent.tool_permissions,
-            lambda: _is_whatsapp_available_for_user(agent.user_id),
-        )
+        _add_permitted_tools(tools, permissions, lambda: _is_whatsapp_available_for_user(user_id))
     else:
-        # No specific permissions (None) - add all available integration tools
-        tools.extend(_unrestricted_agent_tools(agent))
-
-    logger.debug(
-        "Tools for agent",
-        extra={
-            "agent_id": agent.id,
-            "tool_names": [t.name for t in tools],
-        },
-    )
+        tools.extend(_unrestricted_job_tools(user_id))
+    logger.debug("Tools for job run", extra={"tool_names": [t.name for t in tools]})
     return tools
 
 
@@ -529,7 +508,7 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     # Tool lists
     "get_available_tools",
     "get_tools_for_request",
-    "get_tools_for_agent",
+    "tools_for_grants",
     # Constants
     "FETCHABLE_BINARY_TYPES",
 ]

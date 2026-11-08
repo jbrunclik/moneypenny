@@ -45,9 +45,11 @@ The review itself changes nothing in production and edits nothing but
 
 ## 2. Agents and integrations
 
-- Failed `agent_executions` per agent over the window (admin page "Agents");
-  an agent failing on every run is broken, not flaky.
-- Approvals pending for days (`agent_approval_requests`).
+- Failed runs per job over the window (admin page "Agents"; `job_runs` with
+  `status = 'failed'`, grouped by `item_id`); a job failing on every run is
+  broken, not flaky.
+- Approvals pending for days (`job_approvals` with `status = 'pending'`, by
+  `item_id`).
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
 

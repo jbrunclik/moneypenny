@@ -292,7 +292,7 @@ class TestSearchAdditions:
             "src.db.models.embeddings.EmbeddingsMixin.embed_and_store_async", lambda *args: None
         )
         database, user = search_context
-        agent = database.create_agent(user.id, "Zoo watcher")
+        agent = database.create_standing_chat(user.id, "Zoo watcher")
         run = database.add_message(agent.conversation_id, "assistant", "Zoo opening hours today")
         human = _conversation_with_message(database, user, "Weekend", "Shall we visit the animals?")
         human_msg = database.get_messages(human.id)[0]

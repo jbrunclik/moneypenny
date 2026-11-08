@@ -79,7 +79,7 @@ class UserMixin:
             rouvy_password=decrypt_token(row["rouvy_password"]),
             rouvy_session=decrypt_token(row["rouvy_session"]),
             rouvy_connected_at=from_db_or_none(row["rouvy_connected_at"]),
-            daily_briefing_agent_id=row["daily_briefing_agent_id"],
+            daily_briefing_job_id=row["daily_briefing_job_id"],
             preferred_language=row["preferred_language"],
         )
 
@@ -286,12 +286,12 @@ class UserMixin:
             )
         return updated
 
-    def update_user_daily_briefing_agent(self, user_id: str, agent_id: str | None) -> bool:
-        """Set or clear the user's Daily Briefing agent pointer.
+    def update_user_daily_briefing_job(self, user_id: str, job_id: str | None) -> bool:
+        """Set or clear the user's Daily Briefing job pointer.
 
         Args:
             user_id: The user ID
-            agent_id: The briefing agent's id, or None to clear
+            job_id: The briefing's standing job id, or None to clear
 
         Returns:
             True if user was updated, False if not found
@@ -299,15 +299,15 @@ class UserMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                "UPDATE users SET daily_briefing_agent_id = ? WHERE id = ?",
-                (agent_id, user_id),
+                "UPDATE users SET daily_briefing_job_id = ? WHERE id = ?",
+                (job_id, user_id),
             )
             conn.commit()
             updated = cursor.rowcount > 0
 
         if updated:
             logger.info(
-                "User daily briefing agent pointer updated",
-                extra={"user_id": user_id, "has_agent": bool(agent_id)},
+                "User daily briefing job pointer updated",
+                extra={"user_id": user_id, "has_job": bool(job_id)},
             )
         return updated

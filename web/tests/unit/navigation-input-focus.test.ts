@@ -39,16 +39,7 @@ vi.mock('@/api/planner', () => ({
 }));
 
 vi.mock('@/api/jobs', () => ({
-  jobs: { overview: vi.fn() },
-}));
-
-vi.mock('@/api/agents', () => ({
-  agents: {
-    get: vi.fn(),
-    approveRequest: vi.fn(),
-    rejectRequest: vi.fn(),
-    run: vi.fn(),
-  },
+  jobs: { overview: vi.fn(), get: vi.fn(), approveRequest: vi.fn(), rejectRequest: vi.fn(), run: vi.fn() },
 }));
 
 vi.mock('@/components/Toast', () => ({
@@ -118,7 +109,7 @@ vi.mock('@/components/CommandCenter', () => ({
   renderCommandCenterLoading: vi.fn(() => document.createElement('div')),
 }));
 
-vi.mock('@/components/AgentEditor', () => ({
+vi.mock('@/components/JobEditor', () => ({
   showAgentEditor: vi.fn(),
 }));
 

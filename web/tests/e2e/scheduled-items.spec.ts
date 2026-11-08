@@ -126,8 +126,8 @@ test.describe('Scheduled items', () => {
 
 test.describe('Scheduled items in a standing chat', () => {
   async function agentChat(page: Page): Promise<string> {
-    const created = await page.request.post('/api/agents', {
-      data: { name: 'Garden helper', system_prompt: 'Help with the garden', schedule: null },
+    const created = await page.request.post('/api/jobs', {
+      data: { name: 'Garden helper', instructions: 'Help with the garden', schedule: null },
     });
     expect(created.ok()).toBeTruthy();
     const agent = (await created.json()) as { conversation_id: string };

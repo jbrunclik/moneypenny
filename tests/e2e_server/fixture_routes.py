@@ -120,7 +120,7 @@ def clear_agents_config() -> tuple[dict[str, str], int]:
 
 @fixtures_bp.route("/test/set-agent", methods=["POST"])
 def set_agent() -> tuple[dict[str, Any], int]:
-    """Set individual agent data for testing GET /api/agents/:id."""
+    """Set a standing chat's editor data for GET /api/jobs/:id."""
     from flask import request
 
     data = request.get_json() or {}
@@ -141,10 +141,10 @@ def seed_agent() -> tuple[dict[str, Any], int]:
 
     data = request.get_json() or {}
     user = g.db.get_or_create_user(email="local@localhost", name="Local User")
-    agent = g.db.create_agent(
+    agent = g.db.create_standing_chat(
         user_id=user.id,
         name=data.get("name", "Coach"),
-        system_prompt=data.get("instructions", "Coach my rides."),
+        instructions=data.get("instructions", "Coach my rides."),
         schedule=data.get("schedule", "0 20 * * *"),
         timezone="Europe/Prague",
     )
@@ -171,11 +171,11 @@ def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
     )
 
     # Create the agent using the proper method
-    agent = g.db.create_agent(
+    agent = g.db.create_standing_chat(
         user_id=user.id,
         name=agent_name,
         description="Test agent for E2E",
-        system_prompt="You are a test agent.",
+        instructions="You are a test agent.",
         enabled=True,
     )
 
@@ -191,10 +191,10 @@ def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
 
     # Create the pending approval using the proper method
     approval = g.db.create_approval_request(
-        agent_id=agent.id,
+        item_id=agent.id,
         user_id=user.id,
         tool_name=tool_name,
-        tool_args="{}",
+        tool_args={},
         description=approval_description,
     )
 

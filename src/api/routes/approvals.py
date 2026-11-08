@@ -1,4 +1,4 @@
-"""Agent approval routes: list, approve (resumes the agent), reject."""
+"""Approval routes: list, approve (resumes the job's run), reject."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
 from src.agent.tools.standing_settings import TOOL_NAME as SETTINGS_TOOL
 from src.agent.tools.standing_settings import Change, apply_standing_changes, validated_change
 from src.api.errors import raise_not_found_error, raise_validation_error
-from src.api.helpers.agent_responses import approval_to_response
+from src.api.helpers.standing_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.routes.agents import api
-from src.api.schemas.agents import ApproveRequest, PendingApprovalsResponse
+from src.api.routes.jobs import api
 from src.api.schemas.common import StatusResponse
+from src.api.schemas.jobs import ApproveRequest, PendingApprovalsResponse
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
@@ -26,24 +26,22 @@ logger = get_logger(__name__)
 ALL_TOOLS = "*"
 
 
-@api.route("/agents/approvals", methods=["GET"])
+@api.route("/approvals", methods=["GET"])
 @api.output(PendingApprovalsResponse)
 @api.doc(responses=[401])
 @require_auth
 def list_pending_approvals(user: User) -> dict[str, Any]:
     """Get all pending approval requests.
 
-    Returns pending approvals with agent names for display.
+    Returns pending approvals with their standing chats' names.
     """
-    approvals = db.get_pending_approvals(user.id)
-
-    approvals_response = []
-    for approval in approvals:
-        agent = db.get_agent(approval.agent_id, user.id)
-        agent_name = agent.name if agent else "Unknown Agent"
-        approvals_response.append(approval_to_response(approval, agent_name))
-
-    return {"pending_approvals": approvals_response}
+    names = {chat.id: chat.name for chat in db.list_standing_chats(user.id)}
+    return {
+        "pending_approvals": [
+            approval_to_response(a, names.get(a.item_id, "Agent"))
+            for a in db.get_pending_approvals(user.id)
+        ]
+    }
 
 
 @api.route("/approvals/<approval_id>/approve", methods=["POST"])
@@ -82,7 +80,7 @@ def _grant_write(user: User, approval: ApprovalRequest) -> None:
     the job lacks (a run names the tool in its own request)."""
     if approval.tool_name not in WRITE_LEVEL_TOOLS:
         raise_validation_error("This kind of request can only be approved once.")
-    job = db.get_item(approval.agent_id, user.id)
+    job = db.get_item(approval.item_id, user.id)
     if job is None:
         raise_not_found_error("Agent")
     tool = approval.tool_name
@@ -91,8 +89,8 @@ def _grant_write(user: User, approval: ApprovalRequest) -> None:
         return  # all tools write already
     if tool not in {base_tool(g) for g in held}:
         raise_validation_error(f"This agent has no {tool} access to extend; approve once instead.")
-    db.update_agent(
-        job.id, user.id, tool_permissions=list(dict.fromkeys([*held, f"{tool}{WRITE_SUFFIX}"]))
+    db.update_standing_chat(
+        job.id, user.id, grants=list(dict.fromkeys([*held, f"{tool}{WRITE_SUFFIX}"]))
     )
     logger.info("Write access granted from an approval", extra={"job_id": job.id, "tool": tool})
 
@@ -118,10 +116,8 @@ def reject_request(user: User, approval_id: str) -> dict[str, Any]:
     if not approval:
         raise_not_found_error("Approval request")
 
-    # The agent's (or the standing job's) conversation
-    agent = db.get_agent(approval.agent_id, user.id)
-    job = None if agent else db.get_item(approval.agent_id, user.id)
-    conversation_id = agent.conversation_id if agent else (job.conversation_id if job else None)
+    job = db.get_item(approval.item_id, user.id)
+    conversation_id = job.conversation_id if job else None
 
     # Resolve the approval
     resolved = db.resolve_approval(approval_id, user.id, approved=False)
@@ -133,14 +129,14 @@ def reject_request(user: User, approval_id: str) -> dict[str, Any]:
         rejection_message = f"[Action rejected: {approval.description}]"
         db.add_message(conversation_id, MessageRole.USER, rejection_message)
 
-    _close_waiting_execution(approval.agent_id, status="failed", error="Action rejected by user")
+    _close_waiting_execution(approval.item_id, status="failed", error="Action rejected by user")
 
     return {"status": "rejected"}
 
 
 def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest) -> dict[str, str]:
     """Approve a standing job's request and resume its run with the outcome."""
-    job = db.get_item(approval.agent_id, user.id)
+    job = db.get_item(approval.item_id, user.id)
     if job is None or not job.standing:
         raise_not_found_error("Agent")
     change: Change = {}
@@ -176,8 +172,8 @@ def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest
     return {"status": "approved"}
 
 
-def _close_waiting_execution(agent_id: str, status: str, error: str | None = None) -> None:
+def _close_waiting_execution(job_id: str, status: str, error: str | None = None) -> None:
     """Close the agent's run that paused for this approval, if it is the latest."""
-    executions = db.get_agent_executions(agent_id, limit=1)
+    executions = db.get_job_runs(job_id, limit=1)
     if executions and executions[0].status == "waiting_approval":
         db.update_execution(executions[0].id, status=status, error_message=error)

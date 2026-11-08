@@ -1,7 +1,7 @@
-"""Permission checking for autonomous agent tool calls.
+"""Permission checking for a job run's tool calls.
 
-This module checks whether an agent is allowed to use a specific tool
-based on its configured tool_permissions list.
+A run's permissions come from its job's grants (run_permissions): None means
+all tools; a list names the tools it may use beyond ALWAYS_SAFE_TOOLS.
 
 Note: The approval system is now LLM-driven. Agents decide when to call
 the `request_approval` tool for sensitive actions (see request_approval.py).
@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from enum import Enum
 from typing import Any
 
-from src.db.models.dataclasses import Agent
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -50,6 +49,7 @@ ALWAYS_SAFE_TOOLS: set[str] = {
 # draft the user approves (permission_check). WhatsApp only messages the user
 # themselves, so it is a notification, not a write.
 WRITE_SUFFIX = ":write"
+ALL_TOOLS_GRANT = "*"
 WRITE_LEVEL_TOOLS = frozenset({"todoist", "google_calendar", "garmin_workout", "rouvy_workout"})
 _READ_PREFIXES = ("get", "list", "search")
 
@@ -67,21 +67,28 @@ def is_write_call(tool_name: str, tool_args: Mapping[str, object]) -> bool:
     return not operation.startswith(_READ_PREFIXES)
 
 
-def has_write_grant(agent: Agent, tool_name: str) -> bool:
+def run_permissions(grants: list[str] | None) -> list[str] | None:
+    """A run's permissions from its job's grants: None (unrestricted) for all
+    tools, [] for a light item (no grants), else the grants."""
+    if grants is None:
+        return []
+    return None if ALL_TOOLS_GRANT in grants else list(grants)
+
+
+def has_write_grant(permissions: list[str] | None, tool_name: str) -> bool:
     """All tools (no list) or the tool's write level."""
-    permissions = agent.tool_permissions
     return permissions is None or f"{tool_name}{WRITE_SUFFIX}" in permissions
 
 
 def check_tool_permission(
-    agent: Agent,
+    permissions: list[str] | None,
     tool_name: str,
     tool_args: dict[str, Any],
 ) -> PermissionResult:
-    """Check if a tool call is allowed for an autonomous agent.
+    """Check if a tool call is allowed for a job's run.
 
     Args:
-        agent: The agent making the tool call
+        permissions: The run's permissions (run_permissions)
         tool_name: Name of the tool being called
         tool_args: Arguments to the tool (used for logging)
 
@@ -94,13 +101,8 @@ def check_tool_permission(
 
     # 2. Check if tool is in agent's allowed list
     # If permissions list exists (even if empty), only those tools are allowed
-    if agent.tool_permissions is not None and tool_name not in {
-        base_tool(g) for g in agent.tool_permissions
-    }:
-        logger.info(
-            "Tool blocked - not in agent's permissions",
-            extra={"agent_id": agent.id, "tool": tool_name},
-        )
+    if permissions is not None and tool_name not in {base_tool(g) for g in permissions}:
+        logger.info("Tool blocked - not in the job's grants", extra={"tool": tool_name})
         return PermissionResult.BLOCKED
 
     # 3. Default: allow (for tools like trigger_agent, generate_image, etc.)

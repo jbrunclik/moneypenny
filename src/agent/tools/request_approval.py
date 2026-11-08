@@ -103,28 +103,25 @@ def request_approval(
     Returns:
         A message indicating that approval has been requested and the agent should wait.
     """
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor imports this module
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports this module
 
-    # Get the current agent context
-    agent_context = get_agent_context()
-
-    if not agent_context:
+    job_context = get_job_context()
+    if not job_context:
         return tool_error(
             "request_approval can only be used by autonomous agents. "
             "In interactive mode, simply ask the user directly.",
             retriable=False,
         )
 
-    agent = agent_context.agent
-    user_id = agent_context.user.id
+    job_id = job_context.item.id
+    user_id = job_context.user.id
     if tool_name == SETTINGS_TOOL:  # filed only by edit_standing_chat itself
         return tool_error("Use edit_standing_chat to propose a settings change.", retriable=False)
 
     logger.info(
-        "Agent requesting approval",
+        "Job run requesting approval",
         extra={
-            "agent_id": agent.id,
-            "agent_name": agent.name,
+            "job_id": job_id,
             "action": action_description,
             "tool": tool_name,
         },
@@ -138,7 +135,7 @@ def request_approval(
     if operation:
         tool_args["operation"] = operation
     approval = db.create_approval_request(
-        agent_id=agent.id,
+        item_id=job_id,
         user_id=user_id,
         tool_name=tool_name,
         tool_args=tool_args,

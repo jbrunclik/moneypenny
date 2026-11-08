@@ -129,6 +129,6 @@ Several jobs also have manual Make targets for on-demand runs: `make backup`,
 ## See Also
 
 - [Database](database.md) - Backup and vacuum job details
-- [Agents](../features/agents.md) - Autonomous agents driven by the agent scheduler
+- [Standing Chats and Jobs](../features/agents.md) - standing jobs and items set from chat, run by the agent scheduler
 - [Cost Tracking](../features/cost-tracking.md) - Currency rates job feeds cost conversion
 - [Memory and Context](../features/memory-and-context.md) - Memory defragmentation job

@@ -19,12 +19,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from src.db.models.admin import AdminMixin
-from src.db.models.agent import AgentMixin
-from src.db.models.agent_approvals import AgentApprovalMixin
-from src.db.models.agent_conversation import AgentConversationMixin
-from src.db.models.agent_executions import AgentExecutionMixin
-from src.db.models.agent_schedule import AgentScheduleMixin
-from src.db.models.agent_stats import AgentStatsMixin
 from src.db.models.artifacts import ArtifactMixin
 from src.db.models.base import DatabaseBase
 from src.db.models.cache import CacheMixin
@@ -36,16 +30,16 @@ from src.db.models.conversation_listing import ConversationListingMixin
 from src.db.models.conversation_trash import ConversationTrashMixin
 from src.db.models.cost import CostMixin
 from src.db.models.dataclasses import (
-    Agent,
-    AgentExecution,
     ApprovalRequest,
     Conversation,
     ConversationFact,
+    JobRun,
     Memory,
     Message,
     MessagePagination,
     PushSubscription,
     SearchResult,
+    StandingChat,
     User,
 )
 from src.db.models.device_checks import DeviceChecksMixin
@@ -63,6 +57,8 @@ from src.db.models.helpers import (
     save_file_to_blob_store,
     should_reset_planner,
 )
+from src.db.models.job_approvals import JobApprovalMixin
+from src.db.models.job_runs import JobRunMixin
 from src.db.models.kv_store import KVStoreMixin
 from src.db.models.memory import MemoryMixin
 from src.db.models.message import MessageMixin
@@ -74,6 +70,7 @@ from src.db.models.push import PushSubscriptionMixin
 from src.db.models.scheduled_items import ScheduledItemsMixin
 from src.db.models.search import SearchMixin
 from src.db.models.settings import SettingsMixin
+from src.db.models.standing_chats import StandingChatMixin
 from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.sync_changes import ConversationChange, SyncChangesMixin
 from src.db.models.user import UserMixin
@@ -101,12 +98,9 @@ class Database(
     CostMixin,
     SearchMixin,
     SettingsMixin,
-    AgentMixin,
-    AgentScheduleMixin,
-    AgentApprovalMixin,
-    AgentExecutionMixin,
-    AgentConversationMixin,
-    AgentStatsMixin,
+    StandingChatMixin,
+    JobApprovalMixin,
+    JobRunMixin,
     KVStoreMixin,
     EmbeddingsMixin,
     ProgramConversationMixin,
@@ -218,9 +212,9 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "Memory",
     "MessagePagination",
     "SearchResult",
-    "Agent",
     "ApprovalRequest",
-    "AgentExecution",
+    "JobRun",
+    "StandingChat",
     "PushSubscription",
     # Helper functions
     "make_blob_key",

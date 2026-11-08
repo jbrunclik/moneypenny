@@ -12,9 +12,9 @@ from unittest.mock import MagicMock
 import pytest
 from flask.testing import FlaskClient
 
-from src.api.routes import agent_approvals
+from src.api.routes import approvals
 from src.db.models import Database, User
-from src.db.models.dataclasses import Agent, ApprovalRequest
+from src.db.models.dataclasses import ApprovalRequest, StandingChat
 
 
 @pytest.fixture
@@ -24,14 +24,14 @@ def resume(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     from src.agent.item_runner import RunOutcome
 
     fake = MagicMock(return_value=RunOutcome("report", "Sent."))
-    monkeypatch.setattr(agent_approvals, "run_job_now", fake)
+    monkeypatch.setattr(approvals, "run_job_now", fake)
     yield fake
 
 
 @pytest.fixture
-def paused(test_database: Database, test_user: User) -> tuple[Agent, ApprovalRequest, str]:
+def paused(test_database: Database, test_user: User) -> tuple[StandingChat, ApprovalRequest, str]:
     """An agent whose run paused for approval: (agent, approval, paused execution id)."""
-    agent = test_database.create_agent(test_user.id, "Mailer")
+    agent = test_database.create_standing_chat(test_user.id, "Mailer")
     execution = test_database.create_execution(agent.id, "scheduled")
     test_database.update_execution(execution.id, status="waiting_approval")
     approval = test_database.create_approval_request(
@@ -40,11 +40,11 @@ def paused(test_database: Database, test_user: User) -> tuple[Agent, ApprovalReq
     return agent, approval, execution.id
 
 
-def _executions(db: Database, agent: Agent) -> dict[str, Any]:
-    return {e.id: e for e in db.get_agent_executions(agent.id, limit=10)}
+def _executions(db: Database, agent: StandingChat) -> dict[str, Any]:
+    return {e.id: e for e in db.get_job_runs(agent.id, limit=10)}
 
 
-def _last_message(db: Database, agent: Agent) -> str:
+def _last_message(db: Database, agent: StandingChat) -> str:
     assert agent.conversation_id
     return db.get_messages(agent.conversation_id)[-1].content
 
@@ -55,7 +55,7 @@ class TestApprove:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
         agent, approval, paused_id = paused
@@ -77,7 +77,7 @@ class TestApprove:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
         agent, approval, _ = paused
@@ -92,7 +92,7 @@ class TestApprove:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
         _, approval, _ = paused
@@ -105,7 +105,7 @@ class TestApprove:
         self,
         client: FlaskClient,
         test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
         from src.auth.jwt_auth import create_token
@@ -128,7 +128,7 @@ class TestReject:
         client: FlaskClient,
         auth_headers: dict[str, str],
         test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
         resume: MagicMock,
     ) -> None:
         agent, approval, paused_id = paused
@@ -143,7 +143,7 @@ class TestReject:
         self,
         client: FlaskClient,
         test_database: Database,
-        paused: tuple[Agent, ApprovalRequest, str],
+        paused: tuple[StandingChat, ApprovalRequest, str],
     ) -> None:
         from src.auth.jwt_auth import create_token
 
@@ -209,7 +209,7 @@ class TestStandingJobApprovals:
         def run_job_now(item: Any, user: User, *, message: str | None = None) -> Any:
             resumed.append((item.id, message))
 
-        monkeypatch.setattr(agent_approvals, "run_job_now", run_job_now)
+        monkeypatch.setattr(approvals, "run_job_now", run_job_now)
 
         response = client.post(
             f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
@@ -217,7 +217,7 @@ class TestStandingJobApprovals:
 
         assert response.status_code == 200
         assert resumed == [(job.id, "[Action approved: Delete the old ride task]")]
-        [paused_run] = test_database.get_agent_executions(job.id)
+        [paused_run] = test_database.get_job_runs(job.id)
         assert paused_run.status == "completed"
         last = test_database.get_messages(job.conversation_id)[-1]
         assert last.content == "[Action approved: Delete the old ride task]"
@@ -236,7 +236,7 @@ class TestStandingJobApprovals:
         assert response.status_code == 200
         last = test_database.get_messages(job.conversation_id)[-1]
         assert last.content == "[Action rejected: Delete the old ride task]"
-        [paused_run] = test_database.get_agent_executions(job.id)
+        [paused_run] = test_database.get_job_runs(job.id)
         assert paused_run.status == "failed"
 
 
@@ -247,7 +247,7 @@ def test_approving_a_settings_change_applies_it_without_a_rerun(
     test_user: User,
     resume: MagicMock,
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     execution = test_database.create_execution(agent.id, "scheduled")
     test_database.update_execution(execution.id, status="waiting_approval")
     approval = test_database.create_approval_request(
@@ -257,10 +257,10 @@ def test_approving_a_settings_change_applies_it_without_a_rerun(
     response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
 
     assert response.status_code == 200
-    after = test_database.get_agent(agent.id, test_user.id)
+    after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.schedule == "0 8 * * 1"
     resume.assert_not_called()
-    [run] = test_database.get_agent_executions(agent.id)
+    [run] = test_database.get_job_runs(agent.id)
     assert run.status == "completed"
 
 
@@ -271,7 +271,7 @@ def test_always_allow_adds_the_write_grant(
     test_user: User,
     resume: MagicMock,
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Planner", tool_permissions=["todoist"])
+    agent = test_database.create_standing_chat(test_user.id, "Planner", grants=["todoist"])
     approval = test_database.create_approval_request(
         agent.id, test_user.id, "todoist", None, "Add 'Buy milk'"
     )
@@ -289,7 +289,7 @@ def test_always_allow_adds_the_write_grant(
 def test_always_allow_refused_for_settings_changes(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", tool_permissions=["garmin_connect"])
+    agent = test_database.create_standing_chat(test_user.id, "Coach", grants=["garmin_connect"])
     approval = test_database.create_approval_request(
         agent.id, test_user.id, "edit_standing_chat", {"grants": ["*"]}, "Give me all tools"
     )
@@ -300,8 +300,8 @@ def test_always_allow_refused_for_settings_changes(
 
     assert response.status_code == 400
     assert test_database.get_pending_approvals(test_user.id) != []
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert after is not None and after.tool_permissions == ["garmin_connect"]
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.grants == ["garmin_connect"]
 
 
 def test_always_allow_only_raises_a_granted_tool_to_write(
@@ -313,7 +313,7 @@ def test_always_allow_only_raises_a_granted_tool_to_write(
 ) -> None:
     """A run can name any tool in its request: Always allow must not grant
     a tool the job never had."""
-    agent = test_database.create_agent(test_user.id, "Gardener", tool_permissions=["web_search"])
+    agent = test_database.create_standing_chat(test_user.id, "Gardener", grants=["web_search"])
     approval = test_database.create_approval_request(
         agent.id, test_user.id, "google_calendar", {"operation": "create_event"}, "Water plants"
     )
@@ -323,8 +323,8 @@ def test_always_allow_only_raises_a_granted_tool_to_write(
     )
 
     assert response.status_code == 400
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert after is not None and after.tool_permissions == ["web_search"]
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.grants == ["web_search"]
 
 
 def test_always_allow_on_a_handled_approval_grants_nothing(
@@ -334,7 +334,7 @@ def test_always_allow_on_a_handled_approval_grants_nothing(
     test_user: User,
     resume: MagicMock,
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Planner", tool_permissions=["todoist"])
+    agent = test_database.create_standing_chat(test_user.id, "Planner", grants=["todoist"])
     approval = test_database.create_approval_request(
         agent.id, test_user.id, "todoist", {"operation": "add_task"}, "Add milk"
     )
@@ -356,7 +356,7 @@ def test_an_approved_settings_change_is_checked_again(
     test_user: User,
     resume: MagicMock,
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", tool_permissions=["garmin_connect"])
+    agent = test_database.create_standing_chat(test_user.id, "Coach", grants=["garmin_connect"])
     approval = test_database.create_approval_request(
         agent.id,
         test_user.id,
@@ -368,5 +368,5 @@ def test_an_approved_settings_change_is_checked_again(
     response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
 
     assert response.status_code == 400
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert after is not None and after.tool_permissions == ["garmin_connect"]
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.grants == ["garmin_connect"]

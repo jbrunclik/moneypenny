@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 from flask.testing import FlaskClient
 
 from src.agent.daily_briefing import SYSTEM_AGENT_PROMPTS, SYSTEM_TYPE_DAILY_BRIEFING
-from src.agent.executor import get_agent_context
+from src.agent.run_context import get_job_context
 from src.agent.tool_results import get_current_request_id
 from src.agent.tools.context import get_conversation_context, get_standing_namespace
 from src.db.models import Database, User
@@ -29,14 +29,14 @@ def test_batch_clears_request_context_when_the_agent_raises(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
     """Worker threads are reused: a failed turn must not leak its context."""
-    agent = test_database.create_agent(user_id=test_user.id, name="Helper")
+    agent = test_database.create_standing_chat(user_id=test_user.id, name="Helper")
     assert agent.conversation_id
     with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
         agent_class.return_value.chat_batch.side_effect = RuntimeError("model exploded")
         response = _batch(client, agent.conversation_id, auth_headers)
 
     assert response.status_code == 500
-    assert get_agent_context() is None
+    assert get_job_context() is None
     assert get_standing_namespace() is None
     assert get_current_request_id() is None
     assert get_conversation_context() == (None, None)
@@ -47,7 +47,7 @@ def _captured_turn(client: FlaskClient, conv_id: str, headers: dict[str, str]) -
     seen: dict[str, Any] = {}
 
     def chat_batch(**_: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
-        seen["agent_context"] = get_agent_context()
+        seen["agent_context"] = get_job_context()
         seen["namespace"] = get_standing_namespace()
         return ("ok", [], _USAGE, [])
 
@@ -64,11 +64,11 @@ def test_an_agent_chat_runs_as_an_ordinary_turn(
 ) -> None:
     """Standing chats: writing in an agent's chat is an ordinary chat turn with
     the agent's instructions - not its unattended-run restrictions."""
-    agent = test_database.create_agent(
+    agent = test_database.create_standing_chat(
         user_id=test_user.id,
         name="Helper",
-        system_prompt="Help with the garden",
-        tool_permissions=[],
+        instructions="Help with the garden",
+        grants=[],
     )
     assert agent.conversation_id
 
@@ -85,8 +85,8 @@ def test_the_briefing_chat_carries_the_stock_prompt(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
     """System agents store no prompt; the chat turn resolves it like a run."""
-    agent = test_database.create_agent(
-        user_id=test_user.id, name="Briefing", system_type=SYSTEM_TYPE_DAILY_BRIEFING
+    agent = test_database.create_standing_chat(
+        user_id=test_user.id, name="Briefing", standing_type=SYSTEM_TYPE_DAILY_BRIEFING
     )
     assert agent.conversation_id
 
@@ -116,7 +116,7 @@ def test_a_sports_chat_runs_as_an_ordinary_turn(
 def test_an_agent_chat_history_is_compacted_like_any_chat(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(user_id=test_user.id, name="Helper")
+    agent = test_database.create_standing_chat(user_id=test_user.id, name="Helper")
     assert agent.conversation_id
     with patch(
         "src.api.helpers.chat_turn.build_compacted_history", side_effect=lambda u, c, h: h
@@ -130,10 +130,10 @@ def test_pending_approval_still_blocks(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
     """A run paused for approval still holds its chat (unchanged)."""
-    agent = test_database.create_agent(user_id=test_user.id, name="Helper")
+    agent = test_database.create_standing_chat(user_id=test_user.id, name="Helper")
     assert agent.conversation_id
     test_database.create_approval_request(
-        agent_id=agent.id,
+        item_id=agent.id,
         user_id=test_user.id,
         tool_name="todoist",
         tool_args={"action": "delete_task"},

@@ -191,7 +191,7 @@ class TestCreate:
         [item] = database.list_items(user.id)
         assert (item.kind, item.schedule, item.expires_at) == ("recurring", "0 9 * * 1", None)
         assert item.next_run_at == datetime(2026, 11, 9, 8, 0, tzinfo=UTC)
-        assert database.list_agents_with_status(user.id) == []
+        assert database.list_standing_chats(user.id) == []
         assert "every Monday at 09:00" in result
 
     def test_a_recurring_until_date_sets_expiry(self, ctx: tuple[Database, User]) -> None:
@@ -245,7 +245,7 @@ class TestCreate:
         assert len(database.list_items(user.id)) == 1
 
     def test_refused_inside_a_scheduled_run(self, ctx: tuple[Database, User]) -> None:
-        with patch("src.agent.executor.get_agent_context", return_value=MagicMock()):
+        with patch("src.agent.run_context.get_job_context", return_value=MagicMock()):
             result = _reminder()
 
         assert "scheduled run" in result
@@ -448,13 +448,9 @@ class TestBinding:
         assert "schedule" in names(get_tools_for_request())
         assert "schedule" not in names(get_tools_for_request(anonymous_mode=True))
         assert "schedule" in names(get_tools_for_request(standing=True))
-        from unittest.mock import MagicMock
+        from src.agent.tools import tools_for_grants
 
-        from src.agent.tools import get_tools_for_agent
-
-        agent = MagicMock()
-        agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", None
-        assert "schedule" not in names(get_tools_for_agent(agent))
+        assert "schedule" not in names(tools_for_grants(["*"], "u1"))
 
 
 @pytest.mark.parametrize("action", ["delete", "pause"])
@@ -464,7 +460,9 @@ def test_the_tool_cannot_touch_an_agents_job(
     from src.agent.tools import scheduling
 
     monkeypatch.setattr(scheduling, "db", test_database)
-    agent = test_database.create_agent(test_user.id, "Daily Briefing", schedule="15 7 * * *")
+    agent = test_database.create_standing_chat(
+        test_user.id, "Daily Briefing", schedule="15 7 * * *"
+    )
 
     result = scheduling._manage(action, test_user.id, agent.id)
 

@@ -28,9 +28,7 @@ _LIVE_CHAT = """conversation_id IN (SELECT id FROM conversations
     WHERE deleted_at IS NULL AND (archived = 0 OR archived IS NULL))"""
 # An agent's standing job (same id as the agent): managed as the agent
 # (Agents page, update_agent), never as a chat item
-_AGENT_JOB = (
-    "id IN (SELECT agent_id FROM conversations WHERE is_agent = 1 AND agent_id IS NOT NULL)"
-)
+_AGENT_JOB = "id IN (SELECT job_id FROM conversations WHERE is_agent = 1 AND job_id IS NOT NULL)"
 # Back from a run: an agent disabled meanwhile stays paused
 _AFTER_RUN_STATUS = "CASE WHEN paused_reason = 'disabled' THEN 'paused' ELSE 'active' END"
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
@@ -49,7 +47,7 @@ def _grants(raw: str | None) -> list[str] | None:
     return [str(g) for g in json.loads(raw)] if raw is not None else None
 
 
-def _row_to_item(row: sqlite3.Row) -> ScheduledItem:
+def row_to_item(row: sqlite3.Row) -> ScheduledItem:
     return ScheduledItem(
         id=row["id"],
         user_id=row["user_id"],
@@ -118,7 +116,7 @@ class ScheduledItemsMixin:
                 "SELECT * FROM scheduled_items WHERE id = ? AND user_id = ?",
                 (item_id, user_id),
             ).fetchone()
-        return _row_to_item(row) if row else None
+        return row_to_item(row) if row else None
 
     def list_items(self, user_id: str, conversation_id: str | None = None) -> list[ScheduledItem]:
         """The user's items in live chats (optionally one chat), soonest first;
@@ -132,7 +130,7 @@ class ScheduledItemsMixin:
             params = (user_id, conversation_id)
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(conn, query + " ORDER BY next_run_at", params)
-            return [_row_to_item(row) for row in rows.fetchall()]
+            return [row_to_item(row) for row in rows.fetchall()]
 
     def list_all_items(self, user_id: str) -> list[ScheduledItem]:
         """Every item and job of the user in live chats - agents' jobs
@@ -143,7 +141,7 @@ class ScheduledItemsMixin:
                 f"SELECT * FROM scheduled_items WHERE user_id = ? AND {_LIVE_CHAT} ORDER BY next_run_at",
                 (user_id,),
             )
-            return [_row_to_item(row) for row in rows.fetchall()]
+            return [row_to_item(row) for row in rows.fetchall()]
 
     def job_week_stats(self, user_id: str, days: int = 7) -> dict[str, dict[str, float]]:
         """Each standing job's runs (by outcome) and its own cost over the
@@ -153,8 +151,8 @@ class ScheduledItemsMixin:
         with self._pool.get_connection() as conn:
             runs = self._execute_with_timing(
                 conn,
-                """SELECT e.agent_id AS job_id, e.status, COUNT(*) AS n
-                   FROM agent_executions e JOIN scheduled_items s ON s.id = e.agent_id
+                """SELECT e.item_id AS job_id, e.status, COUNT(*) AS n
+                   FROM job_runs e JOIN scheduled_items s ON s.id = e.item_id
                    WHERE s.user_id = ? AND e.started_at >= ? GROUP BY 1, 2""",
                 (user_id, since),
             ).fetchall()
@@ -214,7 +212,7 @@ class ScheduledItemsMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT 1 FROM conversations WHERE is_agent = 1 AND agent_id = ?",
+                "SELECT 1 FROM conversations WHERE is_agent = 1 AND job_id = ?",
                 (item_id,),
             ).fetchone()
         return row is not None
@@ -253,7 +251,7 @@ class ScheduledItemsMixin:
                 (to_db(now), to_db(now)),
             ).fetchall()
             conn.commit()
-        return sorted((_row_to_item(row) for row in rows), key=lambda i: i.next_run_at)
+        return sorted((row_to_item(row) for row in rows), key=lambda i: i.next_run_at)
 
     def claim_item(self, item_id: str, now: datetime) -> tuple[str, datetime] | None:
         """Claim one item for a hand-started run, as the scheduler claims due

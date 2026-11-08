@@ -297,7 +297,7 @@ def test_pause_reason_is_kept_and_cleared(
 def test_an_agents_job_is_not_listed_with_chat_items(
     test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+    agent = test_database.create_standing_chat(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
 
     assert test_database.list_items(test_user.id) == []
     assert test_database.list_items(test_user.id, agent.conversation_id) == []
@@ -309,10 +309,10 @@ def test_disabling_an_agent_mid_run_survives_the_run_ending(
 ) -> None:
     from src.db.models.scheduled_items import NEVER_RUN_AT
 
-    agent = test_database.create_agent(test_user.id, "Briefing", schedule="15 7 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Briefing", schedule="15 7 * * *")
     test_database.finish_item_run(agent.id, _NOW - timedelta(minutes=1), None, 0, 0)
     [claimed] = test_database.claim_due_items(_NOW)
-    test_database.update_agent(agent.id, test_user.id, enabled=False)
+    test_database.update_standing_chat(agent.id, test_user.id, enabled=False)
 
     test_database.finish_item_run(
         agent.id, _NOW + timedelta(days=1), None, 0, 0, claimed_at=claimed.claimed_at
@@ -326,10 +326,10 @@ def test_disabling_an_agent_mid_run_survives_the_run_ending(
 def test_disabling_mid_hand_run_survives_the_release(
     test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Briefing", schedule="15 7 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Briefing", schedule="15 7 * * *")
     claim = test_database.claim_item(agent.id, _NOW)
     assert claim is not None
-    test_database.update_agent(agent.id, test_user.id, enabled=False)
+    test_database.update_standing_chat(agent.id, test_user.id, enabled=False)
 
     test_database.release_item(agent.id, claim[1], claim[0])
 
@@ -344,8 +344,8 @@ def test_renaming_an_agent_onto_another_name_is_refused(
 
     import pytest
 
-    test_database.create_agent(test_user.id, "Coach")
-    other = test_database.create_agent(test_user.id, "Watcher")
+    test_database.create_standing_chat(test_user.id, "Coach")
+    other = test_database.create_standing_chat(test_user.id, "Watcher")
 
     with pytest.raises(sqlite3.IntegrityError):
-        test_database.update_agent(other.id, test_user.id, name="Coach")
+        test_database.update_standing_chat(other.id, test_user.id, name="Coach")

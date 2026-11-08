@@ -380,14 +380,14 @@ def test_conversation(test_database: Database, test_user: User) -> Conversation:
 def test_agent(test_database: Database, test_user: User):
     """Create test agent."""
 
-    return test_database.create_agent(
+    return test_database.create_standing_chat(
         user_id=test_user.id,
         name="Test Agent",
         description="A test agent for integration tests",
-        system_prompt="You are a helpful test agent.",
+        instructions="You are a helpful test agent.",
         schedule="0 9 * * *",
         timezone="UTC",
-        tool_permissions=["web_search"],
+        grants=["web_search"],
         enabled=True,
     )
 

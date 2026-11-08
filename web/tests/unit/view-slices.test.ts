@@ -11,7 +11,6 @@ import { initialSportsData } from '@/state/slices/sports';
 import { initialStorageData } from '@/state/slices/storage';
 import { initialSearchData } from '@/state/slices/search';
 import type {
-  Agent,
   JobsOverviewResponse,
   KVNamespacesResponse,
   LanguageProgram,
@@ -114,32 +113,6 @@ describe.each(cases)('$name cache', (c) => {
     for (const [key, value] of Object.entries(c.initial())) {
       expect(state[key]).toEqual(value);
     }
-  });
-});
-
-describe('agents list', () => {
-  const agent = (id: string, name = id) => ({ id, name }) as unknown as Agent;
-
-  beforeEach(() => {
-    useStore.setState(useStore.getInitialState(), true);
-  });
-
-  it('addAgent puts the new agent first', () => {
-    s().setAgents([agent('a')]);
-    s().addAgent(agent('b'));
-    expect(s().agents.map((a) => a.id)).toEqual(['b', 'a']);
-  });
-
-  it('updateAgent merges into the matching agent only', () => {
-    s().setAgents([agent('a'), agent('b')]);
-    s().updateAgent('b', { name: 'renamed' });
-    expect(s().agents.map((a) => a.name)).toEqual(['a', 'renamed']);
-  });
-
-  it('removeAgent drops the agent', () => {
-    s().setAgents([agent('a'), agent('b')]);
-    s().removeAgent('a');
-    expect(s().agents.map((a) => a.id)).toEqual(['b']);
   });
 });
 

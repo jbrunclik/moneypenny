@@ -21,6 +21,7 @@ vi.mock('@/core/agents', () => ({
   leaveAgentsView: m.leaveAgentsView,
   navigateToAgents: vi.fn(() => Promise.resolve()),
   handleAgentEditById: vi.fn(() => Promise.resolve()),
+  handleStandingRun: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('@/core/sports', () => ({ leaveSportsView: m.leaveSportsView }));
 vi.mock('@/core/conversation-switch', () => ({

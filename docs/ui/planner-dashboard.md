@@ -96,4 +96,4 @@ messagesContainer.scrollTop = 0; // NOT scrollToBottom()
 
 - [Planner](../features/planner.md) - backend, dashboard data shape, caching, weather
 - [Design System](design-system.md) - tokens used by the dashboard
-- [Routing Race Condition Prevention](../features/agents.md#routing-race-condition-prevention) - navigation token used by `navigateToPlanner()`
+- [Routing Race Condition Prevention](components.md#routing-race-condition-prevention) - navigation token used by `navigateToPlanner()`

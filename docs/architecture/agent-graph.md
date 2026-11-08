@@ -58,8 +58,8 @@ answered; the stream emits a `model_fallback` event and the batch response a
 `model_fallback` field, and the client shows a note ([model-fallback.ts](../../web/src/core/model-fallback.ts)).
 
 Retries are **per model call**, not per turn: replaying a whole turn would re-execute
-non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). The autonomous-agent
-executor therefore has no retry wrapper of its own.
+non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). The job runner
+(`item_runner.py`) therefore has no retry wrapper of its own.
 
 **Retry status event.** The backoff can add up to ~70 s per call, which looked like a hang.
 `_emit_retry_status` writes `{"type": "retry", "attempt", "max_retries"}` to LangGraph's
@@ -237,4 +237,4 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 - [Conversation Context](conversation-context.md) - history enrichment and compaction
 - [Chat and Streaming](../features/chat-and-streaming.md) - turn setup, SSE pipeline, resume
 - [Agent Tools](../features/agent-tools.md) - tool binding, permissions, adding a tool
-- [Autonomous Agents](../features/agents.md) - scheduled runs of the same graph
+- [Standing Chats and Jobs](../features/agents.md) - scheduled runs of the same graph

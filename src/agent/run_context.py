@@ -1,9 +1,9 @@
 """The unattended run's context and shared pieces.
 
-Agents are standing jobs (standing chats phase 2): their runs go through
-src/agent/item_runner.py. This module keeps what those runs share: the run
-context permission checks read (AgentContext), the trigger message, the run's
-history, recording an approval request, and the [SILENT] marker.
+Job runs go through src/agent/item_runner.py. This module keeps what they
+share: the run context permission checks read (JobContext), the trigger
+message, the run's history, recording an approval request, and the [SILENT]
+marker.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from src.agent.conversation_compaction import build_compacted_history
 from src.agent.history import enrich_history
+from src.agent.permissions import run_permissions
 from src.agent.tools.request_approval import (
     ApprovalRequestedException,
     build_approval_message,
@@ -25,7 +26,8 @@ from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, User
+    from src.db.models import User
+    from src.db.models.dataclasses import ScheduledItem
 
 logger = get_logger(__name__)
 
@@ -34,38 +36,43 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class AgentContext:
-    """Context for the currently executing agent."""
+class JobContext:
+    """The job whose unattended run is executing: its grants gate the tools."""
 
-    agent: Agent
+    item: ScheduledItem
     user: User
-    trigger_chain: list[str]  # List of agent IDs in the trigger chain
+    name: str  # the standing chat's name, or the item's text
+    trigger_chain: list[str]  # job ids in the trigger chain
+
+    @property
+    def permissions(self) -> list[str] | None:
+        """The run's tool permissions (None = all tools)."""
+        return run_permissions(self.item.grants)
 
 
-# Context variable for the current agent execution
-_agent_context: contextvars.ContextVar[AgentContext | None] = contextvars.ContextVar(
-    "_agent_context", default=None
+_job_context: contextvars.ContextVar[JobContext | None] = contextvars.ContextVar(
+    "_job_context", default=None
 )
 
 
-def get_agent_context() -> AgentContext | None:
-    """Get the current agent execution context."""
-    return _agent_context.get()
+def get_job_context() -> JobContext | None:
+    """The running job's context; None outside an unattended run."""
+    return _job_context.get()
 
 
-def set_agent_context(context: AgentContext | None) -> None:
-    """Set the current agent execution context."""
-    _agent_context.set(context)
+def set_job_context(context: JobContext | None) -> None:
+    """Set the running job's context."""
+    _job_context.set(context)
 
 
-def clear_agent_context() -> None:
-    """Clear the current agent execution context."""
-    _agent_context.set(None)
+def clear_job_context() -> None:
+    """Clear the running job's context."""
+    _job_context.set(None)
 
 
 def get_trigger_chain() -> list[str]:
-    """Get the current trigger chain (agent IDs)."""
-    context = _agent_context.get()
+    """The current trigger chain (job ids)."""
+    context = _job_context.get()
     return context.trigger_chain if context else []
 
 
@@ -89,7 +96,7 @@ def build_trigger_message(trigger_type: str, extra_message: str | None = None) -
 
 
 def run_history(
-    agent: Agent, conversation_id: str, *, keep_last: bool = False
+    item: ScheduledItem, conversation_id: str, *, keep_last: bool = False
 ) -> list[dict[str, Any]]:
     """The conversation history sent with the run (excluding the trigger message).
 
@@ -99,27 +106,26 @@ def run_history(
     the same non-destructive summary + recent messages a chat turn uses, so
     the user's own turns in that chat and the runs never clash over it.
     """
-    if agent.fresh_context:
+    if item.fresh_context:
         return []
     messages = db.get_messages(conversation_id)
     # An agent run just saved its trigger message (sent separately); a job run
     # saves none, so its newest message is real history (keep_last)
     kept = messages if keep_last else messages[:-1]
-    return build_compacted_history(agent.user_id, conversation_id, enrich_history(kept))
+    return build_compacted_history(item.user_id, conversation_id, enrich_history(kept))
 
 
 def record_approval_request(
     e: ApprovalRequestedException,
-    agent: Agent,
-    user: User,
+    context: JobContext,
     conversation_id: str,
     execution_id: str,
 ) -> None:
-    """Park the run on the approval the agent asked for and tell the user."""
+    """Park the run on the approval it asked for and tell the user."""
     logger.info(
-        "Agent requesting approval",
+        "Job run requesting approval",
         extra={
-            "agent_id": agent.id,
+            "job_id": context.item.id,
             "execution_id": execution_id,
             "approval_id": e.approval_id,
             "description": e.description,
@@ -139,8 +145,8 @@ def record_approval_request(
     # The agent is blocked until the user reacts - the most
     # time-sensitive notification in the system
     send_push_to_user(
-        user.id,
-        f"{agent.name} needs your approval",
+        context.user.id,
+        f"{context.name} needs your approval",
         e.description[:160],
         url="/#/agents",
         tag=f"approval-{e.approval_id}",

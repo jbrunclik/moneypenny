@@ -71,7 +71,9 @@ def seeded(
     test_database.trash_conversation(trashed.id, test_user.id)
     archived = test_database.create_conversation(user_id=test_user.id, title="Kept")
     test_database.archive_conversation(archived.id, test_user.id)
-    agent = test_database.create_agent(user_id=test_user.id, name="Watcher", schedule="0 9 * * *")
+    agent = test_database.create_standing_chat(
+        user_id=test_user.id, name="Watcher", schedule="0 9 * * *"
+    )
     execution = test_database.create_execution(agent.id, "manual")
     test_database.update_execution(execution.id, status="completed")
     test_database.create_approval_request(
@@ -92,11 +94,10 @@ def test_endpoints_send_instants_with_an_offset(
         f"/api/conversations/{seeded['conversation']}",
         f"/api/conversations/{seeded['conversation']}/messages",
         "/api/search?q=Hello",
-        "/api/agents",
-        f"/api/agents/{seeded['agent']}",
-        f"/api/agents/{seeded['agent']}/executions",
-        f"/api/agents/{seeded['agent']}/conversation/sync",
-        "/api/agents/approvals",
+        f"/api/jobs/{seeded['agent']}",
+        f"/api/jobs/{seeded['agent']}/runs",
+        f"/api/jobs/{seeded['agent']}/conversation/sync",
+        "/api/approvals",
         "/api/jobs",
         "/api/memories",
     ]

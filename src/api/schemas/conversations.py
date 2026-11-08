@@ -236,7 +236,7 @@ class ConversationDetailPaginatedResponse(ResponseModel):
     created_at: Timestamp
     updated_at: Timestamp
     is_agent: bool = False
-    agent_id: str | None = None
+    job_id: str | None = None
     has_pending_approval: bool = False  # True if agent has pending approval request
     archived: bool = False
     anonymous_mode: bool = False  # Memory and integrations disabled for this conversation

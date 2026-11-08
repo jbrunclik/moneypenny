@@ -14,7 +14,7 @@ import pytest
 from src.agent import scheduler
 from src.agent.item_runner import RunOutcome
 from src.db.models import Database, User, use_database
-from src.db.models.dataclasses import Agent
+from src.db.models.dataclasses import StandingChat
 from src.utils.clock import utc_now
 
 EVERY_HOUR = "0 * * * *"
@@ -38,10 +38,10 @@ def run() -> Iterator[MagicMock]:
         yield fake
 
 
-def _due_agent(db: Database, user: User, name: str = "Briefing", **kwargs: object) -> Agent:
-    agent = db.create_agent(user.id, name, schedule=EVERY_HOUR, **kwargs)  # type: ignore[arg-type]
+def _due_agent(db: Database, user: User, name: str = "Briefing", **kwargs: object) -> StandingChat:
+    agent = db.create_standing_chat(user.id, name, schedule=EVERY_HOUR, **kwargs)  # type: ignore[arg-type]
     db.finish_item_run(agent.id, utc_now() - timedelta(minutes=1), None, 0, 0)
-    return db.get_agent(agent.id, user.id)  # type: ignore[return-value]
+    return db.get_standing_chat(agent.id, user.id)  # type: ignore[return-value]
 
 
 def test_a_due_agent_runs_as_its_standing_job(
@@ -54,14 +54,14 @@ def test_a_due_agent_runs_as_its_standing_job(
     assert result.items_run == 1
     assert run.call_args.args[0].id == agent.id
     assert [m.content for m in db.get_messages(agent.conversation_id or "")] == ["Good morning."]
-    after = db.get_agent(agent.id, test_user.id)
+    after = db.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.next_run_at is not None
     assert after.next_run_at > utc_now()
 
 
 def test_a_disabled_agent_does_not_run(db: Database, test_user: User, run: MagicMock) -> None:
     agent = _due_agent(db, test_user)
-    db.update_agent(agent.id, test_user.id, enabled=False)
+    db.update_standing_chat(agent.id, test_user.id, enabled=False)
 
     scheduler.run_scheduled_agents()
 

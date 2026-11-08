@@ -94,6 +94,7 @@ vi.mock('@/core/agents', () => ({
   initAgents: h.rec('initAgents'),
   navigateToAgents: h.recAsync('navigateToAgents'),
   handleAgentEditById: h.recAsync('handleAgentEditById'),
+  handleStandingRun: h.recAsync('handleStandingRun'),
   leaveAgentsView: h.rec('leaveAgentsView'),
 }));
 vi.mock('@/components/ScrollToBottom', () => ({

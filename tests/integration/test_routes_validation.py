@@ -411,8 +411,8 @@ class TestOneBodyValidationMechanism:
         ("method", "path", "body"),
         [
             ("patch", "/api/memories/some-id/protection", {}),
-            ("post", "/api/agents", {"name": ""}),
-            ("patch", "/api/agents/some-id", {"name": ""}),
+            ("post", "/api/jobs", {"name": ""}),
+            ("patch", "/api/jobs/some-id", {"name": ""}),
             ("put", "/api/kv/notes/some-key", {}),
         ],
     )

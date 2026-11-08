@@ -146,7 +146,7 @@ When a turn reads web pages, those pages are shown to the user as sources - auto
 - [tools/web.py](../../src/agent/tools/web.py) - `web_search()` returns structured JSON
 - [content.py](../../src/agent/content.py) - `extract_read_sources()`; [source_pages.py](../../src/agent/source_pages.py) - `turn_pages()`
 - [models/](../../src/db/models/) - `Message.sources` field, `add_message()` with sources param
-- [chat_save.py](../../src/api/helpers/chat_save.py) - calls `extract_read_sources()` when saving the turn (batch and streaming); the autonomous executor does the same
+- [chat_save.py](../../src/api/helpers/chat_save.py) - calls `extract_read_sources()` when saving the turn (batch and streaming)
 - [SourcesPopup.ts](../../web/src/components/SourcesPopup.ts) - Popup component
 - [messages/actions.ts](../../web/src/components/messages/actions.ts) - Sources button rendering
 - [test_read_sources.py](../../tests/unit/test_read_sources.py) - which pages become chips

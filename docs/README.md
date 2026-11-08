@@ -8,7 +8,8 @@ This directory contains detailed documentation for the Moneypenny project, organ
 Feature-specific documentation covering user-facing functionality:
 
 - **[admin.md](features/admin.md)** - Admin page (ADMIN_EMAILS: spend, agent health, web-search quotas, response quality, browser errors, system facts, device check runs), browser error reporting, the in-app device check runner, and the daily spend warning banner
-- **[agents.md](features/agents.md)** - Autonomous agents: schema, cron scheduling, execution flow, talking to an agent (standing chat), approval workflow, budgets, Command Center UI, agent-to-agent communication, routing race prevention, lightweight items set from chat (reminders, check-ins, watchers, recurring checks)
+- **[agents.md](features/agents.md)** - Standing chats and jobs: data (`job_runs`, `job_approvals`, standing chat columns), job endpoints (`/api/jobs`, `/api/approvals`), run flow and `JobContext`, grants and write levels, approvals, budgets, scheduling, talking to and creating a standing chat, Command Center, job editor
+- **[scheduled-items.md](features/scheduled-items.md)** - Jobs set from chat: reminders, check-ins, watchers and recurring checks (`schedule` tool, scheduler, runs, delivery, limits)
 - **[agent-tools.md](features/agent-tools.md)** - Tool binding and permissions (chat and standing chats vs agent runs, always-bound vs `ALWAYS_SAFE_TOOLS`, three layers), search provider chain, tool security, adding a new tool, K/V store, browser tool (action batches, page state), skills (`load_skill`, adding a skill), grounding directive on web results
 - **[freshness.md](features/freshness.md)** - Current facts: freshness gate (lookup before the turn, dated queries, failed-lookup note), `published` dates and the `_recency` note on search results, snippets-are-not-verification directive, recent-news grounding scope, config, evals
 - **[conversation-facts.md](features/conversation-facts.md)** - Settled facts per conversation: the extract-only recording tool, the every-turn context block, caps, the read-only chip and popup, the flag
@@ -62,7 +63,7 @@ User interface patterns and implementations:
 
 - **[scroll-behavior.md](ui/scroll-behavior.md)** - Complex scroll scenarios, programmatic scroll wrapper, streaming auto-scroll, race condition fixes, cursor-based pagination
 - **[mobile-and-pwa.md](ui/mobile-and-pwa.md)** - iOS Safari gotchas (9 documented issues), touch gestures, PWA viewport fixes
-- **[components.md](ui/components.md)** - Component structure, event delegation, DOM helpers, popup escape handler, adding components, chat header and compaction indicator
+- **[components.md](ui/components.md)** - Component structure, event delegation, DOM helpers, popup escape handler, adding components, chat header and compaction indicator, routing race prevention (navigation token)
 - **[design-system.md](ui/design-system.md)** - CSS file layout and cascade order, design tokens (color, spacing, type, motion, z-index), light/dark themes, glass materials
 - **[planner-dashboard.md](ui/planner-dashboard.md)** - Planner dashboard UI: content order, CSS classes, priority rings, mobile layout, scroll-to-top
 - **[patterns.md](ui/patterns.md)** - Standard interaction and visual patterns to reuse in new features
@@ -114,7 +115,7 @@ moneypenny/
 
 ### Most Referenced
 
-- [Agents](features/agents.md) - Autonomous agents and Command Center
+- [Standing Chats and Jobs](features/agents.md) - Agents, jobs and the Command Center
 - [Chat and Streaming](features/chat-and-streaming.md) - Core chat functionality
 - [File Handling](features/file-handling.md) - Working with files and images
 - [Database](architecture/database.md) - Database architecture and best practices

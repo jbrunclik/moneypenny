@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
 from src.agent.tools.scheduling import describe_ends, describe_when
-from src.api.helpers.agent_responses import approval_to_response
+from src.api.helpers.standing_responses import approval_to_response
 from src.config import Config
 from src.db.models import db
 from src.db.models.scheduled_items import NEVER_RUN_AT
@@ -16,7 +16,7 @@ from src.utils.clock import to_api
 
 if TYPE_CHECKING:
     from src.db.models import Conversation
-    from src.db.models.dataclasses import AgentExecution, ScheduledItem
+    from src.db.models.dataclasses import JobRun, ScheduledItem
 
 _TITLE_MAX_CHARS = 60
 _ERROR_MAX_CHARS = 160
@@ -73,7 +73,7 @@ def _title(item: ScheduledItem, conv: Conversation | None) -> str:
     return text if len(text) <= _TITLE_MAX_CHARS else text[: _TITLE_MAX_CHARS - 1] + "…"
 
 
-def _run(run: AgentExecution) -> RunData:
+def _run(run: JobRun) -> RunData:
     error = run.error_message
     return {
         "status": run.status,
@@ -86,10 +86,10 @@ def _run(run: AgentExecution) -> RunData:
 def _job(
     item: ScheduledItem,
     conv: Conversation | None,
-    runs: list[AgentExecution],
+    runs: list[JobRun],
     week: dict[str, float],
 ) -> JobData:
-    agent_job = conv is not None and conv.is_agent and conv.agent_id == item.id
+    agent_job = conv is not None and conv.is_agent and conv.job_id == item.id
     never = item.next_run_at >= NEVER_RUN_AT
     return {
         "id": item.id,
@@ -106,7 +106,7 @@ def _job(
         "next_run_at": None if never else to_api(item.next_run_at),
         "system_type": conv.standing_type if agent_job and conv else None,
         "editable": bool(agent_job and conv and not conv.standing_type),
-        "unread_count": db.get_agent_unread_count(item.id) if agent_job else 0,
+        "unread_count": db.standing_unread_count(item.id) if agent_job else 0,
         "has_pending_approval": bool(item.standing and db.has_pending_approval(item.id)),
         "cost_7d_display": _cost(week["cost_usd"]) if week else None,
         "runs_7d": int(week.get("runs", 0)),
@@ -141,7 +141,7 @@ def jobs_overview(user_id: str) -> dict[str, object]:
     )
     names = {j["id"]: j["title"] for j in jobs}
     approvals = [
-        approval_to_response(a, names.get(a.agent_id, "Agent"))
+        approval_to_response(a, names.get(a.item_id, "Agent"))
         for a in db.get_pending_approvals(user_id)
     ]
     totals = {k: sum(w.get(k, 0) for w in week.values()) for k in ("runs", "completed", "failed")}

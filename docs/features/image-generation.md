@@ -7,7 +7,7 @@ The app can generate images using Gemini's image generation model (`gemini-3-pro
 1. **Tool available**: `generate_image(prompt, aspect_ratio, image_size, use_search, reference_images, history_image_message_id, history_image_file_index)` tool in [tools/image_generation.py](../../src/agent/tools/image_generation.py)
 2. **Tool returns JSON**: Returns `{"prompt": "...", "image": {"data": "base64...", "mime_type": "image/png"}}`
 3. **Image data bypasses the model**: the tool node stores the image under `_full_result` server-side and strips it from what the model sees (see [Agent Graph](../architecture/agent-graph.md#tool-node))
-4. **Backend extracts images**: when the turn is saved, `extract_generated_images_from_tool_results()` ([utils/images.py](../../src/utils/images.py)) reads the captured results (called from `save_message_to_db()` in [chat_save.py](../../src/api/helpers/chat_save.py) and from the agent executor)
+4. **Backend extracts images**: when the turn is saved, `extract_generated_images_from_tool_results()` ([utils/images.py](../../src/utils/images.py)) reads the captured results (called from `save_message_to_db()` in [chat_save.py](../../src/api/helpers/chat_save.py))
 5. **Images stored as files**: Generated images are stored as file attachments on the message
 6. **Metadata stored in DB**: Messages table has a `generated_images` column (JSON array)
 7. **UI shows sparkles button**: A sparkles icon appears in message actions when generated images exist, opening a popup showing the prompt used and the cost of image generation (excluding prompt tokens)

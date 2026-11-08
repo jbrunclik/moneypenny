@@ -3,7 +3,7 @@ push goes out - every run used to push whether or not it found anything."""
 
 import pytest
 
-from src.agent.executor import is_silent_reply
+from src.agent.run_context import is_silent_reply
 
 
 @pytest.mark.parametrize(

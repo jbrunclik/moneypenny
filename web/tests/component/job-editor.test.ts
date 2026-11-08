@@ -1,5 +1,5 @@
 /**
- * Agent editor: the form reflects the agent being edited, and Save
+ * JobDetail editor: the form reflects the agent being edited, and Save
  * validates the name and schedule, then sends exactly the filled fields
  * (keeping unrestricted tool access unrestricted unless changed).
  */
@@ -15,33 +15,32 @@ const api = vi.hoisted(() => ({
   toastError: vi.fn(),
 }));
 
-vi.mock('@/api/agents', () => ({
-  agents: { create: api.create, update: api.update, delete: api.delete },
-  aiAssist: { parseSchedule: vi.fn(), enhancePrompt: vi.fn() },
+vi.mock('@/api/assist', () => ({ aiAssist: { parseSchedule: vi.fn(), enhancePrompt: vi.fn() } }));
+vi.mock('@/api/jobs', () => ({
+  jobs: { create: api.create, update: api.update, delete: api.delete, overview: api.overview },
 }));
-vi.mock('@/api/jobs', () => ({ jobs: { overview: api.overview } }));
 vi.mock('@/api/settings', () => ({ settings: { get: api.settingsGet } }));
 vi.mock('@/components/Toast', () => ({ toast: { success: api.toastSuccess, error: api.toastError } }));
 
 import { useStore } from '@/state/store';
-import { showAgentEditor } from '@/components/AgentEditor';
-import type { Agent } from '@/types/api';
+import { showAgentEditor } from '@/components/JobEditor';
+import type { JobDetail } from '@/types/api';
 
-function agent(extra: Partial<Agent> = {}): Agent {
+function agent(extra: Partial<JobDetail> = {}): JobDetail {
   return {
     id: 'a1',
     name: 'Watcher',
     description: 'Checks things',
-    system_prompt: 'Be brief',
+    instructions: 'Be brief',
     schedule: '0 9 * * 1-5',
     timezone: 'Europe/Prague',
     enabled: false,
     fresh_context: false,
-    tool_permissions: ['todoist'],
+    grants: ['todoist'],
     model: 'm2',
-    budget_limit: 1.5,
+    budget_usd: 1.5,
     ...extra,
-  } as unknown as Agent;
+  } as unknown as JobDetail;
 }
 
 const modal = () => document.getElementById('agent-editor-modal') as HTMLElement;
@@ -49,7 +48,7 @@ const field = <T extends HTMLElement>(sel: string) => modal().querySelector<T>(s
 const save = () => field<HTMLButtonElement>('.agent-editor-save').click();
 
 /** Open the editor; resolves once the form is rendered, with the editor's eventual result. */
-async function open(a?: Agent): Promise<{ result: Promise<Agent | null> }> {
+async function open(a?: JobDetail): Promise<{ result: Promise<JobDetail | null> }> {
   const result = showAgentEditor(a);
   await vi.waitFor(() => expect(modal()?.querySelector('.agent-editor')).toBeTruthy());
   return { result };
@@ -118,7 +117,7 @@ describe('AgentEditor', () => {
   });
 
   it('shows every tool checked for unrestricted access', async () => {
-    await open(agent({ tool_permissions: null }));
+    await open(agent({ grants: ['*'] }));
 
     const boxes = [...modal().querySelectorAll<HTMLInputElement>('input[name="tool-permission"]')];
     expect(boxes.every((b) => b.checked)).toBe(true);
@@ -159,10 +158,10 @@ describe('AgentEditor', () => {
       name: 'New',
       timezone: expect.any(String),
       model: 'm1',
-      budget_limit: 2,
+      budget_usd: 2,
       enabled: true,
       fresh_context: true,
-      tool_permissions: ['todoist'],
+      grants: ['todoist'],
     });
     expect(api.toastSuccess).toHaveBeenCalledWith('Agent created');
     await expect(result).resolves.toBe(created);
@@ -170,18 +169,18 @@ describe('AgentEditor', () => {
 
   it('updates an agent, keeping untouched unrestricted access unrestricted', async () => {
     api.update.mockResolvedValue(agent());
-    await open(agent({ tool_permissions: null }));
+    await open(agent({ grants: ['*'] }));
     save();
 
     await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
     expect(api.update).toHaveBeenCalledWith('a1', {
       name: 'Watcher',
       description: 'Checks things',
-      system_prompt: 'Be brief',
+      instructions: 'Be brief',
       schedule: '0 9 * * 1-5',
       timezone: 'Europe/Prague',
       model: 'm2',
-      budget_limit: 1.5,
+      budget_usd: 1.5,
       enabled: false,
       fresh_context: false,
     });
@@ -189,14 +188,69 @@ describe('AgentEditor', () => {
 
   it('sends the selection once unrestricted access is changed', async () => {
     api.update.mockResolvedValue(agent());
-    await open(agent({ tool_permissions: null }));
+    await open(agent({ grants: ['*'] }));
     const box = modal().querySelector<HTMLInputElement>('input[value="todoist"]')!;
     box.checked = false;
     box.dispatchEvent(new Event('change', { bubbles: true }));
     save();
 
     await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
-    expect(api.update.mock.calls[0]?.[1].tool_permissions).not.toContain('todoist');
+    expect(api.update.mock.calls[0]?.[1].grants).not.toContain('todoist');
+  });
+
+  it('shows a write level as "Can change things" and clears it when unchecked', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent({ grants: ['todoist', 'todoist:write'] }));
+    const write = modal().querySelector<HTMLInputElement>('input[name="tool-write"][value="todoist"]')!;
+    expect(write.checked).toBe(true);
+
+    write.checked = false;
+    write.dispatchEvent(new Event('change', { bubbles: true }));
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].grants).toEqual(['todoist']);
+  });
+
+  it('sends a write level only for a granted tool', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent({ grants: [] }));
+    modal().querySelector<HTMLInputElement>('input[name="tool-write"][value="google_calendar"]')!.checked = true;
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].grants).toEqual([]);
+  });
+
+  it('keeps grants the grid does not show', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent({ grants: ['todoist', 'manage_memory', 'garmin_workout:write'] }));
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].grants).toEqual(['todoist', 'manage_memory', 'garmin_workout:write']);
+  });
+
+  it('keeps a WhatsApp grant the editor cannot show', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent({ grants: ['todoist', 'whatsapp'] })); // settings: WhatsApp unavailable
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
+    expect(api.update.mock.calls[0]?.[1].grants).toEqual(['todoist', 'whatsapp']);
+  });
+
+  it('clears an emptied schedule and budget on edit', async () => {
+    api.update.mockResolvedValue(agent());
+    await open(agent());
+    field<HTMLInputElement>('#agent-schedule-value').value = '';
+    field<HTMLInputElement>('#agent-budget-limit').value = '';
+    field<HTMLTextAreaElement>('#agent-description').value = '';
+    save();
+
+    await vi.waitFor(() => expect(api.update).toHaveBeenCalled());
+    const sent = api.update.mock.calls[0]?.[1];
+    expect([sent.schedule, sent.budget_usd, sent.description]).toEqual([null, null, null]);
   });
 
   // The close animation's cleanup once ran after a reopen and wiped the new

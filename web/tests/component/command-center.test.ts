@@ -180,8 +180,8 @@ describe('renderCommandCenter', () => {
   it('lists pending approvals above the jobs, with the job schedule', () => {
     const approval = {
       id: 'ap1',
-      agent_id: 'j1',
-      agent_name: 'Coach',
+      item_id: 'j1',
+      job_name: 'Coach',
       tool_name: 'todoist',
       tool_args: {},
       description: 'Add a task',

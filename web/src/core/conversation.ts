@@ -8,10 +8,9 @@
 
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
-import { agents } from '../api/agents';
+import { jobs } from '../api/jobs';
 import { conversations } from '../api/conversations';
 import { toast } from '../components/Toast';
-import { jobs } from '../api/jobs';
 import { reconcileOutboxWithServer } from './outbox';
 import {
   renderConversationsList,
@@ -106,7 +105,7 @@ export function toConversation(
     updated_at: response.updated_at,
     messages: mergedMessages,
     is_agent: response.is_agent,
-    agent_id: response.agent_id,
+    job_id: response.job_id,
     has_pending_approval: response.has_pending_approval,
     archived: response.archived,
     streaming_message_id: response.streaming_message_id,
@@ -120,7 +119,7 @@ export function toConversation(
  * conversation must never block on this.
  */
 export function markAgentViewedAndRefresh(agentId: string): void {
-  agents.markViewed(agentId)
+  jobs.markViewed(agentId)
     .then(() => jobs.overview())
     .then((data) => {
       useStore.getState().setCommandCenterData(data);
@@ -138,11 +137,11 @@ export function markAgentViewedAndRefresh(agentId: string): void {
  * unread badge persists on every device.
  */
 export function trackViewedAgentConversation(
-  response: { is_agent?: boolean; agent_id?: string | null; message_pagination: { total_count: number } }
+  response: { is_agent?: boolean; job_id?: string | null; message_pagination: { total_count: number } }
 ): void {
-  if (response.is_agent && response.agent_id) {
-    getSyncManager()?.setViewedAgent(response.agent_id, response.message_pagination.total_count);
-    markAgentViewedAndRefresh(response.agent_id);
+  if (response.is_agent && response.job_id) {
+    getSyncManager()?.setViewedAgent(response.job_id, response.message_pagination.total_count);
+    markAgentViewedAndRefresh(response.job_id);
   } else {
     getSyncManager()?.setViewedAgent(null);
   }
@@ -386,8 +385,8 @@ export async function reloadCurrentConversation(conversationId: string): Promise
 
     // The newly arrived messages are now on screen - mark them viewed so
     // the unread badge clears (daily briefing reuses one conversation)
-    if (response.is_agent && response.agent_id) {
-      markAgentViewedAndRefresh(response.agent_id);
+    if (response.is_agent && response.job_id) {
+      markAgentViewedAndRefresh(response.job_id);
     }
   } catch (error) {
     log.error('Failed to reload conversation', { error, conversationId });

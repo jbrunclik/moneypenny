@@ -1156,6 +1156,34 @@
     cursor: pointer;
 }
 
+/* A tool card and, for a writable integration, its "can change things" toggle */
+.tool-permission-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+}
+
+.tool-write-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.tool-write-toggle input[type="checkbox"] {
+    margin: 0;
+    accent-color: var(--accent);
+}
+
+/* The write level means nothing until the tool itself is granted */
+.tool-permission-item:has(.tool-permission-card input:not(:checked)) .tool-write-toggle {
+    opacity: 0.5;
+}
+
 .tool-permission-card input[type="checkbox"] {
     position: absolute;
     opacity: 0;

@@ -101,7 +101,7 @@ class User:
     rouvy_password: str | None = None
     rouvy_session: str | None = None
     rouvy_connected_at: datetime | None = None
-    daily_briefing_agent_id: str | None = None
+    daily_briefing_job_id: str | None = None
     # Primary response language (English name, e.g. "Czech"); None = auto
     preferred_language: str | None = None
 
@@ -119,7 +119,7 @@ class Conversation:
     is_planning: bool = False
     last_reset: datetime | None = None  # For planner conversations
     is_agent: bool = False  # Whether this is an autonomous agent's conversation
-    agent_id: str | None = None  # The agent's standing job (scheduled_items id)
+    job_id: str | None = None  # an agent chat's standing job (scheduled_items id)
     archived: bool = False  # Whether conversation is archived (hidden from main list)
     pinned: bool = False  # Pinned to the top of the sidebar
     is_sports: bool = False  # Whether this is a sports training conversation
@@ -262,53 +262,20 @@ class SearchResult:
     created_at: datetime | None  # Message timestamp (None for title matches)
 
 
-# ============ Autonomous Agent Dataclasses ============
-
-
-@dataclass
-class Agent:
-    """An autonomous agent that runs on a schedule.
-
-    Agents have dedicated conversations and can use tools with permission controls.
-    They can trigger other agents and require approval for dangerous operations.
-    """
-
-    id: str
-    user_id: str
-    conversation_id: str | None  # Auto-created dedicated conversation
-    name: str
-    description: str | None
-    system_prompt: str | None  # Agent's goals and instructions
-    schedule: str | None  # Cron expression (e.g., "0 9 * * *")
-    timezone: str  # Timezone for cron interpretation
-    enabled: bool
-    tool_permissions: list[str] | None  # Allowed tool names
-    model: str  # LLM model to use (e.g., "gemini-3-flash-preview")
-    created_at: datetime
-    updated_at: datetime
-    last_run_at: datetime | None = None  # Last execution timestamp
-    next_run_at: datetime | None = None  # Calculated next run time
-    last_viewed_at: datetime | None = None  # When user last viewed agent conversation
-    budget_limit: float | None = None  # Daily budget limit in USD (None = unlimited)
-    # Run every execution from a clean slate (prior runs stay readable in
-    # the conversation but are not sent to the LLM)
-    fresh_context: bool = False
-    # System-managed agent marker ('daily_briefing', ...). NULL prompt on
-    # such agents = stock prompt resolved from code at run time
-    system_type: str | None = None
+# ============ Job Dataclasses ============
 
 
 @dataclass
 class ApprovalRequest:
-    """A pending approval request from an autonomous agent.
+    """A pending approval request from a job's run.
 
-    Agents create these when attempting dangerous operations (create/update/delete).
+    Runs create these when attempting dangerous operations (create/update/delete).
     The agent is blocked until the user approves or rejects the request.
     Requests expire after AGENT_APPROVAL_TTL_HOURS (default: 24 hours).
     """
 
     id: str
-    agent_id: str
+    item_id: str  # the job that asked
     user_id: str
     tool_name: str  # The tool that requires approval
     tool_args: dict[str, Any] | None  # Arguments passed to the tool
@@ -320,17 +287,14 @@ class ApprovalRequest:
 
 
 @dataclass
-class AgentExecution:
-    """A record of an autonomous agent execution.
-
-    Tracks when agents run, how they were triggered, and the outcome.
-    """
+class JobRun:
+    """One run of a job (a standing job or a watcher / recurring item)."""
 
     id: str
-    agent_id: str
+    item_id: str
     status: str  # "running", "completed", "failed", "waiting_approval"
-    trigger_type: str  # "scheduled", "manual", "agent_trigger"
-    triggered_by_agent_id: str | None  # If triggered by another agent
+    trigger_type: str  # "scheduled", "manual", "agent" (another job), "approval"
+    triggered_by_job_id: str | None  # the job that started this one
     started_at: datetime
     completed_at: datetime | None
     error_message: str | None
@@ -388,3 +352,66 @@ class ScheduledItem:
     @property
     def standing(self) -> bool:
         return self.grants is not None
+
+
+_NEVER_YEAR = 9999  # NEVER_RUN_AT's year: a job run only on demand
+
+
+@dataclass
+class StandingChat:
+    """An agent: its chat's standing settings and its standing job (same id)."""
+
+    job: ScheduledItem
+    name: str
+    instructions: str | None  # None on a built-in (stock prompt from code)
+    description: str | None
+    standing_type: str | None  # built-in marker ("daily_briefing", ...)
+    updated_at: datetime
+    last_run_at: datetime | None = None
+
+    @property
+    def id(self) -> str:
+        return self.job.id
+
+    @property
+    def user_id(self) -> str:
+        return self.job.user_id
+
+    @property
+    def conversation_id(self) -> str:
+        return self.job.conversation_id
+
+    @property
+    def enabled(self) -> bool:
+        return self.job.paused_reason != "disabled"
+
+    @property
+    def grants(self) -> list[str]:
+        return self.job.grants or []
+
+    @property
+    def schedule(self) -> str | None:
+        return self.job.schedule
+
+    @property
+    def timezone(self) -> str:
+        return self.job.timezone or "UTC"
+
+    @property
+    def model(self) -> str | None:
+        return self.job.model
+
+    @property
+    def fresh_context(self) -> bool:
+        return self.job.fresh_context
+
+    @property
+    def budget_usd(self) -> float | None:
+        return self.job.budget_usd
+
+    @property
+    def next_run_at(self) -> datetime | None:
+        """The next scheduled run; None when paused or run only on demand."""
+        if not self.enabled or self.job.next_run_at.year == _NEVER_YEAR:
+            return None
+        return self.job.next_run_at

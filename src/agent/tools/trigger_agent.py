@@ -46,24 +46,24 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     Returns:
         Status message indicating if the agent was triggered successfully
     """
-    from src.agent.executor import (  # noqa: PLC0415 - cycle: executor -> tools -> trigger_agent
-        get_agent_context,
-        get_trigger_chain,
-    )
     from src.agent.item_scheduler import (  # noqa: PLC0415 - cycle: item_scheduler -> item_runner -> tools
         JobBusyError,
         JobHeldError,
         run_job_now,
     )
+    from src.agent.run_context import (  # noqa: PLC0415 - cycle: run_context -> tools -> trigger_agent
+        get_job_context,
+        get_trigger_chain,
+    )
 
     # Get current context to find user
-    context = get_agent_context()
+    context = get_job_context()
     if not context:
         return tool_error("trigger_agent can only be used by autonomous agents", retriable=False)
 
     user_id = context.user.id
     chain = get_trigger_chain()
-    target = db.get_agent_by_name(user_id, agent_name)
+    target = db.get_standing_chat_by_name(user_id, agent_name)
     refusal = _refusal(
         agent_name, target.id if target else None, bool(target and target.enabled), chain
     )
@@ -73,7 +73,7 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     logger.info(
         "Triggering agent",
         extra={
-            "source_agent": context.agent.name,
+            "source_agent": context.name,
             "target_agent": agent_name,
             # NOT "message" - a reserved LogRecord key; logging raises
             # KeyError on it, killing the tool call before the executor ran
@@ -83,9 +83,7 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
 
     # The target agent is a standing job (same id): run it with the chain so
     # far, so cycle and depth protection reach its own triggers
-    job = db.get_item(target.id, user_id)
-    if job is None:
-        return f"Agent '{agent_name}' not found"
+    job = target.job
     try:
         outcome = run_job_now(
             job, context.user, message=message, trigger="agent_trigger", trigger_chain=chain

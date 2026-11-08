@@ -20,6 +20,7 @@ total_completed
 total_failed
 total_unread
 # src/api/schemas/admin.py
+agents
 month_chats
 month_turns
 over_threshold
@@ -45,19 +46,19 @@ browser_errors
 layout_checks
 standalone_count
 threshold_usd
-# src/api/schemas/agents.py
+# src/api/schemas/jobs.py (the editor, runs, approvals) and agent_assist.py
 RUNNING
 COMPLETED
 WAITING_APPROVAL
-SCHEDULED
-MANUAL
-AGENT_TRIGGER
 APPROVED
 REJECTED
-effective_system_prompt
+effective_instructions
+system_type
+unread_count
+spend_today_usd
+last_run_status
 completed
 total_cost_display
-recent_executions
 enhanced_prompt
 # src/api/schemas/auth.py
 client_id

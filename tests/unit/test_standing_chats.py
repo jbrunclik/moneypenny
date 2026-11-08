@@ -15,8 +15,8 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 
-from src.api.schemas.agents import CreateAgentRequest, UpdateAgentRequest
-from src.db.models.dataclasses import Agent, AgentExecution, ApprovalRequest
+from src.api.schemas.jobs import CreateJobRequest, UpdateJobRequest
+from src.db.models.dataclasses import ApprovalRequest, JobRun
 
 # =============================================================================
 # Test fixtures
@@ -40,36 +40,14 @@ def mock_user():
 
 
 @pytest.fixture
-def sample_agent():
-    """Create a sample agent."""
-    return Agent(
-        id="agent-123",
-        user_id="user-123",
-        conversation_id="conv-123",
-        name="Test Agent",
-        description="A test agent",
-        system_prompt="You are a test agent",
-        schedule="0 9 * * *",
-        timezone="UTC",
-        enabled=True,
-        tool_permissions=["web_search", "todoist"],
-        model="gemini-3-flash-preview",
-        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
-        updated_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
-        last_run_at=None,
-        next_run_at=datetime(2024, 1, 2, 9, 0, 0, tzinfo=UTC),
-    )
-
-
-@pytest.fixture
 def sample_execution():
     """Create a sample execution."""
-    return AgentExecution(
+    return JobRun(
         id="exec-123",
-        agent_id="agent-123",
+        item_id="agent-123",
         status="completed",
         trigger_type="manual",
-        triggered_by_agent_id=None,
+        triggered_by_job_id=None,
         started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         completed_at=datetime(2024, 1, 1, 12, 1, 0, tzinfo=UTC),
         error_message=None,
@@ -81,7 +59,7 @@ def sample_approval():
     """Create a sample approval request."""
     return ApprovalRequest(
         id="approval-123",
-        agent_id="agent-123",
+        item_id="agent-123",
         user_id="user-123",
         tool_name="todoist",
         tool_args={"operation": "add_task", "content": "Test task"},
@@ -97,12 +75,12 @@ def sample_approval():
 # =============================================================================
 
 
-class TestCreateAgentRequest:
-    """Tests for CreateAgentRequest schema."""
+class TestCreateJobRequest:
+    """Tests for CreateJobRequest schema."""
 
     def test_valid_minimal_request(self):
         """Test valid minimal request with only required fields."""
-        data = CreateAgentRequest(name="Test Agent")
+        data = CreateJobRequest(name="Test Agent")
         assert data.name == "Test Agent"
         assert data.description is None
         assert data.schedule is None
@@ -111,61 +89,61 @@ class TestCreateAgentRequest:
 
     def test_valid_full_request(self):
         """Test valid request with all fields."""
-        data = CreateAgentRequest(
+        data = CreateJobRequest(
             name="Full Agent",
             description="A full agent",
-            system_prompt="You are helpful",
+            instructions="You are helpful",
             schedule="0 9 * * *",
             timezone="America/New_York",
-            tool_permissions=["todoist", "google_calendar"],
+            grants=["todoist", "google_calendar"],
             enabled=False,
         )
         assert data.name == "Full Agent"
         assert data.description == "A full agent"
         assert data.schedule == "0 9 * * *"
         assert data.timezone == "America/New_York"
-        assert data.tool_permissions == ["todoist", "google_calendar"]
+        assert data.grants == ["todoist", "google_calendar"]
         assert data.enabled is False
 
     def test_name_is_required(self):
         """Test that name field is required."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest()  # type: ignore[call-arg]
+            CreateJobRequest()  # type: ignore[call-arg]
 
     def test_name_min_length(self):
         """Test name minimum length validation."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest(name="")
+            CreateJobRequest(name="")
 
     def test_name_max_length(self):
         """Test name maximum length validation."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest(name="x" * 101)  # 101 chars, max is 100
+            CreateJobRequest(name="x" * 101)  # 101 chars, max is 100
 
     def test_description_max_length(self):
         """Test description maximum length validation."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest(name="Test", description="x" * 501)
+            CreateJobRequest(name="Test", description="x" * 501)
 
     def test_system_prompt_max_length(self):
         """Test system prompt maximum length validation."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest(name="Test", system_prompt="x" * 10001)
+            CreateJobRequest(name="Test", instructions="x" * 10001)
 
 
-class TestUpdateAgentRequest:
-    """Tests for UpdateAgentRequest schema."""
+class TestUpdateJobRequest:
+    """Tests for UpdateJobRequest schema."""
 
     def test_all_fields_optional(self):
         """Test that all fields are optional for updates."""
-        data = UpdateAgentRequest()
+        data = UpdateJobRequest()
         assert data.name is None
         assert data.description is None
         assert data.schedule is None
 
     def test_partial_update(self):
         """Test partial update with some fields."""
-        data = UpdateAgentRequest(name="New Name", enabled=False)
+        data = UpdateJobRequest(name="New Name", enabled=False)
         assert data.name == "New Name"
         assert data.enabled is False
         assert data.description is None
@@ -173,22 +151,22 @@ class TestUpdateAgentRequest:
     def test_model_dump_exclude_unset(self):
         """Test model_dump(exclude_unset=True) for partial updates."""
         # Only name provided
-        data = UpdateAgentRequest(name="New Name")
+        data = UpdateJobRequest(name="New Name")
         dump = data.model_dump(exclude_unset=True)
         assert dump == {"name": "New Name"}
         assert "description" not in dump
         assert "enabled" not in dump
 
         # Explicitly setting field to None
-        data = UpdateAgentRequest(description=None)
+        data = UpdateJobRequest(description=None)
         dump = data.model_dump(exclude_unset=True)
         assert dump == {"description": None}
         assert "name" not in dump
 
         # Multiple fields
-        data = UpdateAgentRequest(name="Name", budget_limit=100.0)
+        data = UpdateJobRequest(name="Name", budget_usd=100.0)
         dump = data.model_dump(exclude_unset=True)
-        assert dump == {"name": "Name", "budget_limit": 100.0}
+        assert dump == {"name": "Name", "budget_usd": 100.0}
 
 
 # =============================================================================
@@ -207,57 +185,49 @@ class TestPermissionChecking:
             check_tool_permission,
         )
 
-        agent = MagicMock()
-        agent.tool_permissions = ["web_search", "fetch_url"]
-
-        # Always-safe tools should be allowed
+        # Always-safe tools are allowed even when the grants name none of them
         for tool in ALWAYS_SAFE_TOOLS:
-            agent.tool_permissions = [tool]
-            result = check_tool_permission(agent, tool, {})
+            result = check_tool_permission([], tool, {})
             assert result == PermissionResult.ALLOWED
 
     def test_blocked_when_not_permitted(self):
         """Test that tools are blocked if not in agent permissions."""
         from src.agent.permissions import PermissionResult, check_tool_permission
 
-        agent = MagicMock()
-        agent.tool_permissions = ["web_search"]  # Only web_search permitted
+        permissions = ["web_search"]  # Only web_search permitted
 
         # todoist should be blocked
-        result = check_tool_permission(agent, "todoist", {"operation": "add_task"})
+        result = check_tool_permission(permissions, "todoist", {"operation": "add_task"})
         assert result == PermissionResult.BLOCKED
 
     def test_empty_tool_permissions(self):
         """Test agent with empty tool permissions list (explicitly set to [])."""
         from src.agent.permissions import PermissionResult, check_tool_permission
 
-        agent = MagicMock()
-        agent.tool_permissions = []  # Explicitly set to empty
+        permissions = []  # Explicitly set to empty
 
         # All tools should be blocked when permissions is an empty list
-        result = check_tool_permission(agent, "todoist", {"operation": "add_task"})
+        result = check_tool_permission(permissions, "todoist", {"operation": "add_task"})
         assert result == PermissionResult.BLOCKED
 
     def test_null_tool_permissions_allows_all_tools(self):
         """Test agent with None tool permissions (no restrictions on tools)."""
         from src.agent.permissions import PermissionResult, check_tool_permission
 
-        agent = MagicMock()
-        agent.tool_permissions = None  # No restrictions
+        permissions = None  # No restrictions
 
         # With None permissions, all tools are allowed
-        result = check_tool_permission(agent, "todoist", {"operation": "add_task"})
+        result = check_tool_permission(permissions, "todoist", {"operation": "add_task"})
         assert result == PermissionResult.ALLOWED
 
     def test_null_tool_permissions_allows_safe_tools(self):
         """Test agent with None tool permissions allows safe tools."""
         from src.agent.permissions import PermissionResult, check_tool_permission
 
-        agent = MagicMock()
-        agent.tool_permissions = None  # No restrictions
+        permissions = None  # No restrictions
 
         # Safe tools are always allowed
-        result = check_tool_permission(agent, "web_search", {})
+        result = check_tool_permission(permissions, "web_search", {})
         assert result == PermissionResult.ALLOWED
 
     def test_kv_store_allowed_despite_explicit_permissions(self):
@@ -268,10 +238,9 @@ class TestPermissionChecking:
         """
         from src.agent.permissions import PermissionResult, check_tool_permission
 
-        agent = MagicMock()
-        agent.tool_permissions = ["web_search"]  # kv_store not listed
+        permissions = ["web_search"]  # kv_store not listed
 
-        result = check_tool_permission(agent, "kv_store", {"action": "get", "key": "state"})
+        result = check_tool_permission(permissions, "kv_store", {"action": "get", "key": "state"})
         assert result == PermissionResult.ALLOWED
 
 
@@ -284,36 +253,36 @@ class TestExecutorContext:
     """Tests for executor context management."""
 
     def test_get_agent_context_returns_none_outside_execution(self):
-        """Test that get_agent_context returns None outside execution."""
-        from src.agent.executor import get_agent_context
+        """Test that get_job_context returns None outside execution."""
+        from src.agent.run_context import get_job_context
 
         # Outside an agent execution, context should be None
-        result = get_agent_context()
+        result = get_job_context()
         assert result is None
 
     def test_trigger_chain_management(self):
-        """Trigger chain for circular dependency prevention rides on AgentContext."""
+        """Trigger chain for circular dependency prevention rides on JobContext."""
         from unittest.mock import MagicMock
 
-        from src.agent.executor import (
-            AgentContext,
-            clear_agent_context,
+        from src.agent.run_context import (
+            JobContext,
+            clear_job_context,
             get_trigger_chain,
-            set_agent_context,
+            set_job_context,
         )
 
         # Initially should be empty
         assert get_trigger_chain() == []
 
         # The chain is propagated via execute_agent(parent_trigger_chain=...)
-        # which installs an AgentContext carrying the extended chain
-        set_agent_context(
-            AgentContext(agent=MagicMock(), user=MagicMock(), trigger_chain=["agent-1"])
+        # which installs an JobContext carrying the extended chain
+        set_job_context(
+            JobContext(item=MagicMock(), user=MagicMock(), name="a", trigger_chain=["agent-1"])
         )
         try:
             assert get_trigger_chain() == ["agent-1"]
         finally:
-            clear_agent_context()
+            clear_job_context()
 
         assert get_trigger_chain() == []
 
@@ -380,57 +349,71 @@ class TestRouteHelpers:
 class TestAgentDatabaseOperations:
     """Tests for agent database operations."""
 
-    def test_agent_to_response_conversion(self, sample_agent):
-        """Test agent-to-response conversion."""
-        from src.api.helpers.agent_responses import agent_to_response
+    def test_standing_to_response_conversion(self, test_database, monkeypatch):
+        """A standing chat as the editor shows it."""
+        import src.api.helpers.standing_responses as module
 
-        response = agent_to_response(sample_agent, unread_count=5, has_pending_approval=True)
+        monkeypatch.setattr(module, "db", test_database)
+        user = test_database.get_or_create_user(email="resp@example.com", name="Resp")
+        chat = test_database.create_standing_chat(
+            user.id, "Test Agent", "Do it", schedule="0 9 * * *", grants=["todoist"]
+        )
 
-        assert response["id"] == "agent-123"
-        assert response["name"] == "Test Agent"
-        assert response["unread_count"] == 5
-        assert response["has_pending_approval"] is True
-        assert response["schedule"] == "0 9 * * *"
+        response = module.standing_to_response(chat)
 
-    def test_execution_to_response_conversion(self, sample_execution):
-        """Test execution-to-response conversion."""
-        from src.api.helpers.agent_responses import execution_to_response
+        assert (response["id"], response["name"], response["instructions"]) == (
+            chat.id,
+            "Test Agent",
+            "Do it",
+        )
+        assert (response["schedule"], response["grants"], response["unread_count"]) == (
+            "0 9 * * *",
+            ["todoist"],
+            0,
+        )
 
-        response = execution_to_response(sample_execution)
+    def test_run_to_response_conversion(self, sample_execution):
+        from src.api.helpers.standing_responses import run_to_response
+
+        response = run_to_response(sample_execution)
 
         assert response["id"] == "exec-123"
-        assert response["agent_id"] == "agent-123"
+        assert response["item_id"] == "agent-123"
         assert response["status"] == "completed"
         assert response["trigger_type"] == "manual"
 
     def test_approval_to_response_conversion(self, sample_approval):
-        """Test approval-to-response conversion."""
-        from src.api.helpers.agent_responses import approval_to_response
+        from src.api.helpers.standing_responses import approval_to_response
 
         response = approval_to_response(sample_approval, "Test Agent")
 
         assert response["id"] == "approval-123"
-        assert response["agent_name"] == "Test Agent"
+        assert response["job_name"] == "Test Agent"
         assert response["tool_name"] == "todoist"
         assert response["status"] == "pending"
 
-    def test_update_of_an_agent_deleted_meanwhile_finds_nothing(self, test_database, sample_agent):
+    def test_update_of_a_chat_deleted_meanwhile_finds_nothing(self, test_database):
         """Deleted between the lookup and the UPDATE: None, and no write lock left held."""
         from unittest.mock import patch
 
-        with patch.object(test_database, "get_agent", return_value=sample_agent):
-            assert test_database.update_agent("agent-123", "user-123", name="Renamed") is None
+        user = test_database.get_or_create_user(email="gone@example.com", name="Gone")
+        chat = test_database.create_standing_chat(user.id, "Gone")
+        test_database.delete_standing_chat(chat.id, user.id)
+        with patch.object(test_database, "get_standing_chat", return_value=chat):
+            assert test_database.update_standing_chat(chat.id, user.id, name="Renamed") is None
 
     def test_update_recalculates_next_run_only_when_scheduling_changes(self, test_database):
         user = test_database.get_or_create_user(email="sched@example.com", name="Sched")
-        agent = test_database.create_agent(user.id, "Sched", schedule="0 9 * * *")
+        agent = test_database.create_standing_chat(user.id, "Sched", schedule="0 9 * * *")
         assert agent.next_run_at is not None
 
-        kept = test_database.update_agent(agent.id, user.id, description="new")
-        disabled = test_database.update_agent(agent.id, user.id, enabled=False)
-        still_disabled = test_database.update_agent(agent.id, user.id, schedule="0 10 * * *")
-        enabled = test_database.update_agent(agent.id, user.id, enabled=True)
-        unscheduled = test_database.update_agent(agent.id, user.id, schedule=None)
+        kept = test_database.update_standing_chat(agent.id, user.id, description="new")
+        disabled = test_database.update_standing_chat(agent.id, user.id, enabled=False)
+        still_disabled = test_database.update_standing_chat(
+            agent.id, user.id, schedule="0 10 * * *"
+        )
+        enabled = test_database.update_standing_chat(agent.id, user.id, enabled=True)
+        unscheduled = test_database.update_standing_chat(agent.id, user.id, schedule=None)
 
         assert kept.next_run_at == agent.next_run_at
         assert disabled.next_run_at is None
@@ -441,9 +424,9 @@ class TestAgentDatabaseOperations:
 
     def test_update_carries_name_and_model_to_the_conversation(self, test_database):
         user = test_database.get_or_create_user(email="conv@example.com", name="Conv")
-        agent = test_database.create_agent(user.id, "Old")
+        agent = test_database.create_standing_chat(user.id, "Old")
 
-        test_database.update_agent(agent.id, user.id, name="New", model="gemini-test-model")
+        test_database.update_standing_chat(agent.id, user.id, name="New", model="gemini-test-model")
 
         conv = test_database.get_conversation(agent.conversation_id, user.id)
         assert (conv.title, conv.model) == ("Agent: New", "gemini-test-model")
@@ -456,152 +439,6 @@ class TestAgentDatabaseOperations:
 
 class TestDevScheduler:
     """Tests for dev scheduler functionality."""
-
-    def test_scheduler_handles_aware_datetime(self, sample_agent):
-        """Test that scheduler handles already-aware datetimes correctly."""
-        from datetime import UTC, datetime
-
-        # Agent with aware datetime (edge case)
-        aware_next_run = datetime(2024, 1, 2, 9, 0, 0, tzinfo=UTC)
-        assert aware_next_run.tzinfo is not None, "Test requires aware datetime"
-
-        agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Test Agent",
-            description=None,
-            system_prompt=None,
-            schedule="0 9 * * *",
-            timezone="UTC",
-            enabled=True,
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_run_at=None,
-            next_run_at=aware_next_run,  # Aware datetime
-        )
-
-        now = datetime.now(UTC)
-
-        # The fix should handle both naive and aware
-        next_run = agent.next_run_at
-        if next_run and next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=UTC)
-
-        # Should not raise
-        is_due = next_run <= now
-        assert isinstance(is_due, bool)
-
-    def test_scheduler_handles_none_next_run_at(self):
-        """Test that scheduler handles agents with no next_run_at."""
-        from datetime import UTC, datetime
-
-        agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Test Agent",
-            description=None,
-            system_prompt=None,
-            schedule=None,  # No schedule
-            timezone="UTC",
-            enabled=True,
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_run_at=None,
-            next_run_at=None,  # No next run
-        )
-
-        now = datetime.now(UTC)
-
-        # The fix should handle None safely
-        next_run = agent.next_run_at
-        if next_run and next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=UTC)
-
-        # Should not raise or compare
-        if next_run:
-            is_due = next_run <= now
-            assert isinstance(is_due, bool)
-        else:
-            # None is falsy, so no comparison should happen
-            assert next_run is None
-
-    def test_agent_is_due_when_next_run_in_past(self):
-        """Test that agent is correctly identified as due when next_run is in the past."""
-        from datetime import UTC, datetime, timedelta
-
-        # Next run was an hour ago
-        past_time = datetime.now(UTC) - timedelta(hours=1)
-        naive_past = past_time.replace(tzinfo=None)  # DB returns naive
-
-        agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Test Agent",
-            description=None,
-            system_prompt=None,
-            schedule="0 9 * * *",
-            timezone="UTC",
-            enabled=True,
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_run_at=None,
-            next_run_at=naive_past,
-        )
-
-        now = datetime.now(UTC)
-
-        next_run = agent.next_run_at
-        if next_run and next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=UTC)
-
-        # Agent should be due
-        assert next_run is not None
-        assert next_run <= now
-
-    def test_agent_not_due_when_next_run_in_future(self):
-        """Test that agent is not due when next_run is in the future."""
-        from datetime import UTC, datetime, timedelta
-
-        # Next run is an hour from now
-        future_time = datetime.now(UTC) + timedelta(hours=1)
-        naive_future = future_time.replace(tzinfo=None)  # DB returns naive
-
-        agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Test Agent",
-            description=None,
-            system_prompt=None,
-            schedule="0 9 * * *",
-            timezone="UTC",
-            enabled=True,
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_run_at=None,
-            next_run_at=naive_future,
-        )
-
-        now = datetime.now(UTC)
-
-        next_run = agent.next_run_at
-        if next_run and next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=UTC)
-
-        # Agent should not be due
-        assert next_run is not None
-        assert next_run > now
 
     def test_cron_scheduling_does_not_drift(self):
         """Test that cron-based scheduling does not drift over time.
@@ -720,7 +557,7 @@ class TestUnreadCount:
         """Test that viewing an agent conversation resets unread count.
 
         When user opens an agent conversation:
-        1. Frontend calls POST /api/agents/{id}/mark-viewed
+        1. Frontend calls POST /api/jobs/{id}/viewed
         2. Backend updates last_viewed_at to current time
         3. Subsequent command center calls return unread_count = 0
         """
@@ -1006,15 +843,15 @@ class TestBudgetLimits:
 
     def test_budget_limit_schema_validation(self):
         """Test that budget_limit accepts valid values."""
-        data = CreateAgentRequest(name="Test", budget_limit=10.0)
-        assert data.budget_limit == 10.0
+        data = CreateJobRequest(name="Test", budget_usd=10.0)
+        assert data.budget_usd == 10.0
 
     def test_budget_limit_none_means_unlimited(self):
         """Test that None budget_limit means unlimited."""
-        data = CreateAgentRequest(name="Test", budget_limit=None)
-        assert data.budget_limit is None
+        data = CreateJobRequest(name="Test", budget_usd=None)
+        assert data.budget_usd is None
 
     def test_budget_limit_cannot_be_negative(self):
         """Test that negative budget_limit is rejected."""
         with pytest.raises(ValidationError):
-            CreateAgentRequest(name="Test", budget_limit=-5.0)
+            CreateJobRequest(name="Test", budget_usd=-5.0)

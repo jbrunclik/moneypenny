@@ -1,6 +1,6 @@
 """Pydantic schemas for API request and response validation (the OpenAPI source).
 
-Import from the feature module (``from src.api.schemas.agents import ...``);
+Import from the feature module (``from src.api.schemas.jobs import ...``);
 this package deliberately re-exports nothing. Request schemas validate request
 structure, types and constraints; response schemas document and validate
 responses.

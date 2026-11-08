@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 _NOW = "2026-11-08T10:00:00.000000+00:00"
 _NEXT = "2026-11-09T06:15:00.000000+00:00"
+_LATER = {"0082_job_tables"}  # migrations that change what 0080 made
 
 
 def _migrations(test_db_path: Path, action: str) -> None:
@@ -26,13 +27,20 @@ def _migrations(test_db_path: Path, action: str) -> None:
     migrations = read_migrations(str(db_base.MIGRATIONS_DIR))
     with backend.lock():
         if action == "rollback":
+            # 0082 drops the view and the backup 0080's rollback needs: it goes first
+            backend.rollback_migrations(
+                backend.to_rollback(migrations).filter(lambda m: m.id in _LATER)
+            )
             target = backend.to_rollback(migrations).filter(
                 lambda m: m.id == "0080_agents_to_standing_jobs"
             )
             assert len(target) == 1
             backend.rollback_migrations(target)
         else:
-            backend.apply_migrations(backend.to_apply(migrations))
+            # 0080's own result, before 0082 renames and drops it
+            backend.apply_migrations(
+                backend.to_apply(migrations).filter(lambda m: m.id not in _LATER)
+            )
 
 
 def _connect(test_db_path: Path) -> Iterator[sqlite3.Connection]:
@@ -160,32 +168,6 @@ def test_briefing_job_keeps_stock_prompt(test_db_path: Path) -> None:
         assert (conv["standing_instructions"], conv["standing_type"]) == (None, "daily_briefing")
 
 
-def test_agents_read_the_same_through_the_view(test_db_path: Path) -> None:
-    user_id, ids = _seed_agents(test_db_path)
-    db = Database(db_path=test_db_path)
-
-    vwce = db.get_agent(ids["vwce"], user_id)
-    coach = db.get_agent(ids["coach"], user_id)
-    briefing = db.get_agent(ids["briefing"], user_id)
-    db.close()
-
-    assert vwce is not None and coach is not None and briefing is not None
-    assert (vwce.name, vwce.description, vwce.system_prompt) == (
-        "VWCE Watcher",
-        "VWCE Watcher desc",
-        "Watch VWCE",
-    )
-    assert (vwce.schedule, vwce.timezone, vwce.enabled) == ("0 18 * * 5", "Europe/Prague", True)
-    assert (vwce.tool_permissions, vwce.budget_limit, vwce.model) == (
-        ["web_search"],
-        0.5,
-        "gemini-x",
-    )
-    assert vwce.conversation_id == "conv-vwce"
-    assert (coach.enabled, coach.next_run_at, coach.fresh_context) == (False, None, False)
-    assert (briefing.tool_permissions, briefing.system_type) == (None, "daily_briefing")
-
-
 def test_old_rows_no_longer_scheduled(test_db_path: Path) -> None:
     _seed_agents(test_db_path)
 
@@ -225,9 +207,9 @@ def test_rollback_carries_agents_created_or_edited_after_the_migration(
 ) -> None:
     user_id, ids = _seed_agents(test_db_path)
     db = Database(db_path=test_db_path)
-    new = db.create_agent(user_id, "Trip Planner", system_prompt="Plan Rome", schedule="0 9 * * 1")
-    db.update_agent(ids["vwce"], user_id, system_prompt="Watch VWCE daily")
-    db.delete_agent(ids["coach"], user_id)
+    new = db.create_standing_chat(user_id, "Trip Planner", "Plan Rome", schedule="0 9 * * 1")
+    db.update_standing_chat(ids["vwce"], user_id, instructions="Watch VWCE daily")
+    db.delete_standing_chat(ids["coach"], user_id)
     db.close()
 
     _migrations(test_db_path, "rollback")

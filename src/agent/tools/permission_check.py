@@ -83,14 +83,14 @@ def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | N
 
 
 def _check_destructive_approval(
-    agent_id: str, tool_name: str, operation: str, target_id: str | None
+    job_id: str, tool_name: str, operation: str, target_id: str | None
 ) -> None:
     """Require + consume an approved request for a destructive operation."""
-    if db.consume_approved_request(agent_id, tool_name, target_id=target_id, operation=operation):
+    if db.consume_approved_request(job_id, tool_name, target_id=target_id, operation=operation):
         logger.info(
             "Destructive action authorized by consumed approval",
             extra={
-                "agent_id": agent_id,
+                "job_id": job_id,
                 "tool_name": tool_name,
                 "operation": operation,
                 "target_id": target_id,
@@ -110,13 +110,13 @@ def _check_destructive_approval(
     )
 
 
-def _check_write_approval(agent_id: str, tool_name: str, tool_args: Mapping[str, object]) -> None:
+def _check_write_approval(job_id: str, tool_name: str, tool_args: Mapping[str, object]) -> None:
     """Require + consume an approval for a change the job may only draft."""
     operation = str(tool_args.get("operation") or tool_args.get("action") or "change")
-    if db.consume_approved_request(agent_id, tool_name, target_id=None, operation=operation):
+    if db.consume_approved_request(job_id, tool_name, target_id=None, operation=operation):
         logger.info(
             "Drafted change authorized by consumed approval",
-            extra={"agent_id": agent_id, "tool_name": tool_name, "operation": operation},
+            extra={"job_id": job_id, "tool_name": tool_name, "operation": operation},
         )
         return
     raise ApprovalRequiredError(
@@ -139,24 +139,21 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
     Raises:
         ToolBlockedError: If the tool is blocked for this agent
     """
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> tools -> browser -> permission_check
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context -> tools -> browser -> permission_check
 
-    # Get agent context - if not in autonomous mode, allow all
-    context = get_agent_context()
-    if context is None or context.agent is None:
-        # Not running as autonomous agent, skip permission check
+    # Outside an unattended run (a chat turn) every bound tool is allowed
+    context = get_job_context()
+    if context is None:
         return
-
-    agent = context.agent
-
-    # Check permission
-    result = check_tool_permission(agent, tool_name, tool_args)
+    job_id = context.item.id
+    permissions = context.permissions
+    result = check_tool_permission(permissions, tool_name, tool_args)
 
     if result == PermissionResult.BLOCKED:
         logger.warning(
-            "Tool blocked for agent",
+            "Tool blocked for job",
             extra={
-                "agent_id": agent.id,
+                "job_id": job_id,
                 "tool_name": tool_name,
                 "operation": tool_args.get("operation"),
             },
@@ -173,9 +170,9 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
         target_param = _OPERATION_TARGET_PARAM.get(destructive_op)
         target_id = tool_args.get(target_param) if target_param else None
         _check_destructive_approval(
-            agent.id, tool_name, destructive_op, str(target_id) if target_id else None
+            job_id, tool_name, destructive_op, str(target_id) if target_id else None
         )
         return
     # A write without the write level is a draft: one approval per change
-    if is_write_call(tool_name, tool_args) and not has_write_grant(agent, tool_name):
-        _check_write_approval(agent.id, tool_name, tool_args)
+    if is_write_call(tool_name, tool_args) and not has_write_grant(permissions, tool_name):
+        _check_write_approval(job_id, tool_name, tool_args)

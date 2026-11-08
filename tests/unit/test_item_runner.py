@@ -15,9 +15,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.executor import AgentContext, get_agent_context
 from src.agent.item_runner import deliver, delivery_label, parse_reply, run_model_item
 from src.agent.permissions import ALWAYS_SAFE_TOOLS
+from src.agent.run_context import JobContext, get_job_context
 from src.db.models import Conversation, Database, User, use_database
 from src.db.models.dataclasses import ScheduledItem
 
@@ -33,12 +33,12 @@ class FakeChatAgent:
     def __init__(self, **kwargs: Any) -> None:
         self.init_kwargs = kwargs
         self.chat_kwargs: dict[str, Any] = {}
-        self.context_during_call: AgentContext | None = None
+        self.context_during_call: JobContext | None = None
         FakeChatAgent.instances.append(self)
 
     def chat_batch(self, **kwargs: Any) -> tuple[str, list[Any], dict[str, int], list[Any]]:
         self.chat_kwargs = kwargs
-        self.context_during_call = get_agent_context()
+        self.context_during_call = get_job_context()
         if FakeChatAgent.error is not None:
             raise FakeChatAgent.error
         return FakeChatAgent.response, [], dict(USAGE), []
@@ -179,7 +179,7 @@ def test_run_uses_only_safe_tools_and_no_agent_row(
 
     tools = {t.name for t in fake_llm.instances[0].init_kwargs["tools"]}
     assert tools <= ALWAYS_SAFE_TOOLS
-    assert db.list_agents_with_status(test_user.id) == []
+    assert db.list_standing_chats(test_user.id) == []
 
 
 def test_the_prompt_carries_condition_and_previous_result(
@@ -202,7 +202,7 @@ def test_schedule_tool_is_refused_inside_a_run(
     run_model_item(_watcher(test_user, test_conversation), test_user)
 
     assert fake_llm.instances[0].context_during_call is not None
-    assert get_agent_context() is None  # cleared after the run
+    assert get_job_context() is None  # cleared after the run
 
 
 def test_model_error_is_failed_not_raised(
@@ -214,7 +214,7 @@ def test_model_error_is_failed_not_raised(
 
     assert outcome.status == "failed"
     assert outcome.error and "llm down" in outcome.error
-    assert get_agent_context() is None
+    assert get_job_context() is None
 
 
 def test_silent_run_records_its_cost_against_the_chat(
@@ -293,7 +293,7 @@ def _job(user: User, conversation: Conversation, **overrides: Any) -> ScheduledI
 
 
 def _agent_chat(db: Database, user: User, goals: str) -> Conversation:
-    agent = db.create_agent(user.id, "VWCE Watcher", system_prompt=goals)
+    agent = db.create_standing_chat(user.id, "VWCE Watcher", instructions=goals)
     conv = db.get_conversation(agent.conversation_id, user.id)
     assert conv is not None
     return conv
@@ -336,7 +336,7 @@ def test_standing_job_gets_its_grants_not_full_tools(
     assert not names & {"manage_memory", "schedule", "create_artifact", "trigger_agent"}
     context = fake_llm.instances[0].context_during_call
     assert context is not None
-    assert (context.agent.id, context.agent.tool_permissions) == (job.id, ["generate_image"])
+    assert (context.item.id, context.item.grants) == (job.id, ["generate_image"])
 
 
 @pytest.mark.parametrize(
@@ -408,7 +408,7 @@ def test_standing_job_approval_request_is_recorded_and_pushed(
     fake_llm.error = ApprovalRequestedException("ap-1", "Delete the Todoist task", "todoist")
     job = _job(test_user, test_conversation)
 
-    with patch("src.agent.executor.send_push_to_user") as approval_push:
+    with patch("src.agent.run_context.send_push_to_user") as approval_push:
         outcome = run_model_item(job, test_user)
 
     assert outcome.status == "approval"
@@ -416,7 +416,7 @@ def test_standing_job_approval_request_is_recorded_and_pushed(
         "[approval-request:ap-1]" in m.content for m in db.get_messages(test_conversation.id)
     )
     assert approval_push.call_args.kwargs["tag"] == "approval-ap-1"
-    [execution] = db.get_agent_executions(job.id)
+    [execution] = db.get_job_runs(job.id)
     assert execution.status == "waiting_approval"
 
 
@@ -431,7 +431,7 @@ def test_standing_job_records_an_execution(
 
     run_model_item(job, test_user, trigger="manual")
 
-    [execution] = db.get_agent_executions(job.id)
+    [execution] = db.get_job_runs(job.id)
     assert (execution.status, execution.trigger_type) == ("completed", "manual")
 
 
@@ -495,14 +495,14 @@ def test_light_item_in_standing_chat_never_gets_the_chats_data(
 def test_a_standing_jobs_run_is_named_after_its_chat(
     db: Database, test_user: User, fake_llm: type[FakeChatAgent]
 ) -> None:
-    agent = db.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+    agent = db.create_standing_chat(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
     job = db.get_item(agent.id, test_user.id)
     assert job is not None
 
     run_model_item(job, test_user)
 
     context = fake_llm.instances[0].context_during_call
-    assert context is not None and context.agent.name == "VWCE Watcher"
+    assert context is not None and context.name == "VWCE Watcher"
     assert fake_llm.instances[0].init_kwargs["agent_context"]["name"] == "VWCE Watcher"
 
 

@@ -389,9 +389,9 @@ def schedule(
     conversation_id, user_id = get_conversation_context()
     if not user_id:
         return tool_error("No user context available.", retriable=False)
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor imports the tools
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports the tools
 
-    if get_agent_context() is not None:
+    if get_job_context() is not None:
         return tool_error("A scheduled run cannot create or change schedules.", retriable=False)
     if action == "create":
         args = {

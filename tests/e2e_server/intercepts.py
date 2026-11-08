@@ -277,8 +277,8 @@ def intercept_planner() -> Any | None:
     if handler:
         return handler()
 
-    # Intercept /api/agents/:id for individual agent testing
-    agent_match = re.match(r"^/api/agents/([a-zA-Z0-9_-]+)$", request.path)
+    # Intercept /api/jobs/:id (the job editor) with mock data
+    agent_match = re.match(r"^/api/jobs/([a-zA-Z0-9_-]+)$", request.path)
     if agent_match and request.method == "GET":
         agent_id = agent_match.group(1)
         agents_by_id = MOCK_CONFIG.get("agents_by_id", {})

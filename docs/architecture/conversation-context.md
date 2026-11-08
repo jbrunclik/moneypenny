@@ -116,7 +116,7 @@ Long chats re-send their entire history to the LLM on every turn, so cost grows 
 
 **Legacy state:** pre-segment `{summary, covered_count[, generation]}` values are served as a single segment and rebuilt from full text (chunked to fit the cap) on the conversation's next turn.
 
-`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is called once per chat turn, from `build_turn_context()` in [chat_turn.py](../../src/api/helpers/chat_turn.py), so batch and streaming turns share it - in every chat, standing chats (agents, programs) included - and once per agent run, from `_run_history()` in [executor.py](../../src/agent/executor.py) (fresh-context agents send no history). A program reset clears the conversation's `conv_compaction` state with its messages.
+`build_compacted_history(user_id, conversation_id, history)` returns `[summary_message] + uncovered_middle + recent` once the history exceeds the threshold, otherwise the input unchanged. It is called once per chat turn, from `build_turn_context()` in [chat_turn.py](../../src/api/helpers/chat_turn.py), so batch and streaming turns share it - in every chat, standing chats (agents, programs) included - and once per standing job run, from `run_history()` in [run_context.py](../../src/agent/run_context.py) (fresh-context jobs send no history). A program reset clears the conversation's `conv_compaction` state with its messages.
 
 **Configuration:**
 - `CONVERSATION_COMPACTION_ENABLED` (default: `true`)
@@ -145,7 +145,7 @@ the same conversation share one non-destructive summary.
 - [conversation_compaction.py](../../src/agent/conversation_compaction.py) - chat compaction, `build_compacted_history()`, `get_compaction_status()`
 - [compaction_segments.py](../../src/agent/compaction_segments.py) - segment summarize / merge / render
 - [compaction.py](../../src/agent/compaction.py) - `run_summary_model()`, the shared summarizer call
-- [chat_turn.py](../../src/api/helpers/chat_turn.py) / [executor.py](../../src/agent/executor.py) - where compaction is applied to a chat turn / an agent run
+- [chat_turn.py](../../src/api/helpers/chat_turn.py) / [run_context.py](../../src/agent/run_context.py) - where compaction is applied to a chat turn / a job run
 
 ## See Also
 

@@ -1,4 +1,4 @@
-"""Integration tests for autonomous agent routes."""
+"""The standing chat editor on /api/jobs: CRUD, run now, runs (standing chats phase 3)."""
 
 import json
 from typing import TYPE_CHECKING, Any
@@ -7,80 +7,24 @@ from unittest.mock import patch
 from flask.testing import FlaskClient
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, Database, User
-
-
-class TestListAgents:
-    """Tests for GET /api/agents endpoint."""
-
-    def test_lists_user_agents(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_agent: Agent,
-    ) -> None:
-        """Should return list of user's agents."""
-        response = client.get("/api/agents", headers=auth_headers)
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert "agents" in data
-        assert len(data["agents"]) >= 1
-        assert any(a["id"] == test_agent.id for a in data["agents"])
-
-    def test_includes_agent_details(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_agent: Agent,
-    ) -> None:
-        """Should include agent details in response."""
-        response = client.get("/api/agents", headers=auth_headers)
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        agent = next(a for a in data["agents"] if a["id"] == test_agent.id)
-
-        assert agent["name"] == "Test Agent"
-        assert agent["description"] == "A test agent for integration tests"
-        assert agent["system_prompt"] == "You are a helpful test agent."
-        assert agent["schedule"] == "0 9 * * *"
-        assert agent["timezone"] == "UTC"
-        assert agent["enabled"] is True
-        assert "unread_count" in agent
-        assert "has_pending_approval" in agent
-
-    def test_returns_empty_list_for_new_user(
-        self, client: FlaskClient, auth_headers: dict[str, str]
-    ) -> None:
-        """Should return empty list when user has no agents."""
-        response = client.get("/api/agents", headers=auth_headers)
-
-        assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data["agents"] == []
-
-    def test_requires_auth(self, client: FlaskClient) -> None:
-        """Should return 401 without authentication."""
-        response = client.get("/api/agents")
-        assert response.status_code == 401
+    from src.db.models import Database, StandingChat, User
 
 
 class TestCreateAgent:
-    """Tests for POST /api/agents endpoint."""
+    """Tests for POST /api/jobs endpoint."""
 
     def test_creates_agent(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should create new agent."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
-            json={"name": "New Agent"},
+            json={"name": "New StandingChat"},
         )
 
         assert response.status_code == 201
         data = json.loads(response.data)
         assert "id" in data
-        assert data["name"] == "New Agent"
+        assert data["name"] == "New StandingChat"
         assert data["timezone"] == "UTC"  # Default
         assert data["enabled"] is True  # Default
 
@@ -94,34 +38,34 @@ class TestCreateAgent:
         """An empty permission list means "only the safe tools"; it was stored
         as NULL - "no restrictions" - so the agent got every tool."""
         response = client.post(
-            "/api/agents", headers=auth_headers, json={"name": "Quiet", "tool_permissions": []}
+            "/api/jobs", headers=auth_headers, json={"name": "Quiet", "grants": []}
         )
 
         assert response.status_code == 201
-        agent = test_database.get_agent(json.loads(response.data)["id"], test_user.id)
-        assert agent is not None and agent.tool_permissions == []
+        agent = test_database.get_standing_chat(json.loads(response.data)["id"], test_user.id)
+        assert agent is not None and agent.grants == []
 
     def test_creates_with_all_fields(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """Should create agent with all optional fields."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
             json={
-                "name": "Full Agent",
+                "name": "Full StandingChat",
                 "description": "A fully configured agent",
-                "system_prompt": "You are helpful",
+                "instructions": "You are helpful",
                 "schedule": "0 9 * * 1-5",
                 "timezone": "America/New_York",
-                "tool_permissions": ["web_search", "todoist"],
+                "grants": ["web_search", "todoist"],
                 "enabled": False,
             },
         )
 
         assert response.status_code == 201
         data = json.loads(response.data)
-        assert data["name"] == "Full Agent"
+        assert data["name"] == "Full StandingChat"
         assert data["description"] == "A fully configured agent"
         assert data["schedule"] == "0 9 * * 1-5"
         assert data["timezone"] == "America/New_York"
@@ -130,9 +74,9 @@ class TestCreateAgent:
     def test_rejects_invalid_cron(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return 400 for invalid cron expression."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
-            json={"name": "Bad Cron Agent", "schedule": "invalid cron"},
+            json={"name": "Bad Cron StandingChat", "schedule": "invalid cron"},
         )
 
         assert response.status_code == 400
@@ -144,9 +88,9 @@ class TestCreateAgent:
     ) -> None:
         """Should return 400 for invalid timezone."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
-            json={"name": "Bad TZ Agent", "timezone": "Invalid/Timezone"},
+            json={"name": "Bad TZ StandingChat", "timezone": "Invalid/Timezone"},
         )
 
         assert response.status_code == 400
@@ -157,11 +101,11 @@ class TestCreateAgent:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should return 400 for duplicate agent name."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
             json={"name": "Test Agent"},  # Same name as test_agent
         )
@@ -173,7 +117,7 @@ class TestCreateAgent:
     def test_rejects_empty_name(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         """Should return 400 for empty name."""
         response = client.post(
-            "/api/agents",
+            "/api/jobs",
             headers=auth_headers,
             json={"name": ""},
         )
@@ -182,22 +126,22 @@ class TestCreateAgent:
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
-        response = client.post("/api/agents", json={"name": "Test"})
+        response = client.post("/api/jobs", json={"name": "Test"})
         assert response.status_code == 401
 
 
 class TestGetAgent:
-    """Tests for GET /api/agents/<agent_id> endpoint."""
+    """Tests for GET /api/jobs/<agent_id> endpoint."""
 
     def test_gets_agent(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should return agent details."""
         response = client.get(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
         )
 
@@ -213,7 +157,7 @@ class TestGetAgent:
     ) -> None:
         """Should return 404 for non-existent agent."""
         response = client.get(
-            "/api/agents/nonexistent-id",
+            "/api/jobs/nonexistent-id",
             headers=auth_headers,
         )
 
@@ -223,7 +167,7 @@ class TestGetAgent:
         self,
         client: FlaskClient,
         test_database: Database,
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should return 404 when accessing another user's agent."""
         # Create another user
@@ -235,47 +179,47 @@ class TestGetAgent:
         other_token = create_token(other_user)
 
         response = client.get(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers={"Authorization": f"Bearer {other_token}"},
         )
 
         assert response.status_code == 404
 
-    def test_requires_auth(self, client: FlaskClient, test_agent: Agent) -> None:
+    def test_requires_auth(self, client: FlaskClient, test_agent: StandingChat) -> None:
         """Should return 401 without authentication."""
-        response = client.get(f"/api/agents/{test_agent.id}")
+        response = client.get(f"/api/jobs/{test_agent.id}")
         assert response.status_code == 401
 
 
 class TestUpdateAgent:
-    """Tests for PATCH /api/agents/<agent_id> endpoint."""
+    """Tests for PATCH /api/jobs/<agent_id> endpoint."""
 
     def test_updates_name(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should update agent name."""
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
-            json={"name": "Updated Agent Name"},
+            json={"name": "Updated StandingChat Name"},
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["name"] == "Updated Agent Name"
+        assert data["name"] == "Updated StandingChat Name"
 
     def test_updates_multiple_fields(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should update multiple fields at once."""
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={
                 "description": "New description",
@@ -294,11 +238,11 @@ class TestUpdateAgent:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should clear schedule by setting to empty string."""
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={"schedule": ""},
         )
@@ -311,72 +255,72 @@ class TestUpdateAgent:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should clear tool permissions by setting to empty list."""
         # First set some permissions
         client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
-            json={"tool_permissions": ["web_search"]},
+            json={"grants": ["web_search"]},
         )
 
         # Now clear them
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
-            json={"tool_permissions": []},
+            json={"grants": []},
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["tool_permissions"] == []
+        assert data["grants"] == []
 
     def test_clears_budget_limit(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should clear budget limit by setting to null."""
         # First set a limit
         client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
-            json={"budget_limit": 10.0},
+            json={"budget_usd": 10.0},
         )
 
         # Now clear it (set to null)
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
-            json={"budget_limit": None},
+            json={"budget_usd": None},
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["budget_limit"] is None
+        assert data["budget_usd"] is None
 
     def test_partial_update_preserves_other_fields(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should only update provided fields and preserve others."""
         # Set initial state
         client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={
                 "description": "Original description",
-                "budget_limit": 50.0,
+                "budget_usd": 50.0,
             },
         )
 
         # Update only name
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={"name": "Brand New Name"},
         )
@@ -385,17 +329,17 @@ class TestUpdateAgent:
         data = json.loads(response.data)
         assert data["name"] == "Brand New Name"
         assert data["description"] == "Original description"
-        assert data["budget_limit"] == 50.0
+        assert data["budget_usd"] == 50.0
 
     def test_update_empty_body(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should succeed and do nothing when body is empty."""
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={},
         )
@@ -408,11 +352,11 @@ class TestUpdateAgent:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should return 400 for invalid cron expression."""
         response = client.patch(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
             json={"schedule": "bad cron"},
         )
@@ -424,7 +368,7 @@ class TestUpdateAgent:
     ) -> None:
         """Should return 404 for non-existent agent."""
         response = client.patch(
-            "/api/agents/nonexistent-id",
+            "/api/jobs/nonexistent-id",
             headers=auth_headers,
             json={"name": "Test"},
         )
@@ -434,24 +378,24 @@ class TestUpdateAgent:
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
         response = client.patch(
-            "/api/agents/some-agent-id",
+            "/api/jobs/some-agent-id",
             json={"name": "Test"},
         )
         assert response.status_code == 401
 
 
 class TestDeleteAgent:
-    """Tests for DELETE /api/agents/<agent_id> endpoint."""
+    """Tests for DELETE /api/jobs/<agent_id> endpoint."""
 
     def test_deletes_agent(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should delete agent."""
         response = client.delete(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
         )
 
@@ -459,7 +403,7 @@ class TestDeleteAgent:
 
         # Verify it's gone
         get_response = client.get(
-            f"/api/agents/{test_agent.id}",
+            f"/api/jobs/{test_agent.id}",
             headers=auth_headers,
         )
         assert get_response.status_code == 404
@@ -469,7 +413,7 @@ class TestDeleteAgent:
     ) -> None:
         """Should return 404 for non-existent agent."""
         response = client.delete(
-            "/api/agents/nonexistent-id",
+            "/api/jobs/nonexistent-id",
             headers=auth_headers,
         )
 
@@ -477,12 +421,12 @@ class TestDeleteAgent:
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
-        response = client.delete("/api/agents/some-agent-id")
+        response = client.delete("/api/jobs/some-agent-id")
         assert response.status_code == 401
 
 
 class TestTriggerAgent:
-    """Tests for POST /api/agents/<agent_id>/run endpoint."""
+    """Tests for POST /api/jobs/<agent_id>/run endpoint."""
 
     @staticmethod
     def _fake_run(test_database: Any, status: str, error: str | None = None) -> Any:
@@ -501,35 +445,35 @@ class TestTriggerAgent:
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
         test_database: Any,
     ) -> None:
         """Should run the agent's standing job and return the execution record."""
         with patch(
-            "src.api.routes.agents.run_job_now", side_effect=self._fake_run(test_database, "report")
+            "src.api.routes.jobs.run_job_now", side_effect=self._fake_run(test_database, "report")
         ) as run:
-            response = client.post(f"/api/agents/{test_agent.id}/run", headers=auth_headers)
+            response = client.post(f"/api/jobs/{test_agent.id}/run", headers=auth_headers)
 
             assert response.status_code == 200
             data = json.loads(response.data)
             assert run.call_args.args[0].id == test_agent.id
-            assert data["execution"]["agent_id"] == test_agent.id
-            assert data["execution"]["trigger_type"] == "manual"
-            assert data["message"] == "Agent executed successfully"
+            assert data["run"]["item_id"] == test_agent.id
+            assert data["run"]["trigger_type"] == "manual"
+            assert data["message"] == "Ran: the result is in its chat"
 
     def test_returns_failure_on_execution_error(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
         test_database: Any,
     ) -> None:
         """Should return failure message on execution error."""
         with patch(
-            "src.api.routes.agents.run_job_now",
+            "src.api.routes.jobs.run_job_now",
             side_effect=self._fake_run(test_database, "failed", "LLM error"),
         ):
-            response = client.post(f"/api/agents/{test_agent.id}/run", headers=auth_headers)
+            response = client.post(f"/api/jobs/{test_agent.id}/run", headers=auth_headers)
 
             assert response.status_code == 200
             data = json.loads(response.data)
@@ -540,7 +484,7 @@ class TestTriggerAgent:
     ) -> None:
         """Should return 404 for non-existent agent."""
         response = client.post(
-            "/api/agents/nonexistent-id/run",
+            "/api/jobs/nonexistent-id/run",
             headers=auth_headers,
         )
 
@@ -548,57 +492,57 @@ class TestTriggerAgent:
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
-        response = client.post("/api/agents/some-agent-id/run")
+        response = client.post("/api/jobs/some-agent-id/run")
         assert response.status_code == 401
 
 
 class TestGetAgentExecutions:
-    """Tests for GET /api/agents/<agent_id>/executions endpoint."""
+    """Tests for GET /api/jobs/<agent_id>/runs endpoint."""
 
     def test_gets_execution_history(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
         test_database: Database,
     ) -> None:
         """Should return agent execution history."""
         # Create some execution records
-        test_database.create_execution(agent_id=test_agent.id, trigger_type="manual")
-        test_database.create_execution(agent_id=test_agent.id, trigger_type="scheduled")
+        test_database.create_execution(item_id=test_agent.id, trigger_type="manual")
+        test_database.create_execution(item_id=test_agent.id, trigger_type="scheduled")
 
         response = client.get(
-            f"/api/agents/{test_agent.id}/executions",
+            f"/api/jobs/{test_agent.id}/runs",
             headers=auth_headers,
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert "executions" in data
-        assert len(data["executions"]) == 2
+        assert "runs" in data
+        assert len(data["runs"]) == 2
 
     def test_returns_empty_list_for_no_executions(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
-        test_agent: Agent,
+        test_agent: StandingChat,
     ) -> None:
         """Should return empty list when no executions exist."""
         response = client.get(
-            f"/api/agents/{test_agent.id}/executions",
+            f"/api/jobs/{test_agent.id}/runs",
             headers=auth_headers,
         )
 
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert data["executions"] == []
+        assert data["runs"] == []
 
     def test_returns_404_for_nonexistent(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
         """Should return 404 for non-existent agent."""
         response = client.get(
-            "/api/agents/nonexistent-id/executions",
+            "/api/jobs/nonexistent-id/runs",
             headers=auth_headers,
         )
 
@@ -606,17 +550,55 @@ class TestGetAgentExecutions:
 
     def test_requires_auth(self, client: FlaskClient) -> None:
         """Should return 401 without authentication."""
-        response = client.get("/api/agents/some-agent-id/executions")
+        response = client.get("/api/jobs/some-agent-id/runs")
         assert response.status_code == 401
 
 
 def test_renaming_onto_an_existing_agent_name_is_a_validation_error(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Any, test_user: Any
 ) -> None:
-    test_database.create_agent(test_user.id, "Coach")
-    other = test_database.create_agent(test_user.id, "Watcher")
+    test_database.create_standing_chat(test_user.id, "Coach")
+    other = test_database.create_standing_chat(test_user.id, "Watcher")
 
-    response = client.patch(f"/api/agents/{other.id}", headers=auth_headers, json={"name": "Coach"})
+    response = client.patch(f"/api/jobs/{other.id}", headers=auth_headers, json={"name": "Coach"})
 
     assert response.status_code == 400
-    assert test_database.get_agent(other.id, test_user.id).name == "Watcher"
+    assert test_database.get_standing_chat(other.id, test_user.id).name == "Watcher"
+
+
+def test_write_toggle_sets_and_clears_the_level(
+    client: FlaskClient, auth_headers: dict[str, str], test_agent: StandingChat
+) -> None:
+    """The editor's "can change things" toggle is the write level in grants."""
+    url = f"/api/jobs/{test_agent.id}"
+
+    on = client.patch(url, headers=auth_headers, json={"grants": ["todoist", "todoist:write"]})
+    off = client.patch(url, headers=auth_headers, json={"grants": ["todoist"]})
+
+    assert json.loads(on.data)["grants"] == ["todoist", "todoist:write"]
+    assert json.loads(off.data)["grants"] == ["todoist"]
+
+
+def test_editor_save_keeps_write_levels(
+    client: FlaskClient, auth_headers: dict[str, str], test_agent: StandingChat
+) -> None:
+    """What GET shows, PATCH takes back unchanged: a save from the editor
+    never drops a write level granted by an approval."""
+    url = f"/api/jobs/{test_agent.id}"
+    client.patch(url, headers=auth_headers, json={"grants": ["garmin_workout:write", "todoist"]})
+    shown = json.loads(client.get(url, headers=auth_headers).data)
+
+    saved = client.patch(url, headers=auth_headers, json={"grants": shown["grants"]})
+
+    assert sorted(json.loads(saved.data)["grants"]) == ["garmin_workout:write", "todoist"]
+
+
+def test_null_grants_leave_the_grants_alone(
+    client: FlaskClient, auth_headers: dict[str, str], test_agent: StandingChat
+) -> None:
+    """A null in a PATCH never widens a job to all tools: "*" must be sent as such."""
+    response = client.patch(
+        f"/api/jobs/{test_agent.id}", headers=auth_headers, json={"grants": None}
+    )
+
+    assert json.loads(response.data)["grants"] == ["web_search"]

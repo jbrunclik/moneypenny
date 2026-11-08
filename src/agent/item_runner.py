@@ -1,8 +1,7 @@
 """Run a watcher, a recurring item or a standing job; deliver a result into its chat.
 
-A run uses the agent machinery (ChatAgent in autonomous mode, the agent
-context that permission checks and the schedule tool read) with an in-memory
-Agent - no agent row.
+A run uses the agent machinery (ChatAgent in autonomous mode) with a
+JobContext that permission checks and the schedule tool read.
 
 - A light item (no grants) reads untrusted web pages, so it gets only the web
   tools (RUN_TOOL_NAMES: no files, no kv store), not the user's memories, and
@@ -12,9 +11,8 @@ Agent - no agent row.
 - A standing job (grants set: an agent's schedule) runs with its grants (plus
   the safe basics, request_approval and kv_store), its model, the chat's
   standing context, and the chat's history unless fresh_context; the user's
-  memories only when manage_memory is granted. Its synthetic Agent carries the
-  job's id, so approvals and execution rows name the job, and its cost rows
-  carry job_id (its daily budget).
+  memories only when manage_memory is granted. Its approvals and run rows name
+  the job, and its cost rows carry job_id (its daily budget).
 
 Cost is recorded against the item's chat: on the delivered message, or for a
 silent run under a synthetic message id.
@@ -31,32 +29,31 @@ from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from src.agent.agent import ChatAgent
-from src.agent.executor import (
-    AgentContext,
-    build_trigger_message,
-    clear_agent_context,
-    is_silent_reply,
-    record_approval_request,
-    run_history,
-    set_agent_context,
-)
 from src.agent.prompt_texts.scheduled_items import (
     NO_PREVIOUS_RESULT,
     RECURRING_RUN_PROMPT,
     STANDING_JOB_TASK,
     WATCHER_RUN_PROMPT,
 )
+from src.agent.run_context import (
+    JobContext,
+    build_trigger_message,
+    clear_job_context,
+    is_silent_reply,
+    record_approval_request,
+    run_history,
+    set_job_context,
+)
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
-from src.agent.tools import get_tools_for_agent, set_conversation_context
+from src.agent.tools import set_conversation_context, tools_for_grants
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
-from src.db.models import Agent, db
+from src.db.models import db
 from src.enums import MessageRole
 from src.services.costs import calculate_and_save_message_cost
 from src.services.push import send_push_to_user
-from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.threat_patterns import find_injection
 
@@ -114,14 +111,6 @@ def parse_reply(raw: str) -> RunOutcome:
     return RunOutcome("report", raw.strip())
 
 
-def _tool_permissions(item: ScheduledItem) -> list[str] | None:
-    """The synthetic Agent's permission list: [] for a light item (narrowed
-    to RUN_TOOL_NAMES), None (unrestricted) for an all-tools job."""
-    if item.grants is None:
-        return []
-    return None if ALL_GRANTS in item.grants else list(item.grants)
-
-
 def _standing_goals(item: ScheduledItem, standing: StandingContext | None) -> str:
     """The run's goals: the item's text, after the chat's standing context
     (instructions and state) when the chat is a standing chat."""
@@ -136,30 +125,29 @@ def _standing_goals(item: ScheduledItem, standing: StandingContext | None) -> st
     return "\n\n".join([*parts, task])
 
 
-def _ephemeral_agent(item: ScheduledItem, user: User) -> Agent:
-    now = utc_now()
+@dataclass
+class _RunSetup:
+    """What a run is told about itself: its name, goals, model and history mode."""
+
+    name: str
+    goals: str
+    model: str
+    timezone: str
+    fresh_context: bool
+
+
+def _run_setup(item: ScheduledItem, user: User) -> _RunSetup:
     conv = db.get_conversation(item.conversation_id, user.id)
     standing = load_standing_context(conv, user) if conv else None
     # A standing job runs as its chat (approval pushes and the prompt name the
     # agent); a light item by its text
     name = standing.name if item.standing and standing else item.text[:_NAME_MAX_CHARS]
-    return Agent(
-        # A standing job's approvals and execution rows name the job itself
-        id=item.id if item.standing else f"item-{item.id}",
-        user_id=item.user_id,
-        conversation_id=item.conversation_id,
+    return _RunSetup(
         name=name,
-        description=None,
-        system_prompt=_standing_goals(item, standing),
-        schedule=item.schedule,
-        timezone=item.timezone or Config.APP_TIMEZONE,
-        enabled=True,
-        tool_permissions=_tool_permissions(item),
+        goals=_standing_goals(item, standing),
         model=item.model or Config.DEFAULT_MODEL,
-        created_at=now,
-        updated_at=now,
+        timezone=item.timezone or Config.APP_TIMEZONE,
         fresh_context=item.fresh_context if item.standing else True,
-        budget_limit=item.budget_usd,
     )
 
 
@@ -186,34 +174,34 @@ def _run_message(item: ScheduledItem, trigger: str, message: str | None) -> str:
 RunTrigger = Literal["scheduled", "manual", "agent_trigger"]
 
 
-def _tools(agent: Agent, item: ScheduledItem) -> list[BaseTool]:
-    tools = get_tools_for_agent(agent)
+def _tools(item: ScheduledItem) -> list[BaseTool]:
+    tools = tools_for_grants(item.grants, item.user_id)
     return tools if item.standing else [t for t in tools if t.name in RUN_TOOL_NAMES]
 
 
 def _chat(
-    agent: Agent,
+    setup: _RunSetup,
     user: User,
     item: ScheduledItem,
     request_id: str,
     run: tuple[RunTrigger, str | None],
 ) -> tuple[str, Callable[[str], None]]:
     trigger, message = run
-    tools = _tools(agent, item)
+    tools = _tools(item)
     chat_agent = ChatAgent(
-        model_name=agent.model,
+        model_name=setup.model,
         anonymous_mode=False,
         is_planning=False,
         is_autonomous=True,
         agent_context={
-            "name": agent.name,
-            "description": agent.description,
-            "schedule": agent.schedule,
-            "timezone": agent.timezone,
-            "goals": agent.system_prompt,
+            "name": setup.name,
+            "description": None,
+            "schedule": item.schedule,
+            "timezone": setup.timezone,
+            "goals": setup.goals,
             "tools": [t.name for t in tools],
             "trigger_type": "scheduled",
-            "fresh_context": agent.fresh_context,
+            "fresh_context": setup.fresh_context,
         },
         tools=tools,
         # The user's memories only for a job granted manage_memory; the rest
@@ -225,8 +213,8 @@ def _chat(
     resumed = trigger == "manual" and message is not None
     history = (
         []
-        if agent.fresh_context
-        else run_history(agent, item.conversation_id, keep_last=not resumed)
+        if setup.fresh_context
+        else run_history(item, item.conversation_id, keep_last=not resumed)
     )
     raw, _, usage, _ = chat_agent.chat_batch(
         text=_run_message(item, trigger, message),
@@ -255,7 +243,7 @@ def _chat(
             message_id,
             item.conversation_id,
             item.user_id,
-            agent.model,
+            setup.model,
             usage,
             tool_results,
             len(raw),
@@ -279,19 +267,21 @@ def run_model_item(
     `message` carries a triggering agent's instructions or an approval's
     outcome into a standing job's run; `trigger_chain` the agents upstream.
     """
-    agent = _ephemeral_agent(item, user)
-    execution_id = db.create_execution(agent.id, trigger).id if item.standing else None
+    setup = _run_setup(item, user)
+    execution_id = db.create_execution(item.id, trigger).id if item.standing else None
     request_id = str(uuid.uuid4())
     set_current_request_id(request_id)
     set_conversation_context(item.conversation_id, user.id)
-    chain = [*(trigger_chain or []), agent.id]
-    set_agent_context(AgentContext(agent=agent, user=user, trigger_chain=chain))
+    context = JobContext(
+        item=item, user=user, name=setup.name, trigger_chain=[*(trigger_chain or []), item.id]
+    )
+    set_job_context(context)
     try:
-        raw, record_cost = _chat(agent, user, item, request_id, (trigger, message))
+        raw, record_cost = _chat(setup, user, item, request_id, (trigger, message))
     except ApprovalRequestedException as e:
         if execution_id is None:  # a light item has no request_approval tool
             return RunOutcome("failed", "", error=str(e))
-        record_approval_request(e, agent, user, item.conversation_id, execution_id)
+        record_approval_request(e, context, item.conversation_id, execution_id)
         return RunOutcome("approval", "")
     except Exception as e:  # any tool/model error: the scheduler counts a failure
         logger.warning(
@@ -305,7 +295,7 @@ def run_model_item(
     finally:
         set_current_request_id(None)
         set_conversation_context(None, None)
-        clear_agent_context()
+        clear_job_context()
     if execution_id is not None:
         db.update_execution(execution_id, status="completed")
     outcome = parse_reply(raw)

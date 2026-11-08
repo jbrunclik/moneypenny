@@ -95,7 +95,9 @@ def get_conversation_compaction(user: User, conv_id: str) -> tuple[dict[str, Any
 
     messages = db.get_messages(conv_id)
     # Agent conversations use their own destructive compaction (see chat routes)
-    is_autonomous = bool(conv.is_agent and conv.agent_id and db.get_agent(conv.agent_id, user.id))
+    is_autonomous = bool(
+        conv.is_agent and conv.job_id and db.get_standing_chat(conv.job_id, user.id)
+    )
     status = (
         None if is_autonomous else get_compaction_status(user.id, conv_id, enrich_history(messages))
     )

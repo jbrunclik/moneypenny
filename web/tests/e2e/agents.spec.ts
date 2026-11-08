@@ -64,7 +64,14 @@ async function setCommandCenterData(page: import('@playwright/test').Page, data:
   }));
   const overview = {
     jobs,
-    pending_approvals: (data.pending_approvals || []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a })),
+    pending_approvals: (data.pending_approvals || []).map(({ agent_id, agent_name, ...a }) => ({
+      tool_args: null,
+      resolved_at: null,
+      status: 'pending',
+      ...a,
+      item_id: agent_id,
+      job_name: agent_name,
+    })),
     stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: data.total_unread || 0,
     jobs_waiting: data.agents_waiting || 0,
@@ -443,11 +450,11 @@ test.describe('Agents - Agent Creation', () => {
     await page.click('.tool-permission-card:has(input[value="trigger_agent"])');
 
     const createRequest = page.waitForRequest(
-      (req) => req.method() === 'POST' && new URL(req.url()).pathname === '/api/agents'
+      (req) => req.method() === 'POST' && new URL(req.url()).pathname === '/api/jobs'
     );
     await modal.getByRole('button', { name: 'Create Agent' }).click();
-    const body = (await createRequest).postDataJSON() as { tool_permissions: string[] | null };
-    expect(body.tool_permissions).toContain('trigger_agent');
+    const body = (await createRequest).postDataJSON() as { grants: string[] | null };
+    expect(body.grants).toContain('trigger_agent');
   });
 });
 
@@ -521,13 +528,14 @@ test.describe('Agents - Agent Actions', () => {
       ],
     });
 
-    // Set individual agent data for the GET /api/agents/:id endpoint
+    // The standing chat's editor data for GET /api/jobs/:id
     await page.request.post('/test/set-agent', {
       data: {
         id: agentId,
         name: 'Test Agent',
         description: 'Test description',
-        system_prompt: 'You are a helpful assistant.',
+        instructions: 'You are a helpful assistant.',
+        grants: [],
         enabled: true,
         schedule: null,
         timezone: 'UTC',
@@ -609,7 +617,7 @@ test.describe('Agents - Deep Link Mark Viewed', () => {
     // conversation hash (routes through loadDeepLinkedConversation,
     // NOT selectConversation)
     const markViewedRequest = page.waitForRequest(
-      (req) => req.url().includes(`/api/agents/${agentId}/mark-viewed`) && req.method() === 'POST',
+      (req) => req.url().includes(`/api/jobs/${agentId}/viewed`) && req.method() === 'POST',
       { timeout: 10000 }
     );
     await page.goto(`/#/conversations/${conversationId}`);

@@ -66,16 +66,16 @@ def test_create_needs_a_later_yes(
     preview = _call(**COACH)
 
     assert "PREVIEW" in preview
-    assert test_database.get_agent_by_name(test_user.id, "Cycling coach") is None
+    assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
     assert "not answered" in _call(confirm=True)  # same turn
 
     _user_says(test_database, chat, "Yes, set it up", "r2")
     created = _call(confirm=True)
 
-    agent = test_database.get_agent_by_name(test_user.id, "Cycling coach")
+    agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     assert agent is not None
     assert (agent.schedule, agent.timezone) == ("0 20 * * *", "Europe/Prague")
-    assert agent.system_prompt == "Check my Garmin each evening and ask how I feel."
+    assert agent.instructions == "Check my Garmin each evening and ask how I feel."
     assert f"#/conversations/{agent.conversation_id}" in created
 
 
@@ -87,7 +87,7 @@ def test_expired_preview_creates_nothing(
     _user_says(test_database, chat, "What's the weather?", "r3")
 
     assert "expired" in _call(confirm=True)
-    assert test_database.get_agent_by_name(test_user.id, "Cycling coach") is None
+    assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
 
 
 def test_created_grants_match_the_preview(
@@ -97,7 +97,7 @@ def test_created_grants_match_the_preview(
     _user_says(test_database, chat, "Yes", "r2")
     _call(confirm=True)
 
-    agent = test_database.get_agent_by_name(test_user.id, "Cycling coach")
+    agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     job = test_database.get_item(agent.id if agent else "", test_user.id)
     assert job is not None and sorted(job.grants or []) == [
         "garmin_connect",
@@ -118,22 +118,24 @@ def test_refused_in_standing_chats_and_runs(
     test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     import src.agent.tools.standing_create as module
-    from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+    from src.agent.run_context import JobContext, clear_job_context, set_job_context
 
     monkeypatch.setattr(module, "db", test_database)
-    agent = test_database.create_agent(test_user.id, "Watcher")
+    agent = test_database.create_standing_chat(test_user.id, "Watcher")
     set_conversation_context(agent.conversation_id, test_user.id)
     try:
         assert "standing chat" in _call(**COACH)
-        set_agent_context(AgentContext(agent=agent, user=test_user, trigger_chain=[agent.id]))
+        set_job_context(
+            JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
+        )
         assert "scheduled run" in _call(**COACH)
     finally:
-        clear_agent_context()
+        clear_job_context()
         set_conversation_context(None, None)
 
 
 def test_name_must_be_unique(chat: Conversation, test_database: Database, test_user: User) -> None:
-    test_database.create_agent(test_user.id, "Cycling coach")
+    test_database.create_standing_chat(test_user.id, "Cycling coach")
 
     assert "already" in _call(**COACH)
 
@@ -142,7 +144,7 @@ def test_cap_on_standing_chats(
     chat: Conversation, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(Config, "STANDING_CHATS_MAX_PER_USER", 1)
-    test_database.create_agent(test_user.id, "Briefing")
+    test_database.create_standing_chat(test_user.id, "Briefing")
 
     assert "limit" in _call(**COACH)
 
@@ -223,7 +225,7 @@ def test_confirm_with_changes_is_refused(
     result = _call(confirm=True, name="Coach")
 
     assert "preview" in result.lower()
-    assert test_database.get_agent_by_name(test_user.id, "Cycling coach") is None
+    assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
 
 
 def test_confirm_echoes_the_created_settings(chat: Conversation, test_database: Database) -> None:

@@ -32,7 +32,7 @@ from src.db.models import db
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent
+    from src.db.models import StandingChat
 
 logger = get_logger(__name__)
 
@@ -102,19 +102,19 @@ def _tools_text(grants: set[str]) -> str:
     return ", ".join("all tools" if g == ALL_GRANTS else g for g in sorted(grants)) or "none"
 
 
-def _describe(agent: Agent, changes: Change) -> str:
+def _describe(chat: StandingChat, changes: Change) -> str:
     """The change in words: what the user is agreeing to."""
     lines: list[str] = []
     if "instructions" in changes:
         lines.append(f"- Instructions become:\n  {changes['instructions']}")
-        if agent.system_type and not agent.system_prompt:
+        if chat.standing_type and not chat.instructions:
             lines.append("  (this replaces the built-in prompt with your own copy)")
     if "schedule" in changes:
         lines.append(
-            f"- Schedule: `{agent.schedule}` -> `{changes['schedule']}` ({agent.timezone})"
+            f"- Schedule: `{chat.job.schedule}` -> `{changes['schedule']}` ({chat.job.timezone})"
         )
     if "model" in changes:
-        lines.append(f"- Model: {agent.model} -> {changes['model']}")
+        lines.append(f"- Model: {chat.job.model} -> {changes['model']}")
     if "budget_usd" in changes:
         lines.append(f"- Daily budget: ${changes['budget_usd']:.2f}")
     if "fresh_context" in changes:
@@ -123,9 +123,7 @@ def _describe(agent: Agent, changes: Change) -> str:
         )
         lines.append(f"- History: {state}")
     if "grants" in changes:
-        # None = all tools; [] = none (never read as "all")
-        perms = agent.tool_permissions
-        before = {ALL_GRANTS} if perms is None else set(perms)
+        before = set(chat.grants)
         after = set(changes["grants"])
         added, removed = after - before, before - after
         lines.append(
@@ -145,48 +143,49 @@ def validated_change(raw: Mapping[str, object]) -> Change | str:
     return change
 
 
-def apply_standing_changes(job_id: str, user_id: str, changes: Change) -> Agent | None:
-    """Apply an approved change to an agent (its chat and its job)."""
-    grants = changes.get("grants", ...)
-    agent = db.update_agent(
+def apply_standing_changes(job_id: str, user_id: str, changes: Change) -> StandingChat | None:
+    """Apply an approved change to a standing chat (its chat and its job)."""
+    chat = db.update_standing_chat(
         job_id,
         user_id,
-        system_prompt=changes.get("instructions", ...),
+        instructions=changes.get("instructions", ...),
         schedule=changes.get("schedule", ...),
         model=changes.get("model", ...),
-        budget_limit=changes.get("budget_usd", ...),
+        budget_usd=changes.get("budget_usd", ...),
         fresh_context=changes.get("fresh_context", ...),
-        tool_permissions=None if isinstance(grants, list) and ALL_GRANTS in grants else grants,
+        grants=changes.get("grants", ...),
     )
     logger.info(
         "Standing chat settings changed",
         extra={"user_id": user_id, "job_id": job_id, "fields": sorted(changes)},
     )
-    return agent
+    return chat
 
 
-def _request_approval(agent: Agent, changes: Change) -> str:
+def _request_approval(chat: StandingChat, changes: Change) -> str:
     """Unattended: file the change for the user's approval and pause the run."""
-    description = f"Change {agent.name}'s settings:\n{_describe(agent, changes)}"
+    description = f"Change {chat.name}'s settings:\n{_describe(chat, changes)}"
     approval = db.create_approval_request(
-        agent.id, agent.user_id, TOOL_NAME, dict(changes), description
+        chat.id, chat.user_id, TOOL_NAME, dict(changes), description
     )
     raise ApprovalRequestedException(approval.id, description, TOOL_NAME)
 
 
 def _in_chat(conversation_id: str, user_id: str, changes: Change, confirm: bool) -> str:
     conv = db.get_conversation(conversation_id, user_id)
-    agent = (
-        db.get_agent(conv.agent_id, user_id) if conv and conv.is_agent and conv.agent_id else None
+    chat = (
+        db.get_standing_chat(conv.job_id, user_id)
+        if conv and conv.is_agent and conv.job_id
+        else None
     )
-    if agent is None:
+    if chat is None:
         return tool_error("This chat has no agent whose settings could change.", retriable=False)
     if not confirm:
         if problem := _invalid(changes):
             return tool_error(problem)
         keep_pending(user_id, PENDING_NAMESPACE, conversation_id, {"changes": changes})
         return (
-            f"PREVIEW (nothing changed yet):\n{_describe(agent, changes)}\n\n"
+            f"PREVIEW (nothing changed yet):\n{_describe(chat, changes)}\n\n"
             "Show this to the user and ask; call edit_standing_chat(confirm=true) only after "
             "they agree in their reply."
         )
@@ -205,8 +204,8 @@ def _in_chat(conversation_id: str, user_id: str, changes: Change, confirm: bool)
             "after they agree in their reply."
         )
     db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-    apply_standing_changes(agent.id, user_id, pending["changes"])
-    return f"Updated {agent.name}:\n{_describe(agent, pending['changes'])}"
+    apply_standing_changes(chat.id, user_id, pending["changes"])
+    return f"Updated {chat.name}:\n{_describe(chat, pending['changes'])}"
 
 
 @tool
@@ -238,7 +237,7 @@ def edit_standing_chat(
         grants: The complete list of tools the agent may use (e.g. ["garmin_connect"]).
         confirm: true only after the user agreed to the preview in their reply.
     """
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor imports the tools
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports the tools
 
     changes = _changes(
         instructions=instructions,
@@ -248,11 +247,16 @@ def edit_standing_chat(
         fresh_context=fresh_context,
         grants=grants,
     )
-    run = get_agent_context()
+    run = get_job_context()
     if run is not None:  # unattended: only ever a request for approval
         if problem := _invalid(changes):
             return tool_error(problem)
-        return _request_approval(run.agent, changes)
+        chat = db.get_standing_chat(run.item.id, run.user.id)
+        if chat is None:
+            return tool_error(
+                "Only a standing chat's run can change its settings.", retriable=False
+            )
+        return _request_approval(chat, changes)
     conversation_id, user_id = get_conversation_context()
     if not conversation_id or not user_id:
         return tool_error("No conversation context available.", retriable=False)

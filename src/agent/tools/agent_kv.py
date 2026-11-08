@@ -82,7 +82,7 @@ def kv_store(
     Returns:
         The result of the operation as a string
     """
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> tools -> agent_kv
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context -> tools -> agent_kv
 
     # Get user context
     _, user_id = get_conversation_context()
@@ -90,16 +90,16 @@ def kv_store(
         return tool_error("No user context available. Cannot access K/V store.", retriable=False)
 
     # Available in agent runs and standing chats (agent / sports / language);
-    # the namespace defaults to the run's agent or the standing chat's own
-    agent_context = get_agent_context()
+    # the namespace defaults to the run's job or the standing chat's own
+    job_context = get_job_context()
     standing_namespace = get_standing_namespace()
-    if not agent_context and not standing_namespace:
+    if not job_context and not standing_namespace:
         return tool_error(
             "kv_store is only available in agent runs and agent, sports or language chats.",
             retriable=False,
         )
     if not namespace:
-        namespace = f"agent:{agent_context.agent.id}" if agent_context else str(standing_namespace)
+        namespace = f"agent:{job_context.item.id}" if job_context else str(standing_namespace)
 
     if namespace in RESERVED_NAMESPACES:
         return tool_error(

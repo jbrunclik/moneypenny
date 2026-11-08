@@ -25,11 +25,11 @@ logger = get_logger(__name__)
 # Import permission-related modules (at module level to avoid repeated imports)
 # These are only used when is_autonomous=True
 def _get_permission_modules() -> dict[str, Any]:
-    """The permission helpers; get_agent_context is imported lazily (cycle)."""
-    from src.agent.executor import get_agent_context  # noqa: PLC0415 - cycle: executor -> agent -> graph_cache -> graph -> tool_node
+    """The permission helpers; get_job_context is imported lazily (cycle)."""
+    from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context -> agent -> graph_cache -> graph -> tool_node
 
     return {
-        "get_agent_context": get_agent_context,
+        "get_job_context": get_job_context,
         "check_tool_permission": check_tool_permission,
         "PermissionResult": PermissionResult,
     }
@@ -56,7 +56,7 @@ def _handle_tool_errors(e: Exception) -> str:
 def _split_blocked_tool_calls(
     state: AgentState,
     modules: dict[str, Any],
-    agent: Any,
+    permissions: list[str] | None,
 ) -> tuple[list[ToolMessage], AgentState | None]:
     """Split pending tool calls into blocked error responses and an executable state.
 
@@ -73,7 +73,7 @@ def _split_blocked_tool_calls(
     for tool_call in last_message.tool_calls:
         tool_name = tool_call.get("name")
         permission = (
-            modules["check_tool_permission"](agent, tool_name, tool_call.get("args", {}))
+            modules["check_tool_permission"](permissions, tool_name, tool_call.get("args", {}))
             if tool_name
             else modules["PermissionResult"].ALLOWED
         )
@@ -145,10 +145,10 @@ def _split_autonomous_calls(
     blocked_messages: list[ToolMessage] = []
     exec_state: AgentState | None = state
     modules = _get_permission_modules()
-    agent_context = modules["get_agent_context"]()
-    if agent_context:
+    job_context = modules["get_job_context"]()
+    if job_context:
         blocked_messages, exec_state = _split_blocked_tool_calls(
-            state, modules, agent_context.agent
+            state, modules, job_context.permissions
         )
 
     approval_state: AgentState | None = None

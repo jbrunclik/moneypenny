@@ -10,9 +10,9 @@ import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import * as admin from '@/api/admin';
-import * as agents from '@/api/agents';
 import * as app from '@/api/app';
 import * as artifacts from '@/api/artifacts';
+import * as assist from '@/api/assist';
 import * as auth from '@/api/auth';
 import * as chat from '@/api/chat';
 import * as clientErrors from '@/api/client-errors';
@@ -20,6 +20,7 @@ import * as conversations from '@/api/conversations';
 import * as costs from '@/api/costs';
 import * as files from '@/api/files';
 import * as integrations from '@/api/integrations';
+import * as jobs from '@/api/jobs';
 import * as kvStore from '@/api/kv-store';
 import * as memories from '@/api/memories';
 import * as planner from '@/api/planner';
@@ -29,8 +30,8 @@ import * as search from '@/api/search';
 import * as settings from '@/api/settings';
 
 const MODULES: Record<string, Record<string, unknown>> = {
-  admin, agents, app, artifacts, auth, chat, clientErrors, conversations, costs, files,
-  integrations, kvStore, memories, planner, programs, push, search, settings,
+  admin, app, artifacts, assist, auth, chat, clientErrors, conversations, costs, files,
+  integrations, jobs, kvStore, memories, planner, programs, push, search, settings,
 };
 
 interface Spec {

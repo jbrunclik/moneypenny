@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+from src.agent.run_context import JobContext, clear_job_context, set_job_context
 from src.agent.tools.permission_check import ApprovalRequiredError, check_autonomous_permission
 
 
@@ -20,14 +20,16 @@ def run_as(test_database: Any, test_user: Any, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr("src.agent.tools.permission_check.db", test_database)
 
     def start(grants: list[str] | None) -> Any:
-        agent = test_database.create_agent(
-            test_user.id, f"Job {len(grants or [])}", tool_permissions=grants
+        agent = test_database.create_standing_chat(
+            test_user.id, f"Job {len(grants or [])}", grants=grants
         )
-        set_agent_context(AgentContext(agent=agent, user=test_user, trigger_chain=[agent.id]))
+        set_job_context(
+            JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
+        )
         return agent
 
     yield start
-    clear_agent_context()
+    clear_job_context()
 
 
 def test_read_grant_allows_reads_only(run_as: Any) -> None:
@@ -72,28 +74,27 @@ def test_write_level_alone_permits_the_tool(run_as: Any) -> None:
     check_autonomous_permission("rouvy_workout", {"action": "create"})
 
 
-def test_editor_save_keeps_write_levels(test_database: Any, test_user: Any) -> None:
-    """The agent editor knows tool names, not levels: saving must not drop them."""
-    agent = test_database.create_agent(
-        test_user.id, "Coach", tool_permissions=["todoist", "todoist:write", "garmin_workout"]
+def test_update_stores_the_grants_exactly(test_database: Any, test_user: Any) -> None:
+    """The editor shows write levels (its "can change things" toggle) and
+    sends the complete list: a save stores it as sent."""
+    agent = test_database.create_standing_chat(
+        test_user.id, "Coach", grants=["todoist", "todoist:write", "garmin_workout"]
     )
 
-    test_database.update_agent(agent.id, test_user.id, tool_permissions=["todoist", "web_search"])
+    test_database.update_standing_chat(agent.id, test_user.id, grants=["todoist", "web_search"])
 
     job = test_database.get_item(agent.id, test_user.id)
-    assert sorted(job.grants) == ["todoist", "todoist:write", "web_search"]
+    assert sorted(job.grants) == ["todoist", "web_search"]
 
 
-def test_agent_response_lists_tool_names(test_database: Any, test_user: Any) -> None:
-    from src.api.helpers.agent_responses import agent_to_response
+def test_job_detail_shows_write_levels(test_database: Any, test_user: Any) -> None:
+    from src.api.helpers.standing_responses import standing_to_response
 
-    agent = test_database.create_agent(
-        test_user.id, "Coach", tool_permissions=["todoist", "todoist:write"]
+    agent = test_database.create_standing_chat(
+        test_user.id, "Coach", grants=["todoist", "todoist:write"]
     )
 
-    response = agent_to_response(agent)
-
-    assert response["tool_permissions"] == ["todoist"]
+    assert standing_to_response(agent)["grants"] == ["todoist", "todoist:write"]
 
 
 # Part D review: the gate must hold through the real tools, per operation

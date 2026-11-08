@@ -1,4 +1,4 @@
-"""The unattended run's shared pieces (src/agent/executor.py): the run context
+"""The unattended run's shared pieces (src/agent/run_context.py): the run context
 permission checks read, the trigger message, the run's history and the
 approval recorder. Agents run as standing jobs (src/agent/item_runner.py,
 tested in test_item_runner.py)."""
@@ -10,18 +10,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.executor import (
-    AgentContext,
+from src.agent.run_context import (
+    JobContext,
     build_trigger_message,
-    clear_agent_context,
-    get_agent_context,
+    clear_job_context,
+    get_job_context,
     get_trigger_chain,
     record_approval_request,
     run_history,
-    set_agent_context,
+    set_job_context,
 )
 from src.agent.tools.request_approval import ApprovalRequestedException
-from src.db.models import Agent, Database, User, use_database
+from src.db.models import Database, StandingChat, User, use_database
 from src.enums import MessageRole
 
 
@@ -36,30 +36,32 @@ def user(db: Database) -> User:
     return db.get_or_create_user(email="agent-owner@example.com", name="Owner", picture=None)
 
 
-def _agent(db: Database, user: User, **overrides: object) -> Agent:
+def _agent(db: Database, user: User, **overrides: object) -> StandingChat:
     fields: dict[str, object] = {
         "name": "Reporter",
-        "system_prompt": "Summarize the news.",
+        "instructions": "Summarize the news.",
         "schedule": "0 9 * * *",
-        "tool_permissions": [],
+        "grants": [],
     }
     fields.update(overrides)
-    return db.create_agent(user.id, **fields)  # type: ignore[arg-type]
+    return db.create_standing_chat(user.id, **fields)  # type: ignore[arg-type]
 
 
-class TestAgentContextHelpers:
+class TestJobContextHelpers:
     def test_trigger_chain_is_empty_outside_a_run(self) -> None:
-        clear_agent_context()
+        clear_job_context()
         assert get_trigger_chain() == []
 
     def test_trigger_chain_reflects_current_context(self, db: Database, user: User) -> None:
         agent = _agent(db, user)
-        set_agent_context(AgentContext(agent=agent, user=user, trigger_chain=["a", agent.id]))
+        set_job_context(
+            JobContext(item=agent.job, user=user, name=agent.name, trigger_chain=["a", agent.id])
+        )
         try:
             assert get_trigger_chain() == ["a", agent.id]
         finally:
-            clear_agent_context()
-        assert get_agent_context() is None
+            clear_job_context()
+        assert get_job_context() is None
 
 
 class TestTriggerMessage:
@@ -94,9 +96,9 @@ class TestRunHistory:
             db.add_message(conv_id, MessageRole.ASSISTANT, f"Report {i}")
 
         with patch(
-            "src.agent.executor.build_compacted_history", side_effect=lambda u, c, h: h[-4:]
+            "src.agent.run_context.build_compacted_history", side_effect=lambda u, c, h: h[-4:]
         ) as compact:
-            history = run_history(agent, conv_id, keep_last=True)
+            history = run_history(agent.job, conv_id, keep_last=True)
 
         assert compact.call_args.args[:2] == (user.id, conv_id)
         assert len(history) == 4
@@ -109,7 +111,7 @@ class TestRunHistory:
         db.add_message(conv_id, MessageRole.ASSISTANT, "Old report")
         db.add_message(conv_id, MessageRole.USER, "[Action approved: X]")
 
-        contents = [h["content"] for h in run_history(agent, conv_id)]
+        contents = [h["content"] for h in run_history(agent.job, conv_id)]
 
         assert contents == ["Old report"]
 
@@ -117,7 +119,7 @@ class TestRunHistory:
         agent = _agent(db, user, fresh_context=True)
         db.add_message(agent.conversation_id or "", MessageRole.ASSISTANT, "Old report")
 
-        assert run_history(agent, agent.conversation_id or "") == []
+        assert run_history(agent.job, agent.conversation_id or "") == []
 
 
 def test_an_approval_request_parks_the_run_and_pushes(db: Database, user: User) -> None:
@@ -125,10 +127,15 @@ def test_an_approval_request_parks_the_run_and_pushes(db: Database, user: User) 
     execution = db.create_execution(agent.id, "scheduled")
     request = ApprovalRequestedException("ap-1", "Send the summary", "whatsapp")
 
-    with patch("src.agent.executor.send_push_to_user") as push:
-        record_approval_request(request, agent, user, agent.conversation_id or "", execution.id)
+    with patch("src.agent.run_context.send_push_to_user") as push:
+        record_approval_request(
+            request,
+            JobContext(item=agent.job, user=user, name=agent.name, trigger_chain=[]),
+            agent.conversation_id,
+            execution.id,
+        )
 
-    [saved] = db.get_agent_executions(agent.id)
+    [saved] = db.get_job_runs(agent.id)
     assert saved.status == "waiting_approval"
     assert "[approval-request:ap-1]" in db.get_messages(agent.conversation_id or "")[-1].content
     assert isinstance(push, MagicMock) and push.call_args.kwargs["tag"] == "approval-ap-1"

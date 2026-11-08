@@ -52,7 +52,7 @@ def test_overview_lists_light_items_and_jobs(
     test_conversation: Conversation,
 ) -> None:
     item = _item(test_database, test_user, test_conversation)
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
 
     jobs = {j["id"]: j for j in _overview(client, auth_headers)["jobs"]}
 
@@ -82,7 +82,7 @@ def test_overview_lists_live_chats_only(
 def test_agent_job_titled_with_its_chat(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+    agent = test_database.create_standing_chat(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
 
     [job] = _overview(client, auth_headers)["jobs"]
 
@@ -93,7 +93,7 @@ def test_agent_job_titled_with_its_chat(
 def test_recent_runs_newest_three(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     for status in ("completed", "completed", "failed", "completed"):
         run = test_database.create_execution(agent.id, "scheduled")
         test_database.update_execution(run.id, status=status, error_message="Garmin down")
@@ -118,7 +118,7 @@ def test_needs_attention_first(
         test_conversation,
         next_run_at=datetime.now(UTC) + timedelta(minutes=5),
     )
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     test_database.create_approval_request(agent.id, test_user.id, "todoist", None, "Add milk")
 
     jobs = _overview(client, auth_headers)["jobs"]
@@ -130,9 +130,9 @@ def test_needs_attention_first(
 def test_counts_for_the_sidebar(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    waiting = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    waiting = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     test_database.create_approval_request(waiting.id, test_user.id, "todoist", None, "Add milk")
-    failing = test_database.create_agent(test_user.id, "Watcher", schedule="0 18 * * 5")
+    failing = test_database.create_standing_chat(test_user.id, "Watcher", schedule="0 18 * * 5")
     run = test_database.create_execution(failing.id, "scheduled")
     test_database.update_execution(run.id, status="failed", error_message="boom")
     test_database.add_message(failing.conversation_id or "", "assistant", "A report")
@@ -147,7 +147,7 @@ def test_counts_for_the_sidebar(
 def test_never_run_jobs_have_no_next_run(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    test_database.create_agent(test_user.id, "On demand")  # no schedule
+    test_database.create_standing_chat(test_user.id, "On demand")  # no schedule
 
     [job] = _overview(client, auth_headers)["jobs"]
 

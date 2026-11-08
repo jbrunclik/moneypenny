@@ -134,21 +134,20 @@ class AdminMixin:
         """Agent runs and failed runs since a moment, plus pending approvals."""
         runs = self._rows(
             """SELECT COUNT(*), COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 END), 0)
-               FROM agent_executions WHERE started_at >= ?""",
+               FROM job_runs WHERE started_at >= ?""",
             (since,),
         )[0]
-        pending = self._rows(
-            "SELECT COUNT(*) FROM agent_approval_requests WHERE status = 'pending'"
-        )[0][0]
+        pending = self._rows("SELECT COUNT(*) FROM job_approvals WHERE status = 'pending'")[0][0]
         return {"runs": runs[0], "failed": runs[1], "pending_approvals": pending}
 
     def admin_recent_agent_failures(self, limit: int) -> list[dict[str, Any]]:
         """The latest failed agent runs, error messages cut short."""
         rows = self._rows(
-            """SELECT a.name, u.name, e.started_at, e.error_message
-               FROM agent_executions e
-               JOIN autonomous_agents a ON a.id = e.agent_id
-               JOIN users u ON u.id = a.user_id
+            """SELECT COALESCE(c.standing_name, s.text), u.name, e.started_at, e.error_message
+               FROM job_runs e
+               JOIN scheduled_items s ON s.id = e.item_id
+               LEFT JOIN conversations c ON c.job_id = s.id AND c.is_agent = 1
+               JOIN users u ON u.id = s.user_id
                WHERE e.status = 'failed'
                ORDER BY e.started_at DESC LIMIT ?""",
             (limit,),

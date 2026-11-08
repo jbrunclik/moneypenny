@@ -57,14 +57,16 @@ class TestFreshContext:
     """fresh_context column round-trips and briefing agents enforce it."""
 
     def test_create_and_update_round_trip(self, test_database, test_user) -> None:
-        agent = test_database.create_agent(user_id=test_user.id, name="A1", fresh_context=False)
-        assert test_database.get_agent(agent.id, test_user.id).fresh_context is False
+        agent = test_database.create_standing_chat(
+            user_id=test_user.id, name="A1", fresh_context=False
+        )
+        assert test_database.get_standing_chat(agent.id, test_user.id).fresh_context is False
 
-        test_database.update_agent(agent.id, test_user.id, fresh_context=True)
-        assert test_database.get_agent(agent.id, test_user.id).fresh_context is True
+        test_database.update_standing_chat(agent.id, test_user.id, fresh_context=True)
+        assert test_database.get_standing_chat(agent.id, test_user.id).fresh_context is True
 
     def test_create_defaults_to_fresh(self, test_database, test_user) -> None:
-        agent = test_database.create_agent(user_id=test_user.id, name="A2")
+        agent = test_database.create_standing_chat(user_id=test_user.id, name="A2")
         assert agent.fresh_context is True
 
     def test_briefing_agent_is_fresh_context(self, test_database, test_user, monkeypatch) -> None:
@@ -73,7 +75,7 @@ class TestFreshContext:
 
         set_briefing(test_user, enabled=True, time_str="07:00", timezone="Europe/Prague")
         user = test_database.get_user_by_id(test_user.id)
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
         assert agent.fresh_context is True
 
 
@@ -131,7 +133,7 @@ class TestBriefingIsAStandingChat:
         current = test_database.get_user_by_id(test_user.id)  # with its briefing id
         set_briefing(current, enabled=enabled, time_str="07:15", timezone="Europe/Prague")
         user = test_database.get_user_by_id(test_user.id)
-        return user.daily_briefing_agent_id
+        return user.daily_briefing_job_id
 
     def test_settings_toggle_creates_chat_and_job(self, test_database, test_user, monkeypatch):
         from src.agent.daily_briefing import SYSTEM_TYPE_DAILY_BRIEFING
@@ -142,7 +144,7 @@ class TestBriefingIsAStandingChat:
         assert job is not None and job.standing
         assert (job.schedule, job.timezone, job.grants) == ("15 7 * * *", "Europe/Prague", ["*"])
         conv = test_database.get_conversation(job.conversation_id, test_user.id)
-        assert conv.is_agent and conv.agent_id == job_id
+        assert conv.is_agent and conv.job_id == job_id
         assert (conv.standing_instructions, conv.standing_type) == (
             None,
             SYSTEM_TYPE_DAILY_BRIEFING,
@@ -158,13 +160,13 @@ class TestBriefingIsAStandingChat:
 
 
 def test_create_agent_makes_chat_and_job(test_database, test_user) -> None:
-    agent = test_database.create_agent(
+    agent = test_database.create_standing_chat(
         test_user.id,
         "Coach",
-        system_prompt="Coach my rides",
+        instructions="Coach my rides",
         schedule="0 20 * * *",
-        tool_permissions=["garmin_connect"],
-        budget_limit=0.3,
+        grants=["garmin_connect"],
+        budget_usd=0.3,
         fresh_context=False,
     )
 

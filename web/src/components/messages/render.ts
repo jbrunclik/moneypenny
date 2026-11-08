@@ -15,7 +15,7 @@ import { beginProgrammaticScroll, endProgrammaticScroll } from '../../utils/prog
 import { checkScrollButtonVisibility, clearNewMessagesPill } from '../ScrollToBottom';
 import { createWelcomeMessage } from '../WelcomeMessage';
 import { AI_AVATAR, CHAIN_ICON, CHECK_ICON, CLOCK_ICON, CLOSE_ICON, PLAY_ICON, WARNING_ICON, createIconElement, iconNodes, setIcon, type IconHtml } from '../../utils/icons';
-import { agents } from '../../api/agents';
+import { jobs } from '../../api/jobs';
 import { toast } from '../Toast';
 import { renderConversationsList } from '../Sidebar';
 import { createLogger } from '../../utils/logger';
@@ -736,10 +736,10 @@ async function handleApprovalAction(
 
   try {
     if (approved) {
-      await agents.approveRequest(approvalId, always);
+      await jobs.approveRequest(approvalId, always);
       toast.success(always ? 'Allowed from now on. Agent will continue.' : 'Action approved. Agent will continue.');
     } else {
-      await agents.rejectRequest(approvalId);
+      await jobs.rejectRequest(approvalId);
       toast.info('Action rejected.');
     }
 

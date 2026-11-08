@@ -201,8 +201,8 @@ class TestDailyBriefingSettings:
         assert response.status_code == 200
 
         user = test_database.get_user_by_id(test_user.id)
-        assert user.daily_briefing_agent_id is not None
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        assert user.daily_briefing_job_id is not None
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
         assert agent is not None
         assert agent.name == "Daily Briefing"
         assert agent.schedule == "30 7 * * *"
@@ -231,10 +231,10 @@ class TestDailyBriefingSettings:
         )
 
         user = test_database.get_user_by_id(test_user.id)
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
         assert agent.schedule == "15 21 * * *"
         # Same agent reused, not a duplicate
-        agents = [item["agent"] for item in test_database.list_agents_with_status(user.id)]
+        agents = test_database.list_standing_chats(user.id)
         assert len([a for a in agents if a.name == "Daily Briefing"]) == 1
 
     def test_disable_keeps_agent_disabled(
@@ -254,7 +254,7 @@ class TestDailyBriefingSettings:
         )
 
         user = test_database.get_user_by_id(test_user.id)
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
         assert agent.enabled is False
 
         briefing = client.get("/api/users/me/settings", headers=auth_headers).get_json()[
@@ -277,7 +277,7 @@ class TestDailyBriefingSettings:
         )
         assert response.status_code == 200
         user = test_database.get_user_by_id(test_user.id)
-        assert user.daily_briefing_agent_id is None
+        assert user.daily_briefing_job_id is None
 
     def test_dangling_agent_id_reports_disabled_and_recreates(
         self,
@@ -290,9 +290,9 @@ class TestDailyBriefingSettings:
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        first_agent_id = user.daily_briefing_agent_id
+        first_agent_id = user.daily_briefing_job_id
         # User deletes the agent from Command Center
-        test_database.delete_agent(first_agent_id, user.id)
+        test_database.delete_standing_chat(first_agent_id, user.id)
 
         briefing = client.get("/api/users/me/settings", headers=auth_headers).get_json()[
             "daily_briefing"
@@ -304,8 +304,8 @@ class TestDailyBriefingSettings:
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        assert user.daily_briefing_agent_id is not None
-        assert user.daily_briefing_agent_id != first_agent_id
+        assert user.daily_briefing_job_id is not None
+        assert user.daily_briefing_job_id != first_agent_id
 
     def test_invalid_time_rejected(self, client: FlaskClient, auth_headers: dict[str, str]) -> None:
         response = client.patch(
@@ -328,43 +328,52 @@ class TestDailyBriefingSettings:
         from src.agent.daily_briefing import (
             BRIEFING_SYSTEM_PROMPT,
             SYSTEM_TYPE_DAILY_BRIEFING,
-            resolve_agent_system_prompt,
+            effective_instructions,
         )
 
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
 
-        assert agent.system_type == SYSTEM_TYPE_DAILY_BRIEFING
-        assert agent.system_prompt is None
-        assert resolve_agent_system_prompt(agent) == BRIEFING_SYSTEM_PROMPT
+        assert agent.standing_type == SYSTEM_TYPE_DAILY_BRIEFING
+        assert agent.instructions is None
+        assert (
+            effective_instructions(agent.instructions, agent.standing_type)
+            == BRIEFING_SYSTEM_PROMPT
+        )
 
         # A customized prompt wins and survives settings re-saves
-        test_database.update_agent(agent.id, user.id, system_prompt="My custom briefing style")
+        test_database.update_standing_chat(
+            agent.id, user.id, instructions="My custom briefing style"
+        )
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
-        agent = test_database.get_agent(agent.id, user.id)
-        assert agent.system_prompt == "My custom briefing style"
-        assert resolve_agent_system_prompt(agent) == "My custom briefing style"
+        agent = test_database.get_standing_chat(agent.id, user.id)
+        assert agent.instructions == "My custom briefing style"
+        assert effective_instructions(agent.instructions, agent.standing_type) == (
+            "My custom briefing style"
+        )
 
-    def test_agent_response_exposes_system_type_and_effective_prompt(
+    def test_job_detail_exposes_standing_type_and_effective_instructions(
         self,
         client: FlaskClient,
         auth_headers: dict[str, str],
+        test_user,
+        test_database,
     ) -> None:
         from src.agent.daily_briefing import BRIEFING_SYSTEM_PROMPT
 
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
-        agents = client.get("/api/agents", headers=auth_headers).get_json()["agents"]
-        briefing = next(a for a in agents if a["name"] == "Daily Briefing")
-        assert briefing["system_type"] == "daily_briefing"
-        assert briefing["system_prompt"] is None
-        assert briefing["effective_system_prompt"] == BRIEFING_SYSTEM_PROMPT
+        job_id = test_database.get_user_by_id(test_user.id).daily_briefing_job_id
+        briefing = client.get(f"/api/jobs/{job_id}", headers=auth_headers).get_json()
+        assert briefing["standing_type"] == "daily_briefing"
+        assert briefing["instructions"] is None
+        assert briefing["effective_instructions"] == BRIEFING_SYSTEM_PROMPT
 
     def test_settings_save_restores_unrestricted_tools(
         self,
@@ -379,14 +388,14 @@ class TestDailyBriefingSettings:
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        test_database.update_agent(user.daily_briefing_agent_id, user.id, tool_permissions=[])
-        assert test_database.get_agent(user.daily_briefing_agent_id, user.id).tool_permissions == []
+        test_database.update_standing_chat(user.daily_briefing_job_id, user.id, grants=[])
+        assert test_database.get_standing_chat(user.daily_briefing_job_id, user.id).grants == []
 
         client.patch(
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
-        agent = test_database.get_agent(user.daily_briefing_agent_id, user.id)
-        assert agent.tool_permissions is None
+        agent = test_database.get_standing_chat(user.daily_briefing_job_id, user.id)
+        assert agent.grants == ["*"]
 
     def test_system_agent_cannot_be_edited_or_deleted_via_api(
         self,
@@ -401,19 +410,19 @@ class TestDailyBriefingSettings:
             "/api/users/me/settings", headers=auth_headers, json={"daily_briefing": self.BRIEFING}
         )
         user = test_database.get_user_by_id(test_user.id)
-        agent_id = user.daily_briefing_agent_id
+        agent_id = user.daily_briefing_job_id
 
         update = client.patch(
-            f"/api/agents/{agent_id}",
+            f"/api/jobs/{agent_id}",
             headers=auth_headers,
             json={"description": "hijack"},
         )
         assert update.status_code == 400
         assert "Settings" in update.get_json()["error"]["message"]
 
-        delete = client.delete(f"/api/agents/{agent_id}", headers=auth_headers)
+        delete = client.delete(f"/api/jobs/{agent_id}", headers=auth_headers)
         assert delete.status_code == 400
-        assert test_database.get_agent(agent_id, user.id) is not None
+        assert test_database.get_standing_chat(agent_id, user.id) is not None
 
         # Settings untoggle still works (disables, keeps history)
         client.patch(
@@ -421,7 +430,7 @@ class TestDailyBriefingSettings:
             headers=auth_headers,
             json={"daily_briefing": {**self.BRIEFING, "enabled": False}},
         )
-        assert test_database.get_agent(agent_id, user.id).enabled is False
+        assert test_database.get_standing_chat(agent_id, user.id).enabled is False
 
 
 class TestPreferredLanguage:

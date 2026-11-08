@@ -126,7 +126,7 @@ class TestTurnsAndAgents:
         assert stats["turns_with_tool_errors"] == 1
 
     def test_agent_runs_and_failures(self, test_database: Database, test_user: User) -> None:
-        agent = test_database.create_agent(test_user.id, "Briefing")
+        agent = test_database.create_standing_chat(test_user.id, "Briefing")
         ok = test_database.create_execution(agent.id, "scheduled")
         test_database.update_execution(ok.id, status="completed")
         bad = test_database.create_execution(agent.id, "scheduled")

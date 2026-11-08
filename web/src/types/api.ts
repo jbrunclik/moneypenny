@@ -71,7 +71,7 @@ export interface Conversation {
   cost_formatted?: string; // Formatted cost string (optional)
   // Agent-related fields
   is_agent?: boolean; // True if this is an agent's dedicated conversation
-  agent_id?: string | null; // ID of the agent if is_agent is true
+  job_id?: string | null; // the agent chat's standing job, if is_agent
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)
@@ -501,25 +501,28 @@ export type PlannerResetResponse = Schemas['PlannerResetResponse'];
 export type PlannerSyncResponse = Schemas['PlannerSyncResponse'];
 
 // =============================================================================
-// Autonomous Agent types
+// Jobs and standing chats
 // =============================================================================
 
 /**
- * `budget_limit`: daily USD limit (null = unlimited); `system_type`: system-managed
- * agent marker ('daily_briefing', ...); `effective_system_prompt`: the stock default
- * for a system-managed agent with a NULL prompt; `daily_spending`: today's USD
+ * A standing chat and its job, as the editor shows it (GET /api/jobs/<id>).
+ * `grants`: tools it may use, write levels as "<tool>:write"; `standing_type`:
+ * built-in marker ('daily_briefing', ...); `effective_instructions`: the stock
+ * prompt of a built-in on null instructions; `budget_usd`: daily, null = none.
  */
-export type Agent = Schemas['AgentResponse'];
+export type JobDetail = Schemas['JobDetailResponse'];
 
-export type CreateAgentRequest = Schemas['CreateAgentRequest'];
+export type CreateJobRequest = Schemas['CreateJobRequest'];
 
-export type UpdateAgentRequest = Schemas['UpdateAgentRequest'];
+export type UpdateJobRequest = Schemas['UpdateJobRequest'];
 
 export type ApprovalRequest = Schemas['PendingApprovalsResponse.ApprovalRequestResponse'];
 
-export type AgentsListResponse = Schemas['AgentsListResponse'];
+export type JobRunsListResponse = Schemas['JobRunsListResponse'];
 
-export type AgentExecutionsListResponse = Schemas['AgentExecutionsListResponse'];
+export type RunJobResponse = Schemas['RunJobResponse'];
+
+export type JobConversationSyncResponse = Schemas['JobConversationSyncResponse'];
 
 /** The job list: every scheduled item and standing job (GET /api/jobs) */
 export type JobsOverviewResponse = Schemas['JobsOverviewResponse'];
@@ -527,10 +530,6 @@ export type JobsOverviewResponse = Schemas['JobsOverviewResponse'];
 export type Job = Schemas['JobsOverviewResponse.JobResponse'];
 
 export type JobRun = Schemas['JobsOverviewResponse.JobRunResponse'];
-
-export type TriggerAgentResponse = Schemas['TriggerAgentResponse'];
-
-export type AgentConversationSyncResponse = Schemas['AgentConversationSyncResponse'];
 
 // =============================================================================
 // KV Store types

@@ -117,7 +117,7 @@ function renderApprovalCard(approval: ApprovalRequest, job: Job | undefined, onA
   reject.addEventListener('click', () => void onApproval(approval.id, false));
   return createElement('div', { class: 'approval-card' }, [
     createElement('div', { class: 'approval-card-header' }, [
-      createElement('span', { class: 'approval-agent-name' }, [approval.agent_name]),
+      createElement('span', { class: 'approval-agent-name' }, [approval.job_name]),
       createElement('span', { class: 'approval-time' }, [relativeTime(approval.created_at)]),
     ]),
     createElement('div', { class: 'approval-card-content' }, [
@@ -139,7 +139,7 @@ function renderApprovalsSection(data: JobsOverviewResponse, onApproval: CommandC
     createElement(
       'div',
       { class: 'approvals-list' },
-      data.pending_approvals.map((a) => renderApprovalCard(a, jobsById.get(a.agent_id), onApproval))
+      data.pending_approvals.map((a) => renderApprovalCard(a, jobsById.get(a.item_id), onApproval))
     ),
   ]);
 }

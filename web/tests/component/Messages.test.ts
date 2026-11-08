@@ -515,8 +515,8 @@ describe('Messages - addMessageToUI special messages', () => {
   });
 
   it('offers Always allow for a change in a writable integration', async () => {
-    const { agents } = await import('@/api/agents');
-    const approve = vi.spyOn(agents, 'approveRequest').mockResolvedValue();
+    const { jobs } = await import('@/api/jobs');
+    const approve = vi.spyOn(jobs, 'approveRequest').mockResolvedValue();
     const todoist =
       '[approval-request:ab12]\nI need your permission to: **Add a task**\nTool: `todoist`';
     addMessageToUI(createMessage('a1', todoist, 'assistant'), container);

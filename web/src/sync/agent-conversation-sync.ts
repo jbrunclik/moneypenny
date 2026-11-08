@@ -5,7 +5,7 @@
  * flag), so the viewed one is polled on its own.
  */
 
-import { agents as agentsApi } from '../api/agents';
+import { jobs as jobsApi } from '../api/jobs';
 import { useStore } from '../state/store';
 import { createLogger } from '../utils/logger';
 import type { SyncState } from './sync-state';
@@ -33,7 +33,7 @@ export class AgentConversationSync {
     }
 
     try {
-      const response = await agentsApi.syncConversation(agentId);
+      const response = await jobsApi.syncConversation(agentId);
       if (!response.conversation) {
         log.debug('Agent conversation not found', { agentId });
         return;

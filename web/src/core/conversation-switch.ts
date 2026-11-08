@@ -52,6 +52,7 @@ const log = createLogger('conversation');
 interface AgentHeaderActions {
   openAgents: () => Promise<void>;
   editAgent: (agentId: string) => Promise<void>;
+  runAgent: (agentId: string) => Promise<void>;
 }
 // UI-local (F2): injected by startup (F1)
 let agentHeaderActions: AgentHeaderActions | null = null;
@@ -101,8 +102,8 @@ function cleanupPreviousConversation(convId: string): void {
  * Agent conversations use the shared chat header with back/edit actions.
  */
 function renderAgentHeaderIfAgent(conv: Conversation): void {
-  if (!conv.is_agent || !conv.agent_id) return;
-  const agentName = getAgentNameById(conv.agent_id) || conv.title;
+  if (!conv.is_agent || !conv.job_id) return;
+  const agentName = getAgentNameById(conv.job_id) || conv.title;
   renderAgentConversationHeader(
     agentName,
     () => {
@@ -111,8 +112,13 @@ function renderAgentHeaderIfAgent(conv: Conversation): void {
         .catch((error: unknown) => log.error('Failed to open agents', { error }));
     },
     () => {
-      if (conv.agent_id) {
-        void headerActions()?.editAgent(conv.agent_id);
+      if (conv.job_id) {
+        void headerActions()?.editAgent(conv.job_id);
+      }
+    },
+    () => {
+      if (conv.job_id) {
+        void headerActions()?.runAgent(conv.job_id);
       }
     },
   );

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+from src.agent.run_context import JobContext, clear_job_context, set_job_context
 from src.agent.tools.permission_check import (
     ApprovalRequiredError,
     check_autonomous_permission,
@@ -21,15 +21,17 @@ from src.agent.tools.permission_check import (
 def agent_ctx(test_database, test_user, monkeypatch):
     """A real agent set as the current agent context, with db patched."""
     monkeypatch.setattr("src.agent.tools.permission_check.db", test_database)
-    agent = test_database.create_agent(user_id=test_user.id, name="Gate Test")
-    set_agent_context(AgentContext(agent=agent, user=test_user, trigger_chain=[agent.id]))
+    agent = test_database.create_standing_chat(user_id=test_user.id, name="Gate Test")
+    set_job_context(
+        JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
+    )
     yield agent
-    clear_agent_context()
+    clear_job_context()
 
 
 class TestDestructiveApprovalGate:
     def test_no_agent_context_allows(self) -> None:
-        clear_agent_context()
+        clear_job_context()
         # Interactive/plain chat: the user is driving - no gate
         check_autonomous_permission("todoist", {"operation": "delete_task"})
 
@@ -44,7 +46,7 @@ class TestDestructiveApprovalGate:
         self, agent_ctx, test_database, test_user
     ) -> None:
         approval = test_database.create_approval_request(
-            agent_id=agent_ctx.id,
+            item_id=agent_ctx.id,
             user_id=test_user.id,
             tool_name="todoist",
             tool_args={"description": "delete task X", "operation": "delete_task"},
@@ -64,7 +66,7 @@ class TestDestructiveApprovalGate:
         self, agent_ctx, test_database, test_user
     ) -> None:
         approval = test_database.create_approval_request(
-            agent_id=agent_ctx.id,
+            item_id=agent_ctx.id,
             user_id=test_user.id,
             tool_name="todoist",
             tool_args=None,
@@ -78,7 +80,7 @@ class TestDestructiveApprovalGate:
     def test_calendar_delete_gated_separately(self, agent_ctx, test_database, test_user) -> None:
         # A todoist approval does not authorize a calendar delete
         approval = test_database.create_approval_request(
-            agent_id=agent_ctx.id,
+            item_id=agent_ctx.id,
             user_id=test_user.id,
             tool_name="todoist",
             tool_args=None,
@@ -97,7 +99,7 @@ def _approve(test_database, agent, user, tool_name="todoist", target_id=None, op
     if operation:
         tool_args["operation"] = operation
     approval = test_database.create_approval_request(
-        agent_id=agent.id,
+        item_id=agent.id,
         user_id=user.id,
         tool_name=tool_name,
         tool_args=tool_args,

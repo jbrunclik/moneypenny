@@ -1,4 +1,4 @@
-"""Agent approval request database operations mixin."""
+"""Approval requests filed by job runs (job_approvals)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from src.config import Config
-from src.db.models.agent_rows import row_to_approval_request
 from src.db.models.dataclasses import ApprovalRequest
+from src.db.models.job_rows import row_to_approval_request
 from src.db.models.timestamps import to_db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class AgentApprovalMixin:
-    """Mixin providing agent approval request operations."""
+class JobApprovalMixin:
+    """Mixin providing job approval requests."""
 
     _pool: ConnectionPool
 
@@ -37,7 +37,7 @@ class AgentApprovalMixin:
 
     def create_approval_request(
         self,
-        agent_id: str,
+        item_id: str,
         user_id: str,
         tool_name: str,
         tool_args: dict[str, Any] | None,
@@ -54,12 +54,12 @@ class AgentApprovalMixin:
         with self._pool.get_connection() as conn:
             self._execute_with_timing(
                 conn,
-                """INSERT INTO agent_approval_requests
-                   (id, agent_id, user_id, tool_name, tool_args, description, status, created_at, expires_at)
+                """INSERT INTO job_approvals
+                   (id, item_id, user_id, tool_name, tool_args, description, status, created_at, expires_at)
                    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
                 (
                     request_id,
-                    agent_id,
+                    item_id,
                     user_id,
                     tool_name,
                     json.dumps(tool_args) if tool_args else None,
@@ -74,7 +74,7 @@ class AgentApprovalMixin:
             "Approval request created",
             extra={
                 "request_id": request_id,
-                "agent_id": agent_id,
+                "item_id": item_id,
                 "tool": tool_name,
                 "expires_at": expires_at.isoformat(),
             },
@@ -82,7 +82,7 @@ class AgentApprovalMixin:
 
         return ApprovalRequest(
             id=request_id,
-            agent_id=agent_id,
+            item_id=item_id,
             user_id=user_id,
             tool_name=tool_name,
             tool_args=tool_args,
@@ -98,7 +98,7 @@ class AgentApprovalMixin:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                "SELECT * FROM agent_approval_requests WHERE id = ? AND user_id = ?",
+                "SELECT * FROM job_approvals WHERE id = ? AND user_id = ?",
                 (request_id, user_id),
             ).fetchone()
 
@@ -113,7 +113,7 @@ class AgentApprovalMixin:
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
-                """SELECT * FROM agent_approval_requests
+                """SELECT * FROM job_approvals
                    WHERE user_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    ORDER BY created_at DESC""",
@@ -122,24 +122,24 @@ class AgentApprovalMixin:
 
             return [row_to_approval_request(row) for row in rows]
 
-    def has_pending_approval(self, agent_id: str) -> bool:
-        """Check if an agent has a pending (non-expired) approval request."""
+    def has_pending_approval(self, item_id: str) -> bool:
+        """Check if a job has a pending (non-expired) approval request."""
         now = utc_now()
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
                 conn,
-                """SELECT 1 FROM agent_approval_requests
-                   WHERE agent_id = ? AND status = 'pending'
+                """SELECT 1 FROM job_approvals
+                   WHERE item_id = ? AND status = 'pending'
                    AND (expires_at IS NULL OR expires_at > ?)
                    LIMIT 1""",
-                (agent_id, to_db(now)),
+                (item_id, to_db(now)),
             ).fetchone()
 
             return row is not None
 
     def consume_approved_request(
         self,
-        agent_id: str,
+        item_id: str,
         tool_name: str,
         target_id: str | None = None,
         operation: str | None = None,
@@ -164,11 +164,11 @@ class AgentApprovalMixin:
             now = to_db(utc_now())
             rows = self._execute_with_timing(
                 conn,
-                """SELECT id, tool_args FROM agent_approval_requests
-                   WHERE agent_id = ? AND tool_name = ?
+                """SELECT id, tool_args FROM job_approvals
+                   WHERE item_id = ? AND tool_name = ?
                      AND status = 'approved' AND expires_at > ?
                    ORDER BY created_at DESC""",
-                (agent_id, tool_name, now),
+                (item_id, tool_name, now),
             ).fetchall()
 
             chosen_id: str | None = None
@@ -190,7 +190,7 @@ class AgentApprovalMixin:
             if chosen_id:
                 cursor = self._execute_with_timing(
                     conn,
-                    """UPDATE agent_approval_requests SET status = 'consumed'
+                    """UPDATE job_approvals SET status = 'consumed'
                        WHERE id = ? AND status = 'approved'""",
                     (chosen_id,),
                 )
@@ -200,7 +200,7 @@ class AgentApprovalMixin:
         logger.info(
             "Approval consumption attempt",
             extra={
-                "agent_id": agent_id,
+                "item_id": item_id,
                 "tool_name": tool_name,
                 "target_id": target_id,
                 "consumed": consumed,
@@ -227,7 +227,7 @@ class AgentApprovalMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE agent_approval_requests
+                """UPDATE job_approvals
                    SET status = ?, resolved_at = ?
                    WHERE id = ? AND user_id = ? AND status = 'pending'""",
                 (status, to_db(now), request_id, user_id),

@@ -14,9 +14,9 @@ Route Organization:
 - conversation_trash.py: Trash list, restore, permanent delete, empty (4 routes, on conversations.api)
 - schedules.py: Scheduled items - a chat's items, cancel, pause, resume (4 routes, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
-- agents.py: Autonomous agents CRUD and execution (9 routes)
-- agent_approvals.py: Agent approval requests (3 routes, on agents.api)
-- agent_assist.py: Agent AI assist - schedule parsing, prompt enhancer (2 routes, on agents.api)
+- jobs.py: The job list; standing chat CRUD, runs, run now, viewed, sync (9 routes)
+- approvals.py: Approval requests from job runs (3 routes, on jobs.api)
+- agent_assist.py: Editor AI assist - schedule parsing, prompt enhancer (2 routes, on jobs.api)
 - chat.py: Chat endpoints (2 routes)
 - files.py: File serving (2 routes)
 - costs.py: Cost tracking (4 routes)
@@ -33,8 +33,8 @@ Total: 78 endpoints across 20 modules
 
 from apiflask import APIFlask
 
-# Import all route modules. agent_approvals, agent_assist and
-# attach their routes to agents.api (one shared "Agents"
+# Import all route modules. approvals and agent_assist
+# attach their routes to jobs.api (one shared "Jobs"
 # blueprint keeps a single OpenAPI tag and the original endpoint names), so
 # they are imported only for that side effect (admin_device_checks does the
 # same for admin.api). conversation_messages,
@@ -43,9 +43,8 @@ from apiflask import APIFlask
 from src.api.routes import (
     admin,
     admin_device_checks,  # noqa: F401 - imported for its routes
-    agent_approvals,  # noqa: F401 - imported for its routes
     agent_assist,  # noqa: F401 - imported for its routes
-    agents,
+    approvals,  # noqa: F401 - imported for its routes
     artifacts,
     auth,
     calendar,
@@ -98,7 +97,6 @@ def register_blueprints(app: APIFlask) -> None:
     app.register_blueprint(settings.api)
     app.register_blueprint(conversations.api)
     app.register_blueprint(planner.api)
-    app.register_blueprint(agents.api)
     app.register_blueprint(jobs.api)
     app.register_blueprint(chat.api)
     app.register_blueprint(files.api)

@@ -78,16 +78,17 @@ window to it (or opens one).
 
 ## Current senders
 
-- **Agent execution finished** — `src/agent/executor.py` success path;
-  `tag: agent-<id>` so re-runs replace the previous notification;
-  deep-links to the agent's conversation.
+- **Standing job run finished** — `src/agent/item_runner.py` delivery
+  path; `tag: job-<id>` so re-runs replace the previous notification;
+  deep-links to the standing chat.
 - **Item set from chat** — `src/agent/item_scheduler.py` /
   `src/agent/item_runner.py`: a reminder (title "Reminder"), a check-in's
   question, a watcher's or recurring check's report (title by kind);
   `tag: item-<id>`; deep-links to the chat that set it. Silent runs,
   "missed" and "stopped" notes post no push
-  ([agents.md](agents.md#lightweight-agents-from-chat-nov-2026)).
-- **Agent waiting for approval** — `ApprovalRequestedException` path;
+  ([scheduled-items.md](scheduled-items.md)).
+- **Job waiting for approval** — `ApprovalRequestedException` path
+  (`record_approval_request` in `src/agent/run_context.py`);
   `tag: approval-<id>`; deep-links to `/#/agents`.
 - **Chat turn finished while backgrounded** — when an interactive turn
   completes but no client is connected (mobile screen lock / app
@@ -117,7 +118,7 @@ owns the Settings-facing lifecycle):
 - Enabling creates a "Daily Briefing" agent (default prompt covers
   calendar, tasks, Garmin readiness, today's planned training read from
   the sports programs' KV data, and a recommendation; all tools
-  allowed) and stores its id on `users.daily_briefing_agent_id`.
+  allowed) and stores its id on `users.daily_briefing_job_id`.
 - The delivery time maps to a daily cron (`M H * * *`) in the user's
   timezone; the existing agent scheduler runs it and the agent-finished
   push delivers it, deep-linking to the briefing conversation.

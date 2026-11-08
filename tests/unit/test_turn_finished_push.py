@@ -180,7 +180,7 @@ class TestAgentConversationTagCoalescing:
 
         mock_db = MagicMock()
         mock_db.count_messages.return_value = 2
-        mock_db.get_conversation.return_value = SimpleNamespace(agent_id="agent-9")
+        mock_db.get_conversation.return_value = SimpleNamespace(job_id="agent-9")
         with (
             patch("src.api.helpers.stream_producer.db", mock_db),
             patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,
@@ -194,7 +194,7 @@ class TestAgentConversationTagCoalescing:
 
         mock_db = MagicMock()
         mock_db.count_messages.return_value = 2
-        mock_db.get_conversation.return_value = SimpleNamespace(agent_id=None)
+        mock_db.get_conversation.return_value = SimpleNamespace(job_id=None)
         with (
             patch("src.api.helpers.stream_producer.db", mock_db),
             patch("src.api.helpers.stream_producer.send_push_to_user") as mock_push,

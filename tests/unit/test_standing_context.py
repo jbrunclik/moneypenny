@@ -49,8 +49,8 @@ def _agent_chat(
 ) -> tuple[object, str]:
     """An agent as Part B makes it: a standing chat carrying the instructions,
     plus its job (same id as the agent) carrying the schedule."""
-    agent = db.create_agent(
-        user.id, name, system_prompt=instructions, schedule=schedule, system_type=standing_type
+    agent = db.create_standing_chat(
+        user.id, name, instructions=instructions, schedule=schedule, standing_type=standing_type
     )
     conv = db.get_conversation(agent.conversation_id or "", user.id)
     assert conv is not None
@@ -63,7 +63,7 @@ def test_agent_chat_instructions_come_from_the_chat(db: Database, test_user: Use
     standing = load_standing_context(conv, test_user)  # type: ignore[arg-type]
 
     assert standing is not None
-    assert (standing.kind, standing.name, standing.agent_id) == ("agent", "VWCE Watcher", job_id)
+    assert (standing.kind, standing.name, standing.job_id) == ("agent", "VWCE Watcher", job_id)
     assert "Watch VWCE weekly" in standing.instructions
     assert "every Friday at 18:00" in standing.instructions
     assert standing.kv_namespace == f"agent:{job_id}"
@@ -78,7 +78,7 @@ def test_briefing_chat_uses_stock_prompt_until_edited(db: Database, test_user: U
     stock = load_standing_context(conv, test_user)  # type: ignore[arg-type]
     assert stock is not None and BRIEFING_SYSTEM_PROMPT in stock.instructions
 
-    db.update_agent(job_id, test_user.id, system_prompt="Add the weather.")
+    db.update_standing_chat(job_id, test_user.id, instructions="Add the weather.")
     edited = db.get_conversation(conv.id, test_user.id)  # type: ignore[attr-defined]
     assert edited is not None
     standing = load_standing_context(edited, test_user)

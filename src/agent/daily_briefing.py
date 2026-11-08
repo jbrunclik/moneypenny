@@ -6,7 +6,7 @@ Command Center observability. This module owns the Settings-facing
 lifecycle: deriving {enabled, time, timezone} from the agent record and
 upserting the agent when the user changes the toggle or delivery time.
 
-The user record points at the agent via users.daily_briefing_agent_id.
+The user record points at its standing job via users.daily_briefing_job_id.
 If the user deletes the agent from Command Center the pointer dangles;
 status reports disabled and the next enable creates a fresh agent.
 """
@@ -20,7 +20,7 @@ from src.utils.cron import daily_cron, daily_cron_time
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import Agent, Conversation, User
+    from src.db.models import Conversation, StandingChat, User
 
 logger = get_logger(__name__)
 
@@ -91,46 +91,36 @@ SYSTEM_AGENT_PROMPTS: dict[str, str] = {
 
 
 def resolve_standing_instructions(conv: Conversation) -> str | None:
-    """A standing chat's effective instructions: the stored ones, else the
-    stock prompt for its standing_type (improvements arrive with deploys)."""
-    if conv.standing_instructions:
-        return conv.standing_instructions
-    if conv.standing_type:
-        return SYSTEM_AGENT_PROMPTS.get(conv.standing_type)
+    """A standing chat's effective instructions (see effective_instructions)."""
+    return effective_instructions(conv.standing_instructions, conv.standing_type)
+
+
+def effective_instructions(instructions: str | None, standing_type: str | None) -> str | None:
+    """The stored instructions, else the stock prompt for a built-in's
+    standing_type (improvements arrive with deploys)."""
+    if instructions:
+        return instructions
+    if standing_type:
+        return SYSTEM_AGENT_PROMPTS.get(standing_type)
     return None
 
 
-def _resolve_agent(user: User) -> Agent | None:
-    if not user.daily_briefing_agent_id:
+def _resolve_briefing(user: User) -> StandingChat | None:
+    if not user.daily_briefing_job_id:
         return None
-    return db.get_agent(user.daily_briefing_agent_id, user.id)
-
-
-def resolve_agent_system_prompt(agent: Agent) -> str | None:
-    """Effective system prompt for an agent run.
-
-    System-managed agents (agent.system_type set) store NULL while on
-    the stock prompt; the current default is resolved from code here at
-    run time - prompt improvements ship with deploys, no migration or
-    user action needed. A non-null prompt is a user customization and
-    always wins.
-    """
-    if agent.system_prompt:
-        return agent.system_prompt
-    if agent.system_type:
-        return SYSTEM_AGENT_PROMPTS.get(agent.system_type)
-    return None
+    return db.get_standing_chat(user.daily_briefing_job_id, user.id)
 
 
 def get_briefing_status(user: User) -> dict[str, object]:
     """Settings view of the briefing: {enabled, time, timezone}."""
-    agent = _resolve_agent(user)
-    if not agent:
+    briefing = _resolve_briefing(user)
+    if not briefing:
         return {"enabled": False, "time": DEFAULT_BRIEFING_TIME, "timezone": "UTC"}
+    schedule = briefing.job.schedule
     return {
-        "enabled": agent.enabled and bool(agent.schedule),
-        "time": daily_cron_time(agent.schedule) or DEFAULT_BRIEFING_TIME,
-        "timezone": agent.timezone,
+        "enabled": briefing.enabled and bool(schedule),
+        "time": daily_cron_time(schedule) or DEFAULT_BRIEFING_TIME,
+        "timezone": briefing.job.timezone or "UTC",
     }
 
 
@@ -140,37 +130,36 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
     Returns the resulting status dict (same shape as get_briefing_status).
     """
     schedule = daily_cron(time_str)
-    agent = _resolve_agent(user)
+    briefing = _resolve_briefing(user)
 
-    if agent is None:
+    if briefing is None:
         if not enabled:
             # Nothing to do - don't create a disabled agent
             return {"enabled": False, "time": time_str, "timezone": timezone}
-        agent = db.create_agent(
-            user_id=user.id,
-            name=BRIEFING_AGENT_NAME,
-            description=BRIEFING_AGENT_DESCRIPTION,
+        briefing = db.create_standing_chat(
+            user.id,
+            BRIEFING_AGENT_NAME,
             # NULL = stock prompt, resolved from code at run time (see
             # resolve_standing_instructions) so improvements ship with
             # deploys; the editor stores a value only on customization
-            system_prompt=None,
+            None,
+            description=BRIEFING_AGENT_DESCRIPTION,
             schedule=schedule,
             timezone=timezone,
-            tool_permissions=None,  # all tools (calendar, todoist, garmin, ...)
-            enabled=True,
+            grants=None,  # all tools (calendar, todoist, garmin, ...)
             # Briefings are independent reports - never feed yesterday's
             # run back into the LLM
             fresh_context=True,
-            system_type=SYSTEM_TYPE_DAILY_BRIEFING,
+            standing_type=SYSTEM_TYPE_DAILY_BRIEFING,
         )
-        db.update_user_daily_briefing_agent(user.id, agent.id)
+        db.update_user_daily_briefing_job(user.id, briefing.id)
         logger.info(
-            "Daily briefing agent created",
-            extra={"user_id": user.id, "agent_id": agent.id, "time": time_str},
+            "Daily briefing created",
+            extra={"user_id": user.id, "job_id": briefing.id, "time": time_str},
         )
     else:
-        db.update_agent(
-            agent.id,
+        db.update_standing_chat(
+            briefing.id,
             user.id,
             schedule=schedule,
             timezone=timezone,
@@ -180,13 +169,13 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             # tasks/Garmin; this also self-heals agents that lost their
             # tools to the old editor trap)
             fresh_context=True,
-            tool_permissions=None,
+            grants=None,
         )
         logger.info(
-            "Daily briefing agent updated",
+            "Daily briefing updated",
             extra={
                 "user_id": user.id,
-                "agent_id": agent.id,
+                "job_id": briefing.id,
                 "enabled": enabled,
                 "time": time_str,
             },

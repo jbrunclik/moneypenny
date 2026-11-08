@@ -291,20 +291,20 @@ def test_pause_resume_an_agent_job_keeps_settings_in_step(
     monkeypatch.setattr(daily_briefing, "db", test_database)
     daily_briefing.set_briefing(test_user, enabled=True, time_str="07:15", timezone="Europe/Prague")
     user = test_database.get_user_by_id(test_user.id)
-    assert user is not None and user.daily_briefing_agent_id
-    job_id = user.daily_briefing_agent_id
+    assert user is not None and user.daily_briefing_job_id
+    job_id = user.daily_briefing_job_id
 
     paused = client.post(f"/api/schedules/{job_id}/pause", headers=auth_headers)
 
     assert paused.status_code == 200
-    agent = test_database.get_agent(job_id, test_user.id)
+    agent = test_database.get_standing_chat(job_id, test_user.id)
     assert agent is not None and agent.enabled is False
     assert daily_briefing.get_briefing_status(user)["enabled"] is False
 
     resumed = client.post(f"/api/schedules/{job_id}/resume", headers=auth_headers)
 
     assert resumed.status_code == 200
-    agent = test_database.get_agent(job_id, test_user.id)
+    agent = test_database.get_standing_chat(job_id, test_user.id)
     assert agent is not None and agent.enabled is True
     assert daily_briefing.get_briefing_status(user)["enabled"] is True
 
@@ -331,7 +331,7 @@ def test_run_now_refused_over_budget_or_awaiting_approval(
 def test_deleting_an_agent_job_still_refused(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
 
     response = client.delete(f"/api/schedules/{agent.id}", headers=auth_headers)
 
@@ -353,8 +353,8 @@ def test_resume_after_settings_turned_the_briefing_off_runs_it_again(
     monkeypatch.setattr(daily_briefing, "db", test_database)
     daily_briefing.set_briefing(test_user, enabled=True, time_str="07:15", timezone="Europe/Prague")
     user = test_database.get_user_by_id(test_user.id)
-    assert user is not None and user.daily_briefing_agent_id
-    job_id = user.daily_briefing_agent_id
+    assert user is not None and user.daily_briefing_job_id
+    job_id = user.daily_briefing_job_id
     daily_briefing.set_briefing(user, enabled=False, time_str="07:15", timezone="Europe/Prague")
 
     response = client.post(f"/api/schedules/{job_id}/resume", headers=auth_headers)
@@ -368,7 +368,7 @@ def test_resume_after_settings_turned_the_briefing_off_runs_it_again(
 def test_resume_after_a_long_pause_does_not_catch_up(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     client.post(f"/api/schedules/{agent.id}/pause", headers=auth_headers)
     test_database.finish_item_run(agent.id, datetime.now(UTC) - timedelta(days=2), None, 0, 0)
     test_database.set_item_paused(agent.id, test_user.id, True, reason="disabled")
@@ -382,7 +382,7 @@ def test_resume_after_a_long_pause_does_not_catch_up(
 def test_resume_an_agent_paused_after_failures(
     client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
 ) -> None:
-    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
     test_database.finish_item_run(agent.id, datetime.now(UTC) - timedelta(days=1), None, 0, 3)
     test_database.set_item_paused(agent.id, test_user.id, True, reason="failures")
 

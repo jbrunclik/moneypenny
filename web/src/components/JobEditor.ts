@@ -4,7 +4,7 @@
  */
 
 import { jobs } from '../api/jobs';
-import { agents, aiAssist } from '../api/agents';
+import { aiAssist } from '../api/assist';
 import { settings } from '../api/settings';
 import { useStore } from '../state/store';
 import { toast } from './Toast';
@@ -25,13 +25,13 @@ import {
   type IconHtml,
 } from '../utils/icons';
 import { createLogger } from '../utils/logger';
-import type { Agent, CreateAgentRequest, UpdateAgentRequest, UserSettings } from '../types/api';
+import type { CreateJobRequest, JobDetail, UpdateJobRequest, UserSettings } from '../types/api';
 
 const log = createLogger('agent-editor');
 
 // Modal container element
 let modalContainer: HTMLDivElement | null = null;
-let currentResolve: ((result: Agent | null) => void) | null = null;
+let currentResolve: ((result: JobDetail | null) => void) | null = null;
 // UI-local (F2): the open editor dialog's session
 let editingAgentId: string | null = null;
 // The close animation's pending cleanup; a reopen runs it at once so it can't
@@ -44,19 +44,23 @@ let pendingClose: { timer: ReturnType<typeof setTimeout>; finish: () => void } |
 // don't affect external systems (execute_code, generate_image) are
 // automatically available without needing permission selection.
 const BASE_TOOLS = [
-  { id: 'todoist', name: 'Todoist', description: 'Create, update, and complete tasks', icon: CHECKLIST_ICON },
-  { id: 'google_calendar', name: 'Google Calendar', description: 'Create and manage calendar events', icon: CALENDAR_ICON },
+  { id: 'todoist', name: 'Todoist', description: 'Read and manage tasks', icon: CHECKLIST_ICON, writable: true },
+  { id: 'google_calendar', name: 'Google Calendar', description: 'Read and manage calendar events', icon: CALENDAR_ICON, writable: true },
   { id: 'garmin_connect', name: 'Garmin', description: 'Read sleep and readiness data', icon: ACTIVITY_ICON },
   { id: 'whatsapp', name: 'WhatsApp', description: 'Send notifications via WhatsApp', icon: PHONE_ICON },
   { id: 'trigger_agent', name: 'Other agents', description: 'Hand a task to another of your agents', icon: ROBOT_ICON },
 ];
 
-// Agents created with tool_permissions = null are unrestricted (every
-// available tool, including ones not in this grid). The editor must not
-// silently narrow that: see getToolPermissionsForSave().
+const ALL_TOOLS_GRANT = '*';
+const WRITE_SUFFIX = ':write';
+
+// A job granted all tools ('*') can use every available tool, including ones
+// not in this grid. The editor must not silently narrow that, nor drop grants
+// the grid doesn't show (set by talking or an approval): see readAgentForm().
 // UI-local (F2): the open editor's permission-grid edits
 let originalPermissionsUnrestricted = false;
 let permissionsTouched = false;
+let hiddenGrants: string[] = [];
 
 /**
  * Get available tools filtered based on user settings.
@@ -130,9 +134,8 @@ function initAgentEditor(): void {
 
 /**
  * Open the agent editor to create a new agent.
- * Note: When editing, pass an Agent with optional system_prompt if available.
  */
-export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
+export async function showAgentEditor(agent?: JobDetail): Promise<JobDetail | null> {
   initAgentEditor(); // idempotent - lazy import means no boot-time init
 
   // Fetch user settings to determine available tools (e.g., WhatsApp)
@@ -147,8 +150,9 @@ export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
   finishPendingClose();
   return new Promise((resolve) => {
     editingAgentId = agent?.id || null;
-    originalPermissionsUnrestricted = !!agent && agent.tool_permissions == null;
+    originalPermissionsUnrestricted = !!agent && agent.grants.includes(ALL_TOOLS_GRANT);
     permissionsTouched = false;
+    hiddenGrants = gridlessGrants(agent?.grants ?? [], getAvailableTools(userSettings));
     currentResolve = resolve;
     renderModal(agent, userSettings);
     showModalContainer();
@@ -158,7 +162,7 @@ export async function showAgentEditor(agent?: Agent): Promise<Agent | null> {
 /**
  * Close the agent editor.
  */
-function closeAgentEditor(result: Agent | null = null): void {
+function closeAgentEditor(result: JobDetail | null = null): void {
   if (!modalContainer || !currentResolve) return;
 
   // Start exit animation
@@ -189,25 +193,25 @@ function finishPendingClose(): void {
 }
 
 /** The form's initial text fields: the agent being edited, or empty for a new one. */
-function agentTextValues(agent: Agent | undefined) {
+function agentTextValues(agent: JobDetail | undefined) {
   return {
     name: agent?.name || '',
     description: agent?.description || '',
-    systemPrompt: agent?.system_prompt || '',
+    systemPrompt: agent?.instructions || '',
     schedule: agent?.schedule || '',
   };
 }
 
 /** The form's initial run settings: the agent being edited, or a new agent's defaults. */
-function agentRunValues(agent: Agent | undefined) {
+function agentRunValues(agent: JobDetail | undefined) {
   return {
     timezone: agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     enabled: agent?.enabled ?? true,
     // Default ON for new agents; most agents' runs are independent
     freshContext: agent?.fresh_context ?? true,
-    toolPermissions: agent?.tool_permissions || [],
+    toolPermissions: agent?.grants ?? [],
     model: agent?.model || useStore.getState().defaultModel,
-    budgetLimit: agent?.budget_limit,
+    budgetLimit: agent?.budget_usd,
   };
 }
 
@@ -314,17 +318,27 @@ function toolPermissionsField(availableTools: typeof BASE_TOOLS, toolPermissions
   // tells the truth (unchecked boxes would read as "no access")
   const isToolChecked = (toolId: string): boolean =>
     originalPermissionsUnrestricted || toolPermissions.includes(toolId);
+  const canWrite = (toolId: string): boolean =>
+    originalPermissionsUnrestricted || toolPermissions.includes(`${toolId}${WRITE_SUFFIX}`);
   const cards = availableTools.map((tool) =>
-    el('label', { class: 'tool-permission-card' }, [
-      checkbox({ name: 'tool-permission', value: tool.id }, isToolChecked(tool.id)),
-      el('span', { class: 'tool-permission-content' }, [
-        createIconElement('tool-icon', tool.icon),
-        el('span', { class: 'tool-details' }, [
-          el('span', { class: 'tool-name' }, [tool.name]),
-          el('span', { class: 'tool-description' }, [tool.description]),
+    el('div', { class: 'tool-permission-item' }, [
+      el('label', { class: 'tool-permission-card' }, [
+        checkbox({ name: 'tool-permission', value: tool.id }, isToolChecked(tool.id)),
+        el('span', { class: 'tool-permission-content' }, [
+          createIconElement('tool-icon', tool.icon),
+          el('span', { class: 'tool-details' }, [
+            el('span', { class: 'tool-name' }, [tool.name]),
+            el('span', { class: 'tool-description' }, [tool.description]),
+          ]),
+          el('span', { class: 'tool-checkbox-indicator' }),
         ]),
-        el('span', { class: 'tool-checkbox-indicator' }),
       ]),
+      // Without it, each change there waits for the user's approval
+      'writable' in tool &&
+        el('label', { class: 'tool-write-toggle' }, [
+          checkbox({ name: 'tool-write', value: tool.id }, canWrite(tool.id)),
+          el('span', {}, ['Can change things without asking']),
+        ]),
     ])
   );
   return formGroup([
@@ -333,7 +347,7 @@ function toolPermissionsField(availableTools: typeof BASE_TOOLS, toolPermissions
     help(
       originalPermissionsUnrestricted
         ? 'This agent has unrestricted tool access (including tools not listed here). Changing the selection restricts it to the checked integrations.'
-        : 'Select which integrations the agent can use.'
+        : 'Select which integrations the agent can use. Without "Can change things", each change waits for your approval.'
     ),
   ]);
 }
@@ -415,7 +429,7 @@ function formFields(v: ReturnType<typeof agentTextValues> & ReturnType<typeof ag
 /**
  * Render the modal content.
  */
-function renderModal(agent?: Agent, userSettings?: UserSettings | null): void {
+function renderModal(agent?: JobDetail, userSettings?: UserSettings | null): void {
   if (!modalContainer) return;
 
   const isEditing = !!agent;
@@ -496,9 +510,22 @@ function timezoneOptions(selected: string): HTMLOptionElement[] {
  */
 function getSelectedToolPermissions(): string[] {
   if (!modalContainer) return [];
+  const checkedValues = (name: string): string[] =>
+    Array.from(modalContainer?.querySelectorAll<HTMLInputElement>(`input[name="${name}"]:checked`) ?? []).map(
+      (cb) => cb.value
+    );
+  const tools = checkedValues('tool-permission');
+  // A write level only for a tool that is itself granted
+  const writes = checkedValues('tool-write')
+    .filter((id) => tools.includes(id))
+    .map((id) => `${id}${WRITE_SUFFIX}`);
+  return [...tools, ...writes];
+}
 
-  const toolCheckboxes = modalContainer.querySelectorAll<HTMLInputElement>('input[name="tool-permission"]:checked');
-  return Array.from(toolCheckboxes).map(cb => cb.value);
+/** Grants the grid doesn't show (kept as they are on save), e.g. WhatsApp when it isn't set up. */
+function gridlessGrants(grants: string[], shownTools: typeof BASE_TOOLS): string[] {
+  const gridIds = new Set(shownTools.map((t) => t.id));
+  return grants.filter((g) => g !== ALL_TOOLS_GRANT && !gridIds.has(g.replace(WRITE_SUFFIX, '')));
 }
 
 /**
@@ -641,7 +668,7 @@ function setupEnhancePromptHandler(): void {
   const enhancePrompt = async (): Promise<void> => {
     const prompt = promptInput?.value?.trim();
     const agentName = nameInput?.value?.trim() || 'Agent';
-    const toolPermissions = getSelectedToolPermissions();
+    const toolPermissions = getSelectedToolPermissions().filter((g) => !g.endsWith(WRITE_SUFFIX));
 
     if (!prompt) {
       toast.error('Enter a system prompt to enhance');
@@ -825,8 +852,24 @@ function validateScheduleField(modal: HTMLElement): string | null {
   return schedule;
 }
 
+/**
+ * The optional fields as sent: a filled one as is; an emptied one null on
+ * edit (cleared) and left out for a new agent.
+ */
+function clearableFields(
+  isEdit: boolean,
+  fields: Record<string, string | number | undefined>
+): Record<string, string | number | null> {
+  const sent: Record<string, string | number | null> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== '') sent[key] = value;
+    else if (isEdit) sent[key] = null;
+  }
+  return sent;
+}
+
 /** The request body from a validated form; empty optional fields are left out (same JSON as undefined). */
-function readAgentForm(modal: HTMLElement, name: string, schedule: string): CreateAgentRequest | UpdateAgentRequest {
+function readAgentForm(modal: HTMLElement, name: string, schedule: string): CreateJobRequest | UpdateJobRequest {
   const trimmed = (selector: string): string | undefined =>
     modal.querySelector<HTMLInputElement>(selector)?.value?.trim();
   const checked = (selector: string): boolean => modal.querySelector<HTMLInputElement>(selector)?.checked ?? true;
@@ -837,25 +880,22 @@ function readAgentForm(modal: HTMLElement, name: string, schedule: string): Crea
   // Parse budget limit - empty means no limit (undefined)
   const budgetLimitValue = trimmed('#agent-budget-limit');
   const budgetLimit = budgetLimitValue ? parseFloat(budgetLimitValue) : undefined;
-  const data: CreateAgentRequest | UpdateAgentRequest = {
+  const isEdit = editingAgentId !== null;
+  const data: CreateJobRequest | UpdateJobRequest = {
     name,
-    ...(description && { description }),
-    ...(systemPrompt && { system_prompt: systemPrompt }),
-    ...(schedule && { schedule }),
+    ...clearableFields(isEdit, { description, instructions: systemPrompt, schedule, budget_usd: budgetLimit }),
     timezone: modal.querySelector<HTMLSelectElement>('#agent-timezone')?.value || 'UTC',
     ...(model && { model }),
-    ...(budgetLimit !== undefined && { budget_limit: budgetLimit }),
     enabled: checked('#agent-enabled'),
     fresh_context: checked('#agent-fresh-context'),
-    tool_permissions: getSelectedToolPermissions(),
+    grants: [...getSelectedToolPermissions(), ...hiddenGrants],
   };
 
-  // An agent with unrestricted (null) permissions whose selection was
-  // never touched must keep them: the PATCH treats a missing field as
-  // "unchanged", while sending the checked subset would silently narrow
-  // access to grid tools only
+  // A job granted all tools whose selection was never touched keeps them:
+  // the PATCH treats a missing field as "unchanged", while sending the
+  // checked subset would silently narrow access to grid tools only
   if (originalPermissionsUnrestricted && !permissionsTouched) {
-    delete data.tool_permissions;
+    delete data.grants;
   }
   return data;
 }
@@ -880,15 +920,15 @@ async function handleSave(): Promise<void> {
   }
 
   try {
-    let result: Agent;
+    let result: JobDetail;
 
     if (editingAgentId) {
       // Update existing agent
-      result = await agents.update(editingAgentId, data);
+      result = await jobs.update(editingAgentId, data);
       toast.success('Agent updated');
     } else {
       // Create new agent
-      result = await agents.create(data as CreateAgentRequest);
+      result = await jobs.create(data as CreateJobRequest);
       toast.success('Agent created');
     }
 
@@ -931,13 +971,12 @@ async function handleDelete(): Promise<void> {
 
   try {
     const agentId = editingAgentId;
-    await agents.delete(agentId);
+    await jobs.delete(agentId);
     toast.success('Agent deleted');
     closeAgentEditor(null);
 
     // Update the store to remove the agent
-    const { removeAgent, setCommandCenterData } = useStore.getState();
-    removeAgent(agentId);
+    const { setCommandCenterData } = useStore.getState();
 
     // Refresh command center data to update the UI
     try {
@@ -947,7 +986,7 @@ async function handleDelete(): Promise<void> {
       // If we are currently in the agents view, we need to re-render it
       // The easiest way is to re-navigate to it
       if (useStore.getState().isAgentsView) {
-        // dynamic: breaks import cycle (agents.ts statically imports AgentEditor.ts)
+        // dynamic: breaks import cycle (agents.ts statically imports JobEditor.ts)
         const { navigateToAgents } = await import('../core/agents');
         await navigateToAgents(true);
       }

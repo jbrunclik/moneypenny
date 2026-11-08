@@ -528,7 +528,7 @@ def test_over_budget_skips_without_counting_a_failure(
     stored = _stored(db, job)
     assert (stored.failures, stored.status) == (0, "active")
     assert stored.next_run_at > _NOW
-    [execution] = db.get_agent_executions(job.id)
+    [execution] = db.get_job_runs(job.id)
     assert execution.status == "failed"
     assert "over its daily budget" in (execution.error_message or "")
 

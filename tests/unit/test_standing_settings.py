@@ -32,12 +32,12 @@ def agent(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(gate, "db", test_database)
-    agent = test_database.create_agent(
+    agent = test_database.create_standing_chat(
         test_user.id,
         "Coach",
-        system_prompt="Coach my rides",
+        instructions="Coach my rides",
         schedule="0 20 * * *",
-        tool_permissions=["garmin_connect"],
+        grants=["garmin_connect"],
     )
     set_conversation_context(agent.conversation_id, test_user.id)
     set_current_request_id("request-1")
@@ -64,17 +64,15 @@ def test_chat_settings_change_needs_later_yes(
     preview = _call(instructions="Coach my rides and check the weather first.")
 
     assert "PREVIEW" in preview
-    unchanged = test_database.get_agent(agent.id, test_user.id)
-    assert unchanged is not None and unchanged.system_prompt == "Coach my rides"
+    unchanged = test_database.get_standing_chat(agent.id, test_user.id)
+    assert unchanged is not None and unchanged.instructions == "Coach my rides"
 
     _user_says_yes(test_database, agent)
     applied = _call(confirm=True)
 
     assert "Updated" in applied
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert (
-        after is not None and after.system_prompt == "Coach my rides and check the weather first."
-    )
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.instructions == "Coach my rides and check the weather first."
 
 
 def test_same_turn_confirm_refused(agent: Agent, test_database: Database, test_user: User) -> None:
@@ -83,27 +81,29 @@ def test_same_turn_confirm_refused(agent: Agent, test_database: Database, test_u
     refused = _call(confirm=True)
 
     assert "not answered" in refused
-    after = test_database.get_agent(agent.id, test_user.id)
+    after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.schedule == "0 20 * * *"
 
 
 def test_unattended_settings_change_files_approval(
     agent: Agent, test_database: Database, test_user: User
 ) -> None:
-    from src.agent.executor import AgentContext, clear_agent_context, set_agent_context
+    from src.agent.run_context import JobContext, clear_job_context, set_job_context
     from src.agent.tools.request_approval import ApprovalRequestedException
 
-    set_agent_context(AgentContext(agent=agent, user=test_user, trigger_chain=[agent.id]))
+    set_job_context(
+        JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
+    )
     try:
         with pytest.raises(ApprovalRequestedException) as raised:
             edit_standing_chat.func(schedule="0 8 * * 1")  # type: ignore[attr-defined]
     finally:
-        clear_agent_context()
+        clear_job_context()
 
     approval = test_database.get_approval_request(raised.value.approval_id, test_user.id)
     assert approval is not None and approval.tool_name == "edit_standing_chat"
     assert approval.tool_args == {"schedule": "0 8 * * 1"}
-    after = test_database.get_agent(agent.id, test_user.id)
+    after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.schedule == "0 20 * * *"
 
 
@@ -113,8 +113,8 @@ def test_grants_never_widen_without_approval(
     preview = _call(grants=["garmin_connect", "todoist"])
 
     assert "todoist" in preview  # the preview names the new access
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert after is not None and after.tool_permissions == ["garmin_connect"]
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.grants == ["garmin_connect"]
 
 
 def test_unknown_grants_and_bad_cron_are_refused(agent: Agent) -> None:
@@ -132,11 +132,11 @@ def test_briefing_edit_freezes_a_copy(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(gate, "db", test_database)
-    briefing = test_database.create_agent(
+    briefing = test_database.create_standing_chat(
         test_user.id,
         "Daily Briefing",
         schedule="15 7 * * *",
-        system_type=SYSTEM_TYPE_DAILY_BRIEFING,
+        standing_type=SYSTEM_TYPE_DAILY_BRIEFING,
     )
     conv_id = briefing.conversation_id or ""
     set_conversation_context(conv_id, test_user.id)
@@ -218,8 +218,8 @@ def test_a_preview_answered_with_something_else_expires(
     refused = _call(confirm=True)
 
     assert "expired" in refused
-    after = test_database.get_agent(agent.id, test_user.id)
-    assert after is not None and after.tool_permissions == ["garmin_connect"]
+    after = test_database.get_standing_chat(agent.id, test_user.id)
+    assert after is not None and after.grants == ["garmin_connect"]
     assert (
         test_database.kv_get(test_user.id, PENDING_NAMESPACE, agent.conversation_id or "") is None
     )
@@ -234,7 +234,7 @@ def test_preview_shows_widening_from_no_tools(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(gate, "db", test_database)
-    bare = test_database.create_agent(test_user.id, "Bare", tool_permissions=[])
+    bare = test_database.create_standing_chat(test_user.id, "Bare", grants=[])
     set_conversation_context(bare.conversation_id, test_user.id)
     set_current_request_id("r1")
     try:

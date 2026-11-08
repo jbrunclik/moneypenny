@@ -237,7 +237,58 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** A new standing chat with its job (its chat is "Agent: <name>"). */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["CreateJobRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -454,112 +505,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all autonomous agents for the current user.
-         * @description Returns agents ordered by creation date (newest first).
-         *     Each agent includes unread_count and has_pending_approval flags.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentsListResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Create a new autonomous agent.
-         * @description Creates the agent and its dedicated conversation automatically.
-         *     The conversation title will be "Agent: <name>".
-         *
-         *     Returns the created agent with its conversation_id.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["CreateAgentRequest"];
-                };
-            };
-            responses: {
-                /** @description Successful response */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -882,6 +827,54 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["MemoriesListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all pending approval requests.
+         * @description Returns pending approvals with their standing chats' names.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PendingApprovalsResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
             };
@@ -1390,6 +1383,179 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A standing chat and its job, as the editor shows it. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobDetailResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a standing chat: its chat, runs, approvals, notes and job.
+         * @description Message costs stay (cost tracking).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a standing chat: only the fields sent change (grants are the
+         * @description complete list, write levels included).
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateJobRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobDetailResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/client-errors": {
@@ -2020,54 +2186,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/agents/approvals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get all pending approval requests.
-         * @description Returns pending approvals with agent names for display.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PendingApprovalsResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/todoist/auth-url": {
         parameters: {
             query?: never;
@@ -2298,74 +2416,25 @@ export interface paths {
         };
         trace?: never;
     };
-    "/api/agents/{agent_id}": {
+    "/api/jobs/{job_id}/run": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get a specific agent by ID.
-         * @description Returns the agent with unread_count and has_pending_approval flags.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
-        post?: never;
         /**
-         * Delete an agent and its dedicated conversation.
-         * @description Also deletes:
-         *     - All messages in the agent's conversation
-         *     - All approval requests for this agent
-         *     - All execution records for this agent
-         *
-         *     Message costs are preserved for accurate cost tracking.
+         * Run a standing chat's job now (claimed like a due run, so the
+         * @description scheduler cannot start it at the same time).
          */
-        delete: {
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    agent_id: string;
+                    job_id: string;
                 };
                 cookie?: never;
             };
@@ -2377,58 +2446,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["StatusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Update an agent's configuration.
-         * @description Only provided fields will be updated; others remain unchanged.
-         *     If the name changes, the conversation title is updated to match.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["UpdateAgentRequest"];
-                };
-            };
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentResponse"];
+                        "application/json": components["schemas"]["RunJobResponse"];
                     };
                 };
                 /** @description Bad Request */
@@ -2458,17 +2476,12 @@ export interface paths {
                         "application/json": components["schemas"]["HTTPError"];
                     };
                 };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
-                    };
-                };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/language/programs": {
@@ -2725,6 +2738,62 @@ export interface paths {
                 };
                 /** @description Too Many Requests */
                 429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A standing job's 20 most recent runs, newest first. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobRunsListResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3331,6 +3400,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/{job_id}/viewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The user opened the standing chat: its messages so far are read. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StatusResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}": {
         parameters: {
             query?: never;
@@ -3432,77 +3557,6 @@ export interface paths {
                 };
             };
         };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agents/{agent_id}/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Manually trigger an agent to run.
-         * @description Creates an execution record and runs the agent.
-         *     If the agent is disabled or waiting for approval, returns an error.
-         *
-         *     Returns the execution record with status.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TriggerAgentResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5217,65 +5271,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/agents/{agent_id}/executions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get execution history for an agent.
-         * @description Returns the 20 most recent executions, newest first.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentExecutionsListResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/conversations/{conv_id}/cost": {
         parameters: {
             query?: never;
@@ -5476,66 +5471,6 @@ export interface paths {
                 };
                 /** @description Too Many Requests */
                 429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agents/{agent_id}/mark-viewed": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mark an agent's conversation as viewed.
-         * @description Updates the last_viewed_at timestamp to reset unread count.
-         *     Should be called when user opens the agent's conversation.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StatusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5994,6 +5929,62 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/{job_id}/conversation/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The standing chat's message count and updated_at, for live sync. */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    job_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JobConversationSyncResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6655,70 +6646,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConversationCompactionResponse"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agents/{agent_id}/conversation/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Sync agent conversation - returns message count and updated_at.
-         * @description Used for real-time synchronization when viewing an agent's conversation.
-         *     This allows detection of external updates to the agent conversation.
-         *
-         *     Returns:
-         *     - conversation: Object with message_count and updated_at, or null if no conversation
-         *     - server_time: Current server timestamp to use for next sync
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    agent_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AgentConversationSyncResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
                     };
                 };
                 /** @description Not found */
@@ -7616,18 +7543,21 @@ export interface components {
         };
         /**
          * ApprovalRequestResponse
-         * @description Approval request information.
+         * @description A change a job's run asked the user to approve.
          */
         "JobsOverviewResponse.ApprovalRequestResponse": {
             /** Id */
             id: string;
-            /** Agent Id */
-            agent_id: string;
             /**
-             * Agent Name
-             * @description Name of the agent requesting approval
+             * Item Id
+             * @description The job that asked
              */
-            agent_name: string;
+            item_id: string;
+            /**
+             * Job Name
+             * @description The standing chat's name
+             */
+            job_name: string;
             /** Tool Name */
             tool_name: string;
             /**
@@ -7714,7 +7644,7 @@ export interface components {
             system_type: string | null;
             /**
              * Editable
-             * @description Opens in the agent editor
+             * @description Opens in the job editor
              */
             editable: boolean;
             /**
@@ -7742,7 +7672,7 @@ export interface components {
         };
         /**
          * JobRunResponse
-         * @description One run of a standing job (its audit trail).
+         * @description One run of a standing job (its audit trail, in the job list).
          */
         "JobsOverviewResponse.JobRunResponse": {
             /**
@@ -7825,6 +7755,170 @@ export interface components {
              * @default 0
              */
             jobs_with_errors: number;
+        };
+        /**
+         * JobDetailResponse
+         * @description A standing chat and its job, as the editor shows it.
+         */
+        JobDetailResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default null
+             */
+            description: string | null;
+            /**
+             * Instructions
+             * @default null
+             */
+            instructions: string | null;
+            /**
+             * Effective Instructions
+             * @description The instructions in force: a built-in's stock prompt on null
+             * @default null
+             */
+            effective_instructions: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Grants
+             * @description Tools it may use, write levels as "<tool>:write"
+             */
+            grants: string[];
+            /** Model */
+            model: string;
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Last Run At
+             * @default null
+             */
+            last_run_at: string | null;
+            /**
+             * Next Run At
+             * @default null
+             */
+            next_run_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd: number | null;
+            /** Fresh Context */
+            fresh_context: boolean;
+            /**
+             * Standing Type
+             * @description Built-in marker
+             * @default null
+             */
+            standing_type: string | null;
+            /**
+             * Spend Today Usd
+             * @default 0
+             */
+            spend_today_usd: number;
+            /**
+             * Has Pending Approval
+             * @default false
+             */
+            has_pending_approval: boolean;
+            /**
+             * Unread Count
+             * @default 0
+             */
+            unread_count: number;
+            /**
+             * Last Run Status
+             * @default null
+             */
+            last_run_status: string | null;
+        };
+        ValidationError: {
+            detail?: {
+                "<location>"?: {
+                    "<field_name>"?: string[];
+                };
+            };
+            message?: string;
+        };
+        /**
+         * CreateJobRequest
+         * @description POST /api/jobs: a new standing chat with its job.
+         */
+        CreateJobRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default null
+             */
+            description?: string | null;
+            /**
+             * Instructions
+             * @default null
+             */
+            instructions?: string | null;
+            /**
+             * Schedule
+             * @description Cron, e.g. '0 9 * * *'; null = on demand
+             * @default null
+             */
+            schedule?: string | null;
+            /**
+             * Timezone
+             * @description IANA timezone for the schedule
+             * @default UTC
+             */
+            timezone?: string;
+            /**
+             * Grants
+             * @description Tools it may use; "<tool>:write" lets it change things; null = all
+             * @default null
+             */
+            grants?: string[] | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled?: boolean;
+            /**
+             * Model
+             * @description LLM model (defaults to Fast)
+             * @default null
+             */
+            model?: string | null;
+            /**
+             * Budget Usd
+             * @description Daily budget in USD (null = none)
+             * @default null
+             */
+            budget_usd?: number | null;
+            /**
+             * Fresh Context
+             * @description Each run starts without history
+             * @default true
+             */
+            fresh_context?: boolean;
         };
         /**
          * HealthCheckDetail
@@ -7960,317 +8054,6 @@ export interface components {
              * @description The search query that was executed
              */
             query: string;
-        };
-        ValidationError: {
-            detail?: {
-                "<location>"?: {
-                    "<field_name>"?: string[];
-                };
-            };
-            message?: string;
-        };
-        /**
-         * AgentResponse
-         * @description Agent information.
-         */
-        "AgentsListResponse.AgentResponse": {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * System Prompt
-             * @default null
-             */
-            system_prompt: string | null;
-            /**
-             * Schedule
-             * @default null
-             */
-            schedule: string | null;
-            /** Timezone */
-            timezone: string;
-            /** Enabled */
-            enabled: boolean;
-            /**
-             * Tool Permissions
-             * @default null
-             */
-            tool_permissions: string[] | null;
-            /**
-             * Model
-             * @description LLM model for the agent
-             */
-            model: string;
-            /**
-             * Conversation Id
-             * @default null
-             */
-            conversation_id: string | null;
-            /**
-             * Last Run At
-             * @default null
-             */
-            last_run_at: string | null;
-            /**
-             * Next Run At
-             * @default null
-             */
-            next_run_at: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Budget Limit
-             * @description Daily budget limit in USD (null = unlimited)
-             * @default null
-             */
-            budget_limit: number | null;
-            /**
-             * Fresh Context
-             * @description Run each execution without prior conversation history
-             * @default false
-             */
-            fresh_context: boolean;
-            /**
-             * System Type
-             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
-             * @default null
-             */
-            system_type: string | null;
-            /**
-             * Effective System Prompt
-             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
-             * @default null
-             */
-            effective_system_prompt: string | null;
-            /**
-             * Daily Spending
-             * @description Today's spending in USD
-             * @default 0
-             */
-            daily_spending: number;
-            /**
-             * Has Pending Approval
-             * @description Whether agent is blocked waiting for approval
-             * @default false
-             */
-            has_pending_approval: boolean;
-            /**
-             * Has Error
-             * @description Whether the last execution failed
-             * @default false
-             */
-            has_error: boolean;
-            /**
-             * Unread Count
-             * @description Number of unread messages in agent conversation
-             * @default 0
-             */
-            unread_count: number;
-            /**
-             * Last Execution Status
-             * @description Status of the most recent execution (completed, failed, etc.)
-             * @default null
-             */
-            last_execution_status: string | null;
-        };
-        /**
-         * AgentsListResponse
-         * @description List of agents.
-         */
-        AgentsListResponse: {
-            /** Agents */
-            agents: components["schemas"]["AgentsListResponse.AgentResponse"][];
-        };
-        /**
-         * AgentResponse
-         * @description Agent information.
-         */
-        AgentResponse: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-            /**
-             * Description
-             * @default null
-             */
-            description: string | null;
-            /**
-             * System Prompt
-             * @default null
-             */
-            system_prompt: string | null;
-            /**
-             * Schedule
-             * @default null
-             */
-            schedule: string | null;
-            /** Timezone */
-            timezone: string;
-            /** Enabled */
-            enabled: boolean;
-            /**
-             * Tool Permissions
-             * @default null
-             */
-            tool_permissions: string[] | null;
-            /**
-             * Model
-             * @description LLM model for the agent
-             */
-            model: string;
-            /**
-             * Conversation Id
-             * @default null
-             */
-            conversation_id: string | null;
-            /**
-             * Last Run At
-             * @default null
-             */
-            last_run_at: string | null;
-            /**
-             * Next Run At
-             * @default null
-             */
-            next_run_at: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Budget Limit
-             * @description Daily budget limit in USD (null = unlimited)
-             * @default null
-             */
-            budget_limit: number | null;
-            /**
-             * Fresh Context
-             * @description Run each execution without prior conversation history
-             * @default false
-             */
-            fresh_context: boolean;
-            /**
-             * System Type
-             * @description System-managed agent marker (e.g. 'daily_briefing'); null for regular agents
-             * @default null
-             */
-            system_type: string | null;
-            /**
-             * Effective System Prompt
-             * @description Resolved prompt: the stock default for system-managed agents on a NULL prompt
-             * @default null
-             */
-            effective_system_prompt: string | null;
-            /**
-             * Daily Spending
-             * @description Today's spending in USD
-             * @default 0
-             */
-            daily_spending: number;
-            /**
-             * Has Pending Approval
-             * @description Whether agent is blocked waiting for approval
-             * @default false
-             */
-            has_pending_approval: boolean;
-            /**
-             * Has Error
-             * @description Whether the last execution failed
-             * @default false
-             */
-            has_error: boolean;
-            /**
-             * Unread Count
-             * @description Number of unread messages in agent conversation
-             * @default 0
-             */
-            unread_count: number;
-            /**
-             * Last Execution Status
-             * @description Status of the most recent execution (completed, failed, etc.)
-             * @default null
-             */
-            last_execution_status: string | null;
-        };
-        /**
-         * CreateAgentRequest
-         * @description Schema for POST /api/agents.
-         */
-        CreateAgentRequest: {
-            /** Name */
-            name: string;
-            /**
-             * Description
-             * @default null
-             */
-            description?: string | null;
-            /**
-             * System Prompt
-             * @default null
-             */
-            system_prompt?: string | null;
-            /**
-             * Schedule
-             * @description Cron expression (e.g., '0 9 * * *' for daily at 9am)
-             * @default null
-             */
-            schedule?: string | null;
-            /**
-             * Timezone
-             * @description IANA timezone for schedule
-             * @default UTC
-             */
-            timezone?: string;
-            /**
-             * Tool Permissions
-             * @description List of allowed tool names
-             * @default null
-             */
-            tool_permissions?: string[] | null;
-            /**
-             * Enabled
-             * @default true
-             */
-            enabled?: boolean;
-            /**
-             * Model
-             * @description LLM model for the agent (defaults to Fast)
-             * @default null
-             */
-            model?: string | null;
-            /**
-             * Budget Limit
-             * @description Daily budget limit in USD (null = unlimited)
-             * @default null
-             */
-            budget_limit?: number | null;
-            /**
-             * Fresh Context
-             * @description Run each execution without prior conversation history
-             * @default true
-             */
-            fresh_context?: boolean;
         };
         /**
          * UserResponse
@@ -8749,6 +8532,60 @@ export interface components {
             limit: number;
         };
         /**
+         * ApprovalRequestResponse
+         * @description A change a job's run asked the user to approve.
+         */
+        "PendingApprovalsResponse.ApprovalRequestResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Item Id
+             * @description The job that asked
+             */
+            item_id: string;
+            /**
+             * Job Name
+             * @description The standing chat's name
+             */
+            job_name: string;
+            /** Tool Name */
+            tool_name: string;
+            /**
+             * Tool Args
+             * @default null
+             */
+            tool_args: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string;
+            status: components["schemas"]["PendingApprovalsResponse.ApprovalStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Resolved At
+             * @default null
+             */
+            resolved_at: string | null;
+        };
+        /**
+         * ApprovalStatus
+         * @description Status of an approval request.
+         * @enum {string}
+         */
+        "PendingApprovalsResponse.ApprovalStatus": "pending" | "approved" | "rejected";
+        /**
+         * PendingApprovalsResponse
+         * @description Pending approval requests.
+         */
+        PendingApprovalsResponse: {
+            /** Pending Approvals */
+            pending_approvals: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
+        };
+        /**
          * StatusResponse
          * @description Simple status response for operations that don't return data.
          */
@@ -9082,6 +8919,62 @@ export interface components {
              * @default Planner conversation reset
              */
             message: string;
+        };
+        /**
+         * UpdateJobRequest
+         * @description PATCH /api/jobs/<id>: only the fields sent change.
+         */
+        UpdateJobRequest: {
+            /**
+             * Name
+             * @default null
+             */
+            name?: string | null;
+            /**
+             * Description
+             * @default null
+             */
+            description?: string | null;
+            /**
+             * Instructions
+             * @default null
+             */
+            instructions?: string | null;
+            /**
+             * Schedule
+             * @default null
+             */
+            schedule?: string | null;
+            /**
+             * Timezone
+             * @default null
+             */
+            timezone?: string | null;
+            /**
+             * Grants
+             * @default null
+             */
+            grants?: string[] | null;
+            /**
+             * Enabled
+             * @default null
+             */
+            enabled?: boolean | null;
+            /**
+             * Model
+             * @default null
+             */
+            model?: string | null;
+            /**
+             * Budget Usd
+             * @default null
+             */
+            budget_usd?: number | null;
+            /**
+             * Fresh Context
+             * @default null
+             */
+            fresh_context?: boolean | null;
         };
         /**
          * ClientErrorKind
@@ -9677,60 +9570,6 @@ export interface components {
             needs_reconnect: boolean;
         };
         /**
-         * ApprovalRequestResponse
-         * @description Approval request information.
-         */
-        "PendingApprovalsResponse.ApprovalRequestResponse": {
-            /** Id */
-            id: string;
-            /** Agent Id */
-            agent_id: string;
-            /**
-             * Agent Name
-             * @description Name of the agent requesting approval
-             */
-            agent_name: string;
-            /** Tool Name */
-            tool_name: string;
-            /**
-             * Tool Args
-             * @default null
-             */
-            tool_args: {
-                [key: string]: unknown;
-            } | null;
-            /** Description */
-            description: string;
-            status: components["schemas"]["PendingApprovalsResponse.ApprovalStatus"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Resolved At
-             * @default null
-             */
-            resolved_at: string | null;
-        };
-        /**
-         * ApprovalStatus
-         * @description Status of an approval request.
-         * @enum {string}
-         */
-        "PendingApprovalsResponse.ApprovalStatus": "pending" | "approved" | "rejected";
-        /**
-         * PendingApprovalsResponse
-         * @description List of pending approval requests.
-         */
-        PendingApprovalsResponse: {
-            /**
-             * Pending Approvals
-             * @description All pending approval requests
-             */
-            pending_approvals: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
-        };
-        /**
          * TodoistAuthUrlResponse
          * @description Response containing Todoist OAuth authorization URL.
          */
@@ -9872,60 +9711,55 @@ export interface components {
             whatsapp_phone?: string | null;
         };
         /**
-         * UpdateAgentRequest
-         * @description Schema for PATCH /api/agents/<id>.
+         * JobRunRecordResponse
+         * @description One run of a job, in full.
          */
-        UpdateAgentRequest: {
+        "RunJobResponse.JobRunRecordResponse": {
+            /** Id */
+            id: string;
+            /** Item Id */
+            item_id: string;
+            status: components["schemas"]["RunJobResponse.JobRunStatus"];
             /**
-             * Name
+             * Trigger Type
+             * @description scheduled, manual, agent_trigger
+             */
+            trigger_type: string;
+            /**
+             * Triggered By Job Id
              * @default null
              */
-            name?: string | null;
+            triggered_by_job_id: string | null;
             /**
-             * Description
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Completed At
              * @default null
              */
-            description?: string | null;
+            completed_at: string | null;
             /**
-             * System Prompt
+             * Error Message
              * @default null
              */
-            system_prompt?: string | null;
-            /**
-             * Schedule
-             * @default null
-             */
-            schedule?: string | null;
-            /**
-             * Timezone
-             * @default null
-             */
-            timezone?: string | null;
-            /**
-             * Tool Permissions
-             * @default null
-             */
-            tool_permissions?: string[] | null;
-            /**
-             * Enabled
-             * @default null
-             */
-            enabled?: boolean | null;
-            /**
-             * Model
-             * @default null
-             */
-            model?: string | null;
-            /**
-             * Budget Limit
-             * @default null
-             */
-            budget_limit?: number | null;
-            /**
-             * Fresh Context
-             * @default null
-             */
-            fresh_context?: boolean | null;
+            error_message: string | null;
+        };
+        /**
+         * JobRunStatus
+         * @description Status of a job run.
+         * @enum {string}
+         */
+        "RunJobResponse.JobRunStatus": "running" | "completed" | "failed" | "waiting_approval";
+        /**
+         * RunJobResponse
+         * @description A run started by hand: its record and what happened.
+         */
+        RunJobResponse: {
+            run: components["schemas"]["RunJobResponse.JobRunRecordResponse"];
+            /** Message */
+            message: string;
         };
         /**
          * LanguageProgramItem
@@ -10079,6 +9913,56 @@ export interface components {
              * @description More changes after cursor - sync again
              */
             has_more: boolean;
+        };
+        /**
+         * JobRunRecordResponse
+         * @description One run of a job, in full.
+         */
+        "JobRunsListResponse.JobRunRecordResponse": {
+            /** Id */
+            id: string;
+            /** Item Id */
+            item_id: string;
+            status: components["schemas"]["JobRunsListResponse.JobRunStatus"];
+            /**
+             * Trigger Type
+             * @description scheduled, manual, agent_trigger
+             */
+            trigger_type: string;
+            /**
+             * Triggered By Job Id
+             * @default null
+             */
+            triggered_by_job_id: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Completed At
+             * @default null
+             */
+            completed_at: string | null;
+            /**
+             * Error Message
+             * @default null
+             */
+            error_message: string | null;
+        };
+        /**
+         * JobRunStatus
+         * @description Status of a job run.
+         * @enum {string}
+         */
+        "JobRunsListResponse.JobRunStatus": "running" | "completed" | "failed" | "waiting_approval";
+        /**
+         * JobRunsListResponse
+         * @description A job's recent runs, newest first.
+         */
+        JobRunsListResponse: {
+            /** Runs */
+            runs: components["schemas"]["JobRunsListResponse.JobRunRecordResponse"][];
         };
         /**
          * PushSubscribeResponse
@@ -10782,63 +10666,6 @@ export interface components {
             created_at: string;
         };
         /**
-         * AgentExecutionResponse
-         * @description Agent execution record.
-         */
-        "TriggerAgentResponse.AgentExecutionResponse": {
-            /** Id */
-            id: string;
-            /** Agent Id */
-            agent_id: string;
-            status: components["schemas"]["TriggerAgentResponse.AgentStatus"];
-            trigger_type: components["schemas"]["TriggerAgentResponse.AgentTriggerType"];
-            /**
-             * Triggered By Agent Id
-             * @default null
-             */
-            triggered_by_agent_id: string | null;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Completed At
-             * @default null
-             */
-            completed_at: string | null;
-            /**
-             * Error Message
-             * @default null
-             */
-            error_message: string | null;
-        };
-        /**
-         * AgentStatus
-         * @description Status of an agent execution.
-         * @enum {string}
-         */
-        "TriggerAgentResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
-        /**
-         * AgentTriggerType
-         * @description How an agent execution was triggered.
-         * @enum {string}
-         */
-        "TriggerAgentResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
-        /**
-         * TriggerAgentResponse
-         * @description Response from manually triggering an agent.
-         */
-        TriggerAgentResponse: {
-            execution: components["schemas"]["TriggerAgentResponse.AgentExecutionResponse"];
-            /**
-             * Message
-             * @description Status message
-             * @default Agent triggered
-             */
-            message: string;
-        };
-        /**
          * PushKeysResponse
          * @description VAPID public key for client-side subscription.
          */
@@ -11303,10 +11130,10 @@ export interface components {
              */
             is_agent: boolean;
             /**
-             * Agent Id
+             * Job Id
              * @default null
              */
-            agent_id: string | null;
+            job_id: string | null;
             /**
              * Has Pending Approval
              * @default false
@@ -11875,58 +11702,6 @@ export interface components {
             message_count: number;
         };
         /**
-         * AgentExecutionResponse
-         * @description Agent execution record.
-         */
-        "AgentExecutionsListResponse.AgentExecutionResponse": {
-            /** Id */
-            id: string;
-            /** Agent Id */
-            agent_id: string;
-            status: components["schemas"]["AgentExecutionsListResponse.AgentStatus"];
-            trigger_type: components["schemas"]["AgentExecutionsListResponse.AgentTriggerType"];
-            /**
-             * Triggered By Agent Id
-             * @default null
-             */
-            triggered_by_agent_id: string | null;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-            /**
-             * Completed At
-             * @default null
-             */
-            completed_at: string | null;
-            /**
-             * Error Message
-             * @default null
-             */
-            error_message: string | null;
-        };
-        /**
-         * AgentStatus
-         * @description Status of an agent execution.
-         * @enum {string}
-         */
-        "AgentExecutionsListResponse.AgentStatus": "running" | "completed" | "failed" | "waiting_approval";
-        /**
-         * AgentTriggerType
-         * @description How an agent execution was triggered.
-         * @enum {string}
-         */
-        "AgentExecutionsListResponse.AgentTriggerType": "scheduled" | "manual" | "agent_trigger";
-        /**
-         * AgentExecutionsListResponse
-         * @description List of agent executions.
-         */
-        AgentExecutionsListResponse: {
-            /** Executions */
-            executions: components["schemas"]["AgentExecutionsListResponse.AgentExecutionResponse"][];
-        };
-        /**
          * ConversationCostResponse
          * @description Cost for a conversation.
          */
@@ -12028,13 +11803,39 @@ export interface components {
             protected: boolean;
         };
         /**
+         * JobConversationSyncData
+         * @description A standing chat's conversation state.
+         */
+        "JobConversationSyncResponse.JobConversationSyncData": {
+            /** Message Count */
+            message_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * JobConversationSyncResponse
+         * @description Polling a standing chat's conversation for changes.
+         */
+        JobConversationSyncResponse: {
+            /** @default null */
+            conversation: components["schemas"]["JobConversationSyncResponse.JobConversationSyncData"] | null;
+            /**
+             * Server Time
+             * Format: date-time
+             */
+            server_time: string;
+        };
+        /**
          * ApproveRequest
-         * @description Approving an agent's request: once, or always for that tool.
+         * @description Approving a run's request: once, or always for that tool.
          */
         ApproveRequest: {
             /**
              * Always
-             * @description Also grant the agent write access to this tool, so later changes there need no approval (never for settings changes)
+             * @description Also grant the job write access to this tool, so later changes there need no approval (never for settings changes)
              * @default false
              */
             always?: boolean;
@@ -12914,40 +12715,6 @@ export interface components {
              * @default null
              */
             summary: string | null;
-        };
-        /**
-         * AgentConversationSyncData
-         * @description Sync data for an agent's conversation.
-         */
-        "AgentConversationSyncResponse.AgentConversationSyncData": {
-            /**
-             * Message Count
-             * @description Total number of messages in conversation
-             */
-            message_count: number;
-            /**
-             * Updated At
-             * Format: date-time
-             * @description Conversation updated_at timestamp in ISO format
-             */
-            updated_at: string;
-        };
-        /**
-         * AgentConversationSyncResponse
-         * @description Response from agent conversation sync endpoint for real-time synchronization.
-         */
-        AgentConversationSyncResponse: {
-            /**
-             * @description Agent conversation state, or null if no conversation exists
-             * @default null
-             */
-            conversation: components["schemas"]["AgentConversationSyncResponse.AgentConversationSyncData"] | null;
-            /**
-             * Server Time
-             * Format: date-time
-             * @description Server timestamp in ISO format
-             */
-            server_time: string;
         };
         /**
          * ResearchOfferUpdate

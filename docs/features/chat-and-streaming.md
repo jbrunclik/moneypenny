@@ -36,7 +36,7 @@ Chat endpoints ([routes/chat.py](../../src/api/routes/chat.py), all under `/api`
 
 Both chat modes share one turn setup in [chat_turn.py](../../src/api/helpers/chat_turn.py).
 They used to carry separate copies that drifted (batch built agent goals without
-`resolve_agent_system_prompt()`, never cleared contextvars when the turn raised, and the
+the stock briefing prompt, never cleared contextvars when the turn raised, and the
 streaming producer re-set a hand-picked subset of them):
 
 1. **`prepare_turn(user, data, conv_id)`** → `PreparedTurn`: loads the conversation,

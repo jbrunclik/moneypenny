@@ -6,19 +6,19 @@ Which tools the agent can use, how availability and permissions are decided, and
 
 Interactive chat binds every available tool (`get_tools_for_request(anonymous_mode,
 is_planning, standing)`) - in standing chats (the user writing in an agent, sports or
-language chat) too, plus `kv_store`; autonomous agent **runs** get `get_tools_for_agent()`,
-filtered by the agent's `tool_permissions`. Two lists matter:
+language chat) too, plus `kv_store`; unattended job **runs** get
+`tools_for_grants(grants, user_id)`, filtered by the job's `grants`. Two lists matter:
 
-- **Always bound** for every agent: `web_search`, `fetch_url`, `research`, `retrieve_file`,
-  `create_file`, `load_skill`, `request_approval`, `kv_store`.
+- **Always bound** for every job run: `web_search`, `fetch_url`, `research`, `retrieve_file`,
+  `create_file`, `load_skill`, `request_approval`, `kv_store`, `edit_standing_chat`.
 - **`ALWAYS_SAFE_TOOLS`** ([permissions.py](../../src/agent/permissions.py)) skip the
   call-time permission check: every always-bound tool, plus the read-only places tools
   `search_places`, `get_route`, `list_places`.
 
 Every always-bound tool must also be in `ALWAYS_SAFE_TOOLS` — a bound tool the gate refuses
 just wastes a model round on an error (`test_every_bound_tool_passes_the_permission_gate`).
-`trigger_agent` is a granted capability (it hands text to another agent's run): bound for
-unrestricted agents (`tool_permissions=null`) or when listed explicitly.
+`trigger_agent` is a granted capability (it hands text to another job's run): bound for
+all-tools jobs (`["*"]`) or when granted explicitly.
 
 | Tool | Description | Availability |
 |------|-------------|--------------|
@@ -61,10 +61,11 @@ Short of that, a provider that fails `SEARCH_BREAKER_THRESHOLD` times in a row t
 
 `is_degraded()` is the single definition of "serving from the fallback": true only when *every configured* metered provider is unavailable (quota spent, breaker tripped, or keyless). A single provider erroring and falling through to the next one is not degradation. The operator (first `ALLOWED_EMAILS` entry) gets a push notification only on genuine degradation, deduped to once per day — a transient provider blip no longer trips the alert or burns that day's dedupe slot. While degraded, `web_search` results carry a `_degraded` directive pointing the model at `research` instead of repeating a thin-snippet search, and `research`'s default source count rises to `Config.RESEARCH_DEGRADED_MAX_SOURCES` (fetched page content compensates for ddgs's weaker ranking and short snippets); an explicit `max_sources` from the caller still wins. Backfill/inspect usage with `python scripts/seed_search_usage.py [provider count]`.
 
-**Permission settings:**
-- `tool_permissions=null` (default): All available tools enabled
-- `tool_permissions=[]`: Only the always-bound tools
-- `tool_permissions=["todoist", ...]`: The specified tools (when available) + the always-bound tools
+**Grants** (a job's `grants`, turned into the run's permissions by `run_permissions()`;
+write levels in [Standing Chats and Jobs](agents.md#settings-approvals-and-grant-levels)):
+- `["*"]`: All available tools enabled (permissions `None`)
+- `[]` or `None` (a light item): Only the always-bound tools
+- `["todoist", "todoist:write", ...]`: The specified tools (when available) + the always-bound tools
 
 `manage_memory` is deliberately NOT "always available": an unattended run that reads the web
 could otherwise persist attacker-controlled text into the user's long-term memory, which is
@@ -78,12 +79,12 @@ run unrestricted), and the tool re-checks the grant at call time via
 Whether a tool actually works for an agent depends on **three** independent layers that must
 all agree — the first two are the obvious ones, the third is easy to miss:
 
-1. **Binding** — `get_tools_for_agent()` decides which tools a run's LLM is even offered
+1. **Binding** — `tools_for_grants()` decides which tools a run's LLM is even offered
    (chat turns, standing chats included, use `get_tools_for_request()` and no permission
    layer).
 2. **Enforcement** — the graph's tool node calls `check_tool_permission()`
-   ([`src/agent/permissions.py`](../../src/agent/permissions.py)); tools not in the agent's
-   explicit `tool_permissions` are blocked unless listed in `ALWAYS_SAFE_TOOLS`.
+   ([`src/agent/permissions.py`](../../src/agent/permissions.py)); tools not in the job's
+   `grants` (the run's `JobContext.permissions`) are blocked unless listed in `ALWAYS_SAFE_TOOLS`.
 3. **Context propagation** — streaming turns run the graph in a **separate producer
    thread** (`stream_events()` in
    [`src/api/helpers/stream_producer.py`](../../src/api/helpers/stream_producer.py)). Python
@@ -215,7 +216,7 @@ When adding a new tool for autonomous agents, update these locations:
 
 **Frontend (required):**
 
-6. **`web/src/components/AgentEditor.ts`** - Add to `BASE_TOOLS` array for permissions UI
+6. **`web/src/components/JobEditor.ts`** - Add to `BASE_TOOLS` array for permissions UI (`writable: true` for a `WRITE_LEVEL_TOOLS` tool, so it gets the write toggle)
 7. **`web/src/utils/icons.ts`** - Add icon if needed (referenced by `TOOL_METADATA`)
 
 **Configuration (if needed):**
@@ -269,9 +270,9 @@ Autonomous agents have access to a per-user key-value store for persisting data 
 
 1. Agents call the `kv_store` tool with an `action` and a `key` (and optionally a `value`)
 2. Keys are automatically namespaced so each context has its own isolated storage:
-   - Autonomous agent runs, and the user's turns in the agent's chat: `agent:<agent_id>`
+   - Standing job runs, and the user's turns in the standing chat: `agent:<job_id>`
    - Sports conversations: namespace `sports`, keys `<program_id>:<suffix>` (goals, preferences, routine, progress, last_session); language conversations likewise under `language`
-3. The namespace is injected by the tool at runtime (the run's agent context, or `get_standing_namespace()` set from the turn's `StandingContext.kv_namespace`); outside runs `kv_store` is bound only in standing chats - agents/programs never need to specify it explicitly
+3. The namespace is injected by the tool at runtime (the run's `JobContext`, or `get_standing_namespace()` set from the turn's `StandingContext.kv_namespace`); outside runs `kv_store` is bound only in standing chats - agents/programs never need to specify it explicitly
 4. Data is stored in the `kv_store` SQLite table and scoped per user
 5. The app keeps its own per-user state in the same table (steering, stop flags, compaction, lost-turn notes, OAuth state, search quotas, file caches). The model may still name a namespace explicitly, so those are refused (`RESERVED_NAMESPACES` in `agent_kv.py`): a page read in the same turn must not be able to plant steering or a guidance note. A new internal namespace joins that set (a test checks the known ones)
 
@@ -438,8 +439,8 @@ If Playwright or Chromium is not installed, the tool returns a graceful error me
 
 ## Key Files
 
-- [tools/__init__.py](../../src/agent/tools/__init__.py) - `get_available_tools()`, `get_tools_for_request()`, `get_tools_for_agent()`
-- [permissions.py](../../src/agent/permissions.py) - `ALWAYS_SAFE_TOOLS`, `check_tool_permission()`
+- [tools/__init__.py](../../src/agent/tools/__init__.py) - `get_available_tools()`, `get_tools_for_request()`, `tools_for_grants()`
+- [permissions.py](../../src/agent/permissions.py) - `ALWAYS_SAFE_TOOLS`, `run_permissions()`, `check_tool_permission()`, `has_write_grant()`
 - [skills/](../../src/agent/skills/) - `SKILL.md` files, loader, `skills_index_prompt()`
 - [tool_display.py](../../src/agent/tool_display.py) - `TOOL_METADATA`, `_CONDITIONAL_TOOLS`
 - [search_provider.py](../../src/services/search_provider.py) - quota-aware search chain and breakers
@@ -448,7 +449,7 @@ If Playwright or Chromium is not installed, the tool returns a graceful error me
 
 ## See Also
 
-- [Autonomous Agents](agents.md) - scheduling, approvals, Command Center
+- [Standing Chats and Jobs](agents.md) - scheduling, approvals, Command Center
 - [Agent Graph](../architecture/agent-graph.md) - tool node, self-correction, tool rounds
 - [Integrations](integrations.md) - integration tools and not-connected results
 - [File Handling](file-handling.md) - `generate_image`, `execute_code`, `retrieve_file`

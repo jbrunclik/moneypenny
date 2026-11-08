@@ -161,7 +161,7 @@ For creating new items, use an overlay modal (not a separate page):
 - **Keyboard**: Escape closes, auto-focus first input
 - **Animation**: Scale 0.95→1 + opacity fade in, reverse on close
 
-**Reference**: `AgentEditor.ts`, `SportsDashboard.ts` (`showNewProgramModal`)
+**Reference**: `JobEditor.ts`, `SportsDashboard.ts` (`showNewProgramModal`)
 
 ## Navigation
 

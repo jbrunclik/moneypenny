@@ -1,17 +1,26 @@
-# Autonomous Agents
+# Standing Chats and Jobs
 
-Autonomous agents run on cron schedules to perform tasks independently. Each agent has a dedicated conversation showing its activity and can request approval for dangerous operations.
+A **standing chat** is a chat with standing settings (name, instructions, description,
+built-in type) plus a **standing job** with the same id that runs it unattended on a cron
+schedule ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)). The UI still
+calls them "agents". Every reminder, check-in, watcher and recurring check set from a chat
+is a lighter **job** of the same kind (a `scheduled_items` row without grants); the Command
+Center lists them all.
 
-The agent's conversation is a **standing chat** ([spec](../superpowers/specs/2026-11-08-standing-chats-design.md)): when the user writes in it, that is an ordinary chat turn (the normal chat prompt, the user's full chat tools, freshness gate - always at full thinking - the standing chats' context cache (the standard static prompt under its own key, since their tools add `kv_store`) and compaction) plus a `# This Chat: <name>` prompt section with the agent's goals and schedule - see [Talking to an agent](#talking-to-an-agent). Unattended **runs** keep the agent's own grants, approvals and prompt.
+When the user writes in a standing chat, that is an ordinary chat turn (the normal chat
+prompt, the user's full chat tools, freshness gate - always at full thinking - the standing
+chats' context cache (the standard static prompt under its own key, since their tools add
+`kv_store`) and compaction) plus a `# This Chat: <name>` prompt section with the goals and
+schedule - see [Talking to a standing chat](#talking-to-a-standing-chat). Unattended
+**runs** keep the job's own grants, approvals and instructions.
 
 ## Overview
 
-The autonomous agents feature enables:
-- **Scheduled execution**: Agents run automatically based on cron schedules
-- **Tool permissions**: Control which tools each agent can use
-- **Approval workflow**: Dangerous operations require user approval before execution
-- **Agent-to-agent communication**: Agents can trigger other agents via the `trigger_agent` tool
-- **Command Center**: Dashboard UI for managing agents and approvals
+- **Scheduled runs**: a standing job runs on its cron, in its own timezone
+- **Grants**: which tools a run may use, and where it may change things (`<tool>:write`)
+- **Approvals**: a run asks before anything it may not do on its own
+- **Job-to-job handoff**: a run can start another standing job via `trigger_agent`
+- **Command Center**: one list of every job, with approvals, Run, Pause/Resume, Edit
 
 ### When a prompt-only agent suffices
 
@@ -31,39 +40,37 @@ Prompt guidance for these agents:
 
 ## Architecture
 
-### Database Schema
+### Data
 
-The feature adds three tables:
+There is no agents table (0080 folded it into chats and jobs) and no `autonomous_agents`
+view (dropped by 0082). A standing chat is:
+
+- a `conversations` row with `is_agent = 1`, `job_id` (the job's id) and the `standing_*`
+  columns (migration 0079): `standing_name`, `standing_instructions` (NULL on a built-in
+  means the stock prompt from code), `standing_description`, `standing_type` (e.g.
+  `daily_briefing`) and `standing_viewed_at` (the unread marker). `job_id` keeps an inert
+  `REFERENCES` clause; foreign keys are never enabled.
+- a `scheduled_items` row with the same id and `grants` set (migration 0078): `schedule`
+  (cron), `timezone`, `grants`, `model`, `budget_usd`, `fresh_context`, `paused_reason`.
+- `users.daily_briefing_job_id` points at the user's Daily Briefing.
 
 ```sql
--- Autonomous agents
-autonomous_agents (
+-- One row per run of a job (standing jobs; light items record no runs)
+job_runs (
     id PRIMARY KEY,
-    user_id REFERENCES users(id),
-    conversation_id REFERENCES conversations(id),
-    name NOT NULL,
-    description,
-    system_prompt,
-    schedule,
-    timezone DEFAULT 'UTC',
-    enabled DEFAULT 1,
-    tool_permissions,
-    model DEFAULT 'gemini-3-flash-preview',
-    budget_limit,
-    created_at NOT NULL,
-    updated_at NOT NULL,
-    last_run_at,
-    next_run_at,
-    last_viewed_at,
-    fresh_context DEFAULT 0,   -- 0038: run without prior history (report-style agents)
-    system_type,               -- 0039: system-managed agents, e.g. 'daily_briefing'
-    UNIQUE(user_id, name)
+    item_id REFERENCES scheduled_items(id),
+    status NOT NULL,          -- running, completed, failed, waiting_approval
+    trigger_type NOT NULL,    -- scheduled, manual, agent, approval
+    triggered_by_job_id,
+    started_at NOT NULL,
+    completed_at,
+    error_message
 )
 
--- Approval requests (blocks execution until resolved or expired)
-agent_approval_requests (
+-- Approval requests (the job waits until resolved or expired)
+job_approvals (
     id PRIMARY KEY,
-    agent_id REFERENCES autonomous_agents(id),
+    item_id REFERENCES scheduled_items(id),
     user_id REFERENCES users(id),
     tool_name NOT NULL,
     tool_args,
@@ -73,201 +80,145 @@ agent_approval_requests (
     resolved_at,
     expires_at
 )
-
--- Execution history
-agent_executions (
-    id PRIMARY KEY,
-    agent_id REFERENCES autonomous_agents(id),
-    status NOT NULL,
-    trigger_type NOT NULL,
-    triggered_by_agent_id,
-    started_at NOT NULL,
-    completed_at,
-    error_message
-)
 ```
 
-Conversations are extended with `is_agent` and `agent_id` fields.
+Migration 0082 created both tables fresh from `agent_executions` and
+`agent_approval_requests` (rows carried over), renamed the two columns, and dropped the
+`autonomous_agents` view and its `_autonomous_agents_0080` backup. Its rollback restores
+the old tables and names, the view, and an **empty** backup table, so 0080's own rollback
+still rebuilds the agents from the chats and jobs.
 
 ### Backend Modules
 
 | Module | Purpose |
 |--------|---------|
-| `src/db/models/agent.py` | Database CRUD for agents |
-| `src/db/models/agent_schedule.py` | Cron next-run math, due agents, last/next run updates |
-| `src/db/models/agent_approvals.py` | Approval requests (create, resolve, consume) |
-| `src/db/models/agent_executions.py` | Execution tracking, cooldown, zombie cleanup |
-| `src/db/models/agent_conversation.py` | Agent conversation, unread state |
-| `src/db/models/agent_stats.py` | Command center, observability stats, spend/budget |
-| `src/api/routes/agents.py` | REST API: agent CRUD and execution |
-| `src/api/routes/agent_command_center.py` | REST API: command center dashboard |
-| `src/api/routes/agent_approvals.py` | REST API: approval list/approve/reject |
-| `src/api/routes/agent_assist.py` | REST API: AI assist (schedule parsing, prompt enhancer) |
-| `src/api/helpers/agent_responses.py` | Agent/execution/approval response dicts |
-| `src/agent/executor.py` | Agent execution engine |
-| `src/agent/permissions.py` | Tool permission checking |
-| `src/agent/daily_briefing.py` | Stock prompt for the system-managed Daily Briefing agent |
-| `src/agent/standing_context.py` | The agent chat's standing context when the user writes in it |
+| `src/db/models/standing_chats.py` | `StandingChatMixin`: create/get/get_by_name/list/update/delete a standing chat (chat + job together), `standing_unread_count`, `mark_standing_viewed`; `next_cron_run` |
+| `src/db/models/scheduled_items.py` | Jobs and light items: claim, due, pause, `job_spend_today` |
+| `src/db/models/job_runs.py` | `JobRunMixin`: run records, `recent_runs`, `get_job_runs`, zombie cleanup |
+| `src/db/models/job_approvals.py` | `JobApprovalMixin`: approval requests (create, resolve, consume) |
+| `src/db/models/job_rows.py` | Row -> `JobRun` / `ApprovalRequest` |
+| `src/api/routes/jobs.py` | REST: the overview, standing chat CRUD, run, runs, viewed, sync; owns the `jobs` blueprint |
+| `src/api/routes/approvals.py` | REST: approval list/approve/reject (on the `jobs` blueprint) |
+| `src/api/routes/schedules.py` | REST: a chat's items, pause/resume/run/cancel |
+| `src/api/routes/agent_assist.py` | REST: AI assist (schedule parsing, prompt enhancer) |
+| `src/api/schemas/jobs.py`, `agent_assist.py` | Request/response schemas |
+| `src/api/helpers/job_responses.py` | The Command Center overview (`jobs_overview`) |
+| `src/api/helpers/standing_responses.py` | Standing chat / run / approval response dicts |
+| `src/agent/item_scheduler.py` | The scheduler pass, `run_job_now`, `hold_reason` |
+| `src/agent/item_runner.py` | `run_model_item`: one run of a watcher, recurring item or standing job |
+| `src/agent/run_context.py` | `JobContext` (contextvar), trigger message, run history, approval recording, `[SILENT]` |
+| `src/agent/permissions.py` | Grants -> permissions, write levels, permission checks |
+| `src/agent/daily_briefing.py` | The built-in Daily Briefing: stock prompt, `effective_instructions`, Settings toggle |
+| `src/agent/standing_context.py` | The chat's standing context when the user writes in it |
 | `src/agent/retry.py` | Transient failure retry logic (used per model call by the graph) |
 | `src/agent/dev_scheduler.py` | Development mode scheduler |
 | `scripts/run_agent_scheduler.py` | Production scheduler script |
+
+A run's context is `JobContext(item, user, name, trigger_chain)`
+(`get_job_context` / `set_job_context` / `clear_job_context`); its `.permissions` is
+`run_permissions(item.grants)`: `["*"]` gives `None` (all tools), `None` or `[]` (a light
+item) gives `[]`, otherwise the grants. `check_tool_permission(permissions, ...)` and
+`has_write_grant(permissions, tool)` take that list, and `tools_for_grants(grants,
+user_id)` ([tools/__init__.py](../../src/agent/tools/__init__.py)) binds the run's tools.
 
 ### Frontend Modules
 
 | Module | Purpose |
 |--------|---------|
-| `web/src/core/agents.ts` | Navigation and state management |
-| `web/src/core/startup/navigation.ts` | Hands conversation selection the agents view's leaver and the agent header's back/edit actions (F1) |
-| `web/src/components/CommandCenter.ts` | Dashboard UI |
-| `web/src/components/AgentEditor.ts` | Create/edit modal |
+| `web/src/core/agents.ts` | Navigation, Command Center handlers, `handleStandingRun` (the chat header's Run) |
+| `web/src/core/startup/navigation.ts` | Hands conversation selection the agents view's leaver and the header's back/edit/run actions (F1) |
+| `web/src/components/CommandCenter.ts` | The job list |
+| `web/src/components/JobEditor.ts` | Create/edit modal |
+| `web/src/components/AgentConversationHeader.ts` | The standing chat's header: back, Run now, edit |
+| `web/src/api/jobs.ts` | `jobs`: overview, CRUD, run, runs, viewed, sync, approve/reject |
+| `web/src/api/assist.ts` | `aiAssist`: parse schedule, enhance prompt |
+| `web/src/state/slices/agents.ts` | The overview (`JobsOverviewResponse`) |
 | `web/src/styles/components/agents.css` | Styling |
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/agents` | GET | List user's agents |
-| `/api/agents` | POST | Create agent (auto-creates conversation) |
-| `/api/agents/<id>` | GET | Get agent details |
-| `/api/agents/<id>` | PATCH | Update agent |
-| `/api/agents/<id>` | DELETE | Delete agent + conversation |
-| `/api/agents/<id>/run` | POST | Manual trigger |
-| `/api/agents/<id>/mark-viewed` | POST | Mark agent's conversation as viewed |
-| `/api/agents/<id>/executions` | GET | Execution history |
-| `/api/agents/<id>/conversation/sync` | GET | Sync agent conversation state |
-| `/api/jobs` | GET | The Command Center's job list (every scheduled item and standing job) |
-| `/api/agents/approvals` | GET | All pending approvals |
+| `/api/jobs` | GET | The Command Center overview (every job, approvals, stats, badge counts) |
+| `/api/jobs` | POST | Create a standing chat with its job |
+| `/api/jobs/<id>` | GET | A standing chat as the editor shows it (`JobDetailResponse`) |
+| `/api/jobs/<id>` | PATCH | Update it (only the fields sent change) |
+| `/api/jobs/<id>` | DELETE | Delete the standing chat, its job and its conversation |
+| `/api/jobs/<id>/run` | POST | Run now (refused while running, held or awaiting approval) |
+| `/api/jobs/<id>/runs` | GET | Run history |
+| `/api/jobs/<id>/viewed` | POST | Mark its chat as viewed |
+| `/api/jobs/<id>/conversation/sync` | GET | Poll its chat for changes |
+| `/api/approvals` | GET | All pending approvals (`item_id`, `job_name`) |
+| `/api/approvals/<id>/approve` | POST | Approve (`{"always": true}` also grants the write level) |
+| `/api/approvals/<id>/reject` | POST | Reject |
 | `/api/ai-assist/parse-schedule` | POST | Helper to parse/validate cron strings |
-| `/api/ai-assist/enhance-prompt` | POST | AI helper to refine system prompts |
-| `/api/approvals/<id>/approve` | POST | Approve request |
-| `/api/approvals/<id>/reject` | POST | Reject request |
+| `/api/ai-assist/enhance-prompt` | POST | AI helper to refine instructions |
 
-## Tool Permissions
+`JobDetailResponse` carries `instructions` (as stored; null on an unedited built-in),
+`effective_instructions` (what runs, `effective_instructions()` in `daily_briefing.py`),
+`grants` with write levels as `"<tool>:write"`, `budget_usd`, `standing_type`,
+`spend_today_usd`, `has_pending_approval`, `unread_count` and `last_run_status`.
+`CreateJobRequest` / `UpdateJobRequest` take `grants` (null = all tools). Conversation
+responses carry `job_id` for a standing chat.
 
-Agents are configured with `tool_permissions`; the tool table, permission semantics, the three layers that decide availability, and the checklist for adding a tool are in [Agent Tools](agent-tools.md).
+## Grants
+
+A job's `grants` decide the tools a run is bound with; the tool table, the three layers
+that decide availability, and the checklist for adding a tool are in
+[Agent Tools](agent-tools.md).
 
 ## LLM-Driven Approval System
 
-Agents decide when to request approval using the `request_approval` tool. The agent's system prompt includes guidelines for when approval is appropriate:
+Runs decide when to request approval using the `request_approval` tool. The run prompt includes guidelines for when approval is appropriate:
 
 - Destructive or irreversible actions
 - External communication (sending emails, messages)
 - Operations that modify important data
 - Anything the user should be aware of before proceeding
 
-When an agent calls `request_approval`:
+When a run calls `request_approval`:
 
-1. Execution halts immediately via `ApprovalRequestedException`
-2. An approval request is created in the database with an expiration
-3. The agent's status changes to `waiting_approval`
+1. The run halts immediately via `ApprovalRequestedException`
+2. A `job_approvals` row is created with an expiration (`record_approval_request`)
+3. The run's record becomes `waiting_approval`, and the job waits
 4. The user sees the request in the Command Center
-5. On approval: the paused execution is closed as `completed`, an
-   `[Action approved: ...]` message joins the agent's conversation, and the
-   agent re-runs in a new execution with access to the approval state. A crash
-   in that re-run is recorded on its execution (`failed`); the approval itself
+5. On approval: the paused run is closed as `completed`, an
+   `[Action approved: ...]` message joins the chat, and the job re-runs
+   (`run_job_now`) in a new run with access to the approval state. A crash
+   in that re-run is recorded on its run (`failed`); the approval itself
    still succeeds.
-6. On rejection: the paused execution fails with "Action rejected by user" and
+6. On rejection: the paused run fails with "Action rejected by user" and
    an `[Action rejected: ...]` message joins the conversation.
 
-Tests: `tests/integration/test_routes_agent_approvals.py` (the approval flow),
+Tests: `tests/integration/test_routes_approvals.py` (the approval flow),
 `tests/unit/test_scheduler.py` (due, skipped, failed and resumed runs).
 
-**Note:** Approval requests expire after `AGENT_APPROVAL_TTL_HOURS` (default 24 hours). Expired requests block the agent until resolved or cleaned up.
+**Note:** Approval requests expire after `AGENT_APPROVAL_TTL_HOURS` (default 24 hours). Expired requests block the job until resolved or cleaned up.
 
 ## Scheduling
 
 ### Cron Format
 
-Schedules use standard cron format: `minute hour day-of-month month day-of-week` (e.g., `0 9 * * *` for daily at 9:00 AM).
+Schedules use standard cron format: `minute hour day-of-month month day-of-week` (e.g., `0 9 * * *` for daily at 9:00), evaluated in the job's `timezone`.
 
 ### Development Mode
 
-In development (`FLASK_ENV=development`), `start_dev_scheduler()` runs a background loop every **60 seconds** (`SCHEDULER_INTERVAL_SECONDS`) to evaluate and execute scheduled agents.
+In development (`FLASK_ENV=development`), `start_dev_scheduler()` runs a background loop every **60 seconds** (`SCHEDULER_INTERVAL_SECONDS`) to run due jobs.
 
 ### Production Mode
 
-In production a systemd timer runs `scripts/run_agent_scheduler.py` every minute to check for due agents (see [Scheduled Jobs](../architecture/scheduled-jobs.md)). Never run a scheduler thread inside the web workers.
+In production a systemd timer runs `scripts/run_agent_scheduler.py` every minute to check for due jobs (see [Scheduled Jobs](../architecture/scheduled-jobs.md)). Never run a scheduler thread inside the web workers.
 
-## Lightweight Agents From Chat (Nov 2026)
+## Light Jobs From Chat
 
-The `schedule` tool (`src/agent/tools/scheduling.py`, every non-anonymous chat but the
-planner - standing chats included - and never unattended runs, so a scheduled run cannot
-schedule more) sets four kinds of item from a
-message, each belonging to the chat that set it
-([spec](../superpowers/specs/2026-11-07-lightweight-agents-design.md)):
+Reminders, check-ins, watchers and recurring checks set from a message by the `schedule`
+tool are jobs without grants: see [Jobs Set From Chat](scheduled-items.md). They share the
+scheduler pass, the run path (`run_model_item`) and the Command Center with standing jobs.
 
-| Kind | Example | Runs | Ends |
-|---|---|---|---|
-| `reminder` | "remind me Friday at 8 to call the plumber" | push at the time, no model call | once fired |
-| `check_in` | "check with me Friday how it's healing" | posts its question into the chat, no model call (written at creation) | once fired |
-| `watcher` | "tell me when the school posts a teacher job" | model run every 6h / daily / weekly | `[DONE]`, its end date, or 30 days |
-| `recurring` | "every Monday, what's for lunch at school" | model run on a cron (household timezone) | cancelled, or its end date |
+## Standing Jobs
 
-- **Confirmed in chat, enforced in code:** `create` without `confirm=true` returns a
-  `PREVIEW:` (saying how the item ends), stores nothing, and keeps the preview pending for
-  the conversation (kv `schedule_pending`). `confirm=true` stores exactly that pending
-  item, and only once a newer user message exists - so a page's injected "confirm" in the
-  same turn, or fields that drifted since the preview, cannot schedule something the user
-  never saw. `text` and a watcher's `end_condition` go through the injection scan.
-- **Built by code:** the model fills structured fields and `src/utils/schedule_spec.py`
-  builds the instant, interval or cron string in `Config.APP_TIMEZONE` (a time already
-  past is refused, naming the local time).
-- **Data:** `scheduled_items` (migration 0076; `src/db/models/scheduled_items.py`), one
-  row per item with a required `conversation_id`. Items **follow their chat by query**:
-  only items in live chats (not trashed, not archived) are listed, counted or run, so
-  trashing or archiving a chat suspends its items and restoring it brings them back; a
-  trigger deletes them with the conversation row (permanent delete, trash purge). Finished
-  items are deleted - the chat holds the record. `expires_at` holds only an end date the
-  user gave; a watcher without one stops `SCHEDULE_WATCH_EXPIRY_DAYS` after it was set
-  (`watch_expiry`).
-- **Scheduler** (`src/agent/item_scheduler.py`, every minute, before agents): hands back
-  runs that never finished (`SCHEDULE_RUN_STALE_MINUTES`; counted as a failure, so a run
-  that always dies stops), then claims due items in one `UPDATE ... RETURNING`
-  (overlapping runs never handle one twice). One-offs go first; no watcher or recurring
-  run starts after `SCHEDULE_TICK_BUDGET_SECONDS` (240 - the scheduler service is killed
-  at 300 s and agents run after items), the rest wait for the next tick. A bare `[DONE]`
-  still delivers "Found: ..."; an empty report counts as silent. A one-off more than
-  `SCHEDULE_MISSED_GRACE_HOURS` late (scheduler down, chat restored after the time) is not
-  fired late but noted as "Missed (was due ...)" in its chat. A quiet watcher slows down
-  - its interval doubles per `SCHEDULE_WATCH_SLOWDOWN_AFTER_RUNS` silent runs, up to
-  weekly, except with a user-given end date; the next run never passes the expiry.
-  `SCHEDULE_ITEM_MAX_FAILURES` failed runs in a row, or the end date, stop the item with a
-  note in its chat (no push). The run line logs `items_fired`, `items_run`,
-  `items_missed`, `items_expired`.
-- **Runs** (`src/agent/item_runner.py`): ChatAgent in autonomous mode with an in-memory
-  agent (no agent row) and only `web_search`, `fetch_url`, `research`; the user's
-  memories are kept out (an unattended run reads untrusted pages), and a stored report
-  that looks like injected instructions is not replayed. The run prompt
-  (`prompt_texts/scheduled_items.py`) gets what to check, the end condition and the
-  previous report; it replies `[SILENT]` (nothing posted or pushed), a report, or for a
-  watcher `[DONE]` + report. Cost is recorded against the item's chat - on the delivered
-  turn, or for a silent run under a `silent:` message id.
-- **Delivery:** a result is an ordinary assistant message in the item's chat with a
-  `delivery` label (`{"kind", "label"}`, e.g. "Check-in · Fri 18:00", "Watcher · found"),
-  plus a push opening the chat - so the user just replies, in context. Reminders push
-  only.
-- **UI:** a header chip in the chat (desktop and mobile, agent and program chats too;
-  `ScheduleIndicator.ts`) opens a
-  sheet listing its items with cancel, and pause/resume for watchers and recurring checks;
-  the Command Center has a "From chats" lane above the agents (hidden when empty).
-  API: `GET /api/conversations/<id>/schedules`, `DELETE /api/schedules/<id>`,
-  `POST /api/schedules/<id>/pause|resume`, `chat_items` on the Command Center payload.
-- **Limits:** at most `SCHEDULE_MAX_ACTIVE_PER_USER` (20) items per user, paused included
-  (the cap gates creating; restoring trashed or archived chats can bring a user above it -
-  their items come back as they were rather than being dropped);
-  a reminder's preview warns when none of the user's devices has notifications on.
-- **Silent runs** (full agents too): the autonomous-agent prompt says to reply exactly
-  `[SILENT]` when a check finds nothing new; the executor saves it as "Nothing new." and
-  skips the push (`is_silent_reply`, `should_push_run`).
-- Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_check_in_preview`,
-  `schedule_watcher_preview`, `schedule_weekly_task`.
-
-### Standing jobs (Nov 2026, standing chats phase 2)
-
-A scheduled item with `grants` set is a **standing job**: an agent's schedule.
-[Spec](../superpowers/specs/2026-11-08-standing-chats-design.md),
-[plan](../superpowers/plans/2026-11-08-standing-chats-phase-2.md). Parts A and B are shipped:
-every agent is a standing chat with a standing job (see "Agent Execution Flow").
+A scheduled item with `grants` set is a **standing job**: a standing chat's schedule
+(see "Run Flow").
 
 - **Columns** (migration 0078): `grants` (tool names, or `["*"]` for all tools), `model`,
   `budget_usd` (daily), `fresh_context`, `timezone` (the cron's zone), `paused_reason`.
@@ -279,8 +230,8 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
   - It also gets its model, the chat's standing context (`src/agent/standing_context.py`),
     and the chat's history unless `fresh_context`.
   - It sees the user's memories only when `manage_memory` (or `*`) is granted.
-  - Its synthetic `Agent` carries the job's id, so execution rows and approval requests
-    name the job.
+  - Its `JobContext` carries the job, so run records and approval requests name it
+    (`item_id`).
 - **Light items in a standing chat** (agent, sports or language) see that chat's instructions
   and state, so a coach's check-in knows the program. Their tools stay web-only.
 - **Limits** (`src/agent/item_scheduler.py`):
@@ -296,7 +247,7 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
   Approving a job's request resumes it through `run_job_now` with "[Action approved: ...]".
 - **UI:** the schedule chip's sheet shows Run for a job and "paused after failing".
 
-### Settings, approvals and grant levels (standing chats phase 2, Part D)
+## Settings, Approvals and Grant Levels
 
 - **The agent edits its own settings** with `edit_standing_chat`
   (`src/agent/tools/standing_settings.py`): instructions, schedule (cron),
@@ -324,7 +275,11 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
   - `*` (all tools) writes.
   - WhatsApp only messages the user, so it is a notification, not a write.
   - Migration 0081 gave existing grants their write levels, so no agent lost a power.
-  - The editor sees tool names only; saving keeps the write levels of tools still granted.
+  - The editor (`JobEditor.ts`) shows a "Can change things without asking" toggle under
+    Todoist and Calendar that sets and clears `<tool>:write`; a write level is only saved
+    for a tool that is itself granted. Grants the grid doesn't show (set by talking or an
+    approval) are kept on save, and a job with all tools stays unrestricted unless the
+    selection is changed.
 - **Always allow:** the approval card's third button ("Always allow Todoist changes"),
   shown for writable integrations, sends `POST /api/approvals/<id>/approve` with
   `{"always": true}`.
@@ -336,67 +291,54 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
 - An approved settings change is validated again before it applies (`validated_change`).
   `request_approval` cannot file a request under `edit_standing_chat`'s name.
 
-## Agent Execution Flow
+## Run Flow
 
-Since standing chats phase 2 (Part B, migration 0080) an agent **is** a standing chat plus
-a standing job with the agent's id: its run goes through the one items pass
-(`run_due_items` -> `run_model_item`, see "Standing jobs" above), not a separate agent
-scheduler.
+A standing job's run goes through the one items pass (`run_due_items` -> `run_model_item`,
+see "Standing jobs" above).
 
 1. **Claim**: the scheduler claims the due job (or Run / an approval resume claims it, so
    two runs never overlap).
 2. **Hold**: a job waiting for an approval, or over its daily budget, is given back on its
-   schedule without running.
-3. **Execution record** in `agent_executions` (`agent_id` = the job id).
-4. **History**: the regular chat compaction's view of the chat, including its newest message
+   schedule without running (`hold_reason`).
+3. **Run record** in `job_runs` (`item_id` = the job id).
+4. **Context**: a `JobContext` is set for the run, so tools read the job's grants and
+   trigger chain.
+5. **History**: the regular chat compaction's view of the chat, including its newest message
    (`run_history(keep_last=True)`); none for `fresh_context` jobs.
-5. **Run**: `ChatAgent.chat_batch()` in autonomous mode with the job's grants and model;
-   the goals are the chat's standing instructions and data plus the job's task line.
-6. **Deliver**: a report is posted into the chat and pushed (titled with the chat);
+6. **Run**: `ChatAgent.chat_batch()` in autonomous mode with `tools_for_grants()` and the
+   job's model; the goals are the chat's standing instructions (`effective_instructions`)
+   and data plus the job's task line.
+7. **Deliver**: a report is posted into the chat and pushed (titled with the chat);
    `[SILENT]` posts nothing; cost rows carry `job_id`.
-
-**The facade:** `autonomous_agents` is a SQL **view** over `conversations` (the
-`standing_*` columns: name, instructions, type, description, unread marker) joined to the
-job, so `get_agent`, the Command Center stats and the agents API read unchanged.
-`create_agent` / `update_agent` / `delete_agent` write the chat and the job. Part C drops
-the view and the agent code (the pre-0080 table is kept as `_autonomous_agents_0080`
-for rollback until then).
 
 ## Conversation Compaction
 
-Runs and the user's own turns in an agent chat share the regular, non-destructive chat compaction (a running summary plus recent messages; nothing is deleted). The destructive agent compaction and its `AGENT_COMPACTION_*` settings were removed in Nov 2026. Details: [Conversation Context](../architecture/conversation-context.md#conversation-compaction).
+Runs and the user's own turns in a standing chat share the regular, non-destructive chat compaction (a running summary plus recent messages; nothing is deleted). Details: [Conversation Context](../architecture/conversation-context.md#conversation-compaction).
 
-## Talking to an Agent
+## Talking to a Standing Chat
 
-Writing in an agent's chat is an ordinary chat turn, not a run: `load_standing_context()`
+Writing in a standing chat is an ordinary chat turn, not a run: `load_standing_context()`
 ([standing_context.py](../../src/agent/standing_context.py)) builds a
-`StandingContext` ([standing.py](../../src/agent/standing.py)) with the agent's goals
-(`resolve_agent_system_prompt()`, so the Daily Briefing's stock prompt comes from code)
+`StandingContext` ([standing.py](../../src/agent/standing.py)) with the chat's goals
+(`resolve_standing_instructions()`, so the Daily Briefing's stock prompt comes from code)
 and a plain description of its schedule, rendered as the `# This Chat: <name>` section by
 `format_standing_section()` ([prompts.py](../../src/agent/prompts.py), text in
 `prompt_texts/standing.py`). The turn binds the user's chat tools plus `kv_store`
-defaulting to the agent's `agent:<id>` namespace; the agent's `tool_permissions` and the
-unattended approval gate do not apply while the user is present. A pending approval from a
-run still blocks sending (`prepare_turn` refuses with a validation error until it is
-resolved). Eval: `agent_chat_remind_me`.
+defaulting to the job's `agent:<id>` namespace; the job's grants and the unattended
+approval gate do not apply while the user is present. A pending approval from a run still
+blocks sending (`prepare_turn` refuses with a validation error until it is resolved).
+Eval: `agent_chat_remind_me`.
 
 ## Transient Failure Retries
 
-Transient model errors (connection errors, timeouts, rate limits, 503s) are retried with exponential backoff and jitter **per model call** inside the graph chat node (`AGENT_MAX_RETRIES`, `AGENT_RETRY_BASE_DELAY_SECONDS`, `AGENT_RETRY_MAX_DELAY_SECONDS`). The executor deliberately has no whole-run retry: replaying a turn would re-execute non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). See [Agent Graph](../architecture/agent-graph.md#chat-node-and-transient-error-retries).
+Transient model errors (connection errors, timeouts, rate limits, 503s) are retried with exponential backoff and jitter **per model call** inside the graph chat node (`AGENT_MAX_RETRIES`, `AGENT_RETRY_BASE_DELAY_SECONDS`, `AGENT_RETRY_MAX_DELAY_SECONDS`). There is deliberately no whole-run retry: replaying a turn would re-execute non-idempotent tools (Todoist/Calendar writes, WhatsApp sends). See [Agent Graph](../architecture/agent-graph.md#chat-node-and-transient-error-retries).
 
 ## Budget Limits
 
-Agents can have per-agent daily spending limits to prevent runaway costs.
-
-**Configuration:**
-- Set `budget_limit` in the agent editor (USD per day)
-- Leave empty for unlimited spending
-- Agents that exceed their daily budget are skipped until the next day
-
-**How it works:**
-1. Before execution, check today's total spending for the agent
-2. If spending exceeds `budget_limit`, skip execution with an error message
-3. Spending resets at midnight UTC each day
+A standing job can have a daily spending limit (`budget_usd`, set in the editor or by
+`edit_standing_chat`; empty = none). Before a run, `job_spend_today` sums the job's own
+unattended cost since local midnight (the user's turns in the chat don't count); over the
+budget the run is skipped and recorded, not counted as a failure, until the next day.
 
 ## Command Center UI
 
@@ -416,7 +358,7 @@ jobs (agents). It comes from `GET /api/jobs` (`src/api/routes/jobs.py`,
     and the chat for chat items.
   - **Recent runs** expand from a summary: time, outcome and error, the last 3.
   - Actions: **Run** (standing jobs), **Pause/Resume** (watchers, recurring, agents),
-    **Edit** (agents that are not built-in), **Cancel** (chat items).
+    **Edit** (standing chats that are not built-in), **Cancel** (chat items).
   - Clicking the row opens the job's chat.
   - Pausing an agent's job disables it (`paused_reason='disabled'`), so the editor and
     the Daily Briefing's Settings toggle agree.
@@ -429,7 +371,7 @@ The sidebar shows:
 - Unread count badge (total new messages across agent conversations)
 - Waiting indicator (pulsing dot when agents need approval)
 
-## Creating an Agent
+## Creating a Standing Chat
 
 ### By talking (standing chats phase 3, Nov 2026)
 
@@ -447,8 +389,8 @@ I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
 - The user's yes in their next message confirms it (the pending gate shared with
   `schedule` and `edit_standing_chat`, namespace `standing_create_pending`). A preview
   left behind expires, and a confirm in the same turn is refused.
-- The confirm creates the standing chat and its job with exactly the previewed settings,
-  re-checked, and returns the chat's link `#/conversations/<id>` with the stored settings.
+- The confirm creates the standing chat and its job (`create_standing_chat`) with exactly
+  the previewed settings, re-checked, and returns the chat's link `#/conversations/<id>` with the stored settings.
   A confirm carrying other fields is refused: a changed version needs a new preview.
 - Refused in standing chats and in unattended runs; never bound in anonymous chats. Names
   are unique, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing chats.
@@ -458,19 +400,25 @@ I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
 ### From the Command Center
 
 1. Click the robot icon in the sidebar or navigate to Command Center
-2. Click "New Agent"
+2. Click "New Agent" (the chat header's edit button opens the same `JobEditor` for an
+   existing one)
 3. Fill in:
-   - **Name**: Unique identifier
-   - **Description**: What the agent does
-   - **Schedule**: Cron expression or preset
+   - **Name**: Unique per user
+   - **Description**: What it does
+   - **Schedule**: Cron expression or preset (blank = on demand only)
    - **Timezone**: For schedule interpretation
-   - **System Prompt**: Agent's goals and behavior
-   - **Tool Permissions**: Which tools the agent can use
-   - **Enabled**: Toggle to activate/deactivate
+   - **Instructions**: Goals and behavior (a built-in shows its stock prompt until edited)
+   - **Tool Permissions**: Which integrations it may use, and for Todoist and Calendar
+     whether it "Can change things without asking"
+   - **Enabled**: Toggle to run on schedule or not (`paused_reason='disabled'`)
 
-## Agent-to-Agent Communication
+The standing chat's header has **Run now** (`handleStandingRun` -> `POST /api/jobs/<id>/run`);
+the result arrives in the chat.
 
-Agents can trigger other agents using the `trigger_agent` tool:
+## Job-to-Job Handoff
+
+A run can start another standing job using the `trigger_agent` tool (granted like any other
+tool):
 
 ```python
 @tool
@@ -478,7 +426,9 @@ def trigger_agent(agent_name: str, message: str = "Continue") -> str:
     """Trigger another autonomous agent to run."""
 ```
 
-Circular dependencies are prevented via a `trigger_chain` in the agent context - an agent cannot trigger an agent that's already in the current execution chain.
+Cycles are prevented via the `trigger_chain` in the `JobContext` (job ids) - a run cannot
+trigger a job that's already in the current chain, and the chain is capped at
+`AGENT_MAX_TRIGGER_DEPTH`.
 
 ## Configuration
 
@@ -488,24 +438,18 @@ Circular dependencies are prevented via a `trigger_chain` in the agent context -
 |----------|---------|-------------|
 | `AGENT_APPROVAL_TTL_HOURS` | 24 | Hours until approval requests expire |
 | `AGENT_EXECUTION_TIMEOUT_MINUTES` | 10 | Max execution time before considered stale |
-| `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum agent-to-agent trigger chain length (cycles are always blocked) |
+| `AGENT_MAX_TRIGGER_DEPTH` | 3 | Maximum job-to-job trigger chain length (cycles are always blocked) |
 | `AGENT_MAX_RETRIES` | 3 | Max retry attempts for transient failures |
 | `AGENT_MODEL_SDK_MAX_RETRIES` | 1 | Retries inside the Gemini SDK per chat-model call; a model that is down falls back to the other tier |
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
 | `STANDING_CHATS_MAX_PER_USER` | 10 | Standing chats a user may have; guards against creating them in a loop |
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
-| `GUNICORN_MAX_REQUESTS` | 1000 | Recycle workers after N requests (memory leak safety net) |
-| `GUNICORN_MAX_REQUESTS_JITTER` | 50 | Random jitter to stagger worker recycling |
 
-Agents also use existing configuration for:
+Runs also use existing configuration for:
 - `GEMINI_API_KEY` - LLM access
-- `DATABASE_PATH` - Agent storage
+- `DATABASE_PATH` - storage
 - Integration credentials (Todoist, Calendar) if used
-
-### Feature Toggle
-
-Agents are always available for authenticated users. No feature flag required.
 
 ## Testing
 
@@ -525,120 +469,41 @@ cd web && npx playwright test tests/visual/agents.visual.ts --update-snapshots
 
 ### Test Endpoints (E2E)
 
-In E2E test mode, these endpoints control agent state:
+In E2E test mode, these endpoints control job state:
 
 - `POST /test/set-jobs-overview` - Set the job list (`GET /api/jobs`) a test renders
 - `POST /test/seed-agent` - Seed a real agent (standing chat + job)
 - `POST /test/clear-agents-config` - Reset to defaults
+- `POST /test/seed-agent-with-approval` - Seed a standing chat whose job awaits an approval
+
+Backend tests: [test_standing_chats.py](../../tests/unit/test_standing_chats.py),
+[test_run_context.py](../../tests/unit/test_run_context.py),
+[test_routes_jobs.py](../../tests/integration/test_routes_jobs.py),
+[test_routes_job_editor.py](../../tests/integration/test_routes_job_editor.py),
+[test_migration_0082.py](../../tests/integration/test_migration_0082.py); frontend:
+[job-editor.test.ts](../../web/tests/component/job-editor.test.ts),
+[agents.spec.ts](../../web/tests/e2e/agents.spec.ts).
 
 ## Routing Race Condition Prevention
 
-When users rapidly navigate between different views (conversations, planner, agents), async operations
-from the first view might complete after the user has already switched to another view. Without
-protection, this would render stale content in the wrong view.
-
-### The Navigation Token Pattern
-
-The solution uses a navigation token that increments on each navigation:
-
-```typescript
-// In store.ts
-navigationToken: number;
-startNavigation: () => number;       // Increments and returns new token
-isNavigationValid: (token) => boolean; // Checks if token matches current
-```
-
-### Usage in Navigation Functions
-
-Each async navigation function follows this pattern:
-
-```typescript
-async function navigateToAgents(): Promise<void> {
-  // 1. Get token BEFORE async operations
-  const navToken = store.startNavigation();
-
-  // 2. Start async load
-  const data = await jobs.overview();
-
-  // 3. Check token AFTER async completes - cancel if invalid
-  if (!store.isNavigationValid(navToken)) {
-    log.info('User navigated away, aborting render');
-    return;
-  }
-
-  // 4. Safe to render
-  renderCommandCenter(data);
-}
-```
-
-### Why This Works
-
-- Each navigation increments the token
-- If user clicks Agents → Planner → Agents rapidly:
-  - First Agents click: token = 1
-  - Planner click: token = 2
-  - Second Agents click: token = 3
-- When first Agents load completes (token was 1, current is 3) → cancelled
-- Only the final navigation renders
-
-A navigation with nothing to load must still take a token: `createConversation()`
-(New Chat) calls `startNavigation()` first. Without it a New Chat clicked while
-the planner was loading (its loading placeholder already carries
-`#planner-dashboard`) let the planner render its dashboard over the new chat -
-the intermittent `UI state is properly reset when leaving planner` E2E failure
-(Oct 2026, 2 of 10 runs).
-
-### Adding New Screens
-
-When adding a new screen:
-1. Import `useStore` and call `startNavigation()` before async operations
-2. After async completes, check `isNavigationValid(token)` before rendering
-3. If invalid, return early without rendering
-
-This pattern automatically handles race conditions with all other screens
-without needing screen-specific flag checks.
-
-### Input Area Visibility During Navigation
-
-The agents view hides the input area (since it's not a chat). When navigating away from agents to
-other views, the input area must be restored. This is handled by `ensureInputAreaVisible()` in
-[MessageInput.ts](../../web/src/components/MessageInput.ts).
-
-**The bug scenario:**
-1. User is in agents view (input area hidden)
-2. User navigates to planner while it's loading
-3. Planner sets `isAgentsView = false` but the async fetch hasn't completed
-4. User navigates to a conversation before planner finishes
-5. Neither navigation restores the input area → input box invisible
-
-**The fix:**
-- `ensureInputAreaVisible()` is a defensive helper that removes `hidden` class from input area
-- Called in multiple places to ensure coverage regardless of navigation path:
-  - `navigateToPlanner()` - when coming from agents view
-  - `switchToConversation()` - defensive call for all conversation switches
-  - `createConversation()` - defensive call for new conversations
-  - `leaveAgentsView()` - primary restore point when leaving agents
-  - `leavePlannerView()` - ensures input visible after leaving planner
-
-**Regression tests:** [navigation-input-focus.test.ts](../../web/tests/unit/navigation-input-focus.test.ts)
+Switching quickly between the Command Center, the planner and chats is guarded by the
+navigation token pattern: see [Components](../ui/components.md#routing-race-condition-prevention).
 
 ## Future Enhancements
 
-- Agent conversation header status and run button (the header currently has back + edit, `AgentConversationHeader.ts`)
-- Inline approval display in agent conversations
-- Agent execution logs with detailed output
-- Webhook triggers for agents
-- Agent templates library
+- Goals, notice jobs and routines from repetition (TODO.md; need a design first)
+- Inline approval display in standing chats
+- Webhook triggers
 
 ## Key Files
 
-- [executor.py](../../src/agent/executor.py) - the run context (`AgentContext`, trigger chain), trigger message, run history, approval recording
-- [routes/agents.py](../../src/api/routes/agents.py) - REST endpoints (CRUD, execution)
+- [run_context.py](../../src/agent/run_context.py) - `JobContext`, trigger message, run history, approval recording
+- [item_runner.py](../../src/agent/item_runner.py) / [item_scheduler.py](../../src/agent/item_scheduler.py) - one run / the scheduler pass
+- [routes/jobs.py](../../src/api/routes/jobs.py), [routes/approvals.py](../../src/api/routes/approvals.py) - REST endpoints
 - [routes/agent_assist.py](../../src/api/routes/agent_assist.py) - AI assist endpoints, `_PROMPT_TOOL_DESCRIPTIONS`
-- [models/agent.py](../../src/db/models/agent.py) - agents, approvals, executions
+- [models/standing_chats.py](../../src/db/models/standing_chats.py), [job_runs.py](../../src/db/models/job_runs.py), [job_approvals.py](../../src/db/models/job_approvals.py) - storage
 - [dev_scheduler.py](../../src/agent/dev_scheduler.py) / [run_agent_scheduler.py](../../scripts/run_agent_scheduler.py) - scheduling
-- [CommandCenter.ts](../../web/src/components/CommandCenter.ts), [AgentEditor.ts](../../web/src/components/AgentEditor.ts), [core/agents.ts](../../web/src/core/agents.ts) - UI
-- [test_agents.py](../../tests/unit/test_agents.py), [test_routes_agents.py](../../tests/integration/test_routes_agents.py), [agents.spec.ts](../../web/tests/e2e/agents.spec.ts)
+- [CommandCenter.ts](../../web/src/components/CommandCenter.ts), [JobEditor.ts](../../web/src/components/JobEditor.ts), [core/agents.ts](../../web/src/core/agents.ts) - UI
 
 ## See Also
 

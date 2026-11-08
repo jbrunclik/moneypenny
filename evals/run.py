@@ -717,7 +717,7 @@ def _saved_attachments(case: EvalCase, db: Any, conversation_id: str) -> list[An
 _CANNED_PROGRAMS = {"sports": ("Cyklistika", "cycling"), "language": ("Italština", "italian")}
 
 
-# Agent mode: a real agent chat (create_agent: a standing chat + its job),
+# Agent mode: a real agent chat (create_standing_chat: the chat + its job),
 # its context loaded the way production loads it
 _CANNED_AGENT = (
     "Garden helper",
@@ -728,7 +728,7 @@ _CANNED_AGENT = (
 
 def _agent_conversation(user: Any, db: Any) -> Any:
     name, instructions, schedule = _CANNED_AGENT
-    agent = db.create_agent(user.id, name, system_prompt=instructions, schedule=schedule)
+    agent = db.create_standing_chat(user.id, name, instructions, schedule=schedule)
     return db.get_conversation(agent.conversation_id, user.id)
 
 

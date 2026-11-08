@@ -23,13 +23,10 @@ def test_load_skill_passes_the_permission_gate() -> None:
 
 
 def test_bound_for_chat_and_for_agents() -> None:
-    from unittest.mock import MagicMock
-
-    from src.agent.tools import get_tools_for_agent, get_tools_for_request
+    from src.agent.tools import get_tools_for_request, tools_for_grants
 
     assert "load_skill" in {t.name for t in get_tools_for_request()}
-    agent = MagicMock(tool_permissions=[])
-    assert "load_skill" in {t.name for t in get_tools_for_agent(agent)}
+    assert "load_skill" in {t.name for t in tools_for_grants([], "u1")}
 
 
 def test_index_is_in_the_cached_static_prompt() -> None:

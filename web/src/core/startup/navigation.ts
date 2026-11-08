@@ -4,7 +4,7 @@
  * them back (F1). They get the views' functions here instead, before
  * anything can navigate.
  */
-import { handleAgentEditById, leaveAgentsView, navigateToAgents } from '../agents';
+import { handleAgentEditById, handleStandingRun, leaveAgentsView, navigateToAgents } from '../agents';
 import { setViewLeavers } from '../conversation';
 import { setAgentHeaderActions } from '../conversation-switch';
 import { leaveSportsView } from '../sports';
@@ -15,5 +15,9 @@ import { leaveSportsView } from '../sports';
 export function initNavigation(): void {
   // The agents view leaves the main area to the conversation being opened
   setViewLeavers({ agents: () => leaveAgentsView(false), sports: leaveSportsView });
-  setAgentHeaderActions({ openAgents: () => navigateToAgents(), editAgent: handleAgentEditById });
+  setAgentHeaderActions({
+    openAgents: () => navigateToAgents(),
+    editAgent: handleAgentEditById,
+    runAgent: handleStandingRun,
+  });
 }

@@ -340,7 +340,7 @@ class TestSyncAgentConversationExclusion:
         test_database.add_message(regular_conv.id, "user", "Hello")
 
         # Create an agent and its conversation
-        agent = test_database.create_agent(test_user.id, name="Test Agent")
+        agent = test_database.create_standing_chat(test_user.id, name="Test Agent")
         agent_conv = test_database.get_conversation(agent.conversation_id, test_user.id)
 
         # Add messages to agent conversation
@@ -377,7 +377,7 @@ class TestSyncAgentConversationExclusion:
         cursor = data1["cursor"]
 
         # Create an agent
-        agent = test_database.create_agent(test_user.id, name="Test Agent")
+        agent = test_database.create_standing_chat(test_user.id, name="Test Agent")
 
         # Update both conversations
         test_database.add_message(regular_conv.id, "user", "New message")

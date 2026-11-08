@@ -180,10 +180,10 @@ def _get_chat_conversation(user: User, conv_id: str) -> Conversation:
         raise_not_found_error("Conversation")
 
     # Block sending messages to agent conversations with pending approvals
-    if conv.is_agent and conv.agent_id and db.has_pending_approval(conv.agent_id):
+    if conv.is_agent and conv.job_id and db.has_pending_approval(conv.job_id):
         logger.warning(
             "Attempted to send message to agent with pending approval",
-            extra={"user_id": user.id, "conversation_id": conv_id, "agent_id": conv.agent_id},
+            extra={"user_id": user.id, "conversation_id": conv_id, "job_id": conv.job_id},
         )
         raise_validation_error(
             "Cannot send messages while an action is awaiting approval. "

@@ -30,30 +30,17 @@ vi.mock('@/api/jobs', () => ({
       jobs_waiting: 0,
       jobs_with_errors: 0,
     }),
+    syncConversation: vi.fn(),
   },
 }));
 
-vi.mock('@/api/agents', () => ({
-  agents: {
-    list: vi.fn(),
-    get: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    syncConversation: vi.fn(),
-  },
-  aiAssist: {
-    parseSchedule: vi.fn(),
-    enhancePrompt: vi.fn(),
-  },
-}));
 
 // Import after mocks are set up
 import { SyncManager } from '@/sync/SyncManager';
 import type { StreamRecoveryHooks, SyncManagerCallbacks, SyncNotifier } from '@/sync/sync-state';
 import { conversations as conversationsApi } from '@/api/conversations';
 import { planner as plannerApi } from '@/api/planner';
-import { agents as agentsApi } from '@/api/agents';
+import { jobs as agentsApi } from '@/api/jobs';
 import { attemptRecovery, cancelRecovery, hasPendingRecovery, markStreamForRecovery } from '@/core/stream-recovery';
 
 // The notifier core/startup passes in (the UI's toast)

@@ -15,8 +15,8 @@ from src.agent.tools.google_calendar import is_google_calendar_available
 from src.agent.tools.todoist import is_todoist_available
 from src.agent.tools.whatsapp import is_whatsapp_available
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.routes.agents import api
-from src.api.schemas.agents import (
+from src.api.routes.jobs import api
+from src.api.schemas.agent_assist import (
     EnhancePromptRequest,
     EnhancePromptResponse,
     ParseScheduleRequest,

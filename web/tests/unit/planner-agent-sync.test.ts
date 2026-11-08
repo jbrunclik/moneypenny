@@ -12,7 +12,7 @@ const plannerApi = vi.hoisted(() => ({ sync: vi.fn() }));
 const agentsApi = vi.hoisted(() => ({ syncConversation: vi.fn() }));
 
 vi.mock('@/api/planner', () => ({ planner: plannerApi }));
-vi.mock('@/api/agents', () => ({ agents: agentsApi }));
+vi.mock('@/api/jobs', () => ({ jobs: agentsApi }));
 
 import { PlannerSync } from '@/sync/planner-sync';
 import { AgentConversationSync } from '@/sync/agent-conversation-sync';

@@ -29,4 +29,14 @@ describe('AgentConversationHeader', () => {
     expect(header().querySelector('img')).toBeNull();
     expect(header().querySelector('.chat-header-title')!.textContent).toBe('<img src=x onerror=alert(1)>');
   });
+
+  it('a Run action runs the standing chat now', () => {
+    const onRun = vi.fn();
+    renderAgentConversationHeader('Coach', vi.fn(), vi.fn(), onRun);
+
+    const run = header().querySelector<HTMLButtonElement>('.agent-conv-run')!;
+    expect(run.title).toBe('Run now');
+    run.click();
+    expect(onRun).toHaveBeenCalledOnce();
+  });
 });

@@ -62,8 +62,8 @@ def notify_response_ready(
     tag = f"turn-{conv_id}"
     try:
         conv = db.get_conversation(conv_id, user_id)
-        if conv and conv.agent_id:
-            tag = f"agent-{conv.agent_id}"
+        if conv and conv.job_id:
+            tag = f"agent-{conv.job_id}"
     except Exception:  # tag fallback must never block the push
         logger.debug("Conversation lookup for push tag failed", exc_info=True)
 

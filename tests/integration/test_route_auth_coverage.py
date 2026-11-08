@@ -35,8 +35,6 @@ PUBLIC_ENDPOINTS = {
 # anonymous request with no body gets 400, not 401. B4 moves these to
 # @validate_request; remove each entry as it moves (the list only shrinks).
 INPUT_BEFORE_AUTH = {
-    "agents.create_agent",
-    "agents.update_agent",
     "kv_store.set_value",
     "memory.update_memory_protection",
 }

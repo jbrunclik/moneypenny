@@ -133,8 +133,8 @@ function mergeContainerFor(convId: string): HTMLDivElement | null {
   return container;
 }
 
-function markAgentConversationViewed(response: { is_agent?: boolean | null; agent_id?: string | null }): void {
-  if (response.is_agent && response.agent_id) markAgentViewedAndRefresh(response.agent_id);
+function markAgentConversationViewed(response: { is_agent?: boolean | null; job_id?: string | null }): void {
+  if (response.is_agent && response.job_id) markAgentViewedAndRefresh(response.job_id);
 }
 
 async function mergeOnce(convId: string): Promise<void> {
