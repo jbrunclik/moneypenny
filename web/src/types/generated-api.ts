@@ -6031,7 +6031,11 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ApproveRequest"];
+                };
+            };
             responses: {
                 /** @description Successful response */
                 200: {
@@ -6058,6 +6062,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
                     };
                 };
             };
@@ -12204,6 +12217,18 @@ export interface components {
              * @description Whether the memory is exempt from auto-deletion
              */
             protected: boolean;
+        };
+        /**
+         * ApproveRequest
+         * @description Approving an agent's request: once, or always for that tool.
+         */
+        ApproveRequest: {
+            /**
+             * Always
+             * @description Also grant the agent write access to this tool, so later changes there need no approval (never for settings changes)
+             * @default false
+             */
+            always?: boolean;
         };
         /**
          * LanguageConversationResponse

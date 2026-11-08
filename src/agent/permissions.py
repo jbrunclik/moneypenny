@@ -8,6 +8,7 @@ the `request_approval` tool for sensitive actions (see request_approval.py).
 This module only handles the BLOCKED case.
 """
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Any
 
@@ -35,12 +36,41 @@ ALWAYS_SAFE_TOOLS: set[str] = {
     "create_file",  # attaches generated content to the reply
     "load_skill",  # read-only: returns repo-authored instructions
     "request_approval",
+    "edit_standing_chat",  # unattended it only files an approval request
     "kv_store",
     # Read-only places/routing lookups (Mapy.com)
     "search_places",
     "get_route",
     "list_places",
 }
+
+
+# Grant levels (standing chats phase 2): "<tool>" lets a run read there,
+# "<tool>:write" also change things. A write without the write level is a
+# draft the user approves (permission_check). WhatsApp only messages the user
+# themselves, so it is a notification, not a write.
+WRITE_SUFFIX = ":write"
+WRITE_LEVEL_TOOLS = frozenset({"todoist", "google_calendar", "garmin_workout", "rouvy_workout"})
+_READ_PREFIXES = ("get", "list", "search")
+
+
+def base_tool(grant: str) -> str:
+    """The tool a grant names ("todoist:write" -> "todoist")."""
+    return grant.removesuffix(WRITE_SUFFIX)
+
+
+def is_write_call(tool_name: str, tool_args: Mapping[str, object]) -> bool:
+    """A call that changes something in a writable integration."""
+    if tool_name not in WRITE_LEVEL_TOOLS:
+        return False
+    operation = str(tool_args.get("operation") or tool_args.get("action") or "")
+    return not operation.startswith(_READ_PREFIXES)
+
+
+def has_write_grant(agent: Agent, tool_name: str) -> bool:
+    """All tools (no list) or the tool's write level."""
+    permissions = agent.tool_permissions
+    return permissions is None or f"{tool_name}{WRITE_SUFFIX}" in permissions
 
 
 def check_tool_permission(
@@ -64,7 +94,9 @@ def check_tool_permission(
 
     # 2. Check if tool is in agent's allowed list
     # If permissions list exists (even if empty), only those tools are allowed
-    if agent.tool_permissions is not None and tool_name not in agent.tool_permissions:
+    if agent.tool_permissions is not None and tool_name not in {
+        base_tool(g) for g in agent.tool_permissions
+    }:
         logger.info(
             "Tool blocked - not in agent's permissions",
             extra={"agent_id": agent.id, "tool": tool_name},

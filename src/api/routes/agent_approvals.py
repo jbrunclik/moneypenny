@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from src.agent.item_scheduler import JobBusyError, run_job_now
-from src.api.errors import raise_not_found_error
+from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX
+from src.agent.tools.standing_settings import TOOL_NAME as SETTINGS_TOOL
+from src.agent.tools.standing_settings import Change, apply_standing_changes
+from src.api.errors import raise_not_found_error, raise_validation_error
 from src.api.helpers.agent_responses import approval_to_response
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.agents import api
-from src.api.schemas.agents import PendingApprovalsResponse
+from src.api.schemas.agents import ApproveRequest, PendingApprovalsResponse
 from src.api.schemas.common import StatusResponse
+from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 from src.db.models.dataclasses import ApprovalRequest
@@ -45,7 +49,8 @@ def list_pending_approvals(user: User) -> dict[str, Any]:
 @api.doc(responses=[401, 404])
 @rate_limit_conversations
 @require_auth
-def approve_request(user: User, approval_id: str) -> dict[str, Any]:
+@validate_request(ApproveRequest)
+def approve_request(user: User, data: ApproveRequest, approval_id: str) -> dict[str, Any]:
     """Approve a pending approval request.
 
     Marks the request as approved and resumes the agent execution.
@@ -61,8 +66,29 @@ def approve_request(user: User, approval_id: str) -> dict[str, Any]:
     if not approval:
         raise_not_found_error("Approval request")
 
+    if data.always:
+        _grant_write(user, approval)
     # Agents are standing jobs (same id): resume the job
     return _approve_job_request(user, approval_id, approval)
+
+
+def _grant_write(user: User, approval: ApprovalRequest) -> None:
+    """ "Always allow": the agent's job gets the tool's write level. Only for a
+    writable integration - never for a settings change (grants stay explicit)."""
+    if approval.tool_name not in WRITE_LEVEL_TOOLS:
+        raise_validation_error("This kind of request can only be approved once.")
+    agent = db.get_agent(approval.agent_id, user.id)
+    if agent is None:
+        raise_not_found_error("Agent")
+    tool = approval.tool_name
+    grants = agent.tool_permissions
+    if grants is not None:
+        db.update_agent(
+            agent.id,
+            user.id,
+            tool_permissions=list(dict.fromkeys([*grants, tool, f"{tool}{WRITE_SUFFIX}"])),
+        )
+    logger.info("Write access granted from an approval", extra={"agent_id": agent.id, "tool": tool})
 
 
 @api.route("/approvals/<approval_id>/reject", methods=["POST"])
@@ -113,6 +139,14 @@ def _approve_job_request(user: User, approval_id: str, approval: ApprovalRequest
         raise_not_found_error("Agent")
     if not db.resolve_approval(approval_id, user.id, approved=True):
         raise_not_found_error("Approval request")
+    if approval.tool_name == SETTINGS_TOOL:
+        # The approved action is the settings change itself: apply it, no rerun
+        apply_standing_changes(job.id, user.id, cast("Change", approval.tool_args or {}))
+        _close_waiting_execution(job.id, status="completed")
+        db.add_message(
+            job.conversation_id, MessageRole.USER, f"[Action approved: {approval.description}]"
+        )
+        return {"status": "approved"}
     _close_waiting_execution(job.id, status="completed")
     resume_message = f"[Action approved: {approval.description}]"
     db.add_message(job.conversation_id, MessageRole.USER, resume_message)

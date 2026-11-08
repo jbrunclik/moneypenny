@@ -717,24 +717,28 @@ def _saved_attachments(case: EvalCase, db: Any, conversation_id: str) -> list[An
 _CANNED_PROGRAMS = {"sports": ("Cyklistika", "cycling"), "language": ("Italština", "italian")}
 
 
-# Agent mode: a canned agent chat (the user writes in an agent's own chat)
+# Agent mode: a real agent chat (create_agent: a standing chat + its job),
+# its context loaded the way production loads it
 _CANNED_AGENT = (
     "Garden helper",
-    'This chat belongs to the agent "Garden helper"; it runs every day at 07:00 '
-    "and its reports appear in this chat. The user is here now, talking to it "
-    "directly.\n\nIts standing instructions:\nEach morning check the weather "
-    "and tell the user whether the garden needs watering.",
+    "Each morning check the weather and tell the user whether the garden needs watering.",
+    "0 7 * * *",
 )
 
 
-def _standing(case: EvalCase) -> Any:
-    """Sports / language / agent mode: a canned standing chat's context, built
-    the way production builds it (standing_for_program for programs)."""
-    if case.mode == "agent":
-        from src.agent.standing import StandingContext
+def _agent_conversation(user: Any, db: Any) -> Any:
+    name, instructions, schedule = _CANNED_AGENT
+    agent = db.create_agent(user.id, name, system_prompt=instructions, schedule=schedule)
+    return db.get_conversation(agent.conversation_id, user.id)
 
-        name, instructions = _CANNED_AGENT
-        return StandingContext("agent", name, instructions, None, "agent:eval", agent_id="eval")
+
+def _standing(case: EvalCase, conversation: Any = None, user: Any = None) -> Any:
+    """Sports / language / agent mode: the standing chat's context, built the
+    way production builds it (load_standing_context / standing_for_program)."""
+    if case.mode == "agent":
+        from src.agent.standing_context import load_standing_context
+
+        return load_standing_context(conversation, user)
     if case.mode not in _CANNED_PROGRAMS:
         return None
     from src.agent.standing_context import standing_for_program
@@ -917,8 +921,9 @@ def _case_user(case: EvalCase, user: Any, db: Any) -> Any:
     """The user a case runs as. Cases share one user and run in parallel; a
     memory-review case gets a fresh one, since the review reads the whole
     bank and the recently deleted memories (cleanups read as "removed by the
-    user - do not re-add")."""
-    if not case.memory_review:
+    user - do not re-add"); an agent-mode case too (agent names are unique
+    per user)."""
+    if not (case.memory_review or case.mode == "agent"):
         return user
     import uuid
 
@@ -937,7 +942,12 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     from src.services.costs import calculate_token_cost
 
     user = _case_user(case, user, db)
-    conversation = db.create_conversation(user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL)
+    if case.mode == "agent":
+        conversation = _agent_conversation(user, db)
+    else:
+        conversation = db.create_conversation(
+            user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL
+        )
     set_conversation_context(conversation.id, user.id)
     # Per-turn tool bookkeeping (batching nudges, web_search -> research
     # upgrade) is keyed by request id; without one it is inert, so evals
@@ -946,7 +956,7 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     set_current_request_id(request_id)
 
     seeded_memory_ids, history, summarizer_usage = _seed_case(case, user, db, conversation.id)
-    standing = _standing(case)
+    standing = _standing(case, conversation, user)
     if standing is not None:
         set_standing_namespace(standing.kv_namespace)
     try:

@@ -504,3 +504,15 @@ def test_a_standing_jobs_run_is_named_after_its_chat(
     context = fake_llm.instances[0].context_during_call
     assert context is not None and context.agent.name == "VWCE Watcher"
     assert fake_llm.instances[0].init_kwargs["agent_context"]["name"] == "VWCE Watcher"
+
+
+def test_standing_job_can_ask_to_change_its_settings_light_items_cannot(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    run_model_item(_job(test_user, test_conversation), test_user)
+    run_model_item(_watcher(test_user, test_conversation), test_user)
+
+    job_tools = {t.name for t in fake_llm.instances[0].init_kwargs["tools"]}
+    light_tools = {t.name for t in fake_llm.instances[1].init_kwargs["tools"]}
+    assert "edit_standing_chat" in job_tools
+    assert "edit_standing_chat" not in light_tools

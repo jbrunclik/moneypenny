@@ -6,12 +6,13 @@ static prompt
   planning       37048
   standing       33900
 
-tool declarations (36 tools, 60702 chars)
+tool declarations (37 tools, 62255 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
   delegate_task                  878
   delete_place                   325
+  edit_standing_chat            1553
   execute_code                  3788
   fetch_url                      992
   garmin_connect                4533

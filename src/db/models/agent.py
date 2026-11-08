@@ -37,6 +37,15 @@ logger = get_logger(__name__)
 ALL_GRANTS = "*"
 
 
+def _with_write_levels(new: list[str] | None, current: list[str] | None) -> list[str]:
+    """The grants to store: the agent editor sends tool names only, so the
+    write levels of tools still granted are kept (never silently dropped)."""
+    if new is None:
+        return [ALL_GRANTS]
+    kept = [g for g in current or [] if g.endswith(":write") and g.removesuffix(":write") in new]
+    return list(dict.fromkeys([*new, *kept]))
+
+
 def _set_clauses(fields: list[tuple[str, Any]]) -> tuple[list[str], list[Any]]:
     """SET clauses for the fields given (Ellipsis = unchanged; None never
     blanks a NOT NULL conversation column)."""
@@ -265,7 +274,7 @@ class AgentMixin:
         grants = (
             ...
             if isinstance(tool_permissions, EllipsisType)
-            else json.dumps(tool_permissions if tool_permissions is not None else [ALL_GRANTS])
+            else json.dumps(_with_write_levels(tool_permissions, current_agent.tool_permissions))
         )
         fresh = (
             fresh_context if isinstance(fresh_context, EllipsisType) else int(bool(fresh_context))

@@ -5304,6 +5304,16 @@
             },
             "description": "Successful response"
           },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5329,7 +5339,16 @@
           "Agents"
         ],
         "summary": "Approve a pending approval request.",
-        "description": "Marks the request as approved and resumes the agent execution.\nThe agent will continue with a message indicating the action was approved."
+        "description": "Marks the request as approved and resumes the agent execution.\nThe agent will continue with a message indicating the action was approved.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/language/{program}/conversation": {
@@ -15816,6 +15835,19 @@
           "protected"
         ],
         "title": "UpdateMemoryProtectionRequest",
+        "type": "object"
+      },
+      "ApproveRequest": {
+        "description": "Approving an agent's request: once, or always for that tool.",
+        "properties": {
+          "always": {
+            "default": false,
+            "description": "Also grant the agent write access to this tool, so later changes there need no approval (never for settings changes)",
+            "title": "Always",
+            "type": "boolean"
+          }
+        },
+        "title": "ApproveRequest",
         "type": "object"
       },
       "LanguageConversationResponse": {

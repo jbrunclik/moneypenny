@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 from pydantic.config import JsonDict
 
+from src.agent.permissions import base_tool
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
 from src.agent.tools.attachment import create_file
@@ -59,6 +60,7 @@ from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
 from src.agent.tools.scheduling import schedule
 from src.agent.tools.skills import load_skill
+from src.agent.tools.standing_settings import edit_standing_chat
 from src.agent.tools.todoist import is_todoist_available, todoist
 from src.agent.tools.trigger_agent import trigger_agent
 from src.agent.tools.web import fetch_url, web_search
@@ -202,7 +204,7 @@ def _add_permitted_tools(
     tools: list[Any], permissions: list[str], whatsapp_available: Callable[[], bool]
 ) -> None:
     """Append each permitted, available tool not already in `tools`."""
-    for tool_name in permissions:
+    for tool_name in {base_tool(p) for p in permissions}:
         tool = _TOOL_MAP.get(tool_name)
         if tool is None or tool in tools:
             continue
@@ -261,6 +263,10 @@ def get_tools_for_request(
 
     if standing and kv_store not in tools:
         tools.append(kv_store)
+    if standing:
+        # An agent's chat: it may propose changes to its own settings (the
+        # tool refuses in chats without an agent)
+        tools.append(edit_standing_chat)
 
     return tools
 
@@ -307,6 +313,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "request_approval",  # autonomous agents only
         "propose_deep_research",  # ordinary chats only, never for agents
         "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
+        "edit_standing_chat",  # standing chats and their jobs, never a grant
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",
         "update_artifact",
@@ -389,6 +396,9 @@ def get_tools_for_agent(agent: Agent) -> list[Any]:
 
     # Add kv_store for persistent storage
     tools.append(kv_store)
+
+    # A standing job may ask the user to change its own settings (approval only)
+    tools.append(edit_standing_chat)
 
     # If agent has specific permissions (including empty list), filter tools
     if agent.tool_permissions is not None:

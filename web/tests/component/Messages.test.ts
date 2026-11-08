@@ -514,6 +514,24 @@ describe('Messages - addMessageToUI special messages', () => {
     expect(el.querySelector('.btn-reject')).not.toBeNull();
   });
 
+  it('offers Always allow for a change in a writable integration', async () => {
+    const { agents } = await import('@/api/agents');
+    const approve = vi.spyOn(agents, 'approveRequest').mockResolvedValue();
+    const todoist =
+      '[approval-request:ab12]\nI need your permission to: **Add a task**\nTool: `todoist`';
+    addMessageToUI(createMessage('a1', todoist, 'assistant'), container);
+
+    const always = container.querySelector<HTMLButtonElement>('.btn-always-allow');
+    expect(always?.textContent).toContain('Always allow');
+    always!.click();
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledWith('ab12', true));
+  });
+
+  it('has no Always allow for other requests', () => {
+    addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container);
+    expect(container.querySelector('.btn-always-allow')).toBeNull();
+  });
+
   it('shows the outcome of a resolved approval instead of buttons', () => {
     const resolutions = new Map([
       ['a1', { resolved: true, approved: true }],

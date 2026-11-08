@@ -593,17 +593,42 @@ function approvalResult(approved: boolean): HTMLElement {
 }
 
 /** Approve/reject buttons of a pending approval request. */
-function approvalButtons(approvalId: string): HTMLElement[] {
+/**
+ * Integrations where "Always allow" grants the agent write access, so later
+ * changes there need no approval (mirrors WRITE_LEVEL_TOOLS in
+ * src/agent/permissions.py; the server refuses any other tool).
+ */
+const ALWAYS_ALLOWABLE_TOOLS = new Set(['todoist', 'google_calendar', 'garmin_workout', 'rouvy_workout']);
+
+function approvalButtons(approvalId: string, toolName: string): HTMLElement[] {
+  const always = ALWAYS_ALLOWABLE_TOOLS.has(toolName)
+    ? [
+        createElement('button', { class: 'btn btn-always-allow', 'data-approval-id': approvalId }, [
+          createElement('span', {}, ['Always allow']),
+        ]),
+      ]
+    : [];
   return [
     createElement('button', { class: 'btn btn-approve', 'data-approval-id': approvalId }, [
       iconNodes(CHECK_ICON),
       createElement('span', {}, ['Approve']),
     ]),
+    ...always,
     createElement('button', { class: 'btn btn-reject', 'data-approval-id': approvalId }, [
       iconNodes(CLOSE_ICON),
       createElement('span', {}, ['Reject']),
     ]),
   ];
+}
+
+/** The outcome of a resolved request, or its buttons while pending. */
+function approvalActions(
+  parsed: { approvalId: string; toolName: string } | null,
+  isResolved: boolean,
+  wasApproved: boolean
+): HTMLElement[] {
+  if (isResolved) return [approvalResult(wasApproved)];
+  return approvalButtons(parsed?.approvalId ?? '', parsed?.toolName ?? '');
 }
 
 /** Header icon and title of an approval request: pending, approved or rejected. */
@@ -623,6 +648,9 @@ function approvalTool(toolName: string): HTMLElement | null {
 function wireApprovalButtons(messageEl: HTMLElement, approvalId: string): void {
   messageEl.querySelector('.btn-approve')?.addEventListener('click', () => {
     void handleApprovalAction(approvalId, true, messageEl);
+  });
+  messageEl.querySelector('.btn-always-allow')?.addEventListener('click', () => {
+    void handleApprovalAction(approvalId, true, messageEl, true);
   });
   messageEl.querySelector('.btn-reject')?.addEventListener('click', () => {
     void handleApprovalAction(approvalId, false, messageEl);
@@ -656,7 +684,7 @@ function addApprovalRequestMessageToUI(
 
   const description = parsed?.description || 'Unknown action';
   // Show buttons if pending, show result if resolved
-  const actions = isResolved ? [approvalResult(wasApproved)] : approvalButtons(parsed?.approvalId || '');
+  const actions = approvalActions(parsed, isResolved, wasApproved);
   const header = approvalHeader(isResolved, wasApproved);
 
   messageEl.append(
@@ -684,7 +712,12 @@ function addApprovalRequestMessageToUI(
 /**
  * Handle approval action (approve or reject).
  */
-async function handleApprovalAction(approvalId: string, approved: boolean, messageEl: HTMLElement): Promise<void> {
+async function handleApprovalAction(
+  approvalId: string,
+  approved: boolean,
+  messageEl: HTMLElement,
+  always: boolean = false
+): Promise<void> {
   // Import dynamically to avoid circular dependencies
 
 
@@ -696,8 +729,8 @@ async function handleApprovalAction(approvalId: string, approved: boolean, messa
 
   try {
     if (approved) {
-      await agents.approveRequest(approvalId);
-      toast.success('Action approved. Agent will continue.');
+      await agents.approveRequest(approvalId, always);
+      toast.success(always ? 'Allowed from now on. Agent will continue.' : 'Action approved. Agent will continue.');
     } else {
       await agents.rejectRequest(approvalId);
       toast.info('Action rejected.');

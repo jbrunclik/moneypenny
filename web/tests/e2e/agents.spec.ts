@@ -751,4 +751,25 @@ test.describe('Agents - Pending Approval Input Blocking', () => {
     const errorToast = page.locator('.toast-error');
     await expect(errorToast).not.toBeVisible();
   });
+
+  for (const [label, viewport] of [
+    ['desktop', { width: 1280, height: 800 }],
+    ['mobile', { width: 375, height: 812 }],
+  ] as const) {
+    test(`Always allow approves a Todoist change and grants it (${label})`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
+        data: { name: `Always ${label}`, description: 'Add task: Buy milk', tool_name: 'todoist' },
+      });
+      const { conversation_id: conversationId } = (await seedResponse.json()) as { conversation_id: string };
+
+      await page.goto(`/#/conversations/${conversationId}`);
+      const approval = page.locator('.approval-request-message');
+      const always = approval.locator('.btn-always-allow');
+      await expect(always).toBeVisible();
+      await always.click();
+
+      await expect(approval.locator('.approval-result.approved')).toBeVisible();
+    });
+  }
 });

@@ -216,6 +216,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Scheduled",
         "icon": "history",
     },
+    "edit_standing_chat": {
+        "label": "Changing settings",
+        "label_past": "Proposed a settings change",
+        "icon": "edit",
+    },
 }
 
 # Place/routing tools share one detail formatter.

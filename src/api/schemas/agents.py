@@ -263,6 +263,16 @@ class AgentConversationSyncResponse(ResponseModel):
     server_time: Timestamp = Field(..., description="Server timestamp in ISO format")
 
 
+class ApproveRequest(RequestModel):
+    """Approving an agent's request: once, or always for that tool."""
+
+    always: bool = Field(
+        default=False,
+        description="Also grant the agent write access to this tool, so later changes "
+        "there need no approval (never for settings changes)",
+    )
+
+
 class ParseScheduleRequest(RequestModel):
     """Schema for POST /api/ai-assist/parse-schedule."""
 

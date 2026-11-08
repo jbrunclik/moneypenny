@@ -21,13 +21,12 @@ from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 
-from src.agent.tool_results import get_current_request_id
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
+from src.agent.tools.pending_gate import keep_pending, unanswered
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import ItemKind, ScheduledItem
-from src.enums import MessageRole
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 from src.utils.schedule_spec import (
@@ -159,30 +158,6 @@ def _push_note(user_id: str) -> str:
     return "" if db.get_push_subscriptions(user_id) else _NO_PUSH_NOTE
 
 
-def _latest_user_message_id(conversation_id: str) -> str:
-    """The turn marker: production saves each user message before the agent runs."""
-    return next(
-        (m.id for m in reversed(db.get_messages(conversation_id)) if m.role == MessageRole.USER),
-        "",
-    )
-
-
-def _keep_pending(user_id: str, conversation_id: str, spec: Spec) -> None:
-    """Hold the preview for the user's answer. Re-previewing the very item
-    they already saw keeps its turn: it stays answered, so confirmable."""
-    spec["turn"] = _latest_user_message_id(conversation_id)
-    spec["request"] = get_current_request_id() or ""
-    if raw := db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id):
-        previous: Spec = json.loads(raw)
-        markers = {"turn", "request"}
-        if {k: v for k, v in previous.items() if k not in markers} == {
-            k: v for k, v in spec.items() if k not in markers
-        }:
-            spec["turn"] = previous["turn"]
-            spec["request"] = previous.get("request", "")
-    db.kv_set(user_id, _PENDING_NAMESPACE, conversation_id, json.dumps(spec))
-
-
 def _instant(value: str | None) -> datetime | None:
     # tz-naive: values are isoformats of aware UTC instants this module built
     return datetime.fromisoformat(value) if value else None
@@ -218,10 +193,7 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
 
 
 def _confirm_refusal(user_id: str, conversation_id: str, pending: Spec) -> str | None:
-    request = get_current_request_id()
-    same_turn = bool(request) and request == pending.get("request")
-    # A newer user message in the same turn is an interjection, not an answer
-    if same_turn or pending["turn"] == _latest_user_message_id(conversation_id):
+    if unanswered(conversation_id, pending):
         return tool_error(
             "The user has not answered the preview yet - show it and ask them; confirm "
             "only after they agree in their reply."
@@ -282,7 +254,7 @@ def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object
     if isinstance(spec, str):
         return spec
     spec["kind"], spec["text"] = kind, text  # type: ignore[typeddict-item]  # kind checked by _build
-    _keep_pending(user_id, conversation_id, spec)
+    keep_pending(user_id, _PENDING_NAMESPACE, conversation_id, spec)
     return (
         f"PREVIEW: {_KIND_LABELS[kind]} - {spec['when']} ({Config.APP_TIMEZONE}), "
         f'{spec["ends"]}: "{text}". Nothing is scheduled yet: show this to the user and ask; '

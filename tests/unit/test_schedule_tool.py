@@ -32,10 +32,12 @@ def ctx(
     test_conversation: Conversation,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[tuple[Database, User]]:
+    import src.agent.tools.pending_gate as gate
     import src.agent.tools.scheduling as module
     from src.utils import clock
 
     monkeypatch.setattr(module, "db", test_database)
+    monkeypatch.setattr(gate, "db", test_database)
     monkeypatch.setattr(clock, "_now", lambda: _NOW)
     monkeypatch.setattr(Config, "APP_TIMEZONE", "Europe/Prague")
     set_conversation_context(test_conversation.id, test_user.id)

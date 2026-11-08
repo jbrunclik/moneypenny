@@ -59,7 +59,9 @@ class TestApprove:
         resume: MagicMock,
     ) -> None:
         agent, approval, paused_id = paused
-        response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
+        response = client.post(
+            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
+        )
         assert response.status_code == 200
         assert response.get_json() == {"status": "approved"}
 
@@ -80,7 +82,9 @@ class TestApprove:
     ) -> None:
         agent, approval, _ = paused
         resume.side_effect = RuntimeError("model unavailable")
-        response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
+        response = client.post(
+            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
+        )
         assert response.status_code == 200  # the approval itself went through
         assert test_database.get_pending_approvals(agent.user_id) == []
 
@@ -92,8 +96,8 @@ class TestApprove:
         resume: MagicMock,
     ) -> None:
         _, approval, _ = paused
-        client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
-        second = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
+        client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
+        second = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
         assert second.status_code == 404
         assert resume.call_count == 1
 
@@ -110,7 +114,10 @@ class TestApprove:
         other = test_database.get_or_create_user(email="other@example.com", name="Other")
         headers = {"Authorization": f"Bearer {create_token(other)}"}
         assert (
-            client.post(f"/api/approvals/{approval.id}/approve", headers=headers).status_code == 404
+            client.post(
+                f"/api/approvals/{approval.id}/approve", headers=headers, json={}
+            ).status_code
+            == 404
         )
         resume.assert_not_called()
 
@@ -204,7 +211,9 @@ class TestStandingJobApprovals:
 
         monkeypatch.setattr(agent_approvals, "run_job_now", run_job_now)
 
-        response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers)
+        response = client.post(
+            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
+        )
 
         assert response.status_code == 200
         assert resumed == [(job.id, "[Action approved: Delete the old ride task]")]
@@ -229,3 +238,67 @@ class TestStandingJobApprovals:
         assert last.content == "[Action rejected: Delete the old ride task]"
         [paused_run] = test_database.get_agent_executions(job.id)
         assert paused_run.status == "failed"
+
+
+def test_approving_a_settings_change_applies_it_without_a_rerun(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    resume: MagicMock,
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", schedule="0 20 * * *")
+    execution = test_database.create_execution(agent.id, "scheduled")
+    test_database.update_execution(execution.id, status="waiting_approval")
+    approval = test_database.create_approval_request(
+        agent.id, test_user.id, "edit_standing_chat", {"schedule": "0 8 * * 1"}, "Move to Mondays"
+    )
+
+    response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
+
+    assert response.status_code == 200
+    after = test_database.get_agent(agent.id, test_user.id)
+    assert after is not None and after.schedule == "0 8 * * 1"
+    resume.assert_not_called()
+    [run] = test_database.get_agent_executions(agent.id)
+    assert run.status == "completed"
+
+
+def test_always_allow_adds_the_write_grant(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    resume: MagicMock,
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Planner", tool_permissions=["todoist"])
+    approval = test_database.create_approval_request(
+        agent.id, test_user.id, "todoist", None, "Add 'Buy milk'"
+    )
+
+    response = client.post(
+        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
+    )
+
+    assert response.status_code == 200
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and "todoist:write" in (job.grants or [])
+    resume.assert_called_once()
+
+
+def test_always_allow_refused_for_settings_changes(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Coach", tool_permissions=["garmin_connect"])
+    approval = test_database.create_approval_request(
+        agent.id, test_user.id, "edit_standing_chat", {"grants": ["*"]}, "Give me all tools"
+    )
+
+    response = client.post(
+        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
+    )
+
+    assert response.status_code == 400
+    assert test_database.get_pending_approvals(test_user.id) != []
+    after = test_database.get_agent(agent.id, test_user.id)
+    assert after is not None and after.tool_permissions == ["garmin_connect"]

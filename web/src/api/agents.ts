@@ -109,9 +109,10 @@ export const agents = {
   /**
    * Approve a pending approval request.
    */
-  async approveRequest(approvalId: string): Promise<void> {
+  async approveRequest(approvalId: string, always: boolean = false): Promise<void> {
     await request<{ status: string }>(`/api/approvals/${approvalId}/approve`, {
       method: 'POST',
+      body: JSON.stringify({ always }),
     });
   },
 

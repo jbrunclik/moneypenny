@@ -8,11 +8,14 @@ the `request_approval` tool for sensitive actions. This module only handles
 the BLOCKED case (tools not in the agent's permission list).
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from src.agent.permissions import (
     PermissionResult,
     check_tool_permission,
+    has_write_grant,
+    is_write_call,
 )
 from src.db.models import db
 from src.utils.logging import get_logger
@@ -104,6 +107,22 @@ def _check_destructive_approval(
     )
 
 
+def _check_write_approval(agent_id: str, tool_name: str, tool_args: Mapping[str, object]) -> None:
+    """Require + consume an approval for a change the job may only draft."""
+    operation = str(tool_args.get("operation") or tool_args.get("action") or "change")
+    if db.consume_approved_request(agent_id, tool_name, target_id=None):
+        logger.info(
+            "Drafted change authorized by consumed approval",
+            extra={"agent_id": agent_id, "tool_name": tool_name, "operation": operation},
+        )
+        return
+    raise ApprovalRequiredError(
+        f"This agent may only read {tool_name}: '{operation}' changes something, so it is a "
+        f"draft the user must approve. Call request_approval with exactly what will change "
+        f'and tool_name="{tool_name}", then wait for the user\'s decision.'
+    )
+
+
 def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> None:
     """Check if a tool is allowed for the current autonomous agent.
 
@@ -153,3 +172,7 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
         _check_destructive_approval(
             agent.id, tool_name, destructive_op, str(target_id) if target_id else None
         )
+        return
+    # A write without the write level is a draft: one approval per change
+    if is_write_call(tool_name, tool_args) and not has_write_grant(agent, tool_name):
+        _check_write_approval(agent.id, tool_name, tool_args)

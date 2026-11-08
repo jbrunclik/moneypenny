@@ -296,6 +296,35 @@ every agent is a standing chat with a standing job (see "Agent Execution Flow").
   Approving a job's request resumes it through `run_job_now` with "[Action approved: ...]".
 - **UI:** the schedule chip's sheet shows Run for a job and "paused after failing".
 
+### Settings, approvals and grant levels (standing chats phase 2, Part D)
+
+- **The agent edits its own settings** with `edit_standing_chat`
+  (`src/agent/tools/standing_settings.py`): instructions, schedule (cron),
+  model, daily budget, fresh context, grants.
+  - In its chat it previews first; the change applies on the user's yes in a later turn.
+    This is the schedule tool's gate, shared in `src/agent/tools/pending_gate.py`, with kv
+    `standing_pending` reserved.
+  - In an unattended run it files an approval request and the run pauses. Approving
+    applies the change, without rerunning the job.
+  - The Daily Briefing's first instructions edit stores the user's own copy of the stock
+    prompt; the preview says so.
+  - The agent prompt now says the user is away during a run: read and report freely, but
+    change nothing lasting and contact no one without an approval.
+- **Grant levels** (`src/agent/permissions.py`):
+  - `<tool>` lets a run read there; `<tool>:write` also lets it change things, for
+    `WRITE_LEVEL_TOOLS` (todoist, google_calendar, garmin_workout, rouvy_workout).
+  - A write without the level is a draft: `permission_check` requires one consumed
+    approval per change.
+  - Destructive operations still need an approval per call, even with `:write`.
+  - `*` (all tools) writes.
+  - WhatsApp only messages the user, so it is a notification, not a write.
+  - Migration 0081 gave existing grants their write levels, so no agent lost a power.
+  - The editor sees tool names only; saving keeps the write levels of tools still granted.
+- **Always allow:** the approval card's third button, shown for writable integrations,
+  sends `POST /api/approvals/<id>/approve` with `{"always": true}`. It adds `<tool>:write`
+  to the job's grants. It is refused for settings changes, so grants never widen
+  implicitly.
+
 ## Agent Execution Flow
 
 Since standing chats phase 2 (Part B, migration 0080) an agent **is** a standing chat plus

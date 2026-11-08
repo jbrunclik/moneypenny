@@ -1,0 +1,18 @@
+id: standing_settings_preview
+description: >
+  Asked in an agent's own chat to change its schedule, the agent previews the
+  change with edit_standing_chat and asks - it never applies it in the same
+  turn (standing chats phase 2, D1)
+mode: agent
+user: "Od teď mi to posílej až v 6:30, ne v 7."
+expect:
+  rubric: >
+    Answers in Czech. Proposes moving the agent's daily run from 07:00 to 06:30
+    and asks the user to confirm. Must NOT claim the schedule is already
+    changed, and must not set a reminder or a new scheduled item instead.
+  required_tools: [edit_standing_chat]
+  forbidden_tools: [schedule]
+  forbidden_arg_patterns:
+    edit_standing_chat.confirm:
+      - "^True$"
+  max_tool_rounds: 2

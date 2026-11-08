@@ -5,8 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.daily_briefing import resolve_agent_system_prompt
+from src.agent.permissions import base_tool
 from src.db.models import Agent, AgentExecution, ApprovalRequest, db
 from src.utils.clock import to_api
+
+
+def _tool_names(permissions: list[str] | None) -> list[str] | None:
+    if permissions is None:
+        return None
+    return list(dict.fromkeys(base_tool(p) for p in permissions))
 
 
 def agent_to_response(
@@ -30,7 +37,8 @@ def agent_to_response(
         "schedule": agent.schedule,
         "timezone": agent.timezone,
         "enabled": agent.enabled,
-        "tool_permissions": agent.tool_permissions,
+        # Tool names for the editor; write levels stay on the job (kept on save)
+        "tool_permissions": _tool_names(agent.tool_permissions),
         "model": agent.model,
         "conversation_id": agent.conversation_id,
         "last_run_at": to_api(agent.last_run_at) if agent.last_run_at else None,
