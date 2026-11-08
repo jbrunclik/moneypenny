@@ -1037,6 +1037,7 @@ class TestKVStoreReservedNamespaces:
             "src.agent.conversation_compaction.KV_NAMESPACE",
             "src.agent.interjection.KV_NAMESPACE",
             "src.api.helpers.lost_actions.KV_NAMESPACE",
+            "src.api.helpers.memory_review_trigger.KV_NAMESPACE",
             "src.auth.oauth_state._NAMESPACE",
             "src.services.search_provider.USAGE_NAMESPACE",
             "src.services.gemini_file_cache.GEMINI_FILES_NAMESPACE",

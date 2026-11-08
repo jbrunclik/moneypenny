@@ -31,6 +31,7 @@ from src.agent.tools import (
 )
 from src.api.helpers.conversation_facts import record_turn_facts
 from src.api.helpers.conversation_title import resolve_title_update
+from src.api.helpers.memory_review_trigger import note_turn as note_memory_review_turn
 from src.config import Config
 from src.db.models import Message, db
 from src.db.models.dataclasses import ArtifactShown, ClaimAnnotation, GroundingSummary
@@ -402,6 +403,7 @@ def save_message_to_db(
             conv_id, user_id, message_text, content, result_messages
         )
         record_turn_facts(conv_id, user_id, assistant_msg.id, result_messages)
+        note_memory_review_turn(conv_id, user_id, assistant_msg.id, result_messages)
 
         logger.info(
             "Chat turn completed and saved",

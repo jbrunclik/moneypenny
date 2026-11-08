@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from google.genai.types import GenerateContentConfig, ThinkingConfig, ThinkingLevel
 
@@ -25,6 +26,7 @@ from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from src.db.models import Memory
+    from src.db.models.dataclasses import Message
 
 logger = get_logger(__name__)
 
@@ -83,21 +85,22 @@ def _memory_lines(memories: list[Memory], with_ids: bool) -> str:
     return "\n".join(f"- {m.content}" for m in memories)
 
 
-def _transcript(messages: list[Any]) -> str:
-    """User and assistant text only: tool output is not a source of memories."""
+def _transcript(messages: list[Message]) -> str:
+    """Message text only: tool outputs (fetched pages, files) are left out."""
     lines = []
     for message in messages:
-        role = str(getattr(message, "role", ""))
-        if role not in ("user", "assistant"):
-            continue
+        role = str(message.role)
         content = str(message.content or "").strip()[:_MESSAGE_MAX_CHARS]
         if content:
             lines.append(f"{role.capitalize()}: {content}")
     return "\n\n".join(lines)
 
 
-def build_prompt(user_id: str, messages: list[Any]) -> str:
+def build_prompt(user_id: str, messages: list[Message]) -> str:
+    # A random boundary the conversation cannot forge: text inside it is data
+    boundary = f"conversation-{secrets.token_hex(8)}"
     return MEMORY_REVIEW_PROMPT.format(
+        boundary=boundary,
         max_ops=Config.MEMORY_REVIEW_MAX_OPS,
         memories=_memory_lines(db.list_memories(user_id), with_ids=True),
         deleted=_memory_lines(db.list_deleted_memories(user_id), with_ids=False),
@@ -120,7 +123,7 @@ def _call_model(prompt: str) -> tuple[str, int, int]:
     return response.text or "", tokens_in, tokens_out
 
 
-def review_messages(user_id: str, conversation_id: str, messages: list[Any]) -> ReviewResult:
+def review_messages(user_id: str, conversation_id: str, messages: list[Message]) -> ReviewResult:
     """Review a chat's recent messages and apply what is worth remembering.
 
     Synchronous (the trigger runs it on a daemon thread; evals call it directly).

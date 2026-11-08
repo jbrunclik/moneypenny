@@ -359,15 +359,12 @@ def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> 
     """
     action = str(op.get("action"))
     if action not in ("add", "patch"):
-        logger.info("Memory review op rejected", extra={"user_id": user_id, "reason": action})
+        logger.info("Memory review op refused", extra={"user_id": user_id, "action": action})
         return None
     try:
         [planned], count = _plan_batch(user_id, [op])
         if isinstance(planned, str):
-            logger.info(
-                "Memory review op rejected", extra={"user_id": user_id, "reason": planned[:200]}
-            )
-            return None
+            return None  # _reject logged why
         [new_id] = db.apply_memory_batch(user_id, conversation_id, [planned.write])
     except Exception:
         logger.warning("Memory review op failed", extra={"user_id": user_id}, exc_info=True)
@@ -381,7 +378,7 @@ def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> 
             "conversation_id": conversation_id,
             "action": action,
             "memory_id": new_id or planned.write.memory_id,
-            "excerpt": content[:80],
+            "chars": len(content),
         },
     )
     return content

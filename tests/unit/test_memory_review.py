@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -98,12 +99,13 @@ def test_review_messages_builds_prompt_with_bank_and_deleted(
     kept = test_database.add_memory(test_user.id, "Lives in Brno", "fact")
     gone = test_database.add_memory(test_user.id, "Plays chess", "context")
     test_database.delete_memory(gone.id, test_user.id)
-    messages = _chat(test_database, test_conversation)
-    messages.append(
-        SimpleNamespace(
-            role="tool", content="TOOL OUTPUT SECRET", id="t1", created_at=messages[-1].created_at
-        )
+    test_database.add_message(
+        test_conversation.id,
+        MessageRole.ASSISTANT,
+        "Here is what the page says.",
+        tool_outputs=[{"name": "fetch_url", "output": "TOOL OUTPUT SECRET"}],
     )
+    messages = _chat(test_database, test_conversation)
 
     review_messages(test_user.id, test_conversation.id, messages)
 
@@ -113,6 +115,23 @@ def test_review_messages_builds_prompt_with_bank_and_deleted(
     assert prompt.index("Plays chess") > prompt.index("do not re-add")
     assert "Ema has ballet every Tuesday" in prompt
     assert "TOOL OUTPUT SECRET" not in prompt
+
+
+def test_review_prompt_fences_the_conversation_with_a_random_boundary(
+    fake_model: _FakeModels,
+    test_database: Database,
+    test_user: User,
+    test_conversation: Conversation,
+) -> None:
+    messages = _chat(test_database, test_conversation)
+    review_messages(test_user.id, test_conversation.id, messages)
+    review_messages(test_user.id, test_conversation.id, messages)
+
+    first, second = fake_model.prompts
+    tag = re.search(r"<(conversation-[0-9a-f]{16})>", first)
+    assert tag is not None
+    assert f"</{tag.group(1)}>" in first
+    assert tag.group(1) not in second
 
 
 def test_review_messages_applies_each_op_independently(
