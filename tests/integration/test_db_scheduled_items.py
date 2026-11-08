@@ -289,3 +289,63 @@ def test_pause_reason_is_kept_and_cleared(
     assert test_database.set_item_paused(job.id, test_user.id, False)
     resumed = test_database.get_item(job.id, test_user.id)
     assert resumed is not None and resumed.paused_reason is None
+
+
+# Part B review: an agent's job is managed as the agent, never as a light item
+
+
+def test_an_agents_job_is_not_listed_with_chat_items(
+    test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+
+    assert test_database.list_items(test_user.id) == []
+    assert test_database.list_items(test_user.id, agent.conversation_id) == []
+    assert test_database.is_agent_job(agent.id)
+
+
+def test_disabling_an_agent_mid_run_survives_the_run_ending(
+    test_database: Database, test_user: User
+) -> None:
+    from src.db.models.scheduled_items import NEVER_RUN_AT
+
+    agent = test_database.create_agent(test_user.id, "Briefing", schedule="15 7 * * *")
+    test_database.finish_item_run(agent.id, _NOW - timedelta(minutes=1), None, 0, 0)
+    [claimed] = test_database.claim_due_items(_NOW)
+    test_database.update_agent(agent.id, test_user.id, enabled=False)
+
+    test_database.finish_item_run(
+        agent.id, _NOW + timedelta(days=1), None, 0, 0, claimed_at=claimed.claimed_at
+    )
+
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and (job.status, job.paused_reason) == ("paused", "disabled")
+    assert test_database.claim_due_items(NEVER_RUN_AT) == []
+
+
+def test_disabling_mid_hand_run_survives_the_release(
+    test_database: Database, test_user: User
+) -> None:
+    agent = test_database.create_agent(test_user.id, "Briefing", schedule="15 7 * * *")
+    claim = test_database.claim_item(agent.id, _NOW)
+    assert claim is not None
+    test_database.update_agent(agent.id, test_user.id, enabled=False)
+
+    test_database.release_item(agent.id, claim[1], claim[0])
+
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and job.status == "paused"
+
+
+def test_renaming_an_agent_onto_another_name_is_refused(
+    test_database: Database, test_user: User
+) -> None:
+    import sqlite3
+
+    import pytest
+
+    test_database.create_agent(test_user.id, "Coach")
+    other = test_database.create_agent(test_user.id, "Watcher")
+
+    with pytest.raises(sqlite3.IntegrityError):
+        test_database.update_agent(other.id, test_user.id, name="Coach")

@@ -218,3 +218,30 @@ def test_rollback_restores_agents(test_db_path: Path) -> None:
             "SELECT standing_name FROM conversations WHERE id = 'conv-vwce'"
         ).fetchone()
         assert conv["standing_name"] is None
+
+
+def test_rollback_carries_agents_created_or_edited_after_the_migration(
+    test_db_path: Path,
+) -> None:
+    user_id, ids = _seed_agents(test_db_path)
+    db = Database(db_path=test_db_path)
+    new = db.create_agent(user_id, "Trip Planner", system_prompt="Plan Rome", schedule="0 9 * * 1")
+    db.update_agent(ids["vwce"], user_id, system_prompt="Watch VWCE daily")
+    db.delete_agent(ids["coach"], user_id)
+    db.close()
+
+    _migrations(test_db_path, "rollback")
+
+    for conn in _connect(test_db_path):
+        rows = {r["id"]: r for r in conn.execute("SELECT * FROM autonomous_agents")}
+        assert set(rows) == {ids["briefing"], ids["vwce"], new.id}  # the deleted one stays gone
+        assert rows[new.id]["system_prompt"] == "Plan Rome"
+        assert rows[ids["vwce"]]["system_prompt"] == "Watch VWCE daily"
+        jobs = conn.execute(
+            "SELECT COUNT(*) FROM scheduled_items WHERE grants IS NOT NULL"
+        ).fetchone()
+        assert jobs[0] == 0
+        left = conn.execute(
+            "SELECT COUNT(*) FROM conversations WHERE standing_name IS NOT NULL"
+        ).fetchone()
+        assert left[0] == 0

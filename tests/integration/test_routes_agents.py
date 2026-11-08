@@ -608,3 +608,15 @@ class TestGetAgentExecutions:
         """Should return 401 without authentication."""
         response = client.get("/api/agents/some-agent-id/executions")
         assert response.status_code == 401
+
+
+def test_renaming_onto_an_existing_agent_name_is_a_validation_error(
+    client: FlaskClient, auth_headers: dict[str, str], test_database: Any, test_user: Any
+) -> None:
+    test_database.create_agent(test_user.id, "Coach")
+    other = test_database.create_agent(test_user.id, "Watcher")
+
+    response = client.patch(f"/api/agents/{other.id}", headers=auth_headers, json={"name": "Coach"})
+
+    assert response.status_code == 400
+    assert test_database.get_agent(other.id, test_user.id).name == "Watcher"

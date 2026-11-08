@@ -151,7 +151,7 @@ def set_briefing(user: User, enabled: bool, time_str: str, timezone: str) -> dic
             name=BRIEFING_AGENT_NAME,
             description=BRIEFING_AGENT_DESCRIPTION,
             # NULL = stock prompt, resolved from code at run time (see
-            # resolve_agent_system_prompt) so improvements ship with
+            # resolve_standing_instructions) so improvements ship with
             # deploys; the editor stores a value only on customization
             system_prompt=None,
             schedule=schedule,

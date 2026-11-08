@@ -312,3 +312,27 @@ def test_run_now_refused_while_the_scheduler_runs_it(
     response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
 
     assert response.status_code == 409
+
+
+@pytest.mark.parametrize("action", ["delete", "pause", "resume"])
+def test_an_agents_job_cannot_be_managed_as_a_chat_item(
+    action: str,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+) -> None:
+    agent = test_database.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+    method, path = (
+        ("delete", f"/api/schedules/{agent.id}")
+        if action == "delete"
+        else (
+            "post",
+            f"/api/schedules/{agent.id}/{action}",
+        )
+    )
+
+    response = getattr(client, method)(path, headers=auth_headers)
+
+    assert response.status_code == 409
+    assert test_database.get_agent(agent.id, test_user.id) is not None

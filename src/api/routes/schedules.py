@@ -34,12 +34,21 @@ def get_conversation_schedules(user: User, conv_id: str) -> tuple[dict[str, obje
 @require_auth
 def delete_schedule(user: User, item_id: str) -> tuple[str, int]:
     """Cancel one of the user's scheduled items."""
+    _refuse_agent_job(item_id)
     if not db.delete_item(item_id, user.id):
         raise_not_found_error("Scheduled item")
     return "", 204
 
 
+def _refuse_agent_job(item_id: str) -> None:
+    """An agent's job is managed as the agent: deleting or pausing it here
+    would orphan the agent (or stop it while it shows as enabled)."""
+    if db.is_agent_job(item_id):
+        raise_conflict_error("This is an agent's schedule: manage it from Agents.")
+
+
 def _set_paused(user: User, item_id: str, paused: bool) -> tuple[dict[str, object], int]:
+    _refuse_agent_job(item_id)
     item = db.get_item(item_id, user.id)
     if item is None:
         raise_not_found_error("Scheduled item")

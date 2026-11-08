@@ -786,73 +786,9 @@ class TestUnreadCount:
 class TestSchedulerLogic:
     """Unit tests for scheduler logic.
 
-    Tests cover edge cases and potential bugs in the scheduler:
-    - Disabled agents should not be scheduled
-    - Overlapping executions should be prevented
-    - Double next_run_at updates should be avoided
+    Agents run as standing jobs (test_scheduler.py, test_item_scheduler.py);
+    what remains here is the zombie-execution sweep.
     """
-
-    def test_scheduler_skips_disabled_agents(self, mock_db):
-        """Test that scheduler skips disabled agents.
-
-        Even if next_run_at is in the past, disabled agents should not be executed.
-        The get_due_agents() query should filter out disabled agents.
-        """
-        from datetime import datetime
-
-        disabled_agent = Agent(
-            id="agent-123",
-            user_id="user-123",
-            conversation_id="conv-123",
-            name="Disabled Agent",
-            description=None,
-            system_prompt=None,
-            schedule="0 9 * * *",
-            timezone="UTC",
-            enabled=False,  # Disabled
-            tool_permissions=None,
-            model="gemini-3-flash-preview",
-            created_at=datetime(2024, 1, 1, tzinfo=UTC),
-            updated_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_run_at=None,
-            next_run_at=datetime(2024, 1, 1, 9, 0, 0, tzinfo=UTC),  # Past due
-        )
-
-        # The agent should not be included in due agents because enabled=False
-        # This is enforced by the SQL query: WHERE enabled = 1
-        assert disabled_agent.enabled is False
-
-    def test_scheduler_skips_agents_with_running_execution(self, mock_db):
-        """Test that scheduler skips agents that already have a running execution.
-
-        Prevents overlapping executions of the same agent.
-        """
-        from unittest.mock import MagicMock
-
-        mock_db.has_running_execution = MagicMock(return_value=True)
-
-        # When has_running_execution returns True, agent should be skipped
-        has_running = mock_db.has_running_execution("agent-123")
-        assert has_running is True
-
-        # The scheduler logic should skip this agent
-        # This is checked in run_scheduled_agents(): if db.has_running_execution(agent.id)
-
-    def test_scheduler_skips_agents_with_pending_approval(self, mock_db):
-        """Test that scheduler skips agents waiting for approval.
-
-        Agents with pending approvals should not be re-executed until resolved.
-        """
-        from unittest.mock import MagicMock
-
-        mock_db.has_pending_approval = MagicMock(return_value=True)
-
-        # When has_pending_approval returns True, agent should be skipped
-        has_pending = mock_db.has_pending_approval("agent-123")
-        assert has_pending is True
-
-        # The scheduler logic should skip this agent
-        # This is checked in run_scheduled_agents(): if db.has_pending_approval(agent.id)
 
     def test_zombie_execution_cleanup(self, mock_db):
         """Test that zombie executions are cleaned up by the scheduler.
@@ -1082,49 +1018,3 @@ class TestBudgetLimits:
         """Test that negative budget_limit is rejected."""
         with pytest.raises(ValidationError):
             CreateAgentRequest(name="Test", budget_limit=-5.0)
-
-    def test_is_agent_over_budget_unlimited(self, mock_db):
-        """Test that unlimited budget (None) never triggers over-budget."""
-
-        # Mock the is_agent_over_budget logic directly
-        def is_over_budget(agent_id: str, limit: float | None) -> bool:
-            if limit is None or limit <= 0:
-                return False
-            # Simulate $100 spending
-            daily_spending = 100.0
-            return daily_spending >= limit
-
-        mock_db.is_agent_over_budget = is_over_budget
-
-        # With None limit, should never be over budget
-        assert not mock_db.is_agent_over_budget("agent-123", None)
-
-        # With 0 limit, should never be over budget (0 means unlimited)
-        assert not mock_db.is_agent_over_budget("agent-123", 0)
-
-        # With actual limit below spending, should be over budget
-        assert mock_db.is_agent_over_budget("agent-123", 50.0)
-
-    def test_is_agent_over_budget_under_limit(self, mock_db):
-        """Test that agent under budget limit is not flagged."""
-        mock_db.get_agent_daily_spending = lambda aid: 5.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 5.0
-
-        # Spending is $5, limit is $10
-        assert not mock_db.is_agent_over_budget("agent-123", 10.0)
-
-    def test_is_agent_over_budget_at_limit(self, mock_db):
-        """Test that agent exactly at budget limit is flagged."""
-        mock_db.get_agent_daily_spending = lambda aid: 10.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 10.0
-
-        # Spending equals limit
-        assert mock_db.is_agent_over_budget("agent-123", 10.0)
-
-    def test_is_agent_over_budget_over_limit(self, mock_db):
-        """Test that agent over budget limit is flagged."""
-        mock_db.get_agent_daily_spending = lambda aid: 15.0
-        mock_db.is_agent_over_budget = lambda aid, limit: False if limit is None else limit <= 15.0
-
-        # Spending exceeds limit
-        assert mock_db.is_agent_over_budget("agent-123", 10.0)

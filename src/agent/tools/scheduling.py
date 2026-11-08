@@ -337,6 +337,11 @@ def _manage(action: str, user_id: str, item_id: str) -> str:
     item = db.get_item(item_id, user_id)
     if item is None:
         return tool_error(f"No scheduled item with id={item_id} - call schedule(action='list').")
+    if db.is_agent_job(item.id):
+        return tool_error(
+            "That is an agent's schedule: the user manages it from Agents, not here.",
+            retriable=False,
+        )
     label: ItemKind = item.kind
     if action == "delete":
         db.delete_item(item.id, user_id)

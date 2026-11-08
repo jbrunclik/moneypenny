@@ -46,6 +46,7 @@ from src.agent.prompt_texts.scheduled_items import (
     STANDING_JOB_TASK,
     WATCHER_RUN_PROMPT,
 )
+from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import get_tools_for_agent, set_conversation_context
@@ -121,11 +122,9 @@ def _tool_permissions(item: ScheduledItem) -> list[str] | None:
     return None if ALL_GRANTS in item.grants else list(item.grants)
 
 
-def _standing_goals(item: ScheduledItem, user: User) -> str:
+def _standing_goals(item: ScheduledItem, standing: StandingContext | None) -> str:
     """The run's goals: the item's text, after the chat's standing context
     (instructions and state) when the chat is a standing chat."""
-    conv = db.get_conversation(item.conversation_id, user.id)
-    standing = load_standing_context(conv, user) if conv else None
     task = STANDING_JOB_TASK.format(text=item.text) if item.standing else item.text
     if standing is None:
         return task
@@ -139,14 +138,19 @@ def _standing_goals(item: ScheduledItem, user: User) -> str:
 
 def _ephemeral_agent(item: ScheduledItem, user: User) -> Agent:
     now = utc_now()
+    conv = db.get_conversation(item.conversation_id, user.id)
+    standing = load_standing_context(conv, user) if conv else None
+    # A standing job runs as its chat (approval pushes and the prompt name the
+    # agent); a light item by its text
+    name = standing.name if item.standing and standing else item.text[:_NAME_MAX_CHARS]
     return Agent(
         # A standing job's approvals and execution rows name the job itself
         id=item.id if item.standing else f"item-{item.id}",
         user_id=item.user_id,
         conversation_id=item.conversation_id,
-        name=item.text[:_NAME_MAX_CHARS],
+        name=name,
         description=None,
-        system_prompt=_standing_goals(item, user),
+        system_prompt=_standing_goals(item, standing),
         schedule=item.schedule,
         timezone=item.timezone or Config.APP_TIMEZONE,
         enabled=True,

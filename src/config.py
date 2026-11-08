@@ -741,13 +741,11 @@ class Config:
 
     # Autonomous agent settings
     # Timeout for considering an execution "stuck" (used for locking)
-    # Executions running longer than this are ignored when checking for overlapping runs
+    # Executions running longer than this are swept as zombies (marked failed)
     AGENT_EXECUTION_TIMEOUT_MINUTES: int = int(os.getenv("AGENT_EXECUTION_TIMEOUT_MINUTES", "10"))
     # Time-to-live for approval requests in hours (default: 24 hours)
     # Expired approvals are automatically ignored and cleaned up
     AGENT_APPROVAL_TTL_HOURS: int = int(os.getenv("AGENT_APPROVAL_TTL_HOURS", "24"))
-    # Cooldown period between manual agent executions in seconds (default: 5 seconds)
-    # Prevents spamming the "Run" button
     # Maximum agent-to-agent trigger chain length (S5). Cycles are already
     # blocked; this bounds DISTINCT-agent chains (A->B->C->...) so a
     # misconfigured fleet cannot fan out unbounded LLM runs.

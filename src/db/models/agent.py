@@ -35,6 +35,21 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 ALL_GRANTS = "*"
+
+
+def _set_clauses(fields: list[tuple[str, Any]]) -> tuple[list[str], list[Any]]:
+    """SET clauses for the fields given (Ellipsis = unchanged; None never
+    blanks a NOT NULL conversation column)."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    for column, value in fields:
+        if isinstance(value, EllipsisType) or (column in _NOT_NULL and value is None):
+            continue
+        clauses.append(f"{column} = ?")
+        params.append(value)
+    return clauses, params
+
+
 # Conversation columns a None update must not blank
 _NOT_NULL = frozenset({"title", "model", "standing_name"})
 # enabled=True only undoes a disable (a job paused after failures stays paused);
@@ -228,46 +243,43 @@ class AgentMixin:
         current_agent = self.get_agent(agent_id, user_id)
         if not current_agent:
             return None
+        if isinstance(name, str) and name != current_agent.name:
+            clash = self.get_agent_by_name(user_id, name)
+            if clash is not None and clash.id != agent_id:
+                raise sqlite3.IntegrityError(f"An agent named {name!r} exists already")
 
-        now = utc_now()
-        conv_fields: list[tuple[str, Any]] = [
-            ("standing_name", name),
-            ("title", name if isinstance(name, EllipsisType) or name is None else f"Agent: {name}"),
-            ("standing_description", description),
-            ("standing_instructions", system_prompt),
-            ("model", model),
-        ]
-        conv_updates = ["updated_at = ?"]
-        conv_params: list[Any] = [to_db(now)]
-        for column, value in conv_fields:
-            if not isinstance(value, EllipsisType) and not (column in _NOT_NULL and value is None):
-                conv_updates.append(f"{column} = ?")
-                conv_params.append(value)
-
+        conv_updates, conv_params = _set_clauses(
+            [
+                ("standing_name", name),
+                (
+                    "title",
+                    name if isinstance(name, EllipsisType) or name is None else f"Agent: {name}",
+                ),
+                ("standing_description", description),
+                ("standing_instructions", system_prompt),
+                ("model", model),
+            ]
+        )
+        conv_updates.insert(0, "updated_at = ?")
+        conv_params.insert(0, to_db(utc_now()))
         grants = (
             ...
             if isinstance(tool_permissions, EllipsisType)
             else json.dumps(tool_permissions if tool_permissions is not None else [ALL_GRANTS])
         )
-        job_fields: list[tuple[str, Any]] = [
-            ("schedule", schedule),
-            ("timezone", timezone),
-            ("grants", grants),
-            ("model", model),
-            ("budget_usd", budget_limit),
-            (
-                "fresh_context",
-                fresh_context
-                if isinstance(fresh_context, EllipsisType)
-                else int(bool(fresh_context)),
-            ),
-        ]
-        job_updates: list[str] = []
-        job_params: list[Any] = []
-        for column, value in job_fields:
-            if not isinstance(value, EllipsisType):
-                job_updates.append(f"{column} = ?")
-                job_params.append(value)
+        fresh = (
+            fresh_context if isinstance(fresh_context, EllipsisType) else int(bool(fresh_context))
+        )
+        job_updates, job_params = _set_clauses(
+            [
+                ("schedule", schedule),
+                ("timezone", timezone),
+                ("grants", grants),
+                ("model", model),
+                ("budget_usd", budget_limit),
+                ("fresh_context", fresh),
+            ]
+        )
         if not isinstance(enabled, EllipsisType):
             job_updates.extend(_ENABLE_SQL if enabled else _DISABLE_SQL)
         next_run_at = self._rescheduled_next_run(current_agent, schedule, timezone, enabled)

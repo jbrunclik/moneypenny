@@ -247,6 +247,15 @@ def update_agent(user: User, data: UpdateAgentRequest, agent_id: str) -> dict[st
     def get_arg(field_name: str) -> Any:
         return provided_data.get(field_name, ...)
 
+    new_name = provided_data.get("name")
+    if (
+        new_name
+        and existing_agent
+        and new_name != existing_agent.name
+        and db.get_agent_by_name(user.id, new_name)
+    ):
+        raise_validation_error(f"Agent with name '{new_name}' already exists")
+
     agent = db.update_agent(
         agent_id=agent_id,
         user_id=user.id,

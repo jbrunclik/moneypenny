@@ -26,6 +26,13 @@ if TYPE_CHECKING:
 
 _LIVE_CHAT = """conversation_id IN (SELECT id FROM conversations
     WHERE deleted_at IS NULL AND (archived = 0 OR archived IS NULL))"""
+# An agent's standing job (same id as the agent): managed as the agent
+# (Agents page, update_agent), never as a chat item
+_AGENT_JOB = (
+    "id IN (SELECT agent_id FROM conversations WHERE is_agent = 1 AND agent_id IS NOT NULL)"
+)
+# Back from a run: an agent disabled meanwhile stays paused
+_AFTER_RUN_STATUS = "CASE WHEN paused_reason = 'disabled' THEN 'paused' ELSE 'active' END"
 _COLUMNS = [f.name for f in fields(ScheduledItem)]
 _TIMES = {"next_run_at", "expires_at", "created_at", "claimed_at"}
 # A standing job with no schedule (run by hand or by another agent only)
@@ -114,8 +121,11 @@ class ScheduledItemsMixin:
         return _row_to_item(row) if row else None
 
     def list_items(self, user_id: str, conversation_id: str | None = None) -> list[ScheduledItem]:
-        """The user's items in live chats (optionally one chat), soonest first."""
-        query = f"SELECT * FROM scheduled_items WHERE user_id = ? AND {_LIVE_CHAT}"
+        """The user's items in live chats (optionally one chat), soonest first;
+        agents' jobs are listed as agents, not here."""
+        query = (
+            f"SELECT * FROM scheduled_items WHERE user_id = ? AND {_LIVE_CHAT} AND NOT {_AGENT_JOB}"
+        )
         params: tuple[object, ...] = (user_id,)
         if conversation_id is not None:
             query += " AND conversation_id = ?"
@@ -153,6 +163,16 @@ class ScheduledItemsMixin:
             )
             conn.commit()
             return cursor.rowcount > 0
+
+    def is_agent_job(self, item_id: str) -> bool:
+        """Whether the item is an agent's standing job (managed as the agent)."""
+        with self._pool.get_connection() as conn:
+            row = self._execute_with_timing(
+                conn,
+                "SELECT 1 FROM conversations WHERE is_agent = 1 AND agent_id = ?",
+                (item_id,),
+            ).fetchone()
+        return row is not None
 
     def job_spend_today(self, job_id: str) -> float:
         """A standing job's own unattended spend since local midnight (its
@@ -213,7 +233,9 @@ class ScheduledItemsMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE scheduled_items SET status = ?, claimed_at = NULL
+                """UPDATE scheduled_items
+                   SET status = CASE WHEN paused_reason = 'disabled' THEN 'paused' ELSE ? END,
+                       claimed_at = NULL
                    WHERE id = ? AND status = 'running' AND claimed_at = ?""",
                 (status, item_id, to_db(claimed_at)),
             )
@@ -232,7 +254,7 @@ class ScheduledItemsMixin:
         """Hand a run item back to the scheduler for its next run; with
         `claimed_at`, only if that claim still holds (a run that outlived a
         stale reset must not overwrite the newer claim). False if nothing matched."""
-        query = """UPDATE scheduled_items SET status = 'active', claimed_at = NULL,
+        query = f"""UPDATE scheduled_items SET status = {_AFTER_RUN_STATUS}, claimed_at = NULL,
                        next_run_at = ?, last_result = ?, quiet_runs = ?, failures = ?
                    WHERE id = ?"""
         params: tuple[object, ...] = (
@@ -274,8 +296,8 @@ class ScheduledItemsMixin:
         with self._pool.get_connection() as conn:
             cursor = self._execute_with_timing(
                 conn,
-                """UPDATE scheduled_items
-                   SET status = 'active', claimed_at = NULL, failures = failures + 1
+                f"""UPDATE scheduled_items
+                   SET status = {_AFTER_RUN_STATUS}, claimed_at = NULL, failures = failures + 1
                    WHERE status = 'running' AND claimed_at <= ?""",
                 (cutoff,),
             )

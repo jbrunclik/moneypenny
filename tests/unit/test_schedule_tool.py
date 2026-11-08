@@ -453,3 +453,19 @@ class TestBinding:
         agent = MagicMock()
         agent.id, agent.user_id, agent.tool_permissions = "a1", "u1", None
         assert "schedule" not in names(get_tools_for_agent(agent))
+
+
+@pytest.mark.parametrize("action", ["delete", "pause"])
+def test_the_tool_cannot_touch_an_agents_job(
+    action: str, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.agent.tools import scheduling
+
+    monkeypatch.setattr(scheduling, "db", test_database)
+    agent = test_database.create_agent(test_user.id, "Daily Briefing", schedule="15 7 * * *")
+
+    result = scheduling._manage(action, test_user.id, agent.id)
+
+    assert "Agents" in result
+    job = test_database.get_item(agent.id, test_user.id)
+    assert job is not None and job.status == "active"

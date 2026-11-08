@@ -490,3 +490,17 @@ def test_light_item_in_standing_chat_never_gets_the_chats_data(
     job_goals = fake_llm.instances[1].init_kwargs["agent_context"]["goals"]
     assert "Coach the rides." in light_goals and "knee pain" not in light_goals
     assert "knee pain" in job_goals
+
+
+def test_a_standing_jobs_run_is_named_after_its_chat(
+    db: Database, test_user: User, fake_llm: type[FakeChatAgent]
+) -> None:
+    agent = db.create_agent(test_user.id, "VWCE Watcher", schedule="0 18 * * 5")
+    job = db.get_item(agent.id, test_user.id)
+    assert job is not None
+
+    run_model_item(job, test_user)
+
+    context = fake_llm.instances[0].context_during_call
+    assert context is not None and context.agent.name == "VWCE Watcher"
+    assert fake_llm.instances[0].init_kwargs["agent_context"]["name"] == "VWCE Watcher"
