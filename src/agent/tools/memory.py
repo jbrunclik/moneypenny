@@ -351,6 +351,16 @@ def _run_batch(user_id: str, conversation_id: str | None, operations: list[Memor
     ]
 
 
+def _normalized(text: str) -> str:
+    return " ".join(text.casefold().split()).strip(" .!")
+
+
+def _already_known(user_id: str, content: str) -> bool:
+    """Whether the bank holds this text already (a reread must not duplicate)."""
+    wanted = _normalized(content)
+    return any(_normalized(m.content) == wanted for m in db.list_memories(user_id))
+
+
 def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> str | None:
     """Apply one add or patch through the tool's guards (the background review).
 
@@ -360,6 +370,9 @@ def apply_single_op(user_id: str, conversation_id: str | None, op: MemoryOp) -> 
     action = str(op.get("action"))
     if action not in ("add", "patch"):
         logger.info("Memory review op refused", extra={"user_id": user_id, "action": action})
+        return None
+    if action == "add" and _already_known(user_id, str(op.get("content") or "")):
+        logger.info("Memory review add skipped: already known", extra={"user_id": user_id})
         return None
     try:
         [planned], count = _plan_batch(user_id, [op])

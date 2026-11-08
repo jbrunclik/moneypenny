@@ -237,9 +237,12 @@ turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
   and a cursor - the last message a pass reviewed. A turn that called
   `manage_memory` resets the counter but not the cursor, so nothing said before
   it is skipped. One pass reads at most `MEMORY_REVIEW_MAX_TURNS` (12) user
-  turns. Runs in every non-anonymous, non-planning chat, standing chats
-  included; never in agent runs (the executor saves its own turns).
-  `MEMORY_REVIEW_ENABLED` switches it off.
+  turns. Runs in every non-anonymous, non-planning chat, Sports and Language
+  included; never in agent chats - their runs save the trigger (which can
+  carry another agent's model-written text) as user messages. A regenerate
+  deletes the cursor message: the next pass starts after its time
+  (`cursor_at`). An add the bank already holds (normalized text) is skipped.
+  `MEMORY_REVIEW_ENABLED` switches it off (and is off in tests).
 - **The pass** (`src/agent/memory_review.py`): a daemon thread; a failure only
   logs and leaves the cursor, so the next pass retries. Conservative by design
   (people, places, schedules, stable preferences, decisions; never moods,
@@ -255,8 +258,7 @@ turns since its last review and may add or patch up to `MEMORY_REVIEW_MAX_OPS`
   updated: Ema - ballet on Tuesdays", two items then "and N more"), rendered by
   `messages/memory-note.ts`; a tap opens Memories. The update bumps the sync
   change log and the open chat's merge patches it in place
-  (`patchMemoryNotes` in `core/remote-merge.ts`), no re-render. Known limit:
-  agent chats sync by message count, so there the note shows after a reload.
+  (`patchMemoryNotes` in `core/remote-merge.ts`), no re-render.
 - **Cost**: added to the triggering reply's cost row (`add_message_cost_usd`);
   about $0.0006 a pass in the evals.
 - **Logs**: "Memory review pass" (per pass: messages reviewed, applied, cost)

@@ -23,6 +23,7 @@ from src.agent.memory_review import ReviewResult, format_note, review_messages
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import Message
+from src.db.models.timestamps import from_db, to_db
 from src.services.costs import calculate_token_cost
 from src.utils.logging import get_logger
 
@@ -32,7 +33,7 @@ KV_NAMESPACE = "memory_review"
 
 # Conversations with a pass in flight
 # per-worker: a second worker can at worst run one duplicate pass, whose writes
-# go through the same guards (a duplicate add is skipped as already known)
+# go through the same guards (an add the bank already holds is skipped)
 _running: set[str] = set()
 _running_lock = threading.Lock()
 
@@ -41,6 +42,9 @@ _running_lock = threading.Lock()
 class _State:
     turns: int = 0
     cursor: str | None = None
+    # The cursor message's time: a regenerate deletes that message, and the
+    # next pass then starts after this time instead of from the beginning
+    cursor_at: str | None = None
 
 
 def _load(user_id: str, conv_id: str) -> _State:
@@ -48,11 +52,15 @@ def _load(user_id: str, conv_id: str) -> _State:
     if not raw:
         return _State()
     data = json.loads(raw)
-    return _State(turns=int(data.get("turns", 0)), cursor=data.get("cursor"))
+    return _State(
+        turns=int(data.get("turns", 0)),
+        cursor=data.get("cursor"),
+        cursor_at=data.get("cursor_at"),
+    )
 
 
 def _save(user_id: str, conv_id: str, state: _State) -> None:
-    value = json.dumps({"turns": state.turns, "cursor": state.cursor})
+    value = json.dumps({"turns": state.turns, "cursor": state.cursor, "cursor_at": state.cursor_at})
     db.kv_set(user_id, KV_NAMESPACE, conv_id, value)
 
 
@@ -74,7 +82,11 @@ def _eligible(conv_id: str, user_id: str) -> bool:
     if not Config.MEMORY_REVIEW_ENABLED:
         return False
     conv = db.get_conversation(conv_id, user_id)
-    return conv is not None and not conv.anonymous_mode and not conv.is_planning
+    # Agent chats are out: runs save their trigger - which can carry another
+    # agent's model-written text - as user messages, never a memory source
+    return (
+        conv is not None and not conv.anonymous_mode and not conv.is_planning and not conv.is_agent
+    )
 
 
 def note_turn(
@@ -108,16 +120,21 @@ def _note_turn(
         if conv_id in _running:
             return
         _running.add(conv_id)
-    cursor = state.cursor
-    _start(lambda: _run_pass(conv_id, user_id, message_id, cursor))
+    cursor, cursor_at = state.cursor, state.cursor_at
+    _start(lambda: _run_pass(conv_id, user_id, message_id, cursor, cursor_at))
 
 
-def messages_to_review(conv_id: str, cursor: str | None) -> list[Message]:
+def messages_to_review(
+    conv_id: str, cursor: str | None, cursor_at: str | None = None
+) -> list[Message]:
     """Messages after the cursor, from at most MEMORY_REVIEW_MAX_TURNS user turns back."""
     messages = db.get_messages(conv_id)
     ids = [m.id for m in messages]
     if cursor in ids:
         messages = messages[ids.index(cursor) + 1 :]
+    elif cursor_at is not None:  # the cursor message is gone (regenerated)
+        after = from_db(cursor_at)
+        messages = [m for m in messages if m.created_at > after]
     user_starts = [i for i, m in enumerate(messages) if m.role == "user"]
     if len(user_starts) > Config.MEMORY_REVIEW_MAX_TURNS:
         skipped = user_starts[-Config.MEMORY_REVIEW_MAX_TURNS]
@@ -129,9 +146,11 @@ def messages_to_review(conv_id: str, cursor: str | None) -> list[Message]:
     return messages
 
 
-def _run_pass(conv_id: str, user_id: str, message_id: str, cursor: str | None) -> None:
+def _run_pass(
+    conv_id: str, user_id: str, message_id: str, cursor: str | None, cursor_at: str | None
+) -> None:
     try:
-        messages = messages_to_review(conv_id, cursor)
+        messages = messages_to_review(conv_id, cursor, cursor_at)
         if not messages:
             return
         result = review_messages(user_id, conv_id, messages)
@@ -140,6 +159,7 @@ def _run_pass(conv_id: str, user_id: str, message_id: str, cursor: str | None) -
         cost = _record_cost(message_id, result)
         state = _load(user_id, conv_id)  # turns may have moved on meanwhile
         state.cursor = messages[-1].id
+        state.cursor_at = to_db(messages[-1].created_at)
         _save(user_id, conv_id, state)
         logger.info(
             "Memory review pass",

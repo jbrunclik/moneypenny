@@ -77,3 +77,18 @@ def test_apply_single_op_never_deletes(mem_db: Database, test_user: User) -> Non
 
     assert apply_single_op(test_user.id, None, {"action": "delete", "id": existing.id}) is None
     assert len(mem_db.list_memories(test_user.id)) == 1
+
+
+def test_apply_single_op_skips_an_add_the_bank_already_holds(
+    mem_db: Database, test_user: User
+) -> None:
+    mem_db.add_memory(test_user.id, "Ema - ballet on Tuesdays", "fact")
+
+    result = apply_single_op(
+        test_user.id,
+        None,
+        {"action": "add", "content": " ema -  Ballet on tuesdays. ", "category": "fact"},
+    )
+
+    assert result is None
+    assert len(mem_db.list_memories(test_user.id)) == 1

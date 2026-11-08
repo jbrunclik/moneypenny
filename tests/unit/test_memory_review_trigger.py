@@ -159,7 +159,7 @@ def test_second_pass_skipped_while_one_runs(
     assert len(reviewer.calls) == 1
 
 
-@pytest.mark.parametrize("kind", ["anonymous", "planning", "disabled"])
+@pytest.mark.parametrize("kind", ["anonymous", "planning", "disabled", "agent"])
 def test_skips_anonymous_planning_and_disabled(
     kind: str,
     reviewer: _Reviewer,
@@ -173,6 +173,12 @@ def test_skips_anonymous_planning_and_disabled(
     elif kind == "anonymous":
         conv = test_database.create_conversation(test_user.id, "chat")
         test_database.set_conversation_anonymous_mode(conv.id, test_user.id, True)
+    elif kind == "agent":
+        # Agent runs save their trigger (with another agent's text) as user
+        # messages: never a source of memories
+        agent = test_database.create_agent(test_user.id, "Watcher", "Watch VWCE")
+        conv = test_database.get_conversation(agent.conversation_id, test_user.id)
+        assert conv is not None
     else:
         conv = test_database.get_or_create_planner_conversation(test_user.id)
     for i in range(6):
@@ -197,3 +203,17 @@ def test_records_cost_on_the_triggering_reply(
 
     cost = test_database.get_message_cost(reply.id)
     assert cost is not None and cost["cost_usd"] > 0.01
+
+
+def test_deleted_cursor_falls_back_to_its_time(
+    reviewer: _Reviewer, test_database: Database, test_conversation: Conversation
+) -> None:
+    """A regenerate deletes the reviewed reply: the next pass starts after its
+    time, not from the beginning (no reread, no duplicate adds)."""
+    last = [_turn(test_database, test_conversation, i) for i in range(6)][-1]
+    test_database.delete_message(last, test_conversation.user_id)
+
+    for i in range(6, 12):
+        _turn(test_database, test_conversation, i)
+
+    assert reviewer.calls[1][0].content == "question 6"
