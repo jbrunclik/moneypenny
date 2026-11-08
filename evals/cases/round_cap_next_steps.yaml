@@ -1,0 +1,16 @@
+id: round_cap_next_steps
+description: >
+  A turn that runs out of tool rounds says what it would have done next, so
+  a capped answer is not a dead end (the user can say "continue")
+round_cap: 1
+user: >
+  Porovnej mi prosím aktuální ceny elektřiny pro domácnost u ČEZ, E.ON a
+  innogy (sazba D02d) a doporuč nejlevnější.
+expect:
+  rubric: >
+    Answers in Czech with whatever it found so far (it may be partial or say
+    what it could not verify). It ends with a short, concrete list of the next
+    steps it would take if it could continue (e.g. which provider's price it
+    still needs to look up and how), so the user can ask it to go on. Fails if
+    it just stops without saying what is missing or what it would do next.
+  max_tool_rounds: 3

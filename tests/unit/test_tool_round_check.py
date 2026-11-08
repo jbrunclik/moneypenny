@@ -26,7 +26,9 @@ _CAP = (
     "You have run 6 rounds of tool calls for this request. Stop calling tools now "
     "and answer the user with the information you already have. If you searched for "
     "something you could not find, say so and give your best answer with what is "
-    "available. Do not issue more tool calls unless absolutely essential."
+    "available. Then end with a short list of what you would do next if you could "
+    "continue - the concrete remaining steps - so the user can tell you to go on. "
+    "Do not issue more tool calls unless absolutely essential."
 )
 _NUDGE = (
     "You have used 4 tool rounds. Be efficient from here: consolidate remaining "

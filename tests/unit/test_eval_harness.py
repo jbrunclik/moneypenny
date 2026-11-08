@@ -640,6 +640,9 @@ class TestRunCase:
 
             def chat_batch(self, **kwargs: Any) -> tuple[Any, ...]:
                 calls["chat"] = kwargs
+                from src.agent.round_cap import tool_round_cap
+
+                calls["round_cap"] = tool_round_cap()
                 calls["memories_during_turn"] = [
                     m.content for m in test_database.list_memories(test_user.id)
                 ]
@@ -674,6 +677,7 @@ class TestRunCase:
             rubric="Recalls the fact",
             mode="sports",
             program_kv={"ftp": "250"},
+            round_cap=1,
             files=["fixtures/opening_hours_sign.png"],
             memories=[{"content": "Likes tea", "category": "preference"}],
             seed_conversation={
@@ -685,6 +689,7 @@ class TestRunCase:
         )
         result = eval_run._run_case(case, test_user, test_database)
 
+        assert calls["round_cap"] == 1  # the case's cap applies to its turn only
         assert calls["init"]["standing"].kind == "sports"
         assert "250" in calls["init"]["standing"].data
         assert calls["chat"]["files"][0]["name"] == "opening_hours_sign.png"

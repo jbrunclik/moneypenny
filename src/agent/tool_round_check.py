@@ -95,7 +95,9 @@ def _round_pressure_update(
 ) -> dict[str, Any] | None:
     """The round-cap or soft-nudge guidance this round calls for, if any.
 
-    Soft round cap: once hit, stop gathering and answer with what we have.
+    Soft round cap: once hit, stop gathering and answer with what we have - and
+    say what the next steps would have been, so a capped answer is not a dead
+    end (the reply also gets a Continue offer, stopped_early).
     Fires on every subsequent round too (tool_rounds stays >= cap), so the
     pressure escalates naturally if the model ignores the first nudge. The
     recursion limit remains the hard backstop.
@@ -113,7 +115,9 @@ def _round_pressure_update(
             f"You have run {tool_rounds} rounds of tool calls for this request. "
             "Stop calling tools now and answer the user with the information you "
             "already have. If you searched for something you could not find, say so "
-            "and give your best answer with what is available. Do not issue more "
+            "and give your best answer with what is available. Then end with a short "
+            "list of what you would do next if you could continue - the concrete "
+            "remaining steps - so the user can tell you to go on. Do not issue more "
             "tool calls unless absolutely essential."
         )
     elif Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE > 0 and (

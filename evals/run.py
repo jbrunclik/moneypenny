@@ -112,6 +112,9 @@ class EvalCase:
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
+    # Tool-round cap for this case's turn (None: AGENT_MAX_TOOL_ROUNDS) - to
+    # exercise what a capped answer says
+    round_cap: int | None = None
     # KV rows seeded for the user: [{namespace, key, value}]; {conversation_id}
     # in a key is the case's conversation (e.g. a pending schedule preview)
     kv: list[dict[str, str]] = field(default_factory=list)
@@ -208,6 +211,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     for a in (data.get("artifacts") or [])
                 ],
                 seed_conversation=dict(data.get("seed_conversation") or {}),
+                round_cap=int(data["round_cap"]) if data.get("round_cap") else None,
                 kv=[
                     {
                         "namespace": str(e["namespace"]),
@@ -756,7 +760,12 @@ def _run_turn(
         facts = []
     Config.CONVERSATION_FACTS_ENABLED = facts is not None
     try:
-        return _agent_turn(case, user, conversation_id, request_id, history, standing, facts)
+        if case.round_cap is None:
+            return _agent_turn(case, user, conversation_id, request_id, history, standing, facts)
+        from src.agent.round_cap import round_cap_override
+
+        with round_cap_override(case.round_cap):
+            return _agent_turn(case, user, conversation_id, request_id, history, standing, facts)
     finally:
         Config.CONVERSATION_FACTS_ENABLED = facts_were_enabled
 
