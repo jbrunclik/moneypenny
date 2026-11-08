@@ -3,6 +3,7 @@
 Split out of prompts.py (Sep 2026); prompts.py assembles the final prompts.
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from src.config import Config
@@ -69,10 +70,10 @@ PROGRAM_QUICK_ACTION_NOTE = (
 )
 
 
-def format_program_kv_data(kind: str, context: dict[str, Any]) -> str:
+def format_program_kv_data(kind: str, context: Mapping[str, object]) -> str:
     """A program's stored kv data for the standing-chat section (capped per key)."""
-    kv_data = context.get("kv_data", {})
-    if not kv_data:
+    kv_data = context.get("kv_data")
+    if not isinstance(kv_data, dict) or not kv_data:
         return f"## Stored Data\n\n{_EMPTY_DATA.get(kind, _EMPTY_DATA['sports'])}"
     lines = [
         "## Stored Data (from KV store)\n\nThe following data is already persisted. Reference it and keep it up to date.\n"
