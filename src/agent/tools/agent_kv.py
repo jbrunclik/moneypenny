@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 # Limits
 # The app's own per-user state (steering, stop flags, compaction, lost-turn
-# notes, OAuth state, quotas, file caches): the model may name any namespace,
+# notes, OAuth state, schedule previews, quotas, file caches): the model may name any namespace,
 # and a page it read must not be able to plant these. A test keeps the list
 # in step with the modules' constants
 RESERVED_NAMESPACES = frozenset(
@@ -37,6 +37,7 @@ RESERVED_NAMESPACES = frozenset(
         "lost_actions",
         "memory_review",
         "oauth_state",
+        "schedule_pending",
         "search-usage",
         "gemini_files",
     }

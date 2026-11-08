@@ -1029,6 +1029,26 @@ class TestKVStoreReservedNamespaces:
     stay out of its reach - a page read in the same turn could otherwise plant
     steering, a stop flag or a lost-turn note."""
 
+    # The model's own data, edited through its own tool anyway
+    MODEL_WRITABLE = frozenset({"places"})
+
+    def test_every_namespace_constant_is_reserved(self) -> None:
+        """A new app namespace must join RESERVED_NAMESPACES (schedule_pending
+        was missed: a planted pending spec would await the user's next yes)."""
+        import re
+        from pathlib import Path
+
+        from src.agent.tools.agent_kv import RESERVED_NAMESPACES
+
+        pattern = re.compile(r'^_?[A-Z_]*NAMESPACE[A-Z_]* = "([^"]+)"', re.MULTILINE)
+        found = {
+            value
+            for path in Path("src").rglob("*.py")
+            if path.name != "agent_kv.py"
+            for value in pattern.findall(path.read_text())
+        }
+        assert found - RESERVED_NAMESPACES - self.MODEL_WRITABLE == set()
+
     @pytest.mark.parametrize(
         "namespace",
         [
@@ -1038,6 +1058,7 @@ class TestKVStoreReservedNamespaces:
             "src.agent.interjection.KV_NAMESPACE",
             "src.api.helpers.lost_actions.KV_NAMESPACE",
             "src.api.helpers.memory_review_trigger.KV_NAMESPACE",
+            "src.agent.tools.scheduling._PENDING_NAMESPACE",
             "src.auth.oauth_state._NAMESPACE",
             "src.services.search_provider.USAGE_NAMESPACE",
             "src.services.gemini_file_cache.GEMINI_FILES_NAMESPACE",
