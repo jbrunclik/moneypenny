@@ -170,6 +170,18 @@ What they do that shapes phases 2-3 (phase 1 unchanged):
 - **Later:** an egress check on unattended `fetch_url` (Muse's Sentinel), inbound channels
   and an agent email address (event triggers).
 
+xAI's Grok Bot (early beta Aug 2026) adds:
+
+- **Routines from repetition / demonstration** ("ask a Bot to repeat a task and it becomes
+  a routine"): "do this every Monday" right after a chat turns that turn - with the steps
+  it just took as instructions - into a job (phase 3).
+- **Allow once / deny / always allow** on approvals: "always allow" turns into a grant for
+  that job and tool - grants learned from approvals, not filled into a form (phase 2).
+- **Drafts, never sends**: unattended writes end as drafts the user confirms (a Todoist
+  task, a WhatsApp message) - the default for standing jobs (phase 2).
+- A Sunday-evening "week ahead" routine that flags calendar clashes - a family use case for
+  the notice job (phase 3).
+
 Family use cases these enable: a household logistics chat, a trip planner with a goal and
 price watchers, recipe to Todoist shopping list, bill and subscription watchers (Gmail), and
 the training coach adjusting its plan.
