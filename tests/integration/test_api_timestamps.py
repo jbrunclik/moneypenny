@@ -62,7 +62,7 @@ def _timestamp_values(payload: Any, path: str = "") -> Iterator[tuple[str, Any]]
 
 @pytest.fixture
 def seeded(
-    test_database: Database, test_user: User, test_conversation: Conversation
+    make_run_card: Any, test_database: Database, test_user: User, test_conversation: Conversation
 ) -> dict[str, str]:
     """One of each timestamped thing a user sees."""
     test_database.add_message(test_conversation.id, "user", "Hello")
@@ -76,9 +76,7 @@ def seeded(
     )
     execution = test_database.create_execution(agent.id, "manual")
     test_database.update_execution(execution.id, status="completed")
-    test_database.create_approval_request(
-        agent.id, test_user.id, "send_push", None, "Send a notification"
-    )
+    make_run_card(agent)
     test_database.add_memory(test_user.id, "Likes tea", category="preference")
     return {"conversation": test_conversation.id, "agent": agent.id}
 

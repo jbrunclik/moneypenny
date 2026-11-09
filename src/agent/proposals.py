@@ -49,7 +49,9 @@ _NO = frozenset({"no", "nope", "not now", "cancel", "ne", "nechci", "zrušit", "
 _TRAILING = re.compile(r"[\s.!,]+$")
 
 Apply = Callable[[Proposal, ProposalOption], str]
+Decline = Callable[[Proposal], None]
 _KINDS: dict[str, Apply] = {}
+_DECLINES: dict[str, Decline] = {}
 
 
 class ProposalFailedError(Exception):
@@ -60,9 +62,12 @@ class ProposalNotPendingError(Exception):
     """The proposal was answered, expired or superseded already."""
 
 
-def register_kind(kind: str, apply: Apply) -> None:
-    """Register how a kind's chosen option is applied (returns the result line)."""
+def register_kind(kind: str, apply: Apply, decline: Decline | None = None) -> None:
+    """Register how a kind's chosen option is applied (returns the result
+    line), and what a decline does besides recording it (a paused run ends)."""
     _KINDS[kind] = apply
+    if decline is not None:
+        _DECLINES[kind] = decline
 
 
 def card_shown(proposal: Proposal) -> str:
@@ -151,6 +156,8 @@ def resolve(proposal: Proposal, choice: int | None, by: Literal["button", "typed
     if choice is not None:
         state, result = _apply(proposal, proposal.options[choice])
         db.finish_proposal(proposal.id, state, result)
+    elif on_decline := _DECLINES.get(proposal.kind):
+        on_decline(proposal)
     resolved = db.get_proposal(proposal.id, proposal.user_id) or proposal
     logger.info(
         "Proposal resolved",

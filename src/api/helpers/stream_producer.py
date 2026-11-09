@@ -26,10 +26,6 @@ from src.agent.cancellation import (
 from src.agent.deep_research.briefs import recent_turns_text
 from src.agent.deep_research.pipeline import run_deep_research
 from src.agent.interjection import clear_interjection, pop_interjection
-from src.agent.tools.request_approval import (
-    ApprovalRequestedException,
-    build_approval_message,
-)
 from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES, StreamJournal
 from src.api.helpers.turn_steering import defer_unanswered_steering
 from src.config import Config
@@ -205,56 +201,6 @@ def _pump_events(
     return event_count, False
 
 
-def _report_approval_request(
-    e: ApprovalRequestedException,
-    event_queue: queue.Queue[dict[str, Any] | Exception | None],
-    final_results: dict[str, Any],
-    turn: TurnContext,
-    journal_message_id: str | None,
-    journal: StreamJournal | None,
-) -> None:
-    """Send the approval event (saving its message first) and end the stream."""
-    logger.info(
-        "Stream thread: approval requested",
-        extra={
-            "user_id": turn.user_id,
-            "conversation_id": turn.conv_id,
-            "approval_id": e.approval_id,
-            "description": e.description,
-        },
-    )
-    approval_event: dict[str, Any] = {
-        "type": "approval_required",
-        "approval_id": e.approval_id,
-        "description": e.description,
-        "tool_name": e.tool_name,
-        # (tool_name, result) pairs from batch siblings that executed
-        # before the pause - recorded in the approval message (R3)
-        "sibling_results": e.sibling_results,
-    }
-    # Persist the approval message HERE (producer thread): if the client
-    # disconnects before the consumer processes this event, the consumer's
-    # finally would otherwise delete the unused placeholder and the
-    # approval message would never reach the conversation. The consumer's
-    # _finalize_approval_stream re-writes the same content (idempotent).
-    if journal_message_id:
-        try:
-            approval_message = build_approval_message(
-                e.approval_id, e.description, e.tool_name, sibling_results=e.sibling_results
-            )
-            if db.update_message_content(journal_message_id, approval_message):
-                final_results["saved"] = True
-        except Exception:
-            logger.warning("Producer-side approval save failed", exc_info=True)
-    if journal:
-        journal.record(approval_event)
-    event_queue.put(approval_event)
-    # Approval is terminal for this stream: signal completion so the
-    # consumer finalizes promptly instead of sending keepalives until the
-    # backstop deadline (~CHAT_TIMEOUT_SECONDS later) and emitting a bogus timeout.
-    event_queue.put(None)
-
-
 def stream_events(
     agent: ChatAgent,
     event_queue: queue.Queue[dict[str, Any] | Exception | None],
@@ -312,9 +258,6 @@ def stream_events(
         # save moves it after the reply and the done event flags it
         final_results["unanswered_steering"] = pop_interjection(user_id, conv_id)
         event_queue.put(None)  # Signal completion
-    except ApprovalRequestedException as e:
-        # Special handling for approval requests - send approval event instead of error
-        _report_approval_request(e, event_queue, final_results, turn, journal_message_id, journal)
     except Exception as e:
         logger.exception(
             "Stream thread error",

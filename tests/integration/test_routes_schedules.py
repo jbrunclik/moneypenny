@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -247,6 +247,7 @@ def test_run_now_refused_for_light_items(
 
 
 def test_run_now_refused_while_awaiting_approval(
+    make_run_card: Any,
     client: FlaskClient,
     auth_headers: dict[str, str],
     test_database: Database,
@@ -254,7 +255,7 @@ def test_run_now_refused_while_awaiting_approval(
     test_conversation: Conversation,
 ) -> None:
     job = _job(test_database, test_user, test_conversation)
-    test_database.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+    make_run_card(job)
 
     response = client.post(f"/api/schedules/{job.id}/run", headers=auth_headers)
 

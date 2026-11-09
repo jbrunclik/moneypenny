@@ -34,7 +34,6 @@ JOURNALED_EVENT_TYPES = {
     "thinking",
     "tool_start",
     "tool_end",
-    "approval_required",
     "timeout",
     "stopping",
     # The footer's "checking" state survives a reload mid-check

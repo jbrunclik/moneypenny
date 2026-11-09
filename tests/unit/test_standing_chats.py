@@ -16,7 +16,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.api.schemas.jobs import CreateJobRequest, UpdateJobRequest
-from src.db.models.dataclasses import ApprovalRequest, JobRun
+from src.db.models.dataclasses import JobRun
 
 # =============================================================================
 # Test fixtures
@@ -51,22 +51,6 @@ def sample_execution():
         started_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         completed_at=datetime(2024, 1, 1, 12, 1, 0, tzinfo=UTC),
         error_message=None,
-    )
-
-
-@pytest.fixture
-def sample_approval():
-    """Create a sample approval request."""
-    return ApprovalRequest(
-        id="approval-123",
-        item_id="agent-123",
-        user_id="user-123",
-        tool_name="todoist",
-        tool_args={"operation": "add_task", "content": "Test task"},
-        description='Create Todoist task "Test task"',
-        status="pending",
-        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
-        resolved_at=None,
     )
 
 
@@ -382,15 +366,18 @@ class TestAgentDatabaseOperations:
         assert response["status"] == "completed"
         assert response["trigger_type"] == "manual"
 
-    def test_approval_to_response_conversion(self, sample_approval):
-        from src.api.helpers.standing_responses import approval_to_response
+    def test_a_run_card_converts_with_its_agent(self, test_database, test_user, make_run_card):
+        from src.api.helpers.standing_responses import run_proposal_to_response
 
-        response = approval_to_response(sample_approval, "Test Agent")
+        agent = test_database.create_standing_chat(test_user.id, "Test Agent")
+        response = run_proposal_to_response(make_run_card(agent), "Test Agent")
 
-        assert response["id"] == "approval-123"
-        assert response["job_name"] == "Test Agent"
-        assert response["tool_name"] == "todoist"
-        assert response["status"] == "pending"
+        assert (response["job_id"], response["job_name"], response["state"]) == (
+            agent.id,
+            "Test Agent",
+            "pending",
+        )
+        assert response["conversation_id"] == agent.conversation_id
 
     def test_update_of_a_chat_deleted_meanwhile_finds_nothing(self, test_database):
         """Deleted between the lookup and the UPDATE: None, and no write lock left held."""

@@ -365,42 +365,6 @@ class _ApprovalAgent:
         yield  # pragma: no cover
 
 
-class TestProducerSideApprovalSave:
-    def test_approval_message_saved_even_without_consumer(
-        self, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """If the client disconnects before the consumer processes the approval
-        event, the approval message must already be in the placeholder - the
-        consumer's finally would otherwise delete it."""
-        from src.api.helpers import stream_producer, stream_resume
-
-        monkeypatch.setattr(stream_resume, "db", test_database)
-        monkeypatch.setattr(stream_producer, "db", test_database)
-        conv = test_database.create_conversation(test_user.id, model=Config.DEFAULT_MODEL)
-        placeholder = test_database.add_message(conv.id, MessageRole.ASSISTANT, "")
-
-        q: queue.Queue = queue.Queue()
-        final_results: dict = {"ready": False, "saved": False}
-        stream_producer.stream_events(
-            _ApprovalAgent(),
-            q,
-            final_results,
-            TurnContext(
-                request_id="req-1",
-                conv_id=conv.id,
-                user_id=test_user.id,
-                message_text="hello",
-                user_name="Alice",
-            ),
-            journal_message_id=placeholder.id,
-        )
-
-        saved = test_database.get_message_by_id(placeholder.id)
-        assert saved is not None
-        assert "approval-request:ap-9" in saved.content
-        assert final_results["saved"] is True
-
-
 def test_grounding_started_is_journaled() -> None:
     # The footer's "checking" state must survive a reload mid-check
     from src.api.helpers.stream_resume import JOURNALED_EVENT_TYPES

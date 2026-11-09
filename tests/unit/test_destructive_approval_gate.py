@@ -1,32 +1,57 @@
-"""Tests for the destructive-action approval gate (S9 hardening).
+"""The run gates (S9 hardening; one approval mechanism, step 2).
 
-Delete operations on todoist/google_calendar are enforced at the tool
-layer for agent contexts: each requires consuming one approved,
-unexpired approval request. Prompt-level confirmation alone is exactly
-what prompt injection bypasses.
+A destructive operation in an unattended run - or a write without the write
+level - needs the user's yes to exactly that call: without it the gate files
+the call's card (a run proposal with its full arguments) and pauses the run.
+Approving lets the identical call run once; a different call asks again.
+Prompt-level confirmation alone is exactly what prompt injection bypasses.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
 from src.agent.run_context import JobContext, clear_job_context, set_job_context
-from src.agent.tools.permission_check import (
-    ApprovalRequiredError,
-    check_autonomous_permission,
-)
+from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.request_approval import ApprovalRequestedException
+from src.db.models import use_database
+
+if TYPE_CHECKING:
+    from src.db.models import Database, Proposal, User
 
 
 @pytest.fixture
-def agent_ctx(test_database, test_user, monkeypatch):
-    """A real agent set as the current agent context, with db patched."""
-    monkeypatch.setattr("src.agent.tools.permission_check.db", test_database)
-    agent = test_database.create_standing_chat(user_id=test_user.id, name="Gate Test")
-    set_job_context(
-        JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
-    )
-    yield agent
-    clear_job_context()
+def agent_ctx(test_database: Database, test_user: User) -> Iterator[Any]:
+    """A real agent as the current run, on the test database."""
+    with use_database(test_database):
+        agent = test_database.create_standing_chat(user_id=test_user.id, name="Gate Test")
+        set_job_context(
+            JobContext(item=agent.job, user=test_user, name=agent.name, trigger_chain=[agent.id])
+        )
+        yield agent
+        clear_job_context()
+
+
+def _blocked(tool: str, args: dict[str, Any]) -> Proposal:
+    """The call pauses the run; the card it filed."""
+    from src.agent.run_context import get_job_context
+    from src.db.models import db
+
+    with pytest.raises(ApprovalRequestedException) as raised:
+        check_autonomous_permission(tool, args)
+    run = get_job_context()
+    assert run is not None
+    card = db.get_proposal(raised.value.approval_id, run.user.id)
+    assert card is not None
+    return card
+
+
+def _approve(card: Proposal, test_database: Database) -> None:
+    """The user approves the card (the resume itself is not under test here)."""
+    assert test_database.claim_proposal(card.id, "approved", 0, "button")
 
 
 class TestDestructiveApprovalGate:
@@ -35,151 +60,69 @@ class TestDestructiveApprovalGate:
         # Interactive/plain chat: the user is driving - no gate
         check_autonomous_permission("todoist", {"operation": "delete_task"})
 
-    def test_non_destructive_action_allows(self, agent_ctx) -> None:
+    def test_non_destructive_action_allows(self, agent_ctx: Any) -> None:
         check_autonomous_permission("todoist", {"operation": "add_task"})
 
-    def test_destructive_without_approval_blocked(self, agent_ctx) -> None:
-        with pytest.raises(ApprovalRequiredError, match="request_approval"):
-            check_autonomous_permission("todoist", {"operation": "delete_task"})
+    def test_a_destructive_call_files_its_card(self, agent_ctx: Any) -> None:
+        card = _blocked("todoist", {"operation": "delete_task", "task_id": "t1"})
 
-    def test_approved_request_authorizes_exactly_one_call(
-        self, agent_ctx, test_database, test_user
+        assert (card.origin, card.kind, card.job_id, card.state) == (
+            "run",
+            "agent_action",
+            agent_ctx.id,
+            "pending",
+        )
+        assert card.summary == "Todoist: delete task"
+        assert card.details == {"Task id": "t1"}
+        assert [o["label"] for o in card.options] == ["Approve"]  # never "Always allow" a delete
+
+    def test_the_approved_call_runs_exactly_once(
+        self, agent_ctx: Any, test_database: Database
     ) -> None:
-        approval = test_database.create_approval_request(
-            item_id=agent_ctx.id,
-            user_id=test_user.id,
-            tool_name="todoist",
-            tool_args={"description": "delete task X", "operation": "delete_task"},
-            description="delete task X",
-        )
-        test_database.resolve_approval(approval.id, test_user.id, approved=True)
+        call = {"operation": "delete_task", "task_id": "t1"}
+        _approve(_blocked("todoist", call), test_database)
 
-        # First call consumes the approval and passes
-        check_autonomous_permission("todoist", {"operation": "delete_task"})
-        assert test_database.get_approval_request(approval.id, test_user.id).status == "consumed"
+        check_autonomous_permission("todoist", call)  # the approved call
+        _blocked("todoist", call)  # once only
 
-        # Second call has no approval left
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission("todoist", {"operation": "delete_task"})
-
-    def test_rejected_approval_does_not_authorize(
-        self, agent_ctx, test_database, test_user
+    def test_another_call_does_not_spend_the_approval(
+        self, agent_ctx: Any, test_database: Database
     ) -> None:
-        approval = test_database.create_approval_request(
-            item_id=agent_ctx.id,
-            user_id=test_user.id,
-            tool_name="todoist",
-            tool_args=None,
-            description="delete everything",
-        )
-        test_database.resolve_approval(approval.id, test_user.id, approved=False)
+        _approve(_blocked("todoist", {"operation": "delete_task", "task_id": "t1"}), test_database)
 
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission("todoist", {"operation": "delete_project"})
+        other = _blocked("todoist", {"operation": "delete_task", "task_id": "t2"})
 
-    def test_calendar_delete_gated_separately(self, agent_ctx, test_database, test_user) -> None:
-        # A todoist approval does not authorize a calendar delete
-        approval = test_database.create_approval_request(
-            item_id=agent_ctx.id,
-            user_id=test_user.id,
-            tool_name="todoist",
-            tool_args=None,
-            description="delete task",
-        )
-        test_database.resolve_approval(approval.id, test_user.id, approved=True)
+        assert other.details == {"Task id": "t2"}  # a new card for the other task
+        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "t1"})
 
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission("google_calendar", {"operation": "delete_event"})
+    def test_a_declined_card_authorizes_nothing(
+        self, agent_ctx: Any, test_database: Database
+    ) -> None:
+        call = {"operation": "delete_project", "project_id": "p1"}
+        card = _blocked("todoist", call)
+        test_database.claim_proposal(card.id, "declined", None, "button")
 
-
-def _approve(test_database, agent, user, tool_name="todoist", target_id=None, operation=None):
-    tool_args = {"description": "x"}
-    if target_id:
-        tool_args["target_id"] = target_id
-    if operation:
-        tool_args["operation"] = operation
-    approval = test_database.create_approval_request(
-        item_id=agent.id,
-        user_id=user.id,
-        tool_name=tool_name,
-        tool_args=tool_args,
-        description="x",
-    )
-    test_database.resolve_approval(approval.id, user.id, approved=True)
-    return approval
+        _blocked("todoist", call)
 
 
 class TestArchiveAndRescheduleGates:
-    def test_archive_project_gated(self, agent_ctx) -> None:
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "todoist", {"operation": "archive_project", "project_id": "p1"}
-            )
+    def test_archive_project_gated(self, agent_ctx: Any) -> None:
+        _blocked("todoist", {"operation": "archive_project", "project_id": "p1"})
 
-    def test_update_event_reschedule_gated(self, agent_ctx) -> None:
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "google_calendar",
-                {"operation": "update_event", "event_id": "e1", "start_time": "2026-06-13T09:00"},
-            )
+    def test_update_event_reschedule_gated(self, agent_ctx: Any) -> None:
+        _blocked(
+            "google_calendar",
+            {"operation": "update_event", "event_id": "e1", "start_time": "2026-06-13T09:00"},
+        )
 
-    def test_update_event_attendee_change_gated(self, agent_ctx) -> None:
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "google_calendar",
-                {"operation": "update_event", "event_id": "e1", "attendees": ["a@b.c"]},
-            )
+    def test_update_event_attendee_change_gated(self, agent_ctx: Any) -> None:
+        _blocked(
+            "google_calendar",
+            {"operation": "update_event", "event_id": "e1", "attendees": ["a@b.c"]},
+        )
 
-    def test_update_event_cosmetic_edit_allowed(self, agent_ctx) -> None:
+    def test_update_event_cosmetic_edit_allowed(self, agent_ctx: Any) -> None:
         # Renames/description tweaks are reversible and stay ungated
         check_autonomous_permission(
             "google_calendar", {"operation": "update_event", "event_id": "e1"}
         )
-
-
-class TestTargetMatching:
-    def test_targeted_approval_authorizes_only_that_entity(
-        self, agent_ctx, test_database, test_user
-    ) -> None:
-        _approve(test_database, agent_ctx, test_user, target_id="task-X")
-
-        # Wrong entity: the approval for task-X must not be spent on task-Y
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "todoist", {"operation": "delete_task", "task_id": "task-Y"}
-            )
-
-        # Right entity passes and consumes
-        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-X"})
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "todoist", {"operation": "delete_task", "task_id": "task-X"}
-            )
-
-    def test_an_untargeted_approval_for_the_operation_authorizes_one_call(
-        self, agent_ctx, test_database, test_user
-    ) -> None:
-        _approve(test_database, agent_ctx, test_user, target_id=None, operation="delete_task")
-        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-Y"})
-
-    def test_an_approval_naming_neither_target_nor_operation_authorizes_nothing(
-        self, agent_ctx, test_database, test_user
-    ) -> None:
-        """Part D review: an approved "add task" must not be spendable on a delete."""
-        _approve(test_database, agent_ctx, test_user, target_id=None)
-        with pytest.raises(ApprovalRequiredError):
-            check_autonomous_permission(
-                "todoist", {"operation": "delete_task", "task_id": "task-Y"}
-            )
-
-    def test_targeted_approval_preferred_over_generic(
-        self, agent_ctx, test_database, test_user
-    ) -> None:
-        generic = _approve(test_database, agent_ctx, test_user, operation="delete_task")
-        targeted = _approve(test_database, agent_ctx, test_user, target_id="task-X")
-
-        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "task-X"})
-
-        # The targeted approval was spent; the generic one remains usable
-        assert test_database.get_approval_request(targeted.id, test_user.id).status == "consumed"
-        assert test_database.get_approval_request(generic.id, test_user.id).status == "approved"

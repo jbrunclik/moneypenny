@@ -33,10 +33,12 @@ def _rollback_to(test_db_path: Path, migration_id: str) -> None:
 
 
 def _apply(test_db_path: Path) -> None:
+    """Apply up to 0082 (later ones reshape what it made: 0088 folds
+    job_approvals into proposals)."""
     backend = get_backend(f"sqlite:///{test_db_path}")
     migrations = read_migrations(str(db_base.MIGRATIONS_DIR))
     with backend.lock():
-        backend.apply_migrations(backend.to_apply(migrations))
+        backend.apply_migrations(backend.to_apply(migrations).filter(lambda m: m.id <= _MIGRATION))
 
 
 def _seed(test_db_path: Path) -> str:

@@ -266,29 +266,6 @@ class SearchResult:
 # ============ Job Dataclasses ============
 
 
-@dataclass
-class ApprovalRequest:
-    """A pending approval request from a job's run.
-
-    Runs create these when attempting dangerous operations (create/update/delete).
-    The agent is blocked until the user approves or rejects the request.
-    Requests expire after AGENT_APPROVAL_TTL_HOURS (default: 24 hours).
-    """
-
-    id: str
-    item_id: str  # the job that asked
-    user_id: str
-    tool_name: str  # The tool that requires approval
-    tool_args: dict[str, Any] | None  # Arguments passed to the tool
-    description: str  # Human-readable description of the action
-    status: str  # "pending", "approved", "rejected"
-    created_at: datetime
-    resolved_at: datetime | None
-    expires_at: datetime | None = None  # When this approval request expires
-
-
-# "applying": claimed, its option being applied (a worker that died there
-# leaves it to fail_stale_applying)
 ProposalState = Literal[
     "pending", "applying", "approved", "declined", "expired", "superseded", "failed"
 ]

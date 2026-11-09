@@ -210,6 +210,13 @@ class ProposalsMixin:
             (conversation_id, to_db(since), *_RESOLVED),
         )
 
+    def link_run_proposal(self, proposal_id: str, message_id: str, execution_id: str) -> None:
+        """A parked run's card shows under its waiting message, for that execution."""
+        self._write(
+            "UPDATE proposals SET message_id = ?, execution_id = ? WHERE id = ?",
+            (message_id, execution_id, proposal_id),
+        )
+
     def pending_run_proposals(self, user_id: str) -> list[Proposal]:
         """The user's runs waiting on a card (Command Center's "Needs you")."""
         return self._select(

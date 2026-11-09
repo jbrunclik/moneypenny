@@ -1,372 +1,76 @@
-"""Approving or rejecting an agent's request (POST /api/approvals/<id>/...).
+"""Runs waiting on the user's card: GET /api/approvals lists them, and the
+card is answered like any proposal (/api/proposals/<id>/approve|decline),
+which resumes or ends that run (docs/features/proposals.md)."""
 
-Agents run unattended; the approval is the one moment a person steps in, so
-the paused run must be closed, the decision recorded in the agent's
-conversation and, on approval, the agent resumed - even when it then fails.
-"""
+from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
-import pytest
-from flask.testing import FlaskClient
+if TYPE_CHECKING:
+    from flask.testing import FlaskClient
 
-from src.api.routes import approvals
-from src.db.models import Database, User
-from src.db.models.dataclasses import ApprovalRequest, StandingChat
+    from src.db.models import Database, User
 
 
-@pytest.fixture
-def resume(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
-    """The faked run_job_now the approve route resumes the agent's job with
-    (agents are standing jobs with the agent's id)."""
-    from src.agent.item_runner import RunOutcome
-
-    fake = MagicMock(return_value=RunOutcome("report", "Sent."))
-    monkeypatch.setattr(approvals, "run_job_now", fake)
-    yield fake
-
-
-@pytest.fixture
-def paused(test_database: Database, test_user: User) -> tuple[StandingChat, ApprovalRequest, str]:
-    """An agent whose run paused for approval: (agent, approval, paused execution id)."""
-    agent = test_database.create_standing_chat(test_user.id, "Mailer")
-    execution = test_database.create_execution(agent.id, "scheduled")
-    test_database.update_execution(execution.id, status="waiting_approval")
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "send_email", {"to": "x"}, "Send the weekly summary"
-    )
-    return agent, approval, execution.id
-
-
-def _executions(db: Database, agent: StandingChat) -> dict[str, Any]:
-    return {e.id: e for e in db.get_job_runs(agent.id, limit=10)}
-
-
-def _last_message(db: Database, agent: StandingChat) -> str:
-    assert agent.conversation_id
-    return db.get_messages(agent.conversation_id)[-1].content
-
-
-class TestApprove:
-    def test_resumes_the_agent_and_closes_the_paused_run(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        paused: tuple[StandingChat, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        agent, approval, paused_id = paused
-        response = client.post(
-            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
-        )
-        assert response.status_code == 200
-        assert response.get_json() == {"status": "approved"}
-
-        assert resume.call_args.args[0].id == agent.id
-        assert resume.call_args.kwargs["message"] == "[Action approved: Send the weekly summary]"
-        assert _last_message(test_database, agent) == "[Action approved: Send the weekly summary]"
-        executions = _executions(test_database, agent)
-        assert executions[paused_id].status == "completed"  # superseded by the resumed run
-        assert test_database.get_pending_approvals(agent.user_id) == []
-
-    def test_a_crashing_resumed_run_still_approves(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        paused: tuple[StandingChat, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        agent, approval, _ = paused
-        resume.side_effect = RuntimeError("model unavailable")
-        response = client.post(
-            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
-        )
-        assert response.status_code == 200  # the approval itself went through
-        assert test_database.get_pending_approvals(agent.user_id) == []
-
-    def test_approving_twice_finds_nothing_the_second_time(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        paused: tuple[StandingChat, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        _, approval, _ = paused
-        client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
-        second = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
-        assert second.status_code == 404
-        assert resume.call_count == 1
-
-    def test_another_users_approval_is_not_found(
-        self,
-        client: FlaskClient,
-        test_database: Database,
-        paused: tuple[StandingChat, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        from src.auth.jwt_auth import create_token
-
-        _, approval, _ = paused
-        other = test_database.get_or_create_user(email="other@example.com", name="Other")
-        headers = {"Authorization": f"Bearer {create_token(other)}"}
-        assert (
-            client.post(
-                f"/api/approvals/{approval.id}/approve", headers=headers, json={}
-            ).status_code
-            == 404
-        )
-        resume.assert_not_called()
-
-
-class TestReject:
-    def test_records_the_rejection_and_closes_the_paused_run(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        paused: tuple[StandingChat, ApprovalRequest, str],
-        resume: MagicMock,
-    ) -> None:
-        agent, approval, paused_id = paused
-        response = client.post(f"/api/approvals/{approval.id}/reject", headers=auth_headers)
-        assert response.get_json() == {"status": "rejected"}
-        assert _last_message(test_database, agent) == "[Action rejected: Send the weekly summary]"
-        execution = _executions(test_database, agent)[paused_id]
-        assert (execution.status, execution.error_message) == ("failed", "Action rejected by user")
-        resume.assert_not_called()
-
-    def test_another_users_approval_is_not_found(
-        self,
-        client: FlaskClient,
-        test_database: Database,
-        paused: tuple[StandingChat, ApprovalRequest, str],
-    ) -> None:
-        from src.auth.jwt_auth import create_token
-
-        _, approval, _ = paused
-        other = test_database.get_or_create_user(email="other@example.com", name="Other")
-        headers = {"Authorization": f"Bearer {create_token(other)}"}
-        assert (
-            client.post(f"/api/approvals/{approval.id}/reject", headers=headers).status_code == 404
-        )
-
-
-class TestStandingJobApprovals:
-    """A standing job's run that paused for approval (phase 2 plan, A4): its
-    approval names the job, and approving resumes the job's run."""
-
-    @pytest.fixture
-    def job_paused(self, test_database: Database, test_user: User) -> tuple[Any, ApprovalRequest]:
-        import uuid
-        from datetime import UTC, datetime
-
-        from src.db.models.dataclasses import ScheduledItem
-
-        conv = test_database.create_conversation(test_user.id, "Coach")
-        now = datetime.now(UTC)
-        job = test_database.add_item(
-            ScheduledItem(
-                id=str(uuid.uuid4()),
-                user_id=test_user.id,
-                conversation_id=conv.id,
-                kind="recurring",
-                text="Plan tomorrow's ride.",
-                end_condition=None,
-                schedule="0 20 * * *",
-                interval_hours=None,
-                next_run_at=now,
-                expires_at=None,
-                status="active",
-                last_result=None,
-                quiet_runs=0,
-                failures=0,
-                created_at=now,
-                grants=["todoist"],
-            )
-        )
-        execution = test_database.create_execution(job.id, "scheduled")
-        test_database.update_execution(execution.id, status="waiting_approval")
-        approval = test_database.create_approval_request(
-            job.id, test_user.id, "todoist", None, "Delete the old ride task"
-        )
-        return job, approval
-
-    def test_approving_a_job_request_resumes_the_job(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        job_paused: tuple[Any, ApprovalRequest],
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        job, approval = job_paused
-        resumed: list[tuple[str, str | None]] = []
-
-        def run_job_now(item: Any, user: User, *, message: str | None = None) -> Any:
-            resumed.append((item.id, message))
-
-        monkeypatch.setattr(approvals, "run_job_now", run_job_now)
-
-        response = client.post(
-            f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={}
-        )
-
-        assert response.status_code == 200
-        assert resumed == [(job.id, "[Action approved: Delete the old ride task]")]
-        [paused_run] = test_database.get_job_runs(job.id)
-        assert paused_run.status == "completed"
-        last = test_database.get_messages(job.conversation_id)[-1]
-        assert last.content == "[Action approved: Delete the old ride task]"
-
-    def test_rejecting_a_job_request_is_recorded_in_its_chat(
-        self,
-        client: FlaskClient,
-        auth_headers: dict[str, str],
-        test_database: Database,
-        job_paused: tuple[Any, ApprovalRequest],
-    ) -> None:
-        job, approval = job_paused
-
-        response = client.post(f"/api/approvals/{approval.id}/reject", headers=auth_headers)
-
-        assert response.status_code == 200
-        last = test_database.get_messages(job.conversation_id)[-1]
-        assert last.content == "[Action rejected: Delete the old ride task]"
-        [paused_run] = test_database.get_job_runs(job.id)
-        assert paused_run.status == "failed"
-
-
-def test_approving_a_settings_change_applies_it_without_a_rerun(
+def test_pending_run_cards_are_listed_with_their_agent(
     client: FlaskClient,
     auth_headers: dict[str, str],
     test_database: Database,
     test_user: User,
-    resume: MagicMock,
+    make_run_card: Any,
 ) -> None:
     agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
-    execution = test_database.create_execution(agent.id, "scheduled")
-    test_database.update_execution(execution.id, status="waiting_approval")
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "edit_standing_chat", {"schedule": "0 8 * * 1"}, "Move to Mondays"
-    )
+    card = make_run_card(agent, summary="Todoist: add task")
 
-    response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
+    [listed] = client.get("/api/approvals", headers=auth_headers).get_json()["pending_approvals"]
 
-    assert response.status_code == 200
-    after = test_database.get_standing_chat(agent.id, test_user.id)
-    assert after is not None and after.schedule == "0 8 * * 1"
-    resume.assert_not_called()
-    [run] = test_database.get_job_runs(agent.id)
-    assert run.status == "completed"
-
-
-def test_always_allow_adds_the_write_grant(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    resume: MagicMock,
-) -> None:
-    agent = test_database.create_standing_chat(test_user.id, "Planner", grants=["todoist"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "todoist", None, "Add 'Buy milk'"
-    )
-
-    response = client.post(
-        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
-    )
-
-    assert response.status_code == 200
-    job = test_database.get_item(agent.id, test_user.id)
-    assert job is not None and "todoist:write" in (job.grants or [])
-    resume.assert_called_once()
-
-
-def test_always_allow_refused_for_settings_changes(
-    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
-) -> None:
-    agent = test_database.create_standing_chat(test_user.id, "Coach", grants=["garmin_connect"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "edit_standing_chat", {"grants": ["*"]}, "Give me all tools"
-    )
-
-    response = client.post(
-        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
-    )
-
-    assert response.status_code == 400
-    assert test_database.get_pending_approvals(test_user.id) != []
-    after = test_database.get_standing_chat(agent.id, test_user.id)
-    assert after is not None and after.grants == ["garmin_connect"]
-
-
-def test_always_allow_only_raises_a_granted_tool_to_write(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    resume: MagicMock,
-) -> None:
-    """A run can name any tool in its request: Always allow must not grant
-    a tool the job never had."""
-    agent = test_database.create_standing_chat(test_user.id, "Gardener", grants=["web_search"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "google_calendar", {"operation": "create_event"}, "Water plants"
-    )
-
-    response = client.post(
-        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
-    )
-
-    assert response.status_code == 400
-    after = test_database.get_standing_chat(agent.id, test_user.id)
-    assert after is not None and after.grants == ["web_search"]
-
-
-def test_always_allow_on_a_handled_approval_grants_nothing(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    resume: MagicMock,
-) -> None:
-    agent = test_database.create_standing_chat(test_user.id, "Planner", grants=["todoist"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "todoist", {"operation": "add_task"}, "Add milk"
-    )
-    test_database.resolve_approval(approval.id, test_user.id, approved=False)
-
-    response = client.post(
-        f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={"always": True}
-    )
-
-    assert response.status_code == 404
-    job = test_database.get_item(agent.id, test_user.id)
-    assert job is not None and job.grants == ["todoist"]
-
-
-def test_an_approved_settings_change_is_checked_again(
-    client: FlaskClient,
-    auth_headers: dict[str, str],
-    test_database: Database,
-    test_user: User,
-    resume: MagicMock,
-) -> None:
-    agent = test_database.create_standing_chat(test_user.id, "Coach", grants=["garmin_connect"])
-    approval = test_database.create_approval_request(
+    assert (listed["id"], listed["job_id"], listed["job_name"], listed["summary"]) == (
+        card.id,
         agent.id,
-        test_user.id,
-        "edit_standing_chat",
-        {"grants": ["root_shell"], "description": "x"},
-        "Change settings",
+        "Coach",
+        "Todoist: add task",
     )
+    assert listed["conversation_id"] == agent.conversation_id
+    assert "payload" not in str(listed)
 
-    response = client.post(f"/api/approvals/{approval.id}/approve", headers=auth_headers, json={})
 
-    assert response.status_code == 400
-    after = test_database.get_standing_chat(agent.id, test_user.id)
-    assert after is not None and after.grants == ["garmin_connect"]
+def test_approving_a_run_card_resumes_its_run(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    make_run_card: Any,
+) -> None:
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
+    waiting = test_database.add_message(agent.conversation_id or "", "assistant", "Waiting")
+    card = make_run_card(agent, message_id=waiting.id)
+
+    with patch("src.agent.run_approvals._resume") as resume:
+        response = client.post(f"/api/proposals/{card.id}/approve", headers=auth_headers, json={})
+
+    assert response.status_code == 200
+    assert response.get_json()["state"] == "approved"
+    resume.assert_called_once()
+    assert client.get("/api/approvals", headers=auth_headers).get_json()["pending_approvals"] == []
+
+
+def test_declining_a_run_card_ends_its_run(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    make_run_card: Any,
+) -> None:
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
+    waiting = test_database.add_message(agent.conversation_id or "", "assistant", "Waiting")
+    card = make_run_card(agent, message_id=waiting.id)
+
+    with patch("src.agent.run_approvals._resume") as resume:
+        response = client.post(f"/api/proposals/{card.id}/decline", headers=auth_headers)
+
+    assert response.get_json()["state"] == "declined"
+    resume.assert_not_called()
+    assert test_database.get_messages(agent.conversation_id or "")[-1].content.startswith(
+        "[Action rejected:"
+    )

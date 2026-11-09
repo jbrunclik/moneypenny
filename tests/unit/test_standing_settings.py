@@ -32,6 +32,7 @@ def agent(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(proposals_module, "db", test_database)
+    monkeypatch.setattr("src.agent.run_approvals.db", test_database)
     agent = test_database.create_standing_chat(
         test_user.id,
         "Coach",
@@ -88,11 +89,16 @@ def test_unattended_settings_change_files_approval(
     finally:
         clear_job_context()
 
-    approval = test_database.get_approval_request(raised.value.approval_id, test_user.id)
-    assert approval is not None and approval.tool_name == "edit_standing_chat"
-    assert approval.tool_args == {"schedule": "0 8 * * 1"}
+    card = test_database.get_proposal(raised.value.approval_id, test_user.id)
+    assert card is not None and (card.origin, card.kind) == ("run", "edit_agent")
+    assert card.options[0]["payload"] == {"job_id": agent.id, "changes": {"schedule": "0 8 * * 1"}}
     after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.schedule == "0 20 * * *"
+
+    resolve(card, 0, "button")  # the approved change applies, no rerun
+
+    applied = test_database.get_standing_chat(agent.id, test_user.id)
+    assert applied is not None and applied.schedule == "0 8 * * 1"
 
 
 def test_grants_never_widen_without_approval(
@@ -120,6 +126,7 @@ def test_briefing_edit_freezes_a_copy(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(proposals_module, "db", test_database)
+    monkeypatch.setattr("src.agent.run_approvals.db", test_database)
     briefing = test_database.create_standing_chat(
         test_user.id,
         "Daily Briefing",
@@ -218,6 +225,7 @@ def test_preview_shows_widening_from_no_tools(
 
     monkeypatch.setattr(module, "db", test_database)
     monkeypatch.setattr(proposals_module, "db", test_database)
+    monkeypatch.setattr("src.agent.run_approvals.db", test_database)
     bare = test_database.create_standing_chat(test_user.id, "Bare", grants=[])
     set_conversation_context(bare.conversation_id, test_user.id)
     set_current_request_id("r1")

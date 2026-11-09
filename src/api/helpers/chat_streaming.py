@@ -76,8 +76,6 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
             # resume endpoint and poll recovery look up. Deleting it here made
             # the cleanup save fall back to an INSERT under a NEW id, which
             # stranded every recovery keyed to the original one (X1).
-            # The approval path never sets "ready" - its save happens in
-            # _finalize_approval_stream / the producer, so it is excluded too.
             # A producer that reported a failure is finishing its own cleanup
             # (token, stop flags, journal) - still alive for a moment, which
             # kept the empty placeholder: the chat then ended on an empty
@@ -88,7 +86,6 @@ def create_stream_generator(user: User, turn: PreparedTurn, ctx: TurnContext) ->
                 context.placeholder_saved
                 and not context.final_results["ready"]
                 and not context.final_results["saved"]
-                and context.approval_info is None
                 and (context.stream_thread is None or not context.stream_thread.is_alive())
             ):
                 record_lost_actions(
@@ -163,8 +160,6 @@ class StreamContext:
         self.generator_done_event = threading.Event()
         self.stream_thread: threading.Thread | None = None
         self.cleanup_thread: threading.Thread | None = None
-        # Approval request info (set when ApprovalRequestedException is caught)
-        self.approval_info: dict[str, Any] | None = None
 
     def start_threads(self) -> None:
         """Start the streaming and cleanup background threads."""

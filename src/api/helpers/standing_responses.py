@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from src.agent.daily_briefing import effective_instructions
+from src.api.utils import proposal_to_response
 from src.config import Config
-from src.db.models import ApprovalRequest, JobRun, StandingChat, db
+from src.db.models import JobRun, Proposal, StandingChat, db
 from src.db.models.scheduled_items import NEVER_RUN_AT
 from src.utils.clock import to_api
 
@@ -37,7 +38,7 @@ def standing_to_response(chat: StandingChat) -> dict[str, Any]:
         "fresh_context": job.fresh_context,
         "standing_type": chat.standing_type,
         "spend_today_usd": db.job_spend_today(chat.id),
-        "has_pending_approval": db.has_pending_approval(chat.id),
+        "has_pending_approval": db.has_pending_run_proposal(chat.id),
         "unread_count": db.standing_unread_count(chat.id),
         "last_run_status": last_status,
     }
@@ -57,16 +58,12 @@ def run_to_response(run: JobRun) -> dict[str, Any]:
     }
 
 
-def approval_to_response(approval: ApprovalRequest, job_name: str) -> dict[str, Any]:
-    """A run's approval request."""
+def run_proposal_to_response(proposal: Proposal, job_name: str) -> dict[str, object]:
+    """A run's card, with its job."""
     return {
-        "id": approval.id,
-        "item_id": approval.item_id,
+        **proposal_to_response(proposal),
+        "job_id": proposal.job_id or "",
         "job_name": job_name,
-        "tool_name": approval.tool_name,
-        "tool_args": approval.tool_args,
-        "description": approval.description,
-        "status": approval.status,
-        "created_at": to_api(approval.created_at),
-        "resolved_at": to_api(approval.resolved_at) if approval.resolved_at else None,
+        "conversation_id": proposal.conversation_id,
+        "created_at": to_api(proposal.created_at),
     }

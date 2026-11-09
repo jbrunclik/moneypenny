@@ -178,7 +178,7 @@ def run_job_now(
 def hold_reason(item: ScheduledItem) -> str | None:
     """Why a standing job must not run now, by any path: it waits for an
     approval it asked for, or it spent its daily budget."""
-    if db.has_pending_approval(item.id):
+    if db.has_pending_run_proposal(item.id):
         return "waiting for your approval"
     budget = item.budget_usd
     if budget is not None and budget > 0 and db.job_spend_today(item.id) >= budget:

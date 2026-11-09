@@ -1,8 +1,8 @@
 """Grant levels (standing chats phase 2, D3): a tool in a job's grants means
 read; "<tool>:write" lets an unattended run change things there. A write
-without the write level is a draft: it needs the user's approval, one call
-per approval - never a silent change. Destructive operations still need an
-approval per call even with the write level."""
+without the write level is a draft: the gate files that exact call's card
+and the run pauses - never a silent change; approving lets that one call run.
+Destructive operations still need a card per call even with the write level."""
 
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ from typing import Any
 import pytest
 
 from src.agent.run_context import JobContext, clear_job_context, set_job_context
-from src.agent.tools.permission_check import ApprovalRequiredError, check_autonomous_permission
+from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.request_approval import ApprovalRequestedException
+from src.db.models import use_database
 
 
 @pytest.fixture
 def run_as(test_database: Any, test_user: Any, monkeypatch: pytest.MonkeyPatch) -> Generator[Any]:
-    monkeypatch.setattr("src.agent.tools.permission_check.db", test_database)
-
     def start(grants: list[str] | None) -> Any:
         agent = test_database.create_standing_chat(
             test_user.id, f"Job {len(grants or [])}", grants=grants
@@ -28,24 +28,35 @@ def run_as(test_database: Any, test_user: Any, monkeypatch: pytest.MonkeyPatch) 
         )
         return agent
 
-    yield start
+    with use_database(test_database):
+        yield start
     clear_job_context()
+
+
+def _blocked(tool: str, args: dict[str, Any]) -> Any:
+    """The call pauses the run; the card it filed."""
+    from src.agent.run_context import get_job_context
+    from src.db.models import db
+
+    with pytest.raises(ApprovalRequestedException) as raised:
+        check_autonomous_permission(tool, args)
+    run = get_job_context()
+    assert run is not None
+    return db.get_proposal(raised.value.approval_id, run.user.id)
 
 
 def test_read_grant_allows_reads_only(run_as: Any) -> None:
     run_as(["todoist"])
 
     check_autonomous_permission("todoist", {"operation": "list_tasks"})
-    with pytest.raises(ApprovalRequiredError, match="request_approval"):
-        check_autonomous_permission("todoist", {"operation": "add_task"})
+    _blocked("todoist", {"operation": "add_task"})
 
 
 def test_write_grant_allows_writes_but_not_silent_deletes(run_as: Any) -> None:
     run_as(["todoist", "todoist:write"])
 
     check_autonomous_permission("todoist", {"operation": "add_task"})
-    with pytest.raises(ApprovalRequiredError):
-        check_autonomous_permission("todoist", {"operation": "delete_task"})
+    _blocked("todoist", {"operation": "delete_task"})
 
 
 def test_all_tools_grant_writes(run_as: Any) -> None:
@@ -54,18 +65,15 @@ def test_all_tools_grant_writes(run_as: Any) -> None:
     check_autonomous_permission("google_calendar", {"operation": "create_event"})
 
 
-def test_write_without_write_grant_files_approval(
-    run_as: Any, test_database: Any, test_user: Any
-) -> None:
-    agent = run_as(["garmin_workout"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "garmin_workout", {"operation": "add_block"}, "Add a tempo block"
-    )
-    test_database.resolve_approval(approval.id, test_user.id, approved=True)
+def test_write_without_write_grant_files_the_calls_card(run_as: Any, test_database: Any) -> None:
+    run_as(["garmin_workout"])
+    card = _blocked("garmin_workout", {"action": "add_block", "workout_id": "w1"})
+    # A held writable tool can be always allowed from the card
+    assert [o["label"] for o in card.options] == ["Approve", "Always allow Garmin workouts changes"]
+    test_database.claim_proposal(card.id, "approved", 0, "button")
 
-    check_autonomous_permission("garmin_workout", {"action": "add_block"})  # the approved draft
-    with pytest.raises(ApprovalRequiredError):
-        check_autonomous_permission("garmin_workout", {"action": "add_block"})
+    check_autonomous_permission("garmin_workout", {"action": "add_block", "workout_id": "w1"})
+    _blocked("garmin_workout", {"action": "add_block", "workout_id": "w1"})  # once only
 
 
 def test_write_level_alone_permits_the_tool(run_as: Any) -> None:
@@ -108,7 +116,7 @@ def test_garmin_workout_write_needs_approval_through_the_tool(run_as: Any) -> No
     run_as(["garmin_workout"])
     with (
         patch("src.agent.tools.garmin_workout.get_garmin_client") as client,
-        pytest.raises(ApprovalRequiredError),
+        pytest.raises(ApprovalRequestedException),
     ):
         garmin_workout.invoke({"action": "update", "workout_id": "1", "edits": "[]"})
     client.assert_not_called()
@@ -122,7 +130,7 @@ def test_rouvy_write_needs_approval_through_the_tool(run_as: Any) -> None:
     run_as(["rouvy_workout"])
     with (
         patch("src.agent.tools.rouvy._write_workout") as write,
-        pytest.raises(ApprovalRequiredError),
+        pytest.raises(ApprovalRequestedException),
     ):
         rouvy_workout.invoke({"action": "create", "content": "x", "name": "Tempo"})
     write.assert_not_called()
@@ -131,69 +139,40 @@ def test_rouvy_write_needs_approval_through_the_tool(run_as: Any) -> None:
 def test_rouvy_delete_is_destructive_even_with_write(run_as: Any) -> None:
     run_as(["rouvy_workout", "rouvy_workout:write"])
 
-    with pytest.raises(ApprovalRequiredError):
-        check_autonomous_permission("rouvy_workout", {"action": "delete", "workout_id": 7})
+    _blocked("rouvy_workout", {"action": "delete", "workout_id": 7})
 
 
-def test_a_write_approval_authorizes_only_its_operation(
-    run_as: Any, test_database: Any, test_user: Any
-) -> None:
-    agent = run_as(["todoist"])
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "todoist", {"operation": "add_task"}, "Add 'Buy milk'"
-    )
-    test_database.resolve_approval(approval.id, test_user.id, approved=True)
+def test_an_approved_write_authorizes_only_that_call(run_as: Any, test_database: Any) -> None:
+    run_as(["todoist"])
+    card = _blocked("todoist", {"operation": "add_task", "content": "Buy milk"})
+    test_database.claim_proposal(card.id, "approved", 0, "button")
 
-    with pytest.raises(ApprovalRequiredError):
-        check_autonomous_permission("todoist", {"operation": "update_project", "project_id": "p"})
-    check_autonomous_permission("todoist", {"operation": "add_task"})
+    _blocked("todoist", {"operation": "add_task", "content": "Buy bread"})  # other text: asks again
+    _blocked("todoist", {"operation": "delete_project", "project_id": "w"})  # never a delete
+    check_autonomous_permission("todoist", {"operation": "add_task", "content": "Buy milk"})
 
 
-def test_a_write_approval_cannot_authorize_a_delete(
-    run_as: Any, test_database: Any, test_user: Any
-) -> None:
-    agent = run_as(None)
-    approval = test_database.create_approval_request(
-        agent.id, test_user.id, "todoist", {"operation": "add_task"}, "Add 'Buy milk'"
-    )
-    test_database.resolve_approval(approval.id, test_user.id, approved=True)
+def test_request_approval_files_an_unbound_card(run_as: Any, test_database: Any) -> None:
+    from src.agent.tools.request_approval import request_approval
 
-    with pytest.raises(ApprovalRequiredError):
-        check_autonomous_permission("todoist", {"operation": "delete_project", "project_id": "w"})
-
-
-def test_request_approval_names_its_tool_and_records_the_operation(
-    run_as: Any, test_database: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    import importlib
-
-    from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
-
-    monkeypatch.setattr(
-        importlib.import_module("src.agent.tools.request_approval"), "db", test_database
-    )
-    agent = run_as(["todoist"])
+    agent = run_as(["whatsapp"])
 
     with pytest.raises(ApprovalRequestedException) as raised:
         request_approval.func(  # type: ignore[attr-defined]
-            action_description="Add 'Buy milk'", tool_name="todoist", operation="add_task"
+            action_description="Send Jana the weekly summary", tool_name="whatsapp"
         )
 
-    assert raised.value.tool_name == "todoist"  # the chat's card shows it (Always allow)
-    approval = test_database.get_approval_request(raised.value.approval_id, agent.user_id)
-    assert approval is not None and approval.tool_args["operation"] == "add_task"
+    assert raised.value.tool_name == "whatsapp"
+    card = test_database.get_proposal(raised.value.approval_id, agent.user_id)
+    assert card is not None and card.summary == "Send Jana the weekly summary"
+    assert card.options[0]["payload"]["signature"] is None  # nothing consumes it
 
 
 def test_request_approval_cannot_pose_as_a_settings_change(
     run_as: Any, test_database: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import importlib
-
     from src.agent.tools.request_approval import request_approval
 
-    monkeypatch.setattr(
-        importlib.import_module("src.agent.tools.request_approval"), "db", test_database
-    )
     run_as(["todoist"])
 
     result = request_approval.func(  # type: ignore[attr-defined]

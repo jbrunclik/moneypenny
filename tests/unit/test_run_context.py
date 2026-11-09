@@ -137,5 +137,7 @@ def test_an_approval_request_parks_the_run_and_pushes(db: Database, user: User) 
 
     [saved] = db.get_job_runs(agent.id)
     assert saved.status == "waiting_approval"
-    assert "[approval-request:ap-1]" in db.get_messages(agent.conversation_id or "")[-1].content
+    assert db.get_messages(agent.conversation_id or "")[-1].content.startswith(
+        "**Waiting for your approval**"
+    )
     assert isinstance(push, MagicMock) and push.call_args.kwargs["tag"] == "approval-ap-1"

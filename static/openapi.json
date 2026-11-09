@@ -692,8 +692,7 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Get all pending approval requests.",
-        "description": "Returns pending approvals with their standing chats' names."
+        "summary": "The user's runs waiting on a card, with their standing chats' names."
       }
     },
     "/api/push/test": {
@@ -4984,57 +4983,6 @@
         "summary": "Get or create the program conversation."
       }
     },
-    "/api/approvals/{approval_id}/reject": {
-      "post": {
-        "parameters": [
-          {
-            "in": "path",
-            "name": "approval_id",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          }
-        },
-        "tags": [
-          "Jobs"
-        ],
-        "summary": "Reject a pending approval request.",
-        "description": "Marks the request as rejected. The agent will not perform\nthe requested action. Adds a rejection message to the conversation."
-      }
-    },
     "/api/language/programs/{program_id}": {
       "delete": {
         "parameters": [
@@ -5451,76 +5399,6 @@
           "Jobs"
         ],
         "summary": "The standing chat's message count and updated_at, for live sync."
-      }
-    },
-    "/api/approvals/{approval_id}/approve": {
-      "post": {
-        "parameters": [
-          {
-            "in": "path",
-            "name": "approval_id",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            },
-            "description": "Validation error"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          }
-        },
-        "tags": [
-          "Jobs"
-        ],
-        "summary": "Approve a pending approval request.",
-        "description": "Marks the request as approved and resumes the agent execution.\nThe agent will continue with a message indicating the action was approved.",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveRequest"
-              }
-            }
-          }
-        }
       }
     },
     "/api/language/{program}/conversation": {
@@ -7028,90 +6906,6 @@
         "title": "UserContainerResponse",
         "type": "object"
       },
-      "JobsOverviewResponse.ApprovalRequestResponse": {
-        "description": "A change a job's run asked the user to approve.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "item_id": {
-            "description": "The job that asked",
-            "title": "Item Id",
-            "type": "string"
-          },
-          "job_name": {
-            "description": "The standing chat's name",
-            "title": "Job Name",
-            "type": "string"
-          },
-          "tool_name": {
-            "title": "Tool Name",
-            "type": "string"
-          },
-          "tool_args": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Tool Args"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/JobsOverviewResponse.ApprovalStatus"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "resolved_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Resolved At"
-          }
-        },
-        "required": [
-          "id",
-          "item_id",
-          "job_name",
-          "tool_name",
-          "tool_args",
-          "description",
-          "status",
-          "created_at",
-          "resolved_at"
-        ],
-        "title": "ApprovalRequestResponse",
-        "type": "object"
-      },
-      "JobsOverviewResponse.ApprovalStatus": {
-        "description": "Status of an approval request.",
-        "enum": [
-          "pending",
-          "approved",
-          "rejected"
-        ],
-        "title": "ApprovalStatus",
-        "type": "string"
-      },
       "JobsOverviewResponse.JobResponse": {
         "description": "One job: a light item set from a chat, or a standing job (an agent).",
         "properties": {
@@ -7357,6 +7151,154 @@
         "title": "JobStatsBlock",
         "type": "object"
       },
+      "JobsOverviewResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.RunProposalResponse": {
+        "description": "A run waiting on the user's card, with the job it belongs to.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/JobsOverviewResponse.ProposalDetailResponse"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/JobsOverviewResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "applying",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          },
+          "job_id": {
+            "description": "The job whose run asked",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_name": {
+            "description": "The standing chat's name",
+            "title": "Job Name",
+            "type": "string"
+          },
+          "conversation_id": {
+            "description": "The agent's chat (the card shows there too)",
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result",
+          "job_id",
+          "job_name",
+          "conversation_id",
+          "created_at"
+        ],
+        "title": "RunProposalResponse",
+        "type": "object"
+      },
       "JobsOverviewResponse": {
         "description": "The job list: needs attention first, then soonest.",
         "properties": {
@@ -7369,7 +7311,7 @@
           },
           "pending_approvals": {
             "items": {
-              "$ref": "#/components/schemas/JobsOverviewResponse.ApprovalRequestResponse"
+              "$ref": "#/components/schemas/JobsOverviewResponse.RunProposalResponse"
             },
             "title": "Pending Approvals",
             "type": "array"
@@ -8932,56 +8874,106 @@
         "title": "MemoriesListResponse",
         "type": "object"
       },
-      "PendingApprovalsResponse.ApprovalRequestResponse": {
-        "description": "A change a job's run asked the user to approve.",
+      "PendingApprovalsResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.RunProposalResponse": {
+        "description": "A run waiting on the user's card, with the job it belongs to.",
         "properties": {
           "id": {
             "title": "Id",
             "type": "string"
           },
-          "item_id": {
-            "description": "The job that asked",
-            "title": "Item Id",
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
             "type": "string"
           },
-          "job_name": {
-            "description": "The standing chat's name",
-            "title": "Job Name",
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
             "type": "string"
           },
-          "tool_name": {
-            "title": "Tool Name",
+          "details": {
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/PendingApprovalsResponse.ProposalDetailResponse"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PendingApprovalsResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "applying",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
             "type": "string"
           },
-          "tool_args": {
+          "chosen": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
             "default": null,
-            "title": "Tool Args"
+            "description": "The option picked",
+            "title": "Chosen"
           },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/PendingApprovalsResponse.ApprovalStatus"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "resolved_at": {
+          "result": {
             "anyOf": [
               {
-                "format": "date-time",
                 "type": "string"
               },
               {
@@ -8989,39 +8981,53 @@
               }
             ],
             "default": null,
-            "title": "Resolved At"
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          },
+          "job_id": {
+            "description": "The job whose run asked",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_name": {
+            "description": "The standing chat's name",
+            "title": "Job Name",
+            "type": "string"
+          },
+          "conversation_id": {
+            "description": "The agent's chat (the card shows there too)",
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
           }
         },
         "required": [
           "id",
-          "item_id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result",
+          "job_id",
           "job_name",
-          "tool_name",
-          "tool_args",
-          "description",
-          "status",
-          "created_at",
-          "resolved_at"
+          "conversation_id",
+          "created_at"
         ],
-        "title": "ApprovalRequestResponse",
+        "title": "RunProposalResponse",
         "type": "object"
       },
-      "PendingApprovalsResponse.ApprovalStatus": {
-        "description": "Status of an approval request.",
-        "enum": [
-          "pending",
-          "approved",
-          "rejected"
-        ],
-        "title": "ApprovalStatus",
-        "type": "string"
-      },
       "PendingApprovalsResponse": {
-        "description": "Pending approval requests.",
+        "description": "Runs waiting on the user's card (Command Center's \"Needs you\").",
         "properties": {
           "pending_approvals": {
             "items": {
-              "$ref": "#/components/schemas/PendingApprovalsResponse.ApprovalRequestResponse"
+              "$ref": "#/components/schemas/PendingApprovalsResponse.RunProposalResponse"
             },
             "title": "Pending Approvals",
             "type": "array"
@@ -15995,19 +16001,6 @@
           "server_time"
         ],
         "title": "JobConversationSyncResponse",
-        "type": "object"
-      },
-      "ApproveRequest": {
-        "description": "Approving a run's request: once, or always for that tool.",
-        "properties": {
-          "always": {
-            "default": false,
-            "description": "Also grant the job write access to this tool, so later changes there need no approval (never for settings changes)",
-            "title": "Always",
-            "type": "boolean"
-          }
-        },
-        "title": "ApproveRequest",
         "type": "object"
       },
       "LanguageConversationResponse": {

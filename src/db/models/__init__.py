@@ -30,7 +30,6 @@ from src.db.models.conversation_listing import ConversationListingMixin
 from src.db.models.conversation_trash import ConversationTrashMixin
 from src.db.models.cost import CostMixin
 from src.db.models.dataclasses import (
-    ApprovalRequest,
     Conversation,
     ConversationFact,
     JobRun,
@@ -59,7 +58,6 @@ from src.db.models.helpers import (
     save_file_to_blob_store,
     should_reset_planner,
 )
-from src.db.models.job_approvals import JobApprovalMixin
 from src.db.models.job_runs import JobRunMixin
 from src.db.models.kv_store import KVStoreMixin
 from src.db.models.memory import MemoryMixin
@@ -105,7 +103,6 @@ class Database(
     StandingChatMixin,
     WhatsNewMixin,
     ProposalsMixin,
-    JobApprovalMixin,
     JobRunMixin,
     KVStoreMixin,
     EmbeddingsMixin,
@@ -218,7 +215,6 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "Memory",
     "MessagePagination",
     "SearchResult",
-    "ApprovalRequest",
     "JobRun",
     "StandingChat",
     "PushSubscription",

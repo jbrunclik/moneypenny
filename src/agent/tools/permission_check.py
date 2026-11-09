@@ -3,12 +3,11 @@
 This module provides functions to check if a tool is blocked for an agent
 based on its configured tool permissions.
 
-Note: The approval system is now LLM-driven. Agents decide when to call
-the `request_approval` tool for sensitive actions. This module only handles
-the BLOCKED case (tools not in the agent's permission list).
+A tool outside the job's grants is BLOCKED. A destructive operation, or a
+write without the write level, needs the user's yes to exactly that call:
+the gate files the call's card and pauses the run (src/agent/run_approvals.py).
 """
 
-from collections.abc import Mapping
 from typing import Any
 
 from src.agent.permissions import (
@@ -17,7 +16,6 @@ from src.agent.permissions import (
     has_write_grant,
     is_write_call,
 )
-from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,36 +29,12 @@ class ToolBlockedError(Exception):
         super().__init__(f"{tool_name}: {message}")
 
 
-class ApprovalRequiredError(Exception):
-    """Raised when a destructive action runs without a consumed approval.
-
-    The ToolNode converts this into a tool error the model can read; the
-    expected reaction is a request_approval call, after which the user's
-    approval authorizes exactly one destructive call (S9 hardening: the
-    confirmation rule is enforced in code, not just in the prompt, so a
-    prompt-injected agent cannot delete data without the user's click).
-    """
-
-
 # Destructive operations that require a consumed user approval when
 # running in an agent context. Extend per tool as needed.
 DESTRUCTIVE_OPERATIONS: dict[str, frozenset[str]] = {
     "todoist": frozenset({"delete_task", "delete_project", "delete_section", "archive_project"}),
     "google_calendar": frozenset({"delete_event"}),
     "rouvy_workout": frozenset({"delete"}),
-}
-
-# Which tool argument identifies the entity a destructive operation acts
-# on. Used for argument-level approval matching: an approval created
-# with a target_id only authorizes the call whose entity matches it.
-_OPERATION_TARGET_PARAM: dict[str, str] = {
-    "delete_task": "task_id",
-    "delete_project": "project_id",
-    "delete_section": "section_id",
-    "archive_project": "project_id",
-    "delete_event": "event_id",
-    "update_event": "event_id",
-    "delete": "workout_id",
 }
 
 # update_event is gated only when it actually reschedules or changes
@@ -80,50 +54,6 @@ def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | N
     ):
         return str(operation)
     return None
-
-
-def _check_destructive_approval(
-    job_id: str, tool_name: str, operation: str, target_id: str | None
-) -> None:
-    """Require + consume an approved request for a destructive operation."""
-    if db.consume_approved_request(job_id, tool_name, target_id=target_id, operation=operation):
-        logger.info(
-            "Destructive action authorized by consumed approval",
-            extra={
-                "job_id": job_id,
-                "tool_name": tool_name,
-                "operation": operation,
-                "target_id": target_id,
-            },
-        )
-        return
-
-    raise ApprovalRequiredError(
-        f"'{operation}' is a destructive change and requires explicit user approval - "
-        f"this is enforced, the action cannot run without it. Call request_approval "
-        f"with a description of exactly what will change, "
-        f'tool_name="{tool_name}", operation="{operation}" and '
-        f'target_id="{target_id or "<entity id>"}" '
-        f"(the id of the item being changed), then wait for the user's decision. "
-        f"Each approval authorizes one matching call; for several changes, request "
-        f"approval for each."
-    )
-
-
-def _check_write_approval(job_id: str, tool_name: str, tool_args: Mapping[str, object]) -> None:
-    """Require + consume an approval for a change the job may only draft."""
-    operation = str(tool_args.get("operation") or tool_args.get("action") or "change")
-    if db.consume_approved_request(job_id, tool_name, target_id=None, operation=operation):
-        logger.info(
-            "Drafted change authorized by consumed approval",
-            extra={"job_id": job_id, "tool_name": tool_name, "operation": operation},
-        )
-        return
-    raise ApprovalRequiredError(
-        f"This agent may only read {tool_name}: '{operation}' changes something, so it is a "
-        f"draft the user must approve. Call request_approval with exactly what will change, "
-        f'tool_name="{tool_name}" and operation="{operation}", then wait for the user\'s decision.'
-    )
 
 
 def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> None:
@@ -164,15 +94,12 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
             "Update the agent's tool permissions if this is needed.",
         )
 
-    # Destructive operations additionally require a consumed user approval
-    destructive_op = _destructive_operation(tool_name, tool_args)
-    if destructive_op:
-        target_param = _OPERATION_TARGET_PARAM.get(destructive_op)
-        target_id = tool_args.get(target_param) if target_param else None
-        _check_destructive_approval(
-            job_id, tool_name, destructive_op, str(target_id) if target_id else None
-        )
-        return
-    # A write without the write level is a draft: one approval per change
-    if is_write_call(tool_name, tool_args) and not has_write_grant(permissions, tool_name):
-        _check_write_approval(job_id, tool_name, tool_args)
+    from src.agent.run_approvals import require_call_approval  # noqa: PLC0415 - cycle: run_approvals imports the tools
+
+    # A destructive operation needs the user's yes to exactly this call, even
+    # with the write level; a write without the level is a draft (one yes per
+    # call). Without it the gate files the call's card and the run pauses.
+    if _destructive_operation(tool_name, tool_args):
+        require_call_approval(context, tool_name, tool_args, destructive=True)
+    elif is_write_call(tool_name, tool_args) and not has_write_grant(permissions, tool_name):
+        require_call_approval(context, tool_name, tool_args, destructive=False)

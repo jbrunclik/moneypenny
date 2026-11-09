@@ -9,11 +9,9 @@ path and the approval finalize path.
 from __future__ import annotations
 
 import threading
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save
 
 
@@ -117,57 +115,6 @@ class TestCleanupThreadNotifies:
                 "user-1",
                 MagicMock(),
             )
-
-        mock_push.assert_not_called()
-
-
-class TestApprovalFinalizeNotifies:
-    def _context(self, client_connected: bool) -> SimpleNamespace:
-        return SimpleNamespace(
-            approval_info={
-                "approval_id": "ap-1",
-                "description": "send the email",
-                "tool_name": "todoist",
-                "sibling_results": [],
-            },
-            user_id="user-1",
-            conv_id="conv-1",
-            placeholder_saved=False,
-            expected_assistant_msg_id="msg-1",
-            final_results={"ready": True, "saved": False},
-            client_connected=client_connected,
-            user_msg=SimpleNamespace(id="user-msg-1"),
-            turn=MagicMock(),
-        )
-
-    def test_disconnected_client_gets_approval_push(self) -> None:
-        mock_db = MagicMock()
-        mock_db.count_messages.return_value = 2
-        with (
-            patch("src.api.helpers.stream_finalize.db", mock_db),
-            patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
-        ):
-            list(finalize_stream(self._context(client_connected=False)))
-
-        mock_push.assert_called_once()
-        args = mock_push.call_args
-        assert args.args[1] == "Approval needed"
-        assert args.args[2] == "send the email"
-        assert args.kwargs["url"] == "/#/conversations/conv-1"
-        assert args.kwargs["tag"] == "approval-ap-1"
-
-    def test_connected_client_no_push(self) -> None:
-        mock_db = MagicMock()
-        mock_db.count_messages.return_value = 2
-        message = MagicMock()
-        message.id = "msg-1"
-        message.created_at = datetime(2026, 6, 12, 10, 0, 0, tzinfo=UTC)
-        mock_db.add_message.return_value = message
-        with (
-            patch("src.api.helpers.stream_finalize.db", mock_db),
-            patch("src.api.helpers.stream_finalize.send_push_to_user") as mock_push,
-        ):
-            list(finalize_stream(self._context(client_connected=True)))
 
         mock_push.assert_not_called()
 

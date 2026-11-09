@@ -28,9 +28,11 @@ from src.agent.tools.errors import tool_error
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
 from src.db.models import db
+from src.enums import MessageRole
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from src.agent.run_context import JobContext
     from src.db.models import Proposal, ProposalOption, StandingChat
 
 logger = get_logger(__name__)
@@ -162,13 +164,20 @@ def apply_standing_changes(job_id: str, user_id: str, changes: Change) -> Standi
     return chat
 
 
-def _request_approval(chat: StandingChat, changes: Change) -> str:
-    """Unattended: file the change for the user's approval and pause the run."""
-    description = f"Change {chat.name}'s settings:\n{_describe(chat, changes)}"
-    approval = db.create_approval_request(
-        chat.id, chat.user_id, TOOL_NAME, dict(changes), description
+def _request_approval(run: JobContext, chat: StandingChat, changes: Change) -> str:
+    """Unattended: file the change as the run's card and pause the run."""
+    from src.agent.run_approvals import file_run_card  # noqa: PLC0415 - cycle: run_approvals imports the tools
+
+    summary = f"Change {chat.name}'s settings"
+    payload: dict[str, object] = {"job_id": chat.id, "changes": dict(changes)}
+    card = file_run_card(
+        run,
+        PROPOSAL_KIND,
+        summary,
+        {"Changes": _describe(chat, changes)},
+        [{"label": _APPROVE_LABEL, "description": "", "payload": payload}],
     )
-    raise ApprovalRequestedException(approval.id, description, TOOL_NAME)
+    raise ApprovalRequestedException(card.id, summary, TOOL_NAME)
 
 
 def apply_edit_agent(proposal: Proposal, option: ProposalOption) -> str:
@@ -180,10 +189,24 @@ def apply_edit_agent(proposal: Proposal, option: ProposalOption) -> str:
     chat = apply_standing_changes(str(payload.get("job_id")), proposal.user_id, changes)
     if chat is None:
         raise ProposalFailedError("That agent no longer exists.")
+    if proposal.origin == "run":  # the approved action is the change itself: no rerun
+        _close_run(proposal, "completed", f"[Action approved: {proposal.summary}]")
     return f"Updated {chat.name}."
 
 
-register_kind(PROPOSAL_KIND, apply_edit_agent)
+def decline_edit_agent(proposal: Proposal) -> None:
+    """A run's settings change declined: its paused run ends."""
+    if proposal.origin == "run":
+        _close_run(proposal, "rejected", f"[Action rejected: {proposal.summary}]")
+
+
+def _close_run(proposal: Proposal, status: str, note: str) -> None:
+    if proposal.execution_id:
+        db.update_execution(proposal.execution_id, status=status)
+    db.add_message(proposal.conversation_id, MessageRole.USER, note)
+
+
+register_kind(PROPOSAL_KIND, apply_edit_agent, decline=decline_edit_agent)
 
 
 def _in_chat(conversation_id: str, user_id: str, changes: Change) -> str:
@@ -258,7 +281,7 @@ def edit_standing_chat(
             return tool_error(
                 "Only a standing chat's run can change its settings.", retriable=False
             )
-        return _request_approval(chat, changes)
+        return _request_approval(run, chat, changes)
     conversation_id, user_id = get_conversation_context()
     if not conversation_id or not user_id:
         return tool_error("No conversation context available.", retriable=False)

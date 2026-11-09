@@ -413,7 +413,8 @@ def test_standing_job_approval_request_is_recorded_and_pushed(
 
     assert outcome.status == "approval"
     assert any(
-        "[approval-request:ap-1]" in m.content for m in db.get_messages(test_conversation.id)
+        m.content.startswith("**Waiting for your approval**")
+        for m in db.get_messages(test_conversation.id)
     )
     assert approval_push.call_args.kwargs["tag"] == "approval-ap-1"
     [execution] = db.get_job_runs(job.id)

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, TypedDict
 
 from src.agent.tools.scheduling import describe_ends, describe_when
-from src.api.helpers.standing_responses import approval_to_response
+from src.api.helpers.standing_responses import run_proposal_to_response
 from src.config import Config
 from src.db.models import db
 from src.db.models.scheduled_items import NEVER_RUN_AT
@@ -107,7 +107,7 @@ def _job(
         "system_type": conv.standing_type if agent_job and conv else None,
         "editable": bool(agent_job and conv and not conv.standing_type),
         "unread_count": db.standing_unread_count(item.id) if agent_job else 0,
-        "has_pending_approval": bool(item.standing and db.has_pending_approval(item.id)),
+        "has_pending_approval": bool(item.standing and db.has_pending_run_proposal(item.id)),
         "cost_7d_display": _cost(week["cost_usd"]) if week else None,
         "runs_7d": int(week.get("runs", 0)),
         "recent_runs": [_run(r) for r in runs],
@@ -141,8 +141,8 @@ def jobs_overview(user_id: str) -> dict[str, object]:
     )
     names = {j["id"]: j["title"] for j in jobs}
     approvals = [
-        approval_to_response(a, names.get(a.item_id, "Agent"))
-        for a in db.get_pending_approvals(user_id)
+        run_proposal_to_response(p, names.get(p.job_id or "", "Agent"))
+        for p in db.pending_run_proposals(user_id)
     ]
     totals = {k: sum(w.get(k, 0) for w in week.values()) for k in ("runs", "completed", "failed")}
     return {

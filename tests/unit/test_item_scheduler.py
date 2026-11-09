@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Generator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -562,10 +562,15 @@ def test_resume_clears_failures_and_reason(
 
 
 def test_standing_job_waits_while_its_approval_is_pending(
-    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+    make_run_card: Any,
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
 ) -> None:
     job = _job(db, test_user, test_conversation)
-    db.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+    make_run_card(job)
 
     item_scheduler.run_due_items(_NOW)
 
@@ -619,10 +624,15 @@ def test_run_job_now_keeps_a_paused_job_paused(
 
 
 def test_run_job_now_refuses_a_job_waiting_for_approval(
-    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+    make_run_card: Any,
+    db: Database,
+    test_user: User,
+    test_conversation: Conversation,
+    push: MagicMock,
+    runs: MagicMock,
 ) -> None:
     job = _job(db, test_user, test_conversation)
-    db.create_approval_request(job.id, test_user.id, "todoist", None, "Delete a task")
+    make_run_card(job)
 
     with pytest.raises(item_scheduler.JobHeldError, match="approval"):
         item_scheduler.run_job_now(job, test_user)

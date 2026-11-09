@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 _NOW = "2026-11-08T10:00:00.000000+00:00"
 _NEXT = "2026-11-09T06:15:00.000000+00:00"
-_LATER = {"0082_job_tables"}  # migrations that change what 0080 made
+_TARGET = "0080_agents_to_standing_jobs"
 
 
 def _migrations(test_db_path: Path, action: str) -> None:
@@ -28,19 +28,17 @@ def _migrations(test_db_path: Path, action: str) -> None:
     with backend.lock():
         if action == "rollback":
             # 0082 drops the view and the backup 0080's rollback needs: it goes first
+            # Everything newer first (0082 drops what 0080's rollback needs;
+            # 0088 drops the table 0082's rollback expects)
             backend.rollback_migrations(
-                backend.to_rollback(migrations).filter(lambda m: m.id in _LATER)
+                backend.to_rollback(migrations).filter(lambda m: m.id > _TARGET)
             )
-            target = backend.to_rollback(migrations).filter(
-                lambda m: m.id == "0080_agents_to_standing_jobs"
-            )
+            target = backend.to_rollback(migrations).filter(lambda m: m.id == _TARGET)
             assert len(target) == 1
             backend.rollback_migrations(target)
         else:
             # 0080's own result, before 0082 renames and drops it
-            backend.apply_migrations(
-                backend.to_apply(migrations).filter(lambda m: m.id not in _LATER)
-            )
+            backend.apply_migrations(backend.to_apply(migrations).filter(lambda m: m.id <= _TARGET))
 
 
 def _connect(test_db_path: Path) -> Iterator[sqlite3.Connection]:

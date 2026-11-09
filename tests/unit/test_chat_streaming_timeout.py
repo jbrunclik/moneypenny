@@ -222,55 +222,6 @@ def test_consumer_backstop_fires_with_no_events(monkeypatch) -> None:
     assert ctx.clean_content == ""  # no partial content to save
 
 
-def test_stream_events_approval_puts_completion_sentinel() -> None:
-    """ApprovalRequestedException must be followed by the None sentinel.
-
-    Regression test: without the sentinel the consumer keeps blocking on the
-    queue, sending keepalives until the backstop deadline (CHAT_TIMEOUT_SECONDS +
-    keepalive interval, ~615s) and then emits a bogus timeout event - the
-    approval done event reaches the client ten minutes late.
-    """
-    q: queue.Queue = queue.Queue()
-    final_results: dict = {"ready": False, "saved": False}
-
-    stream_events(
-        _ApprovalAgent(),
-        q,
-        final_results,
-        TurnContext(
-            request_id="req-1",
-            conv_id="conv-1",
-            user_id="user-1",
-            message_text="hello",
-            user_name="Alice",
-        ),
-    )
-
-    items = _drain(q)
-    approvals = [x for x in items if isinstance(x, dict) and x.get("type") == "approval_required"]
-    assert approvals and approvals[0]["approval_id"] == "ap-1"
-    assert items[-1] is None
-
-
-def test_consumer_approval_completion_no_timeout() -> None:
-    """approval_required -> None terminates promptly with no timeout event."""
-    ctx = _make_ctx(
-        [
-            {
-                "type": "approval_required",
-                "approval_id": "ap-1",
-                "description": "send email",
-                "tool_name": "todoist",
-            },
-            None,
-        ]
-    )
-    out = "".join(relay_events(ctx))
-    assert '"type": "approval_required"' in out
-    assert '"type": "timeout"' not in out
-    assert ctx.approval_info["approval_id"] == "ap-1"
-
-
 def test_generator_error_does_not_delete_saved_message(monkeypatch) -> None:
     """A post-save exception must not delete the just-saved message.
 

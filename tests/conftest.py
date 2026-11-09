@@ -541,3 +541,48 @@ def openapi_client(client: FlaskClient, app: Flask) -> Generator[FlaskClient]:
 
     # Restore original mode
     app.config["VALIDATION_MODE"] = original_mode
+
+
+@pytest.fixture
+def make_run_card(test_database: Database) -> Callable[..., Any]:
+    """A pending run card (an unattended run waiting on the user's yes) for
+    a job: make_run_card(job, summary=..., message_id=...)."""
+    import uuid
+    from datetime import timedelta
+
+    from src.db.models import Proposal
+    from src.utils.clock import utc_now
+
+    def make(
+        job: Any, summary: str = "Todoist: add task", message_id: str | None = None
+    ) -> Proposal:
+        payload: dict[str, object] = {
+            "tool": "todoist",
+            "args": {"operation": "add_task"},
+            "signature": "s",
+        }
+        return test_database.create_proposal(
+            Proposal(
+                id=str(uuid.uuid4()),
+                user_id=job.user_id,
+                conversation_id=job.conversation_id or "",
+                message_id=message_id,
+                request_id="",
+                kind="agent_action",
+                summary=summary,
+                details={},
+                options=[{"label": "Approve", "description": "", "payload": payload}],
+                state="pending",
+                chosen=None,
+                result=None,
+                resolved_by=None,
+                reported=False,
+                created_at=utc_now(),
+                resolved_at=None,
+                origin="run",
+                job_id=job.id,
+                expires_at=utc_now() + timedelta(hours=24),
+            )
+        )
+
+    return make

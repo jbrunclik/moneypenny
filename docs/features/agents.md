@@ -95,10 +95,10 @@ still rebuilds the agents from the chats and jobs.
 | `src/db/models/standing_chats.py` | `StandingChatMixin`: create/get/get_by_name/list/update/delete a standing chat (chat + job together), `standing_unread_count`, `mark_standing_viewed`; `next_cron_run` |
 | `src/db/models/scheduled_items.py` | Jobs and light items: claim, due, pause, `job_spend_today` |
 | `src/db/models/job_runs.py` | `JobRunMixin`: run records, `recent_runs`, `get_job_runs`, zombie cleanup |
-| `src/db/models/job_approvals.py` | `JobApprovalMixin`: approval requests (create, resolve, consume) |
+| `src/agent/run_approvals.py` | Run cards: the gates file the exact call, answers resume or end the run ([proposals](proposals.md)) |
 | `src/db/models/job_rows.py` | Row -> `JobRun` / `ApprovalRequest` |
 | `src/api/routes/jobs.py` | REST: the overview, standing chat CRUD, run, runs, viewed, sync; owns the `jobs` blueprint |
-| `src/api/routes/approvals.py` | REST: approval list/approve/reject (on the `jobs` blueprint) |
+| `src/api/routes/approvals.py` | REST: the runs waiting on a card (on the `jobs` blueprint); answered via `/api/proposals` |
 | `src/api/routes/schedules.py` | REST: a chat's items, pause/resume/run/cancel |
 | `src/api/routes/agent_assist.py` | REST: AI assist (schedule parsing, prompt enhancer) |
 | `src/api/schemas/jobs.py`, `agent_assist.py` | Request/response schemas |
@@ -501,7 +501,7 @@ navigation token pattern: see [Components](../ui/components.md#routing-race-cond
 - [item_runner.py](../../src/agent/item_runner.py) / [item_scheduler.py](../../src/agent/item_scheduler.py) - one run / the scheduler pass
 - [routes/jobs.py](../../src/api/routes/jobs.py), [routes/approvals.py](../../src/api/routes/approvals.py) - REST endpoints
 - [routes/agent_assist.py](../../src/api/routes/agent_assist.py) - AI assist endpoints, `_PROMPT_TOOL_DESCRIPTIONS`
-- [models/standing_chats.py](../../src/db/models/standing_chats.py), [job_runs.py](../../src/db/models/job_runs.py), [job_approvals.py](../../src/db/models/job_approvals.py) - storage
+- [models/standing_chats.py](../../src/db/models/standing_chats.py), [job_runs.py](../../src/db/models/job_runs.py), [proposals.py](../../src/db/models/proposals.py) - storage
 - [dev_scheduler.py](../../src/agent/dev_scheduler.py) / [run_agent_scheduler.py](../../scripts/run_agent_scheduler.py) - scheduling
 - [CommandCenter.ts](../../web/src/components/CommandCenter.ts), [JobEditor.ts](../../web/src/components/JobEditor.ts), [core/agents.ts](../../web/src/core/agents.ts) - UI
 

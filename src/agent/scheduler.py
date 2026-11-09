@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.agent.item_scheduler import run_due_items
+from src.agent.run_approvals import expire_stale_run_cards
 from src.db.models import db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -37,6 +38,9 @@ def run_scheduled_agents() -> SchedulerResult:
     zombies_cleaned = db.cleanup_zombie_executions()
     if zombies_cleaned > 0:
         logger.warning("Scheduler: cleaned up zombie executions", extra={"count": zombies_cleaned})
+
+    # Runs whose card nobody answered in time close (their cards expire)
+    expire_stale_run_cards(now)
 
     items = run_due_items(now)
     result = SchedulerResult(items_fired=items.fired, items_run=items.run)

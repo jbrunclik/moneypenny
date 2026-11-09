@@ -181,19 +181,6 @@ def relay_event(context: StreamContext, item: dict[str, Any]) -> Generator[str]:
         context.tool_results = item.get("tool_results", [])
         context.usage_info = item.get("usage_info", {})
         context.stop_reason = item.get("stop_reason")
-    elif event_type == "approval_required":
-        # Store approval info in context for finalization
-        context.approval_info = {
-            "approval_id": item.get("approval_id"),
-            "description": item.get("description"),
-            "tool_name": item.get("tool_name", ""),
-            "sibling_results": item.get("sibling_results", []),
-        }
-        # Send the approval event to the client
-        try:
-            yield f"data: {json.dumps(item)}\n\n"
-        except (BrokenPipeError, ConnectionError, OSError) as e:
-            context.mark_disconnected(e, "streaming (approval_required)")
     elif event_type in FORWARDED_EVENT_TYPES:
         if event_type == "token":
             context.partial_content += item.get("text", "")

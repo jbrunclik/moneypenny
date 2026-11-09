@@ -4,24 +4,17 @@ editor's CRUD on /api/jobs, runs and approvals (standing chats phase 3)."""
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
+from src.api.schemas.proposals import ProposalResponse
 from src.api.schemas.schedules import ItemKindField
 from src.config import Config
 from src.constants import AGENT_INSTRUCTIONS_MAX_CHARS, AGENT_NAME_MAX_CHARS
 
 JobArea = Literal["agents", "sports", "language", "chat"]
-
-
-class ApprovalStatus(StrEnum):
-    """Status of an approval request."""
-
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
 
 
 class JobRunStatus(StrEnum):
@@ -33,34 +26,19 @@ class JobRunStatus(StrEnum):
     WAITING_APPROVAL = "waiting_approval"
 
 
-class ApprovalRequestResponse(ResponseModel):
-    """A change a job's run asked the user to approve."""
+class RunProposalResponse(ProposalResponse):
+    """A run waiting on the user's card, with the job it belongs to."""
 
-    id: str
-    item_id: str = Field(description="The job that asked")
+    job_id: str = Field(description="The job whose run asked")
     job_name: str = Field(description="The standing chat's name")
-    tool_name: str
-    tool_args: dict[str, Any] | None = None
-    description: str
-    status: ApprovalStatus
+    conversation_id: str = Field(description="The agent's chat (the card shows there too)")
     created_at: Timestamp
-    resolved_at: Timestamp | None = None
 
 
 class PendingApprovalsResponse(ResponseModel):
-    """Pending approval requests."""
+    """Runs waiting on the user's card (Command Center's "Needs you")."""
 
-    pending_approvals: list[ApprovalRequestResponse] = Field(default_factory=list)
-
-
-class ApproveRequest(RequestModel):
-    """Approving a run's request: once, or always for that tool."""
-
-    always: bool = Field(
-        default=False,
-        description="Also grant the job write access to this tool, so later changes "
-        "there need no approval (never for settings changes)",
-    )
+    pending_approvals: list[RunProposalResponse] = Field(default_factory=list)
 
 
 class JobRunResponse(ResponseModel):
@@ -136,7 +114,7 @@ class JobsOverviewResponse(ResponseModel):
     """The job list: needs attention first, then soonest."""
 
     jobs: list[JobResponse]
-    pending_approvals: list[ApprovalRequestResponse]
+    pending_approvals: list[RunProposalResponse]
     stats: JobStatsBlock
     total_unread: int = 0
     jobs_waiting: int = Field(default=0, description="Jobs waiting for an approval")

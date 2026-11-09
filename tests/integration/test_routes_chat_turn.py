@@ -126,24 +126,26 @@ def test_an_agent_chat_history_is_compacted_like_any_chat(
     assert compact.call_args.args[1] == agent.conversation_id
 
 
-def test_pending_approval_still_blocks(
-    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+def test_talking_to_an_agent_while_its_run_waits(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    make_run_card: Any,
 ) -> None:
-    """A run paused for approval still holds its chat (unchanged)."""
+    """The chat no longer locks while a run waits on its card: a message that
+    is not an answer is a normal turn, and the card keeps waiting."""
     agent = test_database.create_standing_chat(user_id=test_user.id, name="Helper")
     assert agent.conversation_id
-    test_database.create_approval_request(
-        item_id=agent.id,
-        user_id=test_user.id,
-        tool_name="todoist",
-        tool_args={"action": "delete_task"},
-        description="Delete a task",
-    )
+    waiting = test_database.add_message(agent.conversation_id, "assistant", "Waiting")
+    card = make_run_card(agent, message_id=waiting.id)
+    with patch("src.api.helpers.chat_turn.ChatAgent") as agent_class:
+        agent_class.return_value.chat_batch.return_value = ("Sure.", [], {"input_tokens": 1}, [])
+        response = _batch(client, agent.conversation_id, auth_headers)
 
-    response = _batch(client, agent.conversation_id, auth_headers)
-
-    assert response.status_code == 400
-    assert "awaiting approval" in str(response.get_json())
+    assert response.status_code == 200
+    still = test_database.get_proposal(card.id, test_user.id)
+    assert still is not None and still.state == "pending"
 
 
 def test_batch_response_includes_code_output_files(

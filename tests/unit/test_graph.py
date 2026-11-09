@@ -961,7 +961,6 @@ class TestApprovalSiblingResults:
         from src.agent.tools.request_approval import build_approval_message
 
         message = build_approval_message(
-            "approval-1",
             "send email",
             "email",
             sibling_results=[("side_effect", "done: create task 42")],

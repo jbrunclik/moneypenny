@@ -354,7 +354,7 @@ class StandingChatMixin:
             ]
             for sql, params in (
                 ("DELETE FROM messages WHERE conversation_id = ?", (conv_id,)),
-                ("DELETE FROM job_approvals WHERE item_id = ?", (job_id,)),
+                ("DELETE FROM proposals WHERE job_id = ?", (job_id,)),
                 ("DELETE FROM job_runs WHERE item_id = ?", (job_id,)),
                 (
                     "DELETE FROM kv_store WHERE user_id = ? AND namespace = ?",

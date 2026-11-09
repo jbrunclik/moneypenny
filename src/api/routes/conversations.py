@@ -204,7 +204,7 @@ def get_conversation(
     # Check if this is an agent conversation with pending approval
     has_pending_approval = False
     if conv.is_agent and conv.job_id:
-        has_pending_approval = db.has_pending_approval(conv.job_id)
+        has_pending_approval = db.has_pending_run_proposal(conv.job_id)
 
     return {
         "id": conv.id,

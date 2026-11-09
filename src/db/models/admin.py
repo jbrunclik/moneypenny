@@ -137,7 +137,9 @@ class AdminMixin:
                FROM job_runs WHERE started_at >= ?""",
             (since,),
         )[0]
-        pending = self._rows("SELECT COUNT(*) FROM job_approvals WHERE status = 'pending'")[0][0]
+        pending = self._rows(
+            "SELECT COUNT(*) FROM proposals WHERE origin = 'run' AND state = 'pending'"
+        )[0][0]
         return {"runs": runs[0], "failed": runs[1], "pending_approvals": pending}
 
     def admin_recent_agent_failures(self, limit: int) -> list[dict[str, Any]]:

@@ -106,6 +106,7 @@ def test_recent_runs_newest_three(
 
 
 def test_needs_attention_first(
+    make_run_card: Any,
     client: FlaskClient,
     auth_headers: dict[str, str],
     test_database: Database,
@@ -119,7 +120,7 @@ def test_needs_attention_first(
         next_run_at=datetime.now(UTC) + timedelta(minutes=5),
     )
     agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
-    test_database.create_approval_request(agent.id, test_user.id, "todoist", None, "Add milk")
+    make_run_card(agent)
 
     jobs = _overview(client, auth_headers)["jobs"]
 
@@ -128,10 +129,14 @@ def test_needs_attention_first(
 
 
 def test_counts_for_the_sidebar(
-    client: FlaskClient, auth_headers: dict[str, str], test_database: Database, test_user: User
+    make_run_card: Any,
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
 ) -> None:
     waiting = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
-    test_database.create_approval_request(waiting.id, test_user.id, "todoist", None, "Add milk")
+    make_run_card(waiting)
     failing = test_database.create_standing_chat(test_user.id, "Watcher", schedule="0 18 * * 5")
     run = test_database.create_execution(failing.id, "scheduled")
     test_database.update_execution(run.id, status="failed", error_message="boom")
