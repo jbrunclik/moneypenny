@@ -9,7 +9,4 @@ expect:
     tomorrow at 08:00) and asks the user to confirm. Must NOT claim the
     reminder is already set.
   required_tools: [schedule]
-  forbidden_arg_patterns:
-    schedule.confirm:
-      - "^True$"
   max_tool_rounds: 2

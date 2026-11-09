@@ -3,9 +3,9 @@
 Standing chats phase 2, Part D (D1). Editable: standing instructions,
 schedule (cron), model, daily budget, fresh context, grants (tools).
 
-- In conversation (the user is here): the first call previews the change;
-  it applies on the user's yes in a later turn (the schedule tool's gate,
-  src/agent/tools/pending_gate.py).
+- In conversation (the user is here): the call files a proposal card
+  (src/agent/proposals.py); the server applies exactly that change when the
+  user approves.
 - In an unattended run: it files an approval request and the run pauses;
   the change applies only when the user approves it.
 Grants therefore never widen without the user's explicit yes or approval.
@@ -15,7 +15,6 @@ edit stores the user's own copy (the preview says so).
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, TypedDict, cast
 
@@ -23,21 +22,22 @@ from croniter import croniter
 from langchain_core.tools import tool
 
 from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
+from src.agent.proposals import ProposalFailedError, card_shown, file_proposal, register_kind
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
-from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.agent.tools.request_approval import ApprovalRequestedException
 from src.config import Config
 from src.db.models import db
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from src.db.models import StandingChat
+    from src.db.models import Proposal, ProposalOption, StandingChat
 
 logger = get_logger(__name__)
 
 TOOL_NAME = "edit_standing_chat"
-PENDING_NAMESPACE = "standing_pending"
+PROPOSAL_KIND = "edit_agent"
+_APPROVE_LABEL = "Apply"
 ALL_GRANTS = "*"
 
 
@@ -171,7 +171,22 @@ def _request_approval(chat: StandingChat, changes: Change) -> str:
     raise ApprovalRequestedException(approval.id, description, TOOL_NAME)
 
 
-def _in_chat(conversation_id: str, user_id: str, changes: Change, confirm: bool) -> str:
+def apply_edit_agent(proposal: Proposal, option: ProposalOption) -> str:
+    """Apply exactly the approved change (re-checked: stale values change nothing)."""
+    payload = option["payload"]
+    changes = validated_change(cast("Mapping[str, object]", payload.get("changes") or {}))
+    if isinstance(changes, str):
+        raise ProposalFailedError(changes)
+    chat = apply_standing_changes(str(payload.get("job_id")), proposal.user_id, changes)
+    if chat is None:
+        raise ProposalFailedError("That agent no longer exists.")
+    return f"Updated {chat.name}."
+
+
+register_kind(PROPOSAL_KIND, apply_edit_agent)
+
+
+def _in_chat(conversation_id: str, user_id: str, changes: Change) -> str:
     conv = db.get_conversation(conversation_id, user_id)
     chat = (
         db.get_standing_chat(conv.job_id, user_id)
@@ -180,32 +195,21 @@ def _in_chat(conversation_id: str, user_id: str, changes: Change, confirm: bool)
     )
     if chat is None:
         return tool_error("This chat has no agent whose settings could change.", retriable=False)
-    if not confirm:
-        if problem := _invalid(changes):
-            return tool_error(problem)
-        keep_pending(user_id, PENDING_NAMESPACE, conversation_id, {"changes": changes})
-        return (
-            f"PREVIEW (nothing changed yet):\n{_describe(chat, changes)}\n\n"
-            "Show this to the user and ask; call edit_standing_chat(confirm=true) only after "
-            "they agree in their reply."
-        )
-    raw = db.kv_get(user_id, PENDING_NAMESPACE, conversation_id)
-    if not raw:
-        return tool_error("Nothing was previewed in this chat: preview the change first.")
-    pending: dict[str, Change] = json.loads(raw)
-    if expired(conversation_id, pending):
-        db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-        return tool_error(
-            "That preview expired - the user moved on. Preview again and ask, if still wanted."
-        )
-    if unanswered(conversation_id, pending):
-        return tool_error(
-            "The user has not answered the preview yet - show it and ask them; confirm only "
-            "after they agree in their reply."
-        )
-    db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-    apply_standing_changes(chat.id, user_id, pending["changes"])
-    return f"Updated {chat.name}:\n{_describe(chat, pending['changes'])}"
+    if problem := _invalid(changes):
+        return tool_error(problem)
+    proposal = file_proposal(
+        PROPOSAL_KIND,
+        f"Change {chat.name}'s settings",
+        {"Changes": _describe(chat, changes)},
+        [
+            {
+                "label": _APPROVE_LABEL,
+                "description": "",
+                "payload": {"job_id": chat.id, "changes": dict(changes)},
+            }
+        ],
+    )
+    return card_shown(proposal)
 
 
 @tool
@@ -216,15 +220,14 @@ def edit_standing_chat(
     budget_usd: float | None = None,
     fresh_context: bool | None = None,
     grants: list[str] | None = None,
-    confirm: bool = False,
 ) -> str:
     """Change this agent's own settings - its standing instructions, schedule,
     model, daily budget, history or tools - always with the user's agreement.
 
-    Talking with the user: call it WITHOUT confirm - it returns a preview and
-    changes nothing. Show the preview and ask; only after they agree in their
-    reply, call it with confirm=true (no other fields): it applies exactly the
-    previewed change. During a scheduled run (the user is away) it asks the
+    Talking with the user: it shows them a card with the change and changes
+    nothing itself - the server applies exactly that change when they approve
+    (on the card, or by replying yes). Never say it changed before you hear
+    it was approved. During a scheduled run (the user is away) it asks the
     user for approval instead and the run pauses until they answer.
 
     Args:
@@ -235,7 +238,6 @@ def edit_standing_chat(
         budget_usd: Daily budget for the agent's own runs, in USD.
         fresh_context: true = each run starts fresh; false = runs see this chat.
         grants: The complete list of tools the agent may use (e.g. ["garmin_connect"]).
-        confirm: true only after the user agreed to the preview in their reply.
     """
     from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports the tools
 
@@ -260,4 +262,4 @@ def edit_standing_chat(
     conversation_id, user_id = get_conversation_context()
     if not conversation_id or not user_id:
         return tool_error("No conversation context available.", retriable=False)
-    return _in_chat(conversation_id, user_id, changes, confirm)
+    return _in_chat(conversation_id, user_id, changes)

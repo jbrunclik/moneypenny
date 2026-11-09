@@ -11,7 +11,4 @@ expect:
     asks the user to confirm. Must NOT claim it is already set up.
   required_tools: [create_standing_chat]
   forbidden_tools: [schedule]
-  forbidden_arg_patterns:
-    create_standing_chat.confirm:
-      - "^True$"
   max_tool_rounds: 2

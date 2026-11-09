@@ -18,8 +18,6 @@ expect:
     check-in is already set.
   required_tools: [schedule]
   forbidden_arg_patterns:
-    schedule.confirm:
-      - "^True$"
     schedule.kind:
       - "^(task|reminder|watcher|recurring)$"
   max_tool_rounds: 2

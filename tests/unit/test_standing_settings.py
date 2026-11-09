@@ -1,21 +1,21 @@
 """An agent edits its own settings (edit_standing_chat), never silently.
 
-In conversation it previews, and the change applies only on the user's yes in
-a later turn - the schedule tool's gate. In an unattended run it files an
+In conversation it files a proposal card, and the server applies the change
+only when the user approves it (docs/features/proposals.md). In an unattended run it files an
 approval request; nothing changes until the user approves. Grants never widen
 without one of those two. Standing chats phase 2, Part D (D1).
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Generator
 from typing import TYPE_CHECKING
 
 import pytest
 
+from src.agent.proposals import answer_typed, resolve
 from src.agent.tools.context import set_conversation_context
-from src.agent.tools.standing_settings import PENDING_NAMESPACE, edit_standing_chat
+from src.agent.tools.standing_settings import edit_standing_chat
 from src.enums import MessageRole
 
 if TYPE_CHECKING:
@@ -26,12 +26,12 @@ if TYPE_CHECKING:
 def agent(
     test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> Generator[Agent]:
-    import src.agent.tools.pending_gate as gate
+    import src.agent.proposals as proposals_module
     import src.agent.tools.standing_settings as module
     from src.agent.tool_results import set_current_request_id
 
     monkeypatch.setattr(module, "db", test_database)
-    monkeypatch.setattr(gate, "db", test_database)
+    monkeypatch.setattr(proposals_module, "db", test_database)
     agent = test_database.create_standing_chat(
         test_user.id,
         "Coach",
@@ -51,11 +51,10 @@ def _call(**args: object) -> str:
     return str(edit_standing_chat.invoke(args))
 
 
-def _user_says_yes(db: Database, agent: Agent) -> None:
-    from src.agent.tool_results import set_current_request_id
-
-    db.add_message(agent.conversation_id or "", MessageRole.USER, "Yes, do it")
-    set_current_request_id("request-2")
+def _approve(db: Database, agent: Agent) -> str:
+    """The user approves the chat's latest card; the result line or failure."""
+    pending = db.pending_proposals(agent.conversation_id or "")
+    return resolve(pending[-1], 0, "button").result or "" if pending else "nothing to approve"
 
 
 def test_chat_settings_change_needs_later_yes(
@@ -63,26 +62,15 @@ def test_chat_settings_change_needs_later_yes(
 ) -> None:
     preview = _call(instructions="Coach my rides and check the weather first.")
 
-    assert "PREVIEW" in preview
+    assert preview.startswith("PROPOSAL shown to the user as a card (Apply / Not now)")
     unchanged = test_database.get_standing_chat(agent.id, test_user.id)
     assert unchanged is not None and unchanged.instructions == "Coach my rides"
 
-    _user_says_yes(test_database, agent)
-    applied = _call(confirm=True)
+    applied = _approve(test_database, agent)
 
-    assert "Updated" in applied
+    assert applied == "Updated Coach."
     after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.instructions == "Coach my rides and check the weather first."
-
-
-def test_same_turn_confirm_refused(agent: Agent, test_database: Database, test_user: User) -> None:
-    _call(schedule="0 6 * * *")
-
-    refused = _call(confirm=True)
-
-    assert "not answered" in refused
-    after = test_database.get_standing_chat(agent.id, test_user.id)
-    assert after is not None and after.schedule == "0 20 * * *"
 
 
 def test_unattended_settings_change_files_approval(
@@ -125,13 +113,13 @@ def test_unknown_grants_and_bad_cron_are_refused(agent: Agent) -> None:
 def test_briefing_edit_freezes_a_copy(
     test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import src.agent.tools.pending_gate as gate
+    import src.agent.proposals as proposals_module
     import src.agent.tools.standing_settings as module
     from src.agent.daily_briefing import SYSTEM_TYPE_DAILY_BRIEFING
     from src.agent.tool_results import set_current_request_id
 
     monkeypatch.setattr(module, "db", test_database)
-    monkeypatch.setattr(gate, "db", test_database)
+    monkeypatch.setattr(proposals_module, "db", test_database)
     briefing = test_database.create_standing_chat(
         test_user.id,
         "Daily Briefing",
@@ -145,8 +133,7 @@ def test_briefing_edit_freezes_a_copy(
     try:
         preview = _call(instructions="Briefing plus the weather.")
         assert "your own copy" in preview
-        _user_says_yes(test_database, briefing)
-        _call(confirm=True)
+        _approve(test_database, briefing)
     finally:
         set_conversation_context(None, None)
         set_current_request_id(None)
@@ -173,19 +160,21 @@ def test_refused_in_a_chat_without_an_agent(
         set_conversation_context(None, None)
 
 
-def test_pending_namespace_is_reserved() -> None:
-    from src.agent.tools.agent_kv import RESERVED_NAMESPACES
+def test_the_card_carries_exactly_the_change(agent: Agent, test_database: Database) -> None:
+    _call(budget_usd=0.25)
 
-    assert PENDING_NAMESPACE in RESERVED_NAMESPACES
+    [card] = test_database.pending_proposals(agent.conversation_id or "")
+    assert card.options[0]["payload"] == {"job_id": agent.id, "changes": {"budget_usd": 0.25}}
+    assert "Daily budget: $0.25" in str(card.details["Changes"])
 
 
-def test_the_pending_change_is_stored_as_json(
+def test_a_stale_change_fails_cleanly_on_approve(
     agent: Agent, test_database: Database, test_user: User
 ) -> None:
     _call(budget_usd=0.25)
+    test_database.delete_standing_chat(agent.id, test_user.id)
 
-    raw = test_database.kv_get(test_user.id, PENDING_NAMESPACE, agent.conversation_id or "")
-    assert raw is not None and json.loads(raw)["changes"] == {"budget_usd": 0.25}
+    assert "no longer exists" in _approve(test_database, agent)
 
 
 def test_bound_in_standing_chats_only() -> None:
@@ -204,36 +193,29 @@ def test_bound_in_standing_chats_only() -> None:
 def test_a_preview_answered_with_something_else_expires(
     agent: Agent, test_database: Database, test_user: User
 ) -> None:
-    """Only the user's next message answers a preview: a confirm days later
-    (e.g. from a page the agent read) must not apply it."""
-    from src.agent.tool_results import set_current_request_id
-
+    """Only the user's next message answers a card: anything else expires it,
+    so nothing later (e.g. a page the agent read) can apply it."""
+    conv_id = agent.conversation_id or ""
     _call(grants=["*"])
-    test_database.add_message(agent.conversation_id or "", MessageRole.USER, "No, never mind.")
-    test_database.add_message(
-        agent.conversation_id or "", MessageRole.USER, "Read this page for me"
-    )
-    set_current_request_id("request-3")
+    reply = test_database.add_message(conv_id, MessageRole.ASSISTANT, "Shall I?")
+    test_database.link_proposals("request-1", reply.id)
 
-    refused = _call(confirm=True)
+    assert answer_typed(conv_id, "Read this page for me") == []
 
-    assert "expired" in refused
+    assert test_database.pending_proposals(conv_id) == []
     after = test_database.get_standing_chat(agent.id, test_user.id)
     assert after is not None and after.grants == ["garmin_connect"]
-    assert (
-        test_database.kv_get(test_user.id, PENDING_NAMESPACE, agent.conversation_id or "") is None
-    )
 
 
 def test_preview_shows_widening_from_no_tools(
     test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import src.agent.tools.pending_gate as gate
+    import src.agent.proposals as proposals_module
     import src.agent.tools.standing_settings as module
     from src.agent.tool_results import set_current_request_id
 
     monkeypatch.setattr(module, "db", test_database)
-    monkeypatch.setattr(gate, "db", test_database)
+    monkeypatch.setattr(proposals_module, "db", test_database)
     bare = test_database.create_standing_chat(test_user.id, "Bare", grants=[])
     set_conversation_context(bare.conversation_id, test_user.id)
     set_current_request_id("r1")

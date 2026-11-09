@@ -2,24 +2,23 @@
 
 "Be my cycle coach, check my Garmin every evening and ask how I feel" in an
 ordinary chat previews a standing chat with a job: its name, instructions,
-schedule and tools - each tool that can change things spelled out. It is
-created on the user's yes in a later turn (the pending gate shared with
-schedule and edit_standing_chat), with exactly the previewed settings. Never
-in a standing chat or an unattended run.
+schedule and tools - each tool that can change things spelled out - as a
+proposal card (src/agent/proposals.py, shared with schedule and
+edit_standing_chat). The server creates it with exactly those settings when
+the user approves. Never in a standing chat or an unattended run.
 """
 
 from __future__ import annotations
 
-import json
 import sqlite3
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from langchain_core.tools import tool
 
 from src.agent.permissions import WRITE_LEVEL_TOOLS, WRITE_SUFFIX, base_tool
+from src.agent.proposals import ProposalFailedError, card_shown, file_proposal, register_kind
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
-from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.agent.tools.standing_settings import ALL_GRANTS, unknown_grants
 from src.config import Config
 from src.constants import AGENT_INSTRUCTIONS_MAX_CHARS, AGENT_NAME_MAX_CHARS
@@ -28,13 +27,17 @@ from src.utils.logging import get_logger
 from src.utils.schedule_spec import ScheduleError, describe_cron, recurring_cron
 from src.utils.threat_patterns import find_injection
 
+if TYPE_CHECKING:
+    from src.db.models import Proposal, ProposalOption
+
 logger = get_logger(__name__)
 
-PENDING_NAMESPACE = "standing_create_pending"
+PROPOSAL_KIND = "create_agent"
+_APPROVE_LABEL = "Create agent"
 
 
 class Spec(TypedDict):
-    """The previewed standing chat, kept in the pending gate until the yes."""
+    """The proposed standing chat (the proposal's payload)."""
 
     name: str
     instructions: str
@@ -120,42 +123,25 @@ def _refusal(user_id: str, name: str, instructions: str, grants: list[str]) -> s
     return None
 
 
-def _settings_text(spec: Spec) -> str:
+def _settings(spec: Spec) -> dict[str, object]:
+    """What the card shows: every setting, the tools and what they can change too."""
     cron = spec["schedule"]
     when = describe_cron(cron) if cron else "only when you ask it"
-    return (
-        f"- Instructions: {spec['instructions']}\n"
-        f"- Runs: {when} ({Config.APP_TIMEZONE})\n"
-        f"- Tools: {_tools_text(spec['grants'])}\n"
-        f"- Each run {'starts fresh' if spec['fresh_context'] else 'sees the chat so far'}\n"
-        f"- Daily budget: ${Config.STANDING_CREATE_BUDGET_USD:.2f} (changeable under Agents)"
-    )
+    return {
+        "Instructions": spec["instructions"],
+        "Runs": f"{when} ({Config.APP_TIMEZONE})",
+        "Tools": _tools_text(spec["grants"]),
+        "Each run": "starts fresh" if spec["fresh_context"] else "sees the chat so far",
+        "Daily budget": f"${Config.STANDING_CREATE_BUDGET_USD:.2f} (changeable under Agents)",
+    }
 
 
-def _preview(spec: Spec) -> str:
-    return (
-        f'PREVIEW (nothing created yet): a new standing chat "{spec["name"]}" under Agents.\n'
-        f"{_settings_text(spec)}\n\n"
-        "Show all of this to the user - the tools and what they can change too - and ask; "
-        "call create_standing_chat(confirm=true) only after they agree in their reply."
-    )
-
-
-def _confirm(conversation_id: str, user_id: str) -> str:
-    raw = db.kv_get(user_id, PENDING_NAMESPACE, conversation_id)
-    if not raw:
-        return tool_error("Nothing was previewed in this chat: preview it first.")
-    spec: Spec = json.loads(raw)
-    if expired(conversation_id, spec):
-        db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-        return tool_error("That preview expired - the user moved on. Preview again and ask.")
-    if unanswered(conversation_id, spec):
-        return tool_error(
-            "The user has not answered the preview yet - show it and ask them; confirm only "
-            "after they agree in their reply."
-        )
+def apply_create_agent(proposal: Proposal, option: ProposalOption) -> str:
+    """Create exactly the approved standing chat (the proposal's payload)."""
+    spec = cast("Spec", option["payload"])
+    user_id = proposal.user_id
     if refusal := _refusal(user_id, spec["name"], spec["instructions"], spec["grants"]):
-        return tool_error(refusal)
+        raise ProposalFailedError(refusal)
     try:
         chat = db.create_standing_chat(
             user_id,
@@ -168,14 +154,14 @@ def _confirm(conversation_id: str, user_id: str) -> str:
             budget_usd=Config.STANDING_CREATE_BUDGET_USD,
         )
     except sqlite3.IntegrityError:  # created meanwhile (another request, another device)
-        return tool_error(f'An agent named "{spec["name"]}" exists already - pick another name.')
-    db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
+        raise ProposalFailedError(
+            f'An agent named "{spec["name"]}" exists already - pick another name.'
+        ) from None
     logger.info("Standing chat created by talking", extra={"user_id": user_id, "job_id": chat.id})
-    return (
-        f'Created "{chat.name}" under Agents: #/conversations/{chat.conversation_id} - its '
-        f"reports arrive there.\n{_settings_text(spec)}\n\n"
-        "Tell the user where to find it and what was set up."
-    )
+    return f'Created "{chat.name}" under Agents - its reports arrive in its own chat.'
+
+
+register_kind(PROPOSAL_KIND, apply_create_agent)
 
 
 @tool
@@ -186,17 +172,16 @@ def create_standing_chat(
     time: str | None = None,
     grants: list[str] | None = None,
     fresh_context: bool = True,
-    confirm: bool = False,
 ) -> str:
     """Set up a new standing chat - a lasting role with its own schedule, like
     "be my cycle coach, check my Garmin every evening and ask how I feel" or
     "watch my bills every Monday". It appears under Agents with its own chat.
     For a one-off reminder or a single check, use schedule instead.
 
-    Call it WITHOUT confirm first: it returns a preview and creates nothing.
-    Show the preview and ask; only after the user agrees in their reply, call
-    it with confirm=true (no other fields): it creates exactly what was
-    previewed.
+    It shows the user a card with every setting (and what each tool can
+    change) and creates nothing itself: the server creates exactly that when
+    the user approves (on the card, or by replying yes). Never say it exists
+    before you hear it was approved.
 
     Args:
         name: A short name, e.g. "Cycling coach".
@@ -208,7 +193,6 @@ def create_standing_chat(
             write level ("todoist:write") lets it change things there;
             without it, changes wait for the user's approval.
         fresh_context: true = each run starts fresh; false = runs see the chat.
-        confirm: true only after the user agreed to the preview in their reply.
     """
     from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context imports the tools
 
@@ -222,13 +206,6 @@ def create_standing_chat(
         return tool_error(
             "This is a standing chat: set up new ones from an ordinary chat.", retriable=False
         )
-    if confirm:
-        if name or instructions or days or time or grants is not None:
-            return tool_error(
-                "confirm=true creates exactly what was previewed and takes no other fields: "
-                "preview the changed version first, and ask again."
-            )
-        return _confirm(conversation_id, user_id)
     grant_list = list(grants or [])
     if refusal := _refusal(user_id, name, instructions, grant_list):
         return tool_error(refusal)
@@ -242,5 +219,10 @@ def create_standing_chat(
         "grants": grant_list,
         "fresh_context": fresh_context,
     }
-    keep_pending(user_id, PENDING_NAMESPACE, conversation_id, spec)
-    return _preview(spec)
+    proposal = file_proposal(
+        PROPOSAL_KIND,
+        f'New agent "{spec["name"]}" under Agents',
+        _settings(spec),
+        [{"label": _APPROVE_LABEL, "description": "", "payload": dict(spec)}],
+    )
+    return card_shown(proposal)

@@ -6,14 +6,14 @@ static prompt
   planning       37048
   standing       33900
 
-tool declarations (38 tools, 64249 chars)
+tool declarations (38 tools, 63949 chars)
   browser                       4257
   create_artifact               3219
   create_file                   1351
-  create_standing_chat          1653
+  create_standing_chat          1565
   delegate_task                  878
   delete_place                   325
-  edit_standing_chat            1553
+  edit_standing_chat            1438
   execute_code                  3788
   fetch_url                      992
   garmin_connect                4533
@@ -35,7 +35,7 @@ tool declarations (38 tools, 64249 chars)
   retrieve_file                 1587
   rouvy_workout                 1035
   save_place                     650
-  schedule                      2914
+  schedule                      2817
   search_conversations          1225
   search_memory                  586
   search_places                  762

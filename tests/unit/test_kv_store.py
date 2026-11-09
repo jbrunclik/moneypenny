@@ -1033,8 +1033,9 @@ class TestKVStoreReservedNamespaces:
     MODEL_WRITABLE = frozenset({"places"})
 
     def test_every_namespace_constant_is_reserved(self) -> None:
-        """A new app namespace must join RESERVED_NAMESPACES (schedule_pending
-        was missed: a planted pending spec would await the user's next yes)."""
+        """A new app namespace must join RESERVED_NAMESPACES (the old
+        schedule_pending was missed: a planted preview would await the user's
+        next yes)."""
         import re
         from pathlib import Path
 
@@ -1058,7 +1059,6 @@ class TestKVStoreReservedNamespaces:
             "src.agent.interjection.KV_NAMESPACE",
             "src.api.helpers.lost_actions.KV_NAMESPACE",
             "src.api.helpers.memory_review_trigger.KV_NAMESPACE",
-            "src.agent.tools.scheduling._PENDING_NAMESPACE",
             "src.auth.oauth_state._NAMESPACE",
             "src.services.search_provider.USAGE_NAMESPACE",
             "src.services.gemini_file_cache.GEMINI_FILES_NAMESPACE",

@@ -12,7 +12,4 @@ expect:
     changed, and must not set a reminder or a new scheduled item instead.
   required_tools: [edit_standing_chat]
   forbidden_tools: [schedule]
-  forbidden_arg_patterns:
-    edit_standing_chat.confirm:
-      - "^True$"
   max_tool_rounds: 2

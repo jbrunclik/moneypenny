@@ -10,7 +10,4 @@ expect:
     tomatoes and asks the user to confirm. Must NOT say it cannot set
     reminders here, and must not claim the reminder is already set.
   required_tools: [schedule]
-  forbidden_arg_patterns:
-    schedule.confirm:
-      - "^True$"
   max_tool_rounds: 2

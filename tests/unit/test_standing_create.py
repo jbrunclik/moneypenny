@@ -1,6 +1,7 @@
 """create_standing_chat: "be my cycle coach, check my Garmin every evening"
-proposes a standing chat with a job, created only on the user's yes in a later
-turn, with exactly the grants the preview listed (standing chats phase 3, F1)."""
+proposes a standing chat with a job on a card, created by the server only when
+the user approves, with exactly the grants the card listed (standing chats
+phase 3, F1; proposals: docs/features/proposals.md)."""
 
 from __future__ import annotations
 
@@ -10,8 +11,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from src.agent.proposals import answer_typed, resolve
 from src.agent.tools.context import set_conversation_context
-from src.agent.tools.standing_create import PENDING_NAMESPACE, create_standing_chat
+from src.agent.tools.standing_create import create_standing_chat
 from src.config import Config
 from src.enums import MessageRole
 
@@ -26,12 +28,12 @@ def chat(
     test_conversation: Conversation,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[Conversation]:
-    import src.agent.tools.pending_gate as gate
+    import src.agent.proposals as proposals_module
     import src.agent.tools.standing_create as module
     from src.agent.tool_results import set_current_request_id
 
     monkeypatch.setattr(module, "db", test_database)
-    monkeypatch.setattr(gate, "db", test_database)
+    monkeypatch.setattr(proposals_module, "db", test_database)
     monkeypatch.setattr(Config, "APP_TIMEZONE", "Europe/Prague")
     set_conversation_context(test_conversation.id, test_user.id)
     set_current_request_id("r1")
@@ -54,40 +56,39 @@ def _call(**args: object) -> str:
     return str(create_standing_chat.invoke(args))
 
 
-def _user_says(db: Database, chat: Conversation, text: str, request: str) -> None:
-    from src.agent.tool_results import set_current_request_id
+def _approve(db: Database, chat: Conversation) -> str:
+    """The user approves the chat's latest card; the result line or failure."""
+    pending = db.pending_proposals(chat.id)
+    return resolve(pending[-1], 0, "button").result or "" if pending else "nothing to approve"
 
-    db.add_message(chat.id, MessageRole.USER, text)
-    set_current_request_id(request)
 
-
-def test_create_needs_a_later_yes(
+def test_create_waits_for_the_card(
     chat: Conversation, test_database: Database, test_user: User
 ) -> None:
     preview = _call(**COACH)
 
-    assert "PREVIEW" in preview
+    assert preview.startswith("PROPOSAL shown to the user as a card (Create agent / Not now)")
     assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
-    assert "not answered" in _call(confirm=True)  # same turn
 
-    _user_says(test_database, chat, "Yes, set it up", "r2")
-    created = _call(confirm=True)
+    created = _approve(test_database, chat)
 
     agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     assert agent is not None
     assert (agent.schedule, agent.timezone) == ("0 20 * * *", "Europe/Prague")
     assert agent.instructions == "Check my Garmin each evening and ask how I feel."
-    assert f"#/conversations/{agent.conversation_id}" in created
+    assert created.startswith('Created "Cycling coach" under Agents')
 
 
 def test_expired_preview_creates_nothing(
     chat: Conversation, test_database: Database, test_user: User
 ) -> None:
     _call(**COACH)
-    _user_says(test_database, chat, "Hmm, not now", "r2")
-    _user_says(test_database, chat, "What's the weather?", "r3")
+    reply = test_database.add_message(chat.id, MessageRole.ASSISTANT, "Shall I set it up?")
+    test_database.link_proposals("r1", reply.id)
 
-    assert "expired" in _call(confirm=True)
+    assert answer_typed(chat.id, "What's the weather?") == []
+
+    assert test_database.pending_proposals(chat.id) == []
     assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
 
 
@@ -95,8 +96,7 @@ def test_created_grants_match_the_preview(
     chat: Conversation, test_database: Database, test_user: User
 ) -> None:
     _call(**COACH)
-    _user_says(test_database, chat, "Yes", "r2")
-    _call(confirm=True)
+    _approve(test_database, chat)
 
     agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     job = test_database.get_item(agent.id if agent else "", test_user.id)
@@ -168,12 +168,6 @@ def test_injected_instructions_refused(chat: Conversation) -> None:
     assert "Refused" in result
 
 
-def test_pending_namespace_is_reserved() -> None:
-    from src.agent.tools.agent_kv import RESERVED_NAMESPACES
-
-    assert PENDING_NAMESPACE in RESERVED_NAMESPACES
-
-
 def test_bound_in_ordinary_chats_only() -> None:
     from src.agent.tools import get_tools_for_request
 
@@ -205,7 +199,7 @@ def test_preview_without_grants_is_honest(chat: Conversation) -> None:
 def test_all_tools_grant_refused(chat: Conversation) -> None:
     result = _call(**{**COACH, "grants": ["*"]})
 
-    assert "PREVIEW" not in result
+    assert "PROPOSAL" not in result
     assert "list the tools" in result.lower()
 
 
@@ -213,30 +207,18 @@ def test_all_tools_grant_refused(chat: Conversation) -> None:
 def test_overlong_fields_refused(chat: Conversation, field: str, size: int) -> None:
     result = _call(**{**COACH, field: "x" * size})
 
-    assert "PREVIEW" not in result
+    assert "PROPOSAL" not in result
     assert "too long" in result
 
 
-def test_confirm_with_changes_is_refused(
-    chat: Conversation, test_database: Database, test_user: User
-) -> None:
+def test_the_card_lists_every_setting(chat: Conversation, test_database: Database) -> None:
     _call(**COACH)
-    _user_says(test_database, chat, "Yes, but call it Coach", "r2")
 
-    result = _call(confirm=True, name="Coach")
+    [card] = test_database.pending_proposals(chat.id)
 
-    assert "preview" in result.lower()
-    assert test_database.get_standing_chat_by_name(test_user.id, "Cycling coach") is None
-
-
-def test_confirm_echoes_the_created_settings(chat: Conversation, test_database: Database) -> None:
-    _call(**COACH)
-    _user_says(test_database, chat, "Yes", "r2")
-
-    created = _call(confirm=True)
-
-    assert "every day at 20:00" in created
-    assert "can change your Todoist" in created
+    assert card.summary == 'New agent "Cycling coach" under Agents'
+    assert "every day at 20:00" in str(card.details["Runs"])
+    assert "can change your Todoist" in str(card.details["Tools"])
 
 
 def test_name_clash_ignores_case(
@@ -252,9 +234,9 @@ def test_name_taken_after_the_preview_is_refused_on_yes(
 ) -> None:
     _call(**COACH)
     test_database.create_standing_chat(test_user.id, "Cycling coach")  # another device, meanwhile
-    _user_says(test_database, chat, "Yes", "r2")
 
-    assert "already" in _call(confirm=True)
+    assert "already" in _approve(test_database, chat)
+    assert test_database.pending_proposals(chat.id) == []
 
 
 def test_days_without_a_time_ask_for_one(chat: Conversation) -> None:
@@ -267,8 +249,7 @@ def test_on_demand_chat_runs_only_when_asked(
     chat: Conversation, test_database: Database, test_user: User
 ) -> None:
     preview = _call(**{**COACH, "days": None, "time": None})
-    _user_says(test_database, chat, "Yes", "r2")
-    _call(confirm=True)
+    _approve(test_database, chat)
 
     agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     assert "only when you ask" in preview
@@ -279,8 +260,7 @@ def test_scheduled_chat_first_runs_at_the_next_slot(
     chat: Conversation, test_database: Database, test_user: User
 ) -> None:
     _call(**COACH)
-    _user_says(test_database, chat, "Yes", "r2")
-    _call(confirm=True)
+    _approve(test_database, chat)
 
     agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     assert agent is not None and agent.next_run_at is not None
@@ -292,22 +272,11 @@ def test_created_chat_gets_the_default_budget(
 ) -> None:
     monkeypatch.setattr(Config, "STANDING_CREATE_BUDGET_USD", 0.5)
     preview = _call(**COACH)
-    _user_says(test_database, chat, "Yes", "r2")
-    _call(confirm=True)
+    _approve(test_database, chat)
 
     agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
     assert "$0.50" in preview
     assert agent is not None and agent.budget_usd == 0.5
-
-
-def test_a_preview_cannot_be_confirmed_from_another_chat(
-    chat: Conversation, test_database: Database, test_user: User
-) -> None:
-    _call(**COACH)
-    other = test_database.create_conversation(test_user.id, "Other", "m")
-    set_conversation_context(other.id, test_user.id)
-
-    assert "Nothing was previewed" in _call(confirm=True)
 
 
 @pytest.mark.parametrize("program", ["is_sports", "is_language"])
@@ -339,11 +308,10 @@ def test_a_clash_at_the_insert_is_a_tool_error(
     import sqlite3
 
     _call(**COACH)
-    _user_says(test_database, chat, "Yes", "r2")
 
     def clash(*_args: object, **_kwargs: object) -> None:
         raise sqlite3.IntegrityError("An agent named 'Cycling coach' exists already")
 
     monkeypatch.setattr(test_database, "create_standing_chat", clash)
 
-    assert "already" in _call(confirm=True)
+    assert "already" in _approve(test_database, chat)

@@ -14,8 +14,6 @@ expect:
     expected. Must NOT claim it is already watching.
   required_tools: [schedule]
   forbidden_arg_patterns:
-    schedule.confirm:
-      - "^True$"
     schedule.kind:
       - "^(task|reminder|check_in|recurring)$"
   max_tool_rounds: 3

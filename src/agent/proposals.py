@@ -20,7 +20,6 @@ from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Literal
 
 from src.agent.tool_results import get_current_request_id
-from src.agent.tools.context import get_conversation_context
 from src.db.models import Proposal, ProposalOption, db
 from src.utils.clock import utc_now
 from src.utils.logging import get_logger
@@ -61,6 +60,23 @@ def register_kind(kind: str, apply: Apply) -> None:
     _KINDS[kind] = apply
 
 
+def card_shown(proposal: Proposal) -> str:
+    """The tool result after filing: the card is the question, the model only
+    says what it proposed (and never claims it is done)."""
+    labels = " / ".join(o["label"] for o in proposal.options)
+    shown = "; ".join(f"{k}: {v}" for k, v in proposal.details.items())
+    return (
+        f"PROPOSAL shown to the user as a card ({labels} / Not now): {proposal.summary}"
+        f"{f' - {shown}' if shown else ''}. Nothing is done yet: say in one sentence what "
+        "you proposed; they answer on the card or by replying."
+    )
+
+
+def _ensure_kinds() -> None:
+    """The kinds register when their tools import (a route may come first)."""
+    import src.agent.tools  # noqa: F401, PLC0415 - registration side effect; cycle: tools import this
+
+
 def file_proposal(
     kind: str, summary: str, details: Mapping[str, object], options: list[ProposalOption]
 ) -> Proposal:
@@ -70,6 +86,8 @@ def file_proposal(
         raise KeyError(f"unknown proposal kind {kind!r}")
     if not 1 <= len(options) <= MAX_OPTIONS:
         raise ValueError(f"a proposal has 1-{MAX_OPTIONS} options, not {len(options)}")
+    from src.agent.tools.context import get_conversation_context  # noqa: PLC0415 - cycle: the tools package imports this module
+
     conversation_id, user_id = get_conversation_context()
     if not (conversation_id and user_id):
         raise ValueError("a proposal needs a conversation")
@@ -118,6 +136,7 @@ def typed_answer(text: str, options: list[ProposalOption]) -> int | NoAnswer | N
 
 def resolve(proposal: Proposal, choice: int | None, by: Literal["button", "typed"]) -> Proposal:
     """Answer a pending proposal: decline (None) or apply the chosen option."""
+    _ensure_kinds()
     if choice is not None and not 0 <= choice < len(proposal.options):
         raise ValueError(f"choice {choice} is not one of the {len(proposal.options)} options")
     state: ProposalState = "declined" if choice is None else "approved"

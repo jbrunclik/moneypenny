@@ -15,8 +15,6 @@ expect:
     already set up.
   required_tools: [schedule]
   forbidden_arg_patterns:
-    schedule.confirm:
-      - "^True$"
     schedule.kind:
       - "^(task|reminder|check_in|watcher)$"
   max_tool_rounds: 3

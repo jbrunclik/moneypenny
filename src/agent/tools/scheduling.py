@@ -3,27 +3,26 @@
 Every item belongs to the chat that set it (docs/features/agents.md): a
 reminder pushes at a time, a check-in asks its question back in the chat, a
 watcher checks the web until its condition is met, a recurring check reports
-on a schedule. Nothing is stored until the user confirmed: a create without
-confirm=true returns a preview and keeps it pending for the conversation; a
-confirm stores exactly that pending item, and only in a later turn (the user
-replied to it) - so neither drifted fields nor a page's injected "confirm" in
-the same turn can schedule something the user never saw. The model fills
+on a schedule. Nothing is stored until the user approved: a create files a
+proposal (src/agent/proposals.py) shown as a card under the reply, and the
+server stores exactly that item when the user taps it or replies yes - so
+neither drifted fields nor a page's injected "confirm" can schedule
+something the user never saw. The model fills
 structured fields; the schedule itself is built by code
 (src/utils/schedule_spec.py) in the household timezone.
 """
 
-import json
 import uuid
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict, cast
 from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 
+from src.agent.proposals import ProposalFailedError, card_shown, file_proposal, register_kind
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
-from src.agent.tools.pending_gate import expired, keep_pending, unanswered
 from src.config import Config
 from src.db.models import db
 from src.db.models.dataclasses import ItemKind, ScheduledItem
@@ -42,10 +41,14 @@ from src.utils.schedule_spec import (
 )
 from src.utils.threat_patterns import find_injection
 
+if TYPE_CHECKING:
+    from src.db.models import Proposal, ProposalOption
+
 logger = get_logger(__name__)
 
-# The preview awaiting the user's answer, per conversation (kv: multi-worker safe)
-_PENDING_NAMESPACE = "schedule_pending"
+# The proposal kind (one option: store the previewed item)
+PROPOSAL_KIND = "schedule_item"
+_APPROVE_LABEL = "Set it up"
 _NO_PUSH_NOTE = (
     " Note: none of the user's devices has notifications turned on, so this"
     " cannot reach them - tell them to turn notifications on in the app."
@@ -61,8 +64,8 @@ _SHORT_DATE = "%d %b"
 
 
 class Spec(TypedDict, total=False):
-    """A pending preview: what ScheduledItem needs (instants as ISO strings,
-    JSON-safe for the kv store), plus the descriptions shown and the turn."""
+    """A proposed item: what ScheduledItem needs (instants as ISO strings,
+    JSON-safe for the proposal's payload), plus the descriptions shown."""
 
     kind: ItemKind
     text: str
@@ -73,8 +76,6 @@ class Spec(TypedDict, total=False):
     expires_at: str | None
     when: str
     ends: str
-    turn: str
-    request: str  # the chat turn that previewed it (a confirm needs a later turn)
 
 
 def _until(args: Mapping[str, object], now: datetime) -> datetime | str | None:
@@ -192,61 +193,38 @@ def _new_item(user_id: str, conversation_id: str, pending: Spec) -> ScheduledIte
     )
 
 
-def _confirm_refusal(user_id: str, conversation_id: str, pending: Spec) -> str | None:
-    if expired(conversation_id, pending):
-        db.kv_delete(user_id, _PENDING_NAMESPACE, conversation_id)
-        return tool_error(
-            "That preview expired - the user moved on. Preview again and ask, if still wanted."
-        )
-    if unanswered(conversation_id, pending):
-        return tool_error(
-            "The user has not answered the preview yet - show it and ask them; confirm "
-            "only after they agree in their reply."
-        )
+def _refusal(user_id: str, pending: Spec) -> str | None:
+    """Why the approved item can no longer be stored, or None."""
     tz = Config.APP_TIMEZONE
     due = _instant(pending["next_run_at"])
     if pending["kind"] in _ONE_OFFS and due is not None and due <= utc_now():
-        return tool_error(
-            f"That time has passed - it is now {describe_instant(utc_now(), tz)} ({tz}). "
-            "Preview a new time."
-        )
+        return f"That time has passed - it is now {describe_instant(utc_now(), tz)}."
     cap = Config.SCHEDULE_MAX_ACTIVE_PER_USER
     if (count := db.count_items(user_id)) >= cap:
-        return tool_error(
-            f"You already have {count} scheduled items (limit {cap}); delete one first."
-        )
+        return f"You already have {count} scheduled items (limit {cap}) - delete one first."
     return None
 
 
-def _confirm(user_id: str, conversation_id: str) -> str:
-    """Store the conversation's pending preview, once the user has answered it."""
-    raw = db.kv_get(user_id, _PENDING_NAMESPACE, conversation_id)
-    if not raw:
-        return tool_error(
-            "Nothing was previewed in this chat to confirm: call create without confirm "
-            "first, show the preview and ask the user."
-        )
-    pending: Spec = json.loads(raw)
-    if refusal := _confirm_refusal(user_id, conversation_id, pending):
-        return refusal
-    db.kv_delete(user_id, _PENDING_NAMESPACE, conversation_id)
-    item = db.add_item(_new_item(user_id, conversation_id, pending))
+def apply_schedule(proposal: Proposal, option: ProposalOption) -> str:
+    """Store exactly the approved item (the proposal's payload)."""
+    pending = cast("Spec", option["payload"])
+    if refusal := _refusal(proposal.user_id, pending):
+        raise ProposalFailedError(refusal)
+    item = db.add_item(_new_item(proposal.user_id, proposal.conversation_id, pending))
     logger.info(
         "Scheduled item created from chat",
-        extra={"user_id": user_id, "item_id": item.id, "kind": item.kind},
+        extra={"user_id": proposal.user_id, "item_id": item.id, "kind": item.kind},
     )
-    label = _KIND_LABELS[item.kind]
-    return (
-        f"Scheduled {label} id={item.id} - {pending['when']} ({Config.APP_TIMEZONE}), "
-        f'{pending["ends"]}: "{item.text}".' + _push_note(user_id)
-    )
+    label = _KIND_LABELS[item.kind].capitalize()
+    return f"{label} set - {pending['when']}, {pending['ends']}."
+
+
+register_kind(PROPOSAL_KIND, apply_schedule)
 
 
 def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object]) -> str:
     if not conversation_id:
         return tool_error("Scheduling needs a chat to belong to.", retriable=False)
-    if args.get("confirm"):
-        return _confirm(user_id, conversation_id)
     text = str(args.get("text") or "").strip()
     if not text:
         return tool_error("'text' is required: the reminder, the question, or what to check.")
@@ -259,12 +237,14 @@ def _create(user_id: str, conversation_id: str | None, args: Mapping[str, object
     if isinstance(spec, str):
         return spec
     spec["kind"], spec["text"] = kind, text  # type: ignore[typeddict-item]  # kind checked by _build
-    keep_pending(user_id, _PENDING_NAMESPACE, conversation_id, spec)
-    return (
-        f"PREVIEW: {_KIND_LABELS[kind]} - {spec['when']} ({Config.APP_TIMEZONE}), "
-        f'{spec["ends"]}: "{text}". Nothing is scheduled yet: show this to the user and ask; '
-        "when they agree in their reply, call create with confirm=true." + _push_note(user_id)
+    label = _KIND_LABELS[kind]
+    proposal = file_proposal(
+        PROPOSAL_KIND,
+        f'{label.capitalize()}: "{text}"',
+        {"When": f"{spec['when']} ({Config.APP_TIMEZONE})", "Ends": spec["ends"]},
+        [{"label": _APPROVE_LABEL, "description": "", "payload": dict(spec)}],
     )
+    return card_shown(proposal) + _push_note(user_id)
 
 
 def describe_when(item: ScheduledItem) -> str:
@@ -344,7 +324,6 @@ def schedule(
     interval: str | None = None,
     end_condition: str | None = None,
     item_id: str | None = None,
-    confirm: bool = False,
 ) -> str:
     """Set reminders, check-ins, watchers and recurring checks for the user, and manage them.
 
@@ -353,10 +332,10 @@ def schedule(
     lasting role with its own chat ("be my coach, check in every evening")
     is a standing chat instead: create_standing_chat.
 
-    create: first call WITHOUT confirm - it returns a preview and stores
-    nothing. Show the preview to the user and ask; only after they agree in
-    their reply, call create with confirm=true (no other fields needed): it
-    stores exactly the item previewed in this chat.
+    create: shows the user a card with the item to approve and stores
+    nothing itself - the server stores exactly that item when the user
+    approves (on the card, or by replying yes). Don't call it again for the
+    same item, and never say it is set before you hear it was approved.
       - kind="reminder": a one-off push. text = what to remind about,
         date + time.
       - kind="check_in": at date + time, ask the user a question back in
@@ -384,7 +363,6 @@ def schedule(
         interval: 6h, daily or weekly (watcher).
         end_condition: When a watcher stops (watcher).
         item_id: The id from list (pause, resume, delete).
-        confirm: true only after the user agreed to the preview in their reply.
     """
     conversation_id, user_id = get_conversation_context()
     if not user_id:
@@ -403,7 +381,6 @@ def schedule(
             "until": until,
             "interval": interval,
             "end_condition": end_condition,
-            "confirm": confirm,
         }
         return _create(user_id, conversation_id, args)
     if action == "list":

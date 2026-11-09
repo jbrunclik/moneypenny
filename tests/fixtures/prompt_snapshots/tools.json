@@ -123,7 +123,7 @@
     }
   },
   {
-    "description": "Set up a new standing chat - a lasting role with its own schedule, like\n\"be my cycle coach, check my Garmin every evening and ask how I feel\" or\n\"watch my bills every Monday\". It appears under Agents with its own chat.\nFor a one-off reminder or a single check, use schedule instead.\n\nCall it WITHOUT confirm first: it returns a preview and creates nothing.\nShow the preview and ask; only after the user agrees in their reply, call\nit with confirm=true (no other fields): it creates exactly what was\npreviewed.\n\nArgs:\n    name: A short name, e.g. \"Cycling coach\".\n    instructions: Its standing instructions, written as to the agent.\n    days: mon..sun, or [\"daily\"] / [\"weekdays\"] / [\"weekends\"]; omit (and\n        time) for a chat that runs only when asked.\n    time: HH:MM, local time.\n    grants: The tools it may use on its runs, e.g. [\"garmin_connect\"]. A\n        write level (\"todoist:write\") lets it change things there;\n        without it, changes wait for the user's approval.\n    fresh_context: true = each run starts fresh; false = runs see the chat.\n    confirm: true only after the user agreed to the preview in their reply.",
+    "description": "Set up a new standing chat - a lasting role with its own schedule, like\n\"be my cycle coach, check my Garmin every evening and ask how I feel\" or\n\"watch my bills every Monday\". It appears under Agents with its own chat.\nFor a one-off reminder or a single check, use schedule instead.\n\nIt shows the user a card with every setting (and what each tool can\nchange) and creates nothing itself: the server creates exactly that when\nthe user approves (on the card, or by replying yes). Never say it exists\nbefore you hear it was approved.\n\nArgs:\n    name: A short name, e.g. \"Cycling coach\".\n    instructions: Its standing instructions, written as to the agent.\n    days: mon..sun, or [\"daily\"] / [\"weekdays\"] / [\"weekends\"]; omit (and\n        time) for a chat that runs only when asked.\n    time: HH:MM, local time.\n    grants: The tools it may use on its runs, e.g. [\"garmin_connect\"]. A\n        write level (\"todoist:write\") lets it change things there;\n        without it, changes wait for the user's approval.\n    fresh_context: true = each run starts fresh; false = runs see the chat.",
     "name": "create_standing_chat",
     "parameters": {
       "properties": {
@@ -152,9 +152,6 @@
           "type": "ARRAY"
         },
         "fresh_context": {
-          "type": "BOOLEAN"
-        },
-        "confirm": {
           "type": "BOOLEAN"
         }
       },
@@ -199,7 +196,7 @@
     }
   },
   {
-    "description": "Change this agent's own settings - its standing instructions, schedule,\nmodel, daily budget, history or tools - always with the user's agreement.\n\nTalking with the user: call it WITHOUT confirm - it returns a preview and\nchanges nothing. Show the preview and ask; only after they agree in their\nreply, call it with confirm=true (no other fields): it applies exactly the\npreviewed change. During a scheduled run (the user is away) it asks the\nuser for approval instead and the run pauses until they answer.\n\nArgs:\n    instructions: The full new standing instructions (not a diff).\n    schedule: Cron in the agent's timezone, e.g. \"30 6 * * *\" (daily 06:30),\n        \"0 18 * * 5\" (Fridays 18:00).\n    model: A model id.\n    budget_usd: Daily budget for the agent's own runs, in USD.\n    fresh_context: true = each run starts fresh; false = runs see this chat.\n    grants: The complete list of tools the agent may use (e.g. [\"garmin_connect\"]).\n    confirm: true only after the user agreed to the preview in their reply.",
+    "description": "Change this agent's own settings - its standing instructions, schedule,\nmodel, daily budget, history or tools - always with the user's agreement.\n\nTalking with the user: it shows them a card with the change and changes\nnothing itself - the server applies exactly that change when they approve\n(on the card, or by replying yes). Never say it changed before you hear\nit was approved. During a scheduled run (the user is away) it asks the\nuser for approval instead and the run pauses until they answer.\n\nArgs:\n    instructions: The full new standing instructions (not a diff).\n    schedule: Cron in the agent's timezone, e.g. \"30 6 * * *\" (daily 06:30),\n        \"0 18 * * 5\" (Fridays 18:00).\n    model: A model id.\n    budget_usd: Daily budget for the agent's own runs, in USD.\n    fresh_context: true = each run starts fresh; false = runs see this chat.\n    grants: The complete list of tools the agent may use (e.g. [\"garmin_connect\"]).",
     "name": "edit_standing_chat",
     "parameters": {
       "properties": {
@@ -229,9 +226,6 @@
           },
           "nullable": true,
           "type": "ARRAY"
-        },
-        "confirm": {
-          "type": "BOOLEAN"
         }
       },
       "required": [],
@@ -812,7 +806,7 @@
     }
   },
   {
-    "description": "Set reminders, check-ins, watchers and recurring checks for the user, and manage them.\n\nEverything belongs to this chat: results arrive here as a new message\n(and a push), and deleting the chat deletes them. Times are local. A\nlasting role with its own chat (\"be my coach, check in every evening\")\nis a standing chat instead: create_standing_chat.\n\ncreate: first call WITHOUT confirm - it returns a preview and stores\nnothing. Show the preview to the user and ask; only after they agree in\ntheir reply, call create with confirm=true (no other fields needed): it\nstores exactly the item previewed in this chat.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date + time.\n  - kind=\"check_in\": at date + time, ask the user a question back in\n    this chat (\"check with me Friday how it's healing\"). text = the\n    question to ask then, written now from this conversation.\n  - kind=\"watcher\": check a public web page until something happens,\n    then report and stop (\"tell me when the school posts a teacher job\").\n    text = what to check (with its URL if known), end_condition = when\n    to stop, interval = 6h, daily or weekly (how urgent), optional\n    until = last day. Only public pages - not email, mail or accounts.\n  - kind=\"recurring\": a regular check you run and report on. text = the\n    task, days = mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"],\n    time, optional until.\nlist: everything scheduled from chat, with ids.\npause / resume (watchers, recurring) and delete (any): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder, check_in, watcher or recurring (create).\n    text: The reminder, the check-in question, or what to check or do.\n    date: YYYY-MM-DD (reminder, check_in).\n    time: HH:MM, 24-hour, local time (reminder, check_in, recurring).\n    days: Days for recurring: mon..sun, or daily, weekdays, weekends.\n    until: YYYY-MM-DD, the last day (watcher, recurring; optional).\n    interval: 6h, daily or weekly (watcher).\n    end_condition: When a watcher stops (watcher).\n    item_id: The id from list (pause, resume, delete).\n    confirm: true only after the user agreed to the preview in their reply.",
+    "description": "Set reminders, check-ins, watchers and recurring checks for the user, and manage them.\n\nEverything belongs to this chat: results arrive here as a new message\n(and a push), and deleting the chat deletes them. Times are local. A\nlasting role with its own chat (\"be my coach, check in every evening\")\nis a standing chat instead: create_standing_chat.\n\ncreate: shows the user a card with the item to approve and stores\nnothing itself - the server stores exactly that item when the user\napproves (on the card, or by replying yes). Don't call it again for the\nsame item, and never say it is set before you hear it was approved.\n  - kind=\"reminder\": a one-off push. text = what to remind about,\n    date + time.\n  - kind=\"check_in\": at date + time, ask the user a question back in\n    this chat (\"check with me Friday how it's healing\"). text = the\n    question to ask then, written now from this conversation.\n  - kind=\"watcher\": check a public web page until something happens,\n    then report and stop (\"tell me when the school posts a teacher job\").\n    text = what to check (with its URL if known), end_condition = when\n    to stop, interval = 6h, daily or weekly (how urgent), optional\n    until = last day. Only public pages - not email, mail or accounts.\n  - kind=\"recurring\": a regular check you run and report on. text = the\n    task, days = mon..sun or [\"daily\"] / [\"weekdays\"] / [\"weekends\"],\n    time, optional until.\nlist: everything scheduled from chat, with ids.\npause / resume (watchers, recurring) and delete (any): item_id from list.\n\nArgs:\n    action: create, list, pause, resume or delete.\n    kind: reminder, check_in, watcher or recurring (create).\n    text: The reminder, the check-in question, or what to check or do.\n    date: YYYY-MM-DD (reminder, check_in).\n    time: HH:MM, 24-hour, local time (reminder, check_in, recurring).\n    days: Days for recurring: mon..sun, or daily, weekdays, weekends.\n    until: YYYY-MM-DD, the last day (watcher, recurring; optional).\n    interval: 6h, daily or weekly (watcher).\n    end_condition: When a watcher stops (watcher).\n    item_id: The id from list (pause, resume, delete).",
     "name": "schedule",
     "parameters": {
       "properties": {
@@ -857,9 +851,6 @@
         "item_id": {
           "nullable": true,
           "type": "STRING"
-        },
-        "confirm": {
-          "type": "BOOLEAN"
         }
       },
       "required": [
