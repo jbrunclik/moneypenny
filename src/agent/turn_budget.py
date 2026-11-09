@@ -10,15 +10,19 @@ or a subagent's run inside a tool call - has its own.
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from src.agent.turn_usage import usage_tokens
+from src.agent.round_cap import tool_round_cap
+from src.config import Config
 from src.services.costs import calculate_token_cost
+from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
     from langchain_core.messages import AIMessage, BaseMessage
 
     from src.agent.graph_state import AgentState
+
+logger = get_logger(__name__)
 
 
 def initial_state(messages: list[BaseMessage]) -> AgentState:
@@ -35,8 +39,63 @@ def initial_state(messages: list[BaseMessage]) -> AgentState:
 
 def call_cost_usd(response: AIMessage, model_name: str) -> float:
     """One model call's cost, priced with the model that answered it."""
+    from src.agent.turn_usage import usage_tokens  # noqa: PLC0415 - cycle: turn_usage -> tool_round_check -> turn_budget
+
     usage = getattr(response, "usage_metadata", None)
     if not usage:
         return 0.0
     inp, out, cached = usage_tokens(usage)
     return calculate_token_cost(model_name, inp, out, cached_input_tokens=cached)
+
+
+StopReason = Literal["cost", "time", "rounds", "loop"]
+
+# Appended to the latest tool result (results are read; prompt text is not)
+WRAP_UP_NOTICE = "\n\n[Time is nearly up: finish with what you have in your next reply.]"
+# Before the tools-off final call
+FINAL_GUIDANCE = (
+    "This turn has used its budget, so this is your last reply and tools are off. "
+    "Answer the user with what you found. If something is still missing, say so and "
+    "give your best answer with what is available. Then end with a short list of what "
+    "you would do next if you could continue - the concrete remaining steps - so the "
+    "user can tell you to go on."
+)
+
+
+def elapsed_s(state: AgentState) -> float:
+    """Seconds since the run's budget started (0 when it has none)."""
+    started = state.get("turn_started_at")
+    return 0.0 if started is None else time.monotonic() - started
+
+
+def budget_stop(state: AgentState, tool_rounds: int) -> StopReason | None:
+    """The limit this turn just hit, if any: cost, then time, then rounds."""
+    if state.get("turn_cost_usd", 0.0) >= Config.TURN_COST_LIMIT_USD:
+        return "cost"
+    if elapsed_s(state) >= Config.TURN_TIME_BUDGET_SECONDS:
+        return "time"
+    cap = tool_round_cap()
+    if cap > 0 and tool_rounds >= cap:
+        return "rounds"
+    return None
+
+
+def wrap_up_due(state: AgentState) -> bool:
+    """The one wrap-up notice is due (past the fraction, not sent yet)."""
+    if state.get("wrap_up_noticed"):
+        return False
+    budget = Config.TURN_TIME_BUDGET_SECONDS
+    return elapsed_s(state) >= Config.TURN_WRAP_UP_FRACTION * budget
+
+
+def log_stop(reason: StopReason, state: AgentState, tool_rounds: int) -> None:
+    """One line per stop: the regular review reads these (rule A8)."""
+    logger.info(
+        "Turn budget stop",
+        extra={
+            "reason": reason,
+            "tool_rounds": tool_rounds,
+            "elapsed_s": round(elapsed_s(state), 1),
+            "cost_usd": round(state.get("turn_cost_usd", 0.0), 4),
+        },
+    )

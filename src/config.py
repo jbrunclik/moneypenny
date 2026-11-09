@@ -827,6 +827,20 @@ class Config:
     # drip-feeding single tool calls; the cap remains the stop signal.
     AGENT_TOOL_ROUNDS_SOFT_NUDGE: int = int(os.getenv("AGENT_TOOL_ROUNDS_SOFT_NUDGE", "4"))
 
+    # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
+    # running cost, its time, a loop or the round backstop - whichever comes
+    # first - and ends with one tools-off answer. Off until measured against
+    # the round cap above (an eval A/B).
+    TURN_BUDGETS_ENABLED: bool = os.getenv("TURN_BUDGETS_ENABLED", "false").lower() == "true"
+    # Running cost of the turn's model calls, in USD (typical turns: $0.02-0.05)
+    TURN_COST_LIMIT_USD: float = float(os.getenv("TURN_COST_LIMIT_USD", "0.15"))
+    # Wall-clock budget of the tool loop (well under CHAT_TIMEOUT_SECONDS)
+    TURN_TIME_BUDGET_SECONDS: float = float(os.getenv("TURN_TIME_BUDGET_SECONDS", "240"))
+    # The one "wrap up now" notice, at this share of the time budget
+    TURN_WRAP_UP_FRACTION: float = float(os.getenv("TURN_WRAP_UP_FRACTION", "0.8"))
+    # Backstop against runaways only (a deep-research subagent keeps its own cap)
+    TURN_MAX_TOOL_ROUNDS: int = int(os.getenv("TURN_MAX_TOOL_ROUNDS", "20"))
+
     # Within one turn, every ToolMessage is re-sent to the LLM on each loop
     # iteration. Once the model has consumed a result (one chat call after the
     # tool ran), older results are aged: multimodal content (fetched PDFs/

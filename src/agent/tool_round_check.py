@@ -14,6 +14,13 @@ from src.agent.cancellation import raise_if_cancelled
 from src.agent.graph_state import AgentState
 from src.agent.round_cap import tool_round_cap
 from src.agent.tools.context import get_conversation_context
+from src.agent.turn_budget import (
+    FINAL_GUIDANCE,
+    WRAP_UP_NOTICE,
+    budget_stop,
+    log_stop,
+    wrap_up_due,
+)
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -139,6 +146,43 @@ def _round_pressure_update(
     }
 
 
+def _budget_update(
+    state: AgentState,
+    tool_rounds: int,
+    use_cache: bool,
+    interjection: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """Turn budgets: a stop (the final, tools-off answer comes next) or the one
+    wrap-up notice; None when neither, so self-correction runs as usual.
+
+    An interjection always reaches the model, also after a stop - it never
+    re-opens the tools.
+    """
+    found = interjection["messages"] if interjection else []
+    steering: list[BaseMessage] = list(found) if isinstance(found, list) else []
+    if reason := state.get("final_answer"):
+        return {"tool_rounds": tool_rounds, "final_answer": reason, "messages": steering}
+    if stop := budget_stop(state, tool_rounds):
+        log_stop(stop, state, tool_rounds)
+        guidance = _guidance(FINAL_GUIDANCE, use_cache)
+        return {
+            "tool_rounds": tool_rounds,
+            "tool_retries": 0,
+            "final_answer": stop,
+            "messages": [*steering, guidance],
+        }
+    latest = state["messages"][-1] if state["messages"] else None
+    if wrap_up_due(state) and isinstance(latest, ToolMessage):
+        logger.info("Turn wrap-up notice", extra={"tool_rounds": tool_rounds})
+        notice = latest.model_copy(update={"content": f"{latest.content}{WRAP_UP_NOTICE}"})
+        return {
+            "tool_rounds": tool_rounds,
+            "wrap_up_noticed": True,
+            "messages": [*steering, notice],
+        }
+    return interjection
+
+
 def _latest_tool_errors(messages: list[BaseMessage]) -> tuple[list[str], bool]:
     """(error texts, any of them retriable) for the latest round's ToolMessages."""
     any_retriable = False
@@ -224,7 +268,11 @@ def check_tool_results(
     max_rounds = tool_round_cap()
 
     update = _interjection_update(state, tool_rounds, use_cache)
-    if update is None:
+    if Config.TURN_BUDGETS_ENABLED:
+        budget = _budget_update(state, tool_rounds, use_cache, update)
+        if budget is not None:
+            return budget
+    elif update is None:
         update = _round_pressure_update(tool_rounds, max_rounds, use_cache)
     if update is not None:
         return update

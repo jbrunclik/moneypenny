@@ -92,3 +92,125 @@ class TestTheTurnsBudget:
 
         assert inner["turn_cost_usd"] == pytest.approx(calculate_token_cost(FAST, 1000, 100))
         assert outer["turn_cost_usd"] == 0.05
+
+
+# --- Task 2: limits decide when the turn stops --------------------------------
+
+from langchain_core.messages import ToolMessage  # noqa: E402
+
+from src.agent.round_cap import round_cap_override  # noqa: E402
+from src.agent.tool_round_check import check_tool_results  # noqa: E402
+
+
+@pytest.fixture
+def budgets(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
+    monkeypatch.setattr(Config, "TURN_COST_LIMIT_USD", 0.15)
+    monkeypatch.setattr(Config, "TURN_TIME_BUDGET_SECONDS", 240.0)
+    monkeypatch.setattr(Config, "TURN_WRAP_UP_FRACTION", 0.8)
+    monkeypatch.setattr(Config, "TURN_MAX_TOOL_ROUNDS", 20)
+    monkeypatch.setattr("src.agent.tool_round_check.get_conversation_context", lambda: (None, None))
+    return monkeypatch
+
+
+def _after_tools(now: float = 0.0, **extra: Any) -> Any:
+    """A state right after a tool round, `now` seconds into the turn."""
+    return {
+        "messages": [
+            HumanMessage(content="find it"),
+            AIMessage(
+                content="",
+                id="a1",
+                tool_calls=[{"name": "web_search", "args": {"q": "x"}, "id": "c1"}],
+            ),
+            ToolMessage(content="result", tool_call_id="c1", name="web_search", id="t1"),
+        ],
+        "tool_retries": 0,
+        "tool_rounds": 0,
+        "turn_started_at": -now,
+        "turn_cost_usd": 0.01,
+        "failed_calls": {},
+        **extra,
+    }
+
+
+def _clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.agent.turn_budget.time.monotonic", lambda: 0.0)
+
+
+class TestLimits:
+    def test_cost_limit_stops_the_turn(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        out = check_tool_results(_after_tools(turn_cost_usd=0.16))
+        assert out["final_answer"] == "cost"
+
+    def test_time_limit_stops_the_turn(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        out = check_tool_results(_after_tools(now=241))
+        assert out["final_answer"] == "time"
+
+    def test_round_backstop_stops_the_turn(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        assert check_tool_results(_after_tools(tool_rounds=19))["final_answer"] == "rounds"
+        assert "final_answer" not in check_tool_results(_after_tools(tool_rounds=18))
+        with round_cap_override(4):
+            assert check_tool_results(_after_tools(tool_rounds=3))["final_answer"] == "rounds"
+
+    def test_no_limit_no_stop_and_no_nudge(self, budgets: pytest.MonkeyPatch) -> None:
+        """The round-4 'answer within a round or two' nudge is gone."""
+        _clock(budgets)
+        out = check_tool_results(_after_tools(tool_rounds=3))
+        assert "final_answer" not in out
+        assert "messages" not in out
+
+    def test_wrap_up_notice_once_on_the_tool_result(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        state = _after_tools(now=200)
+
+        out = check_tool_results(state)
+
+        assert out["wrap_up_noticed"] is True
+        [notice] = out["messages"]
+        assert isinstance(notice, ToolMessage) and notice.id == state["messages"][-1].id
+        assert str(notice.content).endswith("finish with what you have in your next reply.]")
+        again = check_tool_results({**_after_tools(now=210), "wrap_up_noticed": True})
+        assert "messages" not in again
+
+    def test_time_budget_past_due_stops_once(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        out = check_tool_results(_after_tools(now=900))
+        assert out["final_answer"] == "time"
+        assert not out.get("wrap_up_noticed")
+
+    def test_interjection_after_stop_keeps_tools_off(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        budgets.setattr("src.agent.tool_round_check.get_conversation_context", lambda: ("c", "u"))
+        budgets.setattr(
+            "src.agent.tool_round_check.interjection.pop_interjection", lambda _u, _c: "use metric"
+        )
+        out = check_tool_results(_after_tools(final_answer="cost"))
+        assert out["final_answer"] == "cost"
+        assert "use metric" in str(out["messages"][-1].content)
+
+    def test_a_stop_logs_its_reason(
+        self, budgets: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        _clock(budgets)
+        with caplog.at_level("INFO"):
+            check_tool_results(_after_tools(now=241, tool_rounds=4))
+        [record] = [r for r in caplog.records if r.getMessage() == "Turn budget stop"]
+        assert (record.reason, record.tool_rounds, record.elapsed_s) == ("time", 5, 241.0)
+        assert record.cost_usd == pytest.approx(0.01)
+
+    def test_budgets_off_keeps_the_old_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", False)
+        monkeypatch.setattr(
+            "src.agent.tool_round_check.get_conversation_context", lambda: (None, None)
+        )
+        nudge = check_tool_results(
+            _after_tools(tool_rounds=Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE - 1)
+        )
+        capped = check_tool_results(_after_tools(tool_rounds=Config.AGENT_MAX_TOOL_ROUNDS - 1))
+        assert "Be efficient" in str(nudge["messages"][0].content)
+        assert "Stop calling tools now" in str(capped["messages"][0].content)
+        assert "final_answer" not in capped

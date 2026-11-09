@@ -14,8 +14,14 @@ _override: contextvars.ContextVar[int | None] = contextvars.ContextVar("round_ca
 
 
 def tool_round_cap() -> int:
+    """The run's round limit: its override, else the budget backstop (turn
+    budgets on) or the old soft cap."""
     override = _override.get()
-    return Config.AGENT_MAX_TOOL_ROUNDS if override is None else override
+    if override is not None:
+        return override
+    return (
+        Config.TURN_MAX_TOOL_ROUNDS if Config.TURN_BUDGETS_ENABLED else Config.AGENT_MAX_TOOL_ROUNDS
+    )
 
 
 @contextmanager
