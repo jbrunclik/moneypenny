@@ -78,6 +78,9 @@ def budget_stop(state: AgentState, tool_rounds: int) -> StopReason | None:
     cap = tool_round_cap()
     if cap > 0 and tool_rounds >= cap:
         return "rounds"
+    # A blocked call tried again twice: the model is stuck on it
+    if max(state.get("failed_calls", {}).values(), default=0) >= Config.TURN_LOOP_BLOCK_AFTER + 2:
+        return "loop"
     return None
 
 

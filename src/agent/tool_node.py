@@ -15,8 +15,10 @@ from src.agent.cancellation import TurnCancelled
 from src.agent.content import strip_full_result_from_tool_content
 from src.agent.graph_state import AgentState
 from src.agent.permissions import PermissionResult, check_tool_permission
+from src.agent.tool_loops import blocked_calls, blocked_message, dedupe_results
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools.request_approval import ApprovalRequestedException
+from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -51,6 +53,40 @@ def _handle_tool_errors(e: Exception) -> str:
     if isinstance(e, (ApprovalRequestedException, TurnCancelled)):
         raise e
     return f"Error: {e!r}\n Please fix your mistakes."
+
+
+def split_looping_calls(state: AgentState) -> tuple[list[ToolMessage], AgentState | None]:
+    """Turn budgets: calls that already failed too often this turn get their
+    error without running; the rest run as usual."""
+    last_message = state["messages"][-1]
+    if not (isinstance(last_message, AIMessage) and last_message.tool_calls):
+        return [], state
+    ids = blocked_calls(state.get("failed_calls", {}), last_message.tool_calls)
+    if not ids:
+        return [], state
+    blocked = [blocked_message(c) for c in last_message.tool_calls if c["id"] in ids]
+    allowed = [c for c in last_message.tool_calls if c["id"] not in ids]
+    if not allowed:
+        return blocked, None
+    pruned = AIMessage(content=last_message.content, tool_calls=allowed)
+    return blocked, {**state, "messages": [*state["messages"][:-1], pruned]}
+
+
+def _dedupe_round(state: AgentState, result: dict[str, Any]) -> None:
+    """Turn budgets: a large byte-identical repeat result becomes a back-reference."""
+    last_message = state["messages"][-1]
+    if not isinstance(last_message, AIMessage):
+        return
+    messages = list(result.get("messages", []))
+    tool_results = [m for m in messages if isinstance(m, ToolMessage)]
+    deduped, seen = dedupe_results(
+        tool_results, last_message.tool_calls, state.get("seen_results", {})
+    )
+    by_id = {m.tool_call_id: m for m in deduped}
+    result["messages"] = [
+        by_id.get(m.tool_call_id, m) if isinstance(m, ToolMessage) else m for m in messages
+    ]
+    result["seen_results"] = seen
 
 
 def _split_blocked_tool_calls(
@@ -295,8 +331,13 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
         approval_state: AgentState | None = None
         if is_autonomous:
             blocked_messages, exec_state, approval_state = _split_autonomous_calls(state)
+        if Config.TURN_BUDGETS_ENABLED and exec_state is not None:
+            looping, exec_state = split_looping_calls(exec_state)
+            blocked_messages = [*blocked_messages, *looping]
 
         result = _run_batch(base_tool_node, exec_state, blocked_messages)
+        if Config.TURN_BUDGETS_ENABLED:
+            _dedupe_round(state, result)
         _capture_and_strip_tool_messages(result.get("messages", []), request_id)
 
         if approval_state is not None:

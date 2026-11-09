@@ -5,7 +5,7 @@ the state tells the model how to go on.
 """
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
@@ -13,6 +13,7 @@ from src.agent import interjection
 from src.agent.cancellation import raise_if_cancelled
 from src.agent.graph_state import AgentState
 from src.agent.round_cap import tool_round_cap
+from src.agent.tool_loops import loop_state
 from src.agent.tools.context import get_conversation_context
 from src.agent.turn_budget import (
     FINAL_GUIDANCE,
@@ -25,6 +26,9 @@ from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# A node's state update (LangGraph merges it into the state)
+Update = dict[str, Any]
 
 
 def tool_message_error(msg: ToolMessage) -> tuple[str, bool] | None:
@@ -64,9 +68,7 @@ def _guidance(content: str, use_cache: bool) -> BaseMessage:
     return SystemMessage(content=content)
 
 
-def _interjection_update(
-    state: AgentState, tool_rounds: int, use_cache: bool
-) -> dict[str, Any] | None:
+def _interjection_update(state: AgentState, tool_rounds: int, use_cache: bool) -> Update | None:
     """Mid-run steering the user sent while this turn was running, if any.
 
     Stored cross-worker in kv_store by the interject route. Checked FIRST so
@@ -97,9 +99,7 @@ def _interjection_update(
     }
 
 
-def _round_pressure_update(
-    tool_rounds: int, max_rounds: int, use_cache: bool
-) -> dict[str, Any] | None:
+def _round_pressure_update(tool_rounds: int, max_rounds: int, use_cache: bool) -> Update | None:
     """The round-cap or soft-nudge guidance this round calls for, if any.
 
     Soft round cap: once hit, stop gathering and answer with what we have - and
@@ -183,6 +183,35 @@ def _budget_update(
     return interjection
 
 
+def _with_budgets(
+    state: AgentState, tool_rounds: int, use_cache: bool, interjection: Update | None
+) -> Update:
+    """Turn budgets on: the loop detector's state, then a stop, the wrap-up
+    notice, steering or self-correction - with the loop state in every result."""
+    loops, warning = loop_state(state)
+    state = cast("AgentState", {**state, **loops})
+    result = _budget_update(state, tool_rounds, use_cache, interjection)
+    if result is None:
+        result = _self_correction(state, tool_rounds, use_cache)
+    messages = list(cast("list[BaseMessage]", result.get("messages", [])))
+    if warning and "final_answer" not in result:
+        messages.append(_guidance(warning, use_cache))
+    merged = {**loops, **result}
+    if messages:
+        merged["messages"] = messages
+    return merged
+
+
+def _self_correction(state: AgentState, tool_rounds: int, use_cache: bool) -> Update:
+    """Retry or give-up guidance for the latest round's failures (none: reset)."""
+    error_details, any_retriable = _latest_tool_errors(state["messages"])
+    if not error_details:
+        return {"tool_retries": 0, "tool_rounds": tool_rounds}
+    return _error_guidance_update(
+        state.get("tool_retries", 0), tool_rounds, error_details, any_retriable, use_cache
+    )
+
+
 def _latest_tool_errors(messages: list[BaseMessage]) -> tuple[list[str], bool]:
     """(error texts, any of them retriable) for the latest round's ToolMessages."""
     any_retriable = False
@@ -207,7 +236,7 @@ def _error_guidance_update(
     error_details: list[str],
     any_retriable: bool,
     use_cache: bool,
-) -> dict[str, Any]:
+) -> Update:
     """Retry guidance while retries are left, give-up guidance after."""
     max_retries = Config.AGENT_MAX_TOOL_RETRIES
     new_retries = tool_retries + 1
@@ -245,7 +274,7 @@ def _error_guidance_update(
 def check_tool_results(
     state: AgentState,
     use_cache: bool = False,
-) -> dict[str, Any]:
+) -> Update:
     """Inspect tool results and provide self-correction guidance if errors occurred.
 
     After tools execute, this node checks for errors:
@@ -269,10 +298,8 @@ def check_tool_results(
 
     update = _interjection_update(state, tool_rounds, use_cache)
     if Config.TURN_BUDGETS_ENABLED:
-        budget = _budget_update(state, tool_rounds, use_cache, update)
-        if budget is not None:
-            return budget
-    elif update is None:
+        return _with_budgets(state, tool_rounds, use_cache, update)
+    if update is None:
         update = _round_pressure_update(tool_rounds, max_rounds, use_cache)
     if update is not None:
         return update

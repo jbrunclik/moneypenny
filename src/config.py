@@ -840,6 +840,10 @@ class Config:
     TURN_WRAP_UP_FRACTION: float = float(os.getenv("TURN_WRAP_UP_FRACTION", "0.8"))
     # Backstop against runaways only (a deep-research subagent keeps its own cap)
     TURN_MAX_TOOL_ROUNDS: int = int(os.getenv("TURN_MAX_TOOL_ROUNDS", "20"))
+    # An identical call that failed this many times is blocked from then on
+    TURN_LOOP_BLOCK_AFTER: int = int(os.getenv("TURN_LOOP_BLOCK_AFTER", "2"))
+    # A byte-identical repeat result at least this long becomes a back-reference
+    TURN_DUPLICATE_RESULT_MIN_CHARS: int = int(os.getenv("TURN_DUPLICATE_RESULT_MIN_CHARS", "2000"))
 
     # Within one turn, every ToolMessage is re-sent to the LLM on each loop
     # iteration. Once the model has consumed a result (one chat call after the

@@ -131,6 +131,9 @@ turn_cost_usd
 failed_calls
 final_answer
 wrap_up_noticed
+recent_rounds
+ab_warned
+seen_results
 session_gap  # src/agent/history.py MessageMetadata
 created_by_message_id  # src/db/models/dataclasses.py: rows mirror their table
 last_viewed_at
