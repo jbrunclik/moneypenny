@@ -65,8 +65,9 @@ A `proposals` table (one migration) replacing `job_approvals` and the kv
 pending gate:
 
 - `id`, `user_id`, `conversation_id`, `message_id` (the reply that shows it;
-  set when the reply is saved), `kind`, `payload` (JSON: exactly what applying
-  does), `summary` (plain language, the user's language), `details` (JSON for
+  set when the reply is saved), `kind`, `options` (JSON, 1-4: each a label, a
+  short description and its payload - exactly what choosing it does; plain
+  yes/no is one option plus Decline), `chosen` (the option picked), `summary` (plain language, the user's language), `details` (JSON for
   the card body: fields, permissions spelled out, cost estimate), `origin`
   (`chat` or `run`, with `job_id` and `execution_id` for runs), `state`
   (`pending`, `approved`, `declined`, `expired`, `superseded`, `failed`),
@@ -110,13 +111,25 @@ A new proposal of a kind supersedes a pending one of the same kind from an
 earlier reply in that conversation (state `superseded`). One reply can carry
 several proposals of different kinds (a reminder and a delete).
 
+### Options (decided by Jiri, Nov 9 2026: "Yes, shape now, step 5 later")
+
+The record and card hold 1-4 options from step 1, so a proposal is a choice,
+not only a yes. Today's cases mostly have one option (Approve); the run
+approval's "Approve once" / "Always allow" become two options. A choice either
+applies its payload (a reminder vs a watcher) or - step 5 - only answers a
+question: the picked label becomes the user's reply and the turn continues
+("which dentist event?"). Options appear only when the model has a real choice
+to offer, never as generic suggested replies (no suggestion chips).
+
 ### Answering
 
 - **Buttons** on the card: Approve / Not now (and Always allow for an
   `agent_action` on a writable integration the agent holds, as today). One
   endpoint family: `POST /api/proposals/<id>/approve` (body: `always`,
   optional edited payload for `deep_research`), `POST /api/proposals/<id>/decline`.
-- **Typed alias**: when the user's next message in that conversation is a
+- **Typed alias, several options**: the option's number or its exact label
+  picks it; a typed "yes" resolves nothing (the card stays).
+- **Typed alias, one option**: when the user's next message in that conversation is a
   plain yes or no ("yes", "ano", "jo", "ok", "do it", "no", "ne"...; a short
   fixed list per language, matched on the whole trimmed message), the server
   resolves every proposal pending on the latest reply that showed any -
@@ -178,6 +191,9 @@ nobody answers?).
 2. B: `job_approvals` folds in; the composer unblocks.
 3. C: deep research onto proposals.
 4. D: destructive chat changes gated.
+5. Choices that only answer: clarifying questions and "choose an approach"
+   (folds in the TODO item "Clarifying questions with options" from the
+   Hermes comparison).
 
 ## Constraints
 
