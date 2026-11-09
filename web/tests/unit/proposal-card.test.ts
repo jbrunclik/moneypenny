@@ -220,6 +220,24 @@ describe('question card', () => {
     expect(back?.disabled).toBe(false);
   });
 
+  it('a card under an older reply sends nothing (answered elsewhere meanwhile)', async () => {
+    const { useStore } = await import('../../src/state/store');
+    const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 2 };
+    useStore.setState({ currentConversation: { id: 'c1', title: 't', model: 'm', created_at: '', updated_at: '' } });
+    useStore.getState().setMessages('c1', [
+      { id: 'm1', role: 'assistant', content: 'Shall I?', created_at: '' },
+      { id: 'm2', role: 'assistant', content: 'Later reply', created_at: '' },
+    ], page);
+    const actions: ProposalActions = { approve: vi.fn(), decline: vi.fn(), reply: vi.fn(async () => true) };
+    const el = reply([question()]);
+    initProposalCards(actions, document.getElementById('messages')!);
+    el.querySelector<HTMLButtonElement>('[data-proposal-choice="0"]')!.click();
+    await flush();
+    expect(actions.reply).not.toHaveBeenCalled();
+    expect(el.querySelector('.proposal-card__note')!.textContent).toContain('no longer open');
+    useStore.setState({ currentConversation: null });
+  });
+
   it('answered in the chat when the user wrote their own reply', () => {
     const card = renderProposalCard(question({ state: 'expired' }));
     expect(card.textContent?.trim()).toBe('Answered in the chat - Which dentist appointment?');

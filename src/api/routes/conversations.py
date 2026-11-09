@@ -81,6 +81,8 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
 
     pinned_with_counts = db.list_pinned_conversations(user.id)
 
+    counts = db.light_item_counts(user.id)
+
     def _conv_payload(c: Any, message_count: int, preview: str | None) -> dict[str, Any]:
         return {
             "id": c.id,
@@ -94,6 +96,7 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
             "pinned": c.pinned or None,
             "is_whats_new": c.is_whats_new or None,
             "last_message_preview": preview,
+            "scheduled_count": counts.get(c.id) or None,
         }
 
     return {
@@ -397,6 +400,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
     # a cursor yet, or one checking for deletions)
     conv_with_counts = db.list_conversations_with_message_count(user.id)
 
+    counts = db.light_item_counts(user.id)
     logger.info(
         "Sync conversations completed",
         extra={
@@ -407,7 +411,7 @@ def sync_conversations(user: User, query: SyncQuery) -> dict[str, Any]:
 
     return {
         "conversations": [
-            sync_summary(conv, message_count, preview)
+            sync_summary(conv, message_count, preview, scheduled_count=counts.get(conv.id, 0))
             for conv, message_count, preview in conv_with_counts
         ],
         "server_time": server_time,

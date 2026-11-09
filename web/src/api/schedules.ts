@@ -2,7 +2,7 @@
  * Scheduled items set from chat: a chat's items (header chip) and cancel /
  * pause / resume / run. The Command Center's job list comes from api/jobs.ts.
  */
-import type { ConversationSchedulesResponse, ScheduledItem } from '../types/api';
+import type { AgentDraft, ConversationSchedulesResponse, ScheduledItem } from '../types/api';
 import { request, requestWithRetry } from './http';
 
 export const schedules = {
@@ -11,6 +11,11 @@ export const schedules = {
     return requestWithRetry<ConversationSchedulesResponse>(
       `/api/conversations/${conversationId}/schedules`,
     );
+  },
+
+  /** A watcher or recurring check as a full agent, for the editor (Make an agent). */
+  async agentDraft(itemId: string): Promise<AgentDraft> {
+    return request<AgentDraft>(`/api/schedules/${itemId}/agent-draft`);
   },
 
   /** Cancel an item. */

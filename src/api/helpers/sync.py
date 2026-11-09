@@ -17,6 +17,7 @@ def sync_summary(
     message_count: int,
     preview: str | None,
     last_message_id: str | None = None,
+    scheduled_count: int = 0,
 ) -> dict[str, Any]:
     """One conversation as the sync endpoint returns it."""
     return {
@@ -34,6 +35,7 @@ def sync_summary(
         "pinned": conv.pinned,
         "anonymous_mode": conv.anonymous_mode,
         "is_whats_new": conv.is_whats_new,
+        "scheduled_count": scheduled_count,
     }
 
 
@@ -48,8 +50,15 @@ def cursor_sync(user_id: str, cursor: int) -> dict[str, Any]:
     has_more = len(changes) > page_size
     changes = changes[:page_size]
 
+    counts = db.light_item_counts(user_id) if changes else {}
     conversations = [
-        sync_summary(c.conversation, c.message_count, c.last_message_preview, c.last_message_id)
+        sync_summary(
+            c.conversation,
+            c.message_count,
+            c.last_message_preview,
+            c.last_message_id,
+            counts.get(c.conversation_id, 0),
+        )
         for c in changes
         if c.conversation is not None and is_chat_conversation(c.conversation)
     ]

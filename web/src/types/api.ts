@@ -73,6 +73,7 @@ export interface Conversation {
   is_agent?: boolean; // True if this is an agent's dedicated conversation
   job_id?: string | null; // the agent chat's standing job, if is_agent
   is_whats_new?: boolean | null; // the read-only What's new chat (no composer)
+  scheduled_count?: number | null; // its reminders, watchers and recurring checks (sidebar clock)
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)
@@ -126,6 +127,9 @@ export type Message = Omit<MaybeAbsent<Schemas['MessageResponse']>, MessagePartK
 
 /** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
 export type ArtifactRef = Schemas['MessageResponse.ArtifactRef'];
+
+/** A chat's watcher or recurring check drafted as a full agent (Make an agent) */
+export type AgentDraft = Schemas['AgentDraftResponse'];
 
 /** A proposal card under a reply: what Moneypenny asks the user's yes for (docs/features/proposals.md) */
 export type Proposal = Schemas['MessageResponse.ProposalResponse'];

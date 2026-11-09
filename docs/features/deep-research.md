@@ -70,9 +70,10 @@ This page covers what the user sees. The rest of the feature:
   `OfferConflictError` (400). The approve endpoint refuses this kind: the
   run is a streamed turn.
 - **A typed yes** to the card (stream turns only) makes that turn the run,
-  with the plan as offered (`typed_start_plan()`; `resolved_by: typed`). In
-  batch mode a typed message leaves the card open for its Start button (the
-  kind is registered `stream_only`). Any other message expires it, like any
+  with the plan as offered (`typed_start_plan()`; `resolved_by: typed`);
+  "start" / "spusť" count as yes for this card. In batch mode a typed message
+  leaves the card open for its Start button (the kind is registered
+  `stream_only`), and the agent is told to point the user at Start. Any other message expires it, like any
   chat card.
 - **Not now** is the card's shared decline (`POST /api/proposals/<id>/decline`);
   the card keeps one line ("Not now - <question>"). An expired card says so.

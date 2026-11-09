@@ -60,6 +60,8 @@ _DECLINES: dict[str, Decline] = {}
 _YES_FIRST: set[str] = set()
 # More whole-message yes words a kind takes (its action's own verb: "smaž to")
 _EXTRA_YES: dict[str, frozenset[str]] = {}
+# Kinds a typed number does not pick from ("2" may be the user's own answer)
+_LABELS_ONLY: set[str] = set()
 # Kinds whose pick takes the whole message: a question's "Smazat" answers the
 # question, never a delete card beside it on the same reply
 _EXCLUSIVE: set[str] = set()
@@ -90,6 +92,7 @@ def register_kind(
     extra_yes: frozenset[str] = frozenset(),
     outcomes: Mapping[str, str] | None = None,
     exclusive: bool = False,
+    by_number: bool = True,
 ) -> None:
     """Register how a kind's chosen option is applied (returns the result
     line), what a decline does besides recording it (a paused run ends),
@@ -107,6 +110,8 @@ def register_kind(
         _KIND_OUTCOMES[kind] = dict(outcomes)
     if exclusive:
         _EXCLUSIVE.add(kind)
+    if not by_number:
+        _LABELS_ONLY.add(kind)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -199,6 +204,7 @@ def typed_answer(
     *,
     yes_is_first: bool = False,
     extra_yes: frozenset[str] = frozenset(),
+    by_number: bool = True,
 ) -> int | NoAnswer | None:
     """The option a typed message picks, None for a no, or NO_ANSWER."""
     said = _normalized(text)
@@ -209,7 +215,7 @@ def typed_answer(
             return 0
         if len(options) == 1:
             return NO_ANSWER
-    if said.isdigit() and 1 <= int(said) <= len(options):
+    if by_number and said.isdigit() and 1 <= int(said) <= len(options):
         return int(said) - 1
     labels = [_normalized(o["label"]) for o in options]
     return labels.index(said) if said in labels else NO_ANSWER
@@ -279,6 +285,7 @@ def answer_typed(
                 p.options,
                 yes_is_first=p.kind in _YES_FIRST,
                 extra_yes=_EXTRA_YES.get(p.kind, frozenset()),
+                by_number=p.kind not in _LABELS_ONLY,
             ),
         )
         for p in on_reply
@@ -315,12 +322,33 @@ def start_turn(
     message's time): what that message answered is told again - the failed
     attempt heard it, its retry did not."""
     db.fail_stale_applying(before=utc_now() - APPLY_STALE_AFTER)
+    waiting = _stream_only_yes(conversation_id, text) if text and not streaming else []
     answered = (
         answer_typed(conversation_id, text, turn_running=turn_running, streaming=streaming)
         if text is not None
         else []
     )
-    return turn_note(conversation_id, since=since), answered
+    note = turn_note(conversation_id, since=since)
+    hints = [_STREAM_ONLY_HINT.format(summary=p.summary) for p in waiting]
+    return "\n".join(line for line in [note, *hints] if line) or None, answered
+
+
+# A yes a batch turn cannot act on (deep research runs only on the stream)
+_STREAM_ONLY_HINT = (
+    "The user said yes to “{summary}”, but with streaming off it starts only from its "
+    "Start button: ask them to press Start on the card."
+)
+
+
+def _stream_only_yes(conversation_id: str, text: str) -> list[Proposal]:
+    """The latest reply's stream-only cards this message would have answered."""
+    return [
+        p
+        for p in db.latest_reply_proposals(conversation_id)
+        if p.kind in _STREAM_ONLY
+        and typed_answer(text, p.options, extra_yes=_EXTRA_YES.get(p.kind, frozenset()))
+        not in (NO_ANSWER, None)
+    ]
 
 
 def answer_and_note(

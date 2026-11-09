@@ -194,6 +194,19 @@ class ScheduledItemsMixin:
             job["cost_usd"] = float(row["cost"])
         return stats
 
+    def light_item_counts(self, user_id: str) -> dict[str, int]:
+        """How many light items each of the user's live chats has (the
+        sidebar's clock); agents' own jobs are not counted."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                f"""SELECT conversation_id, COUNT(*) AS n FROM scheduled_items
+                    WHERE user_id = ? AND grants IS NULL AND {_LIVE_CHAT}
+                    GROUP BY conversation_id""",
+                (user_id,),
+            ).fetchall()
+        return {row["conversation_id"]: int(row["n"]) for row in rows}
+
     def count_items(self, user_id: str) -> int:
         """The user's light items in live chats, paused included (the cap counts
         them); standing jobs have no count limit."""

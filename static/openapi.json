@@ -247,7 +247,8 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "A new standing chat with its job (its chat is \"Agent: <name>\").",
+        "summary": "A new standing chat with its job (its chat is \"Agent: <name>\"); with",
+        "description": "replaces_item_id it takes over a chat's watcher or recurring check.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5352,6 +5353,56 @@
         "summary": "Decline a card (\"Not now\"): nothing is applied."
       }
     },
+    "/api/schedules/{item_id}/agent-draft": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDraftResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "A watcher or recurring check drafted as a full agent (Make an agent)."
+      }
+    },
     "/api/jobs/{job_id}/conversation/sync": {
       "get": {
         "parameters": [
@@ -7688,6 +7739,19 @@
             "description": "Each run starts without history",
             "title": "Fresh Context",
             "type": "boolean"
+          },
+          "replaces_item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "A chat's watcher or recurring check this agent takes over (removed)",
+            "title": "Replaces Item Id"
           }
         },
         "required": [
@@ -9473,6 +9537,19 @@
             "default": null,
             "title": "Last Message Preview"
           },
+          "scheduled_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The chat's reminders, watchers and recurring checks",
+            "title": "Scheduled Count"
+          },
           "deleted_at": {
             "anyOf": [
               {
@@ -9512,6 +9589,7 @@
           "pinned",
           "is_whats_new",
           "last_message_preview",
+          "scheduled_count",
           "deleted_at",
           "purge_at"
         ],
@@ -9681,6 +9759,19 @@
             "default": null,
             "title": "Last Message Preview"
           },
+          "scheduled_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The chat's reminders, watchers and recurring checks",
+            "title": "Scheduled Count"
+          },
           "deleted_at": {
             "anyOf": [
               {
@@ -9720,6 +9811,7 @@
           "pinned",
           "is_whats_new",
           "last_message_preview",
+          "scheduled_count",
           "deleted_at",
           "purge_at"
         ],
@@ -11614,6 +11706,12 @@
             "description": "The read-only What's new chat",
             "title": "Is Whats New",
             "type": "boolean"
+          },
+          "scheduled_count": {
+            "default": 0,
+            "description": "The chat's reminders, watchers and recurring checks",
+            "title": "Scheduled Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -11630,7 +11728,8 @@
           "trashed",
           "pinned",
           "anonymous_mode",
-          "is_whats_new"
+          "is_whats_new",
+          "scheduled_count"
         ],
         "title": "SyncConversationResponse",
         "type": "object"
@@ -16424,6 +16523,61 @@
           }
         },
         "title": "ApproveProposalRequest",
+        "type": "object"
+      },
+      "AgentDraftResponse": {
+        "description": "A chat's watcher or recurring check as a full agent, for the editor;\ncreating it with replaces_item_id removes the item.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cron in `timezone`",
+            "title": "Schedule"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "grants": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Grants",
+            "type": "array"
+          },
+          "fresh_context": {
+            "title": "Fresh Context",
+            "type": "boolean"
+          },
+          "replaces_item_id": {
+            "title": "Replaces Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "instructions",
+          "schedule",
+          "timezone",
+          "grants",
+          "fresh_context",
+          "replaces_item_id"
+        ],
+        "title": "AgentDraftResponse",
         "type": "object"
       },
       "JobConversationSyncResponse.JobConversationSyncData": {

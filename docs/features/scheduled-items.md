@@ -75,6 +75,11 @@ message, each belonging to the chat that set it
 - Evals: `schedule_reminder_preview`, `schedule_reminder_confirm`, `schedule_check_in_preview`,
   `schedule_watcher_preview`, `schedule_weekly_task`.
 
+**Sidebar clock.** A chat with items shows a quiet clock in its sidebar row, with the
+count from two on (`scheduled_count` on the conversation list and sync,
+`light_item_counts()`); agents' own jobs are not counted. A watcher or recurring check
+can become a full agent from Command Center ([agents.md](agents.md#command-center-ui)).
+
 ## See Also
 
 - [Standing Chats and Jobs](agents.md) - standing jobs, the Command Center, approvals

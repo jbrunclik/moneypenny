@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -40,6 +41,7 @@ logger = get_logger(__name__)
 
 KIND = "chat_change"
 _ERROR_MAX_CHARS = 120
+_SUMMARY_ITEM_CHARS = 60
 
 # (verb, noun) per gated operation, as the card says it
 _WORDS: dict[tuple[str, str], tuple[str, str]] = {
@@ -94,13 +96,18 @@ def _call_words(call: Mapping[str, object]) -> tuple[str, str]:
     return _WORDS.get((str(call.get("tool")), operation), ("Change", "item"))
 
 
+def _short(item: str) -> str:
+    """An item name cut for the card's summary (its row keeps it whole)."""
+    return item if len(item) <= _SUMMARY_ITEM_CHARS else item[: _SUMMARY_ITEM_CHARS - 1] + "…"
+
+
 def _card(calls: list[dict[str, object]]) -> tuple[str, dict[str, object], list[ProposalOption]]:
     """Summary, one row per call, and the one option."""
     words = [_call_words(c) for c in calls]
     verbs = {verb for verb, _ in words}
     verb = verbs.pop() if len(verbs) == 1 else None
     if len(calls) == 1:
-        summary = f"{words[0][0]} {words[0][1]} “{calls[0]['item']}”"
+        summary = f"{words[0][0]} {words[0][1]} “{_short(str(calls[0]['item']))}”"
     else:
         summary = f"{verb or 'Change'} {len(calls)} items"
     rows: dict[str, object] = {}
@@ -203,6 +210,7 @@ def _perform(call: Mapping[str, object]) -> str | None:
 def apply_chat_change(proposal: Proposal, option: ProposalOption) -> str:
     """Approved: perform every call on the card, exactly as stored."""
     calls = _calls(proposal)
+    started = time.monotonic()
     done: list[str] = []
     failed: list[str] = []
     with _as_the_user(proposal):
@@ -211,7 +219,14 @@ def apply_chat_change(proposal: Proposal, option: ProposalOption) -> str:
             what = f"{noun} “{call['item']}”"
             error = _perform(call)
             (failed if error else done).append(f"{what} ({error})" if error else what)
-    logger.info("Chat change applied", extra={"calls": len(calls), "failed": len(failed)})
+    logger.info(
+        "Chat change applied",
+        extra={
+            "calls": len(calls),
+            "failed": len(failed),
+            "ms": round((time.monotonic() - started) * 1000),
+        },
+    )
     if not done:
         raise ProposalFailedError("; ".join(failed))
     if failed:

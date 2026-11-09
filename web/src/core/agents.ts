@@ -198,6 +198,7 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
     onResume: (job) => handleJobAction(job, () => schedules.resume(job.id), 'Resumed.'),
     onCancel: (job) => handleJobAction(job, () => schedules.remove(job.id), 'Cancelled.'),
     onEdit: (job) => void handleAgentEditById(job.id),
+    onMakeAgent: (job) => void handleMakeAgent(job.id),
     onNewAgent: () => void handleNewAgent().catch((error: unknown) => log.error('Failed to create agent', { error })),
   });
 
@@ -321,6 +322,26 @@ async function handleNewAgent(): Promise<void> {
     // Refresh command center to show the new agent
     await navigateToAgents(true);
     renderConversationsList();
+  }
+}
+
+/**
+ * A chat's watcher or recurring check becomes a full agent: the editor opens
+ * with its draft, and creating the agent removes the item.
+ */
+async function handleMakeAgent(itemId: string): Promise<void> {
+  try {
+    const draft = await schedules.agentDraft(itemId);
+    const { showAgentEditor } = await import('../components/JobEditor');
+    const result = await showAgentEditor(undefined, draft);
+    if (result) {
+      log.info('Chat item became an agent', { agentId: result.id });
+      await navigateToAgents(true);
+      renderConversationsList();
+    }
+  } catch (error) {
+    log.error('Making an agent failed', { error });
+    toast.error(error instanceof ApiError ? error.message : 'That did not work - try again.');
   }
 }
 

@@ -57,6 +57,7 @@ function handlers(): CommandCenterHandlers & Record<string, ReturnType<typeof vi
     onResume: vi.fn(async () => {}),
     onCancel: vi.fn(async () => {}),
     onEdit: vi.fn(),
+    onMakeAgent: vi.fn(),
     onNewAgent: vi.fn(),
   };
 }
@@ -138,6 +139,9 @@ describe('renderCommandCenter', () => {
     expect(h.onCancel).toHaveBeenCalledWith(expect.objectContaining({ id: 'c' }));
     expect(h.onOpenChat).not.toHaveBeenCalled();
     expect(c?.querySelector('.job-run')).toBeNull(); // light items run on their schedule
+    c?.querySelector<HTMLButtonElement>('.job-make-agent')?.click();
+    expect(h.onMakeAgent).toHaveBeenCalledWith(expect.objectContaining({ id: 'c' }));
+    expect(a?.querySelector('.job-make-agent')).toBeNull(); // already an agent
   });
 
   it('a row click opens its chat', () => {

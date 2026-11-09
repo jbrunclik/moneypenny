@@ -25,7 +25,7 @@ import {
   type IconHtml,
 } from '../utils/icons';
 import { createLogger } from '../utils/logger';
-import type { CreateJobRequest, JobDetail, UpdateJobRequest, UserSettings } from '../types/api';
+import type { AgentDraft, CreateJobRequest, JobDetail, UpdateJobRequest, UserSettings } from '../types/api';
 
 const log = createLogger('agent-editor');
 
@@ -34,6 +34,8 @@ let modalContainer: HTMLDivElement | null = null;
 let currentResolve: ((result: JobDetail | null) => void) | null = null;
 // UI-local (F2): the open editor dialog's session
 let editingAgentId: string | null = null;
+// A new agent taking over a chat's watcher or recurring check (Make an agent)
+let replacesItemId: string | null = null;
 // The close animation's pending cleanup; a reopen runs it at once so it can't
 // fire later and wipe the new session
 let pendingClose: { timer: ReturnType<typeof setTimeout>; finish: () => void } | null = null;
@@ -135,7 +137,7 @@ function initAgentEditor(): void {
 /**
  * Open the agent editor to create a new agent.
  */
-export async function showAgentEditor(agent?: JobDetail): Promise<JobDetail | null> {
+export async function showAgentEditor(agent?: JobDetail, draft?: AgentDraft): Promise<JobDetail | null> {
   initAgentEditor(); // idempotent - lazy import means no boot-time init
 
   // Fetch user settings to determine available tools (e.g., WhatsApp)
@@ -150,11 +152,12 @@ export async function showAgentEditor(agent?: JobDetail): Promise<JobDetail | nu
   finishPendingClose();
   return new Promise((resolve) => {
     editingAgentId = agent?.id || null;
+    replacesItemId = agent ? null : (draft?.replaces_item_id ?? null);
     originalPermissionsUnrestricted = !!agent && agent.grants.includes(ALL_TOOLS_GRANT);
     permissionsTouched = false;
     hiddenGrants = gridlessGrants(agent?.grants ?? [], getAvailableTools(userSettings));
     currentResolve = resolve;
-    renderModal(agent, userSettings);
+    renderModal(agent, userSettings, draft);
     showModalContainer();
   });
 }
@@ -192,8 +195,11 @@ function finishPendingClose(): void {
   pendingClose.finish();
 }
 
+/** What the form opens with: the agent being edited, a chat item's draft, or nothing. */
+type FormStart = Partial<Pick<JobDetail, 'name' | 'description' | 'instructions' | 'schedule' | 'timezone' | 'enabled' | 'fresh_context' | 'grants' | 'model' | 'budget_usd'>>;
+
 /** The form's initial text fields: the agent being edited, or empty for a new one. */
-function agentTextValues(agent: JobDetail | undefined) {
+function agentTextValues(agent: FormStart | undefined) {
   return {
     name: agent?.name || '',
     description: agent?.description || '',
@@ -203,7 +209,7 @@ function agentTextValues(agent: JobDetail | undefined) {
 }
 
 /** The form's initial run settings: the agent being edited, or a new agent's defaults. */
-function agentRunValues(agent: JobDetail | undefined) {
+function agentRunValues(agent: FormStart | undefined) {
   return {
     timezone: agent?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
     enabled: agent?.enabled ?? true,
@@ -430,16 +436,16 @@ function formFields(v: ReturnType<typeof agentTextValues> & ReturnType<typeof ag
 /**
  * Render the modal content.
  */
-function renderModal(agent?: JobDetail, userSettings?: UserSettings | null): void {
+function renderModal(agent?: JobDetail, userSettings?: UserSettings | null, draft?: AgentDraft): void {
   if (!modalContainer) return;
 
   const isEditing = !!agent;
-  const title = isEditing ? 'Edit Agent' : 'Create Agent';
+  const title = isEditing ? 'Edit Agent' : draft ? 'Make it an agent' : 'Create Agent';
 
   // Get available tools filtered by user settings
   const availableTools = getAvailableTools(userSettings ?? null);
 
-  const v = { ...agentTextValues(agent), ...agentRunValues(agent) };
+  const v = { ...agentTextValues(agent ?? draft), ...agentRunValues(agent ?? draft) };
 
   modalContainer.replaceChildren(
     el('div', { class: 'agent-editor', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'agent-editor-title' }, [
@@ -929,7 +935,8 @@ async function handleSave(): Promise<void> {
       toast.success('Agent updated');
     } else {
       // Create new agent
-      result = await jobs.create(data as CreateJobRequest);
+      const create = { ...(data as CreateJobRequest), ...(replacesItemId && { replaces_item_id: replacesItemId }) };
+      result = await jobs.create(create);
       toast.success('Agent created');
     }
 

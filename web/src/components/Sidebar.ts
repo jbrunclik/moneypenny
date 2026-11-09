@@ -2,7 +2,7 @@ import { createElement, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { createUserAvatarElement } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
+import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, CLOCK_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, JobsOverviewResponse, User } from '../types/api';
@@ -320,6 +320,18 @@ function conversationTime(conv: Conversation): HTMLElement | null {
   return conv.updated_at ? el('span', { class: 'conversation-time' }, [formatRelativeTime(conv.updated_at)]) : null;
 }
 
+/** A clock when the chat has reminders, watchers or recurring checks (the
+ *  header's chip, at a glance): the count from two on. */
+function conversationJobs(conv: Conversation): HTMLElement | null {
+  const count = conv.scheduled_count ?? 0;
+  if (count < 1) return null;
+  const label = count === 1 ? '1 scheduled job' : `${count} scheduled jobs`;
+  return el('span', { class: 'conversation-jobs', title: label, 'aria-label': label }, [
+    createIconElement('conversation-jobs-icon', CLOCK_ICON),
+    count > 1 ? String(count) : null,
+  ]);
+}
+
 /** "⋯ More" on a swiped row. */
 function moreButton(dataAttribute: string, id: string): HTMLButtonElement {
   return el('button', { class: 'conversation-more-swipe', [dataAttribute]: id, 'aria-label': 'More actions' }, ['⋯']);
@@ -351,6 +363,7 @@ function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
           el('div', { class: 'conversation-preview' }, [conv.last_message_preview]),
       ]),
       unread > 0 && el('span', { class: 'unread-badge' }, [unread > 99 ? '99+' : String(unread)]),
+      conversationJobs(conv),
       conversationTime(conv),
       el('div', { class: 'conversation-actions' }, [
         createIconButton({ class: 'conversation-pin', 'data-pin-id': id, 'aria-label': pinLabel, title: pinLabel }, conv.pinned ? UNPIN_ICON : PIN_ICON),

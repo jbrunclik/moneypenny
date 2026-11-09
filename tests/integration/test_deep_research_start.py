@@ -352,3 +352,44 @@ class TestDecline:
         record = next(r for r in caplog.records if r.getMessage() == "Deep research declined")
         assert record.decision_seconds >= 0
         assert record.sub_questions == 2
+
+
+class TestTypedStartWords:
+    @pytest.mark.parametrize("reply", ["start", "Spusť", "spustit"])
+    def test_the_cards_own_verb_starts_it(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+        reply: str,
+    ) -> None:
+        card = _card(test_database, test_conversation)
+
+        response = _stream(client, auth_headers, test_conversation.id, {"message": reply})
+
+        response.research_ran.assert_called_once()  # type: ignore[attr-defined]
+        stored = test_database.get_proposal(card.id, card.user_id)
+        assert stored is not None and stored.state == "approved"
+
+    def test_in_batch_mode_a_yes_tells_the_agent_to_point_at_start(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_conversation: Conversation,
+        test_database: Database,
+    ) -> None:
+        _card(test_database, test_conversation)
+
+        with patch("src.api.helpers.chat_turn.ChatAgent") as agent_cls:
+            agent_cls.return_value.chat_batch.return_value = ("ok", [], {}, [])
+            client.post(
+                f"/api/conversations/{test_conversation.id}/chat/batch",
+                headers=auth_headers,
+                json={"message": "yes"},
+            )
+
+        sent = agent_cls.return_value.chat_batch.call_args.kwargs.get("message") or str(
+            agent_cls.return_value.chat_batch.call_args
+        )
+        assert "Start button" in sent

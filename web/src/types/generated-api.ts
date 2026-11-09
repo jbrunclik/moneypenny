@@ -237,7 +237,10 @@ export interface paths {
             };
         };
         put?: never;
-        /** A new standing chat with its job (its chat is "Agent: <name>"). */
+        /**
+         * A new standing chat with its job (its chat is "Agent: <name>"); with
+         * @description replaces_item_id it takes over a chat's watcher or recurring check.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -6028,6 +6031,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/schedules/{item_id}/agent-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A watcher or recurring check drafted as a full agent (Make an agent). */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    item_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentDraftResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{job_id}/conversation/sync": {
         parameters: {
             query?: never;
@@ -7936,6 +7995,12 @@ export interface components {
              * @default true
              */
             fresh_context?: boolean;
+            /**
+             * Replaces Item Id
+             * @description A chat's watcher or recurring check this agent takes over (removed)
+             * @default null
+             */
+            replaces_item_id?: string | null;
         };
         /**
          * HealthCheckDetail
@@ -8895,6 +8960,12 @@ export interface components {
              */
             last_message_preview: string | null;
             /**
+             * Scheduled Count
+             * @description The chat's reminders, watchers and recurring checks
+             * @default null
+             */
+            scheduled_count: number | null;
+            /**
              * Deleted At
              * @default null
              */
@@ -8995,6 +9066,12 @@ export interface components {
              * @default null
              */
             last_message_preview: string | null;
+            /**
+             * Scheduled Count
+             * @description The chat's reminders, watchers and recurring checks
+             * @default null
+             */
+            scheduled_count: number | null;
             /**
              * Deleted At
              * @default null
@@ -10003,6 +10080,12 @@ export interface components {
              * @default false
              */
             is_whats_new: boolean;
+            /**
+             * Scheduled Count
+             * @description The chat's reminders, watchers and recurring checks
+             * @default 0
+             */
+            scheduled_count: number;
         };
         /**
          * SyncResponse
@@ -12395,6 +12478,30 @@ export interface components {
              * @default 0
              */
             choice?: number;
+        };
+        /**
+         * AgentDraftResponse
+         * @description A chat's watcher or recurring check as a full agent, for the editor;
+         *     creating it with replaces_item_id removes the item.
+         */
+        AgentDraftResponse: {
+            /** Name */
+            name: string;
+            /** Instructions */
+            instructions: string;
+            /**
+             * Schedule
+             * @description Cron in `timezone`
+             */
+            schedule: string | null;
+            /** Timezone */
+            timezone: string;
+            /** Grants */
+            grants: string[];
+            /** Fresh Context */
+            fresh_context: boolean;
+            /** Replaces Item Id */
+            replaces_item_id: string;
         };
         /**
          * JobConversationSyncData

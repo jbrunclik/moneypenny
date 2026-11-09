@@ -174,3 +174,38 @@ test.describe('Scheduled items in a standing chat', () => {
     });
   }
 });
+
+test.describe('A chat with jobs, at a glance and as an agent', () => {
+  for (const [label, viewport] of [
+    ['desktop', { width: 1280, height: 800 }],
+    ['mobile', { width: 375, height: 812 }],
+  ] as const) {
+    test(`the sidebar row shows a clock with the count (${label})`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await seedChat(page, [WATCHER, REMINDER]);
+      await page.goto('/');
+      if (label === 'mobile') await page.click('#menu-btn');
+
+      const clock = page.locator('.conversation-item-wrapper', { hasText: "Dog's tail" }).locator('.conversation-jobs');
+      await expect(clock).toBeVisible();
+      await expect(clock).toHaveText('2');
+      await expect(clock).toHaveAttribute('title', '2 scheduled jobs');
+    });
+  }
+
+  test('a watcher becomes an agent from the job list', async ({ page }) => {
+    await seedChat(page, [WATCHER]);
+    await page.goto('/#/agents');
+
+    const row = page.locator('.job-row', { hasText: "the school's job board" });
+    await row.locator('.job-make-agent').click();
+    await expect(page.locator('#agent-editor-title')).toHaveText('Make it an agent');
+    await expect(page.locator('#agent-name')).toHaveValue("the school's job board");
+    await expect(page.locator('#agent-system-prompt')).toHaveValue(/Stop when: a teacher job is posted/);
+    await page.click('.agent-editor-save');
+
+    // The agent took over: its own row, and the chat's watcher is gone
+    await expect(page.locator('.job-row .job-make-agent')).toHaveCount(0);
+    await expect(page.locator('.job-row', { hasText: "the school's job board" }).locator('.job-edit')).toBeVisible();
+  });
+});

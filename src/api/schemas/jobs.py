@@ -142,6 +142,9 @@ class CreateJobRequest(RequestModel):
     model: str | None = Field(None, description="LLM model (defaults to Fast)")
     budget_usd: float | None = Field(None, ge=0, description="Daily budget in USD (null = none)")
     fresh_context: bool = Field(default=True, description="Each run starts without history")
+    replaces_item_id: str | None = Field(
+        None, description="A chat's watcher or recurring check this agent takes over (removed)"
+    )
 
     @field_validator("model")
     @classmethod

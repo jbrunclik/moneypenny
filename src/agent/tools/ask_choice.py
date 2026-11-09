@@ -37,7 +37,7 @@ def _refusal(options: list[str]) -> str | None:
     if any(is_answer_word(label) for label in labels):
         return "An option must not be a plain yes or no - name the choice itself."
     if any(normalize_answer(label).isdigit() for label in labels):
-        return "An option must not be a number alone (a typed number picks by position)."
+        return "An option must not be a number alone - name the choice itself."
     return None
 
 
@@ -81,6 +81,7 @@ register_kind(
     KIND,
     apply_pick,
     exclusive=True,
+    by_number=False,
     outcomes={
         "approved": "The user picked for “{summary}”: {result}",
         "expired": "The question was closed without a pick: {summary}",

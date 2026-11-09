@@ -27,7 +27,7 @@ import {
   clearConversationHash,
   setPlannerHash,
 } from '../router/deeplink';
-import type { Conversation, Message, PlannerConversation, PlannerDashboard } from '../types/api';
+import type { Conversation, Message, PlannerConversation, PlannerDashboard, Proposal } from '../types/api';
 import { createDashboardElement, createDashboardLoadingElement } from '../components/PlannerDashboard';
 import { APP_NAME, PLANNER_DASHBOARD_CACHE_MS } from '../config';
 import { setCurrentConversationForBlobs } from '../utils/thumbnail-blob-urls';
@@ -288,6 +288,14 @@ async function handlePlannerRefresh(): Promise<void> {
   store.invalidatePlannerCache();
   await navigateToPlanner(true); // Force backend to bypass cache too
 }
+
+// A delete approved on its card in the planner: the dashboard was refreshed
+// before the approval (no agent turn follows a tap), so show it gone now
+document.addEventListener('proposal:resolved', (event) => {
+  const resolved = (event as CustomEvent<Proposal>).detail;
+  if (!useStore.getState().isPlannerView || resolved.kind !== 'chat_change' || resolved.state !== 'approved') return;
+  void handlePlannerRefresh();
+});
 
 /**
  * Leave the planner view and return to normal chat.

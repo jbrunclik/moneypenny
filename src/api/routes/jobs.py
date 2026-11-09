@@ -16,7 +16,8 @@ from apiflask import APIBlueprint
 from croniter import croniter
 
 from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now
-from src.api.errors import raise_not_found_error, raise_validation_error
+from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
+from src.api.helpers.agent_draft import PROMOTABLE_KINDS
 from src.api.helpers.job_responses import jobs_overview
 from src.api.helpers.standing_responses import run_to_response, standing_to_response
 from src.api.rate_limiting import rate_limit_conversations
@@ -93,8 +94,11 @@ def _editable(user: User, job_id: str) -> StandingChat:
 @require_auth
 @validate_request(CreateJobRequest)
 def create_job(user: User, data: CreateJobRequest) -> dict[str, Any]:
-    """A new standing chat with its job (its chat is "Agent: <name>")."""
+    """A new standing chat with its job (its chat is "Agent: <name>"); with
+    replaces_item_id it takes over a chat's watcher or recurring check."""
     _check_schedule(data.schedule, data.timezone)
+    if data.replaces_item_id:
+        _check_replaceable(user, data.replaces_item_id)
     if db.get_standing_chat_by_name(user.id, data.name):
         raise_validation_error(f"An agent named '{data.name}' already exists")
     chat = db.create_standing_chat(
@@ -110,7 +114,19 @@ def create_job(user: User, data: CreateJobRequest) -> dict[str, Any]:
         enabled=data.enabled,
         description=data.description,
     )
+    if data.replaces_item_id:
+        db.delete_item(data.replaces_item_id, user.id)
+        logger.info("Chat item became an agent", extra={"job_id": chat.id})
     return standing_to_response(chat)
+
+
+def _check_replaceable(user: User, item_id: str) -> None:
+    """The user's own watcher or recurring check (404 / 409 otherwise)."""
+    item = db.get_item(item_id, user.id)
+    if item is None:
+        raise_not_found_error("Scheduled item")
+    if item.standing or item.kind not in PROMOTABLE_KINDS:
+        raise_conflict_error("Only a watcher or a recurring check can become an agent.")
 
 
 @api.route("/jobs/<job_id>", methods=["GET"])

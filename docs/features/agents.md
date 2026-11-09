@@ -364,7 +364,17 @@ jobs (agents). It comes from `GET /api/jobs` (`src/api/routes/jobs.py`,
     and the chat for chat items.
   - **Recent runs** expand from a summary: time, outcome and error, the last 3.
   - Actions: **Run** (standing jobs), **Pause/Resume** (watchers, recurring, agents),
-    **Edit** (standing chats that are not built-in), **Cancel** (chat items).
+    **Edit** (standing chats that are not built-in), **Make it an agent** (a chat's
+    watcher or recurring check), **Cancel** (chat items).
+  - **Make it an agent** opens the agent editor with the item's draft
+    (`GET /api/schedules/<id>/agent-draft`,
+    [agent_draft.py](../../src/api/helpers/agent_draft.py)): name, instructions (its
+    text, a watcher's stop condition, "report only what changed", `[SILENT]` when
+    nothing is worth telling), the schedule as a cron (a watcher's interval at its next
+    check's local time), the tools these jobs run with (`web_search`, `fetch_url`,
+    `research`) and `fresh_context` off (a watcher compares with its last report).
+    Creating it with `replaces_item_id` (`POST /api/jobs`) removes the item; a failed
+    create keeps it.
   - Clicking the row opens the job's chat.
   - Pausing an agent's job disables it (`paused_reason='disabled'`), so the editor and
     the Daily Briefing's Settings toggle agree.

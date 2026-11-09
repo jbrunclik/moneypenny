@@ -43,3 +43,16 @@ class DeliveryResponse(ResponseModel):
 
     kind: ItemKindField
     label: str = Field(description="e.g. 'Check-in · Fri 18:00', 'Watcher · found'")
+
+
+class AgentDraftResponse(ResponseModel):
+    """A chat's watcher or recurring check as a full agent, for the editor;
+    creating it with replaces_item_id removes the item."""
+
+    name: str
+    instructions: str
+    schedule: str | None = Field(description="Cron in `timezone`")
+    timezone: str
+    grants: list[str]
+    fresh_context: bool
+    replaces_item_id: str

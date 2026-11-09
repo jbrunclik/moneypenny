@@ -238,3 +238,83 @@ def test_an_untitled_event_is_named_by_its_time() -> None:
         patch.object(google_calendar, "_google_calendar_api_request", return_value=event),
     ):
         assert google_calendar.event_label({"event_id": "e1"}) == "(no title) (Thu 12 Nov)"
+
+
+def test_a_long_name_is_cut_in_the_summary_not_the_row(
+    api: MagicMock, test_database: Database, test_conversation: Conversation
+) -> None:
+    long = "x" * 200
+    api.side_effect = lambda m, p, t, **k: {"content": long} if m == "GET" else None
+
+    _delete("t1")
+
+    card = _card(test_database, test_conversation)
+    assert len(card.summary) < 100 and card.summary.endswith("…”")
+    assert card.details == {"Delete task": long}
+
+
+def test_mixed_changes_read_as_changes(
+    api: MagicMock, test_database: Database, test_conversation: Conversation
+) -> None:
+    from src.agent.tools.todoist import todoist
+
+    _delete("t1")
+    todoist.invoke({"action": "archive_project", "project_id": "p1"})
+
+    card = _card(test_database, test_conversation)
+    assert card.summary == "Change 2 items"
+    assert [o["label"] for o in card.options] == ["Do it"]
+
+
+def test_a_calendar_delete_is_held_and_applied_in_its_calendar(
+    test_database: Database, test_conversation: Conversation
+) -> None:
+    from src.agent.tools.google_calendar import google_calendar
+
+    calendar = importlib.import_module("src.agent.tools.google_calendar")
+    event = {"summary": "Dentist", "start": {"dateTime": "2026-11-12T09:00:00+01:00"}}
+    with (
+        use_database(test_database),
+        patch.object(calendar, "_get_google_calendar_access_token", return_value=("t", None)),
+        patch.object(calendar, "_google_calendar_api_request", return_value=event) as api,
+    ):
+        set_conversation_context(test_conversation.id, test_conversation.user_id)
+        set_current_request_id("turn-1")
+        google_calendar.invoke({"action": "delete_event", "event_id": "e1", "calendar_id": "work"})
+        card = _shown(test_database, test_conversation)
+        assert card.details == {"Delete event": "Dentist (Thu 12 Nov 09:00)"}
+
+        done = resolve(card, 0, "button")
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert done.state == "approved"
+    deletes = [c for c in api.call_args_list if c.args[0] == "DELETE"]
+    assert [c.args[1] for c in deletes] == ["/calendars/work/events/e1"]
+
+
+def test_a_rouvy_delete_is_applied_as_the_cards_user(
+    test_database: Database, test_conversation: Conversation, test_user: Any
+) -> None:
+    from src.agent.tools.rouvy import rouvy_workout
+
+    rouvy = importlib.import_module("src.agent.tools.rouvy")
+    connected = MagicMock(id=test_user.id, rouvy_session="s")
+    with (
+        use_database(test_database),
+        patch.object(rouvy, "_resolve_user", return_value=connected),
+        patch.object(rouvy, "rouvy_list", return_value=[{"id": 7, "name": "Sweet spot"}]),
+        patch.object(rouvy, "rouvy_delete", return_value={"deleted": True}) as delete,
+    ):
+        set_conversation_context(test_conversation.id, test_conversation.user_id)
+        set_current_request_id("turn-1")
+        rouvy_workout.invoke({"action": "delete", "workout_id": 7})
+        card = _shown(test_database, test_conversation)
+        assert card.details == {"Delete Rouvy workout": "Sweet spot"}
+
+        done = resolve(card, 0, "button")
+        set_conversation_context(None, None)
+        set_current_request_id(None)
+
+    assert done.state == "approved"
+    delete.assert_called_once_with(connected, 7)

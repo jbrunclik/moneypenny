@@ -34,4 +34,9 @@ def propose_deep_research(
 
 
 # Starting is the turn itself: only a streamed turn can act on a typed yes
-register_kind(KIND, apply_research, decline=decline_research, stream_only=True)
+_START_WORDS = frozenset(
+    {"start", "start it", "go", "spusť", "spusť to", "spustit", "ano spusť", "jo spusť"}
+)
+register_kind(
+    KIND, apply_research, decline=decline_research, stream_only=True, extra_yes=_START_WORDS
+)

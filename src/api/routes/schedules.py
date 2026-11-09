@@ -6,11 +6,16 @@ Attached to conversations.api (items belong to chats). The Command Center's
 
 from src.agent.item_scheduler import JobBusyError, JobHeldError, run_job_now
 from src.api.errors import raise_conflict_error, raise_not_found_error
+from src.api.helpers.agent_draft import PROMOTABLE_KINDS, agent_draft
 from src.api.helpers.schedule_responses import items_to_response
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.common import StatusResponse
-from src.api.schemas.schedules import ConversationSchedulesResponse, ScheduledItemResponse
+from src.api.schemas.schedules import (
+    AgentDraftResponse,
+    ConversationSchedulesResponse,
+    ScheduledItemResponse,
+)
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
 
@@ -38,6 +43,20 @@ def delete_schedule(user: User, item_id: str) -> tuple[str, int]:
     if not db.delete_item(item_id, user.id):
         raise_not_found_error("Scheduled item")
     return "", 204
+
+
+@api.route("/schedules/<item_id>/agent-draft", methods=["GET"])
+@api.output(AgentDraftResponse)
+@api.doc(responses=[404, 409])
+@require_auth
+def get_agent_draft(user: User, item_id: str) -> tuple[dict[str, object], int]:
+    """A watcher or recurring check drafted as a full agent (Make an agent)."""
+    item = db.get_item(item_id, user.id)
+    if item is None:
+        raise_not_found_error("Scheduled item")
+    if item.standing or item.kind not in PROMOTABLE_KINDS:
+        raise_conflict_error("Only a watcher or a recurring check can become an agent.")
+    return agent_draft(item), 200
 
 
 def _refuse_agent_job(item_id: str) -> None:

@@ -40,6 +40,8 @@ export interface CommandCenterHandlers {
   onResume: (job: Job) => Promise<void>;
   onCancel: (job: Job) => Promise<void>;
   onEdit: (job: Job) => void;
+  /** A chat's watcher or recurring check becomes a full agent (the editor, prefilled) */
+  onMakeAgent: (job: Job) => void;
   onNewAgent: () => void;
 }
 
@@ -188,6 +190,9 @@ function jobActions(job: Job, h: CommandCenterHandlers): HTMLButtonElement[] {
     );
   }
   if (job.editable) actions.push(actionButton('job-edit', 'Edit', EDIT_ICON, () => h.onEdit(job)));
+  if (!job.standing && (job.kind === 'watcher' || job.kind === 'recurring')) {
+    actions.push(actionButton('job-make-agent', 'Make it an agent', ROBOT_ICON, () => h.onMakeAgent(job)));
+  }
   // An agent's own job is deleted with the agent (its editor); anything else
   // set in a chat - an agent's chat included - can be cancelled here
   const agentJob = job.editable || job.system_type !== null;

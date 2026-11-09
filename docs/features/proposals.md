@@ -75,7 +75,9 @@ files a `question` card with 2-4 options. Its options only answer.
 - **A tap** sends the option's label as the user's own message
   (`ProposalActions.reply` -> `sendUiMessage`). The card shows the pick at
   once.
-- **Typing** the label or its number answers it the same way. The turn runs
+- **Typing** the label answers it the same way (not its number: "2" may be the
+  user's own answer). A tap on a card under an older reply (answered elsewhere
+  meanwhile) sends nothing. The turn runs
   normally; the agent hears "The user picked for “<question>”: <label>"
   (per-kind outcome lines, `register_kind(outcomes=...)`).
 - **A reply in the user's own words** closes it ("Answered in the chat"). The

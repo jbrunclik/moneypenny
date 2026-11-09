@@ -115,8 +115,33 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Hover swaps the timestamp for the action buttons */
-.conversation-item:hover .conversation-time {
+/* The chat has reminders, watchers or recurring checks: a quiet clock (the
+   count from two on), as the chat header's chip */
+.conversation-jobs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: var(--space-2);
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.conversation-jobs-icon {
+    display: inline-flex;
+    width: 13px;
+    height: 13px;
+}
+
+.conversation-jobs-icon svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* Hover swaps the timestamp (and the clock) for the action buttons */
+.conversation-item:hover .conversation-time,
+.conversation-item:hover .conversation-jobs {
     display: none;
 }
 

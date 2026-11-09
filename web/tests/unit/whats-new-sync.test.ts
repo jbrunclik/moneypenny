@@ -23,6 +23,7 @@ describe("What's new from sync", () => {
       pinned: false,
       anonymous_mode: false,
       is_whats_new: true,
+      scheduled_count: 0,
     } satisfies ConversationSummary;
 
     expect(listEntryFromSummary(summary, 1).is_whats_new).toBe(true);

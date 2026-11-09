@@ -167,6 +167,31 @@ describe('AgentEditor', () => {
     await expect(result).resolves.toBe(created);
   });
 
+  it('opens with a chat item\'s draft and creates the agent that replaces it', async () => {
+    api.create.mockResolvedValue(agent({ id: 'new' }));
+    const draft = {
+      name: 'School job board',
+      instructions: 'Check the board\n\nStop when: a teacher job is posted',
+      schedule: '30 9 * * *',
+      timezone: 'Europe/Prague',
+      grants: ['web_search', 'fetch_url', 'research'],
+      fresh_context: false,
+      replaces_item_id: 'item-1',
+    };
+    showAgentEditor(undefined, draft);
+    await vi.waitFor(() => expect(modal()?.querySelector('.agent-editor')).toBeTruthy());
+
+    expect(field('#agent-editor-title').textContent).toBe('Make it an agent');
+    expect(field<HTMLInputElement>('#agent-name').value).toBe('School job board');
+    expect(field<HTMLTextAreaElement>('#agent-system-prompt').value).toContain('Stop when');
+    save();
+
+    await vi.waitFor(() => expect(api.create).toHaveBeenCalled());
+    expect(api.create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'School job board', schedule: '30 9 * * *', replaces_item_id: 'item-1' })
+    );
+  });
+
   it('updates an agent, keeping untouched unrestricted access unrestricted', async () => {
     api.update.mockResolvedValue(agent());
     await open(agent({ grants: ['*'] }));

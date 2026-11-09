@@ -24,7 +24,7 @@ import {
   type IconHtml,
 } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
-import { refreshReportLinks, renderResearchCard } from './research-offer';
+import { refreshReportLinks, renderResearchCard, stopResearchCountdowns } from './research-offer';
 
 const log = createLogger('proposals');
 
@@ -208,9 +208,8 @@ function showError(card: HTMLElement, error: unknown): void {
     return;
   }
   if (status === 409) {
-    card.querySelector('.proposal-card__actions')?.remove();
     card.querySelector('.proposal-card__error')?.remove();
-    card.append(createElement('p', { class: 'proposal-card__note' }, [NOT_OPEN_TEXT]));
+    showNotOpen(card);
     return;
   }
   for (const button of card.querySelectorAll<HTMLButtonElement>('button')) button.disabled = false;
@@ -220,9 +219,32 @@ function showError(card: HTMLElement, error: unknown): void {
 
 /** A question's pick: shown at once, then sent as the user's message (which
  *  answers the card on the server); the card comes back when it could not go. */
+/** Whether a card sits under the conversation's newest assistant message
+ *  (the only reply whose cards a message can still answer). */
+function onLatestReply(card: HTMLElement): boolean {
+  const store = useStore.getState();
+  const convId = store.currentConversation?.id;
+  const messageId = card.closest<HTMLElement>('.message')?.dataset.messageId;
+  if (!convId || !messageId) return true;
+  const latest = [...store.getMessages(convId)].reverse().find((m) => m.role === 'assistant');
+  return !latest || latest.id === messageId;
+}
+
+function showNotOpen(card: HTMLElement): void {
+  card.querySelector('.proposal-card__actions')?.remove();
+  card.querySelector('.proposal-card__note')?.remove();
+  card.append(createElement('p', { class: 'proposal-card__note' }, [NOT_OPEN_TEXT]));
+}
+
 async function reply(card: HTMLElement, proposal: Proposal, choice: number): Promise<void> {
   const label = proposal.options[choice]?.label;
   if (!actions || !label) return;
+  if (!onLatestReply(card)) {
+    // Answered meanwhile (another device moved the chat on): no new turn
+    showNotOpen(card);
+    return;
+  }
+  stopResearchCountdowns(); // the pick answers or expires every card on the reply
   const picked = { ...proposal, state: 'approved' as const, chosen: choice, result: label };
   showOutcome(card, picked);
   let sent = false;

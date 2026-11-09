@@ -80,7 +80,7 @@ def test_options_that_cannot_be_told_apart_are_refused(
     assert test_database.pending_proposals(chat.id) == []
 
 
-@pytest.mark.parametrize("reply", ["Friday 14:30", "2", "friday 14:30!"])
+@pytest.mark.parametrize("reply", ["Friday 14:30", "friday 14:30!"])
 def test_the_pick_answers_it_and_the_agent_hears_which(
     chat: Conversation, test_database: Database, reply: str
 ) -> None:
@@ -161,3 +161,13 @@ def test_a_question_closed_without_a_pick_says_so_neutrally(
     note, _ = start_turn(chat.id, "")  # an app-sent message: no answer
 
     assert note == "The question was closed without a pick: Which dentist appointment?"
+
+
+def test_a_bare_number_is_no_pick(chat: Conversation, test_database: Database) -> None:
+    """ "2" may be the user's own answer (two tickets): only a label picks."""
+    _ask()
+    _shown(test_database, chat)
+
+    _note, answered = start_turn(chat.id, "2")
+
+    assert answered == []
