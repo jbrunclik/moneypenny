@@ -19,8 +19,6 @@ Tady se dozvíte, co je v Moneypenny nového. Za poslední dva dny přibylo:
 **Drobnosti**
 - Ťuknutí na šipku dolů v dlouhém chatu ani na chat v seznamu se už neztratí.
 
-Tenhle chat je jen pro čtení – další zpráva přijde, až bude zase něco nového.
-
 <!-- lang: en -->
 # Reminders, agents you set up by talking, and more
 This chat is where you'll hear what's new in Moneypenny. New in the last two days:
@@ -41,5 +39,3 @@ This chat is where you'll hear what's new in Moneypenny. New in the last two day
 
 **Small things**
 - A tap on the scroll-down arrow in a long chat, or on a chat in the list, no longer gets lost.
-
-This chat is read-only – the next message arrives when there's something new again.

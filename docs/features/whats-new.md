@@ -36,7 +36,8 @@ Text...
 - `test_every_repo_announcement_is_valid` fails on a file missing a language
   or a title (at startup such a file is logged and skipped).
 - Shape it for the release card (below): the title, one intro paragraph,
-  sections as a **bold-only line** followed by a list, and a closing line.
+  sections as a **bold-only line** followed by a list, and optionally a
+  closing line (never "this chat is read-only": the missing composer says it).
   A post without sections is fine (title + paragraphs).
 - The push title is "Novinky: <title>" / "What's new: <title>".
 
