@@ -2,7 +2,7 @@
  * What's new posts as release cards.
  *
  * A post is markdown from announcements/*.md (docs/features/whats-new.md):
- * a `#` title, an intro paragraph, sections as a bold-only paragraph plus a
+ * a title (stored as `##`; `#` in the file), an intro paragraph, sections as a bold-only paragraph plus a
  * list, and a closing line. The rendered markdown is regrouped in place into
  * a dated header, the intro, a grid of section tiles and a quiet footer, so
  * the read-only chat reads as release notes, not as chat replies.
@@ -11,6 +11,8 @@
 import { SPARKLES_ICON, setIcon } from '../../utils/icons';
 
 const LIST_TAGS = new Set(['UL', 'OL']);
+// The stored post's title is a level-2 heading (src/services/announcements.py)
+const TITLE_TAGS = new Set(['H1', 'H2']);
 
 function el(tag: string, className: string): HTMLElement {
   const node = document.createElement(tag);
@@ -98,8 +100,8 @@ function group(className: string, children: Element[]): HTMLElement | null {
   return wrapper;
 }
 
-/** Regroup a rendered post into a release card (in place); a post without a
- *  `#` title is left as it is. */
+/** Regroup a rendered post into a release card (in place); a post that does
+ *  not open with its title is left as it is. */
 export function asReleaseCard(
   content: HTMLElement,
   createdAt: string | null | undefined,
@@ -107,7 +109,7 @@ export function asReleaseCard(
 ): void {
   const blocks = [...content.children];
   const titleEl = blocks[0];
-  if (titleEl?.tagName !== 'H1') return;
+  if (!titleEl || !TITLE_TAGS.has(titleEl.tagName)) return;
 
   const title = el('h2', 'release-card-title');
   title.textContent = titleEl.textContent;

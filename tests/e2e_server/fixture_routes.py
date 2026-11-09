@@ -140,7 +140,8 @@ def seed_whats_new() -> tuple[dict[str, Any], int]:
             g.db.add_message(conv_id, MessageRole.ASSISTANT, str(text), language="cs")
         return {"status": "seeded", "conversation_id": conv_id}, 200
     post = (
-        "# Novinka\nTady se dozvíte, co je nového.\n\n"
+        # The stored form: announcements.py turns the file's "# Title" into "## Title"
+        "## Novinka\nTady se dozvíte, co je nového.\n\n"
         "**Agenti**\n- Agenty teď založíte v chatu.\n- Jeden seznam všeho, co běží.\n\n"
         "**Drobnosti**\n- Ťuknutí na tlačítko dolů se už neztratí.\n\n"
         "Tenhle chat je jen pro čtení."

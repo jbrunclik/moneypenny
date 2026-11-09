@@ -47,6 +47,15 @@ describe('asReleaseCard', () => {
     expect(el.querySelector('.release-card-footer')).toBeNull();
   });
 
+  it('takes the stored form, whose title is a level-2 heading', () => {
+    // announcements.py stores "# Title" as "## Title"
+    const el = rendered('<h2>Stored title</h2><p>Intro.</p><p><strong>A</strong></p><ul><li>a</li></ul>');
+    asReleaseCard(el, '2026-11-09T08:00:00Z', 'en');
+    expect(el.classList.contains('release-card')).toBe(true);
+    expect(el.querySelector('.release-card-title')?.textContent).toBe('Stored title');
+    expect(el.querySelectorAll('.release-card-section')).toHaveLength(1);
+  });
+
   it('dates the post in its own language', () => {
     const el = rendered('<h1>Novinky</h1><p>Text.</p>');
     asReleaseCard(el, '2026-11-09T08:00:00Z', 'cs');
