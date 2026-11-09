@@ -57,7 +57,9 @@ _CSP_POLICY = "; ".join(
 # lets images from any origin through on it (Oct 11 2026 probe); an explicit
 # origin is enforced correctly by WebKit and Chromium.
 _FRAME_CSP_DIRECTIVES: tuple[tuple[str, str], ...] = (
-    ("sandbox", "allow-scripts"),
+    # allow-modals: an artifact's own Print button (window.print) - and so
+    # alert/confirm - work; the opaque origin and no-network lock stay
+    ("sandbox", "allow-scripts allow-modals"),
     ("default-src", "'none'"),
     ("script-src", "{origin} 'unsafe-inline'"),
     ("style-src", "{origin} 'unsafe-inline'"),

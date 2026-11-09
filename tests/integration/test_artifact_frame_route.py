@@ -12,7 +12,7 @@ from src.config import Config
 # origin through (Oct 11 2026 probe); an explicit origin is enforced by both
 _ORIGIN = "https://app.example"
 _PROD_CSP = (
-    "sandbox allow-scripts; default-src 'none'; "
+    "sandbox allow-scripts allow-modals; default-src 'none'; "
     "script-src https://app.example 'unsafe-inline'; "
     "style-src https://app.example 'unsafe-inline'; "
     "img-src https://app.example data: blob:; font-src https://app.example data:; "

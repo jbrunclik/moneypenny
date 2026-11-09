@@ -87,7 +87,8 @@ function mountFrame(card: HTMLElement, ref: ArtifactRef): void {
   clearFailed(card);
   const frame = document.createElement('iframe');
   frame.className = 'artifact-frame';
-  frame.setAttribute('sandbox', 'allow-scripts');
+  // allow-modals: window.print() is ignored without it (a worksheet's Print button)
+  frame.setAttribute('sandbox', 'allow-scripts allow-modals');
   // The starting theme rides on the URL so the frame matches before init
   const theme = currentTheme();
   frame.setAttribute('src', `/artifact-frame?theme=${theme}`);

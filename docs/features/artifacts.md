@@ -42,7 +42,7 @@ Where the code and the spec differ, the code wins; the differences are noted bel
    Decorating is idempotent by `id@version`, so the live frame survives the
    `done` and later re-renders.
 6. **Sandboxed frame.** Each card holds
-   `<iframe sandbox="allow-scripts" src="/artifact-frame?theme=...">`. The shell
+   `<iframe sandbox="allow-scripts allow-modals" src="/artifact-frame?theme=...">`. The shell
    page is the same for every artifact and never fetches user data.
 7. **`postMessage` init.** The frame posts `mp:ready`;
    [artifact-host.ts](../../web/src/components/messages/artifact-host.ts) fetches
@@ -69,7 +69,7 @@ ones use `setdefault`, so these win:
 - `Content-Security-Policy` from `build_frame_csp(dev_mode, origin)`:
 
 ```
-sandbox allow-scripts; default-src 'none'; script-src {origin} 'unsafe-inline';
+sandbox allow-scripts allow-modals; default-src 'none'; script-src {origin} 'unsafe-inline';
 style-src {origin} 'unsafe-inline'; img-src {origin} data: blob:;
 font-src {origin} data:; connect-src 'none'; form-action 'none';
 base-uri 'none'; frame-ancestors 'self'
@@ -98,6 +98,14 @@ prompt-injected agent can already send data anywhere with its own `fetch_url` /
 `web_search` tools, so the frame's lock is defence in depth, not the only
 barrier. The frame's real job is keeping artifact code away from the app's
 origin, storage and the user's identity, which the opaque origin does.
+
+**Accepted risk - dialogs.** `allow-modals` (Nov 9 2026) is there because a
+sandboxed frame without it silently ignores `window.print()`, and an artifact's
+own Print / Save as PDF button (a worksheet, a recipe) is a real use. It also
+lets artifact code open `alert` / `confirm` / `prompt` dialogs. The browser
+labels them as coming from an embedded page. No data is exposed: the opaque
+origin, `connect-src 'none'` and `form-action 'none'` mean a typed answer has
+nowhere to go but the artifact's own state.
 
 The host trusts a message only by `event.source` (a frame it created); the
 frame's origin is `"null"` and says nothing. The frame listens only to

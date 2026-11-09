@@ -93,6 +93,20 @@ test.describe('Artifacts', () => {
     expect(page.context().pages()).toHaveLength(1);
   });
 
+  test('its own print button can open the browser\'s print dialog', async ({ page, request }) => {
+    // print() and alert() need the same sandbox flag (allow-modals); a
+    // dialog is what Playwright can observe, a native print is not
+    const html = '<button id="print" onclick="window.print(); alert(\'printing\')">Tisk</button>';
+    const dialogs: string[] = [];
+    page.on('dialog', (dialog) => {
+      dialogs.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await artifactTurn(page, request, { title: 'Worksheet', html });
+    await frameOf(page).locator('#print').click({ timeout: 15000 });
+    await expect.poll(() => dialogs).toEqual(['printing']);
+  });
+
   test('a full document keeps its body attributes and window load listeners', async ({ page, request }) => {
     const html =
       '<!doctype html><html lang="cs"><body class="recipe"><p id="o">-</p>' +

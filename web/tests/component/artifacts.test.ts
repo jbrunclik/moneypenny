@@ -46,7 +46,7 @@ describe('decorateArtifacts', () => {
 
     expect(cards(m1).map((c) => c.dataset.artifactKey)).toEqual(['a@1', 'b@1']);
     const frame = m1.querySelector('iframe')!;
-    expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(frame.getAttribute('sandbox')).toBe('allow-scripts allow-modals');
     // The starting theme rides on the URL so the empty frame matches the app
     expect(frame.getAttribute('src')).toBe('/artifact-frame?theme=dark');
     expect(frame.style.colorScheme).toBe('dark');
