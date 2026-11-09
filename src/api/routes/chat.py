@@ -47,7 +47,7 @@ from src.api.schemas.chat import (
     StopChatRequest,
 )
 from src.api.schemas.common import StatusResponse
-from src.api.utils import build_chat_response, is_round_capped
+from src.api.utils import build_chat_response
 from src.api.validation import validate_query, validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User, db
@@ -169,7 +169,7 @@ def _run_batch_turn(user: User, conv_id: str, turn: PreparedTurn) -> _BatchTurn:
         raise_server_error("Failed to generate response. Please try again.")
     return _BatchTurn(
         saved=saved,
-        stopped_early=is_round_capped(usage_info.get("tool_rounds", 0)),
+        stopped_early=bool(usage_info.get("stopped_by")),
         model_fallback=usage_info.get("model_fallback"),
         unanswered_steering_id=unanswered_steering_id,
     )

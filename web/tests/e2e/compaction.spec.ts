@@ -112,7 +112,7 @@ test.describe('Conversation compaction indicator (mobile)', () => {
   });
 });
 
-test.describe('Reply cut off by the tool-round cap', () => {
+test.describe('Reply whose turn stopped early', () => {
   test('shows a note with Continue on the latest reply only', async ({ page }) => {
     const response = await page.request.post('/test/seed', {
       data: {
@@ -121,9 +121,9 @@ test.describe('Reply cut off by the tool-round cap', () => {
             title: 'Long research',
             messages: [
               { role: 'user', content: 'Research A' },
-              { role: 'assistant', content: 'Partial A', tool_rounds: 6 },
+              { role: 'assistant', content: 'Partial A', tool_rounds: 6, stopped_by: 'rounds' },
               { role: 'user', content: 'Research B' },
-              { role: 'assistant', content: 'Partial B', tool_rounds: 7 },
+              { role: 'assistant', content: 'Partial B', tool_rounds: 3, stopped_by: 'cost' },
             ],
           },
         ],

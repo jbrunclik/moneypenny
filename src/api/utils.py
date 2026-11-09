@@ -211,17 +211,6 @@ def conversation_message_count(assistant_msg: Any) -> int:
     return db.count_messages(assistant_msg.conversation_id)
 
 
-def is_round_capped(tool_rounds: int) -> bool:
-    """Whether a turn ran into the tool-round cap (the model was told to stop).
-
-    Compares against the CURRENT cap, not the one in effect when the turn ran
-    (message_costs stores only the round count): changing AGENT_MAX_TOOL_ROUNDS
-    re-labels historical replies. Accepted to avoid a column for a hint flag.
-    """
-    cap = Config.AGENT_MAX_TOOL_ROUNDS
-    return cap > 0 and tool_rounds >= cap
-
-
 def is_empty_placeholder(message: Any) -> bool:
     """An assistant message saved empty at stream start, not filled in yet."""
     return bool(
@@ -262,9 +251,8 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
     # Filter out empty placeholder messages (still being processed by stream)
     messages = [m for m in messages if not is_empty_placeholder(m)]
 
-    capped_ids = db.get_round_capped_message_ids(
-        [m.id for m in messages if m.role == MessageRole.ASSISTANT],
-        Config.AGENT_MAX_TOOL_ROUNDS,
+    capped_ids = db.get_stopped_early_message_ids(
+        [m.id for m in messages if m.role == MessageRole.ASSISTANT]
     )
 
     optimized_messages = []

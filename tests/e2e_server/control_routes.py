@@ -69,10 +69,11 @@ def seed_data() -> tuple[dict[str, Any], int]:
             )
             if msg.get("memory_note"):
                 g.db.set_memory_note(added.id, msg["memory_note"])
-            # Optional per-turn cost row (message_costs): tool rounds,
-            # e.g. a reply cut off by the tool-round cap, or spend
-            # (cost_usd) for the spend warning and the admin page
-            if msg.get("tool_rounds") or msg.get("cost_usd"):
+            # Optional per-turn cost row (message_costs): tool rounds, why
+            # the turn stopped early (stopped_by: cost/time/rounds/loop -
+            # its reply offers Continue), or spend (cost_usd) for the spend
+            # warning and the admin page
+            if msg.get("tool_rounds") or msg.get("cost_usd") or msg.get("stopped_by"):
                 g.db.save_message_cost(
                     added.id,
                     conv.id,
@@ -82,6 +83,7 @@ def seed_data() -> tuple[dict[str, Any], int]:
                     0,
                     float(msg.get("cost_usd", 0.0)),
                     tool_rounds=int(msg.get("tool_rounds", 0)),
+                    stopped_by=msg.get("stopped_by"),
                 )
 
         # Seeded history counts as already read (as a real device that

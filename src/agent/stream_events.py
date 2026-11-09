@@ -125,6 +125,8 @@ class StreamEventProcessor:
         self.accumulated_thinking = ""
         # Track token yields for debugging
         self.token_yield_count = 0
+        # Why the turn stopped early (chat_node writes it with the final reply)
+        self.stopped_by: str | None = None
         self.msg_context = MsgContextFilter()
 
     def process(self, mode: str, event: Any) -> Iterator[dict[str, Any]]:
@@ -136,6 +138,9 @@ class StreamEventProcessor:
                     "attempt": event.get("attempt"),
                     "max_retries": event.get("max_retries"),
                 }
+            elif isinstance(event, dict) and event.get("type") == "turn_stop":
+                # Turn budgets (chat_node.chat_node): usage_info carries it, the client not
+                self.stopped_by = str(event.get("reason"))
             elif isinstance(event, dict) and event.get("type") == "model_fallback":
                 # The other model tier took over (chat_node.chat_node); client notes it
                 yield {"type": "model_fallback", "to": event.get("to")}
@@ -334,6 +339,7 @@ class StreamEventProcessor:
             self.totals,
             self.all_messages,
             round((time.monotonic() - turn_started) * 1000),
+            stopped_by=self.stopped_by,
         )
 
         # Final yield with all accumulated data

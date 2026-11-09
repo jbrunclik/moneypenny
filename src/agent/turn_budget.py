@@ -110,15 +110,18 @@ FALLBACK_LINE = "I stopped before finishing - say *continue* and I'll pick up fr
 _GUIDANCE_PREFIX = "[SYSTEM GUIDANCE]"
 
 
-def final_reply(response: AIMessage, history: list[BaseMessage]) -> AIMessage:
-    """The turn's last reply: never a tool call (tools are off), never empty."""
-    reply = response
+def final_reply(response: AIMessage, history: list[BaseMessage], reason: str) -> AIMessage:
+    """The turn's last reply: never a tool call (tools are off), never empty,
+    marked with why the turn stopped (turn_usage reads it)."""
+    reply = response.model_copy(
+        update={"response_metadata": {**response.response_metadata, "turn_stop": reason}}
+    )
     if response.tool_calls:
         logger.info(
             "Turn final answer dropped tool calls",
             extra={"tools": [c["name"] for c in response.tool_calls]},
         )
-        reply = response.model_copy(update={"tool_calls": [], "invalid_tool_calls": []})
+        reply = reply.model_copy(update={"tool_calls": [], "invalid_tool_calls": []})
     if extract_text_content(reply.content).strip():
         return reply
     earlier = _earlier_text(history)
@@ -140,3 +143,12 @@ def _earlier_text(history: list[BaseMessage]) -> str:
         ):
             return text
     return ""
+
+
+def resolve_stopped_by(marker: str | None, tool_rounds: int) -> str | None:
+    """Why the turn stopped early: the budget's reason, or - budgets off - the
+    old round cap as 'rounds'; None when it ran to its own end."""
+    if Config.TURN_BUDGETS_ENABLED:
+        return marker
+    cap = Config.AGENT_MAX_TOOL_ROUNDS
+    return "rounds" if cap > 0 and tool_rounds >= cap else None

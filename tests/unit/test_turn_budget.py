@@ -277,3 +277,49 @@ class TestFinalAnswer:
         )
         out = chat_node(initial_state([HumanMessage(content="find it")]), model)
         assert out["messages"][0].tool_calls
+
+
+# --- Task 5: why the turn stopped -----------------------------------------------
+
+from src.agent.stream_events import StreamEventProcessor  # noqa: E402
+from src.agent.turn_budget import resolve_stopped_by  # noqa: E402
+from src.agent.turn_usage import TokenTotals, build_usage_info  # noqa: E402
+
+
+class TestStoppedBy:
+    def test_the_final_reply_is_marked_and_announced(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        writer = MagicMock()
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: writer)
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(content="Done.")
+
+        out = chat_node(_final_state(), model)
+
+        assert out["messages"][0].response_metadata["turn_stop"] == "time"
+        writer.assert_any_call({"type": "turn_stop", "reason": "time"})
+
+    def test_batch_usage_carries_the_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
+        reply = AIMessage(content="Done.", response_metadata={"turn_stop": "cost"})
+        assert build_usage_info(TokenTotals(), [reply], 10)["stopped_by"] == "cost"
+
+    def test_streaming_usage_carries_the_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
+        processor = StreamEventProcessor([HumanMessage(content="go")])
+        list(processor.process("custom", {"type": "turn_stop", "reason": "loop"}))
+
+        [final] = [e for e in processor.finish(0.0) if e.get("type") == "final"]
+
+        assert final["usage_info"]["stopped_by"] == "loop"
+
+    def test_old_cap_maps_to_rounds_when_budgets_are_off(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", False)
+        cap = Config.AGENT_MAX_TOOL_ROUNDS
+        assert resolve_stopped_by(None, cap) == "rounds"
+        assert resolve_stopped_by(None, cap - 1) is None
+
+    def test_no_stop_no_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
+        assert build_usage_info(TokenTotals(), [AIMessage(content="hi")], 10)["stopped_by"] is None

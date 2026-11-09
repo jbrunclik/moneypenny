@@ -142,8 +142,11 @@ def chat_node(
 
     _log_response(response)
     # Turn budgets: after a stop this is the last reply - no tool calls, never empty
-    if state.get("final_answer") and isinstance(response, AIMessage):
-        response = final_reply(response, messages)
+    reason = state.get("final_answer")
+    if reason and isinstance(response, AIMessage):
+        response = final_reply(response, messages, reason)
+        # Streaming sees only chunks: the processor learns the reason here
+        get_stream_writer()({"type": "turn_stop", "reason": reason})
 
     # The turn's running cost, priced with the model that answered
     answering = str(fallback_name or getattr(model, "model_name", "unknown"))

@@ -14,7 +14,7 @@ from src.api.helpers.stream_producer import (
     notify_response_ready,
     push_title,
 )
-from src.api.utils import build_stream_done_event, is_round_capped
+from src.api.utils import build_stream_done_event
 from src.db.models import db
 from src.enums import MessageRole
 from src.services.push import send_push_to_user
@@ -57,7 +57,7 @@ def finalize_stream(context: StreamContext) -> Generator[str]:
                     conversation_title=None,
                     user_message_id=context.user_msg.id,
                     language=assistant_msg.language,
-                    stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
+                    stopped_early=bool(context.usage_info.get("stopped_by")),
                 )
                 _flag_unanswered_steering(done_data, context)
                 with contextlib.suppress(BrokenPipeError, ConnectionError, OSError):
@@ -100,7 +100,7 @@ def finalize_stream(context: StreamContext) -> Generator[str]:
         conversation_title=save_result.generated_title,
         user_message_id=context.user_msg.id,
         language=save_result.language,
-        stopped_early=is_round_capped(context.usage_info.get("tool_rounds", 0)),
+        stopped_early=bool(context.usage_info.get("stopped_by")),
     )
     _flag_unanswered_steering(done_data, context)
 

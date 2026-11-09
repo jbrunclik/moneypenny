@@ -230,7 +230,12 @@ class TestChatBatch:
             mock_agent.chat_batch.return_value = (
                 "Partial answer.",
                 [],
-                {"input_tokens": 150, "output_tokens": 100, "tool_rounds": 6},
+                {
+                    "input_tokens": 150,
+                    "output_tokens": 100,
+                    "tool_rounds": 6,
+                    "stopped_by": "rounds",
+                },
                 [],
             )
             mock_agent_class.return_value = mock_agent

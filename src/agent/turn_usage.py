@@ -108,10 +108,27 @@ class TokenTotals:
 
 
 def build_usage_info(
-    totals: TokenTotals, messages: list[BaseMessage], duration_ms: int
+    totals: TokenTotals,
+    messages: list[BaseMessage],
+    duration_ms: int,
+    stopped_by: str | None = None,
 ) -> dict[str, Any]:
-    """The usage_info dict returned with every ChatAgent turn."""
+    """The usage_info dict returned with every ChatAgent turn.
+
+    stopped_by: the turn-budget stop the stream reported; a batch turn's
+    final reply carries it in its response_metadata instead.
+    """
+    from src.agent.turn_budget import resolve_stopped_by  # noqa: PLC0415 - cycle: turn_budget -> round_cap stays light
+
     tool_rounds, tool_call_count = tool_telemetry(messages)
+    marker = stopped_by or next(
+        (
+            str(m.response_metadata["turn_stop"])
+            for m in messages
+            if isinstance(m, AIMessage) and m.response_metadata.get("turn_stop")
+        ),
+        None,
+    )
     tools_used, tool_errors = tool_usage_details(messages)
     usage: dict[str, Any] = {
         "input_tokens": totals.input_tokens,
@@ -122,6 +139,7 @@ def build_usage_info(
         "duration_ms": duration_ms,
         "tools_used": tools_used,
         "tool_errors": tool_errors,
+        "stopped_by": resolve_stopped_by(marker, tool_rounds),
     }
     # The other model tier answered (chat_node.chat_node): price the turn at it
     fallback = next(

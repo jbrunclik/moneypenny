@@ -55,6 +55,7 @@ class CostMixin:
         tool_errors: int = 0,
         tools_used: list[str] | None = None,
         job_id: str | None = None,
+        stopped_by: str | None = None,
     ) -> None:
         """Save cost information for a message.
 
@@ -74,6 +75,7 @@ class CostMixin:
             tool_errors: ToolMessages structurally detected as failures
             tools_used: Unique tool names executed in the turn (stored as JSON)
             job_id: The standing job whose unattended run this was (its budget)
+            stopped_by: Why the turn stopped early (cost, time, rounds, loop), if it did
         """
         cost_id = str(uuid.uuid4())
         logger.debug(
@@ -100,8 +102,8 @@ class CostMixin:
                     input_tokens, output_tokens, cached_input_tokens,
                     tool_rounds, tool_call_count,
                     cost_usd, image_generation_cost_usd, created_at,
-                    duration_ms, tool_errors, tools_used, job_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_ms, tool_errors, tools_used, job_id, stopped_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     cost_id,
                     message_id,
@@ -120,6 +122,7 @@ class CostMixin:
                     tool_errors,
                     json.dumps(tools_used) if tools_used else None,
                     job_id,
+                    stopped_by,
                 ),
             )
             conn.commit()
@@ -179,21 +182,19 @@ class CostMixin:
                 ),
             }
 
-    def get_round_capped_message_ids(self, message_ids: list[str], min_rounds: int) -> set[str]:
-        """Ids among ``message_ids`` whose turn ran at least ``min_rounds`` tool rounds.
-
-        Used to flag replies cut off by the tool-round cap (one query per page
-        of messages, not per message).
-        """
-        if not message_ids or min_rounds <= 0:
+    def get_stopped_early_message_ids(self, message_ids: list[str]) -> set[str]:
+        """Ids among ``message_ids`` whose turn stopped early (a turn budget
+        or the old round cap): their replies offer Continue. One query per
+        page of messages, not per message."""
+        if not message_ids:
             return set()
         placeholders = ",".join("?" * len(message_ids))
         with self._pool.get_connection() as conn:
             rows = self._execute_with_timing(
                 conn,
                 f"""SELECT message_id FROM message_costs
-                    WHERE message_id IN ({placeholders}) AND tool_rounds >= ?""",  # placeholders only
-                (*message_ids, min_rounds),
+                    WHERE message_id IN ({placeholders}) AND stopped_by IS NOT NULL""",  # placeholders only
+                tuple(message_ids),
             ).fetchall()
         return {row["message_id"] for row in rows}
 
