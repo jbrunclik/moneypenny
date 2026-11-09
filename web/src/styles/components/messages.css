@@ -1805,3 +1805,34 @@ a.document-name:hover {
     margin-right: auto;
     order: -1;
 }
+
+/* ----------------------------------------
+   What's new posts (release cards): the card surface, no avatar or actions.
+   The card's inner layout is in release-card.css.
+   ---------------------------------------- */
+.message.message--release {
+    margin-bottom: var(--space-8);
+}
+
+.message.message--release .message-content-wrapper {
+    width: 100%;
+}
+
+/* Copy / Regenerate make no sense on an announcement */
+.message.message--release .message-actions {
+    display: none;
+}
+
+.message.message--release .message-content.release-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 768px) {
+    .message.message--release .message-content.release-card {
+        padding: var(--space-5);
+    }
+}

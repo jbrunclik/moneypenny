@@ -1,0 +1,141 @@
+/* ----------------------------------------
+   What's new posts as release cards (components/messages/release-card.ts)
+
+   A dated card per post: mark + date, title, intro, the sections as rows
+   (title left, bullets right; stacked on mobile - a tile grid left holes
+   under short sections) and a quiet footer. Selectors start at .release-card so
+   they outrank the markdown margins in messages.css. The card surface
+   itself (.message.message--release) lives in messages.css.
+   ---------------------------------------- */
+
+.release-card .release-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2-5);
+}
+
+.release-card .release-card-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background-color: var(--accent-muted);
+    color: var(--accent-text);
+}
+
+.release-card .release-card-mark svg {
+    width: 16px;
+    height: 16px;
+}
+
+.release-card .release-card-date {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.release-card .release-card-title {
+    margin: var(--space-4) 0 0;
+    font-size: var(--font-size-3xl);
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.release-card .release-card-intro,
+.release-card .release-card-body p {
+    margin: var(--space-2) 0 0;
+    color: var(--text-secondary);
+}
+
+.release-card .release-card-body p + p {
+    margin-top: var(--space-3);
+}
+
+.release-card .release-card-grid {
+    margin-top: var(--space-5);
+}
+
+.release-card .release-card-section {
+    display: grid;
+    grid-template-columns: 11rem minmax(0, 1fr);
+    column-gap: var(--space-6);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--border-light);
+}
+
+.release-card .release-card-section-title {
+    margin: 0;
+    font-size: var(--font-size-ui);
+    font-weight: 600;
+    line-height: 1.55;
+    color: var(--text-primary);
+}
+
+.release-card .release-card-section ul,
+.release-card .release-card-section ol,
+.release-card .release-card-section p {
+    grid-column: 2;
+}
+
+.release-card .release-card-section ul,
+.release-card .release-card-section ol {
+    margin: 0;
+    padding-left: var(--space-4);
+    font-size: var(--font-size-md);
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.release-card .release-card-section li::marker {
+    color: var(--accent-text);
+}
+
+.release-card .release-card-section li + li {
+    margin-top: var(--space-1-5);
+}
+
+.release-card .release-card-section li {
+    margin-bottom: 0;
+}
+
+.release-card .release-card-section p {
+    margin: var(--space-2) 0 0;
+    font-size: var(--font-size-ui);
+    color: var(--text-secondary);
+}
+
+.release-card .release-card-footer {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-light);
+}
+
+.release-card .release-card-grid + .release-card-footer {
+    margin-top: 0;
+}
+
+.release-card .release-card-footer p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .release-card .release-card-title {
+        font-size: var(--font-size-2xl);
+    }
+
+    .release-card .release-card-section {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: var(--space-2);
+    }
+
+    .release-card .release-card-section ul,
+    .release-card .release-card-section ol,
+    .release-card .release-card-section p {
+        grid-column: 1;
+    }
+}

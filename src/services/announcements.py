@@ -105,7 +105,8 @@ def language_for(user: User) -> str:
 
 
 def post_pending_announcements(directory: Path | None = None) -> int:
-    """Post every announcement each user has not had yet; the number of posts."""
+    """Post every announcement each user has not had yet, then revise posts
+    whose file changed since; the number of new posts."""
     folder = directory or Config.ANNOUNCEMENTS_DIR
     if not folder.is_dir():
         return 0
@@ -116,7 +117,28 @@ def post_pending_announcements(directory: Path | None = None) -> int:
             posted += _post(announcement, user)
     if posted:
         logger.info("Announcements posted", extra={"posts": posted})
+    revise_posted_announcements(folder)
     return posted
+
+
+def revise_posted_announcements(directory: Path | None = None) -> int:
+    """Rewrite posted announcements whose file text changed since (quietly:
+    no push, no unread badge, the chat keeps its place); the number revised."""
+    folder = directory or Config.ANNOUNCEMENTS_DIR
+    if not folder.is_dir():
+        return 0
+    revised = 0
+    for announcement in load_announcements(folder):
+        for user_id, message_id in db.announcement_messages(announcement.id):
+            user = db.get_user_by_id(user_id)
+            if user is None:
+                continue
+            lang = language_for(user)
+            body = announcement.versions[lang].body
+            revised += db.revise_message_text(message_id, body, lang)
+    if revised:
+        logger.info("Announcements revised", extra={"revised_count": revised})
+    return revised
 
 
 def _post(announcement: Announcement, user: User) -> int:
@@ -127,7 +149,8 @@ def _post(announcement: Announcement, user: User) -> int:
     version = announcement.versions[lang]
     try:
         conv_id = db.whats_new_conversation_for_post(user.id, CHAT_TITLES[lang])
-        db.add_message(conv_id, MessageRole.ASSISTANT, version.body, language=lang)
+        message = db.add_message(conv_id, MessageRole.ASSISTANT, version.body, language=lang)
+        db.set_announcement_message(user.id, announcement.id, message.id)
     except Exception:  # never fail startup: the next start tries again
         db.release_announcement(user.id, announcement.id)
         logger.warning(

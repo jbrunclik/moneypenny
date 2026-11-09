@@ -15,6 +15,7 @@ from src.services.announcements import (
     load_announcements,
     parse_announcement,
     post_pending_announcements,
+    revise_posted_announcements,
 )
 
 if TYPE_CHECKING:
@@ -231,3 +232,41 @@ def test_testing_never_posts() -> None:
         app_module._prepare_process(MagicMock(), apply_migrations=True)
 
     assert not post.called
+
+
+def test_an_edited_announcement_revises_the_posted_text_quietly(
+    db: Database, test_user: User, folder: Path, push: MagicMock
+) -> None:
+    post_pending_announcements(folder)
+    [chat] = _whats_new(db, test_user)
+    before = db.get_conversation(chat.id, test_user.id)
+    (folder / "2099-01-01-agents.md").write_text(_TEXT.replace("Nově si", "Teď si"))
+    push.reset_mock()
+
+    assert post_pending_announcements(folder) == 0
+
+    [message] = db.get_messages(chat.id)
+    assert "Teď si agenta" in message.content
+    push.assert_not_called()
+    after = db.get_conversation(chat.id, test_user.id)
+    assert before is not None and after is not None
+    assert after.updated_at == before.updated_at  # the chat does not jump to the top
+
+
+def test_an_unchanged_announcement_is_not_rewritten(
+    db: Database, test_user: User, folder: Path, push: MagicMock
+) -> None:
+    post_pending_announcements(folder)
+
+    assert revise_posted_announcements(folder) == 0
+
+
+def test_a_revision_skips_a_deleted_post(
+    db: Database, test_user: User, folder: Path, push: MagicMock
+) -> None:
+    post_pending_announcements(folder)
+    [chat] = _whats_new(db, test_user)
+    db.delete_conversation(chat.id, test_user.id)
+    (folder / "2099-01-01-agents.md").write_text(_TEXT.replace("Nově si", "Teď si"))
+
+    assert revise_posted_announcements(folder) == 0

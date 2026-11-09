@@ -61,6 +61,45 @@ class WhatsNewMixin:
             conn.commit()
         return cursor.rowcount == 1
 
+    def set_announcement_message(self, user_id: str, announcement_id: str, message_id: str) -> None:
+        """Remember the message a post became (a revision rewrites it)."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """UPDATE announcement_posts SET message_id = ?
+                   WHERE user_id = ? AND announcement_id = ?""",
+                (message_id, user_id, announcement_id),
+            )
+            conn.commit()
+
+    def announcement_messages(self, announcement_id: str) -> list[tuple[str, str]]:
+        """(user id, message id) of each post of an announcement that has one."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT user_id, message_id FROM announcement_posts
+                   WHERE announcement_id = ? AND message_id IS NOT NULL""",
+                (announcement_id,),
+            ).fetchall()
+        return [(row["user_id"], row["message_id"]) for row in rows]
+
+    def revise_message_text(self, message_id: str, content: str, language: str) -> bool:
+        """Rewrite a posted announcement's text in place - True when it changed.
+
+        Unlike update_message_content it leaves the chat's updated_at alone,
+        so a revision never moves the chat up the list; the sync trigger on
+        messages still tells other devices.
+        """
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                """UPDATE messages SET content = ?, language = ?
+                   WHERE id = ? AND (content IS NOT ? OR language IS NOT ?)""",
+                (content, language, message_id, content, language),
+            )
+            conn.commit()
+        return cursor.rowcount == 1
+
     def release_announcement(self, user_id: str, announcement_id: str) -> None:
         """Undo a claim whose post failed, so the next start tries again."""
         with self._pool.get_connection() as conn:

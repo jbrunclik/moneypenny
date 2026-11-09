@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from flask import Blueprint, g
+from flask import Blueprint, g, request
 
 from tests.e2e_server.context import MOCK_CONFIG, ProxyDatabase
 
@@ -128,14 +128,24 @@ def set_job() -> tuple[dict[str, Any], int]:
 
 @fixtures_bp.route("/test/seed-whats-new", methods=["POST"])
 def seed_whats_new() -> tuple[dict[str, Any], int]:
-    """Seed the local user's What's new chat with one announcement."""
+    """Seed the local user's What's new chat with one announcement, or with
+    the posts in the body ({"posts": [markdown, ...]})."""
     from src.enums import MessageRole
 
     user = g.db.get_or_create_user(email="local@localhost", name="Local User")
     conv_id = g.db.whats_new_conversation_for_post(user.id, "Novinky")
-    g.db.add_message(
-        conv_id, MessageRole.ASSISTANT, "# Novinka\nAgenty teď založíte v chatu.", language="cs"
+    body = request.get_json(silent=True) or {}
+    if posts := body.get("posts"):
+        for text in posts:
+            g.db.add_message(conv_id, MessageRole.ASSISTANT, str(text), language="cs")
+        return {"status": "seeded", "conversation_id": conv_id}, 200
+    post = (
+        "# Novinka\nTady se dozvíte, co je nového.\n\n"
+        "**Agenti**\n- Agenty teď založíte v chatu.\n- Jeden seznam všeho, co běží.\n\n"
+        "**Drobnosti**\n- Ťuknutí na tlačítko dolů se už neztratí.\n\n"
+        "Tenhle chat je jen pro čtení."
     )
+    g.db.add_message(conv_id, MessageRole.ASSISTANT, post, language="cs")
     return {"status": "seeded", "conversation_id": conv_id}, 200
 
 

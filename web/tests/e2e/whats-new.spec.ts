@@ -1,6 +1,6 @@
 /**
  * What's new: the read-only announcements chat opens like any chat, shows
- * its announcement and has no composer (desktop and mobile).
+ * its announcement as a release card and has no composer (desktop and mobile).
  */
 import { test, expect } from '../global-setup';
 import { appReady } from './waits';
@@ -19,7 +19,13 @@ for (const viewport of [
       await page.goto(`/#/conversations/${conversationId}`);
       await appReady(page);
 
-      await expect(page.locator('.message.assistant').last()).toContainText('Agenty teď založíte');
+      const post = page.locator('.message.message--release').last();
+      await expect(post).toContainText('Agenty teď založíte');
+      // A release card: dated header, section tiles, footer - no chat avatar
+      await expect(post.locator('.release-card-date')).toHaveText(/\d{4}/);
+      await expect(post.locator('.release-card-section')).toHaveCount(2);
+      await expect(post.locator('.release-card-footer')).toContainText('jen pro čtení');
+      await expect(post.locator('.message-avatar')).toHaveCount(0);
       await expect(page.locator('.input-area')).toBeHidden();
       await expect(page.locator('.message-regenerate-btn')).toBeHidden();
 

@@ -4,6 +4,8 @@
 
 import { renderDeliveryLabel } from './delivery-label';
 import { renderMemoryNote } from './memory-note';
+import { asReleaseCard } from './release-card';
+import { useStore } from '../../state/store';
 import { resetTurnAnchor } from './turn-anchor';
 import { createElement, getElementById, scrollToBottom, clearElement, setSanitizedHtml } from '../../utils/dom';
 import { renderMarkdown, highlightAllCodeBlocks } from '../../utils/markdown';
@@ -436,6 +438,11 @@ function renderSpecialMessage(
   return isActionApprovedMessage(message.content) || isActionRejectedMessage(message.content);
 }
 
+/** A post in the read-only What's new chat (rendered as a release card). */
+function isReleasePost(message: Message): boolean {
+  return message.role === 'assistant' && !!useStore.getState().currentConversation?.is_whats_new;
+}
+
 /** The message bubble element, with the reply avatar and (live appends only) the entrance animation. */
 function createMessageElement(message: Message, animate: boolean): HTMLDivElement {
   const messageEl = document.createElement('div');
@@ -451,6 +458,12 @@ function createMessageElement(message: Message, animate: boolean): HTMLDivElemen
       () => messageEl.classList.remove('message--entering'),
       { once: true },
     );
+  }
+
+  // What's new posts are release cards: no avatar, the card carries the mark
+  if (isReleasePost(message)) {
+    messageEl.classList.add('message--release');
+    return messageEl;
   }
 
   // Avatar: replies only - in a 1:1 chat the user's own right-aligned bubble
@@ -489,6 +502,7 @@ function renderMessageContent(message: Message): HTMLDivElement {
 
   if (message.role === 'assistant') {
     setSanitizedHtml(content, renderMarkdown(message.content));
+    if (isReleasePost(message)) asReleaseCard(content, message.created_at, message.language);
     highlightAllCodeBlocks(content);
     void renderMermaidIn(content);
     if (hasFiles && message.files) {

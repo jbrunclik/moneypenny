@@ -10,7 +10,11 @@ Rule A7: a new feature or behaviour change users can see ships with an
 announcement in the same commit, or joins that day's announcement before it
 is deployed. Pure visual polish rides along with the next announcement (a
 push per restyle would be noise). Once posted,
-an announcement is never posted again: editing its file changes nothing.
+an announcement is never posted again, but editing its file revises the
+posted text in place at the next start - quietly: no push, no unread badge,
+and the chat keeps its place in the list (`revise_posted_announcements`;
+`announcement_posts.message_id` since migration 0085, which paired earlier
+posts with their messages). Log line: "Announcements revised" (revised_count).
 
 `announcements/YYYY-MM-DD-slug.md`, Czech and English, each version starting
 with its `# Title`:
@@ -31,8 +35,10 @@ Text...
   words, with an example to try. Leave out internals.
 - `test_every_repo_announcement_is_valid` fails on a file missing a language
   or a title (at startup such a file is logged and skipped).
-- The title becomes a level-2 heading in the chat, and the push title is
-  "Novinky: <title>" / "What's new: <title>".
+- Shape it for the release card (below): the title, one intro paragraph,
+  sections as a **bold-only line** followed by a list, and a closing line.
+  A post without sections is fine (title + paragraphs).
+- The push title is "Novinky: <title>" / "What's new: <title>".
 
 ## How it is posted
 
@@ -68,6 +74,15 @@ The language is English when the user chose English
   interjections and truncation with a validation error
   (`refuse_if_read_only` in `src/api/helpers/chat_turn.py`).
 - The API carries `is_whats_new` on the conversation list, sync and detail.
+- Posts render as release cards, not chat replies
+  ([release-card.ts](../../web/src/components/messages/release-card.ts),
+  styles in `release-card.css`): no avatar and no message actions; a card
+  with the sparkles mark and the post's date in its own language, the title,
+  the intro, each section as a row (title left, bullets right; stacked under
+  768px), and the closing line as a quiet footer. The rendered markdown is
+  regrouped in place, so a post the parser does not recognise (no `#` title)
+  stays plain text. Nov 9 2026: a 2-column tile grid was tried first and
+  left holes under short sections.
 
 ## Testing
 
@@ -76,4 +91,7 @@ posting once, unarchive, re-create, the audience, the push, startup),
 [test_routes_whats_new.py](../../tests/integration/test_routes_whats_new.py)
 (the API field and the read-only guards),
 [whats-new.spec.ts](../../web/tests/e2e/whats-new.spec.ts) (desktop and
-mobile; `POST /test/seed-whats-new` seeds the chat).
+mobile, the card structure; `POST /test/seed-whats-new` seeds the chat,
+optionally with `{"posts": [markdown, ...]}`),
+[release-card.test.ts](../../web/tests/unit/release-card.test.ts) (how a post
+is split into the card).
