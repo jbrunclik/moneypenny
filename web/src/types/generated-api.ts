@@ -10335,10 +10335,73 @@ export interface components {
              */
             memory_note: string | null;
             /**
+             * Proposals
+             * @description The proposal cards this reply shows
+             * @default null
+             */
+            proposals: components["schemas"]["PlannerConversationResponse.ProposalResponse"][] | null;
+            /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "PlannerConversationResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         */
+        "PlannerConversationResponse.ProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["PlannerConversationResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
         };
         /**
          * SourceResponse
@@ -10560,6 +10623,63 @@ export interface components {
             legacy: boolean | null;
         };
         /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "MessageResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         */
+        "MessageResponse.ProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["MessageResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
+        };
+        /**
          * SourceResponse
          * @description Web search source citation.
          */
@@ -10677,6 +10797,12 @@ export interface components {
              * @default null
              */
             memory_note: string | null;
+            /**
+             * Proposals
+             * @description The proposal cards this reply shows
+             * @default null
+             */
+            proposals: components["schemas"]["MessageResponse.ProposalResponse"][] | null;
             /**
              * Created At
              * Format: date-time
@@ -11050,6 +11176,12 @@ export interface components {
              */
             memory_note: string | null;
             /**
+             * Proposals
+             * @description The proposal cards this reply shows
+             * @default null
+             */
+            proposals: components["schemas"]["ConversationDetailPaginatedResponse.ProposalResponse"][] | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -11087,6 +11219,63 @@ export interface components {
              * @description Total number of messages in conversation
              */
             total_count: number;
+        };
+        /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "ConversationDetailPaginatedResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         */
+        "ConversationDetailPaginatedResponse.ProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["ConversationDetailPaginatedResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
         };
         /**
          * SourceResponse
@@ -12162,6 +12351,12 @@ export interface components {
              */
             memory_note: string | null;
             /**
+             * Proposals
+             * @description The proposal cards this reply shows
+             * @default null
+             */
+            proposals: components["schemas"]["MessagesListResponse.ProposalResponse"][] | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -12199,6 +12394,63 @@ export interface components {
              * @description Total number of messages in conversation
              */
             total_count: number;
+        };
+        /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "MessagesListResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         */
+        "MessagesListResponse.ProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["MessagesListResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
         };
         /**
          * SourceResponse
@@ -12438,6 +12690,63 @@ export interface components {
             legacy: boolean | null;
         };
         /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "ChatBatchResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         */
+        "ChatBatchResponse.ProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["ChatBatchResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
+        };
+        /**
          * SourceResponse
          * @description Web search source citation.
          */
@@ -12522,6 +12831,12 @@ export interface components {
              * @default null
              */
             artifacts: components["schemas"]["ChatBatchResponse.ArtifactRef"][] | null;
+            /**
+             * Proposals
+             * @description The proposal cards this reply shows
+             * @default null
+             */
+            proposals: components["schemas"]["ChatBatchResponse.ProposalResponse"][] | null;
             /**
              * Created At
              * Format: date-time

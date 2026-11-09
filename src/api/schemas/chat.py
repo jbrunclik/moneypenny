@@ -197,6 +197,26 @@ class ArtifactRef(ResponseModel):
     title: str = Field(description="Artifact title")
 
 
+class ProposalOptionResponse(ResponseModel):
+    """One choice on a proposal card (its payload stays on the server)."""
+
+    label: str
+    description: str = ""
+
+
+class ProposalResponse(ResponseModel):
+    """A card awaiting (or past) the user's answer (docs/features/proposals.md)."""
+
+    id: str
+    kind: str = Field(description="schedule_item, create_agent, edit_agent, ...")
+    summary: str = Field(description="What it does, in a line")
+    details: dict[str, str] = Field(default_factory=dict, description="Label -> value rows")
+    options: list[ProposalOptionResponse]
+    state: Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
+    chosen: int | None = Field(default=None, description="The option picked")
+    result: str | None = Field(default=None, description="What applying did, or why it failed")
+
+
 class VerifyClaimActionResponse(ResponseModel):
     """A stored verify-claim action (null ids: converted from old messages)."""
 
@@ -257,6 +277,9 @@ class MessageResponse(ResponseModel):
     memory_note: str | None = Field(
         default=None, description="What the background memory review saved after this reply"
     )
+    proposals: list[ProposalResponse] | None = Field(
+        default=None, description="The proposal cards this reply shows"
+    )
     created_at: Timestamp
 
 
@@ -293,6 +316,9 @@ class ChatBatchResponse(ResponseModel):
     )
     artifacts: list[ArtifactRef] | None = Field(
         default=None, description="Artifact versions shown under the reply"
+    )
+    proposals: list[ProposalResponse] | None = Field(
+        default=None, description="The proposal cards this reply shows"
     )
     created_at: Timestamp
     title: str | None = Field(

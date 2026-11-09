@@ -190,6 +190,14 @@ def answer_typed(conversation_id: str, text: str) -> list[Proposal]:
     return resolved
 
 
+def answer_and_note(conversation_id: str, text: str | None) -> str | None:
+    """The turn's start: resolve a typed answer (None for a rerun, which
+    answers nothing), then what the agent should hear about its proposals."""
+    if text is not None:
+        answer_typed(conversation_id, text)
+    return turn_note(conversation_id)
+
+
 _OUTCOME = {
     "approved": "The user approved: {summary} - {result}",
     "declined": "The user declined: {summary}",

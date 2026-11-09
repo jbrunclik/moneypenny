@@ -386,6 +386,8 @@ def save_message_to_db(
         )
         # The versions follow this reply (cleanup on delete/regenerate)
         db.link_artifact_versions(assistant_msg.id, [(a["id"], a["version"]) for a in artifacts])
+        # The cards this turn filed show under this reply
+        db.link_proposals(stream_request_id, assistant_msg.id)
 
         _price_reply(
             assistant_msg.id,

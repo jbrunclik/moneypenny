@@ -12219,6 +12219,22 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The proposal cards this reply shows",
+            "title": "Proposals"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -12242,9 +12258,114 @@
           "action",
           "delivery",
           "memory_note",
+          "proposals",
           "created_at"
         ],
         "title": "MessageResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/PlannerConversationResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
         "type": "object"
       },
       "PlannerConversationResponse.SourceResponse": {
@@ -12641,6 +12762,110 @@
         "title": "GroundingSummaryResponse",
         "type": "object"
       },
+      "MessageResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "MessageResponse.ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/MessageResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
+        "type": "object"
+      },
       "MessageResponse.SourceResponse": {
         "description": "Web search source citation.",
         "properties": {
@@ -12918,6 +13143,22 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessageResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The proposal cards this reply shows",
+            "title": "Proposals"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -12941,6 +13182,7 @@
           "action",
           "delivery",
           "memory_note",
+          "proposals",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -13686,6 +13928,22 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The proposal cards this reply shows",
+            "title": "Proposals"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -13709,6 +13967,7 @@
           "action",
           "delivery",
           "memory_note",
+          "proposals",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -13767,6 +14026,110 @@
           "total_count"
         ],
         "title": "MessagesPaginationResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.SourceResponse": {
@@ -15883,6 +16246,22 @@
             "description": "What the background memory review saved after this reply",
             "title": "Memory Note"
           },
+          "proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The proposal cards this reply shows",
+            "title": "Proposals"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -15906,6 +16285,7 @@
           "action",
           "delivery",
           "memory_note",
+          "proposals",
           "created_at"
         ],
         "title": "MessageResponse",
@@ -15964,6 +16344,110 @@
           "total_count"
         ],
         "title": "MessagesPaginationResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/MessagesListResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
         "type": "object"
       },
       "MessagesListResponse.SourceResponse": {
@@ -16401,6 +16885,110 @@
         "title": "GroundingSummaryResponse",
         "type": "object"
       },
+      "ChatBatchResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ChatBatchResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
+        "type": "object"
+      },
       "ChatBatchResponse.SourceResponse": {
         "description": "Web search source citation.",
         "properties": {
@@ -16591,6 +17179,22 @@
             "description": "Artifact versions shown under the reply",
             "title": "Artifacts"
           },
+          "proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The proposal cards this reply shows",
+            "title": "Proposals"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -16664,6 +17268,7 @@
           "grounding",
           "research",
           "artifacts",
+          "proposals",
           "created_at",
           "title",
           "user_message_id",

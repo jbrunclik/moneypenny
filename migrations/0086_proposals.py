@@ -4,8 +4,9 @@ One approval mechanism, step 1 (docs/superpowers/specs/2026-11-09-one-approval-
 mechanism-design.md). A proposal carries 1-4 options, each with the exact
 payload choosing it applies, and is shown as a card under its reply. Changes
 bump the conversation in the sync change log (as messages do, 0061), so
-another device sees a card resolved. The chat setups' old kv previews (the
-pending gate) are cleared: they lived for one message only.
+another device sees a card resolved; deleting its reply expires an open one
+(timestamps in the stored fixed-width form). The chat setups' old kv previews
+(the pending gate) are cleared: they lived for one message only.
 """
 
 from yoyo import step
@@ -57,6 +58,16 @@ steps = [
     step(
         f"CREATE TRIGGER sync_change_proposal_update AFTER UPDATE ON proposals BEGIN{_BUMP}\n        END",
         "DROP TRIGGER IF EXISTS sync_change_proposal_update",
+    ),
+    # A deleted reply (regenerate, truncate, delete) takes its open cards
+    # with it: a proposal is never approvable from a message that is gone
+    step(
+        """CREATE TRIGGER proposals_expire_with_their_reply AFTER DELETE ON messages BEGIN
+            UPDATE proposals SET state = 'expired', resolved_by = 'system',
+                resolved_at = strftime('%Y-%m-%dT%H:%M:%f', 'now') || '000+00:00'
+            WHERE message_id = OLD.id AND state = 'pending';
+        END""",
+        "DROP TRIGGER IF EXISTS proposals_expire_with_their_reply",
     ),
     step(
         """DELETE FROM kv_store

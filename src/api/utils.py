@@ -8,7 +8,7 @@ from flask import Request
 from werkzeug.exceptions import HTTPException
 
 from src.config import Config
-from src.db.models import Message, db
+from src.db.models import Message, Proposal, db
 from src.enums import MessageRole
 from src.utils.clock import to_api, utc_now
 from src.utils.files import StoredFile, UploadedFile
@@ -135,6 +135,32 @@ def add_research(data: dict[str, Any], msg: Any) -> None:
         data["research"] = research
 
 
+def proposal_to_response(proposal: Proposal) -> dict[str, object]:
+    """A proposal as the client sees it: never the options' payloads."""
+    return {
+        "id": proposal.id,
+        "kind": proposal.kind,
+        "summary": proposal.summary,
+        "details": {label: str(value) for label, value in proposal.details.items()},
+        "options": [
+            {"label": o["label"], "description": o.get("description", "")} for o in proposal.options
+        ],
+        "state": proposal.state,
+        "chosen": proposal.chosen,
+        "result": proposal.result,
+    }
+
+
+def add_proposals(
+    data: dict[str, object], msg: Message, by_message: dict[str, list[Proposal]] | None = None
+) -> None:
+    """The proposal cards the reply shows, when it has any (by_message: prefetched)."""
+    found = by_message if by_message is not None else db.proposals_for_messages([msg.id])
+    shown = [p for p in found.get(msg.id, []) if p.state != "superseded"]
+    if shown:
+        data["proposals"] = [proposal_to_response(p) for p in shown]
+
+
 def add_artifacts(data: dict[str, Any], msg: Any) -> None:
     """Artifacts shown under the message ([{id, version, title}]), when it has any."""
     artifacts = getattr(msg, "artifacts", None)
@@ -195,6 +221,7 @@ def build_chat_response(
     add_grounding(response_data, assistant_msg)
     add_research(response_data, assistant_msg)
     add_artifacts(response_data, assistant_msg)
+    add_proposals(response_data, assistant_msg)
     response_data["message_count"] = conversation_message_count(assistant_msg)
 
     return response_data
@@ -251,9 +278,9 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
     # Filter out empty placeholder messages (still being processed by stream)
     messages = [m for m in messages if not is_empty_placeholder(m)]
 
-    capped_ids = db.get_stopped_early_message_ids(
-        [m.id for m in messages if m.role == MessageRole.ASSISTANT]
-    )
+    reply_ids = [m.id for m in messages if m.role == MessageRole.ASSISTANT]
+    capped_ids = db.get_stopped_early_message_ids(reply_ids)
+    proposals = db.proposals_for_messages(reply_ids)
 
     optimized_messages = []
     for m in messages:
@@ -293,6 +320,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
         add_action(msg_data, m)
         add_delivery(msg_data, m)
         add_memory_note(msg_data, m)
+        add_proposals(msg_data, m, proposals)
 
         optimized_messages.append(msg_data)
     return optimized_messages
@@ -351,6 +379,7 @@ def build_stream_done_event(
     add_grounding(done_data, assistant_msg)
     add_research(done_data, assistant_msg)
     add_artifacts(done_data, assistant_msg)
+    add_proposals(done_data, assistant_msg)
     done_data["message_count"] = conversation_message_count(assistant_msg)
 
     return done_data

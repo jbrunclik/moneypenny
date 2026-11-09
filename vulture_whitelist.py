@@ -137,6 +137,7 @@ ab_warned
 seen_results
 session_gap  # src/agent/history.py MessageMetadata
 created_by_message_id  # src/db/models/dataclasses.py: rows mirror their table
+reported  # Proposal: mirrors its column, read in SQL (unreported_proposals)
 last_viewed_at
 last_used_at
 hrv_status  # src/services/planner/models.py PlannerHealthSummary

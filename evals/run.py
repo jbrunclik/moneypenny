@@ -116,8 +116,12 @@ class EvalCase:
     # exercise what a stopped answer says
     round_cap: int | None = None
     # KV rows seeded for the user: [{namespace, key, value}]; {conversation_id}
-    # in a key is the case's conversation (e.g. a pending schedule preview)
+    # in a key is the case's conversation
     kv: list[dict[str, str]] = field(default_factory=list)
+    # Proposal cards pending on the history's last reply: [{kind, summary,
+    # details, label, payload}]; the case's user message answers them before
+    # the turn, as the chat route does (src/agent/proposals.py answer_and_note)
+    proposals: list[dict[str, Any]] = field(default_factory=list)
     # Fake integration backends (evals/fakes.py): {todoist: {...}, garmin: {...}}
     integrations: dict[str, Any] = field(default_factory=dict)
     # Run the deep-research pipeline with this plan instead of a chat turn:
@@ -223,6 +227,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     }
                     for e in (data.get("kv") or [])
                 ],
+                proposals=[dict(p) for p in (data.get("proposals") or [])],
                 integrations=_resolve_dates(dict(data.get("integrations") or {})),
                 memory_review=bool(data.get("memory_review", False)),
                 deep_research=dict(data.get("deep_research") or {}),
@@ -637,6 +642,7 @@ def _seed_case(
     for entry in case.kv:
         key = entry["key"].replace("{conversation_id}", conversation_id)
         db.kv_set(user.id, entry["namespace"], key, entry["value"])
+    _seed_proposals(case, user, db, conversation_id)
 
     # Seed artifacts for revision cases (they go with the eval conversation)
     artifact_ids = [
@@ -650,6 +656,53 @@ def _seed_case(
     if case.compact_history:
         history, summarizer_usage = _compacted_history(case, user, db, conversation_id)
     return seeded_memory_ids, history, summarizer_usage
+
+
+def _seed_proposals(case: EvalCase, user: Any, db: Any, conversation_id: str) -> None:
+    """The case's pending cards, shown under the history's last reply."""
+    if not case.proposals:
+        return
+    import uuid
+
+    from src.db.models import Proposal
+    from src.utils.clock import utc_now
+
+    last: dict[str, Any] = next(
+        (h for h in reversed(case.history) if h.get("role") == "assistant"), {}
+    )
+    reply = db.add_message(conversation_id, "assistant", str(last.get("content", "")))
+    for p in case.proposals:
+        db.create_proposal(
+            Proposal(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                conversation_id=conversation_id,
+                message_id=reply.id,
+                request_id="eval-seed",
+                kind=str(p["kind"]),
+                summary=str(p["summary"]),
+                details=dict(p.get("details") or {}),
+                options=[
+                    {"label": str(p["label"]), "description": "", "payload": dict(p["payload"])}
+                ],
+                state="pending",
+                chosen=None,
+                result=None,
+                resolved_by=None,
+                reported=False,
+                created_at=utc_now(),
+                resolved_at=None,
+            )
+        )
+
+
+def _turn_text(case: EvalCase, conversation_id: str) -> str:
+    """The user's message as the agent gets it: a typed answer to the seeded
+    cards is resolved first and the outcome follows as guidance (chat_turn)."""
+    from src.agent.proposals import answer_and_note
+
+    note = answer_and_note(conversation_id, case.user) if case.proposals else None
+    return f"{case.user}\n\n[SYSTEM GUIDANCE]\n{note}\n[/SYSTEM GUIDANCE]" if note else case.user
 
 
 def _history_with_files(
@@ -854,7 +907,7 @@ def _agent_turn(
             )
         else:
             response, tool_results, usage, result_messages = agent.chat_batch(
-                text=case.user,
+                text=_turn_text(case, conversation_id),
                 files=_saved_attachments(case, db, conversation_id) or None,
                 history=history,
                 user_name="Eval User",

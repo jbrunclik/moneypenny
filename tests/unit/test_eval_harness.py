@@ -851,3 +851,20 @@ expect:
         stored = test_database.get_message_by_id(message_id)
         assert stored is not None and stored.conversation_id == conv.id and index == "0"
         assert payload[0]["name"] == "floor_plan.pdf"
+
+
+def test_a_seeded_card_is_answered_before_the_turn(test_database: Any, test_user: Any) -> None:
+    """The confirm case: the user's yes approves the seeded card first, as the
+    chat route does, and the agent's text carries the outcome."""
+    from evals.run import _seed_proposals, _turn_text
+    from src.db.models import use_database
+
+    [case] = [c for c in load_cases(Path("evals/cases")) if c.id == "schedule_reminder_confirm"]
+    conv = test_database.create_conversation(test_user.id)
+    with use_database(test_database):
+        _seed_proposals(case, test_user, test_database, conv.id)
+        text = _turn_text(case, conv.id)
+
+    assert "The user approved" in text and "Reminder set" in text
+    [item] = test_database.list_items(test_user.id)
+    assert item.text == "Zavolat instalatérovi"

@@ -31,6 +31,7 @@ from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids
+from src.agent.proposals import answer_and_note
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
 from src.agent.tool_results import set_current_request_id
@@ -82,6 +83,8 @@ class PreparedTurn:
     deep_research: DeepResearchPlan | None = None
     # What the conversation's lost turn already did (lost_actions.py)
     lost_actions_note: str | None = None
+    # What happened to the conversation's proposal cards (src/agent/proposals.py)
+    proposal_note: str | None = None
 
 
 def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
@@ -137,6 +140,9 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     # this turn, so a retry does not repeat a write. Taken only once the turn
     # is accepted - a refused rerun leaves it for the next one
     lost_actions_note = pop_lost_actions_note(user.id, conv_id)
+    # A typed answer to the latest reply's cards resolves them now, before the
+    # agent runs (a rerun answers nothing); the agent hears the outcome
+    proposal_note = answer_and_note(conv_id, None if data.rerun_mode else message_text)
 
     # File DATA is left out of history (only metadata: name, type, message_id,
     # file_index) so large base64 isn't re-sent; tools fetch it on demand.
@@ -151,6 +157,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         client_location=data.client_location.model_dump() if data.client_location else None,
         deep_research=plan,
         lost_actions_note=lost_actions_note,
+        proposal_note=proposal_note,
     )
 
 
@@ -333,6 +340,7 @@ class TurnContext:
     # Set for a deep-research turn (the stream producer runs the pipeline)
     deep_research: DeepResearchPlan | None = None
     lost_actions_note: str | None = None
+    proposal_note: str | None = None
     # None where the conversation keeps no facts list (conversation_facts.py)
     conversation_facts: list[ConversationFact] | None = None
 
@@ -378,14 +386,16 @@ class TurnContext:
         )
 
     def _agent_text(self) -> str:
-        """The user's text, plus what a lost attempt at it already did.
+        """The user's text, plus guidance notes: what a lost attempt at it
+        already did, and what happened to the conversation's proposal cards.
 
-        Only the agent sees the note: the saved message, the title and the
+        Only the agent sees the notes: the saved message, the title and the
         rest of the turn use message_text.
         """
-        if not self.lost_actions_note:
+        notes = "\n".join(n for n in (self.lost_actions_note, self.proposal_note) if n)
+        if not notes:
             return self.message_text
-        return f"{self.message_text}\n\n[SYSTEM GUIDANCE]\n{self.lost_actions_note}\n[/SYSTEM GUIDANCE]"
+        return f"{self.message_text}\n\n[SYSTEM GUIDANCE]\n{notes}\n[/SYSTEM GUIDANCE]"
 
     def agent_call_kwargs(self) -> dict[str, Any]:
         """Arguments for ChatAgent.chat_batch / stream_chat_events."""
@@ -424,6 +434,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         client_location=turn.client_location,
         deep_research=turn.deep_research,
         lost_actions_note=turn.lost_actions_note,
+        proposal_note=turn.proposal_note,
         conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
         standing=load_standing_context(conv, user),
