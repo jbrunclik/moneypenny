@@ -1,6 +1,6 @@
 # Environment
 .env
-.venv/
+.venv
 venv/
 
 # Python
@@ -35,7 +35,7 @@ data/
 .ruff_cache/
 
 # Node.js
-node_modules/
+node_modules
 
 # Vite build output (generated during deployment)
 static/assets/
