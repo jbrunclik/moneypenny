@@ -102,10 +102,13 @@ origin, storage and the user's identity, which the opaque origin does.
 **Accepted risk - dialogs.** `allow-modals` (Nov 9 2026) is there because a
 sandboxed frame without it silently ignores `window.print()`, and an artifact's
 own Print / Save as PDF button (a worksheet, a recipe) is a real use. It also
-lets artifact code open `alert` / `confirm` / `prompt` dialogs. The browser
-labels them as coming from an embedded page. No data is exposed: the opaque
-origin, `connect-src 'none'` and `form-action 'none'` mean a typed answer has
-nowhere to go but the artifact's own state.
+lets artifact code open `alert` / `confirm` dialogs, which the browser labels
+as coming from an embedded page. `prompt()` is removed in the frame's
+bootstrap ([frame.ts](../../web/src/artifact/frame.ts)) before artifact code
+runs, so no dialog asks for typed input such as a password. Code that works
+around that (a child frame's own `prompt`) still has nowhere to send an answer:
+the opaque origin, `connect-src 'none'` and `form-action 'none'` keep it inside
+the artifact.
 
 The host trusts a message only by `event.source` (a frame it created); the
 frame's origin is `"null"` and says nothing. The frame listens only to

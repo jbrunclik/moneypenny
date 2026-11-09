@@ -12,6 +12,13 @@ import { installBridgeClient } from './bridge-client';
 import { loadArtifact } from './loader';
 import { isToFrame, type FromFrame } from './protocol';
 
+// allow-modals is granted for an artifact's own Print button; prompt() would
+// let artifact code ask for typed input (a password) in a browser dialog, so
+// it is gone before any artifact script runs (alert/confirm only show text)
+// (configurable: once replaced, the native prompt is not reachable from this
+// realm anyway - only a child frame's own, which has nowhere to send an answer)
+Object.defineProperty(window, 'prompt', { value: () => null, writable: false, configurable: true });
+
 // The frame is an opaque-origin sandbox and only the app may embed it
 // (frame-ancestors 'self'), so the parent is the only possible receiver
 const post = (message: FromFrame): void => window.parent.postMessage(message, '*');

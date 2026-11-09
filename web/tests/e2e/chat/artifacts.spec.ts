@@ -35,6 +35,25 @@ async function artifactTurn(
 const frameOf = (page: Page, index = 0): FrameLocator =>
   page.locator('.artifact-frame').nth(index).contentFrame();
 
+/** Before clicking inside the frame: the reply is final (its frame no longer
+ *  re-mounts) and the frame is clear of the floating composer. */
+async function frameSettled(page: Page): Promise<void> {
+  await expect(page.locator('.message.assistant .message-actions').last()).toBeVisible({ timeout: 15000 });
+  const frame = page.locator('.artifact-frame').first();
+  // A small artifact shrinks its frame from the placeholder height once it
+  // renders: a click aimed during that resize lands where the button was
+  let last = '';
+  await expect
+    .poll(async () => {
+      const box = JSON.stringify(await frame.boundingBox());
+      const still = box === last;
+      last = box;
+      return still;
+    }, { intervals: [250] })
+    .toBe(true);
+  await frame.evaluate((f) => f.scrollIntoView({ block: 'start' }));
+}
+
 test.describe('Artifacts', () => {
   test('the reply shows the artifact, sized to its content', async ({ page, request }) => {
     await artifactTurn(page, request, { title: 'Svíčková', html: KITCHEN_SINK });
@@ -94,17 +113,35 @@ test.describe('Artifacts', () => {
   });
 
   test('its own print button can open the browser\'s print dialog', async ({ page, request }) => {
-    // print() and alert() need the same sandbox flag (allow-modals); a
-    // dialog is what Playwright can observe, a native print is not
-    const html = '<button id="print" onclick="window.print(); alert(\'printing\')">Tisk</button>';
+    // print() and alert() need the same sandbox flag (allow-modals). A native
+    // print is not observable (and in headless WebKit it can swallow a dialog
+    // right after it), so the probe is an alert alone
+    const html = '<button id="print" onclick="alert(\'printing\')">Tisk</button>';
     const dialogs: string[] = [];
     page.on('dialog', (dialog) => {
       dialogs.push(dialog.message());
       void dialog.dismiss();
     });
     await artifactTurn(page, request, { title: 'Worksheet', html });
+    await frameSettled(page);
     await frameOf(page).locator('#print').click({ timeout: 15000 });
     await expect.poll(() => dialogs).toEqual(['printing']);
+  });
+
+  test('artifact code cannot ask for typed input in a dialog', async ({ page, request }) => {
+    // allow-modals is there for print(); prompt() is how a page would ask for
+    // a password, so the frame takes it away before artifact code runs
+    const html = '<button id="ask" onclick="out.textContent = String(prompt(\'Password?\'))">Ask</button><p id="out">-</p>';
+    const dialogs: string[] = [];
+    page.on('dialog', (dialog) => {
+      dialogs.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await artifactTurn(page, request, { title: 'Ask', html });
+    await frameSettled(page);
+    await frameOf(page).locator('#ask').click({ timeout: 15000 });
+    await expect(frameOf(page).locator('#out')).toHaveText('null');
+    expect(dialogs).toEqual([]);
   });
 
   test('a full document keeps its body attributes and window load listeners', async ({ page, request }) => {
