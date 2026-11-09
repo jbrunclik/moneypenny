@@ -13,7 +13,16 @@ import { schedules } from '../api/schedules';
 import { useStore } from '../state/store';
 import type { ScheduledItem } from '../types/api';
 import { createElement, getElementById } from '../utils/dom';
-import { CLOCK_ICON, createIconElement, setIcon } from '../utils/icons';
+import {
+  CLOCK_ICON,
+  DELETE_ICON,
+  PAUSE_ICON,
+  PLAY_ICON,
+  createIconButton,
+  createIconElement,
+  setIcon,
+  type IconHtml,
+} from '../utils/icons';
 import { createLogger } from '../utils/logger';
 import { toast } from './Toast';
 import { createPopup, createPopupShell, type PopupInstance } from './InfoPopup';
@@ -41,20 +50,25 @@ function pausedNote(item: ScheduledItem): string {
   return item.paused_reason === 'failures' ? ' · paused after failing' : ' · paused';
 }
 
+/** A quiet, labelled icon action, as in the Command Center's job list */
+function actionButton(className: string, label: string, icon: IconHtml, attrs: Record<string, string>): HTMLButtonElement {
+  return createIconButton({ type: 'button', class: `schedule-item-action ${className}`, title: label, 'aria-label': label, ...attrs }, icon);
+}
+
 function itemRow(item: ScheduledItem): HTMLElement {
   const actions: HTMLElement[] = [];
-  if (item.standing) {
-    actions.push(createElement('button', { type: 'button', class: 'schedule-item-run', 'data-item-id': item.id }, ['Run']));
-  }
+  const paused = item.status === 'paused';
+  // One play button per item: a paused one resumes, an active job runs now
+  if (item.standing && !paused) actions.push(actionButton('schedule-item-run', 'Run now', PLAY_ICON, { 'data-item-id': item.id }));
   if (PAUSABLE.has(item.kind)) {
-    const paused = item.status === 'paused';
     actions.push(
-      createElement('button', { type: 'button', class: 'schedule-item-pause', 'data-item-id': item.id, 'data-paused': String(paused) }, [
-        paused ? 'Resume' : 'Pause',
-      ])
+      actionButton('schedule-item-pause', paused ? 'Resume' : 'Pause', paused ? PLAY_ICON : PAUSE_ICON, {
+        'data-item-id': item.id,
+        'data-paused': String(paused),
+      })
     );
   }
-  actions.push(createElement('button', { type: 'button', class: 'schedule-item-cancel', 'data-item-id': item.id }, ['Cancel']));
+  actions.push(actionButton('schedule-item-cancel', 'Cancel', DELETE_ICON, { 'data-item-id': item.id }));
   const meta = `${item.when} · ${item.ends}${pausedNote(item)}`;
   return createElement('li', { class: 'schedule-item' }, [
     createIconElement('schedule-item-icon', SCHEDULE_KIND_ICONS[item.kind]),
@@ -95,7 +109,9 @@ const RUN_NOTES: Record<string, () => void> = {
 /** Run a standing job: the button shows it is busy for the (long) run */
 async function runJob(button: HTMLButtonElement, itemId: string): Promise<void> {
   button.disabled = true;
-  button.textContent = 'Running…';
+  button.classList.add('is-running');
+  button.title = 'Running…';
+  button.setAttribute('aria-label', 'Running…');
   try {
     const { status } = await schedules.run(itemId);
     RUN_NOTES[status]?.();

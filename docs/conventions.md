@@ -132,7 +132,7 @@ Details: [testing.md](testing.md).
 | A4 | Generated files are regenerated, never edited (`make openapi`, `make types`) | hook (`block-generated.sh`); planned: P1 |
 | A5 | Docs: a new pattern or pitfall goes into the relevant `docs/` page; numbers in docs carry a date; a shipped feature's plan and spec are deleted | link test; judgment |
 | A6 | TODO items are at most two lines; a finished item is deleted in the commit that finishes it | judgment |
-| A7 | A change users can see ships with a What's new announcement (`announcements/`, Czech and English) in the same commit or that day's ([whats-new.md](features/whats-new.md)) | format: test; judgment |
+| A7 | A new feature or behaviour change users can see ships with a What's new announcement (`announcements/`, Czech and English) in the same commit or that day's ([whats-new.md](features/whats-new.md)) | format: test; judgment |
 
 ## Layers
 

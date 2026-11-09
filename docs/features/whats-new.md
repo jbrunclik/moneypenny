@@ -6,8 +6,10 @@ whenever something visible ships (Nov 2026).
 
 ## Writing an announcement
 
-Rule A7: a change users can see ships with an announcement in the same
-commit, or joins that day's announcement before it is deployed. Once posted,
+Rule A7: a new feature or behaviour change users can see ships with an
+announcement in the same commit, or joins that day's announcement before it
+is deployed. Pure visual polish rides along with the next announcement (a
+push per restyle would be noise). Once posted,
 an announcement is never posted again: editing its file changes nothing.
 
 `announcements/YYYY-MM-DD-slug.md`, Czech and English, each version starting

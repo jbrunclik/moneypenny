@@ -337,29 +337,14 @@
     color: var(--color-success-500);
 }
 
+/* Approvals: a section like Jobs; only its icon and each card's edge carry
+   the warning colour (one signal, not a box inside a box) */
 .command-center-section--approvals.has-approvals {
-    background: var(--color-warning-900);
-    border: 2px solid var(--color-warning-400);
-    border-radius: var(--radius-lg);
-    padding: var(--space-4);
     margin-bottom: var(--space-6);
 }
 
 .command-center-section--approvals.has-approvals .section-icon svg {
     color: var(--color-warning-500);
-}
-
-.command-center-section--approvals.has-approvals .section-title {
-    color: var(--color-warning-700);
-}
-
-[data-theme="dark"] .command-center-section--approvals.has-approvals {
-    background: var(--yellow-a10);
-    border-color: var(--color-warning-500);
-}
-
-[data-theme="dark"] .command-center-section--approvals.has-approvals .section-title {
-    color: var(--color-warning-400);
 }
 
 .approvals-empty {
@@ -463,14 +448,19 @@
 
 .job-icon {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: var(--accent-muted);
+    color: var(--accent-text);
 }
 
 .job-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
 }
 
 .job-body {
@@ -566,26 +556,47 @@
     overflow-wrap: anywhere;
 }
 
+/* Quiet icon actions, as on the Data page: muted until hovered */
 .job-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--space-1);
     flex-shrink: 0;
 }
 
 .job-action {
-    font: inherit;
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-full);
-    padding: 2px var(--space-2-5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
     cursor: pointer;
+    transition:
+        color var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.job-action svg {
+    width: 16px;
+    height: 16px;
 }
 
 .job-action:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.job-cancel:hover {
+    color: var(--color-error-500);
+}
+
+.job-action:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 1px;
 }
 
 /* ----------------------------------------
@@ -599,9 +610,9 @@
 }
 
 .approval-card {
-    background: var(--color-warning-900);
-    border: 2px solid var(--warning-light-a30);
-    border-left: 4px solid var(--color-warning-500);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--color-warning-500);
     border-radius: var(--radius-lg);
     padding: var(--space-4);
 }
@@ -828,6 +839,8 @@
         font-size: var(--font-size-xl);
     }
 
+    /* Titles stay whole on a phone: the actions get their own row, right
+       under the meta, aligned to the card's edge */
     .job-row {
         flex-wrap: wrap;
         padding: var(--space-3);
@@ -835,11 +848,13 @@
 
     .job-actions {
         flex-basis: 100%;
-        padding-left: calc(18px + var(--space-3));
+        justify-content: flex-end;
+        margin-top: calc(-1 * var(--space-2));
     }
 
-    .approval-card-actions {
-        flex-direction: column;
+    /* Approve and Reject side by side, each half the width */
+    .approval-card-actions .btn {
+        flex: 1;
     }
 
     .approval-card-actions .btn {
@@ -1165,18 +1180,30 @@
 }
 
 .tool-write-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
     padding: 0 var(--space-2);
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    cursor: pointer;
 }
 
-.tool-write-toggle input[type="checkbox"] {
-    margin: 0;
-    accent-color: var(--accent);
+.tool-write-toggle .toggle-text {
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* A smaller switch for an option that belongs to the card above it */
+.toggle-switch.toggle-switch--sm {
+    width: 32px;
+    height: 18px;
+    /* Off, it sits on a light panel: a darker track keeps it readable */
+    background: var(--border);
+}
+
+.toggle-switch.toggle-switch--sm::after {
+    width: 14px;
+    height: 14px;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-switch.toggle-switch--sm::after {
+    transform: translateX(14px);
 }
 
 /* The write level means nothing until the tool itself is granted */

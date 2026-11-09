@@ -107,8 +107,9 @@ describe('renderCommandCenter', () => {
       'waiting for approval',
       'paused',
     ]);
-    // Paused by the user is a state, not a problem
-    expect(rows(el).map((r) => r.classList.contains('job-row--attention'))).toEqual([true, true, false]);
+    // Only trouble gets the attention border: paused by the user is a state,
+    // and a waiting job's approval card above already asks
+    expect(rows(el).map((r) => r.classList.contains('job-row--attention'))).toEqual([true, false, false]);
   });
 
   it('run, pause, resume, cancel and edit call their handlers', () => {
@@ -220,6 +221,24 @@ describe('renderCommandCenter', () => {
     const [agentRow, itemRow] = rows(el);
     expect(agentRow?.querySelector('.job-cancel')).toBeNull();
     expect(itemRow?.querySelector('.job-cancel')).not.toBeNull();
+  });
+
+  it('a paused job offers Resume, not Run', () => {
+    const el = renderCommandCenter(payload({ jobs: [job({ status: 'paused', paused_reason: 'disabled' })] }), handlers());
+    expect(el.querySelector('.job-run')).toBeNull();
+    expect(el.querySelector('.job-resume')?.getAttribute('aria-label')).toBe('Resume');
+  });
+
+  it('actions are labelled icon buttons', () => {
+    const el = renderCommandCenter(payload({ jobs: [job()] }), handlers());
+    const run = el.querySelector<HTMLButtonElement>('.job-run')!;
+    expect(run.querySelector('svg')).not.toBeNull();
+    expect([run.title, run.getAttribute('aria-label')]).toEqual(['Run now', 'Run now']);
+  });
+
+  it('no count on an empty job list', () => {
+    const el = renderCommandCenter(payload(), handlers());
+    expect(el.querySelector('.command-center-section--jobs .badge')).toBeNull();
   });
 
   it('a running job offers neither Run nor Pause', () => {

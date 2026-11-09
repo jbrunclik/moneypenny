@@ -11,13 +11,18 @@ import {
   CLOCK_ICON,
   CLOSE_ICON,
   COMMAND_CENTER_ICON,
+  DELETE_ICON,
+  EDIT_ICON,
   HISTORY_ICON,
   LANGUAGE_ICON,
+  PAUSE_ICON,
+  PLAY_ICON,
   PLUS_ICON,
   REFRESH_ICON,
   ROBOT_ICON,
   SPORTS_ICON,
   WARNING_ICON,
+  createIconButton,
   createIconElement,
   iconNodes,
   setIcon,
@@ -177,8 +182,8 @@ function recentRuns(job: Job): HTMLElement | null {
   ]);
 }
 
-function actionButton(className: string, label: string, onClick: () => void): HTMLButtonElement {
-  const button = createElement('button', { type: 'button', class: `job-action ${className}` }, [label]);
+function actionButton(className: string, label: string, icon: IconHtml, onClick: () => void): HTMLButtonElement {
+  const button = createIconButton({ type: 'button', class: `job-action ${className}`, title: label, 'aria-label': label }, icon);
   button.addEventListener('click', (e) => {
     e.stopPropagation();
     onClick();
@@ -188,27 +193,29 @@ function actionButton(className: string, label: string, onClick: () => void): HT
 
 function jobActions(job: Job, h: CommandCenterHandlers): HTMLButtonElement[] {
   const actions: HTMLButtonElement[] = [];
-  if (job.standing && job.status !== 'running') actions.push(actionButton('job-run', 'Run', () => void h.onRun(job)));
+  // One play button per row: a paused job resumes, an active one runs now
+  if (job.standing && job.status === 'active') actions.push(actionButton('job-run', 'Run now', PLAY_ICON, () => void h.onRun(job)));
   if ((job.kind === 'watcher' || job.kind === 'recurring') && job.status !== 'running') {
     actions.push(
       job.status === 'paused'
-        ? actionButton('job-resume', 'Resume', () => void h.onResume(job))
-        : actionButton('job-pause', 'Pause', () => void h.onPause(job))
+        ? actionButton('job-resume', 'Resume', PLAY_ICON, () => void h.onResume(job))
+        : actionButton('job-pause', 'Pause', PAUSE_ICON, () => void h.onPause(job))
     );
   }
-  if (job.editable) actions.push(actionButton('job-edit', 'Edit', () => h.onEdit(job)));
+  if (job.editable) actions.push(actionButton('job-edit', 'Edit', EDIT_ICON, () => h.onEdit(job)));
   // An agent's own job is deleted with the agent (its editor); anything else
   // set in a chat - an agent's chat included - can be cancelled here
   const agentJob = job.editable || job.system_type !== null;
-  if (!agentJob) actions.push(actionButton('job-cancel', 'Cancel', () => void h.onCancel(job)));
+  if (!agentJob) actions.push(actionButton('job-cancel', 'Cancel', DELETE_ICON, () => void h.onCancel(job)));
   return actions;
 }
 
 function renderJobRow(job: Job, h: CommandCenterHandlers): HTMLElement {
   const status = jobStatus(job);
   const icon = AREA_ICONS[job.area] ?? SCHEDULE_KIND_ICONS[job.kind];
-  // Paused by the user is a state, not a problem: no attention border
-  const attention = status !== '' && status !== 'paused';
+  // Only trouble gets the attention border: paused by the user is a state,
+  // and a waiting job's approval card above already asks
+  const attention = status === 'failed' || status === 'paused after failing';
   const row = createElement('div', {
     class: `job-row${attention ? ' job-row--attention' : ''}`,
     'data-job-id': job.id,
@@ -244,7 +251,7 @@ function renderJobRow(job: Job, h: CommandCenterHandlers): HTMLElement {
 
 function renderJobsSection(data: JobsOverviewResponse, h: CommandCenterHandlers): HTMLDivElement {
   const section = createElement('div', { class: 'command-center-section command-center-section--jobs' }, [
-    sectionTitle(CLOCK_ICON, 'Jobs', { count: data.jobs.length }),
+    sectionTitle(CLOCK_ICON, 'Jobs', data.jobs.length > 0 ? { count: data.jobs.length } : undefined),
   ]);
   if (data.jobs.length === 0) {
     const cta = createElement('button', { class: 'btn-create-agent' });

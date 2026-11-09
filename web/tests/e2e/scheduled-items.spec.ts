@@ -160,16 +160,17 @@ test.describe('Scheduled items in a standing chat', () => {
     ['desktop', { width: 1280, height: 800 }, '#conversation-schedules'],
     ['mobile', { width: 375, height: 812 }, '#conversation-schedules-mobile'],
   ] as const) {
-    test(`a standing job offers Run and says why it paused (${label})`, async ({ page }) => {
+    test(`a paused standing job offers Resume and says why it paused (${label})`, async ({ page }) => {
       await page.setViewportSize(viewport);
       const convId = await seedChat(page, [PAUSED_JOB], 'Coach');
       await page.goto(`/#/conversations/${convId}`);
 
       await page.locator(chipId).click();
       const row = page.locator('#schedules-popup .schedule-item', { hasText: "Plan tomorrow's ride" });
-      await expect(row.locator('.schedule-item-run')).toBeVisible();
       await expect(row.locator('.schedule-item-meta')).toContainText('paused after failing');
-      await expect(row.locator('.schedule-item-pause')).toHaveText('Resume');
+      // One play button: a paused job resumes (Run now comes back once it runs again)
+      await expect(row.locator('.schedule-item-pause')).toHaveAttribute('aria-label', 'Resume');
+      await expect(row.locator('.schedule-item-run')).toHaveCount(0);
     });
   }
 });

@@ -41,9 +41,10 @@ The full rule set, with what enforces each rule, is in
 - **E2E runs the last `make build`**, not your source (T10).
 - **Test UI changes on desktop and mobile** (768px breakpoint) (T11).
 - **Conventional Commits:** `type(scope): description` — a hook rejects others (A2).
-- **What's new:** a change users can see ships with an announcement in
+- **What's new:** a new feature or behaviour change users can see ships with an announcement in
   `announcements/YYYY-MM-DD-slug.md` (Czech and English, for the family, not
-  developers) in the same commit or that day's; deploys post it to everyone
+  developers) in the same commit or that day's; pure visual polish rides along
+  with the next one. Deploys post it to everyone
   ([docs/features/whats-new.md](docs/features/whats-new.md)) (A7).
 
 ## Parallel sessions

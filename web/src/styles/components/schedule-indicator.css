@@ -27,10 +27,17 @@
     border-bottom: none;
 }
 
+/* The kind's icon in a tinted tile, as in the Command Center's job list */
 .schedule-item-icon {
     display: inline-flex;
-    color: var(--text-muted);
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: var(--accent-muted);
+    color: var(--accent-text);
 }
 
 .schedule-item-icon svg {
@@ -47,38 +54,76 @@
 }
 
 .schedule-item-title {
+    font-weight: 500;
     color: var(--text-primary);
     overflow-wrap: anywhere;
 }
 
 .schedule-item-meta {
-    color: var(--text-secondary);
-}
-
-.schedule-item-actions {
-    display: flex;
-    gap: var(--space-2);
-    flex-shrink: 0;
-}
-
-.schedule-item-run,
-.schedule-item-pause,
-.schedule-item-cancel {
-    font: inherit;
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-full);
-    padding: 2px var(--space-2-5);
-    cursor: pointer;
+}
+
+/* Quiet icon actions: muted until hovered, as in the job list */
+.schedule-item-actions {
+    display: flex;
+    gap: var(--space-1);
     flex-shrink: 0;
 }
 
-.schedule-item-run:hover,
-.schedule-item-pause:hover,
-.schedule-item-cancel:hover {
+.schedule-item-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition:
+        color var(--transition-fast),
+        background var(--transition-fast);
+}
+
+.schedule-item-action svg {
+    width: 16px;
+    height: 16px;
+}
+
+.schedule-item-action:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.schedule-item-cancel:hover {
+    color: var(--color-error-500);
+}
+
+.schedule-item-action:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* A hand-started run is long: the play button breathes until it ends */
+.schedule-item-action.is-running {
+    color: var(--accent);
+    cursor: progress;
+    animation: schedule-run-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes schedule-run-pulse {
+    50% {
+        opacity: 0.4;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .schedule-item-action.is-running {
+        animation: none;
+    }
 }
 
 .schedules-note {
@@ -104,16 +149,4 @@
 .message-delivery-icon svg {
     width: 12px;
     height: 12px;
-}
-
-/* Narrow sheet: actions under the text, so the title keeps its width */
-@media (max-width: 768px) {
-    .schedule-item {
-        flex-wrap: wrap;
-    }
-
-    .schedule-item-actions {
-        flex-basis: 100%;
-        padding-left: calc(16px + var(--space-3));
-    }
 }

@@ -335,9 +335,10 @@ function toolPermissionsField(availableTools: typeof BASE_TOOLS, toolPermissions
       ]),
       // Without it, each change there waits for the user's approval
       'writable' in tool &&
-        el('label', { class: 'tool-write-toggle' }, [
+        el('label', { class: 'toggle-label tool-write-toggle' }, [
           checkbox({ name: 'tool-write', value: tool.id }, canWrite(tool.id)),
-          el('span', {}, ['Can change things without asking']),
+          el('span', { class: 'toggle-switch toggle-switch--sm' }),
+          el('span', { class: 'toggle-text' }, ['Can change things without asking']),
         ]),
     ])
   );

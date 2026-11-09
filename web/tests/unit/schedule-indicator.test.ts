@@ -87,8 +87,17 @@ describe('ScheduleIndicator', () => {
     const run = openSheet().querySelector<HTMLButtonElement>('.schedule-item-run')!;
     run.click();
     await vi.waitFor(() => expect(run.disabled).toBe(true));
-    expect(run.textContent).toBe('Running…');
+    expect(run.getAttribute('aria-label')).toBe('Running…');
+    expect(run.classList.contains('is-running')).toBe(true);
     finish({ status: 'report' });
+  });
+
+  it('actions are labelled icon buttons, as in the job list', async () => {
+    await show([item({ id: 'w1', kind: 'watcher' })]);
+    const pause = openSheet().querySelector<HTMLButtonElement>('.schedule-item-pause')!;
+    const cancel = openSheet().querySelector<HTMLButtonElement>('.schedule-item-cancel')!;
+    expect(pause.querySelector('svg')).not.toBeNull();
+    expect([pause.getAttribute('aria-label'), cancel.getAttribute('aria-label')]).toEqual(['Pause', 'Cancel']);
   });
 
   it('says when a hand-started run failed', async () => {
@@ -136,13 +145,13 @@ describe('ScheduleIndicator', () => {
     const sheet = openSheet();
     const rows = sheet.querySelectorAll('.schedule-item');
     expect(rows[0]?.querySelector('.schedule-item-pause')).toBeNull();
-    expect(rows[1]?.querySelector('.schedule-item-pause')?.textContent).toBe('Pause');
+    expect(rows[1]?.querySelector('.schedule-item-pause')?.getAttribute('aria-label')).toBe('Pause');
   });
 
   it('a paused item offers resume', async () => {
     await show([item({ kind: 'watcher', status: 'paused' })]);
     const button = openSheet().querySelector<HTMLButtonElement>('.schedule-item-pause')!;
-    expect(button.textContent).toBe('Resume');
+    expect(button.getAttribute('aria-label')).toBe('Resume');
     button.click();
     await vi.waitFor(() => expect(schedules.resume).toHaveBeenCalledWith('i1'));
   });
