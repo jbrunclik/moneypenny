@@ -101,6 +101,27 @@ describe('proposal card', () => {
     expect(card.querySelector('button')).toBeNull();
   });
 
+  it("a 409 shows what the other device's answer did", async () => {
+    const won = proposal({ state: 'approved', chosen: 0, result: 'Reminder set - Fri 8:00.' });
+    actions.approve = vi.fn(async () => {
+      throw Object.assign(new Error('Conflict'), { status: 409, details: { proposal: won } });
+    });
+    const el = reply([proposal()]);
+    initProposalCards(actions, document.getElementById('messages')!);
+
+    el.querySelector<HTMLButtonElement>('[data-proposal-choice="0"]')!.click();
+    await flush();
+
+    expect(el.querySelector('.proposal-card')!.textContent).toContain('Reminder set - Fri 8:00.');
+  });
+
+  it('a card being applied shows it, without buttons', () => {
+    const card = renderProposalCard(proposal({ state: 'applying', chosen: 0 }));
+
+    expect(card.textContent).toContain('Setting it up');
+    expect(card.querySelector('button')).toBeNull();
+  });
+
   it('a network error keeps the card answerable', async () => {
     actions.approve = vi.fn(async () => {
       throw Object.assign(new Error('offline'), { status: 0 });

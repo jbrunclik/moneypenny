@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from src.utils.connection_pool import ConnectionPool
 
 _RESOLVED = ("approved", "declined", "expired", "failed")
+INTERRUPTED = "Interrupted before it finished - check whether it was set up, and ask again if not."
 
 
 def _row_to_proposal(row: sqlite3.Row) -> Proposal:
@@ -146,15 +147,31 @@ class ProposalsMixin:
                 (message_id, request_id),
             )
 
-    def expire_proposals(self, conversation_id: str, message_id: str | None = None) -> int:
-        """Expire pending proposals - the conversation's, or one reply's; how many."""
+    def expire_proposals(
+        self, conversation_id: str, message_id: str | None = None, *, keep_unlinked: bool = False
+    ) -> int:
+        """Expire pending proposals - the conversation's, or one reply's; how
+        many. keep_unlinked spares the ones no saved reply shows yet (a turn
+        still running filed them)."""
         query = """UPDATE proposals SET state = 'expired', resolved_by = 'system', resolved_at = ?
                    WHERE conversation_id = ? AND state = 'pending'"""
         params: tuple[object, ...] = (to_db(utc_now()), conversation_id)
         if message_id is not None:
             query += " AND message_id = ?"
             params = (*params, message_id)
+        if keep_unlinked:
+            query += " AND message_id IS NOT NULL"
         return self._write(query, params)
+
+    def fail_stale_applying(self, before: datetime) -> int:
+        """Proposals claimed before a moment but never finished (the worker
+        died mid-apply) become failed - never a card stuck "setting up" or a
+        false "done"; how many."""
+        return self._write(
+            """UPDATE proposals SET state = 'failed', result = ?
+               WHERE state = 'applying' AND resolved_at < ?""",
+            (INTERRUPTED, to_db(before)),
+        )
 
     def supersede_proposals(self, request_id: str, kind: str, keep_id: str) -> int:
         """A turn's newer proposal of a kind replaces its older pending ones."""

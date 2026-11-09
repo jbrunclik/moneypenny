@@ -10549,7 +10549,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked
@@ -10833,7 +10833,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked
@@ -11439,7 +11439,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked
@@ -12241,7 +12241,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked
@@ -12699,7 +12699,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked
@@ -13001,7 +13001,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
             /**
              * Chosen
              * @description The option picked

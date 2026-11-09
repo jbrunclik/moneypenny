@@ -17,6 +17,7 @@ import re
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 from src.agent.tool_results import get_current_request_id
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 MAX_OPTIONS = 4
+# A claim older than this that never recorded its outcome: the worker died
+APPLY_STALE_AFTER = timedelta(minutes=2)
 NoAnswer = Literal["no-answer"]
 NO_ANSWER: NoAnswer = "no-answer"
 
@@ -141,7 +144,8 @@ def resolve(proposal: Proposal, choice: int | None, by: Literal["button", "typed
     _ensure_kinds()
     if choice is not None and not 0 <= choice < len(proposal.options):
         raise ValueError(f"choice {choice} is not one of the {len(proposal.options)} options")
-    state: ProposalState = "declined" if choice is None else "approved"
+    # An approval is claimed as "applying" until its outcome is recorded
+    state: ProposalState = "declined" if choice is None else "applying"
     if not db.claim_proposal(proposal.id, state, choice, by):
         raise ProposalNotPendingError(proposal.id)
     if choice is not None:
@@ -173,19 +177,21 @@ def _apply(proposal: Proposal, option: ProposalOption) -> tuple[ProposalState, s
     return "approved", result
 
 
-def answer_typed(conversation_id: str, text: str) -> list[Proposal]:
+def answer_typed(conversation_id: str, text: str, turn_running: bool = False) -> list[Proposal]:
     """Resolve the latest reply's pending proposals from the user's typed
-    message; a message that answers none of them expires them all."""
+    message; a message that answers none of them expires them all - except,
+    while another turn runs (turn_running), the cards it filed and has not
+    shown yet."""
     pending = db.pending_proposals(conversation_id)
     shown = [p for p in pending if p.message_id]
     if not shown:
-        db.expire_proposals(conversation_id)
+        db.expire_proposals(conversation_id, keep_unlinked=turn_running)
         return []
     latest = shown[-1].message_id
     on_reply = [p for p in shown if p.message_id == latest]
     answers = [(p, typed_answer(text, p.options)) for p in on_reply]
     if all(answer == NO_ANSWER for _, answer in answers):
-        db.expire_proposals(conversation_id)
+        db.expire_proposals(conversation_id, keep_unlinked=turn_running)
         return []
     resolved: list[Proposal] = []
     for proposal, answer in answers:
@@ -195,19 +201,24 @@ def answer_typed(conversation_id: str, text: str) -> list[Proposal]:
             resolved.append(resolve(proposal, answer, "typed"))
         except ProposalNotPendingError:  # a tap elsewhere answered it meanwhile
             continue
-    db.expire_proposals(conversation_id)  # older or unanswered ones are stale now
+    # Older or unanswered ones are stale now
+    db.expire_proposals(conversation_id, keep_unlinked=turn_running)
     return resolved
 
 
 def answer_and_note(
-    conversation_id: str, text: str | None, since: datetime | None = None
+    conversation_id: str,
+    text: str | None,
+    since: datetime | None = None,
+    turn_running: bool = False,
 ) -> str | None:
     """The turn's start: resolve a typed answer (None for a rerun, which
     answers nothing), then what the agent should hear about its proposals.
     A rerun passes `since` (its user message's time): what that message
     answered is told again - the failed attempt heard it, its retry did not."""
+    db.fail_stale_applying(before=utc_now() - APPLY_STALE_AFTER)
     if text is not None:
-        answer_typed(conversation_id, text)
+        answer_typed(conversation_id, text, turn_running=turn_running)
     return turn_note(conversation_id, since=since)
 
 

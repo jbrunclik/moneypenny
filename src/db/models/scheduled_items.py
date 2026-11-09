@@ -109,6 +109,23 @@ class ScheduledItemsMixin:
             conn.commit()
         return item
 
+    def add_item_capped(self, item: ScheduledItem, cap: int) -> bool:
+        """Store a light item only while the user has fewer than `cap` (the
+        count and the insert are one statement: two approvals at once cannot
+        both pass the check); False when the cap is reached."""
+        marks = ", ".join("?" for _ in _COLUMNS)
+        with self._pool.get_connection() as conn:
+            cursor = self._execute_with_timing(
+                conn,
+                f"""INSERT INTO scheduled_items ({", ".join(_COLUMNS)})
+                    SELECT {marks}
+                    WHERE (SELECT COUNT(*) FROM scheduled_items
+                           WHERE user_id = ? AND grants IS NULL AND {_LIVE_CHAT}) < ?""",
+                (*stored_item(item), item.user_id, cap),
+            )
+            conn.commit()
+        return cursor.rowcount == 1
+
     def get_item(self, item_id: str, user_id: str) -> ScheduledItem | None:
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(

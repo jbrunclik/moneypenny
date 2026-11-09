@@ -210,7 +210,12 @@ def apply_schedule(proposal: Proposal, option: ProposalOption) -> str:
     pending = cast("Spec", option["payload"])
     if refusal := _refusal(proposal.user_id, pending):
         raise ProposalFailedError(refusal)
-    item = db.add_item(_new_item(proposal.user_id, proposal.conversation_id, pending))
+    item = _new_item(proposal.user_id, proposal.conversation_id, pending)
+    cap = Config.SCHEDULE_MAX_ACTIVE_PER_USER
+    if not db.add_item_capped(item, cap):  # another approval took the last slot
+        raise ProposalFailedError(
+            f"You already have {cap} scheduled items (limit {cap}) - delete one first."
+        )
     logger.info(
         "Scheduled item created from chat",
         extra={"user_id": proposal.user_id, "item_id": item.id, "kind": item.kind},

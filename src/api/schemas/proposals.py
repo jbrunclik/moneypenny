@@ -31,7 +31,7 @@ class ProposalResponse(ResponseModel):
         default_factory=list, description="Label/value rows, in order"
     )
     options: list[ProposalOptionResponse]
-    state: Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
+    state: Literal["pending", "applying", "approved", "declined", "expired", "superseded", "failed"]
     chosen: int | None = Field(default=None, description="The option picked")
     result: str | None = Field(default=None, description="What applying did, or why it failed")
 

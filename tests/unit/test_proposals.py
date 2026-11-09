@@ -220,3 +220,28 @@ def test_a_rerun_hears_outcomes_since_its_message_again(db: Database, conv: str)
     note = turn_note(conv, since=since)  # ...its regenerate hears it again
 
     assert note is not None and "Done: Set it up" in note
+
+
+def test_approving_passes_through_applying(db: Database, conv: str, test_user: User) -> None:
+    seen: list[str] = []
+
+    def watching(proposal: Proposal, option: ProposalOption) -> str:
+        current = db.get_proposal(proposal.id, proposal.user_id)
+        seen.append(current.state if current else "?")
+        return "ok"
+
+    register_kind("watched", watching)
+    done = resolve(_file(kind="watched"), 0, "button")
+
+    assert seen == ["applying"]
+    assert done.state == "approved"
+
+
+def test_a_running_turns_new_card_survives_a_message(db: Database, conv: str) -> None:
+    """An attachment send while a turn runs is not steering: it must not
+    expire the card that turn just filed (not linked to its reply yet)."""
+    running = _file()
+
+    assert answer_typed(conv, "here is the photo", turn_running=True) == []
+
+    assert [p.id for p in db.pending_proposals(conv)] == [running.id]

@@ -461,3 +461,27 @@ def test_a_reminder_answered_with_something_else_expires(ctx: tuple[Database, Us
 
     assert _pending() == []
     assert database.list_items(user.id) == []
+
+
+def test_the_item_cap_holds_when_two_cards_are_approved_at_once(
+    ctx: tuple[Database, User], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both approvals passed the count before either stored: the insert itself
+    checks the cap, so only one item lands."""
+    from src.agent.tool_results import set_current_request_id
+
+    database, user = ctx
+    monkeypatch.setattr(Config, "SCHEDULE_MAX_ACTIVE_PER_USER", 1)
+    set_current_request_id("r1")
+    _reminder()
+    set_current_request_id("r2")
+    _reminder(time="09:00")
+    set_current_request_id(None)
+    first, second = _pending()
+    monkeypatch.setattr(database, "count_items", lambda _user_id: 0)  # both saw room
+
+    resolve(first, 0, "button")
+    late = resolve(second, 0, "button")
+
+    assert late.state == "failed" and "limit 1" in (late.result or "")
+    assert len(database.list_items(user.id)) == 1

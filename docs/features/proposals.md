@@ -23,14 +23,16 @@ approvals, deep research, chat deletes and clarifying questions onto it).
 `proposals` (migration 0086, `src/db/models/proposals.py`): `kind`, `summary`,
 `details` (label -> value), 1-4 `options` (label, description, **payload** -
 exactly what choosing it applies; never sent to the client), `state`
-(`pending`, `approved`, `declined`, `expired`, `superseded`, `failed`),
+(`pending`, `applying`, `approved`, `declined`, `expired`, `superseded`,
+`failed`),
 `chosen`, `result` (what applying did, or why it failed), `resolved_by`
 (`button`, `typed`, `system`), `reported` (the agent was told), `request_id`
 (the turn that filed it) and `message_id` (the reply that shows it, set when
 the reply is saved - `link_proposals` in `chat_save.py`).
 
-Triggers: a change bumps the conversation in the sync change log (another
-device re-renders the card); deleting the reply (regenerate, truncate,
+Triggers: a change to what a device shows (state, choice, result, its reply;
+0087 - not marking it reported) bumps the conversation in the sync change log
+(another device re-renders the card); deleting the reply (regenerate, truncate,
 delete) expires its open cards; deleting the conversation (trash purge,
 permanent delete) deletes its proposals and their payloads.
 
@@ -49,8 +51,13 @@ permanent delete) deletes its proposals and their payloads.
   and nothing is half-created.
 - `resolve(proposal, choice, by)` - claims the pending proposal (one winner:
   two taps or devices apply once, the other gets `ProposalNotPendingError` ->
-  409), applies the chosen option, logs **"Proposal resolved"** (`kind`,
-  `state`, `resolved_by`, `seconds_open`).
+  409) as `applying`, applies the chosen option, records `approved` or
+  `failed`, logs **"Proposal resolved"** (`kind`, `state`, `resolved_by`,
+  `seconds_open`). A claim the worker never finished (it died mid-apply) is
+  failed as "Interrupted..." at the next turn start once older than
+  `APPLY_STALE_AFTER` (2 min, `fail_stale_applying`) - never a false "done".
+- Apply functions keep their own checks atomic where two cards can race: the
+  scheduled-item cap is checked inside the insert (`add_item_capped`).
 - **Typed answers** (`answer_typed`, run by `prepare_turn` before the agent):
   the whole message, casefolded, trailing punctuation dropped. Yes words
   (`yes`, `ok`, `do it`, `ano`, `jo`, `jasně`, `dobře`, 👍, ...) approve a
@@ -59,7 +66,9 @@ permanent delete) deletes its proposals and their payloads.
   decline. They resolve **every** pending card on the latest reply showing
   any. Any other message expires the conversation's pending cards - the user
   moved on - and a reply that never saved its card (the turn failed) leaves it
-  unlinked: it expires the same way. A rerun (regenerate/continue) answers
+  unlinked: it expires the same way, except while another turn is live in the
+  conversation (a send with attachments is not steering): the cards that turn
+  filed are not shown yet and stay. A rerun (regenerate/continue) answers
   nothing. A tap that wins the race against a typed answer is skipped, not an
   error.
 - **Only the user's typing answers.** An app-sent message - an artifact's
@@ -89,8 +98,9 @@ permanent delete) deletes its proposals and their payloads.
   `proposals.css`): an icon tile by kind and the summary, label/value rows, a
   primary button per option and **Not now**. Resolved, it collapses to one
   line: the result, "Couldn't do it: <reason>", "Not now - ...", or
-  "Expired - ...". A 409 says the card is no longer open; a network error keeps
-  it answerable.
+  "Expired - ...", or "Setting it up - ..." while applying. A 409 shows the
+  answer that won (the server sends the current card in the error's
+  `details.proposal`); a network error keeps it answerable.
 - A typed yes resolves an earlier reply's card on the server: after a turn in
   a conversation that showed an open card, the client runs the external-changes
   merge (`core/proposal-sync.ts`, `patchProposals` in `remote-merge.ts`), which

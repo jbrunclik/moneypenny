@@ -287,7 +287,11 @@ class ApprovalRequest:
     expires_at: datetime | None = None  # When this approval request expires
 
 
-ProposalState = Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
+# "applying": claimed, its option being applied (a worker that died there
+# leaves it to fail_stale_applying)
+ProposalState = Literal[
+    "pending", "applying", "approved", "declined", "expired", "superseded", "failed"
+]
 
 
 class ProposalOption(TypedDict):

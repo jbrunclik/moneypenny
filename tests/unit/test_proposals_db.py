@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from src.db.models import Proposal
@@ -130,3 +131,40 @@ def test_proposals_go_with_their_conversation(test_database: Database, test_user
     test_database.delete_conversation(conv_id, test_user.id)
 
     assert test_database.get_proposal(made.id, test_user.id) is None
+
+
+def test_a_claim_that_never_finished_fails_as_interrupted(
+    test_database: Database, test_user: User
+) -> None:
+    """The worker died between the claim and the apply: the card must not
+    keep saying it is being set up (or pretend it was done)."""
+    conv_id = _conv(test_database, test_user)
+    made = test_database.create_proposal(_proposal(conv_id, test_user.id))
+    test_database.claim_proposal(made.id, "applying", 0, "button")
+
+    assert test_database.fail_stale_applying(before=utc_now() + timedelta(seconds=1)) == 1
+
+    got = test_database.get_proposal(made.id, test_user.id)
+    assert got is not None and got.state == "failed"
+    assert got.result is not None and "Interrupted" in got.result
+
+
+def test_reporting_an_outcome_does_not_bump_sync(test_database: Database, test_user: User) -> None:
+    conv_id = _conv(test_database, test_user)
+    made = test_database.create_proposal(_proposal(conv_id, test_user.id))
+    test_database.claim_proposal(made.id, "declined", None, "button")
+    before = test_database.get_sync_cursor()
+
+    test_database.mark_reported([made.id])
+
+    assert test_database.get_sync_cursor() == before
+
+
+def test_unlinked_cards_can_be_kept_while_a_turn_runs(
+    test_database: Database, test_user: User
+) -> None:
+    conv_id = _conv(test_database, test_user)
+    running = test_database.create_proposal(_proposal(conv_id, test_user.id))
+
+    assert test_database.expire_proposals(conv_id, keep_unlinked=True) == 0
+    assert [p.id for p in test_database.pending_proposals(conv_id)] == [running.id]

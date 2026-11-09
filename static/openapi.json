@@ -12487,6 +12487,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",
@@ -13004,6 +13005,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",
@@ -14289,6 +14291,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",
@@ -15883,6 +15886,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",
@@ -16763,6 +16767,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",
@@ -17321,6 +17326,7 @@
           "state": {
             "enum": [
               "pending",
+              "applying",
               "approved",
               "declined",
               "expired",

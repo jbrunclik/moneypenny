@@ -101,6 +101,8 @@ function outcomeText(proposal: Proposal): string {
       return `Couldn't do it: ${proposal.result || 'something went wrong.'}`;
     case 'declined':
       return `${DECLINE_LABEL} - ${proposal.summary}`;
+    case 'applying':
+      return `Setting it up - ${proposal.summary}`;
     default:
       return `Expired - ${proposal.summary}`;
   }
@@ -168,7 +170,11 @@ function showOutcome(card: HTMLElement, updated: Proposal): void {
 }
 
 function showError(card: HTMLElement, error: unknown): void {
-  const status = (error as { status?: number }).status;
+  const { status, details } = error as { status?: number; details?: { proposal?: Proposal } };
+  if (status === 409 && details?.proposal) {
+    showOutcome(card, details.proposal); // the other device's (or typed) answer
+    return;
+  }
   if (status === 409) {
     card.querySelector('.proposal-card__actions')?.remove();
     card.querySelector('.proposal-card__error')?.remove();

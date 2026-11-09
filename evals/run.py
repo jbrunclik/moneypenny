@@ -699,10 +699,11 @@ def _seed_proposals(case: EvalCase, user: Any, db: Any, conversation_id: str) ->
 def _turn_text(case: EvalCase, conversation_id: str) -> str:
     """The user's message as the agent gets it: a typed answer to the seeded
     cards is resolved first and the outcome follows as guidance (chat_turn)."""
+    from src.agent.guidance import with_guidance
     from src.agent.proposals import answer_and_note
 
     note = answer_and_note(conversation_id, case.user) if case.proposals else None
-    return f"{case.user}\n\n[SYSTEM GUIDANCE]\n{note}\n[/SYSTEM GUIDANCE]" if note else case.user
+    return with_guidance(case.user, [note])
 
 
 def _history_with_files(

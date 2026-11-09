@@ -28,6 +28,7 @@ from src.agent.deep_research.plan import (
     start_plan,
 )
 from src.agent.gemini_files import attach_gemini_file_uris
+from src.agent.guidance import with_guidance
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids
@@ -44,7 +45,7 @@ from src.agent.tools import (
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.conversation_facts import load_turn_facts
 from src.api.helpers.lost_actions import pop_lost_actions_note
-from src.api.helpers.turn_steering import discard_dead_placeholders
+from src.api.helpers.turn_steering import discard_dead_placeholders, running_turn_id
 from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
 from src.auth.google_calendar import get_valid_calendar_access_token
@@ -188,7 +189,10 @@ def _proposal_note(
     if data.rerun_mode:
         since = user_msg.created_at if user_msg.role == MessageRole.USER else None
         return answer_and_note(conv_id, None, since=since)
-    return answer_and_note(conv_id, "" if data.app_sent else message_text)
+    # A send that isn't steering (attachments) can arrive while a turn runs:
+    # the cards that turn filed are not shown yet and must not expire
+    running = running_turn_id(conv_id) is not None
+    return answer_and_note(conv_id, "" if data.app_sent else message_text, turn_running=running)
 
 
 def refuse_if_read_only(conv: Conversation) -> None:
@@ -406,10 +410,7 @@ class TurnContext:
         Only the agent sees the notes: the saved message, the title and the
         rest of the turn use message_text.
         """
-        notes = "\n".join(n for n in (self.lost_actions_note, self.proposal_note) if n)
-        if not notes:
-            return self.message_text
-        return f"{self.message_text}\n\n[SYSTEM GUIDANCE]\n{notes}\n[/SYSTEM GUIDANCE]"
+        return with_guidance(self.message_text, [self.lost_actions_note, self.proposal_note])
 
     def agent_call_kwargs(self) -> dict[str, Any]:
         """Arguments for ChatAgent.chat_batch / stream_chat_events."""

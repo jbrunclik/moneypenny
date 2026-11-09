@@ -35,6 +35,8 @@ class ApiError extends Error {
   isAuthError: boolean;
   /** Whether the token has expired (subset of auth errors) */
   isTokenExpired: boolean;
+  /** The error envelope's details, when the server sent any (e.g. a 409's current state) */
+  details: Record<string, unknown> | undefined;
 
   constructor(
     message: string,
@@ -44,6 +46,7 @@ class ApiError extends Error {
       retryable?: boolean;
       isTimeout?: boolean;
       isNetworkError?: boolean;
+      details?: Record<string, unknown>;
     } = {}
   ) {
     super(message);
@@ -53,6 +56,7 @@ class ApiError extends Error {
     this.retryable = options.retryable ?? API_RETRYABLE_STATUS_CODES.includes(status);
     this.isTimeout = options.isTimeout ?? false;
     this.isNetworkError = options.isNetworkError ?? false;
+    this.details = options.details;
     // Auth error detection based on error codes
     this.isTokenExpired = options.code === 'AUTH_EXPIRED';
     this.isAuthError = status === 401 || ['AUTH_REQUIRED', 'AUTH_INVALID', 'AUTH_EXPIRED'].includes(options.code || '');
@@ -65,7 +69,11 @@ class ApiError extends Error {
 function parseErrorResponse(data: unknown, status: number): ApiError {
   // Handle structured error format from backend
   if (data && typeof data === 'object' && 'error' in data) {
-    const err = (data as { error: { code?: string; message?: string; retryable?: boolean } }).error;
+    const err = (
+      data as {
+        error: { code?: string; message?: string; retryable?: boolean; details?: Record<string, unknown> };
+      }
+    ).error;
     if (typeof err === 'object' && err !== null) {
       return new ApiError(
         err.message || 'Request failed',
@@ -73,6 +81,7 @@ function parseErrorResponse(data: unknown, status: number): ApiError {
         {
           ...(err.code !== undefined && { code: err.code }),
           ...(err.retryable !== undefined && { retryable: err.retryable }),
+          ...(err.details !== undefined && { details: err.details }),
           isTimeout: err.code === 'TIMEOUT',
         }
       );
