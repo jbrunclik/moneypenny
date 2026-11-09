@@ -32,6 +32,7 @@ import type { Message } from '../../types/api';
 import { decorateArtifacts } from './artifacts';
 import { decorateGrounding } from './grounding';
 import { finishResearchMessage } from './research-progress';
+import { decorateProposals } from './proposal-card';
 import { addActionRowToUI } from './action-row';
 
 const log = createLogger('messages');
@@ -395,6 +396,8 @@ export function addMessageToUI(
     decorateArtifacts(messageEl, message);
     // Report chip and open research offer
     finishResearchMessage(messageEl, message);
+    // Proposal cards: what the reply asks the user's yes for
+    decorateProposals(messageEl, message);
   }
   container.appendChild(messageEl);
   updateLatestAssistantMarker(container);

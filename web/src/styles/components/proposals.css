@@ -1,0 +1,150 @@
+/* ----------------------------------------
+   Proposal cards (components/messages/proposal-card.ts): what a reply asks
+   the user's yes for. Pending: an icon tile and the summary, label/value
+   rows, a primary button per option and "Not now". Resolved: one quiet line
+   with the outcome.
+   ---------------------------------------- */
+
+.proposal-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.proposal-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    box-shadow: var(--shadow-sm);
+}
+
+.proposal-card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.proposal-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    background-color: var(--accent-muted);
+    color: var(--accent-text);
+}
+
+.proposal-card__icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.proposal-card__summary {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+.proposal-card__details {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-4) 0 0;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-light);
+}
+
+.proposal-card__row {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    column-gap: var(--space-4);
+}
+
+.proposal-card__row dt {
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.proposal-card__row dd {
+    margin: 0;
+    font-size: var(--font-size-ui);
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-line; /* multi-line values: a settings change lists one per line */
+    overflow-wrap: anywhere;
+}
+
+.proposal-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+}
+
+.proposal-card__note,
+.proposal-card__error {
+    margin: var(--space-3) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.proposal-card__error {
+    color: var(--color-warning-500);
+}
+
+/* Resolved: one line, the outcome */
+.proposal-card.proposal-card--resolved {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2-5);
+    padding: var(--space-3) var(--space-4);
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.proposal-card__state-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--text-muted);
+}
+
+.proposal-card__state-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.proposal-card__outcome {
+    font-size: var(--font-size-ui);
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.proposal-card.proposal-card--approved .proposal-card__state-icon {
+    color: var(--accent-text);
+}
+
+.proposal-card.proposal-card--failed .proposal-card__state-icon,
+.proposal-card.proposal-card--failed .proposal-card__outcome {
+    color: var(--color-warning-500);
+}
+
+@media (max-width: 768px) {
+    .proposal-card {
+        padding: var(--space-4);
+    }
+
+    .proposal-card__row {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: var(--space-0-5);
+    }
+
+    .proposal-card__actions .btn {
+        flex: 1 1 auto;
+    }
+}

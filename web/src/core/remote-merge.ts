@@ -12,7 +12,13 @@
  */
 
 import { conversations } from '../api/conversations';
-import { addMessageToUI, lockOlderQuizBlocks, setMemoryNote, updateLatestAssistantMarker } from '../components/messages';
+import {
+  addMessageToUI,
+  decorateProposals,
+  lockOlderQuizBlocks,
+  setMemoryNote,
+  updateLatestAssistantMarker,
+} from '../components/messages';
 import { showNewMessagesPill } from '../components/ScrollToBottom';
 import { useStore } from '../state/store';
 import { getSyncManager } from '../sync/SyncManager';
@@ -156,6 +162,7 @@ async function mergeOnce(convId: string): Promise<void> {
 
   reconcileUnfinished(convId, container, local, server);
   patchMemoryNotes(convId, container, local, server);
+  patchProposals(convId, container, local, server);
 
   const localById = new Map(local.map((m) => [m.id, m]));
   const rendered = new Set(
@@ -204,6 +211,26 @@ function patchMemoryNotes(
     const el = container.querySelector<HTMLElement>(`:scope > [data-message-id="${message.id}"]`);
     if (el) setMemoryNote(el, note);
     useStore.getState().updateMessage(convId, message.id, { memory_note: note });
+  }
+}
+
+/**
+ * A card answered elsewhere (another device, or a typed yes) changes under a
+ * reply that is already on screen: re-render its cards in place.
+ */
+function patchProposals(
+  convId: string,
+  container: HTMLElement,
+  local: readonly Message[],
+  server: readonly Message[]
+): void {
+  const localById = new Map(local.map((m) => [m.id, m]));
+  for (const message of server) {
+    const known = localById.get(message.id);
+    if (!known || JSON.stringify(known.proposals ?? []) === JSON.stringify(message.proposals ?? [])) continue;
+    const el = container.querySelector<HTMLElement>(`:scope > [data-message-id="${message.id}"]`);
+    if (el) decorateProposals(el, message);
+    useStore.getState().updateMessage(convId, message.id, { proposals: message.proposals ?? null });
   }
 }
 

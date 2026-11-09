@@ -12413,6 +12413,25 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "PlannerConversationResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "PlannerConversationResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -12451,12 +12470,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/PlannerConversationResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {
@@ -12911,6 +12930,25 @@
         "title": "GroundingSummaryResponse",
         "type": "object"
       },
+      "MessageResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "MessageResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -12949,12 +12987,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/MessageResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {
@@ -14177,6 +14215,25 @@
         "title": "MessagesPaginationResponse",
         "type": "object"
       },
+      "ConversationDetailPaginatedResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "ConversationDetailPaginatedResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -14215,12 +14272,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {
@@ -15752,6 +15809,25 @@
         "title": "UpdateMemoryProtectionRequest",
         "type": "object"
       },
+      "ProposalResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "ProposalResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -15790,12 +15866,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/ProposalResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {
@@ -16613,6 +16689,25 @@
         "title": "MessagesPaginationResponse",
         "type": "object"
       },
+      "MessagesListResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "MessagesListResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -16651,12 +16746,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/MessagesListResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {
@@ -17152,6 +17247,25 @@
         "title": "GroundingSummaryResponse",
         "type": "object"
       },
+      "ChatBatchResponse.ProposalDetailResponse": {
+        "description": "One label/value row on a card (a list: JSON objects lose their order).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ProposalDetailResponse",
+        "type": "object"
+      },
       "ChatBatchResponse.ProposalOptionResponse": {
         "description": "One choice on a proposal card (its payload stays on the server).",
         "properties": {
@@ -17190,12 +17304,12 @@
             "type": "string"
           },
           "details": {
-            "additionalProperties": {
-              "type": "string"
+            "description": "Label/value rows, in order",
+            "items": {
+              "$ref": "#/components/schemas/ChatBatchResponse.ProposalDetailResponse"
             },
-            "description": "Label -> value rows",
             "title": "Details",
-            "type": "object"
+            "type": "array"
           },
           "options": {
             "items": {

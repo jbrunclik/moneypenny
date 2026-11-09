@@ -150,6 +150,53 @@ def seed_whats_new() -> tuple[dict[str, Any], int]:
     return {"status": "seeded", "conversation_id": conv_id}, 200
 
 
+@fixtures_bp.route("/test/seed-proposal", methods=["POST"])
+def seed_proposal() -> tuple[dict[str, Any], int]:
+    """A chat whose last reply shows one pending reminder card (a real
+    schedule_item proposal: approving it stores the reminder)."""
+    import uuid
+
+    from src.agent.tools import scheduling  # noqa: F401 - registers the kind
+    from src.db.models import Proposal
+    from src.enums import MessageRole
+    from src.utils.clock import utc_now
+
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    conv = g.db.create_conversation(user.id, "Plumber")
+    g.db.add_message(conv.id, MessageRole.USER, "Remind me Friday at 8 to call the plumber")
+    reply = g.db.add_message(
+        conv.id, MessageRole.ASSISTANT, "I can remind you on Friday at 8:00 - shall I?"
+    )
+    payload = {
+        "kind": "reminder",
+        "text": "Call the plumber",
+        "next_run_at": "2099-11-13T07:00:00+00:00",
+        "when": "Fri 13 Nov 2099 08:00",
+        "ends": "then done",
+    }
+    g.db.create_proposal(
+        Proposal(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            conversation_id=conv.id,
+            message_id=reply.id,
+            request_id="e2e-seed",
+            kind="schedule_item",
+            summary='Reminder: "Call the plumber"',
+            details={"When": "Fri 13 Nov 2099 08:00 (Europe/Prague)", "Ends": "then done"},
+            options=[{"label": "Set it up", "description": "", "payload": payload}],
+            state="pending",
+            chosen=None,
+            result=None,
+            resolved_by=None,
+            reported=False,
+            created_at=utc_now(),
+            resolved_at=None,
+        )
+    )
+    return {"status": "seeded", "conversation_id": conv.id}, 200
+
+
 @fixtures_bp.route("/test/seed-agent", methods=["POST"])
 def seed_agent() -> tuple[dict[str, Any], int]:
     """Seed a real agent (a standing chat + its standing job) for job list tests."""

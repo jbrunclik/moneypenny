@@ -14,13 +14,22 @@ class ProposalOptionResponse(ResponseModel):
     description: str = ""
 
 
+class ProposalDetailResponse(ResponseModel):
+    """One label/value row on a card (a list: JSON objects lose their order)."""
+
+    label: str
+    value: str
+
+
 class ProposalResponse(ResponseModel):
     """A card awaiting (or past) the user's answer."""
 
     id: str
     kind: str = Field(description="schedule_item, create_agent, edit_agent, ...")
     summary: str = Field(description="What it does, in a line")
-    details: dict[str, str] = Field(default_factory=dict, description="Label -> value rows")
+    details: list[ProposalDetailResponse] = Field(
+        default_factory=list, description="Label/value rows, in order"
+    )
     options: list[ProposalOptionResponse]
     state: Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
     chosen: int | None = Field(default=None, description="The option picked")

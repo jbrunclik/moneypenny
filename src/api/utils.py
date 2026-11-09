@@ -141,7 +141,9 @@ def proposal_to_response(proposal: Proposal) -> dict[str, object]:
         "id": proposal.id,
         "kind": proposal.kind,
         "summary": proposal.summary,
-        "details": {label: str(value) for label, value in proposal.details.items()},
+        "details": [
+            {"label": label, "value": str(value)} for label, value in proposal.details.items()
+        ],
         "options": [
             {"label": o["label"], "description": o.get("description", "")} for o in proposal.options
         ],

@@ -19,6 +19,7 @@ import type { Message, StreamDoneEvent } from '../types/api';
 import { decorateArtifacts } from '../components/messages/artifacts';
 import { decorateGrounding } from '../components/messages/grounding';
 import { finishResearchMessage } from '../components/messages/research-progress';
+import { decorateProposals } from '../components/messages/proposal-card';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
@@ -49,6 +50,7 @@ export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent
     ...(event.grounding !== undefined && { grounding: event.grounding }),
     ...(event.research !== undefined && { research: event.research }),
     ...(event.artifacts !== undefined && { artifacts: event.artifacts }),
+    ...(event.proposals !== undefined && { proposals: event.proposals }),
   };
 }
 
@@ -57,7 +59,7 @@ export function hasVisibleContent(event: StreamDoneEvent): boolean {
   return Boolean(
     event.content?.trim() ||
     event.files?.length || event.generated_images?.length || event.sources?.length ||
-    event.artifacts?.length
+    event.artifacts?.length || event.proposals?.length
   );
 }
 
@@ -126,6 +128,8 @@ function finalizeDoneBubble(
   decorateArtifacts(messageEl, event);
   // The progress panel becomes the report chip; an offer shows under the answer
   finishResearchMessage(messageEl, event, { live: true });
+  // Cards for what the reply proposes (a reminder, a new agent, a change)
+  decorateProposals(messageEl, event);
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'budget' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');

@@ -10499,6 +10499,16 @@ export interface components {
             created_at: string;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "PlannerConversationResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -10530,11 +10540,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["PlannerConversationResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["PlannerConversationResponse.ProposalOptionResponse"][];
             /**
@@ -10775,6 +10783,16 @@ export interface components {
             legacy: boolean | null;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "MessageResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -10806,11 +10824,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["MessageResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["MessageResponse.ProposalOptionResponse"][];
             /**
@@ -11373,6 +11389,16 @@ export interface components {
             total_count: number;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "ConversationDetailPaginatedResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -11404,11 +11430,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["ConversationDetailPaginatedResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["ConversationDetailPaginatedResponse.ProposalOptionResponse"][];
             /**
@@ -12167,6 +12191,16 @@ export interface components {
             protected: boolean;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "ProposalResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -12198,11 +12232,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["ProposalResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["ProposalResponse.ProposalOptionResponse"][];
             /**
@@ -12617,6 +12649,16 @@ export interface components {
             total_count: number;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "MessagesListResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -12648,11 +12690,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["MessagesListResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["MessagesListResponse.ProposalOptionResponse"][];
             /**
@@ -12911,6 +12951,16 @@ export interface components {
             legacy: boolean | null;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "ChatBatchResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * ProposalOptionResponse
          * @description One choice on a proposal card (its payload stays on the server).
          */
@@ -12942,11 +12992,9 @@ export interface components {
             summary: string;
             /**
              * Details
-             * @description Label -> value rows
+             * @description Label/value rows, in order
              */
-            details: {
-                [key: string]: string;
-            };
+            details: components["schemas"]["ChatBatchResponse.ProposalDetailResponse"][];
             /** Options */
             options: components["schemas"]["ChatBatchResponse.ProposalOptionResponse"][];
             /**

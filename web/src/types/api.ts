@@ -127,6 +127,9 @@ export type Message = Omit<MaybeAbsent<Schemas['MessageResponse']>, MessagePartK
 /** An artifact version shown under a reply: sandboxed HTML/JS (docs/features/artifacts.md) */
 export type ArtifactRef = Schemas['MessageResponse.ArtifactRef'];
 
+/** A proposal card under a reply: what Moneypenny asks the user's yes for (docs/features/proposals.md) */
+export type Proposal = Schemas['MessageResponse.ProposalResponse'];
+
 /** One artifact version's HTML and the artifact's saved state (GET /api/artifacts/<id>/versions/<v>) */
 export type ArtifactVersion = Schemas['ArtifactVersionResponse'];
 

@@ -118,6 +118,7 @@ def test_the_reply_carries_its_proposal(
         "pending",
     )
     assert card["options"] == [{"label": "Set it up", "description": ""}]
+    assert card["details"] == [{"label": "When", "value": "Thu 8:00"}]  # rows keep their order
     assert "secret" not in json.dumps(card)  # payloads never leave the server
     loaded = client.get(f"/api/conversations/{test_conversation.id}", headers=auth_headers)
     assert loaded.get_json()["messages"][-1]["proposals"][0]["id"] == card["id"]

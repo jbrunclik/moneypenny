@@ -16,6 +16,8 @@ import { renderQuizBlock } from '../../components/QuizBlock';
 import { initSourcesPopup } from '../../components/SourcesPopup';
 import { initActionRows } from '../../components/messages/action-row';
 import { initResearchOffers } from '../../components/messages/research-offer';
+import { initProposalCards } from '../../components/messages/proposal-card';
+import { proposals } from '../../api/proposals';
 import { initResearchProgress } from '../../components/messages/research-progress';
 import { setArtifactSender } from '../../components/messages/artifact-host';
 import { setQuizRenderer } from '../../utils/markdown';
@@ -34,6 +36,7 @@ export function initMessageUi(): void {
   initClaimsSheet();
   setArtifactSender(sendUiMessage);
   initResearchOffers({ start: startDeepResearch, decline: declineDeepResearch });
+  initProposalCards({ approve: proposals.approve, decline: proposals.decline });
   initResearchProgress();
   initActionRows();
   initImageGenPopup();

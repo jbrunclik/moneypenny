@@ -17,6 +17,7 @@ import { markStreamForRecovery, clearPendingRecovery, attemptRecovery } from './
 import { handleStreamDone } from './stream-done';
 import { processStreamEvent } from './stream-events';
 import { mergeExternalChanges } from './remote-merge';
+import { hasOpenProposals } from './proposal-sync';
 import { answerUnreadSteering } from './steering';
 import { handleMissingDoneEvent, offerReplyRetry, tryResumeStream } from './stream-resume';
 import {
@@ -283,7 +284,8 @@ export async function sendStreamingMessage(
     cleanupStreamingRequest(requestId, convId, state.messageSuccessful, state.serverMessageCount);
   }
   // (after the cleanup: a merge skips a conversation with a turn of its own)
-  // Renders the other device's question in place and follows its reply live
-  if (state.interjectedInto) await mergeExternalChanges(convId);
+  // Renders the other device's question in place and follows its reply live;
+  // re-renders cards a typed yes answered on the server
+  if (state.interjectedInto || hasOpenProposals(convId)) await mergeExternalChanges(convId);
   if (state.unansweredSteeringId) answerUnreadSteering(convId, state.unansweredSteeringId);
 }

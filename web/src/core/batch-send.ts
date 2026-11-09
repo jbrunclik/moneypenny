@@ -33,6 +33,8 @@ import { isTurnAnchored, reserveTurnSpace } from '../components/messages/turn-an
 import { notifyModelFallback } from './model-fallback';
 import { clearInflightBatch, persistInflightBatch } from './inflight-batches';
 import { answerUnreadSteering } from './steering';
+import { hasOpenProposals } from './proposal-sync';
+import { mergeExternalChanges } from './remote-merge';
 
 const log = createLogger('messaging');
 
@@ -82,6 +84,7 @@ export function toAssistantMessage(response: ChatResponse): Message {
     grounding: response.grounding,
     research: response.research,
     artifacts: response.artifacts,
+    proposals: response.proposals,
   };
 }
 
@@ -262,6 +265,8 @@ export async function sendBatchMessage(
 
     await completeBatchTurn(convId, tempUserMessageId, response);
     if (response.unanswered_steering_id) answerUnreadSteering(convId, response.unanswered_steering_id);
+    // Cards a typed yes answered on the server re-render (proposal-sync.ts)
+    if (hasOpenProposals(convId)) void mergeExternalChanges(convId);
   } catch (error) {
     handleBatchSendError(error, convId, tempUserMessageId);
   } finally {
