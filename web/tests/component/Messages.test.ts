@@ -502,80 +502,21 @@ describe('Messages - addMessageToUI special messages', () => {
     resetStore();
   });
 
-  it('renders a pending approval request with approve and reject buttons', () => {
+  it('renders an old waiting message as plain text, without its marker', () => {
+    // Before run cards (Nov 2026) the waiting message opened with a marker
     addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container);
 
-    const el = container.querySelector<HTMLElement>('.approval-request-message')!;
-    expect(el.dataset.approvalId).toBe('ab12-cd34');
-    expect(el.querySelector('.approval-title')?.textContent).toBe('Action requires approval');
-    expect(el.querySelector('.approval-request-description')?.textContent).toBe('Send the weekly report');
-    expect(el.querySelector('.approval-request-tool code')?.textContent).toBe('send_email');
-    expect(el.querySelector<HTMLElement>('.btn-approve')?.dataset.approvalId).toBe('ab12-cd34');
-    expect(el.querySelector('.btn-reject')).not.toBeNull();
-  });
-
-  it('offers Always allow for a change in a writable integration', async () => {
-    const { jobs } = await import('@/api/jobs');
-    const approve = vi.spyOn(jobs, 'approveRequest').mockResolvedValue();
-    const todoist =
-      '[approval-request:ab12]\nI need your permission to: **Add a task**\nTool: `todoist`';
-    addMessageToUI(createMessage('a1', todoist, 'assistant'), container);
-
-    const always = container.querySelector<HTMLButtonElement>('.btn-always-allow');
-    expect(always?.textContent).toContain('Always allow');
-    always!.click();
-    await vi.waitFor(() => expect(approve).toHaveBeenCalledWith('ab12', true));
-  });
-
-  it('shows a multi-line settings request in full', () => {
-    // As build_approval_message writes an edit_standing_chat request
-    const settings =
-      "[approval-request:5e771e9]\n**Action requires approval**\n\nI need your permission to: **Change Coach's settings:\n- Tools: all tools (new access: all tools)**\n\nTool: `edit_standing_chat`\n\nPlease approve or reject this request.";
-    addMessageToUI(createMessage('a1', settings, 'assistant'), container);
-
-    const description = container.querySelector('.approval-request-description')?.textContent;
-    expect(description).toContain("Change Coach's settings:");
-    expect(description).toContain('new access: all tools');
-  });
-
-  it('names what Always allow grants', () => {
-    const calendar = '[approval-request:ca1e]\nI need your permission to: **Add an event**\nTool: `google_calendar`';
-    addMessageToUI(createMessage('a1', calendar, 'assistant'), container);
-    expect(container.querySelector('.btn-always-allow')?.textContent).toBe('Always allow Calendar changes');
-  });
-
-  it('has no Always allow for other requests', () => {
-    addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container);
-    expect(container.querySelector('.btn-always-allow')).toBeNull();
-  });
-
-  it('shows the outcome of a resolved approval instead of buttons', () => {
-    const resolutions = new Map([
-      ['a1', { resolved: true, approved: true }],
-      ['a2', { resolved: true, approved: false }],
-    ]);
-    addMessageToUI(createMessage('a1', APPROVAL, 'assistant'), container, resolutions);
-    addMessageToUI(createMessage('a2', APPROVAL, 'assistant'), container, resolutions);
-
-    const [approved, rejected] = [...container.querySelectorAll('.approval-request-message')];
-    expect(approved?.querySelector('.approval-title')?.textContent).toBe('Action approved');
-    expect(approved?.querySelector('.approval-result.approved')?.textContent).toContain('Approved');
-    expect(rejected?.querySelector('.approval-title')?.textContent).toBe('Action rejected');
-    expect(rejected?.querySelector('.approval-result.rejected')?.textContent).toContain('Rejected');
-    expect(container.querySelector('.btn-approve')).toBeNull();
-  });
-
-  it('hides a generic tool name', () => {
-    addMessageToUI(
-      createMessage('a1', '[approval-request:ab12]\nI need your permission to: **Do it**\nTool: `custom_action`', 'assistant'),
-      container
-    );
-    expect(container.querySelector('.approval-request-tool')).toBeNull();
+    const content = container.querySelector('.message.assistant .message-content')!;
+    expect(content.textContent).toContain('Send the weekly report');
+    expect(content.textContent).not.toContain('approval-request');
+    expect(container.querySelector('.approval-request-message')).toBeNull();
   });
 
   it('skips the action approved/rejected follow-ups', () => {
     addMessageToUI(createMessage('u1', '[Action approved: send]'), container);
     addMessageToUI(createMessage('u2', '[Action rejected: send]'), container);
+    // A run card's note names the call the resumed run re-issues: hidden too
+    addMessageToUI(createMessage('u3', '[Action approved: Todoist: add task] Re-issue exactly: todoist({})'), container);
     expect(container.children).toHaveLength(0);
   });
 
@@ -604,7 +545,7 @@ describe('Messages - addMessageToUI special messages', () => {
   });
 
   it('animates live appends only', () => {
-    addMessageToUI(createMessage('u1', 'live'), container, undefined, { animate: true });
+    addMessageToUI(createMessage('u1', 'live'), container, { animate: true });
     addMessageToUI(createMessage('u2', 'history'), container);
     const [live, history] = [...container.querySelectorAll('.message')];
     expect(live?.classList.contains('message--entering')).toBe(true);

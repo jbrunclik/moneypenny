@@ -167,7 +167,7 @@ def seed_proposal() -> tuple[dict[str, Any], int]:
     reply = g.db.add_message(
         conv.id, MessageRole.ASSISTANT, "I can remind you on Friday at 8:00 - shall I?"
     )
-    payload = {
+    payload: dict[str, object] = {
         "kind": "reminder",
         "text": "Call the plumber",
         "next_run_at": "2099-11-13T07:00:00+00:00",
@@ -216,10 +216,8 @@ def seed_agent() -> tuple[dict[str, Any], int]:
 
 @fixtures_bp.route("/test/seed-agent-with-approval", methods=["POST"])
 def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
-    """Seed an agent with a conversation containing a pending approval message.
-
-    This is used to test the input blocking when a conversation has a pending approval.
-    """
+    """Seed an agent whose run is parked on its card: the waiting message
+    and a pending run proposal under it (step 2 of the one approval mechanism)."""
     from flask import request
 
     data = request.get_json() or {}
@@ -252,33 +250,52 @@ def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
         content=f"[Manual trigger at {now} UTC]",
     )
 
-    # Create the pending approval using the proper method
-    approval = g.db.create_approval_request(
-        item_id=agent.id,
-        user_id=user.id,
-        tool_name=tool_name,
-        tool_args={},
-        description=approval_description,
-    )
+    # The run is parked: its waiting message, and its card (a run proposal)
+    import uuid
+    from datetime import timedelta
 
-    # Add approval request message with explicit \n to ensure pattern matching works
-    approval_content = (
-        f"[approval-request:{approval.id}]\n"
-        f"I need your permission to: **{approval_description}**\n\n"
-        f"Tool: `{tool_name}`\n\n"
-        f"Please approve or reject this action."
-    )
-    g.db.add_message(
+    from src.db.models import Proposal
+
+    waiting = g.db.add_message(
         conversation_id=agent.conversation_id,
         role="assistant",
-        content=approval_content,
+        content=f"**Waiting for your approval**\n\n{approval_description}",
+    )
+    card = g.db.create_proposal(
+        Proposal(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            conversation_id=agent.conversation_id or "",
+            message_id=waiting.id,
+            request_id="",
+            kind="agent_action",
+            summary=approval_description,
+            details={"Tool": tool_name},
+            options=[
+                {
+                    "label": "Approve",
+                    "description": "",
+                    "payload": {"tool": tool_name, "args": {}, "signature": None},
+                }
+            ],
+            state="pending",
+            chosen=None,
+            result=None,
+            resolved_by=None,
+            reported=False,
+            created_at=utc_now(),
+            resolved_at=None,
+            origin="run",
+            job_id=agent.id,
+            expires_at=utc_now() + timedelta(hours=24),
+        )
     )
 
     return {
         "status": "seeded",
         "job_id": agent.id,
         "conversation_id": agent.conversation_id,
-        "approval_id": approval.id,
+        "approval_id": card.id,
     }, 200
 
 

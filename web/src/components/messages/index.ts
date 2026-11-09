@@ -20,7 +20,6 @@ export {
   renderMessages,
   addMessageToUI,
   removeRenderedMessagesFrom,
-  hasPendingApproval,
   lockOlderQuizBlocks,
   updateLatestAssistantMarker,
 } from './render';

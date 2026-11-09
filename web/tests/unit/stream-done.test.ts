@@ -23,7 +23,7 @@ describe('assistantMessageFromDone', () => {
         stopped_early: true,
         title: 'ignored',
         user_message_id: 'ignored',
-        approval_required: false,
+        answer_only: false,
       },
       'streamed'
     );

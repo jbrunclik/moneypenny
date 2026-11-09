@@ -350,8 +350,8 @@ export type ChatResponse = Omit<Schemas['ChatBatchResponse'], 'research'> & {
 
 /**
  * Payload of the stream's terminal `done` event: the batch reply's fields,
- * left out instead of null, plus the approval marker. `content` is missing
- * on an approval request.
+ * left out instead of null. An answer-only turn (a typed answer to a run's
+ * card) has no reply: no id or content, `answer_only` and the answered cards.
  */
 export type StreamDoneEvent = Omit<
   MaybeAbsent<ChatResponse>,
@@ -359,8 +359,6 @@ export type StreamDoneEvent = Omit<
 > &
   MessageParts & {
   content?: string;
-  approval_required?: boolean;
-  approval_id?: string;
 };
 
 /** The server's error envelope; the spec's HTTPError (APIFlask's default) does not describe it */
@@ -522,7 +520,8 @@ export type CreateJobRequest = Schemas['CreateJobRequest'];
 
 export type UpdateJobRequest = Schemas['UpdateJobRequest'];
 
-export type ApprovalRequest = Schemas['PendingApprovalsResponse.ApprovalRequestResponse'];
+/** A run waiting on the user's card, with its job (Command Center's "Needs you") */
+export type RunProposal = Schemas['JobsOverviewResponse.RunProposalResponse'];
 
 export type JobRunsListResponse = Schemas['JobRunsListResponse'];
 

@@ -246,7 +246,7 @@ function renderInServerOrder(convId: string, container: HTMLElement, message: Me
     .find((el) => el !== null);
   useStore.getState().appendMessage(convId, message, before?.dataset.messageId);
   const lastBefore = container.lastElementChild;
-  addMessageToUI(message, container, undefined, { animate: true });
+  addMessageToUI(message, container, { animate: true });
   if (!before) return;
   // Move what the render appended (a bubble, or a row) into place
   const added: Element[] = [];

@@ -64,13 +64,20 @@ async function setCommandCenterData(page: import('@playwright/test').Page, data:
   }));
   const overview = {
     jobs,
-    pending_approvals: (data.pending_approvals || []).map(({ agent_id, agent_name, ...a }) => ({
-      tool_args: null,
-      resolved_at: null,
-      status: 'pending',
-      ...a,
-      item_id: agent_id,
-      job_name: agent_name,
+    // A run waiting on its card: the same proposal card as in the agent's chat
+    pending_approvals: (data.pending_approvals || []).map((a) => ({
+      id: a.id,
+      kind: 'agent_action',
+      summary: a.description,
+      details: [{ label: 'Tool', value: a.tool_name }],
+      options: [{ label: 'Approve', description: '' }],
+      state: 'pending',
+      chosen: null,
+      result: null,
+      job_id: a.agent_id,
+      job_name: a.agent_name,
+      conversation_id: `conv-${a.agent_id}`,
+      created_at: a.created_at ?? new Date().toISOString(),
     })),
     stats: { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: data.total_unread || 0,
@@ -331,12 +338,9 @@ test.describe('Agents - Approval Handling', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.approval-card');
 
-    // Click approve button
-    const approveBtn = page.locator('.approval-card .btn-approve');
+    // The run's card, answered like any proposal card
+    const approveBtn = page.locator('.approval-card .proposal-card').getByRole('button', { name: 'Approve' });
     await expect(approveBtn).toBeVisible();
-
-    // Note: In actual E2E test, we'd mock the API response and verify the approval
-    // For now, just verify the button is clickable
     await expect(approveBtn).toBeEnabled();
   });
 
@@ -371,8 +375,7 @@ test.describe('Agents - Approval Handling', () => {
     await page.goto('/#/agents');
     await page.waitForSelector('.approval-card');
 
-    // Click reject button
-    const rejectBtn = page.locator('.approval-card .btn-reject');
+    const rejectBtn = page.locator('.approval-card .proposal-card').getByRole('button', { name: 'Not now' });
     await expect(rejectBtn).toBeVisible();
     await expect(rejectBtn).toBeEnabled();
   });
@@ -629,164 +632,45 @@ test.describe('Agents - Deep Link Mark Viewed', () => {
   });
 });
 
-test.describe('Agents - Pending Approval Input Blocking', () => {
-  test('blocks message input when conversation has pending approval', async ({ page }) => {
-    // Seed an agent with a pending approval
-    const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
-      data: {
-        name: 'Approval Test Agent',
-        description: 'Test action requiring approval',
-        tool_name: 'test_tool',
-      },
-    });
-    expect(seedResponse.ok()).toBe(true);
-    const seedData = await seedResponse.json();
-    const conversationId = seedData.conversation_id;
-    expect(conversationId).toBeTruthy();
+test.describe('Agents - A run waiting on its card', () => {
+  for (const viewport of [
+    { name: 'desktop', width: 1280, height: 800 },
+    { name: 'mobile', width: 375, height: 667 },
+  ]) {
+    test.describe(viewport.name, () => {
+      test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
-    // Navigate to app first then to conversation
-    await page.goto('/');
-    await appReady(page);
-
-    // Navigate to the agent's conversation via URL (uses full /conversations/ path)
-    await page.goto(`/#/conversations/${conversationId}`);
-
-    // Wait for messages container to be present
-    await page.waitForSelector('#messages', { timeout: 10000 });
-
-    // Check if messages loaded
-    const messageCount = await page.locator('.message').count();
-    console.log('Message count:', messageCount);
-
-    // Wait for messages to load
-    await page.waitForSelector('.message', { timeout: 10000 });
-
-    // Verify the approval message is displayed
-    const approvalMessage = page.locator('.approval-request-message');
-    await expect(approvalMessage).toBeVisible();
-
-    // Verify input is disabled
-    const messageInput = page.locator('#message-input');
-    await expect(messageInput).toBeDisabled();
-
-    // Verify send button is disabled
-    const sendBtn = page.locator('#send-btn');
-    await expect(sendBtn).toBeDisabled();
-
-    // Verify the overlay is visible
-    const overlay = page.locator('.approval-pending-overlay');
-    await expect(overlay).toBeVisible();
-    await expect(overlay).toContainText('approve or reject');
-  });
-
-  test('input remains blocked even when typing', async ({ page }) => {
-    // Seed an agent with a pending approval
-    const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
-      data: {
-        name: 'Typing Test Agent',
-        description: 'Test action',
-        tool_name: 'test_tool',
-      },
-    });
-    const seedData = await seedResponse.json();
-    const conversationId = seedData.conversation_id;
-
-    // Navigate to the agent's conversation
-    await page.goto(`/#/conversations/${conversationId}`);
-    await page.waitForSelector('.approval-request-message');
-
-    // Try to type in the input (should be blocked)
-    const messageInput = page.locator('#message-input');
-    await expect(messageInput).toBeDisabled();
-
-    // The send button should remain disabled
-    const sendBtn = page.locator('#send-btn');
-    await expect(sendBtn).toBeDisabled();
-  });
-
-  test('pressing Enter does not send message when approval pending', async ({ page }) => {
-    // Seed an agent with a pending approval
-    const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
-      data: {
-        name: 'Enter Key Test Agent',
-        description: 'Test action',
-        tool_name: 'test_tool',
-      },
-    });
-    const seedData = await seedResponse.json();
-    const conversationId = seedData.conversation_id;
-
-    // Navigate to the agent's conversation
-    await page.goto(`/#/conversations/${conversationId}`);
-    await page.waitForSelector('.approval-request-message');
-
-    // Count initial messages
-    const initialMessageCount = await page.locator('.message').count();
-
-    // Try pressing Enter (even if input is disabled, browser may still fire keydown)
-    await page.keyboard.press('Enter');
-
-    // Wait a bit to ensure no message is sent
-    await page.waitForTimeout(500); // a span for a wrong send to show (none must)
-
-    // Verify message count hasn't changed (no new message sent)
-    const finalMessageCount = await page.locator('.message').count();
-    expect(finalMessageCount).toBe(initialMessageCount);
-  });
-
-  test('clicking send button does not send message when approval pending', async ({ page }) => {
-    // Seed an agent with a pending approval
-    const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
-      data: {
-        name: 'Click Test Agent',
-        description: 'Test action',
-        tool_name: 'test_tool',
-      },
-    });
-    const seedData = await seedResponse.json();
-    const conversationId = seedData.conversation_id;
-
-    // Navigate to the agent's conversation
-    await page.goto(`/#/conversations/${conversationId}`);
-    await page.waitForSelector('.approval-request-message');
-
-    // Count initial messages
-    const initialMessageCount = await page.locator('.message').count();
-
-    // Try to click the send button (should be disabled, but let's verify behavior)
-    const sendBtn = page.locator('#send-btn');
-    await sendBtn.click({ force: true }); // Force click even if disabled
-
-    // Wait a bit to ensure no message is sent
-    await page.waitForTimeout(500); // a span for a wrong send to show (none must)
-
-    // Verify message count hasn't changed
-    const finalMessageCount = await page.locator('.message').count();
-    expect(finalMessageCount).toBe(initialMessageCount);
-
-    // Verify no error toast appeared (backend wasn't called)
-    const errorToast = page.locator('.toast-error');
-    await expect(errorToast).not.toBeVisible();
-  });
-
-  for (const [label, viewport] of [
-    ['desktop', { width: 1280, height: 800 }],
-    ['mobile', { width: 375, height: 812 }],
-  ] as const) {
-    test(`Always allow approves a Todoist change and grants it (${label})`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      const seedResponse = await page.request.post('/test/seed-agent-with-approval', {
-        data: { name: `Always ${label}`, description: 'Add task: Buy milk', tool_name: 'todoist' },
+      test.beforeEach(async ({ page }) => {
+        const seed = await page.request.post('/test/seed-agent-with-approval', {
+          data: { name: 'Card Agent', description: 'Add task: Buy groceries', tool_name: 'todoist' },
+        });
+        const { conversation_id: conversationId } = (await seed.json()) as { conversation_id: string };
+        await page.goto(`/#/conversations/${conversationId}`);
+        await appReady(page);
       });
-      const { conversation_id: conversationId } = (await seedResponse.json()) as { conversation_id: string };
 
-      await page.goto(`/#/conversations/${conversationId}`);
-      const approval = page.locator('.approval-request-message');
-      const always = approval.locator('.btn-always-allow');
-      await expect(always).toBeVisible();
-      await always.click();
+      test('shows the card under the waiting message, and the chat stays open', async ({ page }) => {
+        const card = page.locator('.proposal-card');
+        await expect(card.locator('.proposal-card__summary')).toHaveText('Add task: Buy groceries');
+        await expect(card.getByRole('button', { name: 'Approve' })).toBeVisible();
+        // No lock any more: the user can talk to the agent while its run waits
+        await expect(page.locator('#message-input')).toBeEnabled();
+        await expect(page.locator('.approval-pending-overlay')).toHaveCount(0);
+      });
 
-      await expect(approval.locator('.approval-result.approved')).toBeVisible();
+      test('Not now on the card ends the run', async ({ page }) => {
+        const card = page.locator('.proposal-card');
+        await card.getByRole('button', { name: 'Not now' }).click();
+        await expect(card).toHaveClass(/proposal-card--declined/);
+      });
+
+      test('typing ne answers the card with no reply of its own', async ({ page }) => {
+        await page.locator('#message-input').fill('ne');
+        await page.locator('#send-btn').click();
+
+        await expect(page.locator('.proposal-card')).toHaveClass(/proposal-card--declined/, { timeout: 15_000 });
+        await expect(page.locator('.message.assistant .message-content').filter({ hasText: /\S/ })).toHaveCount(1);
+      });
     });
   }
 });

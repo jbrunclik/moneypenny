@@ -7,9 +7,7 @@
 
 import { createElement } from '../utils/dom';
 import {
-  CHECK_ICON,
   CLOCK_ICON,
-  CLOSE_ICON,
   COMMAND_CENTER_ICON,
   DELETE_ICON,
   EDIT_ICON,
@@ -30,12 +28,12 @@ import {
 } from '../utils/icons';
 import { createEmptyState } from './EmptyState';
 import { SCHEDULE_KIND_ICONS } from './messages/delivery-label';
-import type { ApprovalRequest, Job, JobRun, JobsOverviewResponse } from '../types/api';
+import type { Job, JobRun, JobsOverviewResponse, RunProposal } from '../types/api';
+import { renderProposalCard } from './messages/proposal-card';
 
 /** What the page asks its controller (core/agents.ts) to do */
 export interface CommandCenterHandlers {
   onRefresh: () => Promise<void>;
-  onApproval: (approvalId: string, approved: boolean) => Promise<void>;
   onOpenChat: (conversationId: string) => Promise<void>;
   onRun: (job: Job) => Promise<void>;
   onPause: (job: Job) => Promise<void>;
@@ -110,41 +108,28 @@ function renderStatsStrip(stats: JobsOverviewResponse['stats']): HTMLDivElement 
   ]);
 }
 
-function iconLabelButton(attributes: Record<string, string>, icon: IconHtml, label: string): HTMLButtonElement {
-  return createElement('button', attributes, [iconNodes(icon), createElement('span', {}, [label])]);
-}
-
-/** An approval request: who asks, what for, its schedule, approve or reject. */
-function renderApprovalCard(approval: ApprovalRequest, job: Job | undefined, onApproval: CommandCenterHandlers['onApproval']): HTMLDivElement {
-  const approve = iconLabelButton({ class: 'btn btn-approve', title: 'Approve' }, CHECK_ICON, 'Approve');
-  const reject = iconLabelButton({ class: 'btn btn-reject', title: 'Reject' }, CLOSE_ICON, 'Reject');
-  approve.addEventListener('click', () => void onApproval(approval.id, true));
-  reject.addEventListener('click', () => void onApproval(approval.id, false));
+/** A run waiting on its card: which agent asks and when, then the card itself
+ *  (answered like any proposal card; docs/features/proposals.md). */
+function renderApprovalCard(approval: RunProposal, job: Job | undefined): HTMLDivElement {
   return createElement('div', { class: 'approval-card' }, [
     createElement('div', { class: 'approval-card-header' }, [
       createElement('span', { class: 'approval-agent-name' }, [approval.job_name]),
       createElement('span', { class: 'approval-time' }, [relativeTime(approval.created_at)]),
+      !!job && createElement('span', { class: 'approval-schedule' }, [iconNodes(CLOCK_ICON), ` ${job.when}`]),
     ]),
-    createElement('div', { class: 'approval-card-content' }, [
-      createElement('p', { class: 'approval-description' }, [approval.description]),
-      createElement('div', { class: 'approval-meta' }, [
-        createElement('div', { class: 'approval-tool' }, [createElement('span', { class: 'tool-name' }, [approval.tool_name])]),
-        !!job && createElement('span', { class: 'approval-schedule' }, [iconNodes(CLOCK_ICON), ` ${job.when}`]),
-      ]),
-    ]),
-    createElement('div', { class: 'approval-card-actions' }, [approve, reject]),
+    renderProposalCard(approval),
   ]);
 }
 
-function renderApprovalsSection(data: JobsOverviewResponse, onApproval: CommandCenterHandlers['onApproval']): HTMLDivElement | null {
+function renderApprovalsSection(data: JobsOverviewResponse): HTMLDivElement | null {
   if (data.pending_approvals.length === 0) return null;
   const jobsById = new Map(data.jobs.map((j) => [j.id, j]));
   return createElement('div', { class: 'command-center-section command-center-section--approvals has-approvals' }, [
-    sectionTitle(WARNING_ICON, 'Pending Approvals', { count: data.pending_approvals.length, className: 'badge--warning' }),
+    sectionTitle(WARNING_ICON, 'Needs you', { count: data.pending_approvals.length, className: 'badge--warning' }),
     createElement(
       'div',
       { class: 'approvals-list' },
-      data.pending_approvals.map((a) => renderApprovalCard(a, jobsById.get(a.item_id), onApproval))
+      data.pending_approvals.map((a) => renderApprovalCard(a, jobsById.get(a.job_id)))
     ),
   ]);
 }
@@ -296,7 +281,7 @@ export function renderCommandCenter(data: JobsOverviewResponse, handlers: Comman
   return createElement('div', { class: 'command-center' }, [
     renderHeader(handlers),
     renderStatsStrip(data.stats),
-    renderApprovalsSection(data, handlers.onApproval),
+    renderApprovalsSection(data),
     renderJobsSection(data, handlers),
   ]);
 }

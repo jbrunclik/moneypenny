@@ -39,7 +39,7 @@ export interface ProposalActions {
 /** The pending card's icon tile, by kind (looked up at render: no import-time reads). */
 function kindIcon(kind: string): IconHtml {
   if (kind === 'schedule_item') return CLOCK_ICON;
-  if (kind === 'create_agent') return ROBOT_ICON;
+  if (kind === 'create_agent' || kind === 'agent_action') return ROBOT_ICON;
   if (kind === 'edit_agent') return SLIDERS_ICON;
   return CHECK_ICON;
 }
@@ -167,6 +167,8 @@ function showOutcome(card: HTMLElement, updated: Proposal): void {
   const messageEl = card.closest<HTMLElement>('.message');
   card.replaceWith(renderProposalCard(updated));
   if (messageEl) storeOutcome(messageEl, updated);
+  // Lists that summarise cards (Command Center) refresh on it
+  document.dispatchEvent(new CustomEvent('proposal:resolved', { detail: updated }));
 }
 
 function showError(card: HTMLElement, error: unknown): void {
@@ -208,6 +210,16 @@ function onClick(event: Event): void {
     void answer(card, Number(button.dataset.proposalChoice));
   } else if (button.dataset.proposalDecline !== undefined) {
     void answer(card, null);
+  }
+}
+
+/** Cards answered elsewhere (a typed answer resolved on the server): every
+ *  copy on screen shows the outcome, and the store follows. */
+export function showAnsweredProposals(answered: Proposal[]): void {
+  for (const proposal of answered) {
+    for (const card of document.querySelectorAll<HTMLElement>(`.${CARD_CLASS}[data-proposal-id="${proposal.id}"]`)) {
+      showOutcome(card, proposal);
+    }
   }
 }
 

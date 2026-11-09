@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderCommandCenter, type CommandCenterHandlers } from '@/components/CommandCenter';
-import type { ApprovalRequest, Job, JobRun, JobsOverviewResponse } from '@/types/api';
+import type { Job, JobRun, JobsOverviewResponse, RunProposal } from '@/types/api';
 
 function job(extra: Partial<Job> = {}): Job {
   return {
@@ -51,7 +51,6 @@ function payload(extra: Partial<JobsOverviewResponse> = {}): JobsOverviewRespons
 function handlers(): CommandCenterHandlers & Record<string, ReturnType<typeof vi.fn>> {
   return {
     onRefresh: vi.fn(async () => {}),
-    onApproval: vi.fn(async () => {}),
     onOpenChat: vi.fn(async () => {}),
     onRun: vi.fn(async () => {}),
     onPause: vi.fn(async () => {}),
@@ -178,25 +177,29 @@ describe('renderCommandCenter', () => {
     expect(h.onNewAgent).toHaveBeenCalled();
   });
 
-  it('lists pending approvals above the jobs, with the job schedule', () => {
+  it('lists runs waiting on their card above the jobs, with the job schedule', () => {
     const approval = {
       id: 'ap1',
-      item_id: 'j1',
+      kind: 'agent_action',
+      summary: 'Todoist: add task',
+      details: [{ label: 'Content', value: 'Buy milk' }],
+      options: [{ label: 'Approve', description: '' }],
+      state: 'pending',
+      chosen: null,
+      result: null,
+      job_id: 'j1',
       job_name: 'Coach',
-      tool_name: 'todoist',
-      tool_args: {},
-      description: 'Add a task',
-      status: 'pending',
+      conversation_id: 'c1',
       created_at: '2026-11-08T19:00:00.000000+00:00',
-      resolved_at: null,
-    } as ApprovalRequest;
-    const h = handlers();
-    const el = renderCommandCenter(payload({ jobs: [job({ has_pending_approval: true })], pending_approvals: [approval] }), h);
+    } as RunProposal;
+    const el = renderCommandCenter(payload({ jobs: [job({ has_pending_approval: true })], pending_approvals: [approval] }), handlers());
 
     const card = el.querySelector('.approval-card');
+    expect(card?.textContent).toContain('Coach');
     expect(card?.textContent).toContain('every day at 20:00');
-    card?.querySelector<HTMLButtonElement>('.btn-approve')?.click();
-    expect(h.onApproval).toHaveBeenCalledWith('ap1', true);
+    // The same card as in the agent's chat: answered through the proposal endpoints
+    expect(card?.querySelector('.proposal-card[data-proposal-id="ap1"]')).not.toBeNull();
+    expect([...(card?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual(['Approve', 'Not now']);
   });
 
   it('shows the week stats only with runs', () => {

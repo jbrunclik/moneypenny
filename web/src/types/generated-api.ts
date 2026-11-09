@@ -846,10 +846,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get all pending approval requests.
-         * @description Returns pending approvals with their standing chats' names.
-         */
+        /** The user's runs waiting on a card, with their standing chats' names. */
         get: {
             parameters: {
                 query?: never;
@@ -5638,66 +5635,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/approvals/{approval_id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reject a pending approval request.
-         * @description Marks the request as rejected. The agent will not perform
-         *     the requested action. Adds a rejection message to the conversation.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    approval_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StatusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/language/programs/{program_id}": {
         parameters: {
             query?: never;
@@ -6137,79 +6074,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/approvals/{approval_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve a pending approval request.
-         * @description Marks the request as approved and resumes the agent execution.
-         *     The agent will continue with a message indicating the action was approved.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    approval_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ApproveRequest"];
-                };
-            };
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StatusResponse"];
-                    };
-                };
-                /** @description Unauthorized */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
-                    };
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -7694,52 +7558,6 @@ export interface components {
             user: components["schemas"]["UserContainerResponse.UserResponse"];
         };
         /**
-         * ApprovalRequestResponse
-         * @description A change a job's run asked the user to approve.
-         */
-        "JobsOverviewResponse.ApprovalRequestResponse": {
-            /** Id */
-            id: string;
-            /**
-             * Item Id
-             * @description The job that asked
-             */
-            item_id: string;
-            /**
-             * Job Name
-             * @description The standing chat's name
-             */
-            job_name: string;
-            /** Tool Name */
-            tool_name: string;
-            /**
-             * Tool Args
-             * @default null
-             */
-            tool_args: {
-                [key: string]: unknown;
-            } | null;
-            /** Description */
-            description: string;
-            status: components["schemas"]["JobsOverviewResponse.ApprovalStatus"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Resolved At
-             * @default null
-             */
-            resolved_at: string | null;
-        };
-        /**
-         * ApprovalStatus
-         * @description Status of an approval request.
-         * @enum {string}
-         */
-        "JobsOverviewResponse.ApprovalStatus": "pending" | "approved" | "rejected";
-        /**
          * JobResponse
          * @description One job: a light item set from a chat, or a standing job (an agent).
          */
@@ -7881,6 +7699,91 @@ export interface components {
             total_cost_display: string;
         };
         /**
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
+         */
+        "JobsOverviewResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "JobsOverviewResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * RunProposalResponse
+         * @description A run waiting on the user's card, with the job it belongs to.
+         */
+        "JobsOverviewResponse.RunProposalResponse": {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label/value rows, in order
+             */
+            details: components["schemas"]["JobsOverviewResponse.ProposalDetailResponse"][];
+            /** Options */
+            options: components["schemas"]["JobsOverviewResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
+            /**
+             * Job Id
+             * @description The job whose run asked
+             */
+            job_id: string;
+            /**
+             * Job Name
+             * @description The standing chat's name
+             */
+            job_name: string;
+            /**
+             * Conversation Id
+             * @description The agent's chat (the card shows there too)
+             */
+            conversation_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
          * JobsOverviewResponse
          * @description The job list: needs attention first, then soonest.
          */
@@ -7888,7 +7791,7 @@ export interface components {
             /** Jobs */
             jobs: components["schemas"]["JobsOverviewResponse.JobResponse"][];
             /** Pending Approvals */
-            pending_approvals: components["schemas"]["JobsOverviewResponse.ApprovalRequestResponse"][];
+            pending_approvals: components["schemas"]["JobsOverviewResponse.RunProposalResponse"][];
             stats: components["schemas"]["JobsOverviewResponse.JobStatsBlock"];
             /**
              * Total Unread
@@ -8684,58 +8587,97 @@ export interface components {
             limit: number;
         };
         /**
-         * ApprovalRequestResponse
-         * @description A change a job's run asked the user to approve.
+         * ProposalDetailResponse
+         * @description One label/value row on a card (a list: JSON objects lose their order).
          */
-        "PendingApprovalsResponse.ApprovalRequestResponse": {
+        "PendingApprovalsResponse.ProposalDetailResponse": {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "PendingApprovalsResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * RunProposalResponse
+         * @description A run waiting on the user's card, with the job it belongs to.
+         */
+        "PendingApprovalsResponse.RunProposalResponse": {
             /** Id */
             id: string;
             /**
-             * Item Id
-             * @description The job that asked
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
              */
-            item_id: string;
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label/value rows, in order
+             */
+            details: components["schemas"]["PendingApprovalsResponse.ProposalDetailResponse"][];
+            /** Options */
+            options: components["schemas"]["PendingApprovalsResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "applying" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
+            /**
+             * Job Id
+             * @description The job whose run asked
+             */
+            job_id: string;
             /**
              * Job Name
              * @description The standing chat's name
              */
             job_name: string;
-            /** Tool Name */
-            tool_name: string;
             /**
-             * Tool Args
-             * @default null
+             * Conversation Id
+             * @description The agent's chat (the card shows there too)
              */
-            tool_args: {
-                [key: string]: unknown;
-            } | null;
-            /** Description */
-            description: string;
-            status: components["schemas"]["PendingApprovalsResponse.ApprovalStatus"];
+            conversation_id: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /**
-             * Resolved At
-             * @default null
-             */
-            resolved_at: string | null;
         };
         /**
-         * ApprovalStatus
-         * @description Status of an approval request.
-         * @enum {string}
-         */
-        "PendingApprovalsResponse.ApprovalStatus": "pending" | "approved" | "rejected";
-        /**
          * PendingApprovalsResponse
-         * @description Pending approval requests.
+         * @description Runs waiting on the user's card (Command Center's "Needs you").
          */
         PendingApprovalsResponse: {
             /** Pending Approvals */
-            pending_approvals: components["schemas"]["PendingApprovalsResponse.ApprovalRequestResponse"][];
+            pending_approvals: components["schemas"]["PendingApprovalsResponse.RunProposalResponse"][];
         };
         /**
          * StatusResponse
@@ -12294,18 +12236,6 @@ export interface components {
             server_time: string;
         };
         /**
-         * ApproveRequest
-         * @description Approving a run's request: once, or always for that tool.
-         */
-        ApproveRequest: {
-            /**
-             * Always
-             * @description Also grant the job write access to this tool, so later changes there need no approval (never for settings changes)
-             * @default false
-             */
-            always?: boolean;
-        };
-        /**
          * LanguageConversationResponse
          * @description Language program conversation with messages.
          */
@@ -13028,18 +12958,40 @@ export interface components {
         /**
          * ChatBatchResponse
          * @description Response from batch chat endpoint.
+         *
+         *     An answer-only turn (a typed answer to a run's card) has no reply: id,
+         *     content and created_at are absent, answer_only is set and
+         *     answered_proposals lists the cards it resolved.
          */
         ChatBatchResponse: {
-            /** Id */
-            id: string;
+            /**
+             * Id
+             * @default null
+             */
+            id: string | null;
             /**
              * Role
              * @default assistant
              * @constant
              */
             role: "assistant";
-            /** Content */
-            content: string;
+            /**
+             * Content
+             * @default null
+             */
+            content: string | null;
+            /**
+             * Answer Only
+             * @description The message only answered a run's card: no reply of its own
+             * @default null
+             */
+            answer_only: boolean | null;
+            /**
+             * Answered Proposals
+             * @description The cards the message answered (answer-only turns)
+             * @default null
+             */
+            answered_proposals: components["schemas"]["ChatBatchResponse.ProposalResponse"][] | null;
             /**
              * Files
              * @default null
@@ -13108,9 +13060,9 @@ export interface components {
             proposals: components["schemas"]["ChatBatchResponse.ProposalResponse"][] | null;
             /**
              * Created At
-             * Format: date-time
+             * @default null
              */
-            created_at: string;
+            created_at: string | null;
             /**
              * Title
              * @description Auto-generated conversation title (first message only)

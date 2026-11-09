@@ -42,7 +42,7 @@ export async function interjectIntoActiveTurn(convId: string, messageText: strin
   useStore.getState().appendMessage(convId, userMessage);
   const messagesContainer = getElementById<HTMLDivElement>('messages');
   if (messagesContainer) {
-    addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
+    addMessageToUI(userMessage, messagesContainer, { animate: true });
     // Above the reply still streaming: it takes the steering into account
     // and the server orders it that way too. Appended below, the turn
     // ended on a user message and lost regenerate/continue.

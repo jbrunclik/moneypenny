@@ -19,7 +19,6 @@ import {
 import {
   addMessageToUI,
   hideLoadingIndicator,
-  hasPendingApproval,
   loadAllRemainingNewerMessages,
   cleanupNewerMessagesScrollListener,
 } from '../components/messages';
@@ -94,7 +93,7 @@ export function registerComposerHook(hook: ComposerHook | null): void {
 
 /**
  * Whether the current conversation cannot take a new message right now
- * (planner still loading, or an agent approval pending). Toasts the reason.
+ * (the planner still loading). Toasts the reason.
  */
 function isSendBlocked(store: StoreState): boolean {
   // If planner is still loading (placeholder conversation), block sending
@@ -102,20 +101,6 @@ function isSendBlocked(store: StoreState): boolean {
     log.warn('Cannot send message while planner is loading');
     toast.info('Please wait for planner to finish loading...');
     return true;
-  }
-
-  // If there's a pending approval in this agent conversation, block sending
-  // Only agent conversations can have pending approvals
-  if (store.currentConversation?.is_agent && store.currentConversation.id) {
-    const currentMessages = store.getMessages(store.currentConversation.id);
-    if (currentMessages.length > 0 && hasPendingApproval(currentMessages)) {
-      log.warn('Cannot send message while approval is pending', {
-        conversationId: store.currentConversation.id,
-        messageCount: currentMessages.length,
-      });
-      toast.warning('Please approve or reject the pending action before sending a new message.');
-      return true;
-    }
   }
   return false;
 }
@@ -254,7 +239,7 @@ function renderOptimisticUserMessage(userMessage: Message): void {
   if (welcomeMessage) {
     welcomeMessage.remove();
   }
-  addMessageToUI(userMessage, messagesContainer, undefined, { animate: true });
+  addMessageToUI(userMessage, messagesContainer, { animate: true });
   // Scroll to bottom after adding user message so it's visible
   programmaticScrollToBottom(messagesContainer);
   // Update scroll button visibility after adding user message

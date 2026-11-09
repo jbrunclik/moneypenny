@@ -234,10 +234,7 @@ export function switchToConversation(conv: Conversation, totalMessageCount?: num
   // Enable scroll-to-bottom for images that load after initial render
   enableScrollOnImageLoad();
 
-  // Pass server's pending approval status if this is an agent conversation
-  renderMessages(conv.messages || [], {
-    ...(conv.has_pending_approval !== undefined && { hasPendingApproval: conv.has_pending_approval }),
-  });
+  renderMessages(conv.messages || []);
 
   // Restore this conversation's composer draft (typed text survives switches)
   restoreDraftForConversation(conv.id);

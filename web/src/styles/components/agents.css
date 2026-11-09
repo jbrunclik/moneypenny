@@ -619,9 +619,42 @@
 
 .approval-card-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-2);
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+}
+
+/* The schedule sits at the row's end; name and time stay together */
+.approval-card-header .approval-schedule {
+    margin-left: auto;
+}
+
+.approval-agent-name,
+.approval-time,
+.approval-schedule {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    /* Name and time on one line, the schedule under them */
+    .approval-card-header {
+        flex-wrap: wrap;
+        row-gap: var(--space-0-5);
+    }
+
+    .approval-card-header .approval-schedule {
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+}
+
+/* The run's proposal card is the body: the Command Center card carries the
+   surface, so the inner card drops its own */
+.approval-card .proposal-card {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: var(--space-2) 0 0;
 }
 
 .approval-agent-name {
@@ -633,41 +666,6 @@
 .approval-time {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
-}
-
-.approval-card-content {
-    margin-bottom: var(--space-3);
-}
-
-.approval-description {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    margin: 0 0 var(--space-2) 0;
-    line-height: 1.5;
-}
-
-.approval-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-}
-
-.approval-tool {
-    display: inline-block;
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-}
-
-.approval-tool .tool-name {
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-family-mono);
 }
 
 .approval-schedule {
@@ -712,67 +710,6 @@
     font-size: var(--font-size-xs);
     color: var(--text-muted);
     padding: var(--space-1) var(--space-2);
-}
-
-.approval-card-actions {
-    display: flex;
-    gap: var(--space-2);
-}
-
-.approval-card-actions .btn {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.btn-approve {
-    background: var(--color-success-500);
-    border: none;
-    color: white;
-}
-
-.btn-approve:hover {
-    background: var(--color-success-600);
-}
-
-.btn-approve svg {
-    width: 14px;
-    height: 14px;
-}
-
-/* Approve now and grant write access for later changes (quieter than Approve) */
-.btn-always-allow {
-    background: transparent;
-    border: 1px solid var(--color-success-500);
-    color: var(--color-success-500);
-}
-
-.btn-always-allow:hover {
-    background: var(--color-success-500);
-    color: white;
-}
-
-.btn-reject {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-}
-
-.btn-reject:hover {
-    background: var(--color-error-900);
-    border-color: var(--color-error-500);
-    color: var(--color-error-500);
-}
-
-.btn-reject svg {
-    width: 14px;
-    height: 14px;
 }
 
 /* ----------------------------------------
@@ -850,16 +787,6 @@
         flex-basis: 100%;
         justify-content: flex-end;
         margin-top: calc(-1 * var(--space-2));
-    }
-
-    /* Approve and Reject side by side, each half the width */
-    .approval-card-actions .btn {
-        flex: 1;
-    }
-
-    .approval-card-actions .btn {
-        width: 100%;
-        justify-content: center;
     }
 }
 

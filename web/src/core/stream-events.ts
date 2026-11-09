@@ -162,12 +162,11 @@ const RESEARCH_EVENT_TYPES: ReadonlySet<string> = new Set([
 
 /**
  * Status notices about the turn (fallback model, grounding check, server
- * stop, retries, approval). Returns false when the event is not one.
+ * stop, retries). Returns false when the event is not one.
  */
 function handleNoticeEvent(
   event: StreamEventPayload,
   state: StreamingState,
-  convId: string,
   isCurrentConversation: boolean
 ): boolean {
   switch (event.type) {
@@ -191,16 +190,6 @@ function handleNoticeEvent(
       if (isCurrentConversation) {
         updateStreamingRetryStatus(event.attempt as number, event.max_retries as number | undefined);
       }
-      return true;
-
-    case 'approval_required':
-      // Agent requested approval - update UI state
-      // The done event will follow with the full message
-      log.info('Approval requested', {
-        approvalId: event.approval_id,
-        description: event.description,
-        conversationId: convId,
-      });
       return true;
 
     default:
@@ -243,7 +232,7 @@ export function processStreamEvent(
     handleTraceEvent(event, state, convId, isCurrentConversation);
   } else if (RESEARCH_EVENT_TYPES.has(event.type)) {
     handleResearchEvent(event, state, convId, isCurrentConversation);
-  } else if (!handleNoticeEvent(event, state, convId, isCurrentConversation)) {
+  } else if (!handleNoticeEvent(event, state, isCurrentConversation)) {
     switch (event.type) {
       case 'user_message_saved':
         handleUserMessageSaved(event, state, convId, tempUserMessageId);

@@ -53,7 +53,21 @@ async function setCommandCenter(page: import('@playwright/test').Page, cc: Legac
   }));
   const overview = {
     jobs,
-    pending_approvals: (cc.pending_approvals ?? []).map((a) => ({ tool_args: null, resolved_at: null, status: 'pending', ...a, item_id: a.agent_id, job_name: a.agent_name })),
+    // A run waiting on its card: the same proposal card as in the agent's chat
+    pending_approvals: (cc.pending_approvals ?? []).map((a) => ({
+      id: a.id,
+      kind: 'agent_action',
+      summary: a.description,
+      details: [{ label: 'Tool', value: a.tool_name }],
+      options: [{ label: 'Approve', description: '' }],
+      state: 'pending',
+      chosen: null,
+      result: null,
+      job_id: a.agent_id,
+      job_name: a.agent_name,
+      conversation_id: `conv-${String(a.agent_id)}`,
+      created_at: a.created_at ?? new Date().toISOString(),
+    })),
     stats: cc.stats ?? { days: 7, total_runs: 0, total_completed: 0, total_failed: 0, total_cost_display: '' },
     total_unread: cc.total_unread ?? 0,
     jobs_waiting: cc.agents_waiting ?? 0,

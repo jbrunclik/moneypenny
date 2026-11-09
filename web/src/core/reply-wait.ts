@@ -39,7 +39,7 @@ async function refreshConversationMessages(convId: string, messageId: string): P
     const sentAt = merged.findIndex((m) => m.id === messageId);
     const replied = sentAt >= 0 && merged.slice(sentAt + 1).some((m) => m.role === 'assistant');
     if (useStore.getState().currentConversation?.id === convId) {
-      renderMessages(merged, { hasPendingApproval: response.has_pending_approval });
+      renderMessages(merged);
       // renderMessages clears #messages, the spinner included
       if (!replied) showLoadingIndicator();
     }

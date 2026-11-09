@@ -152,7 +152,7 @@ describe('switchToConversation', () => {
     expect(m.updateChatTitle).toHaveBeenCalledWith('Chat');
     expect(m.renderChatHeaderForConversation).toHaveBeenCalledWith(c);
     expect(m.setConversationHash).toHaveBeenCalledWith('c1');
-    expect(m.renderMessages).toHaveBeenCalledWith(c.messages, {});
+    expect(m.renderMessages).toHaveBeenCalledWith(c.messages);
     expect(m.restoreDraftForConversation).toHaveBeenCalledWith('c1');
     expect(m.renderAgentConversationHeader).not.toHaveBeenCalled();
   });
@@ -194,16 +194,11 @@ describe('switchToConversation', () => {
     expect(m.setupOlderMessagesScrollListener).not.toHaveBeenCalled();
   });
 
-  it("passes the server's pending-approval status to the renderer", () => {
-    switchToConversation(conv({ has_pending_approval: true }));
-    expect(m.renderMessages).toHaveBeenCalledWith(expect.any(Array), { hasPendingApproval: true });
-  });
-
   it('renders a conversation without messages as empty', () => {
     const noMessages = conv();
     delete noMessages.messages;
     switchToConversation(noMessages);
-    expect(m.renderMessages).toHaveBeenCalledWith([], {});
+    expect(m.renderMessages).toHaveBeenCalledWith([]);
     expect(m.resumeInflightBatchIfAny).toHaveBeenCalledWith('c1', []);
   });
 

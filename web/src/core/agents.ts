@@ -192,7 +192,6 @@ export async function navigateToAgents(forceRefresh: boolean = false): Promise<v
   // Render command center (with stale warning if fetch failed)
   const commandCenterEl = renderCommandCenter(commandCenterData, {
     onRefresh: handleAgentsRefresh,
-    onApproval: handleApproval,
     onOpenChat: selectConversation,
     onRun: handleJobRun,
     onPause: (job) => handleJobAction(job, () => schedules.pause(job.id), 'Paused.'),
@@ -249,31 +248,12 @@ async function handleAgentsRefresh(): Promise<void> {
   }
 }
 
-/**
- * Handle approval decision (approve or reject).
- */
-async function handleApproval(approvalId: string, approved: boolean): Promise<void> {
-  log.debug('Approval decision', { approvalId, approved });
-
-  try {
-    if (approved) {
-      await jobs.approveRequest(approvalId);
-      toast.success('Request approved.');
-    } else {
-      await jobs.rejectRequest(approvalId);
-      toast.info('Request rejected.');
-    }
-
-    // Refresh command center
-    await navigateToAgents(true);
-
-    // Also refresh sidebar to update badges
-    renderConversationsList();
-  } catch (error) {
-    log.error('Failed to process approval', { error });
-    toast.error('Failed to process approval.');
-  }
-}
+// A card answered from Command Center: the list and the sidebar badges follow
+document.addEventListener('proposal:resolved', () => {
+  if (!useStore.getState().isAgentsView) return;
+  void navigateToAgents(true);
+  renderConversationsList();
+});
 
 /**
  * Run a standing job now: a toast while it runs, its outcome after.

@@ -15,6 +15,7 @@ import {
 } from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
 import { renderResearchOffer } from '../components/messages/research-offer';
+import { showAnsweredProposals } from '../components/messages/proposal-card';
 import {
   showUploadProgress,
   hideUploadProgress,
@@ -67,17 +68,18 @@ function beginBatchRequest(convId: string, requestId: string, hasFiles: boolean)
   showLoadingIndicator(hasFiles);
 }
 
-/** The store Message for a batch reply - the same fields a streamed done carries. */
+/** The store Message for a batch reply - the same fields a streamed done
+ *  carries (only an answer-only turn lacks the reply's id and text). */
 export function toAssistantMessage(response: ChatResponse): Message {
   return {
-    id: response.id,
+    id: response.id ?? '',
     role: 'assistant',
-    content: response.content,
+    content: response.content ?? '',
     sources: response.sources,
     generated_images: response.generated_images,
     files: response.files,
     language: response.language,
-    created_at: response.created_at,
+    created_at: response.created_at ?? new Date().toISOString(),
     stopped_early: response.stopped_early,
     stop_reason: response.stop_reason,
     annotations: response.annotations,
@@ -101,7 +103,7 @@ function renderBatchReply(assistantMessage: Message): void {
   // same task (before any layout read would clamp the position) and the
   // view stays on the turn
   if (isTurnAnchored()) {
-    addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
+    addMessageToUI(assistantMessage, messagesContainer, { animate: true });
     const replyEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
     if (replyEl) {
       reserveTurnSpace(messagesContainer, replyEl);
@@ -115,7 +117,7 @@ function renderBatchReply(assistantMessage: Message): void {
   // Note: We intentionally don't call enableScrollOnImageLoad() here because
   // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
   // The scroll-on-image-load system is designed for bottom-scrolling.
-  addMessageToUI(assistantMessage, messagesContainer, undefined, { animate: true });
+  addMessageToUI(assistantMessage, messagesContainer, { animate: true });
   // A reply that just arrived: an autostart offer starts now
   const messageEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
   if (messageEl && assistantMessage.research) renderResearchOffer(messageEl, assistantMessage, { live: true });
@@ -157,6 +159,15 @@ async function completeBatchTurn(
     sync?.incrementLocalMessageCount(convId, 2);
   }
   sync?.setConversationStreaming(convId, false);
+
+  // A typed answer to a run's card: no reply of its own - the cards turn
+  // answered, and the resumed run's report arrives through the agent sync
+  if (response.answer_only) {
+    hideBatchProgress();
+    showAnsweredProposals(response.answered_proposals ?? []);
+    notifyTurnFinished();
+    return;
+  }
 
   const assistantMessage = toAssistantMessage(response);
   // The store is authoritative for the conversation's messages - record

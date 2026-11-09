@@ -19,7 +19,7 @@ import type { Message, StreamDoneEvent } from '../types/api';
 import { decorateArtifacts } from '../components/messages/artifacts';
 import { decorateGrounding } from '../components/messages/grounding';
 import { finishResearchMessage } from '../components/messages/research-progress';
-import { decorateProposals } from '../components/messages/proposal-card';
+import { decorateProposals, showAnsweredProposals } from '../components/messages/proposal-card';
 import { updateConversationTitle } from './conversation-actions';
 import { updateConversationCost } from './toolbar';
 import { clearPendingRecovery } from './stream-recovery';
@@ -36,10 +36,10 @@ const log = createLogger('messaging');
  */
 export function assistantMessageFromDone(event: StreamDoneEvent, streamedContent: string): Message {
   return {
-    id: event.id,
+    id: event.id ?? '',
     role: 'assistant',
     content: event.content || streamedContent,
-    created_at: event.created_at,
+    created_at: event.created_at ?? new Date().toISOString(),
     ...(event.sources !== undefined && { sources: event.sources }),
     ...(event.generated_images !== undefined && { generated_images: event.generated_images }),
     ...(event.files !== undefined && { files: event.files }),
@@ -113,8 +113,8 @@ function finalizeDoneBubble(
 
   const wasFollowing = finalizeStreamingMessage(
     messageEl,
-    event.id,
-    event.created_at,
+    event.id ?? '',
+    event.created_at ?? new Date().toISOString(),
     event.sources,
     event.generated_images,
     event.files,
@@ -122,18 +122,20 @@ function finalizeDoneBubble(
     event.language
   );
   useStore.getState().appendMessage(convId, assistantMessageFromDone(event, state.fullContent));
+  // A reply (answer-only turns returned before): it has its id
+  const reply = { ...event, id: event.id ?? '' };
   // Underlines, source numbers and the footer (replaces "checking")
-  decorateGrounding(messageEl, event);
+  decorateGrounding(messageEl, reply);
   // Keeps frames placed during the stream; adds any it missed
-  decorateArtifacts(messageEl, event);
+  decorateArtifacts(messageEl, reply);
   // The progress panel becomes the report chip; an offer shows under the answer
-  finishResearchMessage(messageEl, event, { live: true });
+  finishResearchMessage(messageEl, reply, { live: true });
   // Cards for what the reply proposes (a reminder, a new agent, a change)
-  decorateProposals(messageEl, event);
+  decorateProposals(messageEl, reply);
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'budget' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
-    if (wrapper) appendStoppedEarlyNote(wrapper, event.id, reason);
+    if (wrapper) appendStoppedEarlyNote(wrapper, reply.id, reason);
   }
   return wasFollowing;
 }
@@ -170,7 +172,7 @@ export async function handleStreamDone(
   log.info('Streaming complete', {
     conversationId: convId,
     messageId: event.id,
-    approvalRequired: event.approval_required,
+    answerOnly: event.answer_only,
     hasContent: !!event.content,
     streamedContentLength: state.fullContent.length,
   });
@@ -193,6 +195,17 @@ export async function handleStreamDone(
   // doesn't match this conversation, fall back to the original element.
   const messageEl = getStreamingMessageElement(convId) ?? state.messageEl;
 
+  // A typed answer to a run's card: no reply of its own - the cards turn
+  // answered, and the resumed run's report arrives through the agent sync
+  if (event.answer_only) {
+    messageEl.remove();
+    clearPendingRecovery(convId);
+    state.messageSuccessful = true;
+    showAnsweredProposals(event.answered_proposals ?? []);
+    await updateConversationCost(convId);
+    return;
+  }
+
   // If the done event has no visible content (e.g. metadata-only tool calls),
   // remove the empty message element instead of leaving an empty bubble
   if (!hasVisibleContent(event)) {
@@ -211,15 +224,6 @@ export async function handleStreamDone(
   // while the cost fetch is in flight must start a new turn, not interject
   useStore.getState().removeActiveRequest(convId);
   await updateConversationCost(convId);
-
-  // If approval was requested, the message element will contain the approval buttons
-  // The frontend rendering handles approval_request markers automatically
-  if (event.approval_required) {
-    log.info('Message finalized with pending approval', {
-      conversationId: convId,
-      approvalId: event.approval_id,
-    });
-  }
 
   // Clear any pending recovery since stream completed successfully
   clearPendingRecovery(convId);

@@ -20,7 +20,6 @@ export interface RenderMessagesOptions {
    * This ensures the input is blocked even if the client's message parsing
    * doesn't detect a pending approval (e.g., race conditions).
    */
-  hasPendingApproval?: boolean;
 }
 
 /**

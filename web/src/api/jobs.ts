@@ -64,17 +64,4 @@ export const jobs = {
   async syncConversation(jobId: string): Promise<JobConversationSyncResponse> {
     return requestWithRetry<JobConversationSyncResponse>(`/api/jobs/${jobId}/conversation/sync`);
   },
-
-  /** Approve a run's request: once, or always for that tool. */
-  async approveRequest(approvalId: string, always: boolean = false): Promise<void> {
-    await request<{ status: string }>(`/api/approvals/${approvalId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ always }),
-    });
-  },
-
-  /** Reject a run's request. */
-  async rejectRequest(approvalId: string): Promise<void> {
-    await request<{ status: string }>(`/api/approvals/${approvalId}/reject`, { method: 'POST' });
-  },
 };
