@@ -206,6 +206,8 @@ export type PushState =
 export interface SendExtras {
   deepResearch?: DeepResearchStart;
   action?: MessageAction;
+  /** Sent by the app (an artifact's or a card's button), not typed: never answers a proposal card */
+  appSent?: boolean;
 }
 
 /**

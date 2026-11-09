@@ -22,7 +22,7 @@ import { initResearchProgress } from '../../components/messages/research-progres
 import { setArtifactSender } from '../../components/messages/artifact-host';
 import { setQuizRenderer } from '../../utils/markdown';
 import { declineDeepResearch, startDeepResearch } from '../deep-research';
-import { sendUiMessage } from '../messaging';
+import { sendAppMessage } from '../messaging';
 
 /**
  * Wire up message popups and widgets.
@@ -32,9 +32,9 @@ export function initMessageUi(): void {
   setQuizRenderer(renderQuizBlock);
   initLightbox();
   initSourcesPopup();
-  initClaimCard({ send: sendUiMessage });
+  initClaimCard({ send: sendAppMessage });
   initClaimsSheet();
-  setArtifactSender(sendUiMessage);
+  setArtifactSender(sendAppMessage);
   initResearchOffers({ start: startDeepResearch, decline: declineDeepResearch });
   initProposalCards({ approve: proposals.approve, decline: proposals.decline });
   initResearchProgress();

@@ -37,6 +37,7 @@ function streamRequestBody(
     rerun_mode: rerunMode,
     deep_research: extras.deepResearch,
     action: extras.action,
+    ...(extras.appSent && { app_sent: true }),
   };
 }
 
@@ -102,6 +103,7 @@ export const chat = {
       client_message_id: clientMessageId,
       rerun_mode: rerunMode,
       action: extras.action,
+      ...(extras.appSent && { app_sent: true }),
     };
 
     // Use XHR with progress callback when files are attached

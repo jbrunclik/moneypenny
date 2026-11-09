@@ -168,13 +168,15 @@ def test_the_card_carries_exactly_the_change(agent: Agent, test_database: Databa
     assert "Daily budget: $0.25" in str(card.details["Changes"])
 
 
-def test_a_stale_change_fails_cleanly_on_approve(
+def test_deleting_the_agent_takes_its_card(
     agent: Agent, test_database: Database, test_user: User
 ) -> None:
+    """The agent's chat goes with it, and the card with the chat: nothing is
+    left to approve for an agent that no longer exists."""
     _call(budget_usd=0.25)
     test_database.delete_standing_chat(agent.id, test_user.id)
 
-    assert "no longer exists" in _approve(test_database, agent)
+    assert test_database.pending_proposals(agent.conversation_id or "") == []
 
 
 def test_bound_in_standing_chats_only() -> None:

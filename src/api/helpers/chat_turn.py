@@ -140,9 +140,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     # this turn, so a retry does not repeat a write. Taken only once the turn
     # is accepted - a refused rerun leaves it for the next one
     lost_actions_note = pop_lost_actions_note(user.id, conv_id)
-    # A typed answer to the latest reply's cards resolves them now, before the
-    # agent runs (a rerun answers nothing); the agent hears the outcome
-    proposal_note = answer_and_note(conv_id, None if data.rerun_mode else message_text)
+    proposal_note = _proposal_note(conv_id, data, message_text, user_msg)
 
     # File DATA is left out of history (only metadata: name, type, message_id,
     # file_index) so large base64 isn't re-sent; tools fetch it on demand.
@@ -175,6 +173,22 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
     except OfferConflictError as e:
         # Not 409: the client reads 409 as "this message already landed"
         raise_validation_error(str(e), field="deep_research")
+
+
+def _proposal_note(
+    conv_id: str, data: ChatRequest, message_text: str, user_msg: Message
+) -> str | None:
+    """Answer the latest reply's cards from this message, before the agent
+    runs, and what the agent should hear about them.
+
+    Only the user's own typing answers: an app-sent message (an artifact's
+    or a card's button) is no answer, so it only expires them. A rerun
+    answers nothing and hears again what its user message answered.
+    """
+    if data.rerun_mode:
+        since = user_msg.created_at if user_msg.role == MessageRole.USER else None
+        return answer_and_note(conv_id, None, since=since)
+    return answer_and_note(conv_id, "" if data.app_sent else message_text)
 
 
 def refuse_if_read_only(conv: Conversation) -> None:

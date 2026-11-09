@@ -13277,6 +13277,12 @@ export interface components {
              * @default null
              */
             action?: (components["schemas"]["ChatRequest.VerifyClaimAction"] | components["schemas"]["ChatRequest.DeepResearchAction"]) | null;
+            /**
+             * App Sent
+             * @description Sent by the app on the user's behalf (an artifact's or a card's button), not typed: it never answers a proposal card
+             * @default false
+             */
+            app_sent?: boolean;
         };
         /**
          * ConversationCompactionResponse

@@ -16,6 +16,8 @@ from src.db.models.timestamps import from_db, from_db_or_none, to_db
 from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from src.utils.connection_pool import ConnectionPool
 
 _RESOLVED = ("approved", "declined", "expired", "failed")
@@ -169,6 +171,15 @@ class ProposalsMixin:
             f"""SELECT * FROM proposals WHERE conversation_id = ? AND reported = 0
                 AND state IN ({marks}) ORDER BY resolved_at, rowid""",
             (conversation_id, *_RESOLVED),
+        )
+
+    def resolved_proposals_since(self, conversation_id: str, since: datetime) -> list[Proposal]:
+        """Proposals resolved at or after a moment (a rerun's outcomes, told again)."""
+        marks = ",".join("?" * len(_RESOLVED))
+        return self._select(
+            f"""SELECT * FROM proposals WHERE conversation_id = ? AND resolved_at >= ?
+                AND state IN ({marks}) ORDER BY resolved_at, rowid""",
+            (conversation_id, to_db(since), *_RESOLVED),
         )
 
     def mark_reported(self, ids: list[str]) -> None:

@@ -236,3 +236,52 @@ def test_history_reload_shows_resolved_state(
         "Reminder set - Thu 8:00.",
         0,
     )
+
+
+def test_regenerate_after_a_typed_yes_still_tells_the_agent(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_conversation: Conversation,
+    test_database: Database,
+) -> None:
+    """The typed yes applied the card, then the model call failed: the
+    regenerate must still hear it was approved (or it files the card again)."""
+    _reply_id, proposal = _seeded(test_database, test_conversation)
+
+    def failing(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("model down")
+
+    _batch(client, auth_headers, test_conversation.id, "Ano", _agent(failing))
+    assert _state(test_database, proposal) == "approved"
+    agent = _agent(_replying)
+    with patch("src.api.helpers.chat_turn.ChatAgent", return_value=agent):
+        client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"message": "", "rerun_mode": "regenerate"},
+        )
+
+    text = agent.chat_batch.call_args.kwargs["text"]
+    assert "The user approved" in text
+    assert _APPLIED == [{"secret": "server-side"}]  # applied once
+
+
+def test_an_app_sent_message_never_answers_a_card(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_conversation: Conversation,
+    test_database: Database,
+) -> None:
+    """An artifact's button (or any app-sent message) saying "ok" is not the
+    user's answer: the card expires, nothing applies."""
+    _reply_id, proposal = _seeded(test_database, test_conversation)
+
+    with patch("src.api.helpers.chat_turn.ChatAgent", return_value=_agent(_replying)):
+        client.post(
+            f"/api/conversations/{test_conversation.id}/chat/batch",
+            headers=auth_headers,
+            json={"message": "ok", "app_sent": True},
+        )
+
+    assert _state(test_database, proposal) == "expired"
+    assert _APPLIED == []

@@ -31,7 +31,8 @@ the reply is saved - `link_proposals` in `chat_save.py`).
 
 Triggers: a change bumps the conversation in the sync change log (another
 device re-renders the card); deleting the reply (regenerate, truncate,
-delete) expires its open cards.
+delete) expires its open cards; deleting the conversation (trash purge,
+permanent delete) deletes its proposals and their payloads.
 
 ## Filing, answering, applying
 
@@ -59,11 +60,20 @@ delete) expires its open cards.
   any. Any other message expires the conversation's pending cards - the user
   moved on - and a reply that never saved its card (the turn failed) leaves it
   unlinked: it expires the same way. A rerun (regenerate/continue) answers
-  nothing.
+  nothing. A tap that wins the race against a typed answer is skipped, not an
+  error.
+- **Only the user's typing answers.** An app-sent message - an artifact's
+  button (`mp:send`) or the claim card's - carries `app_sent: true`
+  (`sendAppMessage` in `core/messaging.ts`) and only expires open cards, so a
+  reply can never approve its own card through an artifact. Edit-and-resend is
+  typed. Interjections and steering go to the running turn, not
+  `prepare_turn`, so they answer nothing either.
 - **The agent hears the outcome** on its next turn: `turn_note` adds one line
   per unreported resolved proposal ("The user approved: ... - <result>") to the
   turn's `[SYSTEM GUIDANCE]` (with the lost-actions note), then marks them
-  reported.
+  reported. A rerun also hears everything resolved since its user message
+  again: a typed yes applied the card, the model call failed, and the
+  regenerate must not file the card a second time.
 
 ## API and client
 

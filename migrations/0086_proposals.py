@@ -69,6 +69,14 @@ steps = [
         END""",
         "DROP TRIGGER IF EXISTS proposals_expire_with_their_reply",
     ),
+    # A deleted conversation takes its proposals (and their payloads) along,
+    # as artifacts (0065) and conversation facts do
+    step(
+        """CREATE TRIGGER proposals_conversation_delete AFTER DELETE ON conversations BEGIN
+            DELETE FROM proposals WHERE conversation_id = OLD.id;
+        END""",
+        "DROP TRIGGER IF EXISTS proposals_conversation_delete",
+    ),
     step(
         """DELETE FROM kv_store
            WHERE namespace IN ('schedule_pending', 'standing_create_pending', 'standing_pending')""",

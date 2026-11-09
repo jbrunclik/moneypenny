@@ -208,6 +208,7 @@ vi.mock('@/components/ChatHeader', () => ({ renderChatHeader: h.rec('renderChatH
 vi.mock('@/core/messaging', () => ({
   sendMessage: h.recAsync('sendMessage'),
   sendUiMessage: h.recAsync('sendUiMessage', true),
+  sendAppMessage: h.recAsync('sendAppMessage', true),
 }));
 vi.mock('@/core/active-requests', () => ({
   handleStopStreaming: h.rec('handleStopStreaming'),
@@ -261,7 +262,7 @@ import { mergeExternalChanges } from '@/core/remote-merge';
 import { deleteMessage } from '@/core/conversation-actions';
 import { speakMessageInternal } from '@/core/tts';
 import { handleSearchResultClick } from '@/core/search';
-import { sendMessage, sendUiMessage } from '@/core/messaging';
+import { sendAppMessage, sendMessage } from '@/core/messaging';
 import { loadAllRemainingNewerMessages } from '@/components/messages';
 import { navigateToSportsProgram } from '@/core/sports';
 import { loadDeepLinkedConversation } from '@/core/conversation-deeplink';
@@ -430,7 +431,7 @@ describe('app startup (signed in)', () => {
 
     const [claimActions] = argsOf('initClaimCard') as [ClaimCardActions];
     await claimActions.send('Look up and verify: x', {});
-    expect(sendUiMessage).toHaveBeenCalledWith('Look up and verify: x', {});
+    expect(sendAppMessage).toHaveBeenCalledWith('Look up and verify: x', {});
 
     expect(argsOf('initSyncManager')[2]).toBe(toast);
   });

@@ -120,6 +120,13 @@ class ChatRequest(RequestModel):
     action: MessageAction | None = Field(
         default=None, description="What this message is, when the app sent it for the user"
     )
+    app_sent: bool = Field(
+        default=False,
+        description=(
+            "Sent by the app on the user's behalf (an artifact's or a card's button), "
+            "not typed: it never answers a proposal card"
+        ),
+    )
 
     @field_validator("client_message_id")
     @classmethod

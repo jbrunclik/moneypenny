@@ -121,3 +121,12 @@ def test_a_proposal_change_bumps_the_conversation(test_database: Database, test_
     test_database.claim_proposal(made.id, "approved", 0, "button")
 
     assert test_database.get_sync_cursor() > before
+
+
+def test_proposals_go_with_their_conversation(test_database: Database, test_user: User) -> None:
+    conv_id = _conv(test_database, test_user)
+    made = test_database.create_proposal(_proposal(conv_id, test_user.id))
+
+    test_database.delete_conversation(conv_id, test_user.id)
+
+    assert test_database.get_proposal(made.id, test_user.id) is None

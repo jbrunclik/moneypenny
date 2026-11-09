@@ -23,6 +23,7 @@ from src.agent.proposals import (
 from src.agent.tool_results import set_current_request_id
 from src.agent.tools.context import set_conversation_context
 from src.db.models import use_database
+from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
     from src.db.models import Database, Proposal, ProposalOption, User
@@ -193,3 +194,29 @@ def test_unknown_kind_is_refused(db: Database, conv: str) -> None:
 def test_one_to_four_options(db: Database, conv: str, count: int) -> None:
     with pytest.raises(ValueError, match="options"):
         file_proposal("test_kind", "x", {}, [_option(str(n)) for n in range(count)])
+
+
+def test_a_tap_racing_a_typed_answer_is_skipped(
+    db: Database, conv: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tap claims the card between the typed answer's read and its claim:
+    the typed answer skips it instead of failing the turn."""
+    filed = _file()
+    _on_reply(db, conv)
+    stale = db.get_proposal(filed.id, filed.user_id)  # the typed answer's read
+    assert stale is not None and stale.message_id is not None
+    resolve(stale, 0, "button")  # the phone's tap wins
+    monkeypatch.setattr(db, "pending_proposals", lambda _conv_id: [stale])  # read before the tap
+
+    assert answer_typed(conv, "ok") == []
+    assert len(_APPLIED) == 1
+
+
+def test_a_rerun_hears_outcomes_since_its_message_again(db: Database, conv: str) -> None:
+    since = utc_now()
+    resolve(_file(), 0, "button")
+    assert turn_note(conv) is not None  # the failed turn heard it...
+
+    note = turn_note(conv, since=since)  # ...its regenerate hears it again
+
+    assert note is not None and "Done: Set it up" in note

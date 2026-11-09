@@ -25,6 +25,8 @@ from src.utils.clock import utc_now
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from src.db.models.dataclasses import ProposalState
 
 logger = get_logger(__name__)
@@ -185,17 +187,28 @@ def answer_typed(conversation_id: str, text: str) -> list[Proposal]:
     if all(answer == NO_ANSWER for _, answer in answers):
         db.expire_proposals(conversation_id)
         return []
-    resolved = [resolve(p, answer, "typed") for p, answer in answers if answer != NO_ANSWER]
+    resolved: list[Proposal] = []
+    for proposal, answer in answers:
+        if answer == NO_ANSWER:
+            continue
+        try:
+            resolved.append(resolve(proposal, answer, "typed"))
+        except ProposalNotPendingError:  # a tap elsewhere answered it meanwhile
+            continue
     db.expire_proposals(conversation_id)  # older or unanswered ones are stale now
     return resolved
 
 
-def answer_and_note(conversation_id: str, text: str | None) -> str | None:
+def answer_and_note(
+    conversation_id: str, text: str | None, since: datetime | None = None
+) -> str | None:
     """The turn's start: resolve a typed answer (None for a rerun, which
-    answers nothing), then what the agent should hear about its proposals."""
+    answers nothing), then what the agent should hear about its proposals.
+    A rerun passes `since` (its user message's time): what that message
+    answered is told again - the failed attempt heard it, its retry did not."""
     if text is not None:
         answer_typed(conversation_id, text)
-    return turn_note(conversation_id)
+    return turn_note(conversation_id, since=since)
 
 
 _OUTCOME = {
@@ -206,10 +219,16 @@ _OUTCOME = {
 }
 
 
-def turn_note(conversation_id: str) -> str | None:
+def turn_note(conversation_id: str, since: datetime | None = None) -> str | None:
     """What happened to this conversation's proposals since the agent last
-    heard (one line each); None when nothing did."""
+    heard (one line each), plus - with `since` - everything resolved since
+    then again; None when nothing did."""
     news = db.unreported_proposals(conversation_id)
+    if since is not None:
+        known = {p.id for p in news}
+        news += [
+            p for p in db.resolved_proposals_since(conversation_id, since) if p.id not in known
+        ]
     if not news:
         return None
     db.mark_reported([p.id for p in news])

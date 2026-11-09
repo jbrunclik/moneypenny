@@ -17944,6 +17944,12 @@
             "default": null,
             "description": "What this message is, when the app sent it for the user",
             "title": "Action"
+          },
+          "app_sent": {
+            "default": false,
+            "description": "Sent by the app on the user's behalf (an artifact's or a card's button), not typed: it never answers a proposal card",
+            "title": "App Sent",
+            "type": "boolean"
           }
         },
         "title": "ChatRequest",

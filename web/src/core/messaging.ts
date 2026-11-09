@@ -347,6 +347,15 @@ export async function sendUiMessage(text: string, extras: SendExtras = {}): Prom
   return true;
 }
 
+/**
+ * Send text a button inside a reply produced (an artifact's, the claim
+ * card's): flagged app-sent, so it never answers a proposal card - only the
+ * user's own typing does (docs/features/proposals.md).
+ */
+export function sendAppMessage(text: string, extras: SendExtras = {}): Promise<boolean> {
+  return sendUiMessage(text, { ...extras, appSent: true });
+}
+
 // A send between reading the composer and clearing it (the awaits in
 // prepareConversationForSend: creating the conversation, unarchiving, loading
 // newer history). A second Enter / tap in that window read the same text and

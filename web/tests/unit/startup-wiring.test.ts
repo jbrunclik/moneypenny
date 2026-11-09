@@ -41,7 +41,11 @@ vi.mock('@/components/MessageInput', () => ({
 vi.mock('@/components/ModelSelector', () => ({ initModelSelector: vi.fn() }));
 vi.mock('@/components/VoiceInput', () => ({ initVoiceInput: vi.fn() }));
 vi.mock('@/core/active-requests', () => ({ handleStopStreaming: vi.fn() }));
-vi.mock('@/core/messaging', () => ({ sendMessage: vi.fn(async () => undefined), sendUiMessage: vi.fn() }));
+vi.mock('@/core/messaging', () => ({
+  sendMessage: vi.fn(async () => undefined),
+  sendUiMessage: vi.fn(),
+  sendAppMessage: vi.fn(),
+}));
 vi.mock('@/core/rerun', () => ({ initOutboxHandlers: vi.fn() }));
 
 // message-events
@@ -109,7 +113,7 @@ import { setPushControls } from '@/components/settings/notifications';
 import { disablePush, enablePush, getPushState, registerServiceWorker, sendTestNotification } from '@/core/push';
 import { renderFilePreview, updateSendButtonState, initMessageInput } from '@/components/MessageInput';
 import { handleStopStreaming } from '@/core/active-requests';
-import { sendMessage, sendUiMessage } from '@/core/messaging';
+import { sendAppMessage, sendMessage } from '@/core/messaging';
 import { deleteMessage } from '@/core/conversation-actions';
 import { speakMessageInternal } from '@/core/tts';
 import { cleanupNewerMessagesScrollListener, loadAllRemainingNewerMessages } from '@/components/messages';
@@ -204,8 +208,9 @@ describe('initMessageUi', () => {
   it('connects the message widgets to sending and deep research', () => {
     initMessageUi();
     expect(setQuizRenderer).toHaveBeenCalledWith(renderQuizBlock);
-    expect(initClaimCard).toHaveBeenCalledWith({ send: sendUiMessage });
-    expect(setArtifactSender).toHaveBeenCalledWith(sendUiMessage);
+    // App-sent: an artifact's or the claim card's text never answers a proposal card
+    expect(initClaimCard).toHaveBeenCalledWith({ send: sendAppMessage });
+    expect(setArtifactSender).toHaveBeenCalledWith(sendAppMessage);
     expect(initResearchOffers).toHaveBeenCalledWith({ start: startDeepResearch, decline: declineDeepResearch });
   });
 });
