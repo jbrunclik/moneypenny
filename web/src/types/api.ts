@@ -72,6 +72,7 @@ export interface Conversation {
   // Agent-related fields
   is_agent?: boolean; // True if this is an agent's dedicated conversation
   job_id?: string | null; // the agent chat's standing job, if is_agent
+  is_whats_new?: boolean | null; // the read-only What's new chat (no composer)
   has_pending_approval?: boolean; // True if agent has pending approval request (from server)
   // Archive state
   archived?: boolean; // True if conversation is archived (hidden from main list)

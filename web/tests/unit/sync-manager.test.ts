@@ -134,6 +134,7 @@ function createConversationSummary(
     trashed: false,
     pinned: false,
     anonymous_mode: false,
+    is_whats_new: false,
   };
 }
 

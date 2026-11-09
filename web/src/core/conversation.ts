@@ -106,6 +106,7 @@ export function toConversation(
     messages: mergedMessages,
     is_agent: response.is_agent,
     job_id: response.job_id,
+    is_whats_new: response.is_whats_new,
     has_pending_approval: response.has_pending_approval,
     archived: response.archived,
     streaming_message_id: response.streaming_message_id,
@@ -437,7 +438,9 @@ export function createConversation(): void {
   restoreDraftForConversation(conv.id);
 
   // Ensure input area is visible (defensive fix for race conditions
-  // when navigating between agents/planner/conversation views)
+  // when navigating between agents/planner/conversation views); a new chat
+  // is never read-only
+  document.body.classList.remove('read-only-chat');
   ensureInputAreaVisible();
 
   if (shouldAutoFocusInput()) {

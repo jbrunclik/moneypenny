@@ -33,6 +33,7 @@ def sync_summary(
         "trashed": conv.deleted_at is not None,
         "pinned": conv.pinned,
         "anonymous_mode": conv.anonymous_mode,
+        "is_whats_new": conv.is_whats_new,
     }
 
 

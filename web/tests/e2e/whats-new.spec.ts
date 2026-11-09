@@ -1,0 +1,34 @@
+/**
+ * What's new: the read-only announcements chat opens like any chat, shows
+ * its announcement and has no composer (desktop and mobile).
+ */
+import { test, expect } from '../global-setup';
+import { appReady } from './waits';
+
+for (const viewport of [
+  { name: 'desktop', width: 1280, height: 800 },
+  { name: 'mobile', width: 375, height: 667 },
+]) {
+  test.describe(`What's new (${viewport.name})`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+    test('opens without a composer', async ({ page }) => {
+      const seed = await page.request.post('/test/seed-whats-new');
+      const { conversation_id: conversationId } = (await seed.json()) as { conversation_id: string };
+
+      await page.goto(`/#/conversations/${conversationId}`);
+      await appReady(page);
+
+      await expect(page.locator('.message.assistant').last()).toContainText('Agenty teď založíte');
+      await expect(page.locator('.input-area')).toBeHidden();
+      await expect(page.locator('.message-regenerate-btn')).toBeHidden();
+
+      // A new chat afterwards has its composer back (the button is in the
+      // sidebar, open on desktop)
+      if (viewport.name === 'desktop') {
+        await page.locator('#new-chat-btn').click();
+        await expect(page.locator('.input-area')).toBeVisible();
+      }
+    });
+  });
+}

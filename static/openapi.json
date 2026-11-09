@@ -9195,6 +9195,19 @@
             "default": null,
             "title": "Pinned"
           },
+          "is_whats_new": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The read-only What's new chat",
+            "title": "Is Whats New"
+          },
           "last_message_preview": {
             "anyOf": [
               {
@@ -9244,6 +9257,7 @@
           "read_count",
           "archived",
           "pinned",
+          "is_whats_new",
           "last_message_preview",
           "deleted_at",
           "purge_at"
@@ -9389,6 +9403,19 @@
             "default": null,
             "title": "Pinned"
           },
+          "is_whats_new": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The read-only What's new chat",
+            "title": "Is Whats New"
+          },
           "last_message_preview": {
             "anyOf": [
               {
@@ -9438,6 +9465,7 @@
           "read_count",
           "archived",
           "pinned",
+          "is_whats_new",
           "last_message_preview",
           "deleted_at",
           "purge_at"
@@ -11327,6 +11355,12 @@
             "description": "Memory and integrations off",
             "title": "Anonymous Mode",
             "type": "boolean"
+          },
+          "is_whats_new": {
+            "default": false,
+            "description": "The read-only What's new chat",
+            "title": "Is Whats New",
+            "type": "boolean"
           }
         },
         "required": [
@@ -11342,7 +11376,8 @@
           "archived",
           "trashed",
           "pinned",
-          "anonymous_mode"
+          "anonymous_mode",
+          "is_whats_new"
         ],
         "title": "SyncConversationResponse",
         "type": "object"
@@ -13856,6 +13891,11 @@
             "title": "Anonymous Mode",
             "type": "boolean"
           },
+          "is_whats_new": {
+            "default": false,
+            "title": "Is Whats New",
+            "type": "boolean"
+          },
           "messages": {
             "items": {
               "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.MessageResponse"
@@ -13897,6 +13937,7 @@
           "has_pending_approval",
           "archived",
           "anonymous_mode",
+          "is_whats_new",
           "messages",
           "message_pagination",
           "streaming_message_id",

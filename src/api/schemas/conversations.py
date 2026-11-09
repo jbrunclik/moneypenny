@@ -80,6 +80,7 @@ class ConversationResponse(ResponseModel):
     )
     archived: bool | None = None
     pinned: bool | None = None
+    is_whats_new: bool | None = Field(default=None, description="The read-only What's new chat")
     last_message_preview: str | None = None
     deleted_at: Timestamp | None = None  # Set for conversations in the trash
     purge_at: Timestamp | None = None  # When a trashed conversation is deleted for good
@@ -174,6 +175,7 @@ class SyncConversationResponse(ResponseModel):
     trashed: bool = Field(..., description="In the trash (deleted_at set)")
     pinned: bool
     anonymous_mode: bool = Field(..., description="Memory and integrations off")
+    is_whats_new: bool = Field(default=False, description="The read-only What's new chat")
 
 
 class SyncResponse(ResponseModel):
@@ -240,6 +242,7 @@ class ConversationDetailPaginatedResponse(ResponseModel):
     has_pending_approval: bool = False  # True if agent has pending approval request
     archived: bool = False
     anonymous_mode: bool = False  # Memory and integrations disabled for this conversation
+    is_whats_new: bool = False  # The read-only What's new chat (no composer)
     messages: list[MessageResponse]
     message_pagination: MessagesPaginationResponse
     streaming_message_id: str | None = Field(

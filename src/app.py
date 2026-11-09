@@ -15,6 +15,7 @@ from src.api.rate_limiting import init_rate_limiting
 from src.api.routes import register_blueprints
 from src.config import Config
 from src.db.models import check_database_connectivity, db
+from src.services.announcements import post_pending_announcements
 from src.utils.assets import collect_entry_css
 from src.utils.logging import get_logger, set_request_id, setup_logging
 from src.utils.malloc_trim import start_malloc_trimmer
@@ -389,9 +390,22 @@ def _prepare_process(logger: Logger, *, apply_migrations: bool) -> None:
             raise RuntimeError("Configuration errors: " + "; ".join(errors))
     if apply_migrations:
         db.migrate()
+        # Never under FLASK_ENV=testing: `make openapi` (in `make lint`) creates
+        # the app with migrations on, against the local database
+        if not Config.is_testing():
+            _post_announcements(logger)
     # Opt-in; runs per gunicorn worker (no --preload), after its signal reset
     install_memory_profiler()
     start_malloc_trimmer()
+
+
+def _post_announcements(logger: Logger) -> None:
+    """What's new: post announcements not posted yet (once per user however
+    many workers start; never stops a start)."""
+    try:
+        post_pending_announcements()
+    except Exception:
+        logger.warning("Posting announcements failed", exc_info=True)
 
 
 def _new_api_app() -> APIFlask:

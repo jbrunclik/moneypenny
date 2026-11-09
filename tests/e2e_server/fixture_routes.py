@@ -126,6 +126,19 @@ def set_job() -> tuple[dict[str, Any], int]:
     return {"status": "set"}, 200
 
 
+@fixtures_bp.route("/test/seed-whats-new", methods=["POST"])
+def seed_whats_new() -> tuple[dict[str, Any], int]:
+    """Seed the local user's What's new chat with one announcement."""
+    from src.enums import MessageRole
+
+    user = g.db.get_or_create_user(email="local@localhost", name="Local User")
+    conv_id = g.db.whats_new_conversation_for_post(user.id, "Novinky")
+    g.db.add_message(
+        conv_id, MessageRole.ASSISTANT, "# Novinka\nAgenty teď založíte v chatu.", language="cs"
+    )
+    return {"status": "seeded", "conversation_id": conv_id}, 200
+
+
 @fixtures_bp.route("/test/seed-agent", methods=["POST"])
 def seed_agent() -> tuple[dict[str, Any], int]:
     """Seed a real agent (a standing chat + its standing job) for job list tests."""

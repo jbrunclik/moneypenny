@@ -8783,6 +8783,12 @@ export interface components {
              */
             pinned: boolean | null;
             /**
+             * Is Whats New
+             * @description The read-only What's new chat
+             * @default null
+             */
+            is_whats_new: boolean | null;
+            /**
              * Last Message Preview
              * @default null
              */
@@ -8877,6 +8883,12 @@ export interface components {
              * @default null
              */
             pinned: boolean | null;
+            /**
+             * Is Whats New
+             * @description The read-only What's new chat
+             * @default null
+             */
+            is_whats_new: boolean | null;
             /**
              * Last Message Preview
              * @default null
@@ -9884,6 +9896,12 @@ export interface components {
              * @description Memory and integrations off
              */
             anonymous_mode: boolean;
+            /**
+             * Is Whats New
+             * @description The read-only What's new chat
+             * @default false
+             */
+            is_whats_new: boolean;
         };
         /**
          * SyncResponse
@@ -11149,6 +11167,11 @@ export interface components {
              * @default false
              */
             anonymous_mode: boolean;
+            /**
+             * Is Whats New
+             * @default false
+             */
+            is_whats_new: boolean;
             /** Messages */
             messages: components["schemas"]["ConversationDetailPaginatedResponse.MessageResponse"][];
             message_pagination: components["schemas"]["ConversationDetailPaginatedResponse.MessagesPaginationResponse"];

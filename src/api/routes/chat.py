@@ -22,7 +22,12 @@ from src.api.errors import (
 )
 from src.api.helpers.chat_save import SaveResult, save_message_to_db
 from src.api.helpers.chat_streaming import create_stream_generator
-from src.api.helpers.chat_turn import PreparedTurn, build_turn_context, prepare_turn
+from src.api.helpers.chat_turn import (
+    PreparedTurn,
+    build_turn_context,
+    prepare_turn,
+    refuse_if_read_only,
+)
 from src.api.helpers.stream_resume import stream_resume_events
 from src.api.helpers.turn_steering import (
     can_steer,
@@ -341,6 +346,7 @@ def chat_interject(user: User, data: InterjectRequest, conv_id: str) -> dict[str
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
         raise_not_found_error("Conversation")
+    refuse_if_read_only(conv)
 
     text = data.message.strip()
     # A retry of the same client id is a no-op

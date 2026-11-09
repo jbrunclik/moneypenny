@@ -26,6 +26,7 @@ import { addLiveArtifact } from '../components/messages/artifacts';
 import {
   focusMessageInput,
   ensureInputAreaVisible,
+  hideInputArea,
   restoreDraftForConversation,
   shouldAutoFocusInput,
 } from '../components/MessageInput';
@@ -166,12 +167,15 @@ function refreshChromeAfterSwitch(conv: Conversation, totalMessageCount?: number
   renderModelDropdown();
   closeSidebar();
 
-  // Ensure input area is visible (defensive fix for race conditions
-  // when navigating between agents/planner/conversation views)
-  ensureInputAreaVisible();
-
-  if (shouldAutoFocusInput()) {
-    focusMessageInput();
+  // The What's new chat is read-only: no composer. Elsewhere the input is
+  // shown (defensive fix for races when navigating between views)
+  // read-only-chat also hides Regenerate and Continue (messages.css)
+  document.body.classList.toggle('read-only-chat', !!conv.is_whats_new);
+  if (conv.is_whats_new) {
+    hideInputArea();
+  } else {
+    ensureInputAreaVisible();
+    if (shouldAutoFocusInput()) focusMessageInput();
   }
 
   // Update anonymous button state for the new conversation

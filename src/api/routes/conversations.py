@@ -92,6 +92,7 @@ def list_conversations(user: User, query: ConversationsPageQuery) -> dict[str, A
             "read_count": c.read_message_count,
             "archived": c.archived or None,
             "pinned": c.pinned or None,
+            "is_whats_new": c.is_whats_new or None,
             "last_message_preview": preview,
         }
 
@@ -216,6 +217,7 @@ def get_conversation(
         "has_pending_approval": has_pending_approval,
         "archived": conv.archived,
         "anonymous_mode": conv.anonymous_mode,
+        "is_whats_new": conv.is_whats_new,
         "messages": optimized_messages,
         # Only the newest page holds the turn in flight, and only a live one:
         # a dead worker's placeholder sent every open into a doomed follow

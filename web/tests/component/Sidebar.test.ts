@@ -124,6 +124,18 @@ describe('Sidebar', () => {
       expect(container?.innerHTML).toContain('No conversations yet');
     });
 
+    it("marks the What's new chat with its icon", () => {
+      useStore.setState({
+        conversations: [{ ...createConversation('w', 'Novinky'), is_whats_new: true }, createConversation('2', 'Chat')],
+      });
+
+      renderConversationsList();
+
+      const rows = document.querySelectorAll('.conversation-item-wrapper');
+      expect(rows[0]?.querySelector('.conversation-title-icon svg')).not.toBeNull();
+      expect(rows[1]?.querySelector('.conversation-title-icon')).toBeNull();
+    });
+
     it('renders conversations list', () => {
       useStore.setState({
         conversations: [

@@ -75,6 +75,7 @@ from src.db.models.stream_journal import StreamJournalMixin
 from src.db.models.sync_changes import ConversationChange, SyncChangesMixin
 from src.db.models.user import UserMixin
 from src.db.models.user_integrations import UserIntegrationsMixin
+from src.db.models.whats_new import WhatsNewMixin
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -99,6 +100,7 @@ class Database(
     SearchMixin,
     SettingsMixin,
     StandingChatMixin,
+    WhatsNewMixin,
     JobApprovalMixin,
     JobRunMixin,
     KVStoreMixin,

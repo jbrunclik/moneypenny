@@ -301,6 +301,8 @@ class Config:
     # Database
     DATABASE_PATH: Path = BASE_DIR / os.getenv("DATABASE_PATH", "chatbot.db")
     BLOB_STORAGE_PATH: Path = BASE_DIR / os.getenv("BLOB_STORAGE_PATH", "files.db")
+    # What's new announcements: repo files posted at startup (docs/features/whats-new.md)
+    ANNOUNCEMENTS_DIR: Path = BASE_DIR / "announcements"
     # /api/ready waits this long for the write lock; a normal write holds it
     # for milliseconds, a leaked transaction forever
     READY_WRITE_LOCK_TIMEOUT_SECONDS = 2.0

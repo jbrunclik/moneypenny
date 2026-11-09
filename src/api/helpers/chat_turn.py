@@ -170,6 +170,12 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
         raise_validation_error(str(e), field="deep_research")
 
 
+def refuse_if_read_only(conv: Conversation) -> None:
+    """The What's new chat takes no turns, interjections or edits."""
+    if conv.is_whats_new:
+        raise_validation_error("The What's new chat is read-only.")
+
+
 def _get_chat_conversation(user: User, conv_id: str) -> Conversation:
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
@@ -178,6 +184,7 @@ def _get_chat_conversation(user: User, conv_id: str) -> Conversation:
             extra={"user_id": user.id, "conversation_id": conv_id},
         )
         raise_not_found_error("Conversation")
+    refuse_if_read_only(conv)
 
     # Block sending messages to agent conversations with pending approvals
     if conv.is_agent and conv.job_id and db.has_pending_approval(conv.job_id):

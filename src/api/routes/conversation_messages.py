@@ -8,6 +8,7 @@ from typing import Any
 
 from src.agent.deep_research.plan import OfferConflictError, OfferNotFoundError, decline_offer
 from src.api.errors import raise_conflict_error, raise_not_found_error
+from src.api.helpers.chat_turn import refuse_if_read_only
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.conversations import api
 from src.api.schemas.chat import MessageResponse, ResearchOfferUpdate
@@ -116,6 +117,7 @@ def truncate_conversation(
     conv = db.get_conversation(conv_id, user.id)
     if not conv:
         raise_not_found_error("Conversation")
+    refuse_if_read_only(conv)
 
     target = db.get_message_by_id(data.message_id)
     if not target or target.conversation_id != conv_id:
@@ -148,6 +150,11 @@ def delete_message(user: User, message_id: str) -> tuple[dict[str, str], int]:
     Cost data is intentionally preserved for accurate reporting.
     """
     logger.debug("Deleting message", extra={"user_id": user.id, "message_id": message_id})
+    message = db.get_message_by_id(message_id)
+    conv = db.get_conversation(message.conversation_id, user.id) if message else None
+    if conv is not None:
+        # Regenerate starts here: an announcement is never deleted
+        refuse_if_read_only(conv)
     if not db.delete_message(message_id, user.id):
         logger.warning(
             "Message not found for deletion",

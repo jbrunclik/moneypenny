@@ -32,6 +32,7 @@ const m = vi.hoisted(() => ({
   addLiveArtifact: vi.fn(),
   focusMessageInput: vi.fn(),
   ensureInputAreaVisible: vi.fn(),
+  hideInputArea: vi.fn(),
   restoreDraftForConversation: vi.fn(),
   shouldAutoFocusInput: vi.fn(() => false),
   renderModelDropdown: vi.fn(),
@@ -80,6 +81,7 @@ vi.mock('@/components/messages/artifacts', () => ({ addLiveArtifact: m.addLiveAr
 vi.mock('@/components/MessageInput', () => ({
   focusMessageInput: m.focusMessageInput,
   ensureInputAreaVisible: m.ensureInputAreaVisible,
+  hideInputArea: m.hideInputArea,
   restoreDraftForConversation: m.restoreDraftForConversation,
   shouldAutoFocusInput: m.shouldAutoFocusInput,
 }));
@@ -365,6 +367,17 @@ describe('switchToConversation', () => {
       expect(m.closeSidebar).toHaveBeenCalled();
       expect(m.ensureInputAreaVisible).toHaveBeenCalled();
       expect(m.updateConversationCost).toHaveBeenCalledWith('c1');
+    });
+
+    it("the What's new chat has no composer", () => {
+      switchToConversation(conv({ is_whats_new: true }));
+      expect(m.hideInputArea).toHaveBeenCalled();
+      expect(m.ensureInputAreaVisible).not.toHaveBeenCalled();
+      expect(m.focusMessageInput).not.toHaveBeenCalled();
+      expect(document.body.classList.contains('read-only-chat')).toBe(true);
+
+      switchToConversation(conv());
+      expect(document.body.classList.contains('read-only-chat')).toBe(false);
     });
 
     it('focuses the composer only where auto-focus is wanted', () => {

@@ -481,6 +481,12 @@
 .message-save-quick-action-btn {
     display: none;
 }
+/* The What's new chat is read-only: no Regenerate or Continue on its posts */
+body.read-only-chat .message-regenerate-btn,
+body.read-only-chat .message-continue-btn {
+    display: none !important;
+}
+
 body.has-quick-actions .message-save-quick-action-btn {
     display: inline-flex;
 }

@@ -55,6 +55,7 @@ def row_to_conversation(row: sqlite3.Row) -> Conversation:
         sports_program=row["sports_program"],
         is_language=bool(row["is_language"]),
         language_program=row["language_program"],
+        is_whats_new=bool(row["is_whats_new"]),
         anonymous_mode=bool(row["anonymous_mode"]),
         standing_name=row["standing_name"],
         standing_instructions=row["standing_instructions"],

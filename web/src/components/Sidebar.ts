@@ -2,7 +2,7 @@ import { createElement, getElementById, clearElement } from '../utils/dom';
 import { formatRelativeTime, groupForDate } from '../utils/relative-time';
 import { createUserAvatarElement } from '../utils/avatar';
 import { isSidebarPreviewsEnabled, getSwipeQuickAction } from '../utils/preferences';
-import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
+import { ACTIVITY_ICON, ARCHIVE_ICON, CHECK_ICON, CHEVRON_RIGHT_ICON, COST_ICON, DATABASE_ICON, DELETE_ICON, EDIT_ICON, LANGUAGE_ICON, LOGOUT_ICON, PIN_ICON, PLANNER_ICON, ROBOT_ICON, SETTINGS_ICON, SPARKLES_ICON, SPORTS_ICON, UNARCHIVE_ICON, UNPIN_ICON, createIconButton, createIconElement, iconNodes, type IconHtml } from '../utils/icons';
 import { useStore } from '../state/store';
 import { DEFAULT_CONVERSATION_TITLE } from '../types/api';
 import type { Conversation, JobsOverviewResponse, User } from '../types/api';
@@ -340,7 +340,10 @@ function conversationItem(conv: Conversation, isActive: boolean): HTMLElement {
     el('div', { class: 'conversation-item', role: 'button', tabindex: isActive ? '0' : '-1', ...(isActive ? { 'aria-current': 'true' } : {}) }, [
       selectionCheckbox(conv),
       el('div', { class: 'conversation-text' }, [
-        el('div', { class: 'conversation-title' }, [conv.title || DEFAULT_CONVERSATION_TITLE]),
+        el('div', { class: 'conversation-title' }, [
+          conv.is_whats_new ? createIconElement('conversation-title-icon', SPARKLES_ICON) : null,
+          conv.title || DEFAULT_CONVERSATION_TITLE,
+        ]),
         // One-line snippet of the newest message (iMessage-style
         // scanability); per-device settings toggle
         !!conv.last_message_preview &&

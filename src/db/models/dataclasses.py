@@ -126,6 +126,7 @@ class Conversation:
     sports_program: str | None = None  # Program ID (e.g., "pushups")
     is_language: bool = False  # Whether this is a language learning conversation
     language_program: str | None = None  # Program ID (e.g., "spanish")
+    is_whats_new: bool = False  # the read-only What's new chat (announcements)
     # No memory read/write and no integration tools. Persisted so the setting
     # survives a page reload instead of silently reverting to off.
     # A standing chat's own settings (agents): its name, standing instructions

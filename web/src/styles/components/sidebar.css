@@ -172,6 +172,19 @@
     white-space: nowrap;
 }
 
+/* The What's new chat's sparkles, before its title */
+.conversation-title-icon {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-right: var(--space-1);
+    color: var(--accent);
+}
+
+.conversation-title-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
 /* One-line snippet of the newest message */
 .conversation-preview {
     font-size: var(--font-size-sm);

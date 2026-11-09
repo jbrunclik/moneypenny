@@ -168,6 +168,7 @@ export function listEntryFromSummary(conv: ConversationSummary, unreadCount: num
     messageCount: conv.message_count,
     last_message_preview: conv.last_message_preview,
     pinned: conv.pinned,
+    is_whats_new: conv.is_whats_new,
     unreadCount,
     hasExternalUpdate: false,
   };
