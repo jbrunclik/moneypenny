@@ -324,6 +324,12 @@ class Proposal:
     reported: bool  # the agent has been told the outcome
     created_at: datetime
     resolved_at: datetime | None
+    # "chat": the user is here; "run": an unattended run paused on it
+    origin: Literal["chat", "run"] = "chat"
+    job_id: str | None = None  # the run's job (origin "run")
+    execution_id: str | None = None  # the paused run
+    expires_at: datetime | None = None  # runs wait AGENT_APPROVAL_TTL_HOURS
+    consumed: bool = False  # an approved run call that already ran
 
 
 @dataclass

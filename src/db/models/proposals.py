@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from src.db.models.dataclasses import Proposal, ProposalOption, ProposalState
-from src.db.models.timestamps import from_db, from_db_or_none, to_db
+from src.db.models.timestamps import from_db, from_db_or_none, to_db, to_db_or_none
 from src.utils.clock import utc_now
 
 if TYPE_CHECKING:
@@ -42,6 +42,11 @@ def _row_to_proposal(row: sqlite3.Row) -> Proposal:
         reported=bool(row["reported"]),
         created_at=from_db(row["created_at"]),
         resolved_at=from_db_or_none(row["resolved_at"]),
+        origin=cast("Literal['chat', 'run']", row["origin"]),
+        job_id=row["job_id"],
+        execution_id=row["execution_id"],
+        expires_at=from_db_or_none(row["expires_at"]),
+        consumed=bool(row["consumed"]),
     )
 
 
@@ -74,8 +79,9 @@ class ProposalsMixin:
         """Store a new (pending) proposal."""
         self._write(
             """INSERT INTO proposals (id, user_id, conversation_id, message_id, request_id,
-                   kind, summary, details, options, state, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   kind, summary, details, options, state, created_at, origin, job_id,
+                   execution_id, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 proposal.id,
                 proposal.user_id,
@@ -88,6 +94,10 @@ class ProposalsMixin:
                 json.dumps(proposal.options, ensure_ascii=False),
                 proposal.state,
                 to_db(proposal.created_at),
+                proposal.origin,
+                proposal.job_id,
+                proposal.execution_id,
+                to_db_or_none(proposal.expires_at),
             ),
         )
         return proposal
@@ -153,8 +163,9 @@ class ProposalsMixin:
         """Expire pending proposals - the conversation's, or one reply's; how
         many. keep_unlinked spares the ones no saved reply shows yet (a turn
         still running filed them)."""
+        # A run's card waits for its answer (or its expiry), whatever is said meanwhile
         query = """UPDATE proposals SET state = 'expired', resolved_by = 'system', resolved_at = ?
-                   WHERE conversation_id = ? AND state = 'pending'"""
+                   WHERE conversation_id = ? AND state = 'pending' AND origin = 'chat'"""
         params: tuple[object, ...] = (to_db(utc_now()), conversation_id)
         if message_id is not None:
             query += " AND message_id = ?"
@@ -198,6 +209,51 @@ class ProposalsMixin:
                 AND state IN ({marks}) ORDER BY resolved_at, rowid""",
             (conversation_id, to_db(since), *_RESOLVED),
         )
+
+    def pending_run_proposals(self, user_id: str) -> list[Proposal]:
+        """The user's runs waiting on a card (Command Center's "Needs you")."""
+        return self._select(
+            """SELECT * FROM proposals WHERE user_id = ? AND origin = 'run' AND state = 'pending'
+               ORDER BY created_at, rowid""",
+            (user_id,),
+        )
+
+    def has_pending_run_proposal(self, job_id: str) -> bool:
+        """Whether the job's run waits on a card (the scheduler skips it)."""
+        found = self._select(
+            "SELECT * FROM proposals WHERE job_id = ? AND origin = 'run' AND state = 'pending' LIMIT 1",
+            (job_id,),
+        )
+        return bool(found)
+
+    def consume_run_approval(self, job_id: str, signature: str) -> bool:
+        """Spend one approved, unexpired run approval for exactly this call
+        (tool + canonical arguments): True once, for the identical call only."""
+        return (
+            self._write(
+                """UPDATE proposals SET consumed = 1
+                   WHERE id = (
+                       SELECT id FROM proposals
+                       WHERE job_id = ? AND origin = 'run' AND state = 'approved' AND consumed = 0
+                         AND (expires_at IS NULL OR expires_at > ?)
+                         AND json_extract(options, '$[' || chosen || '].payload.signature') = ?
+                       ORDER BY resolved_at LIMIT 1)""",
+                (job_id, to_db(utc_now()), signature),
+            )
+            == 1
+        )
+
+    def expire_run_proposals(self, now: datetime) -> list[Proposal]:
+        """Run cards past their expiry become expired; returns them (their
+        waiting runs are closed by the caller)."""
+        stale = self._select(
+            """SELECT * FROM proposals WHERE origin = 'run' AND state = 'pending'
+               AND expires_at IS NOT NULL AND expires_at <= ?""",
+            (to_db(now),),
+        )
+        for proposal in stale:
+            self.claim_proposal(proposal.id, "expired", None, "system")
+        return [p for p in (self.get_proposal(s.id, s.user_id) for s in stale) if p]
 
     def mark_reported(self, ids: list[str]) -> None:
         """The agent has been told these outcomes."""
