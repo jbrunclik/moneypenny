@@ -252,9 +252,8 @@ A scheduled item with `grants` set is a **standing job**: a standing chat's sche
 - **The agent edits its own settings** with `edit_standing_chat`
   (`src/agent/tools/standing_settings.py`): instructions, schedule (cron),
   model, daily budget, fresh context, grants.
-  - In its chat it previews first; the change applies on the user's yes in a later turn.
-    This is the schedule tool's gate, shared in `src/agent/tools/pending_gate.py`, with kv
-    `standing_pending` reserved.
+  - In its chat it files an `edit_agent` [proposal](proposals.md): the card lists the
+    change, and the server applies exactly that on **Apply** or a typed yes.
   - In an unattended run it files an approval request and the run pauses. Approving
     applies the change, without rerunning the job.
   - The Daily Briefing's first instructions edit stores the user's own copy of the stock
@@ -286,8 +285,9 @@ A scheduled item with `grants` set is a **standing job**: a standing chat's sche
   - It adds `<tool>:write` only when the job already holds that tool. A run names the tool
     in its own request, so it can never gain a new tool this way.
   - It is refused for settings changes, and for an approval already handled.
-- **Previews expire:** only the user's next message answers a preview (`pending_gate.expired`).
-  A preview left behind cannot be confirmed later, for example from a page the agent read.
+- **Cards expire:** only the user's next message answers a chat card; anything else
+  expires it ([proposals](proposals.md)), so nothing later - say a page the agent read -
+  can apply it.
 - An approved settings change is validated again before it applies (`validated_change`).
   `request_approval` cannot file a request under `edit_standing_chat`'s name.
 
@@ -386,12 +386,10 @@ I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
   a daily agent with every write level); the user widens it under Agents. Names and
   instructions have the API's length limits (`AGENT_NAME_MAX_CHARS`,
   `AGENT_INSTRUCTIONS_MAX_CHARS`).
-- The user's yes in their next message confirms it (the pending gate shared with
-  `schedule` and `edit_standing_chat`, namespace `standing_create_pending`). A preview
-  left behind expires, and a confirm in the same turn is refused.
-- The confirm creates the standing chat and its job (`create_standing_chat`) with exactly
-  the previewed settings, re-checked, and returns the chat's link `#/conversations/<id>` with the stored settings.
-  A confirm carrying other fields is refused: a changed version needs a new preview.
+- It files a `create_agent` [proposal](proposals.md): the card lists every setting and
+  what each tool can change. **Create agent** (or a typed yes) makes the server create the
+  standing chat and its job with exactly those settings, re-checked (a name taken
+  meanwhile fails the card cleanly). A changed version is a new card.
 - Refused in standing chats and in unattended runs; never bound in anonymous chats. Names
   are unique ignoring case, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing
   chats. Each gets a daily budget of `STANDING_CREATE_BUDGET_USD` (shown in the preview).

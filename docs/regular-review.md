@@ -50,6 +50,11 @@ The review itself changes nothing in production and edits nothing but
   broken, not flaky.
 - Approvals pending for days (`job_approvals` with `status = 'pending'`, by
   `item_id`).
+- Proposal cards (`proposals`, counts only; [proposals.md](features/proposals.md)): per
+  `kind` the share approved / declined / expired / failed, `resolved_by` button vs typed,
+  median seconds to an answer. Many expired = people answer in words the typed alias
+  misses (look at nothing, only the counts - then widen the word list); many failed =
+  apply refusals worth fixing at the source.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
 

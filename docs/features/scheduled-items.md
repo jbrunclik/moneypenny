@@ -17,12 +17,11 @@ message, each belonging to the chat that set it
 | `watcher` | "tell me when the school posts a teacher job" | model run every 6h / daily / weekly | `[DONE]`, its end date, or 30 days |
 | `recurring` | "every Monday, what's for lunch at school" | model run on a cron (household timezone) | cancelled, or its end date |
 
-- **Confirmed in chat, enforced in code:** `create` without `confirm=true` returns a
-  `PREVIEW:` (saying how the item ends), stores nothing, and keeps the preview pending for
-  the conversation (kv `schedule_pending`). `confirm=true` stores exactly that pending
-  item, and only once a newer user message exists - so a page's injected "confirm" in the
-  same turn, or fields that drifted since the preview, cannot schedule something the user
-  never saw. `text` and a watcher's `end_condition` go through the injection scan.
+- **Approved on a card, applied by the server:** `create` files a `schedule_item`
+  [proposal](proposals.md) (when, how it ends) and stores nothing. The server stores
+  exactly that item when the user taps **Set it up** or replies yes - so a page's injected
+  "confirm", or fields that drifted since, cannot schedule something the user never saw.
+  `text` and a watcher's `end_condition` go through the injection scan.
 - **Built by code:** the model fills structured fields and `src/utils/schedule_spec.py`
   builds the instant, interval or cron string in `Config.APP_TIMEZONE` (a time already
   past is refused, naming the local time).
