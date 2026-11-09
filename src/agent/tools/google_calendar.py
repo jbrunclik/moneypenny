@@ -1,8 +1,8 @@
 """Google Calendar management tool."""
 
 import uuid
-from collections.abc import Callable
-from datetime import timedelta
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
@@ -580,9 +580,12 @@ def google_calendar(
     if not token_info:
         return not_connected_result("google_calendar")
 
-    # An unattended run: the gate sees the whole call (update_event is gated
-    # only when times or attendees change)
-    check_autonomous_permission("google_calendar", call_arguments(google_calendar, locals()))
+    # The gate sees the whole call: in a run update_event is gated only when
+    # times or attendees change; in chat a delete waits on the turn's card
+    if held := check_autonomous_permission(
+        "google_calendar", call_arguments(google_calendar, locals())
+    ):
+        return held
 
     token, calendar_email = token_info
     calendar_id = calendar_id or "primary"
@@ -658,3 +661,32 @@ def _missing_event_args(
 def is_google_calendar_available() -> bool:
     """Check if Google Calendar integration is configured."""
     return _is_google_calendar_configured()
+
+
+def event_label(args: Mapping[str, object]) -> str | None:
+    """The event a delete removes, as "Dentist (Thu 12 Nov 09:00)" (for its
+    card, src/agent/chat_changes.py)."""
+    token_info = _get_google_calendar_access_token()
+    if not token_info or not args.get("event_id"):
+        return None
+    calendar_id = str(args.get("calendar_id") or "primary")
+    event = _google_calendar_api_request(
+        "GET", f"/calendars/{calendar_id}/events/{args['event_id']}", token_info[0]
+    )
+    if not isinstance(event, dict):
+        return None
+    title = str(event.get("summary") or "(no title)")
+    when = _short_when(event.get("start") or {})
+    return f"{title} ({when})" if when else title
+
+
+def _short_when(start: Mapping[str, object]) -> str:
+    """The start as the event states it: Thu 12 Nov 09:00 (all-day: Thu 12 Nov)."""
+    if start.get("dateTime"):
+        stated = str(start["dateTime"])
+        moment = datetime.fromisoformat(stated)  # tz-naive: the event's own wall time
+        return moment.strftime("%a %-d %b %H:%M")
+    if start.get("date"):
+        day = datetime.fromisoformat(str(start["date"]))  # tz-naive: an all-day date
+        return day.strftime("%a %-d %b")
+    return ""

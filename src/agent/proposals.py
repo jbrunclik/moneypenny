@@ -13,6 +13,7 @@ hears the outcome on its next turn (turn_note).
 
 from __future__ import annotations
 
+import importlib
 import re
 import time
 import uuid
@@ -42,11 +43,14 @@ NO_ANSWER: NoAnswer = "no-answer"
 _YES = frozenset(
     {
         "yes", "y", "yeah", "yep", "sure", "ok", "okay", "do it", "go ahead",
-        "ano", "jo", "jj", "jasně", "dobře", "souhlasím", "potvrzuji", "👍",
+        "yes please", "please do",
+        "ano", "jo", "jj", "jasně", "dobře", "souhlasím", "potvrzuji", "ano prosím",
+        "jo prosím", "👍",
     }
 )  # fmt: skip
 _NO = frozenset({"no", "nope", "not now", "cancel", "ne", "nechci", "zrušit", "👎"})
 _TRAILING = re.compile(r"[\s.!,]+$")
+_INNER = re.compile(r"[\s,]+")
 
 Apply = Callable[[Proposal, ProposalOption], str]
 Decline = Callable[[Proposal], None]
@@ -54,6 +58,8 @@ _KINDS: dict[str, Apply] = {}
 _DECLINES: dict[str, Decline] = {}
 # Kinds whose first option is the plain yes (the others are extras)
 _YES_FIRST: set[str] = set()
+# More whole-message yes words a kind takes (its action's own verb: "smaž to")
+_EXTRA_YES: dict[str, frozenset[str]] = {}
 # Kinds a typed answer reaches only on the stream, and only a turn starts
 # (deep research runs as that turn) - never the approve endpoint
 _STREAM_ONLY: set[str] = set()
@@ -75,6 +81,7 @@ def register_kind(
     *,
     yes_is_first: bool = False,
     stream_only: bool = False,
+    extra_yes: frozenset[str] = frozenset(),
 ) -> None:
     """Register how a kind's chosen option is applied (returns the result
     line), what a decline does besides recording it (a paused run ends),
@@ -86,6 +93,8 @@ def register_kind(
         _YES_FIRST.add(kind)
     if stream_only:
         _STREAM_ONLY.add(kind)
+    if extra_yes:
+        _EXTRA_YES[kind] = frozenset(_normalized(word) for word in extra_yes)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -102,9 +111,16 @@ def card_shown(proposal: Proposal) -> str:
     )
 
 
+# Where the kinds register: the tools package (the chat setups, deep
+# research) and the chat-change hold
+_KIND_MODULES = ("src.agent.tools", "src.agent.chat_changes")
+
+
 def _ensure_kinds() -> None:
-    """The kinds register when their tools import (a route may come first)."""
-    import src.agent.tools  # noqa: F401, PLC0415 - registration side effect; cycle: tools import this
+    """The kinds register when their modules import (a route may come first;
+    imported by name - they import this module)."""
+    for module in _KIND_MODULES:
+        importlib.import_module(module)
 
 
 def file_proposal(
@@ -148,18 +164,24 @@ def file_proposal(
 
 
 def _normalized(text: str) -> str:
-    return _TRAILING.sub("", text.strip().casefold())
+    """Casefolded, trailing punctuation dropped, inner commas and runs of
+    space as one space ("Ano, smazat!" -> "ano smazat")."""
+    return _INNER.sub(" ", _TRAILING.sub("", text.strip().casefold()))
 
 
 def typed_answer(
-    text: str, options: list[ProposalOption], *, yes_is_first: bool = False
+    text: str,
+    options: list[ProposalOption],
+    *,
+    yes_is_first: bool = False,
+    extra_yes: frozenset[str] = frozenset(),
 ) -> int | NoAnswer | None:
     """The option a typed message picks, None for a no, or NO_ANSWER."""
     said = _normalized(text)
     if said in _NO:
         return None
     if len(options) == 1 or yes_is_first:
-        if said in _YES:
+        if said in _YES or said in extra_yes:
             return 0
         if len(options) == 1:
             return NO_ANSWER
@@ -226,7 +248,16 @@ def answer_typed(
     spared: frozenset[str] = frozenset() if streaming else frozenset(_STREAM_ONLY)
     on_reply = [p for p in db.latest_reply_proposals(conversation_id) if p.kind not in spared]
     answers = [
-        (p, typed_answer(text, p.options, yes_is_first=p.kind in _YES_FIRST)) for p in on_reply
+        (
+            p,
+            typed_answer(
+                text,
+                p.options,
+                yes_is_first=p.kind in _YES_FIRST,
+                extra_yes=_EXTRA_YES.get(p.kind, frozenset()),
+            ),
+        )
+        for p in on_reply
     ]
     if all(answer == NO_ANSWER for _, answer in answers):
         db.expire_proposals(conversation_id, keep_unlinked=turn_running, keep_kinds=spared)

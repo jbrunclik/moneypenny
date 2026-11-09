@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -271,9 +272,13 @@ def rouvy_workout(
 
     The user must have connected Rouvy in Settings first.
     """
-    # An unattended run: its grants decide (a change without the write level
-    # is a draft, a delete always needs approval); raises before anything runs
-    check_autonomous_permission("rouvy_workout", call_arguments(rouvy_workout, locals()))
+    # In a run its grants decide (a change without the write level is a
+    # draft, a delete always needs approval); in chat a delete waits on the
+    # turn's card. Before anything runs
+    if held := check_autonomous_permission(
+        "rouvy_workout", call_arguments(rouvy_workout, locals())
+    ):
+        return held
     user = _resolve_user()
     if user is None or not user.rouvy_session:
         return not_connected_result("rouvy", success=False)
@@ -291,3 +296,12 @@ def rouvy_workout(
     except Exception as e:  # tool must return, not raise
         logger.exception("rouvy_workout failed", extra={"action": action, "error": str(e)})
         return tool_error(f"Rouvy request failed: {e}", success=False)
+
+
+def workout_name(args: Mapping[str, object]) -> str | None:
+    """The workout a delete removes, by name (for its card, src/agent/chat_changes.py)."""
+    user = _resolve_user()
+    if user is None or not user.rouvy_session or not args.get("workout_id"):
+        return None
+    wanted = str(args["workout_id"])
+    return next((str(w.get("name")) for w in rouvy_list(user) if str(w.get("id")) == wanted), None)

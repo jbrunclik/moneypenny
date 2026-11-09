@@ -1,10 +1,10 @@
 # Characters sent on every turn. Regenerate: make prompt-snapshots
 
 static prompt
-  standard       33900
+  standard       34166
   anonymous      22053
-  planning       37048
-  standing       33900
+  planning       37314
+  standing       34166
 
 tool declarations (38 tools, 63114 chars)
   browser                       4257

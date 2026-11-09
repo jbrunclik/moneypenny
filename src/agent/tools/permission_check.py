@@ -6,6 +6,8 @@ based on its configured tool permissions.
 A tool outside the job's grants is BLOCKED. A destructive operation, or a
 write without the write level, needs the user's yes to exactly that call:
 the gate files the call's card and pauses the run (src/agent/run_approvals.py).
+In a chat turn a destructive operation waits on the turn's card instead
+(src/agent/chat_changes.py).
 """
 
 from collections.abc import Mapping
@@ -67,8 +69,12 @@ def call_arguments(tool: BaseTool, scope: Mapping[str, object]) -> dict[str, obj
     return {name: scope[name] for name in tool.args if scope.get(name) is not None}
 
 
-def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> None:
-    """Check if a tool is allowed for the current autonomous agent.
+def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> str | None:
+    """Check if a tool is allowed for the current autonomous agent - or, in a
+    chat turn, hold a delete or archive on the turn's card.
+
+    Returns the card text the tool answers with instead of acting (chat), or
+    None to go ahead.
 
     This function checks if the tool is in the agent's permitted tools list.
     If not, it raises ToolBlockedError.
@@ -82,10 +88,13 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
     """
     from src.agent.run_context import get_job_context  # noqa: PLC0415 - cycle: run_context -> tools -> browser -> permission_check
 
-    # Outside an unattended run (a chat turn) every bound tool is allowed
+    # A chat turn: every bound tool is allowed, but a delete or archive
+    # waits on the turn's card (src/agent/chat_changes.py)
     context = get_job_context()
     if context is None:
-        return
+        from src.agent.chat_changes import hold_destructive_call  # noqa: PLC0415 - cycle: chat_changes imports the tools
+
+        return hold_destructive_call(tool_name, tool_args)
     job_id = context.item.id
     permissions = context.permissions
     result = check_tool_permission(permissions, tool_name, tool_args)
@@ -114,3 +123,4 @@ def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> No
         require_call_approval(context, tool_name, tool_args, destructive=True)
     elif is_write_call(tool_name, tool_args) and not has_write_grant(permissions, tool_name):
         require_call_approval(context, tool_name, tool_args, destructive=False)
+    return None

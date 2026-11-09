@@ -14,6 +14,7 @@ import {
   CHECK_ICON,
   CLOCK_ICON,
   CLOSE_ICON,
+  DELETE_ICON,
   ROBOT_ICON,
   SLIDERS_ICON,
   SPARKLES_ICON,
@@ -44,6 +45,7 @@ function kindIcon(kind: string): IconHtml {
   if (kind === 'create_agent' || kind === 'agent_action') return ROBOT_ICON;
   if (kind === 'edit_agent') return SLIDERS_ICON;
   if (kind === 'deep_research') return SPARKLES_ICON;
+  if (kind === 'chat_change') return DELETE_ICON;
   return CHECK_ICON;
 }
 

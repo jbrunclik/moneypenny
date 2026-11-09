@@ -222,6 +222,29 @@ class ProposalsMixin:
             (to_db(utc_now()), request_id, kind, keep_id),
         )
 
+    def turn_proposal(self, request_id: str, kind: str) -> Proposal | None:
+        """This turn's pending proposal of a kind (a chat change collects calls)."""
+        found = self._select(
+            """SELECT * FROM proposals WHERE request_id = ? AND kind = ? AND state = 'pending'
+               ORDER BY created_at, rowid LIMIT 1""",
+            (request_id, kind),
+        )
+        return found[0] if found else None
+
+    def extend_proposal(
+        self,
+        proposal_id: str,
+        summary: str,
+        details: dict[str, object],
+        options: list[ProposalOption],
+    ) -> None:
+        """Rewrite a pending proposal with another call on it."""
+        self._write(
+            """UPDATE proposals SET summary = ?, details = ?, options = ?
+               WHERE id = ? AND state = 'pending'""",
+            (summary, json.dumps(details), json.dumps(options), proposal_id),
+        )
+
     def supersede_open_proposals(self, conversation_id: str, kind: str, keep_id: str) -> int:
         """A newer proposal of a kind replaces the conversation's older open
         ones (one open research offer per chat)."""

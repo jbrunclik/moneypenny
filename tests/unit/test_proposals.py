@@ -245,3 +245,11 @@ def test_a_running_turns_new_card_survives_a_message(db: Database, conv: str) ->
     assert answer_typed(conv, "here is the photo", turn_running=True) == []
 
     assert [p.id for p in db.pending_proposals(conv)] == [running.id]
+
+
+def test_a_yes_with_more_after_it_still_answers_nothing() -> None:
+    """Only whole-message answers: "yes but at 9" is a new instruction."""
+    from src.agent.proposals import typed_answer
+
+    assert typed_answer("yes please", [_option()]) == 0
+    assert typed_answer("yes but at 9", [_option()]) == "no-answer"

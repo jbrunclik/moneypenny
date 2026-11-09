@@ -80,6 +80,9 @@ The review itself changes nothing in production and edits nothing but
   (`verdict_counts`) or the `grounding` column on messages - the share of
   answers with unsupported claims, against the last review.
 - Deep research: runs, cost per run, runs stopped early (`research` column).
+- Chat deletes (step 4): `chat_change` cards by state and `resolved_by`, and
+  the "Chat change applied" lines' `failed` - do people approve them, and do
+  stored calls fail (the item gone meanwhile)?
 - Deep-research offers: the `deep_research` cards by state (started /
   declined / expired / superseded) and `resolved_by` (button vs typed) from
   `proposals`, and the "Deep research started" lines' edits - do people start

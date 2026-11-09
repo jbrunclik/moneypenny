@@ -5,7 +5,7 @@ The one way Moneypenny asks for a yes. Instead of acting, a tool files a
 by replying; the **server** applies exactly what the card showed. Design:
 [One approval mechanism](../superpowers/specs/2026-11-09-one-approval-mechanism-design.md)
 (step 1 shipped Nov 9 2026: the chat setups; step 2 agent-run approvals,
-step 3 deep research; steps 4-5 move chat deletes and clarifying questions
+step 3 deep research, step 4 chat deletes; step 5 moves clarifying questions
 onto it).
 
 ## What proposes today
@@ -16,6 +16,7 @@ onto it).
 | `create_agent` | `create_standing_chat` | Create agent | creates the standing chat and its job |
 | `edit_agent` | `edit_standing_chat` in the agent's chat | Apply | applies the settings change |
 | `deep_research` | `propose_deep_research` (filed when the reply saves) | Start | the run is the turn: Start sends it with the edited plan, a typed yes on the stream makes that turn the run ([deep-research.md](deep-research.md)) |
+| `chat_change` | a delete or archive in a chat turn (Todoist, Calendar, Rouvy) - held by the gate | Delete / Archive | performs each stored call through its tool ([below](#chat-changes-step-4-nov-9-2026)) |
 
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).
@@ -36,6 +37,31 @@ answer in the agent's chat is **answer-only** - the batch response and the
 stream's `done` carry `answer_only` and `answered_proposals` and no reply
 (`src/api/helpers/answer_only.py`). Command Center shows the same card under
 the agent's name.
+
+## Chat changes (step 4, Nov 9 2026)
+
+In a chat turn, a call in the run gate's list (`DESTRUCTIVE_OPERATIONS` in
+[permission_check.py](../../src/agent/tools/permission_check.py): Todoist
+delete_task / delete_project / delete_section / archive_project, Calendar
+delete_event, the Rouvy delete) does not run.
+`check_autonomous_permission` returns `hold_destructive_call()`'s card text
+([chat_changes.py](../../src/agent/chat_changes.py)) and the tool answers with
+it. Completes, reschedules and attendee changes still run at once; the prompt
+asks about the ambiguous ones in text. The card:
+- One per turn: the turn's calls collect into its `chat_change` proposal
+  (`turn_proposal` / `extend_proposal`, under a lock, because a round's calls
+  run in parallel).
+- One row per item, named by the integration: Todoist `item_name`, Calendar
+  `event_label`, Rouvy `workout_name`. A failed lookup shows the id.
+- The payload is `{"calls": [{tool, args, item}]}`, with the full arguments
+  (`call_arguments`).
+
+Approving performs each call through its tool as the card's user, with the
+hold bypassed. The result says what was done: "Done - task “Buy milk”",
+"Done 1 of 2 - not done: ...". Nothing done means `failed`. A log line
+"Chat change applied" records calls and failed. The prompt
+(`prompt_texts/productivity.py`) tells the model to call deletes right away
+and say what waits for the user's OK, never that it is done.
 
 ## The record
 

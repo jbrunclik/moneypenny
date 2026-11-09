@@ -146,3 +146,26 @@ describe('proposal card', () => {
     expect(el.querySelector('.proposal-card')!.textContent).toContain('Expired');
   });
 });
+
+describe('chat change card', () => {
+  it('shows each item it would delete, with the trash icon', () => {
+    const card = renderProposalCard(
+      proposal({
+        kind: 'chat_change',
+        summary: 'Delete 2 items',
+        details: [
+          { label: 'Delete task', value: 'Buy milk' },
+          { label: 'Delete event', value: 'Dentist (2026-11-12 09:00)' },
+        ],
+        options: [{ label: 'Delete', description: '' }],
+      })
+    );
+    expect(card.classList).toContain('proposal-card--chat-change');
+    expect([...card.querySelectorAll('dd')].map((d) => d.textContent)).toEqual([
+      'Buy milk',
+      'Dentist (2026-11-12 09:00)',
+    ]);
+    expect(card.querySelector('.proposal-card__icon svg')).not.toBeNull();
+    expect(card.querySelector('[data-proposal-choice="0"]')!.textContent).toBe('Delete');
+  });
+});

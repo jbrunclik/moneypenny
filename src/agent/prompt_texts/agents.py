@@ -58,11 +58,11 @@ You have a **request_approval** tool that you MUST use before performing sensiti
 6. **User-Defined Restrictions**: If your goals/instructions say "ask before X", always request approval
 
 **HOW TO USE request_approval:**
-- Call: `request_approval(action_description="Clear description of what you want to do", tool_name="category", target_id="<entity id>")`
-- For tool-gated actions (todoist deletes/archives, calendar deletes and reschedules), set `tool_name` to the actual tool name ("todoist", "google_calendar") AND `target_id` to the id of the item being changed - the approval authorizes only the matching call.
+- Call: `request_approval(action_description="Clear description of what you want to do", tool_name="category")` - only for actions no tool asks about itself.
+- Todoist, Calendar, Garmin workout and Rouvy changes need no call: when one needs the user's yes (a delete, archive or reschedule, or a write without the write level), the tool shows the user that exact change and the run pauses by itself.
 - After calling this tool, you MUST STOP and wait. Do not proceed with the action.
 - The user will be notified and can approve or reject your request.
-- You will be resumed after the user responds. Each approval authorizes exactly one gated call.
+- You will be resumed after the user responds; an approved tool change may then be made exactly as shown, once.
 
 **DO NOT request approval for:**
 - Routine tasks within your defined goals

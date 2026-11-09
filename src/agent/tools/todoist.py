@@ -4,7 +4,7 @@ The tool validates arguments and dispatches; the HTTP layer lives in
 todoist_client.py and the actions in todoist_tasks.py / todoist_projects.py.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from langchain_core.tools import tool
@@ -271,9 +271,11 @@ def todoist(
     if not token:
         return not_connected_result("todoist")
 
-    # An unattended run: the gate sees the whole call (a change it may not
-    # make alone files that exact call's card and the run pauses)
-    check_autonomous_permission("todoist", call_arguments(todoist, locals()))
+    # The gate sees the whole call: in a run, a change it may not make alone
+    # files that exact call's card and pauses; in chat a delete or archive
+    # waits on the turn's card (the result says so)
+    if held := check_autonomous_permission("todoist", call_arguments(todoist, locals())):
+        return held
 
     args: dict[str, Any] = {
         "task_id": task_id,
@@ -325,3 +327,25 @@ def _run_todoist_action(action: str, token: str, args: dict[str, Any]) -> str:
 def is_todoist_available() -> bool:
     """Check if Todoist integration is configured."""
     return bool(Config.TODOIST_CLIENT_ID and Config.TODOIST_CLIENT_SECRET)
+
+
+# Where a gated operation's item is read back, and its name field
+_ITEM_PATHS: dict[str, tuple[str, str, str]] = {
+    "delete_task": ("/tasks/", "task_id", "content"),
+    "delete_project": ("/projects/", "project_id", "name"),
+    "archive_project": ("/projects/", "project_id", "name"),
+    "delete_section": ("/sections/", "section_id", "name"),
+}
+
+
+def item_name(args: Mapping[str, object]) -> str | None:
+    """The name of the task, project or section a delete or archive changes
+    (for its card, src/agent/chat_changes.py)."""
+    path = _ITEM_PATHS.get(str(args.get("action") or ""))
+    token = todoist_client.get_todoist_token()
+    if path is None or not token or not args.get(path[1]):
+        return None
+    found = todoist_client.todoist_api_request("GET", f"{path[0]}{args[path[1]]}", token)
+    if not isinstance(found, dict):
+        return None
+    return str(found.get(path[2]) or "") or None
