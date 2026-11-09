@@ -14,6 +14,14 @@ class AgentState(TypedDict):
     tool_rounds: int  # Tool-execution rounds this turn (round-multiplication cap)
     # Set once the turn's model was down and the other tier took over
     model_fallback: NotRequired[str]
+    # The turn's budget (src/agent/turn_budget.py): clock, running cost,
+    # failed-call signatures, the stop reason once a limit is hit, and
+    # whether the one wrap-up notice went out
+    turn_started_at: NotRequired[float]
+    turn_cost_usd: NotRequired[float]
+    failed_calls: NotRequired[dict[str, int]]
+    final_answer: NotRequired[str]
+    wrap_up_noticed: NotRequired[bool]
 
 
 # Node name used to filter streaming output — only chunks from this node are sent to frontend

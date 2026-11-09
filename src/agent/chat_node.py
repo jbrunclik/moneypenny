@@ -13,6 +13,7 @@ from src.agent.chat_model import FallbackModel
 from src.agent.graph_state import AgentState
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
+from src.agent.turn_budget import call_cost_usd
 from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -141,9 +142,15 @@ def chat_node(
 
     _log_response(response)
 
+    # The turn's running cost, priced with the model that answered
+    answering = str(fallback_name or getattr(model, "model_name", "unknown"))
+    cost = state.get("turn_cost_usd", 0.0)
+    if isinstance(response, AIMessage):
+        cost += call_cost_usd(response, answering)
+    update: dict[str, object] = {"messages": [response], "turn_cost_usd": cost}
     if fallback_name:
-        return {"messages": [response], "model_fallback": fallback_name}
-    return {"messages": [response]}
+        update["model_fallback"] = fallback_name
+    return update
 
 
 def _invoke_model(

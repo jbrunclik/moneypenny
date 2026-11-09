@@ -24,6 +24,7 @@ from src.agent.prompts import get_dynamic_prompt_parts, get_system_prompt
 from src.agent.standing import StandingContext
 from src.agent.stream_events import StreamEventProcessor
 from src.agent.tools import get_tools_for_request
+from src.agent.turn_budget import initial_state
 from src.agent.turn_usage import batch_usage_info
 from src.config import Config
 from src.db.models import ConversationFact
@@ -374,7 +375,9 @@ class ChatAgent:
         decision = self._freshness_decision(messages)
         if decision and decision.lookup:
             messages = [*messages, *self._prefetch(decision, messages)]
-        result = self._turn_graph(decision).invoke(cast(Any, {"messages": messages}), config=config)
+        result = self._turn_graph(decision).invoke(
+            cast(Any, initial_state(messages)), config=config
+        )
         turn_duration_ms = round((time.monotonic() - turn_started) * 1000)
         result_messages: list[BaseMessage] = result["messages"]
 
@@ -462,7 +465,7 @@ class ChatAgent:
         config = get_graph_config()
         turn_started = time.monotonic()
         stream = self._turn_graph(decision).stream(
-            cast(Any, {"messages": messages}),
+            cast(Any, initial_state(messages)),
             config=config,
             # "custom" carries node-written statuses (transient-error
             # retries) that must reach the client while the node sleeps
