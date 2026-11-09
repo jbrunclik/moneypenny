@@ -67,19 +67,8 @@ job_runs (
     error_message
 )
 
--- Approval requests (the job waits until resolved or expired)
-job_approvals (
-    id PRIMARY KEY,
-    item_id REFERENCES scheduled_items(id),
-    user_id REFERENCES users(id),
-    tool_name NOT NULL,
-    tool_args,
-    description NOT NULL,
-    status DEFAULT 'pending',
-    created_at NOT NULL,
-    resolved_at,
-    expires_at
-)
+-- A run waiting on the user's yes is a run proposal (origin 'run', job_id,
+-- execution_id, expires_at, consumed) in proposals - see proposals.md
 ```
 
 Migration 0082 created both tables fresh from `agent_executions` and
@@ -148,9 +137,9 @@ user_id)` ([tools/__init__.py](../../src/agent/tools/__init__.py)) binds the run
 | `/api/jobs/<id>/runs` | GET | Run history |
 | `/api/jobs/<id>/viewed` | POST | Mark its chat as viewed |
 | `/api/jobs/<id>/conversation/sync` | GET | Poll its chat for changes |
-| `/api/approvals` | GET | All pending approvals (`item_id`, `job_name`) |
-| `/api/approvals/<id>/approve` | POST | Approve (`{"always": true}` also grants the write level) |
-| `/api/approvals/<id>/reject` | POST | Reject |
+| `/api/approvals` | GET | Runs waiting on their card (`job_id`, `job_name`, `conversation_id` + the card) |
+| `/api/proposals/<id>/approve` | POST | Approve a run's card (`{"choice": 1}` = Always allow) - see [proposals](proposals.md) |
+| `/api/proposals/<id>/decline` | POST | Not now: the run ends |
 | `/api/ai-assist/parse-schedule` | POST | Helper to parse/validate cron strings |
 | `/api/ai-assist/enhance-prompt` | POST | AI helper to refine instructions |
 
@@ -176,24 +165,36 @@ Runs decide when to request approval using the `request_approval` tool. The run 
 - Operations that modify important data
 - Anything the user should be aware of before proceeding
 
-When a run calls `request_approval`:
+A run that needs the user's yes is parked on a **run card** (a run
+proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
 
-1. The run halts immediately via `ApprovalRequestedException`
-2. A `job_approvals` row is created with an expiration (`record_approval_request`)
-3. The run's record becomes `waiting_approval`, and the job waits
-4. The user sees the request in the Command Center
-5. On approval: the paused run is closed as `completed`, an
-   `[Action approved: ...]` message joins the chat, and the job re-runs
-   (`run_job_now`) in a new run with access to the approval state. A crash
-   in that re-run is recorded on its run (`failed`); the approval itself
-   still succeeds.
-6. On rejection: the paused run fails with "Action rejected by user" and
-   an `[Action rejected: ...]` message joins the conversation.
+1. The gates file it themselves: a destructive operation, or a write without
+   the write level, files the blocked call's card - its tool and full
+   arguments (`call_signature`) - and the run halts (`ApprovalRequestedException`).
+   `request_approval` files an unbound card for actions no gate covers;
+   `edit_standing_chat` in a run files an `edit_agent` card.
+2. `record_approval_request` posts the waiting message ("Waiting for your
+   approval") with the card under it and marks the run `waiting_approval`;
+   the job waits (the scheduler skips it) and a push goes out.
+3. The user answers on the card - in the agent's chat or Command Center's
+   "Needs you" - or types yes/no in the agent's chat. A typed answer is
+   answer-only: no chat turn, the resumed run's report is the reply. Any
+   other message is a normal turn; the card keeps waiting (the chat no longer
+   locks).
+4. Approve: the paused run closes as `completed`, an `[Action approved: ...]`
+   note naming the exact call to re-issue joins the chat, and the job re-runs
+   in the background; only the identical call consumes the approval, once
+   (`consume_run_approval`). Always allow also grants `<tool>:write`. An
+   approved settings change applies itself, no rerun.
+5. Not now: the run closes as `rejected` with an `[Action rejected: ...]` note.
+6. Unanswered for `AGENT_APPROVAL_TTL_HOURS` (24 h): the card expires and the
+   run closes as failed ("The approval was not answered in time") from the
+   scheduler tick (`expire_stale_run_cards`).
 
-Tests: `tests/integration/test_routes_approvals.py` (the approval flow),
-`tests/unit/test_scheduler.py` (due, skipped, failed and resumed runs).
-
-**Note:** Approval requests expire after `AGENT_APPROVAL_TTL_HOURS` (default 24 hours). Expired requests block the job until resolved or cleaned up.
+Tests: `tests/unit/test_destructive_approval_gate.py`,
+`tests/unit/test_grant_levels.py`, `tests/unit/test_run_approvals.py`,
+`tests/integration/test_routes_approvals.py`,
+`tests/integration/test_answer_only_turns.py`.
 
 ## Scheduling
 
@@ -266,9 +267,8 @@ A scheduled item with `grants` set is a **standing job**: a standing chat's sche
   - A write without the level is a draft: `permission_check` requires one consumed
     approval per change. Every writable tool calls the check itself (Garmin workouts and
     Rouvy included).
-  - An approval authorizes only the operation it names (`request_approval(operation=...)`,
-    plus `target_id` for destructive ones). An approval naming neither authorizes nothing,
-    so an approved "add task" can never be spent on a delete.
+  - An approval authorizes only the exact call its card showed (tool + full arguments):
+    an approved "add task: Buy milk" can never be spent on other text or a delete.
   - Destructive operations (Todoist and Calendar deletes, Rouvy delete) still need an
     approval per call, even with `:write`.
   - `*` (all tools) writes.
@@ -279,12 +279,10 @@ A scheduled item with `grants` set is a **standing job**: a standing chat's sche
     for a tool that is itself granted. Grants the grid doesn't show (set by talking or an
     approval) are kept on save, and a job with all tools stays unrestricted unless the
     selection is changed.
-- **Always allow:** the approval card's third button ("Always allow Todoist changes"),
-  shown for writable integrations, sends `POST /api/approvals/<id>/approve` with
-  `{"always": true}`.
-  - It adds `<tool>:write` only when the job already holds that tool. A run names the tool
-    in its own request, so it can never gain a new tool this way.
-  - It is refused for settings changes, and for an approval already handled.
+- **Always allow:** the run card's second option ("Always allow Todoist changes"),
+  offered for a write in a writable integration the job already holds (never a delete).
+  - It adds `<tool>:write` only when the job holds that tool, so a run can never gain a
+    new tool this way.
 - **Cards expire:** only the user's next message answers a chat card; anything else
   expires it ([proposals](proposals.md)), so nothing later - say a page the agent read -
   can apply it.

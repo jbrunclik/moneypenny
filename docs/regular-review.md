@@ -48,8 +48,9 @@ The review itself changes nothing in production and edits nothing but
 - Failed runs per job over the window (admin page "Agents"; `job_runs` with
   `status = 'failed'`, grouped by `item_id`); a job failing on every run is
   broken, not flaky.
-- Approvals pending for days (`job_approvals` with `status = 'pending'`, by
-  `item_id`).
+- Runs waiting on their card (`proposals` with `origin = 'run'` and `state =
+  'pending'`, by `job_id`), and run cards that expired unanswered (`state =
+  'expired'`): an agent whose cards expire is asking for something nobody wants.
 - Proposal cards (`proposals`, counts only; [proposals.md](features/proposals.md)): per
   `kind` the share approved / declined / expired / failed, `resolved_by` button vs typed,
   median seconds to an answer. Many expired = people answer in words the typed alias

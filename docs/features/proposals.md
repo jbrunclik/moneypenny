@@ -18,6 +18,22 @@ approvals, deep research, chat deletes and clarifying questions onto it).
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).
 
+## Run cards (step 2, Nov 9 2026)
+
+An unattended run's request for a yes is a proposal with `origin = 'run'`
+(`job_id`, `execution_id`, `expires_at`, `consumed`; migration 0088 folded
+`job_approvals` in). The write and destructive gates file the blocked call's
+card - `agent_action`, payload `{tool, args, signature}`, options Approve (+
+Always allow for a held writable tool) - and pause the run;
+`request_approval` files an unbound one; `edit_standing_chat` in a run an
+`edit_agent` one. The answer resumes or ends that run
+(`src/agent/run_approvals.py`): see [agents.md](agents.md). A chat
+message never expires a run card (only its 24 h `expires_at`); a typed
+answer in the agent's chat is **answer-only** - the batch response and the
+stream's `done` carry `answer_only` and `answered_proposals` and no reply
+(`src/api/helpers/answer_only.py`). Command Center shows the same card under
+the agent's name.
+
 ## The record
 
 `proposals` (migration 0086, `src/db/models/proposals.py`): `kind`, `summary`,
