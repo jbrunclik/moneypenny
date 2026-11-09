@@ -17389,11 +17389,19 @@
         "type": "object"
       },
       "ChatBatchResponse": {
-        "description": "Response from batch chat endpoint.",
+        "description": "Response from batch chat endpoint.\n\nAn answer-only turn (a typed answer to a run's card) has no reply: id,\ncontent and created_at are absent, answer_only is set and\nanswered_proposals lists the cards it resolved.",
         "properties": {
           "id": {
-            "title": "Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Id"
           },
           "role": {
             "const": "assistant",
@@ -17402,8 +17410,45 @@
             "type": "string"
           },
           "content": {
-            "title": "Content",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content"
+          },
+          "answer_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The message only answered a run's card: no reply of its own",
+            "title": "Answer Only"
+          },
+          "answered_proposals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.ProposalResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The cards the message answered (answer-only turns)",
+            "title": "Answered Proposals"
           },
           "files": {
             "anyOf": [
@@ -17576,9 +17621,17 @@
             "title": "Proposals"
           },
           "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
           },
           "title": {
             "anyOf": [
@@ -17637,6 +17690,8 @@
           "id",
           "role",
           "content",
+          "answer_only",
+          "answered_proposals",
           "files",
           "sources",
           "generated_images",

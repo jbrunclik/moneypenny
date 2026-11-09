@@ -272,11 +272,22 @@ class MessageResponse(ResponseModel):
 
 
 class ChatBatchResponse(ResponseModel):
-    """Response from batch chat endpoint."""
+    """Response from batch chat endpoint.
 
-    id: str
+    An answer-only turn (a typed answer to a run's card) has no reply: id,
+    content and created_at are absent, answer_only is set and
+    answered_proposals lists the cards it resolved.
+    """
+
+    id: str | None = None
     role: Literal["assistant"] = "assistant"
-    content: str
+    content: str | None = None
+    answer_only: bool | None = Field(
+        default=None, description="The message only answered a run's card: no reply of its own"
+    )
+    answered_proposals: list[ProposalResponse] | None = Field(
+        default=None, description="The cards the message answered (answer-only turns)"
+    )
     files: list[FileMetadataResponse] | None = None
     sources: list[SourceResponse] | None = None
     generated_images: list[GeneratedImageResponse] | None = None
@@ -308,7 +319,7 @@ class ChatBatchResponse(ResponseModel):
     proposals: list[ProposalResponse] | None = Field(
         default=None, description="The proposal cards this reply shows"
     )
-    created_at: Timestamp
+    created_at: Timestamp | None = None
     title: str | None = Field(
         default=None, description="Auto-generated conversation title (first message only)"
     )

@@ -6,6 +6,7 @@ batch (complete response) and streaming (SSE) modes.
 
 import json
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import NoReturn
 
@@ -20,6 +21,7 @@ from src.api.errors import (
     raise_server_error,
     raise_validation_error,
 )
+from src.api.helpers.answer_only import answer_only_body, answer_only_stream
 from src.api.helpers.chat_save import SaveResult, save_message_to_db
 from src.api.helpers.chat_streaming import create_stream_generator
 from src.api.helpers.chat_turn import (
@@ -70,7 +72,7 @@ api = APIBlueprint("chat", __name__, url_prefix="/api", tag="Chat")
 @rate_limit_chat
 @require_auth
 @validate_request(ChatRequest)
-def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, str], int]:
+def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[Mapping[str, object], int]:
     """Send a message and get a complete response (non-streaming).
 
     Accepts JSON body with:
@@ -86,6 +88,8 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[dict[str, s
     if running is not None:
         return _steer_batch_send(user, data, conv_id, running)
     turn = prepare_turn(user, data, conv_id)
+    if turn.answer_only:  # a typed answer to a run's card: the run is the reply
+        return answer_only_body(turn), 200
     return _batch_response(turn, _run_batch_turn(user, conv_id, turn)), 200
 
 
@@ -302,6 +306,12 @@ def chat_stream(
     if running is not None:
         return _steer_stream_send(user, data, conv_id, running)
     turn = prepare_turn(user, data, conv_id)
+    if turn.answer_only:  # a typed answer to a run's card: the run is the reply
+        return Response(
+            answer_only_stream(turn),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
     ctx = build_turn_context(user, turn, request_id=str(uuid.uuid4()))
     logger.debug(
         "Starting stream chat agent",

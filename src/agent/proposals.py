@@ -213,20 +213,38 @@ def answer_typed(conversation_id: str, text: str, turn_running: bool = False) ->
     return resolved
 
 
+def start_turn(
+    conversation_id: str,
+    text: str | None,
+    since: datetime | None = None,
+    turn_running: bool = False,
+) -> tuple[str | None, list[Proposal]]:
+    """The turn's start: resolve a typed answer (None for a rerun, which
+    answers nothing); returns what the agent should hear about its proposals
+    and the cards this message answered. A rerun passes `since` (its user
+    message's time): what that message answered is told again - the failed
+    attempt heard it, its retry did not."""
+    db.fail_stale_applying(before=utc_now() - APPLY_STALE_AFTER)
+    answered = (
+        answer_typed(conversation_id, text, turn_running=turn_running) if text is not None else []
+    )
+    return turn_note(conversation_id, since=since), answered
+
+
 def answer_and_note(
     conversation_id: str,
     text: str | None,
     since: datetime | None = None,
     turn_running: bool = False,
 ) -> str | None:
-    """The turn's start: resolve a typed answer (None for a rerun, which
-    answers nothing), then what the agent should hear about its proposals.
-    A rerun passes `since` (its user message's time): what that message
-    answered is told again - the failed attempt heard it, its retry did not."""
-    db.fail_stale_applying(before=utc_now() - APPLY_STALE_AFTER)
-    if text is not None:
-        answer_typed(conversation_id, text, turn_running=turn_running)
-    return turn_note(conversation_id, since=since)
+    """start_turn's note alone (the eval harness)."""
+    return start_turn(conversation_id, text, since=since, turn_running=turn_running)[0]
+
+
+def answers_only_runs(answered: list[Proposal]) -> bool:
+    """The message only answered run cards: the resumed (or ended) run is the
+    reply, so the turn runs no agent of its own."""
+    return bool(answered) and all(p.origin == "run" for p in answered)
 
 
 _OUTCOME = {

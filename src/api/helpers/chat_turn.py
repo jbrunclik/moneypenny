@@ -32,7 +32,7 @@ from src.agent.guidance import with_guidance
 from src.agent.history import enrich_history
 from src.agent.interjection import clear_interjection
 from src.agent.message_content import annotate_history_file_ids
-from src.agent.proposals import answer_and_note
+from src.agent.proposals import answers_only_runs, start_turn
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
 from src.agent.tool_results import set_current_request_id
@@ -50,7 +50,7 @@ from src.api.schemas.chat import ChatRequest, DeepResearchStart
 from src.api.schemas.chat import VerifyClaimAction as VerifyClaimRequest
 from src.auth.google_calendar import get_valid_calendar_access_token
 from src.config import Config
-from src.db.models import Conversation, ConversationFact, Message, User, db
+from src.db.models import Conversation, ConversationFact, Message, Proposal, User, db
 from src.db.models.dataclasses import MessageAction
 from src.enums import MessageRole
 from src.services.background_thumbnails import (
@@ -86,6 +86,13 @@ class PreparedTurn:
     lost_actions_note: str | None = None
     # What happened to the conversation's proposal cards (src/agent/proposals.py)
     proposal_note: str | None = None
+    # The cards this message answered; only run cards = an answer-only turn
+    answered_proposals: list[Proposal] = field(default_factory=list)
+
+    @property
+    def answer_only(self) -> bool:
+        """The message only answered run cards: no agent turn (the run reports)."""
+        return answers_only_runs(self.answered_proposals)
 
 
 def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
@@ -141,7 +148,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     # this turn, so a retry does not repeat a write. Taken only once the turn
     # is accepted - a refused rerun leaves it for the next one
     lost_actions_note = pop_lost_actions_note(user.id, conv_id)
-    proposal_note = _proposal_note(conv_id, data, message_text, user_msg)
+    proposal_note, answered = _proposal_note(conv_id, data, message_text, user_msg)
 
     # File DATA is left out of history (only metadata: name, type, message_id,
     # file_index) so large base64 isn't re-sent; tools fetch it on demand.
@@ -157,6 +164,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
         deep_research=plan,
         lost_actions_note=lost_actions_note,
         proposal_note=proposal_note,
+        answered_proposals=answered,
     )
 
 
@@ -178,7 +186,7 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
 
 def _proposal_note(
     conv_id: str, data: ChatRequest, message_text: str, user_msg: Message
-) -> str | None:
+) -> tuple[str | None, list[Proposal]]:
     """Answer the latest reply's cards from this message, before the agent
     runs, and what the agent should hear about them.
 
@@ -188,11 +196,11 @@ def _proposal_note(
     """
     if data.rerun_mode:
         since = user_msg.created_at if user_msg.role == MessageRole.USER else None
-        return answer_and_note(conv_id, None, since=since)
+        return start_turn(conv_id, None, since=since)
     # A send that isn't steering (attachments) can arrive while a turn runs:
     # the cards that turn filed are not shown yet and must not expire
     running = running_turn_id(conv_id) is not None
-    return answer_and_note(conv_id, "" if data.app_sent else message_text, turn_running=running)
+    return start_turn(conv_id, "" if data.app_sent else message_text, turn_running=running)
 
 
 def refuse_if_read_only(conv: Conversation) -> None:
