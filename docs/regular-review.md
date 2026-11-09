@@ -63,6 +63,10 @@ The review itself changes nothing in production and edits nothing but
   slower p95 usually means a tool or the model provider, so name which.
 - Web-search quotas (admin page "Web search"): a provider exhausted early in
   the period, or search falling back to the free provider.
+- Turn budgets (from Nov 2026): the `Turn budget stop` journal lines and
+  `message_costs.stopped_by` - the share of turns stopped and by which limit
+  (cost, time, rounds, loop), and p90 turn cost and time. A limit that stops
+  good turns, or one that never fires, is a value to retune in `src/config.py`.
 
 ## 4. Answer quality
 

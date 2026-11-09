@@ -46,6 +46,11 @@ The full rule set, with what enforces each rule, is in
   developers) in the same commit or that day's; pure visual polish rides along
   with the next one. Deploys post it to everyone
   ([docs/features/whats-new.md](docs/features/whats-new.md)) (A7).
+- **Instrument what you ship:** a feature or tuning knob ships with the data
+  that shows whether it works and what it costs (a structured log line or a
+  column), its check in [docs/regular-review.md](docs/regular-review.md), and
+  a dated re-measure in TODO.md. Tunables are re-measured, not set and
+  forgotten (A8).
 
 ## Parallel sessions
 

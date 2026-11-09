@@ -23,6 +23,7 @@
 - Batch mode must match streaming. New SSE event types (none planned) would join the stream journal.
 - New env vars: `src/config.py` with a default, `.env.example`, both `.env` files (production flips need Jiri's OK), and `docs/features/` (agent-graph / chat-and-streaming).
 - Report the cost of every eval run.
+- Rule A8 (Jiri, Nov 9 2026): everything ships instrumented for the regular review - a structured log line per decision, the check in `docs/regular-review.md`, and a dated re-measure in TODO.md.
 - Repo is public: no hostnames or infrastructure in docs or commits.
 
 ## Values (the builder's call, from the spec's ranges)
@@ -80,9 +81,10 @@
   - `StopReason = Literal["cost", "time", "rounds", "loop"]`.
   - `budget_stop(state: AgentState, tool_rounds: int, now: float) -> StopReason | None` - cost >= `TURN_COST_LIMIT_USD`, elapsed >= `TURN_TIME_BUDGET_SECONDS`, rounds >= `tool_round_cap()` (which now returns the override or `TURN_MAX_TOOL_ROUNDS` when budgets are on).
   - `wrap_up_due(state, now) -> bool` - elapsed >= fraction x budget and not `wrap_up_noticed`.
+  - Every stop logs one `Turn budget stop` line with `reason`, `tool_rounds`, `elapsed_s`, `cost_usd`, and every wrap-up notice and loop block its own line (`Turn wrap-up notice`, `Tool loop blocked` with the tool name, never args) - the regular review reads these.
   - In `check_tool_results`, when `TURN_BUDGETS_ENABLED`: after the interjection check, a stop sets `final_answer: <reason>` plus the final guidance (the existing "answer with what you have, then list what you would do next" text, minus "do not call tools" since tools will be off); a due wrap-up appends `"\n\n[Time is nearly up: finish with what you have in your next reply.]"` to the latest `ToolMessage`'s content and sets `wrap_up_noticed`. The soft nudge and the old round-pressure guidance run only when budgets are off.
 
-- [ ] **Step 1: Write the failing tests** - `test_cost_limit_stops_the_turn`, `test_time_limit_stops_the_turn`, `test_round_backstop_stops_the_turn` (20 rounds; and 4 under `round_cap_override(4)`), `test_wrap_up_notice_once_on_the_tool_result` (at 80%: the latest ToolMessage ends with the notice; the next round adds none), `test_time_budget_past_due_stops_once` (first check already past 100%: one stop, no wrap-up notice, `final_answer == "time"`), `test_interjection_after_stop_keeps_tools_off` (state already has `final_answer`; an interjection arrives: its guidance is added and `final_answer` stays set), `test_budgets_off_keeps_the_old_cap` (flag off: the 6-round guidance and the round-4 nudge as today).
+- [ ] **Step 1: Write the failing tests** - `test_cost_limit_stops_the_turn`, `test_time_limit_stops_the_turn`, `test_round_backstop_stops_the_turn` (20 rounds; and 4 under `round_cap_override(4)`), `test_wrap_up_notice_once_on_the_tool_result` (at 80%: the latest ToolMessage ends with the notice; the next round adds none), `test_time_budget_past_due_stops_once` (first check already past 100%: one stop, no wrap-up notice, `final_answer == "time"`), `test_interjection_after_stop_keeps_tools_off` (state already has `final_answer`; an interjection arrives: its guidance is added and `final_answer` stays set), `test_budgets_off_keeps_the_old_cap` (flag off: the 6-round guidance and the round-4 nudge as today), `test_a_stop_logs_its_reason` (caplog: one `Turn budget stop` line with reason, rounds, elapsed and cost).
 - [ ] **Step 2: Run** - Expected: FAIL.
 - [ ] **Step 3: Implement** `budget_stop`, `wrap_up_due`, and the branch in `check_tool_results` (keep each helper under 50 lines; the existing `_round_pressure_update` stays for the flag-off path).
 - [ ] **Step 4: Run** the file and `make test` - Expected: PASS.
@@ -160,7 +162,7 @@
 ### Task 7: The old cap goes; docs
 
 **Files:**
-- Modify: `src/agent/tool_round_check.py` (remove `_round_pressure_update`'s cap and the soft nudge), `src/config.py` (remove `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `TURN_BUDGETS_ENABLED`), `src/api/utils.py` (remove `is_round_capped`), `.env.example` and both `.env` (remove the keys), `docs/architecture/agent-graph.md`, `docs/features/chat-and-streaming.md`, `TODO.md` (remove part 3 from the Thorough turns item and the Next up line)
+- Modify: `src/agent/tool_round_check.py` (remove `_round_pressure_update`'s cap and the soft nudge), `src/config.py` (remove `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `TURN_BUDGETS_ENABLED`), `src/api/utils.py` (remove `is_round_capped`), `.env.example` and both `.env` (remove the keys), `docs/architecture/agent-graph.md`, `docs/features/chat-and-streaming.md`, `TODO.md` (remove part 3 from the Thorough turns item and the Next up line; add a dated re-measure ~2 weeks after deploy: the `stopped_by` mix, p90 cost and time, and retune the values)
 - Test: the suite
 
 - [ ] **Step 1:** Remove the flag-off path and its tests (`test_budgets_off_keeps_the_old_cap` goes with it); grep for the removed names in `src`, `tests`, `evals`, `docs` -> none left.
