@@ -18,6 +18,7 @@ from src.api.utils import proposal_to_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import Proposal, User, db
+from src.utils.clock import utc_now
 
 _NOT_OPEN = "This card was already answered or is no longer open."
 
@@ -29,7 +30,8 @@ def _open_proposal(user: User, proposal_id: str) -> Proposal:
     if proposal is None or conv is None:
         raise_not_found_error("Proposal")
     refuse_if_read_only(conv)
-    if proposal.state != "pending" or proposal.message_id is None:
+    expired = proposal.expires_at is not None and proposal.expires_at <= utc_now()
+    if proposal.state != "pending" or proposal.message_id is None or expired:
         raise_conflict_error(_NOT_OPEN, {"proposal": proposal_to_response(proposal)})
     return proposal
 

@@ -210,11 +210,40 @@ class ProposalsMixin:
             (conversation_id, to_db(since), *_RESOLVED),
         )
 
-    def link_run_proposal(self, proposal_id: str, message_id: str, execution_id: str) -> None:
-        """A parked run's card shows under its waiting message, for that execution."""
+    def unlinked_run_proposals(self, job_id: str) -> list[Proposal]:
+        """The job's cards filed this round, not yet under a waiting message."""
+        return self._select(
+            """SELECT * FROM proposals WHERE job_id = ? AND origin = 'run'
+               AND state = 'pending' AND message_id IS NULL ORDER BY created_at, rowid""",
+            (job_id,),
+        )
+
+    def link_run_proposals(self, job_id: str, message_id: str, execution_id: str) -> None:
+        """A parked run's cards show under its waiting message, for that execution."""
         self._write(
-            "UPDATE proposals SET message_id = ?, execution_id = ? WHERE id = ?",
-            (message_id, execution_id, proposal_id),
+            """UPDATE proposals SET message_id = ?, execution_id = ?
+               WHERE job_id = ? AND origin = 'run' AND state = 'pending' AND message_id IS NULL""",
+            (message_id, execution_id, job_id),
+        )
+
+    def execution_proposals(self, execution_id: str) -> list[Proposal]:
+        """Every card a paused execution waits on (oldest first)."""
+        return self._select(
+            "SELECT * FROM proposals WHERE execution_id = ? ORDER BY created_at, rowid",
+            (execution_id,),
+        )
+
+    def latest_reply_proposals(self, conversation_id: str) -> list[Proposal]:
+        """Pending, unexpired proposals under the conversation's latest
+        assistant message - the only ones a typed answer may reach."""
+        return self._select(
+            """SELECT * FROM proposals WHERE conversation_id = ? AND state = 'pending'
+               AND (expires_at IS NULL OR expires_at > ?)
+               AND message_id = (
+                   SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant'
+                   ORDER BY created_at DESC, rowid DESC LIMIT 1)
+               ORDER BY created_at, rowid""",
+            (conversation_id, to_db(utc_now()), conversation_id),
         )
 
     def pending_run_proposals(self, user_id: str) -> list[Proposal]:
@@ -235,13 +264,15 @@ class ProposalsMixin:
 
     def consume_run_approval(self, job_id: str, signature: str) -> bool:
         """Spend one approved, unexpired run approval for exactly this call
-        (tool + canonical arguments): True once, for the identical call only."""
+        (tool + canonical arguments): True once, for the identical call only.
+        Applying counts: the resumed run may start before the card finishes."""
         return (
             self._write(
                 """UPDATE proposals SET consumed = 1
                    WHERE id = (
                        SELECT id FROM proposals
-                       WHERE job_id = ? AND origin = 'run' AND state = 'approved' AND consumed = 0
+                       WHERE job_id = ? AND origin = 'run' AND consumed = 0
+                         AND state IN ('approved', 'applying')
                          AND (expires_at IS NULL OR expires_at > ?)
                          AND json_extract(options, '$[' || chosen || '].payload.signature') = ?
                        ORDER BY resolved_at LIMIT 1)""",

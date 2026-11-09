@@ -201,6 +201,7 @@ _.connection_count  # src/utils/connection_pool.py
 _.peek  # src/utils/lazy.py (tests/conftest.py)
 _._validated_body  # src/api/validation.py: the OpenAPI/query tests find views by it
 _._validated_query
+_.pending_proposals  # src/db/models/proposals.py: the proposal tests read open cards by it
 
 # --- Staged rollout: shipped ahead of their callers ---------------------------
 # Timezone migration step 2a (docs/superpowers/specs/2026-10-26-timezone-aware-

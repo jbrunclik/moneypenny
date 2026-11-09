@@ -24,7 +24,8 @@ An unattended run's request for a yes is a proposal with `origin = 'run'`
 (`job_id`, `execution_id`, `expires_at`, `consumed`; migration 0088 folded
 `job_approvals` in). The write and destructive gates file the blocked call's
 card - `agent_action`, payload `{tool, args, signature}`, options Approve (+
-Always allow for a held writable tool) - and pause the run;
+Always allow for a held writable tool) - and pause the run after the round
+(several gated calls in a round: several cards, one pause);
 `request_approval` files an unbound one; `edit_standing_chat` in a run an
 `edit_agent` one. The answer resumes or ends that run
 (`src/agent/run_approvals.py`): see [agents.md](agents.md). A chat

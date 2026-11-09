@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import action_result, tool_error
 from src.agent.tools.integration_status import not_connected_result
-from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.permission_check import call_arguments, check_autonomous_permission
 from src.auth.google_calendar import (
     GoogleCalendarAuthError,
     get_valid_access_token,
@@ -580,19 +580,9 @@ def google_calendar(
     if not token_info:
         return not_connected_result("google_calendar")
 
-    # Check permission for autonomous agents (write operations require approval)
-    # Entity ids + reschedule fields enable argument-level approval
-    # matching; update_event is gated only when times/attendees change
-    check_autonomous_permission(
-        "google_calendar",
-        {
-            "operation": action,
-            "event_id": event_id,
-            "start_time": start_time,
-            "end_time": end_time,
-            "attendees": attendees,
-        },
-    )
+    # An unattended run: the gate sees the whole call (update_event is gated
+    # only when times or attendees change)
+    check_autonomous_permission("google_calendar", call_arguments(google_calendar, locals()))
 
     token, calendar_email = token_info
     calendar_id = calendar_id or "primary"

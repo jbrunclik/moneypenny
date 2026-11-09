@@ -39,7 +39,7 @@ from src.agent.tools.garmin_workout_edits import (
     slim_workout,
 )
 from src.agent.tools.integration_status import not_connected_result
-from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.permission_check import call_arguments, check_autonomous_permission
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -177,7 +177,7 @@ def garmin_workout(
     logger.info("garmin_workout called", extra={"action": action, "workout_id": workout_id})
     # An unattended run: its grants decide (a change without the write level
     # is a draft the user approves); raises before anything is touched
-    check_autonomous_permission("garmin_workout", {"action": action, "workout_id": workout_id})
+    check_autonomous_permission("garmin_workout", call_arguments(garmin_workout, locals()))
 
     if action == "search_exercises":
         return _search_exercises(query)

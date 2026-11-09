@@ -74,3 +74,31 @@ def test_declining_a_run_card_ends_its_run(
     assert test_database.get_messages(agent.conversation_id or "")[-1].content.startswith(
         "[Action rejected:"
     )
+
+
+def test_an_expired_run_card_cannot_be_approved(
+    client: FlaskClient,
+    auth_headers: dict[str, str],
+    test_database: Database,
+    test_user: User,
+    make_run_card: Any,
+) -> None:
+    """Between its expiry and the scheduler's sweep, a tap is refused."""
+    from datetime import timedelta
+
+    from src.db.models.timestamps import to_db
+    from src.utils.clock import utc_now
+
+    agent = test_database.create_standing_chat(test_user.id, "Coach", schedule="0 20 * * *")
+    waiting = test_database.add_message(agent.conversation_id or "", "assistant", "Waiting")
+    card = make_run_card(agent, message_id=waiting.id)
+    test_database._write(
+        "UPDATE proposals SET expires_at = ? WHERE id = ?",
+        (to_db(utc_now() - timedelta(minutes=1)), card.id),
+    )
+
+    with patch("src.agent.run_approvals._resume") as resume:
+        response = client.post(f"/api/proposals/{card.id}/approve", headers=auth_headers, json={})
+
+    assert response.status_code == 409
+    resume.assert_not_called()

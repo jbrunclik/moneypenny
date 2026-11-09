@@ -170,23 +170,30 @@ proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
 
 1. The gates file it themselves: a destructive operation, or a write without
    the write level, files the blocked call's card - its tool and full
-   arguments (`call_signature`) - and the run halts (`ApprovalRequestedException`).
+   arguments (`call_signature`). The call returns "waiting for approval", the
+   round's other calls still run, and after the round the tool node pauses
+   the run on every card it filed (`pause_on_gated_calls`, raising
+   `ApprovalRequestedException`).
    `request_approval` files an unbound card for actions no gate covers;
    `edit_standing_chat` in a run files an `edit_agent` card.
 2. `record_approval_request` posts the waiting message ("Waiting for your
-   approval") with the card under it and marks the run `waiting_approval`;
+   approval") with the round's cards under it and marks the run `waiting_approval`;
    the job waits (the scheduler skips it) and a push goes out.
 3. The user answers on the card - in the agent's chat or Command Center's
-   "Needs you" - or types yes/no in the agent's chat. A typed answer is
+   "Needs you" - or types yes/no in the agent's chat (only the latest
+   reply's unexpired cards take a typed answer). A typed answer is
    answer-only: no chat turn, the resumed run's report is the reply. Any
    other message is a normal turn; the card keeps waiting (the chat no longer
    locks).
-4. Approve: the paused run closes as `completed`, an `[Action approved: ...]`
-   note naming the exact call to re-issue joins the chat, and the job re-runs
-   in the background; only the identical call consumes the approval, once
-   (`consume_run_approval`). Always allow also grants `<tool>:write`. An
-   approved settings change applies itself, no rerun.
-5. Not now: the run closes as `rejected` with an `[Action rejected: ...]` note.
+4. Each answer leaves a plain `[Action approved/rejected: ...]` note in the
+   chat. Once every card of the paused run is answered, the run closes -
+   `completed` if anything was approved, then the job re-runs in the
+   background, told the exact calls to re-issue; `rejected` otherwise. Only
+   the identical call consumes an approval, once (`consume_run_approval`;
+   a card still applying counts, as the rerun can start first). Always allow
+   also grants `<tool>:write`. An approved settings change applies itself,
+   no rerun.
+5. Not now on every card: the run closes as `rejected`.
 6. Unanswered for `AGENT_APPROVAL_TTL_HOURS` (24 h): the card expires and the
    run closes as failed ("The approval was not answered in time") from the
    scheduler tick (`expire_stale_run_cards`).

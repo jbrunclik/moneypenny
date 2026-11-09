@@ -14,7 +14,7 @@ from src.agent.tools import todoist_projects as projects
 from src.agent.tools import todoist_tasks as tasks
 from src.agent.tools.errors import action_result, tool_error
 from src.agent.tools.integration_status import not_connected_result
-from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.permission_check import call_arguments, check_autonomous_permission
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -271,17 +271,9 @@ def todoist(
     if not token:
         return not_connected_result("todoist")
 
-    # Check permission for autonomous agents; entity ids enable
-    # argument-level approval matching for destructive operations
-    check_autonomous_permission(
-        "todoist",
-        {
-            "operation": action,
-            "task_id": task_id,
-            "project_id": project_id,
-            "section_id": section_id,
-        },
-    )
+    # An unattended run: the gate sees the whole call (a change it may not
+    # make alone files that exact call's card and the run pauses)
+    check_autonomous_permission("todoist", call_arguments(todoist, locals()))
 
     args: dict[str, Any] = {
         "task_id": task_id,

@@ -8,10 +8,12 @@ only the identical call consumes the approval (once); a call with other
 arguments files a new card. request_approval files an unbound card for
 actions no gate covers (it only pauses for consent).
 
-Answers apply here: an approved agent_action closes the paused execution,
-tells the run which call to re-issue, and resumes it in the background;
-"Always allow" also grants the tool's write level; a decline closes the run
-as rejected. The run's report is the reply - no chat turn of its own.
+A round can file several cards (each gated call waits, the others run; the
+tool node pauses after the round). Answers apply here: each leaves a plain
+note in the chat; once every card of the paused execution is answered, it
+closes and - if anything was approved - the run resumes in the background,
+told exactly which calls it may re-issue. "Always allow" also grants the
+tool's write level. The run's report is the reply - no chat turn of its own.
 """
 
 from __future__ import annotations
@@ -129,12 +131,7 @@ def require_call_approval(
         label = f"Always allow {tool_label(tool)} changes"
         options.append({"label": label, "description": "", "payload": {**payload, "always": True}})
     card = file_run_card(context, KIND, summary, rows, options)
-    raise ApprovalRequestedException(card.id, summary, tool)
-
-
-def _close_execution(proposal: Proposal, status: str) -> None:
-    if proposal.execution_id:
-        db.update_execution(proposal.execution_id, status=status)
+    raise ApprovalRequestedException(card.id, summary, tool, deferred=True)
 
 
 def _grant_write(proposal: Proposal, tool: str) -> None:
@@ -170,31 +167,66 @@ def _resume(proposal: Proposal, message: str) -> None:
     threading.Thread(target=run, name=f"resume-{job.id[:8]}", daemon=True).start()
 
 
-def apply_agent_action(proposal: Proposal, option: ProposalOption) -> str:
-    """Approved: re-run the paused run, which may now make exactly this call."""
-    payload = option["payload"]
-    tool = str(payload.get("tool") or "")
-    if payload.get("always"):
-        _grant_write(proposal, tool)
-    _close_execution(proposal, "completed")
-    args = payload.get("args")
-    call = (
-        f" Re-issue exactly: {tool}({json.dumps(args, ensure_ascii=False)})."
-        if payload.get("signature")
-        else ""
+def _approved_call(card: Proposal) -> str | None:
+    """The exact call an approved card lets the run re-issue (None when
+    the card was declined, or approves no particular call)."""
+    if card.state not in {"approved", "applying"} or card.chosen is None:
+        return None
+    payload = card.options[card.chosen]["payload"]
+    if not payload.get("signature"):
+        return None
+    return f"{payload.get('tool')}({json.dumps(payload.get('args'), ensure_ascii=False)})"
+
+
+def _settle(proposal: Proposal) -> bool:
+    """Once every card the paused execution waits on is answered, close it
+    and - when anything was approved - resume the run with the outcome,
+    naming the exact calls it may now make. False while others still wait."""
+    cards = db.execution_proposals(proposal.execution_id) if proposal.execution_id else []
+    cards = [c for c in cards if c.id != proposal.id] + [_proposal_now(proposal)]
+    if any(c.state == "pending" for c in cards):
+        return False
+    approved = [c for c in cards if c.state in {"approved", "applying"}]
+    if proposal.execution_id:
+        db.update_execution(proposal.execution_id, status="completed" if approved else "rejected")
+    if not approved:
+        return True
+    outcome = " ".join(
+        f"[Action {'approved' if c in approved else 'rejected'}: {c.summary}]" for c in cards
     )
-    message = f"[Action approved: {proposal.summary}]{call}"
-    db.add_message(proposal.conversation_id, MessageRole.USER, message)
-    _resume(proposal, message)
-    return "Approved - continuing."
+    calls = [call for c in approved if (call := _approved_call(c))]
+    reissue = f" Re-issue exactly: {'; '.join(calls)}." if calls else ""
+    _resume(proposal, outcome + reissue)
+    return True
+
+
+def _proposal_now(proposal: Proposal) -> Proposal:
+    """The card as stored now (claimed while its answer applies)."""
+    return db.get_proposal(proposal.id, proposal.user_id) or proposal
+
+
+def apply_agent_action(proposal: Proposal, option: ProposalOption) -> str:
+    """Approved: the paused run resumes (once all its cards are answered)
+    and may then make exactly this call."""
+    payload = option["payload"]
+    if payload.get("always"):
+        _grant_write(proposal, str(payload.get("tool") or ""))
+    # The chat keeps a plain note; the call itself goes only to the run
+    db.add_message(
+        proposal.conversation_id, MessageRole.USER, f"[Action approved: {proposal.summary}]"
+    )
+    if _settle(proposal):
+        return "Approved - continuing."
+    return "Approved - the run continues once you've answered its other cards."
 
 
 def decline_agent_action(proposal: Proposal) -> None:
-    """Declined: the paused run ends; the agent hears it next time."""
-    _close_execution(proposal, "rejected")
+    """Declined: the agent hears it; the run ends unless another of its
+    cards was approved."""
     db.add_message(
         proposal.conversation_id, MessageRole.USER, f"[Action rejected: {proposal.summary}]"
     )
+    _settle(proposal)
 
 
 def expire_stale_run_cards(now: datetime) -> int:

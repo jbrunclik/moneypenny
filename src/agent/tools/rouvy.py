@@ -31,7 +31,7 @@ from src.agent.tools.browser import is_browser_available
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.integration_status import not_connected_result
-from src.agent.tools.permission_check import check_autonomous_permission
+from src.agent.tools.permission_check import call_arguments, check_autonomous_permission
 from src.auth import rouvy_auth
 from src.config import Config
 from src.db.models import User, db
@@ -273,7 +273,7 @@ def rouvy_workout(
     """
     # An unattended run: its grants decide (a change without the write level
     # is a draft, a delete always needs approval); raises before anything runs
-    check_autonomous_permission("rouvy_workout", {"action": action, "workout_id": workout_id})
+    check_autonomous_permission("rouvy_workout", call_arguments(rouvy_workout, locals()))
     user = _resolve_user()
     if user is None or not user.rouvy_session:
         return not_connected_result("rouvy", success=False)

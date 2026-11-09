@@ -8,7 +8,8 @@ write without the write level, needs the user's yes to exactly that call:
 the gate files the call's card and pauses the run (src/agent/run_approvals.py).
 """
 
-from typing import Any
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 from src.agent.permissions import (
     PermissionResult,
@@ -17,6 +18,9 @@ from src.agent.permissions import (
     is_write_call,
 )
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from langchain_core.tools import BaseTool
 
 logger = get_logger(__name__)
 
@@ -54,6 +58,13 @@ def _destructive_operation(tool_name: str, tool_args: dict[str, Any]) -> str | N
     ):
         return str(operation)
     return None
+
+
+def call_arguments(tool: BaseTool, scope: Mapping[str, object]) -> dict[str, object]:
+    """A tool call's arguments, as the gate sees them: every parameter of
+    the tool given a value (None = not given). The card shows - and the
+    approval binds - exactly these, so pass locals() at the call."""
+    return {name: scope[name] for name in tool.args if scope.get(name) is not None}
 
 
 def check_autonomous_permission(tool_name: str, tool_args: dict[str, Any]) -> None:

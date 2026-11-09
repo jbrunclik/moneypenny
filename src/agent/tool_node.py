@@ -18,6 +18,7 @@ from src.agent.permissions import PermissionResult, check_tool_permission
 from src.agent.tool_loops import blocked_calls, blocked_message, dedupe_results
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools.request_approval import ApprovalRequestedException
+from src.db.models import db
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -46,9 +47,14 @@ def _handle_tool_errors(e: Exception) -> str:
     handle_tool_errors=True would swallow it into an error ToolMessage
     (verified on langgraph 1.0.5), silently completing the run instead.
 
+    A gated call (deferred) waits instead: its result says so, the round's
+    other calls still run, and pause_on_gated_calls pauses after the round.
+
     The returned string mirrors langgraph's default TOOL_CALL_ERROR_TEMPLATE so
     ordinary tool errors keep the exact same self-correction behavior.
     """
+    if isinstance(e, ApprovalRequestedException) and e.deferred:
+        return f"{AWAITING_APPROVAL} {e.description}"
     if isinstance(e, (ApprovalRequestedException, TurnCancelled)):
         raise e
     return f"Error: {e!r}\n Please fix your mistakes."
@@ -247,13 +253,18 @@ def _capture_and_strip_tool_messages(messages: list[Any], request_id: str | None
 
 
 _SIBLING_RESULT_MAX_CHARS = 500
+# A gated call's result while its card waits (the run pauses after the round)
+AWAITING_APPROVAL = "Waiting for the user's approval of this exact call; the run pauses now."
 
 
 def _summarize_sibling_results(messages: list[Any]) -> list[tuple[str, str]]:
-    """Compact (tool_name, result) pairs for the approval pause message."""
+    """Compact (tool_name, result) pairs for the approval pause message
+    (the calls that wait on a card are not results)."""
     summaries: list[tuple[str, str]] = []
     for msg in messages:
         if isinstance(msg, ToolMessage) and isinstance(msg.content, str):
+            if msg.content.startswith(AWAITING_APPROVAL):
+                continue
             content = msg.content
             if len(content) > _SIBLING_RESULT_MAX_CHARS:
                 content = content[:_SIBLING_RESULT_MAX_CHARS] + "…"
@@ -300,6 +311,21 @@ def _run_approval(
     )
 
 
+def pause_on_gated_calls(messages: list[object]) -> None:
+    """Pause the run on the cards this round's gated calls filed (all of
+    them: one waiting message, one execution), once the round has run."""
+    context = _get_permission_modules()["get_job_context"]()
+    cards = db.unlinked_run_proposals(context.item.id) if context else []
+    if not cards:
+        return
+    tool = cards[0].options[0]["payload"].get("tool") if len(cards) == 1 else ""
+    pause = ApprovalRequestedException(
+        cards[0].id, "\n".join(c.summary for c in cards), str(tool or "")
+    )
+    pause.sibling_results = _summarize_sibling_results(messages)
+    raise pause
+
+
 def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
     """Create a tool node that strips large data from results before sending to LLM.
 
@@ -340,6 +366,8 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
 
         if approval_state is not None:
             _run_approval(base_tool_node, approval_state, result, request_id)
+        if is_autonomous:
+            pause_on_gated_calls(result.get("messages", []))
 
         logger.debug("tool_node_with_stripping completed")
         return result

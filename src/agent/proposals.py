@@ -186,16 +186,13 @@ def _apply(proposal: Proposal, option: ProposalOption) -> tuple[ProposalState, s
 
 def answer_typed(conversation_id: str, text: str, turn_running: bool = False) -> list[Proposal]:
     """Resolve the latest reply's pending proposals from the user's typed
-    message; a message that answers none of them expires them all - except,
+    message (cards under older replies, and expired ones, wait for a tap); a message that answers none of them expires them all - except,
     while another turn runs (turn_running), the cards it filed and has not
     shown yet."""
-    pending = db.pending_proposals(conversation_id)
-    shown = [p for p in pending if p.message_id]
-    if not shown:
+    on_reply = db.latest_reply_proposals(conversation_id)
+    if not on_reply:
         db.expire_proposals(conversation_id, keep_unlinked=turn_running)
         return []
-    latest = shown[-1].message_id
-    on_reply = [p for p in shown if p.message_id == latest]
     answers = [(p, typed_answer(text, p.options)) for p in on_reply]
     if all(answer == NO_ANSWER for _, answer in answers):
         db.expire_proposals(conversation_id, keep_unlinked=turn_running)

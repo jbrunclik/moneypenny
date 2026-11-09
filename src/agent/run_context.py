@@ -141,8 +141,8 @@ def record_approval_request(
         e.description, e.tool_name, sibling_results=e.sibling_results
     )
     message = db.add_message(conversation_id, MessageRole.ASSISTANT, approval_message)
-    # The card (the run proposal) shows under the waiting message
-    db.link_run_proposal(e.approval_id, message.id, execution_id)
+    # The round's cards (run proposals) show under the waiting message
+    db.link_run_proposals(context.item.id, message.id, execution_id)
 
     # The agent is blocked until the user reacts - the most
     # time-sensitive notification in the system

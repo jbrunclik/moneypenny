@@ -39,10 +39,15 @@ class ApprovalRequestedException(Exception):  # noqa: N818 - control flow (pause
     This exception signals the executor to pause and wait for user approval.
     """
 
-    def __init__(self, approval_id: str, description: str, tool_name: str = ""):
+    def __init__(
+        self, approval_id: str, description: str, tool_name: str = "", *, deferred: bool = False
+    ):
         self.approval_id = approval_id
         self.description = description
         self.tool_name = tool_name
+        # A gated call (run_approvals): the round's other calls still run and
+        # the tool node pauses after it, on every card the round filed
+        self.deferred = deferred
         # Filled by the tool node when sibling tool calls from the same batch
         # executed before the pause (R3)
         self.sibling_results: list[tuple[str, str]] = []
