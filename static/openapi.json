@@ -5254,6 +5254,155 @@
         "summary": "Restore a conversation from the trash (back to the list or archive it was in)."
       }
     },
+    "/api/proposals/{proposal_id}/approve": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Approve a card: the server applies the chosen option exactly as shown.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveProposalRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proposals/{proposal_id}/decline": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Decline a card (\"Not now\"): nothing is applied."
+      }
+    },
     "/api/jobs/{job_id}/conversation/sync": {
       "get": {
         "parameters": [
@@ -12285,7 +12434,7 @@
         "type": "object"
       },
       "PlannerConversationResponse.ProposalResponse": {
-        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "description": "A card awaiting (or past) the user's answer.",
         "properties": {
           "id": {
             "title": "Id",
@@ -12783,7 +12932,7 @@
         "type": "object"
       },
       "MessageResponse.ProposalResponse": {
-        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "description": "A card awaiting (or past) the user's answer.",
         "properties": {
           "id": {
             "title": "Id",
@@ -14049,7 +14198,7 @@
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.ProposalResponse": {
-        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "description": "A card awaiting (or past) the user's answer.",
         "properties": {
           "id": {
             "title": "Id",
@@ -15603,6 +15752,124 @@
         "title": "UpdateMemoryProtectionRequest",
         "type": "object"
       },
+      "ProposalResponse.ProposalOptionResponse": {
+        "description": "One choice on a proposal card (its payload stays on the server).",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "description"
+        ],
+        "title": "ProposalOptionResponse",
+        "type": "object"
+      },
+      "ProposalResponse": {
+        "description": "A card awaiting (or past) the user's answer.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "schedule_item, create_agent, edit_agent, ...",
+            "title": "Kind",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What it does, in a line",
+            "title": "Summary",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Label -> value rows",
+            "title": "Details",
+            "type": "object"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalResponse.ProposalOptionResponse"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "approved",
+              "declined",
+              "expired",
+              "superseded",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The option picked",
+            "title": "Chosen"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What applying did, or why it failed",
+            "title": "Result"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "summary",
+          "details",
+          "options",
+          "state",
+          "chosen",
+          "result"
+        ],
+        "title": "ProposalResponse",
+        "type": "object"
+      },
+      "ApproveProposalRequest": {
+        "description": "Approving a card: which of its options (0 when it has one).",
+        "properties": {
+          "choice": {
+            "default": 0,
+            "description": "The option's index",
+            "minimum": 0,
+            "title": "Choice",
+            "type": "integer"
+          }
+        },
+        "title": "ApproveProposalRequest",
+        "type": "object"
+      },
       "JobConversationSyncResponse.JobConversationSyncData": {
         "description": "A standing chat's conversation state.",
         "properties": {
@@ -16367,7 +16634,7 @@
         "type": "object"
       },
       "MessagesListResponse.ProposalResponse": {
-        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "description": "A card awaiting (or past) the user's answer.",
         "properties": {
           "id": {
             "title": "Id",
@@ -16906,7 +17173,7 @@
         "type": "object"
       },
       "ChatBatchResponse.ProposalResponse": {
-        "description": "A card awaiting (or past) the user's answer (docs/features/proposals.md).",
+        "description": "A card awaiting (or past) the user's answer.",
         "properties": {
           "id": {
             "title": "Id",

@@ -14,6 +14,7 @@ from src.api.schemas.files import (
     GeneratedImageResponse,
     SourceResponse,
 )
+from src.api.schemas.proposals import ProposalResponse
 from src.api.schemas.schedules import DeliveryResponse
 from src.config import Config
 
@@ -195,26 +196,6 @@ class ArtifactRef(ResponseModel):
     id: str = Field(description="Artifact id")
     version: int = Field(description="Version shown in this message")
     title: str = Field(description="Artifact title")
-
-
-class ProposalOptionResponse(ResponseModel):
-    """One choice on a proposal card (its payload stays on the server)."""
-
-    label: str
-    description: str = ""
-
-
-class ProposalResponse(ResponseModel):
-    """A card awaiting (or past) the user's answer (docs/features/proposals.md)."""
-
-    id: str
-    kind: str = Field(description="schedule_item, create_agent, edit_agent, ...")
-    summary: str = Field(description="What it does, in a line")
-    details: dict[str, str] = Field(default_factory=dict, description="Label -> value rows")
-    options: list[ProposalOptionResponse]
-    state: Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
-    chosen: int | None = Field(default=None, description="The option picked")
-    result: str | None = Field(default=None, description="What applying did, or why it failed")
 
 
 class VerifyClaimActionResponse(ResponseModel):

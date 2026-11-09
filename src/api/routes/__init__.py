@@ -13,6 +13,7 @@ Route Organization:
 - conversation_search.py: Full-text search (1 route, on conversations.api)
 - conversation_trash.py: Trash list, restore, permanent delete, empty (4 routes, on conversations.api)
 - schedules.py: Scheduled items - a chat's items, cancel, pause, resume (4 routes, on conversations.api)
+- proposals.py: Proposal cards - approve, decline (2 routes, on conversations.api)
 - planner.py: Planner dashboard (4 routes)
 - jobs.py: The job list; standing chat CRUD, runs, run now, viewed, sync (9 routes)
 - approvals.py: Approval requests from job runs (3 routes, on jobs.api)
@@ -28,7 +29,7 @@ Route Organization:
 - sports.py: Sports tracking (5 routes)
 - language.py: Language learning (5 routes)
 
-Total: 78 endpoints across 20 modules
+Total: 80 endpoints across 21 modules
 """
 
 from apiflask import APIFlask
@@ -63,6 +64,7 @@ from src.api.routes import (
     language,
     memory,
     planner,
+    proposals,  # noqa: F401 - imported for its routes
     push,
     rouvy,
     schedules,  # noqa: F401 - imported for its routes

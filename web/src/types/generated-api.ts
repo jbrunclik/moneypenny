@@ -5935,6 +5935,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a card: the server applies the chosen option exactly as shown. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposal_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ApproveProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/proposals/{proposal_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a card ("Not now"): nothing is applied. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    proposal_id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalResponse"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/{job_id}/conversation/sync": {
         parameters: {
             query?: never;
@@ -10361,7 +10513,7 @@ export interface components {
         };
         /**
          * ProposalResponse
-         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         * @description A card awaiting (or past) the user's answer.
          */
         "PlannerConversationResponse.ProposalResponse": {
             /** Id */
@@ -10637,7 +10789,7 @@ export interface components {
         };
         /**
          * ProposalResponse
-         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         * @description A card awaiting (or past) the user's answer.
          */
         "MessageResponse.ProposalResponse": {
             /** Id */
@@ -11235,7 +11387,7 @@ export interface components {
         };
         /**
          * ProposalResponse
-         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         * @description A card awaiting (or past) the user's answer.
          */
         "ConversationDetailPaginatedResponse.ProposalResponse": {
             /** Id */
@@ -12015,6 +12167,75 @@ export interface components {
             protected: boolean;
         };
         /**
+         * ProposalOptionResponse
+         * @description One choice on a proposal card (its payload stays on the server).
+         */
+        "ProposalResponse.ProposalOptionResponse": {
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /**
+         * ProposalResponse
+         * @description A card awaiting (or past) the user's answer.
+         */
+        ProposalResponse: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @description schedule_item, create_agent, edit_agent, ...
+             */
+            kind: string;
+            /**
+             * Summary
+             * @description What it does, in a line
+             */
+            summary: string;
+            /**
+             * Details
+             * @description Label -> value rows
+             */
+            details: {
+                [key: string]: string;
+            };
+            /** Options */
+            options: components["schemas"]["ProposalResponse.ProposalOptionResponse"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "approved" | "declined" | "expired" | "superseded" | "failed";
+            /**
+             * Chosen
+             * @description The option picked
+             * @default null
+             */
+            chosen: number | null;
+            /**
+             * Result
+             * @description What applying did, or why it failed
+             * @default null
+             */
+            result: string | null;
+        };
+        /**
+         * ApproveProposalRequest
+         * @description Approving a card: which of its options (0 when it has one).
+         */
+        ApproveProposalRequest: {
+            /**
+             * Choice
+             * @description The option's index
+             * @default 0
+             */
+            choice?: number;
+        };
+        /**
          * JobConversationSyncData
          * @description A standing chat's conversation state.
          */
@@ -12410,7 +12631,7 @@ export interface components {
         };
         /**
          * ProposalResponse
-         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         * @description A card awaiting (or past) the user's answer.
          */
         "MessagesListResponse.ProposalResponse": {
             /** Id */
@@ -12704,7 +12925,7 @@ export interface components {
         };
         /**
          * ProposalResponse
-         * @description A card awaiting (or past) the user's answer (docs/features/proposals.md).
+         * @description A card awaiting (or past) the user's answer.
          */
         "ChatBatchResponse.ProposalResponse": {
             /** Id */
