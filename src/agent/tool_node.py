@@ -72,7 +72,7 @@ def split_looping_calls(state: AgentState) -> tuple[list[ToolMessage], AgentStat
 
 
 def _dedupe_round(state: AgentState, result: dict[str, Any]) -> None:
-    """Turn budgets: a large byte-identical repeat result becomes a back-reference."""
+    """Turn budgets: a large byte-identical repeat result is noted as unchanged."""
     last_message = state["messages"][-1]
     if not isinstance(last_message, AIMessage):
         return

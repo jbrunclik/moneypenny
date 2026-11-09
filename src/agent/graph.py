@@ -26,6 +26,7 @@ from src.agent.chat_model import create_chat_model, fallback_model_factory
 from src.agent.chat_node import chat_node
 from src.agent.content import extract_text_content, strip_echoed_msg_context
 from src.agent.graph_state import AgentState
+from src.agent.round_cap import tool_round_cap
 from src.agent.tool_node import create_tool_node
 from src.agent.tool_round_check import check_tool_results
 from src.agent.tools import get_available_tools
@@ -94,7 +95,12 @@ def _add_chat_node(
     graph.add_node(
         "chat",
         lambda state, config: chat_node(
-            state, model, use_cache=use_cache, config=config, fallback=fallback
+            state,
+            model,
+            use_cache=use_cache,
+            config=config,
+            fallback=fallback,
+            model_name=model_name,
         ),
     )
 
@@ -191,6 +197,12 @@ def compile_graph(graph: StateGraph[AgentState]) -> Any:
     return graph.compile()
 
 
+_STEPS_PER_ROUND = 3
+
+
 def get_graph_config() -> dict[str, Any]:
     """Build the config dict for graph invoke/stream calls."""
-    return {"recursion_limit": Config.AGENT_RECURSION_LIMIT}
+    # Each round is 3 graph steps (tools, check, chat): room for the backstop's
+    # rounds plus the first and the final chat call, so a long turn answers
+    backstop_steps = _STEPS_PER_ROUND * tool_round_cap() + 3
+    return {"recursion_limit": max(Config.AGENT_RECURSION_LIMIT, backstop_steps)}

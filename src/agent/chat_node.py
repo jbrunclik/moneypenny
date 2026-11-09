@@ -10,10 +10,11 @@ from langgraph.config import get_stream_writer
 
 from src.agent.cancellation import CancelOnToken, raise_if_cancelled
 from src.agent.chat_model import FallbackModel
+from src.agent.content import extract_text_content
 from src.agent.graph_state import AgentState
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
-from src.agent.turn_budget import call_cost_usd, final_reply
+from src.agent.turn_budget import FALLBACK_LINE, call_cost_usd, final_reply, model_view
 from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -55,6 +56,7 @@ def _invoke_with_fallback(
     messages: list[BaseMessage],
     config: RunnableConfig | None,
     fallback: FallbackModel | None,
+    primary: str,
 ) -> tuple[BaseMessage, str | None]:
     """The model's reply, or the other tier's when the model is down (503).
 
@@ -71,7 +73,6 @@ def _invoke_with_fallback(
         if fallback is None or not is_model_unavailable(error):
             raise
         name, backup = fallback()
-        primary = getattr(model, "model_name", "unknown")
         logger.warning(
             "Model unavailable, falling back", extra={"model": primary, "fallback": name}
         )
@@ -107,14 +108,33 @@ def _log_response(response: BaseMessage) -> None:
         logger.debug("No usage_metadata attribute found on AIMessage")
 
 
+def _tell_the_stream(response: AIMessage, reason: str) -> None:
+    """Streaming saves the streamed chunks, not final_reply's result: tell the
+    processor why the turn stopped, which tool calls it drops and the line it
+    adds to an empty reply."""
+    empty = not extract_text_content(response.content).strip()
+    get_stream_writer()(
+        {
+            "type": "turn_stop",
+            "reason": reason,
+            "dropped": [c["id"] for c in response.tool_calls if c["id"]],
+            "fallback": FALLBACK_LINE if empty else None,
+        }
+    )
+
+
 def chat_node(
     state: AgentState,
     model: ChatGoogleGenerativeAI,
     use_cache: bool = False,
     config: RunnableConfig | None = None,
     fallback: FallbackModel | None = None,
+    model_name: str = "unknown",
 ) -> dict[str, Any]:
     """Process messages and generate a response.
+
+    model_name names the turn's model (the Gemini client has no attribute for
+    it): the turn's cost is priced with it, or with the fallback that answered.
 
     use_cache is unused here but kept in the signature for parity with
     check_tool_results (both are bound via lambda in create_chat_graph and
@@ -128,15 +148,20 @@ def chat_node(
     # Shrink tool results the model already consumed in this turn (they are
     # otherwise re-sent in full on every loop iteration)
     age_consumed_tool_messages(messages)
+    # Notes on tool results (wrap-up, batching hint, unchanged repeat) reach
+    # only the model; the state keeps the results parseable
+    messages = model_view(messages)
 
     logger.debug(
         "Invoking LLM",
         extra={
             "message_count": len(messages),
-            "model": model.model_name if hasattr(model, "model_name") else "unknown",
+            "model": model_name,
         },
     )
-    response, fallback_name = _invoke_with_fallback(state, model, messages, config, fallback)
+    response, fallback_name = _invoke_with_fallback(
+        state, model, messages, config, fallback, model_name
+    )
     if fallback_name and isinstance(response, AIMessage):
         response.response_metadata["model_fallback"] = fallback_name
 
@@ -144,12 +169,11 @@ def chat_node(
     # Turn budgets: after a stop this is the last reply - no tool calls, never empty
     reason = state.get("final_answer")
     if reason and isinstance(response, AIMessage):
+        _tell_the_stream(response, reason)
         response = final_reply(response, messages, reason)
-        # Streaming sees only chunks: the processor learns the reason here
-        get_stream_writer()({"type": "turn_stop", "reason": reason})
 
     # The turn's running cost, priced with the model that answered
-    answering = str(fallback_name or getattr(model, "model_name", "unknown"))
+    answering = fallback_name or model_name
     cost = state.get("turn_cost_usd", 0.0)
     if isinstance(response, AIMessage):
         cost += call_cost_usd(response, answering)

@@ -139,8 +139,8 @@ class StreamEventProcessor:
                     "max_retries": event.get("max_retries"),
                 }
             elif isinstance(event, dict) and event.get("type") == "turn_stop":
-                # Turn budgets (chat_node.chat_node): usage_info carries it, the client not
-                self.stopped_by = str(event.get("reason"))
+                # Turn budgets (chat_node._tell_the_stream): usage_info carries it
+                yield from self._turn_stop(event)
             elif isinstance(event, dict) and event.get("type") == "model_fallback":
                 # The other model tier took over (chat_node.chat_node); client notes it
                 yield {"type": "model_fallback", "to": event.get("to")}
@@ -161,6 +161,39 @@ class StreamEventProcessor:
         # Process AI message chunks
         if isinstance(message_chunk, AIMessageChunk):
             yield from self._ai_chunk(message_chunk, source_node)
+
+    def _turn_stop(self, event: dict[str, object]) -> Iterator[dict[str, object]]:
+        """The final reply's changes the chunks did not carry: its dropped tool
+        calls end (they never run, nor count as made) and an empty reply gets
+        the fallback line."""
+        self.stopped_by = str(event.get("reason"))
+        ids = event.get("dropped")
+        dropped = {str(i) for i in ids} if isinstance(ids, list) else set()
+        if dropped:
+            yield from self._drop_tool_calls(dropped)
+        fallback = event.get("fallback")
+        if isinstance(fallback, str) and fallback:
+            text = f"\n\n{fallback}" if self.full_response.strip() else fallback
+            self.full_response += text
+            self.token_yield_count += 1
+            yield {"type": "token", "text": text}
+
+    def _drop_tool_calls(self, dropped: set[str]) -> Iterator[dict[str, object]]:
+        names: dict[str, str] = {}
+        kept: list[BaseMessage] = []
+        for message in self.all_messages:
+            if isinstance(message, AIMessageChunk) and message.tool_calls:
+                names.update({c["id"]: c["name"] for c in message.tool_calls if c["id"]})
+                calls = [c for c in message.tool_calls if c["id"] not in dropped]
+                chunks = [c for c in message.tool_call_chunks if c.get("id") not in dropped]
+                message = message.model_copy(
+                    update={"tool_calls": calls, "tool_call_chunks": chunks}
+                )
+            kept.append(message)
+        self.all_messages = kept
+        for call_id in dropped & self.pending_tool_calls:
+            self.pending_tool_calls.discard(call_id)
+            yield {"type": "tool_end", "tool": names.get(call_id, "")}
 
     def _tool_message(self, message_chunk: ToolMessage) -> Iterator[dict[str, Any]]:
         self.tool_results.append(

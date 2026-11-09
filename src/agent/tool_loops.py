@@ -5,7 +5,7 @@ turn: a call that failed TURN_LOOP_BLOCK_AFTER times is answered with an
 error instead of running again, rounds alternating between the same two
 calls (A-B-A-B) get one warning, a successful write resets the counts (the
 world changed, so a retry may now work), and a large byte-identical repeat
-result becomes a back-reference instead of being re-read.
+result is noted as unchanged (its content stays: the earlier copy was aged).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from src.agent.permissions import WRITE_LEVEL_TOOLS
+from src.agent.turn_budget import with_note
 from src.config import Config
 from src.utils.logging import get_logger
 
@@ -32,7 +33,7 @@ BLOCKED_MESSAGE = (
     "This exact call already failed twice this turn - change the approach or answer "
     "with what you have."
 )
-BACK_REFERENCE = "Same result as the earlier identical call (unchanged)."
+UNCHANGED_NOTE = "\n\n[Same result as the earlier identical call - nothing changed.]"
 AB_WARNING = (
     "You are alternating between the same two calls without new information. Change the "
     "approach, or answer with what you have."
@@ -119,7 +120,8 @@ def loop_state(state: AgentState) -> tuple[dict[str, object], str | None]:
 def dedupe_results(
     results: Sequence[ToolMessage], calls: Sequence[ToolCall], seen: Mapping[str, str]
 ) -> tuple[list[ToolMessage], dict[str, str]]:
-    """Results with large byte-identical repeats replaced by a back-reference,
+    """Results with large byte-identical repeats noted as unchanged (for the
+    model only - the earlier copy was cut once consumed, so the content stays),
     and the updated signature -> content-hash map."""
     by_id = {c["id"]: c for c in calls}
     seen_now = dict(seen)
@@ -133,7 +135,7 @@ def dedupe_results(
         sig = _signature(call)
         digest = hashlib.sha1(content.encode()).hexdigest()  # noqa: S324 - identity, not security
         if seen_now.get(sig) == digest:
-            out.append(result.model_copy(update={"content": BACK_REFERENCE}))
+            out.append(with_note(result, UNCHANGED_NOTE))
         else:
             seen_now[sig] = digest
             out.append(result)

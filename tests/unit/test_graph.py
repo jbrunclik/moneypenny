@@ -18,6 +18,7 @@ from src.agent.graph import (
 from src.agent.graph_state import AgentState
 from src.agent.tool_node import create_tool_node
 from src.agent.tool_round_check import check_tool_results
+from src.agent.turn_budget import initial_state
 from src.config import Config
 
 
@@ -463,6 +464,48 @@ class TestGraphCompilation:
         config = get_graph_config()
         assert "recursion_limit" in config
         assert "configurable" not in config
+
+
+class TestBackstopBeforeRecursionLimit:
+    """The round backstop must fire before LangGraph's recursion limit, or a
+    long cheap turn errors instead of answering (3 graph steps per round)."""
+
+    @patch("src.agent.graph.get_available_tools")
+    @patch("src.agent.graph.create_chat_model")
+    def test_twenty_rounds_end_in_an_answer(
+        self, mock_create: MagicMock, mock_tools: MagicMock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(Config, "TURN_MAX_TOOL_ROUNDS", 20)
+        monkeypatch.setattr(Config, "AGENT_RECURSION_LIMIT", 50)
+        monkeypatch.setattr(Config, "TURN_COST_LIMIT_USD", 100.0)
+        monkeypatch.setattr(Config, "TURN_TIME_BUDGET_SECONDS", 10_000.0)
+
+        @tool
+        def lookup(q: str) -> str:
+            """Look something up."""
+            return f"nothing for {q}"
+
+        mock_tools.return_value = [lookup]
+        calls = iter(range(1000))
+
+        def reply(*_args: Any, **_kwargs: Any) -> AIMessage:
+            n = next(calls)
+            return AIMessage(
+                content="", tool_calls=[{"name": "lookup", "args": {"q": f"q{n}"}, "id": f"c{n}"}]
+            )
+
+        model = MagicMock(spec=["invoke"])
+        model.invoke.side_effect = reply
+        mock_create.return_value = model
+        compiled = compile_graph(create_chat_graph("test-model"))
+
+        result = compiled.invoke(
+            initial_state([HumanMessage(content="find it")]), config=get_graph_config()
+        )
+
+        assert result["final_answer"] == "rounds"
+        assert result["tool_rounds"] == 20
+        assert not result["messages"][-1].tool_calls
 
 
 # ============ Graph Structure Tests ============

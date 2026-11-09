@@ -7,11 +7,17 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from src.agent import chat_node as chat_node_module
 from src.agent.chat_node import chat_node
-from src.agent.turn_budget import call_cost_usd, initial_state
+from src.agent.content import extract_image_prompts_from_messages
+from src.agent.turn_budget import (
+    call_cost_usd,
+    initial_state,
+    model_view,
+    with_note,
+)
 from src.config import Config
 from src.services.costs import calculate_token_cost
 
@@ -78,6 +84,15 @@ class TestTheTurnsBudget:
         state: Any = {**initial_state([HumanMessage(content="hi")]), "model_fallback": ADVANCED}
 
         out = chat_node(state, primary, fallback=lambda: (ADVANCED, backup))
+
+        assert out["turn_cost_usd"] == pytest.approx(calculate_token_cost(ADVANCED, 1000, 100))
+
+    def test_cost_uses_the_turn_model_by_name(self) -> None:
+        """A real Gemini model has no model_name attribute: the graph passes the name."""
+        model = MagicMock(spec=["invoke"])
+        model.invoke.return_value = _reply()
+
+        out = chat_node(initial_state([HumanMessage(content="hi")]), model, model_name=ADVANCED)
 
         assert out["turn_cost_usd"] == pytest.approx(calculate_token_cost(ADVANCED, 1000, 100))
 
@@ -171,7 +186,9 @@ class TestLimits:
         assert out["wrap_up_noticed"] is True
         [notice] = out["messages"]
         assert isinstance(notice, ToolMessage) and notice.id == state["messages"][-1].id
-        assert str(notice.content).endswith("finish with what you have in your next reply.]")
+        assert notice.content == "result"  # the stored result stays parseable
+        [seen] = model_view([notice])
+        assert str(seen.content).endswith("finish with what you have in your next reply.]")
         again = check_tool_results({**_after_tools(now=210), "wrap_up_noticed": True})
         assert "messages" not in again
 
@@ -281,7 +298,9 @@ class TestStoppedBy:
         out = chat_node(_final_state(), model)
 
         assert out["messages"][0].response_metadata["turn_stop"] == "time"
-        writer.assert_any_call({"type": "turn_stop", "reason": "time"})
+        writer.assert_any_call(
+            {"type": "turn_stop", "reason": "time", "dropped": [], "fallback": None}
+        )
 
     def test_batch_usage_carries_the_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
         reply = AIMessage(content="Done.", response_metadata={"turn_stop": "cost"})
@@ -308,8 +327,74 @@ class TestBatchingHint:
         out = check_tool_results(state)
 
         [hinted] = out["messages"]
-        assert hinted.id == "t1" and "several queries in one call" in str(hinted.content)
-        assert "answer" not in str(hinted.content).split("]")[-1]  # no pressure to finish
+        assert hinted.id == "t1" and hinted.content == "result"
+        [seen] = model_view([hinted])
+        assert "several queries in one call" in str(seen.content)
+        assert "answer" not in str(seen.content).split("]")[-1]  # no pressure to finish
         assert out["batching_hinted"] is True
         later = check_tool_results({**_after_tools(tool_rounds=3), "batching_hinted": True})
         assert "messages" not in later
+
+
+class TestNotesReachOnlyTheModel:
+    def test_the_model_sees_the_note_the_state_keeps_the_result(self) -> None:
+        result = ToolMessage(content='{"results": []}', tool_call_id="c1", id="t1")
+        noted = with_note(with_note(result, "[one]"), "[two]")
+        model = MagicMock(spec=["invoke"])
+        model.invoke.return_value = AIMessage(content="ok")
+        call = AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c1"}])
+
+        chat_node(initial_state([HumanMessage(content="hi"), call, noted]), model, model_name=FAST)
+
+        sent = model.invoke.call_args.args[0][-1]
+        assert sent.content == '{"results": []}[one][two]'
+        assert noted.content == '{"results": []}'
+
+
+class TestStreamedFinalReply:
+    def _stream(self, *events: tuple[str, Any]) -> dict[str, Any]:
+        processor = StreamEventProcessor([HumanMessage(content="go")])
+        out: list[dict[str, Any]] = []
+        for mode, event in events:
+            out.extend(processor.process(mode, event))
+        out.extend(processor.finish(0.0))
+        return {"events": out, "final": out[-1]}
+
+    def test_an_empty_final_reply_streams_the_fallback_line(self) -> None:
+        chunk = AIMessageChunk(
+            content="",
+            tool_calls=[{"name": "generate_image", "args": {"prompt": "x"}, "id": "c9"}],
+        )
+        stop = {"type": "turn_stop", "reason": "time", "dropped": ["c9"], "fallback": FALLBACK_LINE}
+
+        run = self._stream(("messages", (chunk, {"langgraph_node": "chat"})), ("custom", stop))
+
+        assert run["final"]["content"] == FALLBACK_LINE
+        assert {"type": "token", "text": FALLBACK_LINE} in run["events"]
+        assert {"type": "tool_end", "tool": "generate_image"} in run["events"]
+        assert extract_image_prompts_from_messages(run["final"]["result_messages"]) == []
+        assert run["final"]["usage_info"]["stopped_by"] == "time"
+
+    def test_the_fallback_follows_earlier_streamed_text(self) -> None:
+        chunk = AIMessageChunk(content="Found two of three.")
+        stop = {"type": "turn_stop", "reason": "cost", "dropped": [], "fallback": FALLBACK_LINE}
+
+        run = self._stream(("messages", (chunk, {"langgraph_node": "chat"})), ("custom", stop))
+
+        assert run["final"]["content"] == f"Found two of three.\n\n{FALLBACK_LINE}"
+
+    def test_chat_node_tells_the_stream_what_it_dropped_and_added(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        writer = MagicMock()
+        monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: writer)
+        model = MagicMock(spec=["invoke"])
+        model.invoke.return_value = AIMessage(
+            content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}]
+        )
+
+        chat_node(_final_state(), model, model_name=FAST)
+
+        writer.assert_any_call(
+            {"type": "turn_stop", "reason": "time", "dropped": ["c9"], "fallback": FALLBACK_LINE}
+        )

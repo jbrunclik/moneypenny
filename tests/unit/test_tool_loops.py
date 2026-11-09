@@ -1,6 +1,6 @@
 """Turn budgets' loop detector: an identical failing call is blocked after
 it failed twice, A-B-A-B rounds get one warning, and a large byte-identical
-repeat result becomes a back-reference."""
+repeat result is noted as unchanged."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.agent.tool_loops import (
-    BACK_REFERENCE,
+    UNCHANGED_NOTE,
     blocked_calls,
     call_signature,
     dedupe_results,
@@ -18,7 +18,7 @@ from src.agent.tool_loops import (
     loop_state,
 )
 from src.agent.tool_round_check import check_tool_results
-from src.agent.turn_budget import budget_stop, initial_state
+from src.agent.turn_budget import budget_stop, initial_state, model_view
 from src.config import Config
 
 
@@ -94,14 +94,17 @@ def test_ab_cycle_warns_once() -> None:
     assert "messages" not in again or "alternating" not in str(again["messages"][-1].content)
 
 
-def test_identical_large_result_becomes_a_back_reference() -> None:
+def test_identical_large_result_keeps_its_content_and_says_unchanged() -> None:
+    """The earlier copy was aged (cut) once consumed, so a repeat keeps its full
+    content - the model may have refetched to read past the cut."""
     big = "x" * 2500
     calls = [_call()]
     seen: dict[str, str] = {}
     first, seen = dedupe_results([_ok(content=big)], calls, seen)
     second, seen = dedupe_results([_ok(content=big)], calls, seen)
-    assert first[0].content == big
-    assert second[0].content == BACK_REFERENCE
+    assert first[0].content == big and model_view(first)[0].content == big
+    assert second[0].content == big
+    assert model_view(second)[0].content == big + UNCHANGED_NOTE
 
 
 def test_small_identical_result_is_kept() -> None:

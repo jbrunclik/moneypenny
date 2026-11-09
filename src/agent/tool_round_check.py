@@ -21,6 +21,7 @@ from src.agent.turn_budget import (
     batching_hint_due,
     budget_stop,
     log_stop,
+    with_note,
     wrap_up_due,
 )
 from src.config import Config
@@ -128,7 +129,7 @@ def _budget_update(
     latest = state["messages"][-1] if state["messages"] else None
     if wrap_up_due(state) and isinstance(latest, ToolMessage):
         logger.info("Turn wrap-up notice", extra={"tool_rounds": tool_rounds})
-        notice = latest.model_copy(update={"content": f"{latest.content}{WRAP_UP_NOTICE}"})
+        notice = with_note(latest, WRAP_UP_NOTICE)
         return {
             "tool_rounds": tool_rounds,
             "wrap_up_noticed": True,
@@ -136,7 +137,7 @@ def _budget_update(
         }
     if batching_hint_due(state, tool_rounds) and isinstance(latest, ToolMessage):
         logger.info("Turn batching hint", extra={"tool_rounds": tool_rounds})
-        hinted = latest.model_copy(update={"content": f"{latest.content}{BATCHING_HINT}"})
+        hinted = with_note(latest, BATCHING_HINT)
         return {
             "tool_rounds": tool_rounds,
             "batching_hinted": True,

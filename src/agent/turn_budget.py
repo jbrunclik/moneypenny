@@ -19,7 +19,7 @@ from src.services.costs import calculate_token_cost
 from src.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from langchain_core.messages import AIMessage, BaseMessage
+    from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
     from src.agent.graph_state import AgentState
 
@@ -119,6 +119,34 @@ def log_stop(reason: StopReason, state: AgentState, tool_rounds: int) -> None:
 # An empty last reply still tells the user where things stand
 FALLBACK_LINE = "I stopped before finishing - say *continue* and I'll pick up from here."
 _GUIDANCE_PREFIX = "[SYSTEM GUIDANCE]"
+
+# A note for the model on a tool result, kept beside the content: the stored
+# result stays parseable for source chips, artifacts and grounding (Oct 2026:
+# a research JSON with text appended lost its pages)
+_NOTE_KEY = "turn_note"
+
+
+def with_note(message: ToolMessage, note: str) -> ToolMessage:
+    """The tool result with a note for the model (added to any earlier note)."""
+    kwargs = dict(message.additional_kwargs)
+    kwargs[_NOTE_KEY] = f"{kwargs.get(_NOTE_KEY, '')}{note}"
+    return message.model_copy(update={"additional_kwargs": kwargs})
+
+
+def model_view(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """The messages as the model sees them: notes appended to their results."""
+    from langchain_core.messages import ToolMessage  # noqa: PLC0415 - typing-only above
+
+    out: list[BaseMessage] = []
+    for message in messages:
+        note = message.additional_kwargs.get(_NOTE_KEY)
+        if isinstance(message, ToolMessage) and note and isinstance(message.content, str):
+            kwargs = {k: v for k, v in message.additional_kwargs.items() if k != _NOTE_KEY}
+            message = message.model_copy(
+                update={"content": f"{message.content}{note}", "additional_kwargs": kwargs}
+            )
+        out.append(message)
+    return out
 
 
 def final_reply(response: AIMessage, history: list[BaseMessage], reason: str) -> AIMessage:

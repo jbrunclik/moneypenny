@@ -799,7 +799,8 @@ class Config:
     )
 
     # Graph recursion limit: max graph steps per request (navigate+screenshot+click = multiple steps)
-    # Browser automation needs more headroom than simple tool calls
+    # Browser automation needs more headroom than simple tool calls. A floor:
+    # get_graph_config raises it so the turn's round backstop always fires first
     AGENT_RECURSION_LIMIT: int = int(os.getenv("AGENT_RECURSION_LIMIT", "50"))
 
     # Compiled-graph LRU cache: the chat graph is a pure function of its build
@@ -833,7 +834,7 @@ class Config:
     TURN_BATCHING_HINT_ROUND: int = int(os.getenv("TURN_BATCHING_HINT_ROUND", "3"))
     # An identical call that failed this many times is blocked from then on
     TURN_LOOP_BLOCK_AFTER: int = int(os.getenv("TURN_LOOP_BLOCK_AFTER", "2"))
-    # A byte-identical repeat result at least this long becomes a back-reference
+    # A byte-identical repeat result at least this long gets an "unchanged" note
     TURN_DUPLICATE_RESULT_MIN_CHARS: int = int(os.getenv("TURN_DUPLICATE_RESULT_MIN_CHARS", "2000"))
 
     # Within one turn, every ToolMessage is re-sent to the LLM on each loop
