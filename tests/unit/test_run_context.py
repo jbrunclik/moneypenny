@@ -78,6 +78,12 @@ class TestTriggerMessage:
         assert msg.startswith("[Triggered by another agent at ")
         assert "Message from triggering agent: Focus on AAPL earnings" in msg
 
+    def test_an_approval_resume_carries_the_outcome_as_is(self) -> None:
+        msg = build_trigger_message("approval", "[Action approved: Todoist: add task]")
+        assert msg.startswith("[Resumed after your answer at ")
+        assert msg.endswith("\n\n[Action approved: Todoist: add task]")
+        assert "triggering agent" not in msg
+
     @pytest.mark.parametrize("extra", ["Continue", None, "   "])
     def test_ignores_an_empty_or_default_message(self, extra: str | None) -> None:
         # "Continue" is the legacy default of trigger_agent's message arg and

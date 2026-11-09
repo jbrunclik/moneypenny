@@ -79,7 +79,8 @@ permanent delete) deletes its proposals and their payloads.
   the whole message, casefolded, trailing punctuation dropped. Yes words
   (`yes`, `ok`, `do it`, `ano`, `jo`, `jasně`, `dobře`, 👍, ...) approve a
   one-option card; `1`-`4` or an option's exact label pick among several (a
-  yes then answers nothing); no words (`no`, `not now`, `ne`, `zrušit`, 👎)
+  yes then answers nothing - unless the kind registered `yes_is_first`: a
+  run card's yes is Approve, Always allow its `2`); no words (`no`, `not now`, `ne`, `zrušit`, 👎)
   decline. They resolve **every** pending card on the latest reply showing
   any. Any other message expires the conversation's pending cards - the user
   moved on - and a reply that never saved its card (the turn failed) leaves it

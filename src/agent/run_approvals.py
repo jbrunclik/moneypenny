@@ -156,7 +156,7 @@ def _resume(proposal: Proposal, message: str) -> None:
 
     def run() -> None:
         try:
-            run_job_now(job, user, message=message)
+            run_job_now(job, user, message=message, trigger="approval")
         except (JobHeldError, JobBusyError) as held:  # the approval stands
             logger.info(
                 "Job not resumed after a card", extra={"job_id": job.id, "reason": str(held)}
@@ -241,4 +241,4 @@ def expire_stale_run_cards(now: datetime) -> int:
     return len(expired)
 
 
-register_kind(KIND, apply_agent_action, decline=decline_agent_action)
+register_kind(KIND, apply_agent_action, decline=decline_agent_action, yes_is_first=True)

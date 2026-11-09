@@ -87,10 +87,13 @@ def build_trigger_message(trigger_type: str, extra_message: str | None = None) -
         "scheduled": f"[Scheduled run at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
         "manual": f"[Manual trigger at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
         "agent_trigger": f"[Triggered by another agent at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
+        "approval": f"[Resumed after your answer at {now.strftime('%Y-%m-%d %H:%M UTC')}]",
     }
     message = templates.get(trigger_type, f"[Triggered: {trigger_type}]")
     extra = (extra_message or "").strip()
-    if extra and extra != "Continue":
+    if extra and trigger_type == "approval":  # the outcome, as the run needs it
+        message += f"\n\n{extra}"
+    elif extra and extra != "Continue":
         message += f"\n\nMessage from triggering agent: {extra}"
     return message
 

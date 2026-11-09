@@ -52,6 +52,8 @@ Apply = Callable[[Proposal, ProposalOption], str]
 Decline = Callable[[Proposal], None]
 _KINDS: dict[str, Apply] = {}
 _DECLINES: dict[str, Decline] = {}
+# Kinds whose first option is the plain yes (the others are extras)
+_YES_FIRST: set[str] = set()
 
 
 class ProposalFailedError(Exception):
@@ -62,10 +64,15 @@ class ProposalNotPendingError(Exception):
     """The proposal was answered, expired or superseded already."""
 
 
-def register_kind(kind: str, apply: Apply, decline: Decline | None = None) -> None:
+def register_kind(
+    kind: str, apply: Apply, decline: Decline | None = None, *, yes_is_first: bool = False
+) -> None:
     """Register how a kind's chosen option is applied (returns the result
-    line), and what a decline does besides recording it (a paused run ends)."""
+    line), what a decline does besides recording it (a paused run ends), and
+    whether a typed yes picks its first option when it offers several."""
     _KINDS[kind] = apply
+    if yes_is_first:
+        _YES_FIRST.add(kind)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -131,13 +138,18 @@ def _normalized(text: str) -> str:
     return _TRAILING.sub("", text.strip().casefold())
 
 
-def typed_answer(text: str, options: list[ProposalOption]) -> int | NoAnswer | None:
+def typed_answer(
+    text: str, options: list[ProposalOption], *, yes_is_first: bool = False
+) -> int | NoAnswer | None:
     """The option a typed message picks, None for a no, or NO_ANSWER."""
     said = _normalized(text)
     if said in _NO:
         return None
-    if len(options) == 1:
-        return 0 if said in _YES else NO_ANSWER
+    if len(options) == 1 or yes_is_first:
+        if said in _YES:
+            return 0
+        if len(options) == 1:
+            return NO_ANSWER
     if said.isdigit() and 1 <= int(said) <= len(options):
         return int(said) - 1
     labels = [_normalized(o["label"]) for o in options]
@@ -193,7 +205,9 @@ def answer_typed(conversation_id: str, text: str, turn_running: bool = False) ->
     if not on_reply:
         db.expire_proposals(conversation_id, keep_unlinked=turn_running)
         return []
-    answers = [(p, typed_answer(text, p.options)) for p in on_reply]
+    answers = [
+        (p, typed_answer(text, p.options, yes_is_first=p.kind in _YES_FIRST)) for p in on_reply
+    ]
     if all(answer == NO_ANSWER for _, answer in answers):
         db.expire_proposals(conversation_id, keep_unlinked=turn_running)
         return []

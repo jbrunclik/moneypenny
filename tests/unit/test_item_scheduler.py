@@ -638,3 +638,16 @@ def test_run_job_now_refuses_a_job_waiting_for_approval(
         item_scheduler.run_job_now(job, test_user)
 
     runs.assert_not_called()
+
+
+def test_a_run_resumed_after_an_approval_pushes_its_report(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock, runs: MagicMock
+) -> None:
+    """The user may have tapped Approve from a push and left: the report
+    of the run their answer resumed reaches them the same way."""
+    job = _job(db, test_user, test_conversation)
+    runs.return_value = RunOutcome("report", "Added the task.")
+
+    item_scheduler.run_job_now(job, test_user, message="[Action approved: x]", trigger="approval")
+
+    push.assert_called_once()

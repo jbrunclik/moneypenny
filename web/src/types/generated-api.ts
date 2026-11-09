@@ -7652,7 +7652,7 @@ export interface components {
             status: string;
             /**
              * Trigger Type
-             * @description scheduled, manual, agent_trigger
+             * @description scheduled, manual, agent_trigger, approval
              */
             trigger_type: string;
             /**
@@ -9828,7 +9828,7 @@ export interface components {
             status: components["schemas"]["RunJobResponse.JobRunStatus"];
             /**
              * Trigger Type
-             * @description scheduled, manual, agent_trigger
+             * @description scheduled, manual, agent_trigger, approval
              */
             trigger_type: string;
             /**
@@ -10038,7 +10038,7 @@ export interface components {
             status: components["schemas"]["JobRunsListResponse.JobRunStatus"];
             /**
              * Trigger Type
-             * @description scheduled, manual, agent_trigger
+             * @description scheduled, manual, agent_trigger, approval
              */
             trigger_type: string;
             /**

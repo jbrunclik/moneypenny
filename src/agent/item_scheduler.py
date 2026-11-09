@@ -140,6 +140,10 @@ class JobHeldError(Exception):
     the message says why."""
 
 
+# How a report from an off-schedule run is labelled
+_DELIVERY_TAGS: dict[str, str] = {"manual": "run now", "approval": "after your answer"}
+
+
 def run_job_now(
     item: ScheduledItem,
     user: User,
@@ -148,9 +152,11 @@ def run_job_now(
     trigger: RunTrigger = "manual",
     trigger_chain: list[str] | None = None,
 ) -> RunOutcome:
-    """Run a standing job now - by hand (Run, resuming after an approval) or
-    triggered by another agent - and post its report; no failure counting.
-    A hand-started run does not push (the user is in the app).
+    """Run a standing job now - by hand (Run), resumed after the user
+    answered its cards (approval), or triggered by another agent - and post
+    its report; no failure counting. A hand-started run does not push (the
+    user is in the app); a resumed one does (they may have answered from a
+    push and left).
 
     The job is claimed for the run like a due one, so the scheduler (or a
     second tap) cannot run it at the same time - writes would happen twice.
@@ -167,7 +173,7 @@ def run_job_now(
             item, user, trigger=trigger, message=message, trigger_chain=trigger_chain
         )
         if outcome.status in {"report", "done"} and outcome.text:
-            tag = "run now" if trigger == "manual" else "triggered"
+            tag = _DELIVERY_TAGS.get(trigger, "triggered")
             label = delivery_label(item.kind, utc_now(), Config.APP_TIMEZONE, tag)
             deliver(item, outcome.text, label, push=trigger != "manual", outcome=outcome)
     finally:

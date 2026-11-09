@@ -45,7 +45,7 @@ class JobRunResponse(ResponseModel):
     """One run of a standing job (its audit trail, in the job list)."""
 
     status: str = Field(description="running, completed, failed, waiting_approval")
-    trigger_type: str = Field(description="scheduled, manual, agent_trigger")
+    trigger_type: str = Field(description="scheduled, manual, agent_trigger, approval")
     started_at: Timestamp
     error: str | None = Field(default=None, description="Why it failed, shortened")
 
@@ -56,7 +56,7 @@ class JobRunRecordResponse(ResponseModel):
     id: str
     item_id: str
     status: JobRunStatus
-    trigger_type: str = Field(description="scheduled, manual, agent_trigger")
+    trigger_type: str = Field(description="scheduled, manual, agent_trigger, approval")
     triggered_by_job_id: str | None = None
     started_at: Timestamp
     completed_at: Timestamp | None = None

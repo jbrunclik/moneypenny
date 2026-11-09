@@ -81,6 +81,23 @@ def test_approving_resumes_that_run_with_the_call_to_reissue(
     assert execution.status == "completed"
 
 
+def test_the_resume_is_an_approval_run(
+    run: tuple[Any, JobContext], test_database: Database
+) -> None:
+    """It runs (and reports, with a push) as a resume, not a hand-started run."""
+    _agent, context = run
+    card = _park(test_database, context, {"operation": "add_task", "content": "Buy milk"})
+
+    with (
+        patch("src.agent.item_scheduler.run_job_now") as run_now,
+        patch("src.agent.run_approvals.threading.Thread") as thread,
+    ):
+        resolve(card, 0, "button")
+        thread.call_args.kwargs["target"]()
+
+    assert run_now.call_args.kwargs["trigger"] == "approval"
+
+
 def test_always_allow_grants_the_write_level(
     run: tuple[Any, JobContext], test_database: Database
 ) -> None:
@@ -92,6 +109,39 @@ def test_always_allow_grants_the_write_level(
 
     job = test_database.get_item(agent.id, agent.user_id)
     assert job is not None and "todoist:write" in (job.grants or [])
+
+
+def test_always_allow_never_covers_a_destructive_call(
+    run: tuple[Any, JobContext], test_database: Database
+) -> None:
+    """After Always allow, writes pass without a card; a delete still asks."""
+    agent, context = run
+    card = _park(test_database, context, {"operation": "add_task", "content": "Buy milk"})
+    with patch("src.agent.run_approvals._resume"):
+        resolve(card, 1, "button")
+    job = test_database.get_item(agent.id, agent.user_id)
+    assert job is not None
+    set_job_context(JobContext(item=job, user=context.user, name=agent.name, trigger_chain=[]))
+
+    check_autonomous_permission("todoist", {"operation": "add_task", "content": "Eggs"})
+    with pytest.raises(ApprovalRequestedException):
+        check_autonomous_permission("todoist", {"operation": "delete_task", "task_id": "t1"})
+
+
+def test_a_typed_yes_approves_a_card_that_also_offers_always_allow(
+    run: tuple[Any, JobContext], test_database: Database
+) -> None:
+    """Yes means Approve (the extra option is picked by its number or label)."""
+    from src.agent.proposals import answer_typed
+
+    agent, context = run
+    card = _park(test_database, context, {"operation": "add_task", "content": "Buy milk"})
+    assert len(card.options) == 2
+
+    with patch("src.agent.run_approvals._resume"):
+        [answered] = answer_typed(agent.conversation_id, "yes")
+
+    assert (answered.id, answered.state, answered.chosen) == (card.id, "approved", 0)
 
 
 def test_declining_ends_the_run(run: tuple[Any, JobContext], test_database: Database) -> None:

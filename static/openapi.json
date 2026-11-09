@@ -7080,7 +7080,7 @@
             "type": "string"
           },
           "trigger_type": {
-            "description": "scheduled, manual, agent_trigger",
+            "description": "scheduled, manual, agent_trigger, approval",
             "title": "Trigger Type",
             "type": "string"
           },
@@ -11205,7 +11205,7 @@
             "$ref": "#/components/schemas/RunJobResponse.JobRunStatus"
           },
           "trigger_type": {
-            "description": "scheduled, manual, agent_trigger",
+            "description": "scheduled, manual, agent_trigger, approval",
             "title": "Trigger Type",
             "type": "string"
           },
@@ -11597,7 +11597,7 @@
             "$ref": "#/components/schemas/JobRunsListResponse.JobRunStatus"
           },
           "trigger_type": {
-            "description": "scheduled, manual, agent_trigger",
+            "description": "scheduled, manual, agent_trigger, approval",
             "title": "Trigger Type",
             "type": "string"
           },

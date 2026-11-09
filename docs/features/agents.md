@@ -188,7 +188,8 @@ proposal, [proposals](proposals.md); `src/agent/run_approvals.py`):
 4. Each answer leaves a plain `[Action approved/rejected: ...]` note in the
    chat. Once every card of the paused run is answered, the run closes -
    `completed` if anything was approved, then the job re-runs in the
-   background, told the exact calls to re-issue; `rejected` otherwise. Only
+   background (trigger `approval`: its report pushes - the answer may have
+   come from a push), told the exact calls to re-issue; `rejected` otherwise. Only
    the identical call consumes an approval, once (`consume_run_approval`;
    a card still applying counts, as the rerun can start first). Always allow
    also grants `<tool>:write`. An approved settings change applies itself,

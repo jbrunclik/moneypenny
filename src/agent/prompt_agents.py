@@ -26,7 +26,7 @@ def get_autonomous_agent_prompt(
         agent_timezone: The agent's timezone
         agent_goals: The agent's system prompt / goals
         agent_tools: List of permitted tool names
-        trigger_type: How the agent was triggered (scheduled, manual, agent_trigger)
+        trigger_type: How the agent was triggered (scheduled, manual, agent_trigger, approval)
 
     Returns:
         Formatted autonomous agent prompt section
@@ -48,6 +48,7 @@ def get_autonomous_agent_prompt(
         "scheduled": "Scheduled run (automatic)",
         "manual": "Manual trigger by user",
         "agent_trigger": "Triggered by another agent",
+        "approval": "Resumed after the user answered its approval request",
     }
     trigger_context = trigger_context_map.get(trigger_type, trigger_type)
 

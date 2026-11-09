@@ -171,7 +171,7 @@ def _run_message(item: ScheduledItem, trigger: str, message: str | None) -> str:
     return RECURRING_RUN_PROMPT.format(text=item.text, last_result=previous)
 
 
-RunTrigger = Literal["scheduled", "manual", "agent_trigger"]
+RunTrigger = Literal["scheduled", "manual", "agent_trigger", "approval"]
 
 
 def _tools(item: ScheduledItem) -> list[BaseTool]:
