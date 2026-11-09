@@ -287,6 +287,41 @@ class ApprovalRequest:
     expires_at: datetime | None = None  # When this approval request expires
 
 
+ProposalState = Literal["pending", "approved", "declined", "expired", "superseded", "failed"]
+
+
+class ProposalOption(TypedDict):
+    """One choice on a proposal card: its label, a line about it, and exactly
+    what choosing it applies (kept server-side)."""
+
+    label: str
+    description: str
+    payload: dict[str, object]
+
+
+@dataclass
+class Proposal:
+    """Something awaiting the user's yes, shown as a card under its reply
+    (docs/features/proposals.md)."""
+
+    id: str
+    user_id: str
+    conversation_id: str
+    message_id: str | None  # the reply that shows it (set when the reply is saved)
+    request_id: str  # the turn that filed it
+    kind: str
+    summary: str
+    details: dict[str, object]
+    options: list[ProposalOption]
+    state: ProposalState
+    chosen: int | None
+    result: str | None  # what applying did, or why it failed
+    resolved_by: str | None  # "button" | "typed" | "system"
+    reported: bool  # the agent has been told the outcome
+    created_at: datetime
+    resolved_at: datetime | None
+
+
 @dataclass
 class JobRun:
     """One run of a job (a standing job or a watcher / recurring item)."""

@@ -37,6 +37,8 @@ from src.db.models.dataclasses import (
     Memory,
     Message,
     MessagePagination,
+    Proposal,
+    ProposalOption,
     PushSubscription,
     SearchResult,
     StandingChat,
@@ -66,6 +68,7 @@ from src.db.models.message_files import MessageFileMixin
 from src.db.models.message_pagination import MessagePaginationMixin
 from src.db.models.planner import PlannerMixin
 from src.db.models.programs import ProgramConversationMixin
+from src.db.models.proposals import ProposalsMixin
 from src.db.models.push import PushSubscriptionMixin
 from src.db.models.scheduled_items import ScheduledItemsMixin
 from src.db.models.search import SearchMixin
@@ -101,6 +104,7 @@ class Database(
     SettingsMixin,
     StandingChatMixin,
     WhatsNewMixin,
+    ProposalsMixin,
     JobApprovalMixin,
     JobRunMixin,
     KVStoreMixin,
@@ -218,6 +222,8 @@ __all__ = [  # noqa: RUF022 - grouped by kind, not alphabetically
     "JobRun",
     "StandingChat",
     "PushSubscription",
+    "Proposal",
+    "ProposalOption",
     # Helper functions
     "make_blob_key",
     "make_thumbnail_key",
