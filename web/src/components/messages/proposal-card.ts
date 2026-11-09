@@ -135,10 +135,14 @@ function outcomeText(proposal: Proposal): string {
  *  A deep_research card's body is the plan editor (research-offer.ts). */
 export function renderProposalCard(proposal: Proposal, options: { live?: boolean } = {}): HTMLElement {
   const research = proposal.kind === 'deep_research' ? renderResearchCard(proposal, options) : null;
-  if (research) return research;
+  if (research) {
+    research.dataset.proposalState = proposal.state;
+    return research;
+  }
   const card = createElement('div', {
     class: `${CARD_CLASS} ${CARD_CLASS}--${proposal.kind.replaceAll('_', '-')}`,
     'data-proposal-id': proposal.id,
+    'data-proposal-state': proposal.state,
   });
   if (proposal.state !== 'pending') {
     card.classList.add(`${CARD_CLASS}--resolved`, `${CARD_CLASS}--${proposal.state}`);
@@ -179,7 +183,17 @@ export function decorateProposals(
     list = createElement('div', { class: LIST_CLASS });
     content.insertAdjacentElement('afterend', list);
   }
-  list.replaceChildren(...shown.map((proposal) => renderProposalCard(proposal, options)));
+  // A card whose answer did not change keeps its element: a sync re-decorating
+  // the reply must not rebuild an editor someone is typing in
+  const onScreen = new Map(
+    [...list.querySelectorAll<HTMLElement>(`:scope > [data-proposal-id]`)].map((card) => [card.dataset.proposalId, card])
+  );
+  list.replaceChildren(
+    ...shown.map((proposal) => {
+      const kept = onScreen.get(proposal.id);
+      return kept && kept.dataset.proposalState === proposal.state ? kept : renderProposalCard(proposal, options);
+    })
+  );
   refreshReportLinks(list);
 }
 

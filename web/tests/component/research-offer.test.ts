@@ -191,6 +191,16 @@ describe('deep-research card', () => {
     vi.useRealTimers();
   });
 
+  it('a sync that re-decorates the reply keeps an edit in progress', () => {
+    const p = proposal();
+    const el = render(p);
+    type(at(items(), 0), 'Ceny pražských agentur?');
+
+    decorateProposals(el, { id: 'm1', proposals: [{ ...p }] }); // same card, same state
+
+    expect(at(items(), 0).value).toBe('Ceny pražských agentur?');
+  });
+
   it('editing the plan pauses the countdown', () => {
     vi.useFakeTimers();
     render(proposal({ autostart: true }), { live: true });

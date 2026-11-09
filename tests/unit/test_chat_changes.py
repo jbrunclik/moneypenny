@@ -275,6 +275,7 @@ def test_a_calendar_delete_is_held_and_applied_in_its_calendar(
     event = {"summary": "Dentist", "start": {"dateTime": "2026-11-12T09:00:00+01:00"}}
     with (
         use_database(test_database),
+        patch.object(calendar, "_is_google_calendar_configured", return_value=True),
         patch.object(calendar, "_get_google_calendar_access_token", return_value=("t", None)),
         patch.object(calendar, "_google_calendar_api_request", return_value=event) as api,
     ):
