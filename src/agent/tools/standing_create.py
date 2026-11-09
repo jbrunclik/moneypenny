@@ -11,6 +11,7 @@ in a standing chat or an unattended run.
 from __future__ import annotations
 
 import json
+import sqlite3
 from typing import TypedDict
 
 from langchain_core.tools import tool
@@ -87,7 +88,11 @@ def _schedule(days: list[str] | None, time: str | None) -> str | ScheduleError |
     """The cron for days + time; None runs only on demand."""
     if not days and not time:
         return None
-    return recurring_cron(days or ["daily"], time or "")
+    if not time:
+        return ScheduleError(
+            "Give a time (HH:MM) for those days, or no days for a chat run only on demand."
+        )
+    return recurring_cron(days or ["daily"], time)
 
 
 def _refusal(user_id: str, name: str, instructions: str, grants: list[str]) -> str | None:
@@ -122,7 +127,8 @@ def _settings_text(spec: Spec) -> str:
         f"- Instructions: {spec['instructions']}\n"
         f"- Runs: {when} ({Config.APP_TIMEZONE})\n"
         f"- Tools: {_tools_text(spec['grants'])}\n"
-        f"- Each run {'starts fresh' if spec['fresh_context'] else 'sees the chat so far'}"
+        f"- Each run {'starts fresh' if spec['fresh_context'] else 'sees the chat so far'}\n"
+        f"- Daily budget: ${Config.STANDING_CREATE_BUDGET_USD:.2f} (changeable under Agents)"
     )
 
 
@@ -150,16 +156,20 @@ def _confirm(conversation_id: str, user_id: str) -> str:
         )
     if refusal := _refusal(user_id, spec["name"], spec["instructions"], spec["grants"]):
         return tool_error(refusal)
+    try:
+        chat = db.create_standing_chat(
+            user_id,
+            spec["name"],
+            spec["instructions"],
+            schedule=spec["schedule"],
+            timezone=Config.APP_TIMEZONE,
+            grants=spec["grants"],
+            fresh_context=spec["fresh_context"],
+            budget_usd=Config.STANDING_CREATE_BUDGET_USD,
+        )
+    except sqlite3.IntegrityError:  # created meanwhile (another request, another device)
+        return tool_error(f'An agent named "{spec["name"]}" exists already - pick another name.')
     db.kv_delete(user_id, PENDING_NAMESPACE, conversation_id)
-    chat = db.create_standing_chat(
-        user_id,
-        spec["name"],
-        spec["instructions"],
-        schedule=spec["schedule"],
-        timezone=Config.APP_TIMEZONE,
-        grants=spec["grants"],
-        fresh_context=spec["fresh_context"],
-    )
     logger.info("Standing chat created by talking", extra={"user_id": user_id, "job_id": chat.id})
     return (
         f'Created "{chat.name}" under Agents: #/conversations/{chat.conversation_id} - its '

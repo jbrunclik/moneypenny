@@ -393,7 +393,8 @@ I feel" calls `create_standing_chat` (`src/agent/tools/standing_create.py`):
   the previewed settings, re-checked, and returns the chat's link `#/conversations/<id>` with the stored settings.
   A confirm carrying other fields is refused: a changed version needs a new preview.
 - Refused in standing chats and in unattended runs; never bound in anonymous chats. Names
-  are unique, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing chats.
+  are unique ignoring case, and a user has at most `STANDING_CHATS_MAX_PER_USER` standing
+  chats. Each gets a daily budget of `STANDING_CREATE_BUDGET_USD` (shown in the preview).
 - A one-off reminder or watcher stays with `schedule`; the two docstrings point at each
   other. Evals: `standing_create_preview`, `standing_vs_schedule`.
 
@@ -444,6 +445,7 @@ trigger a job that's already in the current chain, and the chain is capped at
 | `AGENT_RETRY_BASE_DELAY_SECONDS` | 1.0 | Initial retry delay |
 | `AGENT_RETRY_MAX_DELAY_SECONDS` | 30.0 | Maximum retry delay |
 | `STANDING_CHATS_MAX_PER_USER` | 10 | Standing chats a user may have; guards against creating them in a loop |
+| `STANDING_CREATE_BUDGET_USD` | 0.5 | Daily budget of a standing chat created by talking |
 | `AGENT_MAX_TOOL_RETRIES` | 2 | Max consecutive tool errors before LLM is told to give up |
 
 Runs also use existing configuration for:
@@ -473,7 +475,7 @@ In E2E test mode, these endpoints control job state:
 
 - `POST /test/set-jobs-overview` - Set the job list (`GET /api/jobs`) a test renders
 - `POST /test/seed-agent` - Seed a real agent (standing chat + job)
-- `POST /test/clear-agents-config` - Reset to defaults
+- `POST /test/set-job` - Set a standing chat's editor data (`GET /api/jobs/<id>`)
 - `POST /test/seed-agent-with-approval` - Seed a standing chat whose job awaits an approval
 
 Backend tests: [test_standing_chats.py](../../tests/unit/test_standing_chats.py),

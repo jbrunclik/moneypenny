@@ -281,9 +281,9 @@ def intercept_planner() -> Any | None:
     agent_match = re.match(r"^/api/jobs/([a-zA-Z0-9_-]+)$", request.path)
     if agent_match and request.method == "GET":
         agent_id = agent_match.group(1)
-        agents_by_id = MOCK_CONFIG.get("agents_by_id", {})
-        if agent_id in agents_by_id:
-            return jsonify(agents_by_id[agent_id])
+        jobs_by_id = MOCK_CONFIG.get("jobs_by_id", {})
+        if agent_id in jobs_by_id:
+            return jsonify(jobs_by_id[agent_id])
         # Fall through to real endpoint if no mock data
 
     return None

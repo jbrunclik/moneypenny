@@ -529,7 +529,7 @@ test.describe('Agents - Agent Actions', () => {
     });
 
     // The standing chat's editor data for GET /api/jobs/:id
-    await page.request.post('/test/set-agent', {
+    await page.request.post('/test/set-job', {
       data: {
         id: agentId,
         name: 'Test Agent',
@@ -610,7 +610,7 @@ test.describe('Agents - Deep Link Mark Viewed', () => {
     });
     expect(seedResponse.ok()).toBe(true);
     const seedData = await seedResponse.json();
-    const agentId = seedData.agent_id;
+    const agentId = seedData.job_id;
     const conversationId = seedData.conversation_id;
 
     // Simulate a push-notification tap: cold open directly on the

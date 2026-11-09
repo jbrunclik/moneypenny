@@ -110,27 +110,19 @@ def set_jobs_overview() -> tuple[dict[str, Any], int]:
     return {"status": "set"}, 200
 
 
-@fixtures_bp.route("/test/clear-agents-config", methods=["POST"])
-def clear_agents_config() -> tuple[dict[str, str], int]:
-    """Clear agents mock config to restore defaults."""
-    MOCK_CONFIG["jobs_overview"] = None
-    MOCK_CONFIG["agents_by_id"] = {}
-    return {"status": "cleared"}, 200
-
-
-@fixtures_bp.route("/test/set-agent", methods=["POST"])
-def set_agent() -> tuple[dict[str, Any], int]:
+@fixtures_bp.route("/test/set-job", methods=["POST"])
+def set_job() -> tuple[dict[str, Any], int]:
     """Set a standing chat's editor data for GET /api/jobs/:id."""
     from flask import request
 
     data = request.get_json() or {}
     agent_id = data.get("id")
     if not agent_id:
-        return {"error": "Agent ID required"}, 400
+        return {"error": "Job ID required"}, 400
 
-    if "agents_by_id" not in MOCK_CONFIG:
-        MOCK_CONFIG["agents_by_id"] = {}
-    MOCK_CONFIG["agents_by_id"][agent_id] = data
+    if "jobs_by_id" not in MOCK_CONFIG:
+        MOCK_CONFIG["jobs_by_id"] = {}
+    MOCK_CONFIG["jobs_by_id"][agent_id] = data
     return {"status": "set"}, 200
 
 
@@ -213,7 +205,7 @@ def seed_agent_with_approval() -> tuple[dict[str, Any], int]:
 
     return {
         "status": "seeded",
-        "agent_id": agent.id,
+        "job_id": agent.id,
         "conversation_id": agent.conversation_id,
         "approval_id": approval.id,
     }, 200

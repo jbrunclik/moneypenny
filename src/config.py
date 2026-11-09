@@ -703,6 +703,9 @@ class Config:
     # Standing chats (agents) a user may have; a guard against a runaway loop
     # creating them by talking, not a product limit
     STANDING_CHATS_MAX_PER_USER: int = int(os.getenv("STANDING_CHATS_MAX_PER_USER", "10"))
+    # Daily budget (USD) of a standing chat created by talking: a run is held
+    # once its runs today cost this much (changeable in the editor)
+    STANDING_CREATE_BUDGET_USD: float = float(os.getenv("STANDING_CREATE_BUDGET_USD", "0.5"))
     SCHEDULE_MAX_ACTIVE_PER_USER: int = int(os.getenv("SCHEDULE_MAX_ACTIVE_PER_USER", "20"))
     # A watcher with no end date stops after this many days
     SCHEDULE_WATCH_EXPIRY_DAYS: int = int(os.getenv("SCHEDULE_WATCH_EXPIRY_DAYS", "30"))

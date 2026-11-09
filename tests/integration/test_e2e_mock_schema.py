@@ -74,7 +74,7 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
 PASS_THROUGH = {
     "planner_dashboard": "GET /api/planner returns the dashboard posted to /test/set-planner-dashboard",
     "jobs_overview": "GET /api/jobs returns the overview posted to /test/set-jobs-overview",
-    "agents_by_id": "GET /api/agents/<id> returns the agent posted to /test/set-agent",
+    "jobs_by_id": "GET /api/jobs/<id> returns the editor data posted to /test/set-job",
 }
 
 # Intercepted paths outside the API spec, with the reason

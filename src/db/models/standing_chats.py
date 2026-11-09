@@ -218,10 +218,12 @@ class StandingChatMixin:
         return _row_to_standing_chat(row) if row else None
 
     def get_standing_chat_by_name(self, user_id: str, name: str) -> StandingChat | None:
-        """A user's standing chat by its exact name."""
+        """A user's standing chat by its name, ignoring case (names are unique that way)."""
         with self._pool.get_connection() as conn:
             row = self._execute_with_timing(
-                conn, f"{_SELECT} AND s.user_id = ? AND c.standing_name = ?", (user_id, name)
+                conn,
+                f"{_SELECT} AND s.user_id = ? AND lower(c.standing_name) = lower(?)",
+                (user_id, name),
             ).fetchone()
         return _row_to_standing_chat(row) if row else None
 

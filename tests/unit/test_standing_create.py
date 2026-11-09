@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -236,3 +237,113 @@ def test_confirm_echoes_the_created_settings(chat: Conversation, test_database: 
 
     assert "every day at 20:00" in created
     assert "can change your Todoist" in created
+
+
+def test_name_clash_ignores_case(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    test_database.create_standing_chat(test_user.id, "cycling COACH")
+
+    assert "already" in _call(**COACH)
+
+
+def test_name_taken_after_the_preview_is_refused_on_yes(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    _call(**COACH)
+    test_database.create_standing_chat(test_user.id, "Cycling coach")  # another device, meanwhile
+    _user_says(test_database, chat, "Yes", "r2")
+
+    assert "already" in _call(confirm=True)
+
+
+def test_days_without_a_time_ask_for_one(chat: Conversation) -> None:
+    result = _call(**{**COACH, "time": None})
+
+    assert "time" in result.lower() and "got ''" not in result
+
+
+def test_on_demand_chat_runs_only_when_asked(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    preview = _call(**{**COACH, "days": None, "time": None})
+    _user_says(test_database, chat, "Yes", "r2")
+    _call(confirm=True)
+
+    agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
+    assert "only when you ask" in preview
+    assert agent is not None and agent.schedule is None and agent.next_run_at is None
+
+
+def test_scheduled_chat_first_runs_at_the_next_slot(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    _call(**COACH)
+    _user_says(test_database, chat, "Yes", "r2")
+    _call(confirm=True)
+
+    agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
+    assert agent is not None and agent.next_run_at is not None
+    assert agent.next_run_at.astimezone(ZoneInfo("Europe/Prague")).hour == 20
+
+
+def test_created_chat_gets_the_default_budget(
+    chat: Conversation, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Config, "STANDING_CREATE_BUDGET_USD", 0.5)
+    preview = _call(**COACH)
+    _user_says(test_database, chat, "Yes", "r2")
+    _call(confirm=True)
+
+    agent = test_database.get_standing_chat_by_name(test_user.id, "Cycling coach")
+    assert "$0.50" in preview
+    assert agent is not None and agent.budget_usd == 0.5
+
+
+def test_a_preview_cannot_be_confirmed_from_another_chat(
+    chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    _call(**COACH)
+    other = test_database.create_conversation(test_user.id, "Other", "m")
+    set_conversation_context(other.id, test_user.id)
+
+    assert "Nothing was previewed" in _call(confirm=True)
+
+
+@pytest.mark.parametrize("program", ["is_sports", "is_language"])
+def test_refused_in_program_chats(
+    chat: Conversation, test_database: Database, monkeypatch: pytest.MonkeyPatch, program: str
+) -> None:
+    real = test_database.get_conversation
+
+    def as_program(conv_id: str, user_id: str) -> Conversation | None:
+        conv = real(conv_id, user_id)
+        if conv is not None:
+            setattr(conv, program, True)
+        return conv
+
+    monkeypatch.setattr(test_database, "get_conversation", as_program)
+
+    assert "standing chat" in _call(**COACH)
+
+
+def test_not_bound_in_the_planner() -> None:
+    from src.agent.tools import get_tools_for_request
+
+    assert "create_standing_chat" not in {t.name for t in get_tools_for_request(False, True)}
+
+
+def test_a_clash_at_the_insert_is_a_tool_error(
+    chat: Conversation, test_database: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import sqlite3
+
+    _call(**COACH)
+    _user_says(test_database, chat, "Yes", "r2")
+
+    def clash(*_args: object, **_kwargs: object) -> None:
+        raise sqlite3.IntegrityError("An agent named 'Cycling coach' exists already")
+
+    monkeypatch.setattr(test_database, "create_standing_chat", clash)
+
+    assert "already" in _call(confirm=True)
