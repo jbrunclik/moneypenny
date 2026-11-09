@@ -118,10 +118,8 @@ def build_usage_info(
     stopped_by: the turn-budget stop the stream reported; a batch turn's
     final reply carries it in its response_metadata instead.
     """
-    from src.agent.turn_budget import resolve_stopped_by  # noqa: PLC0415 - cycle: turn_budget -> round_cap stays light
-
     tool_rounds, tool_call_count = tool_telemetry(messages)
-    marker = stopped_by or next(
+    stopped = stopped_by or next(
         (
             str(m.response_metadata["turn_stop"])
             for m in messages
@@ -139,7 +137,7 @@ def build_usage_info(
         "duration_ms": duration_ms,
         "tools_used": tools_used,
         "tool_errors": tool_errors,
-        "stopped_by": resolve_stopped_by(marker, tool_rounds),
+        "stopped_by": stopped,
     }
     # The other model tier answered (chat_node.chat_node): price the turn at it
     fallback = next(

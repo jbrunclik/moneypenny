@@ -104,7 +104,6 @@ from src.agent.tool_round_check import check_tool_results  # noqa: E402
 
 @pytest.fixture
 def budgets(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
-    monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
     monkeypatch.setattr(Config, "TURN_COST_LIMIT_USD", 0.15)
     monkeypatch.setattr(Config, "TURN_TIME_BUDGET_SECONDS", 240.0)
     monkeypatch.setattr(Config, "TURN_WRAP_UP_FRACTION", 0.8)
@@ -202,19 +201,6 @@ class TestLimits:
         assert (record.reason, record.tool_rounds, record.elapsed_s) == ("time", 5, 241.0)
         assert record.cost_usd == pytest.approx(0.01)
 
-    def test_budgets_off_keeps_the_old_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", False)
-        monkeypatch.setattr(
-            "src.agent.tool_round_check.get_conversation_context", lambda: (None, None)
-        )
-        nudge = check_tool_results(
-            _after_tools(tool_rounds=Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE - 1)
-        )
-        capped = check_tool_results(_after_tools(tool_rounds=Config.AGENT_MAX_TOOL_ROUNDS - 1))
-        assert "Be efficient" in str(nudge["messages"][0].content)
-        assert "Stop calling tools now" in str(capped["messages"][0].content)
-        assert "final_answer" not in capped
-
 
 # --- Task 3: one tools-off final answer -----------------------------------------
 
@@ -282,7 +268,6 @@ class TestFinalAnswer:
 # --- Task 5: why the turn stopped -----------------------------------------------
 
 from src.agent.stream_events import StreamEventProcessor  # noqa: E402
-from src.agent.turn_budget import resolve_stopped_by  # noqa: E402
 from src.agent.turn_usage import TokenTotals, build_usage_info  # noqa: E402
 
 
@@ -299,12 +284,10 @@ class TestStoppedBy:
         writer.assert_any_call({"type": "turn_stop", "reason": "time"})
 
     def test_batch_usage_carries_the_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
         reply = AIMessage(content="Done.", response_metadata={"turn_stop": "cost"})
         assert build_usage_info(TokenTotals(), [reply], 10)["stopped_by"] == "cost"
 
     def test_streaming_usage_carries_the_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
         processor = StreamEventProcessor([HumanMessage(content="go")])
         list(processor.process("custom", {"type": "turn_stop", "reason": "loop"}))
 
@@ -312,14 +295,21 @@ class TestStoppedBy:
 
         assert final["usage_info"]["stopped_by"] == "loop"
 
-    def test_old_cap_maps_to_rounds_when_budgets_are_off(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", False)
-        cap = Config.AGENT_MAX_TOOL_ROUNDS
-        assert resolve_stopped_by(None, cap) == "rounds"
-        assert resolve_stopped_by(None, cap - 1) is None
-
     def test_no_stop_no_reason(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
         assert build_usage_info(TokenTotals(), [AIMessage(content="hi")], 10)["stopped_by"] is None
+
+
+class TestBatchingHint:
+    def test_batching_hint_once_at_round_three(self, budgets: pytest.MonkeyPatch) -> None:
+        _clock(budgets)
+        budgets.setattr(Config, "TURN_BATCHING_HINT_ROUND", 3)
+        state = _after_tools(tool_rounds=2)
+
+        out = check_tool_results(state)
+
+        [hinted] = out["messages"]
+        assert hinted.id == "t1" and "several queries in one call" in str(hinted.content)
+        assert "answer" not in str(hinted.content).split("]")[-1]  # no pressure to finish
+        assert out["batching_hinted"] is True
+        later = check_tool_results({**_after_tools(tool_rounds=3), "batching_hinted": True})
+        assert "messages" not in later

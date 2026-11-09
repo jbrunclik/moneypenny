@@ -126,7 +126,7 @@ function finalizeDoneBubble(
   decorateArtifacts(messageEl, event);
   // The progress panel becomes the report chip; an offer shows under the answer
   finishResearchMessage(messageEl, event, { live: true });
-  const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'round_cap' : null;
+  const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'budget' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');
     if (wrapper) appendStoppedEarlyNote(wrapper, event.id, reason);

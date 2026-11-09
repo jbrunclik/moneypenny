@@ -1,0 +1,13 @@
+id: budget_hard_to_find
+description: >
+  A question needing several lookups (three countries' 2027 prices and where to
+  buy) - turn budgets must let it finish with a complete, sourced answer, or
+  say plainly what is still missing (turn budgets, Nov 2026)
+user: "Kolik stojí roční dálniční známka pro auto v Česku, Rakousku a Slovinsku na rok 2027 a kde ji koupím online?"
+expect:
+  rubric: >
+    Answers in Czech. Gives the annual vignette price for a car in each of the
+    three countries (or says plainly which one it could not confirm), says where
+    to buy each online (official e-shop), and cites sources. Must not invent a
+    price it did not find.
+  max_tool_rounds: 12

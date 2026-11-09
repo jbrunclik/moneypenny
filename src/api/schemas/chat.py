@@ -234,7 +234,7 @@ class MessageResponse(ResponseModel):
         default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
     )
     stopped_early: bool | None = Field(
-        default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
+        default=None, description="Reply was cut off by a turn budget (offer Continue)"
     )
     stop_reason: Literal["user"] | None = Field(
         default=None,
@@ -273,7 +273,7 @@ class ChatBatchResponse(ResponseModel):
         default=None, description="ISO 639-1 language code for TTS (e.g., 'en', 'cs')"
     )
     stopped_early: bool | None = Field(
-        default=None, description="Reply was cut off by the tool-round cap (offer Continue)"
+        default=None, description="Reply was cut off by a turn budget (offer Continue)"
     )
     stop_reason: Literal["user"] | None = Field(
         default=None,

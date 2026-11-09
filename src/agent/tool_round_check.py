@@ -1,4 +1,4 @@
-"""The graph's check_tool_results node: steering, round caps and self-correction.
+"""The graph's check_tool_results node: steering, turn budgets and self-correction.
 
 Runs after every tool round and always routes back to chat; what it adds to
 the state tells the model how to go on.
@@ -12,12 +12,13 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from src.agent import interjection
 from src.agent.cancellation import raise_if_cancelled
 from src.agent.graph_state import AgentState
-from src.agent.round_cap import tool_round_cap
 from src.agent.tool_loops import loop_state
 from src.agent.tools.context import get_conversation_context
 from src.agent.turn_budget import (
+    BATCHING_HINT,
     FINAL_GUIDANCE,
     WRAP_UP_NOTICE,
+    batching_hint_due,
     budget_stop,
     log_stop,
     wrap_up_due,
@@ -71,9 +72,9 @@ def _guidance(content: str, use_cache: bool) -> BaseMessage:
 def _interjection_update(state: AgentState, tool_rounds: int, use_cache: bool) -> Update | None:
     """Mid-run steering the user sent while this turn was running, if any.
 
-    Stored cross-worker in kv_store by the interject route. Checked FIRST so
-    steering is never swallowed by the round-cap or nudge early-returns -
-    redirecting the work takes priority over telling the model to wrap up.
+    Stored cross-worker in kv_store by the interject route. Popped before the
+    budgets decide, so steering is never swallowed - it rides along with a
+    stop or the wrap-up notice.
     """
     conv_id, user_id = get_conversation_context()
     if not (conv_id and user_id):
@@ -96,53 +97,6 @@ def _interjection_update(state: AgentState, tool_rounds: int, use_cache: bool) -
         "tool_rounds": tool_rounds,
         "tool_retries": state.get("tool_retries", 0),
         "messages": [_guidance(steer_content, use_cache)],
-    }
-
-
-def _round_pressure_update(tool_rounds: int, max_rounds: int, use_cache: bool) -> Update | None:
-    """The round-cap or soft-nudge guidance this round calls for, if any.
-
-    Soft round cap: once hit, stop gathering and answer with what we have - and
-    say what the next steps would have been, so a capped answer is not a dead
-    end (the reply also gets a Continue offer, stopped_early).
-    Fires on every subsequent round too (tool_rounds stays >= cap), so the
-    pressure escalates naturally if the model ignores the first nudge. The
-    recursion limit remains the hard backstop.
-
-    Soft efficiency nudge, well before the hard cap: overruns observed in
-    evals came from drip-feeding single tool calls; a gentle reminder at
-    this point cuts rounds without forcing a premature answer.
-    """
-    if max_rounds > 0 and tool_rounds >= max_rounds:
-        logger.info(
-            "Tool round cap reached, nudging model to answer",
-            extra={"tool_rounds": tool_rounds, "max_rounds": max_rounds},
-        )
-        content = (
-            f"You have run {tool_rounds} rounds of tool calls for this request. "
-            "Stop calling tools now and answer the user with the information you "
-            "already have. If you searched for something you could not find, say so "
-            "and give your best answer with what is available. Then end with a short "
-            "list of what you would do next if you could continue - the concrete "
-            "remaining steps - so the user can tell you to go on. Do not issue more "
-            "tool calls unless absolutely essential."
-        )
-    elif Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE > 0 and (
-        tool_rounds == Config.AGENT_TOOL_ROUNDS_SOFT_NUDGE
-    ):
-        content = (
-            f"You have used {tool_rounds} tool rounds. Be efficient from here: "
-            "consolidate remaining lookups (batch queries, prefer the research "
-            "tool over separate fetches) and aim to answer within the next "
-            "round or two."
-        )
-        logger.info("Soft round nudge injected", extra={"tool_rounds": tool_rounds})
-    else:
-        return None
-    return {
-        "tool_rounds": tool_rounds,
-        "tool_retries": 0,
-        "messages": [_guidance(content, use_cache)],
     }
 
 
@@ -180,13 +134,21 @@ def _budget_update(
             "wrap_up_noticed": True,
             "messages": [*steering, notice],
         }
+    if batching_hint_due(state, tool_rounds) and isinstance(latest, ToolMessage):
+        logger.info("Turn batching hint", extra={"tool_rounds": tool_rounds})
+        hinted = latest.model_copy(update={"content": f"{latest.content}{BATCHING_HINT}"})
+        return {
+            "tool_rounds": tool_rounds,
+            "batching_hinted": True,
+            "messages": [*steering, hinted],
+        }
     return interjection
 
 
 def _with_budgets(
     state: AgentState, tool_rounds: int, use_cache: bool, interjection: Update | None
 ) -> Update:
-    """Turn budgets on: the loop detector's state, then a stop, the wrap-up
+    """The loop detector's state, then a stop, the wrap-up
     notice, steering or self-correction - with the loop state in every result."""
     loops, warning = loop_state(state)
     state = cast("AgentState", {**state, **loops})
@@ -275,7 +237,8 @@ def check_tool_results(
     state: AgentState,
     use_cache: bool = False,
 ) -> Update:
-    """Inspect tool results and provide self-correction guidance if errors occurred.
+    """After a tool round: steering, the turn budgets (src/agent/turn_budget.py)
+    and the loop detector, then self-correction guidance if calls failed.
 
     After tools execute, this node checks for errors:
     - If errors found and retries < max: increment retries, add correction guidance
@@ -289,26 +252,10 @@ def check_tool_results(
     # Server-side Stop: the round that just finished is the last one
     raise_if_cancelled()
 
-    tool_retries = state.get("tool_retries", 0)
     # This node runs once per completed tool round, so it is the natural place
     # to count them. Each round re-invokes the model with the full accumulated
     # context, so unbounded rounds multiply input-token cost.
     tool_rounds = state.get("tool_rounds", 0) + 1
-    max_rounds = tool_round_cap()
 
     update = _interjection_update(state, tool_rounds, use_cache)
-    if Config.TURN_BUDGETS_ENABLED:
-        return _with_budgets(state, tool_rounds, use_cache, update)
-    if update is None:
-        update = _round_pressure_update(tool_rounds, max_rounds, use_cache)
-    if update is not None:
-        return update
-
-    error_details, any_retriable = _latest_tool_errors(state["messages"])
-    if not error_details:
-        if tool_retries > 0:
-            logger.debug("Tool retries reset after successful execution")
-        return {"tool_retries": 0, "tool_rounds": tool_rounds}
-    return _error_guidance_update(
-        tool_retries, tool_rounds, error_details, any_retriable, use_cache
-    )
+    return _with_budgets(state, tool_rounds, use_cache, update)

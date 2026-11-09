@@ -10286,7 +10286,7 @@ export interface components {
             language: string | null;
             /**
              * Stopped Early
-             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @description Reply was cut off by a turn budget (offer Continue)
              * @default null
              */
             stopped_early: boolean | null;
@@ -10629,7 +10629,7 @@ export interface components {
             language: string | null;
             /**
              * Stopped Early
-             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @description Reply was cut off by a turn budget (offer Continue)
              * @default null
              */
             stopped_early: boolean | null;
@@ -11001,7 +11001,7 @@ export interface components {
             language: string | null;
             /**
              * Stopped Early
-             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @description Reply was cut off by a turn budget (offer Continue)
              * @default null
              */
             stopped_early: boolean | null;
@@ -12113,7 +12113,7 @@ export interface components {
             language: string | null;
             /**
              * Stopped Early
-             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @description Reply was cut off by a turn budget (offer Continue)
              * @default null
              */
             stopped_early: boolean | null;
@@ -12485,7 +12485,7 @@ export interface components {
             language: string | null;
             /**
              * Stopped Early
-             * @description Reply was cut off by the tool-round cap (offer Continue)
+             * @description Reply was cut off by a turn budget (offer Continue)
              * @default null
              */
             stopped_early: boolean | null;

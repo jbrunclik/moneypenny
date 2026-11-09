@@ -220,12 +220,8 @@ class TestChatBatch:
         auth_headers: dict[str, str],
         test_conversation: Conversation,
     ) -> None:
-        from src.config import Config
 
-        with (
-            patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class,
-            patch.object(Config, "AGENT_MAX_TOOL_ROUNDS", 6),
-        ):
+        with patch("src.api.helpers.chat_turn.ChatAgent") as mock_agent_class:
             mock_agent = MagicMock()
             mock_agent.chat_batch.return_value = (
                 "Partial answer.",

@@ -76,8 +76,10 @@ generator. The work is split three ways:
 | [chat_streaming.py](../../src/api/helpers/chat_streaming.py) | Consumer: `StreamContext`, the `user_message_saved` event + placeholder, queue relay with keepalives, timeout and error handling |
 | [stream_finalize.py](../../src/api/helpers/stream_finalize.py) | `finalize_stream()` saves the turn and sends `done`; `_finalize_approval_stream()` for agent turns paused for approval |
 
-Both paths put `stopped_early` on the reply when the turn hit the tool-round cap
-([Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
+Both paths put `stopped_early` on the reply when a turn budget stopped the turn
+(the reason rides a custom `turn_stop` stream event or the reply's
+`response_metadata["turn_stop"]` into `usage_info["stopped_by"]`;
+[Stopped-Early Replies](../architecture/agent-graph.md#stopped-early-replies)).
 
 **Grounding.** Both paths run the post-answer [grounding check](grounding.md) on
 web-tool turns before saving. Streaming emits a `grounding_started` event between

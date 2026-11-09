@@ -22,6 +22,7 @@ class AgentState(TypedDict):
     failed_calls: NotRequired[dict[str, int]]
     final_answer: NotRequired[str]
     wrap_up_noticed: NotRequired[bool]
+    batching_hinted: NotRequired[bool]
     # Loop detector (src/agent/tool_loops.py): the last rounds' signatures,
     # whether the A-B-A-B warning went out, and large results already seen
     recent_rounds: NotRequired[list[str]]

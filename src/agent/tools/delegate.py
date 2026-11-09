@@ -3,7 +3,7 @@
 The subagent runs its own multi-round tool loop (research/web/fetch) in a
 FRESH context: the 15k-char page dumps it reads never enter the main
 conversation's history - only its final digest does. This is both a quality
-lever (deep multi-page work without exhausting the main round cap) and a
+lever (deep multi-page work without exhausting the main turn budget) and a
 cost lever (the main conversation re-bills its whole history every tool
 round; the subagent's history starts empty).
 

@@ -148,7 +148,7 @@ Common debugging scenarios:
 - **Authentication errors**: See [Authentication](architecture/authentication.md) - Error codes and handling
 - **Database performance**: See [Database](architecture/database.md) - Slow query logging, indexes
 - **API errors**: See [Error Handling](architecture/error-handling.md) - Error format and frontend handling
-- **Agent loops, retries, round cap**: See [Agent Graph](architecture/agent-graph.md)
+- **Agent loops, retries, turn budgets**: See [Agent Graph](architecture/agent-graph.md)
 - **Stream dropped / reply missing after reload**: See [Streaming](architecture/streaming-metadata.md) and the resume section of [Chat and Streaming](features/chat-and-streaming.md)
 
 ## Documentation Guidelines

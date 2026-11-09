@@ -26,7 +26,7 @@ describe('appendStoppedEarlyNote', () => {
 
     const note = el.querySelector('.message-stopped-early');
     expect(note).not.toBeNull();
-    expect(note?.textContent).toContain('may be incomplete');
+    expect(note?.textContent).toBe('Stopped before finishing - this answer may be incomplete.Continue');
     expect(note?.nextElementSibling?.classList.contains('message-actions')).toBe(true);
   });
 
@@ -62,7 +62,7 @@ describe('appendStoppedEarlyNote', () => {
     appendStoppedEarlyNote(el, 'm1', 'user');
     const note = el.querySelector('.message-stopped-early');
     expect(note?.textContent).toContain('Stopped.');
-    expect(note?.textContent).not.toContain('tool-step limit');
+    expect(note?.textContent).not.toContain('may be incomplete');
     expect(el.querySelector('.message-stopped-early-continue')).not.toBeNull();
   });
 });

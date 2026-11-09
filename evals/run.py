@@ -112,8 +112,8 @@ class EvalCase:
     # A past conversation seeded for episodic-recall cases:
     # {title: str, messages: [{role, content}]}
     seed_conversation: dict[str, Any] = field(default_factory=dict)
-    # Tool-round cap for this case's turn (None: AGENT_MAX_TOOL_ROUNDS) - to
-    # exercise what a capped answer says
+    # Round backstop for this case's turn (None: TURN_MAX_TOOL_ROUNDS) - to
+    # exercise what a stopped answer says
     round_cap: int | None = None
     # KV rows seeded for the user: [{namespace, key, value}]; {conversation_id}
     # in a key is the case's conversation (e.g. a pending schedule preview)

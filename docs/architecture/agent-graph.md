@@ -187,11 +187,29 @@ Re-run the audit from the production host's application logs (14+ days), filteri
 
 **Re-measure after the escalation (Oct 13 2026).** The journal only reaches back to Oct 3, so periods were compared from `message_costs` (one row per turn: `tool_rounds`, `tool_call_count`, `tools_used`, `duration_ms`, `cost_usd`; agent and planner conversations excluded) - nudges (Sep 7-29, 4,024 turns) vs escalation (Oct 1-10, 1,915 turns): rounds per tool-using turn 2.65 -> 2.03; rounds per search turn 3.14 -> 2.24; cap hits (`tool_rounds >= 6`) 3.2% -> 1.4% of turns; cost per search turn $0.061 -> $0.054 despite the page reads; but tool-turn latency p50 15 -> 18 s and p90 31 -> 42 s (each escalated search reads pages). Calls per round stayed 1.04 - the model still does not batch. From the logs (Oct 3-10, same 90 s turn grouping per worker pid): search turns with 2+ separate search rounds 60% (63% before), 29% with 3+; the 2nd search comes straight after the 1st (207 of 221). A sample of 3+ round turns were sequential hunts for one hard-to-find fact (a domain's sale price, an office holder's current post, a gadget's specs), each query reformulating the last - so a 3rd search is not rejected, and with cap hits at 1.4% `AGENT_MAX_TOOL_ROUNDS` stays 6. Since Oct 11 the freshness gate's prefetched research lowers both further (2+ search rounds 42%, small sample).
 
-**Round cap and nudges.** `check_tool_results` injects a one-time efficiency reminder at `AGENT_TOOL_ROUNDS_SOFT_NUDGE` rounds (default 4) and, from `AGENT_MAX_TOOL_ROUNDS` (default 6) on, guidance to answer with what it has instead of calling more tools. The cap is soft - `AGENT_RECURSION_LIMIT` is the hard backstop.
+## Turn Budgets
+
+Since Nov 9 2026 a turn stops on what it costs and how long it runs, not on a round count (the 6-round cap and the round-4 soft nudge went after an eval A/B: judge 4.50 -> 4.67, cost +22%). `check_tool_results` decides after every tool round ([turn_budget.py](../../src/agent/turn_budget.py), wired in [tool_round_check.py](../../src/agent/tool_round_check.py)):
+
+| Limit | Setting (default) | `stopped_by` |
+|---|---|---|
+| Running cost of the turn's model calls, priced by the answering model in `chat_node` | `TURN_COST_LIMIT_USD` (0.15) | `cost` |
+| Wall clock since the turn started | `TURN_TIME_BUDGET_SECONDS` (240) | `time` |
+| Round backstop against runaways (a run can override it, e.g. deep-research subagents: `round_cap_override`) | `TURN_MAX_TOOL_ROUNDS` (20) | `rounds` |
+| The same failing call keeps coming back | `TURN_LOOP_BLOCK_AFTER` (2) + 2 | `loop` |
+
+State keys (`AgentState`): `turn_started_at`, `turn_cost_usd`, `failed_calls`, `recent_rounds`, `seen_results`, `final_answer` (the stop reason), `wrap_up_noticed`, `batching_hinted`, `ab_warned`; `initial_state()` seeds them for both invokes.
+
+- **Wrap-up notice** - once, at `TURN_WRAP_UP_FRACTION` (0.8) of the cost or time budget, appended to the latest tool *result* (the model reads results, not standing guidance).
+- **Batching hint** - once, after round `TURN_BATCHING_HINT_ROUND` (3; 0 = off), also on the result: independent lookups can share one round. No pressure to finish - without it the budgets let the canary `cz_batched_lookups` drift from 6-7 to 10-12 rounds.
+- **The final call** - a stop sets `final_answer` and adds `FINAL_GUIDANCE`; the next `chat_node` call is the normal cached call (Gemini rejects `tool_config` next to an explicit `cached_content`, and an uncached tools-less call ignored the turn's results), so `final_reply()` drops any tool calls it still makes (logged "Turn final answer dropped tool calls") and an empty reply gets `FALLBACK_LINE`. `should_continue` ends the turn on `final_answer`. An interjection still reaches the model alongside the stop.
+- **Loop detector** ([tool_loops.py](../../src/agent/tool_loops.py)) - a call is its tool name + canonical args (`call_signature`). After `TURN_LOOP_BLOCK_AFTER` failures the same call gets a blocking error instead of running; a successful write resets the counts. Rounds alternating A-B-A-B get one warning. A byte-identical repeat result of `TURN_DUPLICATE_RESULT_MIN_CHARS` (2000)+ chars becomes a back-reference.
+
+Logs: "Turn budget stop" (reason, tool_rounds, elapsed_s, cost_usd), "Turn wrap-up notice", "Turn batching hint", "Tool loop blocked", "Tool loop A-B-A-B warning". The reason travels as `response_metadata["turn_stop"]` (batch) or a custom `turn_stop` stream event into `usage_info["stopped_by"]` and the `message_costs.stopped_by` column (migration 0084 backfilled `rounds` for old capped turns). The regular review checks the mix ([regular-review.md](../regular-review.md)).
 
 ## Stopped-Early Replies
 
-A turn that hits the cap was told to answer with what it has, so the reply may be partial. It is flagged `stopped_early` - derived from `message_costs.tool_rounds >= AGENT_MAX_TOOL_ROUNDS` (`is_round_capped()` in [api/utils.py](../../src/api/utils.py)), no extra column - on the stream `done` event, the batch response and loaded message lists (`serialize_messages_for_response()`, one query per page). The UI shows "Stopped at the tool-step limit - this answer may be incomplete." with a **Continue** button on the latest reply, which dispatches the existing `message:continue` re-run ([messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts)).
+A turn a budget stopped answered once with what it had, so the reply may be partial. It is flagged `stopped_early` - `bool(stopped_by)`; for loaded messages `get_stopped_early_message_ids()` in [db/models/cost.py](../../src/db/models/cost.py), one query per page - on the stream `done` event, the batch response and loaded message lists (`serialize_messages_for_response()`). The UI shows "Stopped before finishing - this answer may be incomplete." with a **Continue** button on the latest reply, which dispatches the existing `message:continue` re-run ([messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts)).
 
 ## Stop Checkpoints
 
@@ -219,13 +237,13 @@ A checkpoint raises `TurnCancelled`. Like `ApprovalRequestedException` it is con
 - [retry.py](../../src/agent/retry.py) - `with_retry`, `is_transient_error`
 - [interjection.py](../../src/agent/interjection.py) - mid-run steering carrier
 - [tools/turn_usage.py](../../src/agent/tools/turn_usage.py) - per-turn tool-call counts behind search escalation and the fetch nudge
-- [api/utils.py](../../src/api/utils.py) - `is_round_capped()`
+- [turn_budget.py](../../src/agent/turn_budget.py) - limits, the stop and the final reply; [tool_loops.py](../../src/agent/tool_loops.py) - the loop detector
 - [messages/stopped-early.ts](../../web/src/components/messages/stopped-early.ts) - stopped-early note + Continue
-- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `AGENT_MAX_TOOL_ROUNDS`, `AGENT_TOOL_ROUNDS_SOFT_NUDGE`, `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_MODEL_SDK_MAX_RETRIES`, `AGENT_RETRY_*`, `WEB_SEARCH_ESCALATE_MAX_SOURCES`
+- [config.py](../../src/config.py) - `AGENT_MAX_TOOL_RETRIES`, `TURN_*` (turn budgets), `AGENT_AGED_TOOL_RESULT_MAX_CHARS`, `AGENT_MAX_RETRIES`, `AGENT_MODEL_SDK_MAX_RETRIES`, `AGENT_RETRY_*`, `WEB_SEARCH_ESCALATE_MAX_SOURCES`
 
 ## Testing
 
-- [test_graph.py](../../tests/unit/test_graph.py) - self-correction, routing, graph structure; [test_tool_round_check.py](../../tests/unit/test_tool_round_check.py) - every `check_tool_results` branch with its exact guidance
+- [test_graph.py](../../tests/unit/test_graph.py) - self-correction, routing, graph structure; [test_tool_round_check.py](../../tests/unit/test_tool_round_check.py) - every `check_tool_results` branch with its exact guidance; [test_turn_budget.py](../../tests/unit/test_turn_budget.py), [test_tool_loops.py](../../tests/unit/test_tool_loops.py) - budgets, the final call and the loop detector; [test_stopped_by.py](../../tests/integration/test_stopped_by.py) - the reason end to end
 - [test_retry.py](../../tests/unit/test_retry.py), [test_retry_status.py](../../tests/unit/test_retry_status.py) - backoff and the `retry` event; `web/tests/unit/streaming-retry-status.test.ts` for the UI line
 - [test_tool_efficiency.py](../../tests/unit/test_tool_efficiency.py) - fetch nudge, per-call search counting and composite actions
 - [test_search_escalation.py](../../tests/unit/test_search_escalation.py) - repeat single-query `web_search` runs as `research`

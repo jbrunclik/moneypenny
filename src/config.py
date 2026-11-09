@@ -812,26 +812,14 @@ class Config:
     # Graph self-correction: max consecutive tool error retries before giving up
     AGENT_MAX_TOOL_RETRIES: int = int(os.getenv("AGENT_MAX_TOOL_RETRIES", "2"))
 
-    # Soft cap on tool rounds per turn. Each round re-invokes the model with the
-    # full accumulated context, so a turn that searches one query at a time
-    # multiplies input-token cost (June 2026 audit found a turn with 13
-    # sequential web_search rounds). At/above this many rounds the graph nudges
-    # the model to answer with what it has instead of calling more tools. The
-    # nudge is soft (the recursion limit is the hard backstop); 0 disables it.
-    AGENT_MAX_TOOL_ROUNDS: int = int(os.getenv("AGENT_MAX_TOOL_ROUNDS", "6"))
     # Server-side Stop: how often the running turn checks for a stop request
     # (kv flag written by POST /chat/stop, possibly on another worker)
     CANCEL_POLL_INTERVAL_SECONDS: float = float(os.getenv("CANCEL_POLL_INTERVAL_SECONDS", "0.5"))
-    # Gentle efficiency reminder injected once at this round count (0 = off).
-    # Fires well before the hard cap so the model consolidates instead of
-    # drip-feeding single tool calls; the cap remains the stop signal.
-    AGENT_TOOL_ROUNDS_SOFT_NUDGE: int = int(os.getenv("AGENT_TOOL_ROUNDS_SOFT_NUDGE", "4"))
 
     # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
     # running cost, its time, a loop or the round backstop - whichever comes
-    # first - and ends with one tools-off answer. Off until measured against
-    # the round cap above (an eval A/B).
-    TURN_BUDGETS_ENABLED: bool = os.getenv("TURN_BUDGETS_ENABLED", "false").lower() == "true"
+    # first - and ends with one tools-off answer. Replaced the 6-round cap after
+    # the Nov 9 2026 eval A/B (judge 4.67 vs 4.50, cost +22%).
     # Running cost of the turn's model calls, in USD (typical turns: $0.02-0.05)
     TURN_COST_LIMIT_USD: float = float(os.getenv("TURN_COST_LIMIT_USD", "0.15"))
     # Wall-clock budget of the tool loop (well under CHAT_TIMEOUT_SECONDS)
@@ -840,6 +828,9 @@ class Config:
     TURN_WRAP_UP_FRACTION: float = float(os.getenv("TURN_WRAP_UP_FRACTION", "0.8"))
     # Backstop against runaways only (a deep-research subagent keeps its own cap)
     TURN_MAX_TOOL_ROUNDS: int = int(os.getenv("TURN_MAX_TOOL_ROUNDS", "20"))
+    # One batching hint on the tool result after this round, no pressure to
+    # finish (the Nov 9 2026 A/B: without it the model drip-fed lookups); 0 = off
+    TURN_BATCHING_HINT_ROUND: int = int(os.getenv("TURN_BATCHING_HINT_ROUND", "3"))
     # An identical call that failed this many times is blocked from then on
     TURN_LOOP_BLOCK_AFTER: int = int(os.getenv("TURN_LOOP_BLOCK_AFTER", "2"))
     # A byte-identical repeat result at least this long becomes a back-reference

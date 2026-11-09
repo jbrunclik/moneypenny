@@ -12094,7 +12094,7 @@
               }
             ],
             "default": null,
-            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "description": "Reply was cut off by a turn budget (offer Continue)",
             "title": "Stopped Early"
           },
           "stop_reason": {
@@ -12793,7 +12793,7 @@
               }
             ],
             "default": null,
-            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "description": "Reply was cut off by a turn budget (offer Continue)",
             "title": "Stopped Early"
           },
           "stop_reason": {
@@ -13561,7 +13561,7 @@
               }
             ],
             "default": null,
-            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "description": "Reply was cut off by a turn budget (offer Continue)",
             "title": "Stopped Early"
           },
           "stop_reason": {
@@ -15758,7 +15758,7 @@
               }
             ],
             "default": null,
-            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "description": "Reply was cut off by a turn budget (offer Continue)",
             "title": "Stopped Early"
           },
           "stop_reason": {
@@ -16505,7 +16505,7 @@
               }
             ],
             "default": null,
-            "description": "Reply was cut off by the tool-round cap (offer Continue)",
+            "description": "Reply was cut off by a turn budget (offer Continue)",
             "title": "Stopped Early"
           },
           "stop_reason": {

@@ -1,4 +1,4 @@
-"""A per-run tool-round cap (deep-research subagents get fewer rounds)."""
+"""A per-run round backstop (deep-research subagents get fewer rounds)."""
 
 import pytest
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
@@ -21,15 +21,16 @@ def _state(rounds: int) -> AgentState:
 
 
 def test_override_applies_only_inside(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 6)
+    monkeypatch.setattr(Config, "TURN_MAX_TOOL_ROUNDS", 20)
     with round_cap_override(4):
         assert tool_round_cap() == 4
-    assert tool_round_cap() == 6
+    assert tool_round_cap() == 20
 
 
-def test_graph_nudges_at_the_overridden_cap(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Config, "AGENT_MAX_TOOL_ROUNDS", 6)
+def test_graph_stops_at_the_overridden_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Config, "TURN_MAX_TOOL_ROUNDS", 20)
     with round_cap_override(4):
         result = check_tool_results(_state(3))
+    assert result["final_answer"] == "rounds"
     assert isinstance(result["messages"][0], SystemMessage)
-    assert "stop calling tools" in result["messages"][0].content.lower()
+    assert "tools are off" in result["messages"][0].content.lower()

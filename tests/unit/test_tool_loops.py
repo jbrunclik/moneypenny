@@ -24,7 +24,6 @@ from src.config import Config
 
 @pytest.fixture(autouse=True)
 def budgets(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(Config, "TURN_BUDGETS_ENABLED", True)
     monkeypatch.setattr(Config, "TURN_LOOP_BLOCK_AFTER", 2)
     monkeypatch.setattr(Config, "TURN_DUPLICATE_RESULT_MIN_CHARS", 2000)
     monkeypatch.setattr("src.agent.tool_round_check.get_conversation_context", lambda: (None, None))
@@ -116,12 +115,6 @@ def test_loop_stop_after_repeated_blocks() -> None:
     sig = call_signature("web_search", {"query": "x"})
     assert budget_stop({**initial_state([]), "failed_calls": {sig: 3}}, 1) is None
     assert budget_stop({**initial_state([]), "failed_calls": {sig: 4}}, 1) == "loop"
-
-
-def test_budgets_off_no_loop_state() -> None:
-    Config.TURN_BUDGETS_ENABLED = False  # restored by the fixture's monkeypatch
-    out = check_tool_results(_round([_call()], [_failed()]))
-    assert "failed_calls" not in out
 
 
 def test_the_tool_node_answers_a_blocked_call_without_running_it() -> None:

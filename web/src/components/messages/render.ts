@@ -367,7 +367,7 @@ export function addMessageToUI(
 
   // Create message actions with all buttons and handlers
   if (message.role === 'assistant' && (message.stop_reason === 'user' || message.stopped_early)) {
-    appendStoppedEarlyNote(contentWrapper, message.id, message.stop_reason === 'user' ? 'user' : 'round_cap');
+    appendStoppedEarlyNote(contentWrapper, message.id, message.stop_reason === 'user' ? 'user' : 'budget');
   }
 
   const actions = createMessageActions(

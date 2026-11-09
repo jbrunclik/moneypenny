@@ -244,7 +244,7 @@ def serialize_messages_for_response(messages: list[Any]) -> list[dict[str, Any]]
 
     Only includes file metadata (name, type, messageId, fileIndex), not full data.
     Filters out empty placeholder messages that are still being processed by stream.
-    Assistant replies cut off by the tool-round cap get ``stopped_early: true``.
+    Assistant replies cut off by a turn budget get ``stopped_early: true``.
     Shared by the conversation, planner and program routes (the planner once
     kept its own copy that lacked the placeholder filter).
     """
@@ -318,7 +318,7 @@ def build_stream_done_event(
         conversation_title: Optional conversation title (included if provided)
         user_message_id: Optional user message ID (for updating temp IDs in frontend)
         language: Optional ISO 639-1 language code for TTS
-        stopped_early: Whether the turn hit the tool-round cap
+        stopped_early: Whether a turn budget stopped the turn
 
     Returns:
         Done event dictionary with type, id, created_at, content, and optional files/sources/generated_images/title/language

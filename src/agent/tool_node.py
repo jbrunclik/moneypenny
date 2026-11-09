@@ -18,7 +18,6 @@ from src.agent.permissions import PermissionResult, check_tool_permission
 from src.agent.tool_loops import blocked_calls, blocked_message, dedupe_results
 from src.agent.tool_results import get_current_request_id, store_tool_result
 from src.agent.tools.request_approval import ApprovalRequestedException
-from src.config import Config
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -331,13 +330,12 @@ def create_tool_node(tools: list[Any], is_autonomous: bool = False) -> Any:
         approval_state: AgentState | None = None
         if is_autonomous:
             blocked_messages, exec_state, approval_state = _split_autonomous_calls(state)
-        if Config.TURN_BUDGETS_ENABLED and exec_state is not None:
+        if exec_state is not None:
             looping, exec_state = split_looping_calls(exec_state)
             blocked_messages = [*blocked_messages, *looping]
 
         result = _run_batch(base_tool_node, exec_state, blocked_messages)
-        if Config.TURN_BUDGETS_ENABLED:
-            _dedupe_round(state, result)
+        _dedupe_round(state, result)
         _capture_and_strip_tool_messages(result.get("messages", []), request_id)
 
         if approval_state is not None:

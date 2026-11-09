@@ -131,6 +131,7 @@ turn_cost_usd
 failed_calls
 final_answer
 wrap_up_noticed
+batching_hinted
 recent_rounds
 ab_warned
 seen_results

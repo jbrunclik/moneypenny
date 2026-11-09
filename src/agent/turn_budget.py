@@ -53,6 +53,11 @@ StopReason = Literal["cost", "time", "rounds", "loop"]
 
 # Appended to the latest tool result (results are read; prompt text is not)
 WRAP_UP_NOTICE = "\n\n[Time is nearly up: finish with what you have in your next reply.]"
+# Once, mid-hunt: batch independent lookups - and no hurry to answer
+BATCHING_HINT = (
+    "\n\n[Tip: independent lookups can go into one round - several queries in one call "
+    "(research and web_search take a list). Take the time the task needs.]"
+)
 # Before the tools-off final call
 FINAL_GUIDANCE = (
     "This turn has used its budget, so this is your last reply and tools are off. "
@@ -90,6 +95,12 @@ def wrap_up_due(state: AgentState) -> bool:
         return False
     budget = Config.TURN_TIME_BUDGET_SECONDS
     return elapsed_s(state) >= Config.TURN_WRAP_UP_FRACTION * budget
+
+
+def batching_hint_due(state: AgentState, tool_rounds: int) -> bool:
+    """The one batching hint is due (this round, not sent yet)."""
+    at = Config.TURN_BATCHING_HINT_ROUND
+    return at > 0 and tool_rounds == at and not state.get("batching_hinted")
 
 
 def log_stop(reason: StopReason, state: AgentState, tool_rounds: int) -> None:
@@ -143,12 +154,3 @@ def _earlier_text(history: list[BaseMessage]) -> str:
         ):
             return text
     return ""
-
-
-def resolve_stopped_by(marker: str | None, tool_rounds: int) -> str | None:
-    """Why the turn stopped early: the budget's reason, or - budgets off - the
-    old round cap as 'rounds'; None when it ran to its own end."""
-    if Config.TURN_BUDGETS_ENABLED:
-        return marker
-    cap = Config.AGENT_MAX_TOOL_ROUNDS
-    return "rounds" if cap > 0 and tool_rounds >= cap else None
