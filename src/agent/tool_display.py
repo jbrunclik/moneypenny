@@ -211,6 +211,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Noted settled facts",
         "icon": "edit",
     },
+    "ask_choice": {
+        "label": "Asking which one",
+        "label_past": "Asked which one",
+        "icon": "checklist",
+    },
     "schedule": {
         "label": "Scheduling",
         "label_past": "Scheduled",
@@ -248,6 +253,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "record_conversation_facts",  # behind CONVERSATION_FACTS_ENABLED
         "schedule",  # ordinary non-anonymous chats only
         "create_standing_chat",  # ordinary non-anonymous chats only
+        "ask_choice",  # ordinary chats only, never for agents
     }
 )
 
@@ -702,6 +708,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "record_conversation_facts": _facts_detail,
     "schedule": _schedule_detail,
     "create_standing_chat": _standing_create_detail,
+    "ask_choice": _truthy_arg("question"),
 }
 
 

@@ -14,6 +14,7 @@ from pydantic.config import JsonDict
 from src.agent.permissions import base_tool, run_permissions
 from src.agent.tools.agent_kv import kv_store
 from src.agent.tools.artifacts import create_artifact, read_artifact, update_artifact
+from src.agent.tools.ask_choice import ask_choice
 from src.agent.tools.attachment import create_file
 from src.agent.tools.browser import browser, is_browser_available
 from src.agent.tools.code_execution import execute_code, is_code_sandbox_available
@@ -215,7 +216,8 @@ def _add_permitted_tools(
 
 def _ordinary_chat_tools(anonymous_mode: bool) -> list[BaseTool]:
     """Chat-only tools: every interactive chat but the planner (never unattended runs)."""
-    tools: list[BaseTool] = []
+    # A clarifying question with options (its card's pick is the user's reply)
+    tools: list[BaseTool] = [ask_choice]
     # Deep research offers: those have their own cost and approval models
     if Config.DEEP_RESEARCH_ENABLED:
         tools.append(propose_deep_research)
@@ -315,6 +317,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "refresh_planner_dashboard",  # planner mode only
         "request_approval",  # autonomous agents only
         "propose_deep_research",  # ordinary chats only, never for agents
+        "ask_choice",  # ordinary chats only, never for agents
         "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
         "edit_standing_chat",  # standing chats and their jobs, never a grant
         "create_standing_chat",  # ordinary chats only, never a grant

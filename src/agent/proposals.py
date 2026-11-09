@@ -60,6 +60,12 @@ _DECLINES: dict[str, Decline] = {}
 _YES_FIRST: set[str] = set()
 # More whole-message yes words a kind takes (its action's own verb: "smaž to")
 _EXTRA_YES: dict[str, frozenset[str]] = {}
+# Kinds whose pick takes the whole message: a question's "Smazat" answers the
+# question, never a delete card beside it on the same reply
+_EXCLUSIVE: set[str] = set()
+# What the agent hears about a kind's card, by state, where the default
+# ("The user approved: ...") would be wrong (a question is answered, not approved)
+_KIND_OUTCOMES: dict[str, dict[str, str]] = {}
 # Kinds a typed answer reaches only on the stream, and only a turn starts
 # (deep research runs as that turn) - never the approve endpoint
 _STREAM_ONLY: set[str] = set()
@@ -82,6 +88,8 @@ def register_kind(
     yes_is_first: bool = False,
     stream_only: bool = False,
     extra_yes: frozenset[str] = frozenset(),
+    outcomes: Mapping[str, str] | None = None,
+    exclusive: bool = False,
 ) -> None:
     """Register how a kind's chosen option is applied (returns the result
     line), what a decline does besides recording it (a paused run ends),
@@ -95,6 +103,10 @@ def register_kind(
         _STREAM_ONLY.add(kind)
     if extra_yes:
         _EXTRA_YES[kind] = frozenset(_normalized(word) for word in extra_yes)
+    if outcomes:
+        _KIND_OUTCOMES[kind] = dict(outcomes)
+    if exclusive:
+        _EXCLUSIVE.add(kind)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -161,6 +173,18 @@ def file_proposal(
         db.supersede_proposals(proposal.request_id, kind, proposal.id)
     logger.info("Proposal filed", extra={"kind": kind, "options": len(options)})
     return proposal
+
+
+def normalize_answer(text: str) -> str:
+    """A typed answer (or an option's label) as it is matched."""
+    return _normalized(text)
+
+
+def is_answer_word(label: str) -> bool:
+    """Whether a label would read as a plain yes or no (it could not be picked).
+    A kind's own yes words ("smazat") stay allowed: a question's pick is the
+    message's only answer (exclusive), so it never approves a card beside it."""
+    return _normalized(label) in _YES | _NO
 
 
 def _normalized(text: str) -> str:
@@ -259,6 +283,9 @@ def answer_typed(
         )
         for p in on_reply
     ]
+    # A pick on an exclusive card (a question) is the message's only answer
+    if any(p.kind in _EXCLUSIVE and answer != NO_ANSWER for p, answer in answers):
+        answers = [(p, a if p.kind in _EXCLUSIVE else NO_ANSWER) for p, a in answers]
     if all(answer == NO_ANSWER for _, answer in answers):
         db.expire_proposals(conversation_id, keep_unlinked=turn_running, keep_kinds=spared)
         return []
@@ -334,7 +361,9 @@ def turn_note(conversation_id: str, since: datetime | None = None) -> str | None
         return None
     db.mark_reported([p.id for p in news])
     lines = [
-        _OUTCOME[p.state].format(summary=p.summary, result=p.result or "")
+        {**_OUTCOME, **_KIND_OUTCOMES.get(p.kind, {})}[p.state].format(
+            summary=p.summary, result=p.result or ""
+        )
         for p in news
         if p.state in _OUTCOME
     ]

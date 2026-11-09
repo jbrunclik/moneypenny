@@ -43,7 +43,7 @@ def _names(**kwargs: Any) -> set[str]:
 
 
 # Bound in every interactive chat but the planner on top of get_available_tools()
-_ORDINARY_CHAT_ONLY = {"propose_deep_research", "schedule", "create_standing_chat"}
+_ORDINARY_CHAT_ONLY = {"propose_deep_research", "schedule", "create_standing_chat", "ask_choice"}
 
 
 class TestGetToolsForRequest:

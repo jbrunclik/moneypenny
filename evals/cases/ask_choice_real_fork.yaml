@@ -1,0 +1,20 @@
+id: ask_choice_real_fork
+description: >
+  A request with two real readings the conversation cannot settle: the agent
+  asks with a question card (ask_choice) naming the concrete options, instead
+  of guessing or asking a vague question in plain text
+history:
+  - role: user
+    content: "I'm training for a half marathon in March, and I also have my statistics exam on the 20th."
+  - role: assistant
+    content: "Good luck with both - a March half marathon and the statistics exam on the 20th."
+user: "Make me a plan for next week."
+expect:
+  rubric: >
+    Either (a) calls ask_choice with a short question and 2-4 concrete,
+    distinct options (e.g. running, exam prep, both) and ends with that
+    question in one short sentence, without listing the options again in the
+    text, or (b) makes one plan that clearly covers both the running and the
+    exam prep. Must NOT ask a vague open question in plain text, and no
+    option may be a plain yes or no.
+  max_tool_rounds: 3

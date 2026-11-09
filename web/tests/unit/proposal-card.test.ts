@@ -42,6 +42,7 @@ describe('proposal card', () => {
     actions = {
       approve: vi.fn(async () => proposal({ state: 'approved', chosen: 0, result: 'Reminder set - Fri 13 Nov 2026 08:00, then done.' })),
       decline: vi.fn(async () => proposal({ state: 'declined' })),
+      reply: vi.fn(async () => true),
     };
   });
 
@@ -167,5 +168,60 @@ describe('chat change card', () => {
     ]);
     expect(card.querySelector('.proposal-card__icon svg')).not.toBeNull();
     expect(card.querySelector('[data-proposal-choice="0"]')!.textContent).toBe('Delete');
+  });
+});
+
+describe('question card', () => {
+  const question = (overrides: Partial<Proposal> = {}): Proposal =>
+    proposal({
+      kind: 'question',
+      summary: 'Which dentist appointment?',
+      details: [],
+      options: [
+        { label: 'Thursday 9:00', description: '' },
+        { label: 'Friday 14:30', description: '' },
+      ],
+      ...overrides,
+    });
+
+  it('shows the options as equals and no Not now', () => {
+    const card = renderProposalCard(question());
+    const labels = [...card.querySelectorAll('button')].map((b) => b.textContent);
+    expect(labels).toEqual(['Thursday 9:00', 'Friday 14:30']);
+    expect(card.querySelector('.btn-primary')).toBeNull();
+  });
+
+  it('a tap sends the pick as the user\'s reply and shows it', async () => {
+    const actions: ProposalActions = { approve: vi.fn(), decline: vi.fn(), reply: vi.fn(async () => true) };
+    const el = reply([question()]);
+    initProposalCards(actions, document.getElementById('messages')!);
+    el.querySelector<HTMLButtonElement>('[data-proposal-choice="1"]')!.click();
+    await flush();
+    expect(actions.reply).toHaveBeenCalledWith('Friday 14:30');
+    expect(actions.approve).not.toHaveBeenCalled();
+    expect(document.querySelector('.proposal-card')!.textContent?.trim()).toBe('Which dentist appointment? Friday 14:30');
+  });
+
+  it('the pick shows at once, while the reply it starts is still running', () => {
+    const actions: ProposalActions = { approve: vi.fn(), decline: vi.fn(), reply: vi.fn(() => new Promise<boolean>(() => {})) };
+    const el = reply([question()]);
+    initProposalCards(actions, document.getElementById('messages')!);
+    el.querySelector<HTMLButtonElement>('[data-proposal-choice="1"]')!.click();
+    expect(document.querySelector('.proposal-card')!.textContent?.trim()).toBe('Which dentist appointment? Friday 14:30');
+  });
+
+  it('a pick that could not be sent leaves the card open', async () => {
+    const actions: ProposalActions = { approve: vi.fn(), decline: vi.fn(), reply: vi.fn(async () => false) };
+    const el = reply([question()]);
+    initProposalCards(actions, document.getElementById('messages')!);
+    el.querySelector<HTMLButtonElement>('[data-proposal-choice="0"]')!.click();
+    await flush();
+    const back = document.querySelector<HTMLButtonElement>('[data-proposal-choice="0"]');
+    expect(back?.disabled).toBe(false);
+  });
+
+  it('answered in the chat when the user wrote their own reply', () => {
+    const card = renderProposalCard(question({ state: 'expired' }));
+    expect(card.textContent?.trim()).toBe('Answered in the chat - Which dentist appointment?');
   });
 });

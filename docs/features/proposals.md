@@ -5,8 +5,7 @@ The one way Moneypenny asks for a yes. Instead of acting, a tool files a
 by replying; the **server** applies exactly what the card showed. Design:
 [One approval mechanism](../superpowers/specs/2026-11-09-one-approval-mechanism-design.md)
 (step 1 shipped Nov 9 2026: the chat setups; step 2 agent-run approvals,
-step 3 deep research, step 4 chat deletes; step 5 moves clarifying questions
-onto it).
+step 3 deep research, step 4 chat deletes, step 5 clarifying questions).
 
 ## What proposes today
 
@@ -17,6 +16,7 @@ onto it).
 | `edit_agent` | `edit_standing_chat` in the agent's chat | Apply | applies the settings change |
 | `deep_research` | `propose_deep_research` (filed when the reply saves) | Start | the run is the turn: Start sends it with the edited plan, a typed yes on the stream makes that turn the run ([deep-research.md](deep-research.md)) |
 | `chat_change` | a delete or archive in a chat turn (Todoist, Calendar, Rouvy) - held by the gate | Delete / Archive | performs each stored call through its tool ([below](#chat-changes-step-4-nov-9-2026)) |
+| `question` | `ask_choice` | its 2-4 options | nothing: the pick is the user's reply (a tap sends the label as their message) - [below](#questions-step-5-nov-9-2026) |
 
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).
@@ -62,6 +62,27 @@ hold bypassed. The result says what was done: "Done - task “Buy milk”",
 "Chat change applied" records calls and failed. The prompt
 (`prompt_texts/productivity.py`) tells the model to call deletes right away
 and say what waits for the user's OK, never that it is done.
+
+## Questions (step 5, Nov 9 2026)
+
+`ask_choice(question, options)` ([ask_choice.py](../../src/agent/tools/ask_choice.py))
+files a `question` card with 2-4 options. Its options only answer.
+- **Refused options:** duplicates, labels over 60 characters, a plain yes/no
+  word (`is_answer_word`) or a bare number. Those could not be told apart
+  from a typed answer.
+- **The tool result:** it tells the model to end with the question in one
+  sentence.
+- **A tap** sends the option's label as the user's own message
+  (`ProposalActions.reply` -> `sendUiMessage`). The card shows the pick at
+  once.
+- **Typing** the label or its number answers it the same way. The turn runs
+  normally; the agent hears "The user picked for “<question>”: <label>"
+  (per-kind outcome lines, `register_kind(outcomes=...)`).
+- **A reply in the user's own words** closes it ("Answered in the chat"). The
+  card has no Not now.
+- **Scope:** bound in every chat except the planner, never for agents. It is
+  not for suggested follow-ups (no suggestion chips). The eval cases are
+  `ask_choice_real_fork` and `ask_choice_not_for_clear_requests`.
 
 ## The record
 

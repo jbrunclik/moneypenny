@@ -1,5 +1,28 @@
 [
   {
+    "description": "Ask the user to choose when the request is ambiguous between a few\nconcrete possibilities you cannot settle from the conversation (which of\ntwo dentist events, which approach to take). The user sees the question\nwith one button per option; their pick arrives as their next message.\nNot for suggesting follow-ups or for yes/no questions.\n\nArgs:\n    question: The question, in the user's language, e.g. \"Which dentist appointment?\".\n    options: 2-4 short, distinct choices, e.g. [\"Thursday 9:00\", \"Friday 14:30\"].",
+    "name": "ask_choice",
+    "parameters": {
+      "properties": {
+        "question": {
+          "type": "STRING"
+        },
+        "options": {
+          "items": {
+            "type": "STRING"
+          },
+          "type": "ARRAY"
+        }
+      },
+      "required": [
+        "question",
+        "options"
+      ],
+      "title": "ask_choice",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Browse the web with a full browser that renders JavaScript.\n\nUse this tool when you need to interact with web pages that require JavaScript rendering,\nor when fetch_url returns incomplete/empty content. The browser session persists across\ncalls within the same conversation (cookies, history, JS state are maintained).\n\nPass EITHER `action` (one action) OR `actions` (a batch). Never enter passwords or\ncredentials into web forms.\n\nBefore the first browser call of a task, call load_skill('browser-tactics').\n\nActions:\n- navigate: Go to a URL. Requires `url`. Returns page title and URL.\n- click: Click an element. Requires `selector` (CSS selector).\n- type: Type text into a form field. Requires `selector` and `text`.\n- screenshot: Take a screenshot. By default, only you (the LLM) can see it.\n  Set `share_screenshot=True` to also share it with the user as a file attachment.\n- extract: Extract all text content from the current page (rendered HTML to markdown).\n- scroll: Scroll down the page. Optional `selector` to scroll to a specific element.\n- back: Go back in browser history.\n- close: Close the browser session and free resources.\n\n## Batches (`actions`)\n\nWhen you already know the steps - a known URL, then fill a field, then click submit -\nsend them as one `actions` list instead of one call per step, e.g.\n`actions=[{\"action\": \"navigate\", \"url\": \"...\"}, {\"action\": \"type\", \"selector\": \"#q\",\n\"text\": \"...\"}, {\"action\": \"click\", \"selector\": \"button[type=submit]\"}]`.\nSteps run in order and stop at the first failure (the result says which step failed).\nBatchable: navigate, click, type, scroll, back, extract. On an unfamiliar page, look\nfirst (a single navigate returns its `elements`), then batch.\n\n## Page state\n\nnavigate/click/type/scroll/back return `elements`: the visible buttons, links and\ninputs with ready-to-use selectors. Prefer those selectors over guessing.\n\n## Screenshots\n\n- `screenshot=True` on any action or batch: takes a screenshot (after the last step)\n  for YOU to see the page (internal).\n- `share_screenshot=True`: also shares the screenshot with the user as a visible attachment.\n\nUse internal screenshots freely for navigation (finding elements, understanding layout).\nOnly share screenshots when the result is relevant to the user (final page, visual answer).\n\nArgs:\n    action: The browser action to perform (omit when passing `actions`)\n    url: URL to navigate to (required for navigate)\n    selector: CSS selector for the target element (required for click/type)\n    text: Text to type (required for type)\n    screenshot: If True, take a screenshot after the action (visible to you only)\n    share_screenshot: If True, also share the screenshot with the user as a file attachment\n    wait_for: CSS selector to wait for after the action completes\n    timeout_ms: Custom timeout in milliseconds for this action\n    actions: A batch of steps to run in order in this one call (instead of `action`)\n\nReturns:\n    JSON for non-screenshot results. Multimodal content (with image) for screenshots.",
     "name": "browser",
     "parameters": {

@@ -1,0 +1,11 @@
+id: ask_choice_not_for_clear_requests
+description: >
+  A clear request gets an answer, not a question card: ask_choice is for a
+  real fork, never for suggesting follow-ups
+user: "What's the capital of Australia?"
+expect:
+  rubric: >
+    Answers Canberra directly. Must not ask the user to choose anything or
+    suggest follow-up options.
+  forbidden_tools: [ask_choice]
+  max_tool_rounds: 1

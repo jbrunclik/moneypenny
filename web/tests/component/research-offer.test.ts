@@ -19,6 +19,7 @@ function at<T>(items: ArrayLike<T>, i: number): T {
 const startDeepResearch = vi.fn<ResearchOfferActions['start']>(() => Promise.resolve(true));
 const declineProposal = vi.fn<ProposalActions['decline']>();
 const approveProposal = vi.fn<ProposalActions['approve']>();
+const replyProposal = vi.fn<ProposalActions['reply']>();
 
 const RATES = { base_minutes: 2, per_wave_minutes: 2.5, parallelism: 4, base_czk: 3, per_item_czk: 2 };
 const TARGET = { proposalId: 'p1', messageId: 'm1' };
@@ -48,7 +49,7 @@ function proposal(plan: Partial<ResearchPlan> = {}, state: Proposal['state'] = '
 function render(proposal: Proposal | null, options?: { live?: boolean }): HTMLElement {
   document.body.innerHTML = '<div id="messages"><div class="message assistant" data-message-id="m1"><div class="message-content-wrapper"><div class="message-content"><p>Odpověď</p></div></div></div></div>';
   initResearchOffers({ start: startDeepResearch });
-  initProposalCards({ approve: approveProposal, decline: declineProposal });
+  initProposalCards({ approve: approveProposal, decline: declineProposal, reply: replyProposal });
   const el = document.querySelector<HTMLElement>('.message')!;
   decorateProposals(el, { id: 'm1', proposals: proposal ? [proposal] : [] }, options);
   return el;

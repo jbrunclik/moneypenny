@@ -12,6 +12,7 @@ import type { Proposal } from '../../types/api';
 import { createElement } from '../../utils/dom';
 import {
   CHECK_ICON,
+  CHECKLIST_ICON,
   CLOCK_ICON,
   CLOSE_ICON,
   DELETE_ICON,
@@ -30,6 +31,8 @@ const log = createLogger('proposals');
 const LIST_CLASS = 'proposal-list';
 const CARD_CLASS = 'proposal-card';
 const DECLINE_LABEL = 'Not now';
+// Its options only answer: a pick is sent as the user's reply
+const QUESTION_KIND = 'question';
 const NOT_OPEN_TEXT = 'This card was already answered or is no longer open.';
 const RETRY_TEXT = "Couldn't reach Moneypenny - try again.";
 
@@ -37,6 +40,8 @@ const RETRY_TEXT = "Couldn't reach Moneypenny - try again.";
 export interface ProposalActions {
   approve: (proposalId: string, choice: number) => Promise<Proposal>;
   decline: (proposalId: string) => Promise<Proposal>;
+  /** Send text as the user's message (a question's pick); false when it could not go now */
+  reply: (text: string) => Promise<boolean>;
 }
 
 /** The pending card's icon tile, by kind (looked up at render: no import-time reads). */
@@ -46,6 +51,7 @@ function kindIcon(kind: string): IconHtml {
   if (kind === 'edit_agent') return SLIDERS_ICON;
   if (kind === 'deep_research') return SPARKLES_ICON;
   if (kind === 'chat_change') return DELETE_ICON;
+  if (kind === 'question') return CHECKLIST_ICON;
   return CHECK_ICON;
 }
 
@@ -59,6 +65,8 @@ function stateIcon(state: Proposal['state']): IconHtml {
 
 // UI-local (F2): injected by startup (F1)
 let actions: ProposalActions | null = null;
+/** The proposal each pending card shows (a question's pick needs its labels) */
+const proposalsByCard = new WeakMap<HTMLElement, Proposal>();
 const wired = new WeakSet<HTMLElement>();
 
 function details(proposal: Proposal): HTMLElement | null {
@@ -77,12 +85,15 @@ function details(proposal: Proposal): HTMLElement | null {
 }
 
 function buttons(proposal: Proposal): HTMLElement {
+  // A question's options are equals (no default), and a reply in the user's
+  // own words is its way out - no Not now
+  const question = proposal.kind === QUESTION_KIND;
   const choices = proposal.options.map((option, index) =>
     createElement(
       'button',
       {
         type: 'button',
-        class: index === 0 ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm',
+        class: index === 0 && !question ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm',
         'data-proposal-choice': String(index),
         ...(option.description ? { title: option.description } : {}),
       },
@@ -94,11 +105,18 @@ function buttons(proposal: Proposal): HTMLElement {
     { type: 'button', class: 'btn btn-secondary btn-sm proposal-card__decline', 'data-proposal-decline': '' },
     [DECLINE_LABEL]
   );
-  return createElement('div', { class: 'proposal-card__actions' }, [...choices, decline]);
+  return createElement('div', { class: 'proposal-card__actions' }, question ? choices : [...choices, decline]);
+}
+
+/** A question's line: what was picked, or that the chat answered it. */
+function questionOutcome(proposal: Proposal): string {
+  if (proposal.state === 'approved') return `${proposal.summary} ${proposal.result ?? ''}`.trim();
+  return `Answered in the chat - ${proposal.summary}`;
 }
 
 /** The one line a resolved card keeps. */
 function outcomeText(proposal: Proposal): string {
+  if (proposal.kind === QUESTION_KIND) return questionOutcome(proposal);
   switch (proposal.state) {
     case 'approved':
       return proposal.result || 'Done.';
@@ -130,6 +148,7 @@ export function renderProposalCard(proposal: Proposal, options: { live?: boolean
     );
     return card;
   }
+  proposalsByCard.set(card, proposal);
   card.append(
     createElement('div', { class: 'proposal-card__header' }, [
       createIconElement('proposal-card__icon', kindIcon(proposal.kind)),
@@ -199,6 +218,22 @@ function showError(card: HTMLElement, error: unknown): void {
   card.append(createElement('p', { class: 'proposal-card__error', role: 'alert' }, [RETRY_TEXT]));
 }
 
+/** A question's pick: shown at once, then sent as the user's message (which
+ *  answers the card on the server); the card comes back when it could not go. */
+async function reply(card: HTMLElement, proposal: Proposal, choice: number): Promise<void> {
+  const label = proposal.options[choice]?.label;
+  if (!actions || !label) return;
+  const picked = { ...proposal, state: 'approved' as const, chosen: choice, result: label };
+  showOutcome(card, picked);
+  let sent = false;
+  try {
+    sent = await actions.reply(label);
+  } finally {
+    const shown = document.querySelector<HTMLElement>(`.${CARD_CLASS}[data-proposal-id="${proposal.id}"]`);
+    if (!sent && shown) showOutcome(shown, proposal);
+  }
+}
+
 async function answer(card: HTMLElement, choice: number | null): Promise<void> {
   const id = card.dataset.proposalId;
   if (!actions || !id) return;
@@ -218,7 +253,10 @@ function onClick(event: Event): void {
   const card = button?.closest<HTMLElement>(`.${CARD_CLASS}`);
   if (!button || !card || button.disabled) return;
   if (button.dataset.proposalChoice !== undefined) {
-    void answer(card, Number(button.dataset.proposalChoice));
+    const proposal = proposalsByCard.get(card);
+    const choice = Number(button.dataset.proposalChoice);
+    if (proposal?.kind === QUESTION_KIND) void reply(card, proposal, choice);
+    else void answer(card, choice);
   } else if (button.dataset.proposalDecline !== undefined) {
     void answer(card, null);
   }
