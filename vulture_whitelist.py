@@ -112,6 +112,13 @@ access_role
 background_color
 # src/api/schemas/kv_store.py
 key_count
+# src/api/schemas/proposals.py (a research card's plan, built as a dict in api/utils.py)
+base_minutes
+per_wave_minutes
+parallelism
+base_czk
+per_item_czk
+autostart
 # src/api/schemas/programs.py
 has_conversation
 # src/api/schemas/system.py

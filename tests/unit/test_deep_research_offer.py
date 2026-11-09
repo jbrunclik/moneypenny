@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage
 
 from src.agent.deep_research.offer import PlanError, extract_offer, validate_plan
 from src.config import Config
+from src.db.models import use_database
 
 
 def _call(**args: object) -> AIMessage:
@@ -54,15 +55,16 @@ def test_saving_a_new_offer_supersedes_the_open_one(
     monkeypatch.setattr(chat_save, "calculate_and_save_message_cost", MagicMock())
     monkeypatch.setattr(chat_save, "resolve_title_update", MagicMock(return_value=None))
     offer_call = _call(question="Q", context="Praha", sub_questions=["a", "b"])
-    args = ([], {}, test_conversation.id, test_conversation.user_id, "m", "q", "r", True)
+    args = ([], {}, test_conversation.id, test_conversation.user_id, "m", "q")
 
-    first = chat_save.save_message_to_db("answer 1", [offer_call], *args)
-    second = chat_save.save_message_to_db("answer 2", [offer_call], *args)
+    with use_database(test_database):
+        first = chat_save.save_message_to_db("answer 1", [offer_call], *args, "r1", True)
+        second = chat_save.save_message_to_db("answer 2", [offer_call], *args, "r2", True)
 
     assert first is not None and second is not None
-    stored = {m.id: m for m in test_database.get_messages(test_conversation.id)}
-    assert stored[first.message_id].research["offer"]["status"] == "superseded"
-    assert stored[second.message_id].research["offer"]["status"] == "offered"
+    cards = test_database.proposals_for_messages([first.message_id, second.message_id])
+    states = {message_id: [p.state for p in found] for message_id, found in cards.items()}
+    assert states == {first.message_id: ["superseded"], second.message_id: ["pending"]}
 
 
 def test_the_tool_is_bound_in_chats_not_in_unattended_runs() -> None:
@@ -140,3 +142,27 @@ def _agent_run_names(tool_permissions: list[str] | None) -> set[str]:
 
     grants = ["*"] if tool_permissions is None else tool_permissions
     return {t.name for t in tools_for_grants(grants, "u1")}
+
+
+def test_a_research_card_shows_its_plan_and_never_the_payload(
+    test_database: Any, test_conversation: Any
+) -> None:
+    """The editor needs the plan; the card's other kinds keep their payloads hidden."""
+    from src.agent.deep_research.offer import build_offer, file_offer_card
+    from src.api.utils import proposal_to_response
+
+    offer = build_offer({"question": "Q", "context": "Praha", "sub_questions": ["a", "b"]})
+    with use_database(test_database):
+        card = file_offer_card(offer, test_conversation.id, test_conversation.user_id, "r")
+
+    shown = proposal_to_response(card)
+
+    assert shown["research"] == {
+        "question": "Q",
+        "context": "Praha",
+        "sub_questions": ["a", "b"],
+        "rates": offer["rates"],
+        "autostart": False,
+        "kind": "initial",
+    }
+    assert "payload" not in str(shown["options"])

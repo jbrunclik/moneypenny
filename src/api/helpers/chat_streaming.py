@@ -19,6 +19,7 @@ from src.api.helpers.lost_actions import record_lost_actions
 from src.api.helpers.stream_consumer import handle_generator_error, relay_events
 from src.api.helpers.stream_finalize import finalize_stream
 from src.api.helpers.stream_producer import cleanup_and_save, stream_events
+from src.api.utils import proposal_to_response
 from src.db.models import db
 from src.enums import MessageRole
 from src.utils.logging import get_logger
@@ -250,11 +251,19 @@ def _yield_user_message_saved(context: StreamContext) -> Generator[str]:
         )
 
     try:
-        event_data = {
+        event_data: dict[str, object] = {
             "type": "user_message_saved",
             "user_message_id": context.user_msg.id,
             "expected_assistant_message_id": context.expected_assistant_msg_id,
         }
+        # What the message turned out to be, and the cards it answered: shown
+        # now, not after a run that may take minutes
+        if context.user_msg.action:
+            event_data["action"] = context.user_msg.action
+        if context.turn.answered_proposals:
+            event_data["answered_proposals"] = [
+                proposal_to_response(p) for p in context.turn.answered_proposals
+            ]
         yield f"data: {json.dumps(event_data)}\n\n"
     except BrokenPipeError, ConnectionError, OSError:
         pass

@@ -16,11 +16,13 @@ import {
   CLOSE_ICON,
   ROBOT_ICON,
   SLIDERS_ICON,
+  SPARKLES_ICON,
   WARNING_ICON,
   createIconElement,
   type IconHtml,
 } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
+import { refreshReportLinks, renderResearchCard } from './research-offer';
 
 const log = createLogger('proposals');
 
@@ -41,6 +43,7 @@ function kindIcon(kind: string): IconHtml {
   if (kind === 'schedule_item') return CLOCK_ICON;
   if (kind === 'create_agent' || kind === 'agent_action') return ROBOT_ICON;
   if (kind === 'edit_agent') return SLIDERS_ICON;
+  if (kind === 'deep_research') return SPARKLES_ICON;
   return CHECK_ICON;
 }
 
@@ -108,8 +111,11 @@ function outcomeText(proposal: Proposal): string {
   }
 }
 
-/** One card: pending (summary, details, buttons) or resolved (one line). */
-export function renderProposalCard(proposal: Proposal): HTMLElement {
+/** One card: pending (summary, details, buttons) or resolved (one line).
+ *  A deep_research card's body is the plan editor (research-offer.ts). */
+export function renderProposalCard(proposal: Proposal, options: { live?: boolean } = {}): HTMLElement {
+  const research = proposal.kind === 'deep_research' ? renderResearchCard(proposal, options) : null;
+  if (research) return research;
   const card = createElement('div', {
     class: `${CARD_CLASS} ${CARD_CLASS}--${proposal.kind.replaceAll('_', '-')}`,
     'data-proposal-id': proposal.id,
@@ -133,10 +139,12 @@ export function renderProposalCard(proposal: Proposal): HTMLElement {
   return card;
 }
 
-/** Render (or replace) a reply's cards under its text; none removes the list. */
+/** Render (or replace) a reply's cards under its text; none removes the list.
+ *  `live`: the reply just arrived (an explicitly requested research run counts down). */
 export function decorateProposals(
   messageEl: HTMLElement,
-  message: { id: string; proposals?: Proposal[] | null }
+  message: { id: string; proposals?: Proposal[] | null },
+  options: { live?: boolean } = {}
 ): void {
   const shown = message.proposals ?? [];
   let list = messageEl.querySelector<HTMLElement>(`.${LIST_CLASS}`);
@@ -150,7 +158,8 @@ export function decorateProposals(
     list = createElement('div', { class: LIST_CLASS });
     content.insertAdjacentElement('afterend', list);
   }
-  list.replaceChildren(...shown.map(renderProposalCard));
+  list.replaceChildren(...shown.map((proposal) => renderProposalCard(proposal, options)));
+  refreshReportLinks(list);
 }
 
 /** Keep the store's copy of the reply's cards in step with the screen. */

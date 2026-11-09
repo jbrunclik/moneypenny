@@ -15,7 +15,7 @@ them.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 from src.agent.agent import ChatAgent, planner_dashboard_context
@@ -26,6 +26,7 @@ from src.agent.deep_research.plan import (
     OfferConflictError,
     OfferNotFoundError,
     start_plan,
+    typed_start_plan,
 )
 from src.agent.gemini_files import attach_gemini_file_uris
 from src.agent.guidance import with_guidance
@@ -95,8 +96,12 @@ class PreparedTurn:
         return answers_only_runs(self.answered_proposals)
 
 
-def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
+def prepare_turn(
+    user: User, data: ChatRequest, conv_id: str, *, streaming: bool = True
+) -> PreparedTurn:
     """Validate a chat request, save the user message, build enriched history.
+
+    A typed yes to a deep-research card makes this (streamed) turn the run.
 
     A re-run (regenerate/continue) inserts no new user message: the existing
     message it anchors on stands in for it in responses and stream events.
@@ -129,7 +134,7 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     plan = None
     if data.deep_research:
         _dedupe_client_message_id(conv_id, data.client_message_id)
-        plan = _start_deep_research(conv_id, data.deep_research)
+        plan = _start_deep_research(conv_id, user.id, data.deep_research)
 
     # A worker killed mid-turn left its empty reply: out of the history, and
     # out of the regenerate's way
@@ -148,7 +153,10 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     # this turn, so a retry does not repeat a write. Taken only once the turn
     # is accepted - a refused rerun leaves it for the next one
     lost_actions_note = pop_lost_actions_note(user.id, conv_id)
-    proposal_note, answered = _proposal_note(conv_id, data, message_text, user_msg)
+    proposal_note, answered = _proposal_note(conv_id, data, message_text, user_msg, streaming)
+    if plan is None and (plan := typed_start_plan(answered)) is not None:
+        # The typed yes is the run's start: it links to its report like Start's row
+        user_msg = _record_action(user_msg, _action(data, plan))
 
     # File DATA is left out of history (only metadata: name, type, message_id,
     # file_index) so large base64 isn't re-sent; tools fetch it on demand.
@@ -168,13 +176,13 @@ def prepare_turn(user: User, data: ChatRequest, conv_id: str) -> PreparedTurn:
     )
 
 
-def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearchPlan:
+def _start_deep_research(conv_id: str, user_id: str, start: DeepResearchStart) -> DeepResearchPlan:
     """The run's plan, or the matching API error."""
     # Offers made before the switch was turned off are still on screen
     if not Config.DEEP_RESEARCH_ENABLED:
         raise_validation_error("Deep research is turned off", field="deep_research")
     try:
-        return start_plan(conv_id, start.offer_message_id, start.sub_questions, start.context)
+        return start_plan(conv_id, user_id, start.proposal_id, start.sub_questions, start.context)
     except PlanError as e:
         raise_validation_error(str(e), field="deep_research")
     except OfferNotFoundError:
@@ -185,7 +193,7 @@ def _start_deep_research(conv_id: str, start: DeepResearchStart) -> DeepResearch
 
 
 def _proposal_note(
-    conv_id: str, data: ChatRequest, message_text: str, user_msg: Message
+    conv_id: str, data: ChatRequest, message_text: str, user_msg: Message, streaming: bool
 ) -> tuple[str | None, list[Proposal]]:
     """Answer the latest reply's cards from this message, before the agent
     runs, and what the agent should hear about them.
@@ -200,7 +208,8 @@ def _proposal_note(
     # A send that isn't steering (attachments) can arrive while a turn runs:
     # the cards that turn filed are not shown yet and must not expire
     running = running_turn_id(conv_id) is not None
-    return start_turn(conv_id, "" if data.app_sent else message_text, turn_running=running)
+    text = "" if data.app_sent else message_text
+    return start_turn(conv_id, text, turn_running=running, streaming=streaming)
 
 
 def refuse_if_read_only(conv: Conversation) -> None:
@@ -280,6 +289,14 @@ def _action(data: ChatRequest, plan: DeepResearchPlan | None) -> MessageAction |
     return None
 
 
+def _record_action(user_msg: Message, action: MessageAction | None) -> Message:
+    """Store what a saved user message turned out to be (a typed research start)."""
+    if action is None:
+        return user_msg
+    db.set_message_action(user_msg.id, action)
+    return replace(user_msg, action=action)
+
+
 def _save_user_message(
     conv_id: str,
     message_text: str,
@@ -357,6 +374,8 @@ class TurnContext:
     deep_research: DeepResearchPlan | None = None
     lost_actions_note: str | None = None
     proposal_note: str | None = None
+    # The cards this message answered (shown early, in user_message_saved)
+    answered_proposals: list[Proposal] = field(default_factory=list)
     # None where the conversation keeps no facts list (conversation_facts.py)
     conversation_facts: list[ConversationFact] | None = None
 
@@ -448,6 +467,7 @@ def build_turn_context(user: User, turn: PreparedTurn, request_id: str) -> TurnC
         deep_research=turn.deep_research,
         lost_actions_note=turn.lost_actions_note,
         proposal_note=turn.proposal_note,
+        answered_proposals=turn.answered_proposals,
         conversation_facts=load_turn_facts(conv, turn.anonymous_mode),
         is_planning=conv.is_planning,
         standing=load_standing_context(conv, user),

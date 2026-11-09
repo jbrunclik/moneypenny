@@ -12,7 +12,7 @@ import {
   renderResearchProgress,
   type ResearchProgress,
 } from '@/components/messages/research-progress';
-import type { ResearchOffer, ResearchRun } from '@/types/api';
+import type { ResearchRun } from '@/types/api';
 
 const START = Date.parse('2026-10-03T10:00:00Z');
 
@@ -152,17 +152,6 @@ describe('report chip and follow-up', () => {
     const el = bubble();
     finishResearchMessage(el, { id: 'a1', research: { run: { ...RUN, finished_early: true } } });
     expect(el.querySelector('.research-chip__text')!.textContent).toContain('finished early');
-  });
-
-  it('the follow-up offer appears under the report', () => {
-    const el = bubble();
-    const followup: ResearchOffer = {
-      question: 'Q', context: '', sub_questions: ['Další?'], estimate: { minutes: 5, cost_czk: 5 },
-      rates: { base_minutes: 2, per_wave_minutes: 2.5, parallelism: 4, base_czk: 3, per_item_czk: 2 },
-      status: 'offered', autostart: false, kind: 'followup', round: 2,
-    };
-    finishResearchMessage(el, { id: 'a1', research: { run: { ...RUN, followup } } });
-    expect(el.querySelector('.research-offer__title')!.textContent).toBe('Research further?');
   });
 
   it('renders unexpected event fields as text, not markup', () => {

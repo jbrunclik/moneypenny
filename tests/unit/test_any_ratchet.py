@@ -12,7 +12,7 @@ from pathlib import Path
 
 _SRC = Path(__file__).parents[2] / "src"
 
-ANY_BASELINE = 1004  # Nov 9 2026 (run approvals fold into proposals)
+ANY_BASELINE = 1000  # Nov 9 2026 (deep-research offers fold into proposals)
 
 
 def _any_uses(path: Path) -> int:

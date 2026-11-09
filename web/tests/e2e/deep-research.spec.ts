@@ -28,7 +28,7 @@ const card = (page: Page) => page.locator('.message.assistant .research-offer').
 test.describe('Deep research', () => {
   test('edit the offer, run it, and get a report with a chip and a follow-up', async ({ page, request }) => {
     await offerTurn(page, request);
-    await expect(card(page).locator('.research-offer__title')).toHaveText('Research this in depth?', { timeout: 15000 });
+    await expect(card(page).locator('.proposal-card__summary')).toHaveText('Research this in depth?', { timeout: 15000 });
     await expect(card(page).locator('.research-offer__item textarea')).toHaveCount(3);
 
     await card(page).locator('.research-offer__remove').nth(1).click();
@@ -48,7 +48,7 @@ test.describe('Deep research', () => {
     await expect(report.locator('.research-chip__text')).toHaveText(/^Deep research · 3 questions · 12 pages · \d+ min$/, { timeout: 15000 });
     await expect(page.locator('.research-progress')).toHaveCount(0);
     await expect(report.locator('sup.claim-cite')).toHaveText('1');
-    await expect(report.locator('.research-offer__title')).toHaveText('Research further?');
+    await expect(report.locator('.proposal-card__summary')).toHaveText('Research further?');
 
     await report.locator('.research-chip summary').click();
     await expect(report.locator('.research-chip__body')).toContainText('② Finding 2');
@@ -57,7 +57,7 @@ test.describe('Deep research', () => {
     await page.reload();
     const reloaded = page.locator('.message.assistant').last();
     await expect(reloaded.locator('.research-chip summary')).toContainText('3 questions', { timeout: 15000 });
-    await expect(reloaded.locator('.research-offer__title')).toHaveText('Research further?');
+    await expect(reloaded.locator('.proposal-card__summary')).toHaveText('Research further?');
   });
 
   test('a reload mid-run resumes the progress panel', async ({ page, request }) => {
@@ -92,13 +92,26 @@ test.describe('Deep research', () => {
     await expect(page.locator('.research-chip summary')).toContainText('3 questions', { timeout: 15000 });
   });
 
-  test('No thanks removes the offer', async ({ page, request }) => {
+  test('Not now declines the offer, and it stays declined', async ({ page, request }) => {
     await offerTurn(page, request);
-    await card(page).locator('.research-offer__decline').click({ timeout: 15000 });
+    await card(page).locator('.proposal-card__decline').click({ timeout: 15000 });
+    const line = page.locator('.message.assistant .proposal-card--declined');
+    await expect(line).toHaveText(/Not now - Transfer a car registration$/);
     await expect(page.locator('.research-offer')).toHaveCount(0);
     await page.reload();
-    await expect(page.locator('.message.assistant')).toHaveCount(1, { timeout: 15000 });
-    await expect(page.locator('.research-offer')).toHaveCount(0);
+    await expect(line).toHaveText(/Not now - Transfer a car registration$/, { timeout: 15000 });
+  });
+
+  test('a typed yes starts the offer as it stands', async ({ page, request }) => {
+    await offerTurn(page, request);
+    await expect(card(page).locator('.research-offer__start')).toBeVisible({ timeout: 15000 });
+    await page.fill('#message-input', 'yes');
+    await page.click('#send-btn');
+    // Shown at once, not after the run: the card started, the "yes" its row
+    await expect(page.locator('.message.assistant .research-offer').first()).toHaveText(/Deep research started/);
+    await expect(page.locator('.message--action .action-row__text').last()).toHaveText(/^Deep research started · 3 questions/);
+    await expect(page.locator('.research-chip summary')).toContainText('3 questions', { timeout: 30000 });
+    await expect(page.locator('.research-offer__report')).toHaveText('Report below ↓');
   });
 
   test('an explicit request starts by itself', async ({ page, request }) => {
@@ -107,7 +120,7 @@ test.describe('Deep research', () => {
     await expect(card(page).locator('.research-offer__countdown')).toContainText('Starting in', { timeout: 15000 });
     await expect(page.locator('.research-chip summary')).toContainText('3 questions', { timeout: 30000 });
     // The offer card follows the run, not stuck on Starting…
-    await expect(page.locator('.message.assistant .research-offer').first()).toHaveText(/^Deep research started/);
+    await expect(page.locator('.message.assistant .research-offer').first()).toHaveText(/Deep research started/);
   });
 
   test('run_now alone does not start: the user did not ask', async ({ page, request }) => {

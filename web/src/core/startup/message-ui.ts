@@ -21,7 +21,7 @@ import { proposals } from '../../api/proposals';
 import { initResearchProgress } from '../../components/messages/research-progress';
 import { setArtifactSender } from '../../components/messages/artifact-host';
 import { setQuizRenderer } from '../../utils/markdown';
-import { declineDeepResearch, startDeepResearch } from '../deep-research';
+import { startDeepResearch } from '../deep-research';
 import { sendAppMessage } from '../messaging';
 
 /**
@@ -35,7 +35,7 @@ export function initMessageUi(): void {
   initClaimCard({ send: sendAppMessage });
   initClaimsSheet();
   setArtifactSender(sendAppMessage);
-  initResearchOffers({ start: startDeepResearch, decline: declineDeepResearch });
+  initResearchOffers({ start: startDeepResearch });
   initProposalCards({ approve: proposals.approve, decline: proposals.decline });
   initResearchProgress();
   initActionRows();

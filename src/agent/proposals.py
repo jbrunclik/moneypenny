@@ -54,6 +54,10 @@ _KINDS: dict[str, Apply] = {}
 _DECLINES: dict[str, Decline] = {}
 # Kinds whose first option is the plain yes (the others are extras)
 _YES_FIRST: set[str] = set()
+# Kinds a typed answer reaches only on the stream, and only a turn starts
+# (deep research runs as that turn) - never the approve endpoint
+_STREAM_ONLY: set[str] = set()
+STREAM_STARTED = _STREAM_ONLY
 
 
 class ProposalFailedError(Exception):
@@ -65,14 +69,23 @@ class ProposalNotPendingError(Exception):
 
 
 def register_kind(
-    kind: str, apply: Apply, decline: Decline | None = None, *, yes_is_first: bool = False
+    kind: str,
+    apply: Apply,
+    decline: Decline | None = None,
+    *,
+    yes_is_first: bool = False,
+    stream_only: bool = False,
 ) -> None:
     """Register how a kind's chosen option is applied (returns the result
-    line), what a decline does besides recording it (a paused run ends), and
-    whether a typed yes picks its first option when it offers several."""
+    line), what a decline does besides recording it (a paused run ends),
+    whether a typed yes picks its first option when it offers several, and
+    whether only a streamed turn can act on a typed yes (a batch turn leaves
+    the card open for its button)."""
     _KINDS[kind] = apply
     if yes_is_first:
         _YES_FIRST.add(kind)
+    if stream_only:
+        _STREAM_ONLY.add(kind)
     if decline is not None:
         _DECLINES[kind] = decline
 
@@ -171,16 +184,22 @@ def resolve(proposal: Proposal, choice: int | None, by: Literal["button", "typed
     elif on_decline := _DECLINES.get(proposal.kind):
         on_decline(proposal)
     resolved = db.get_proposal(proposal.id, proposal.user_id) or proposal
+    log_resolved(proposal, resolved.state, by)
+    return resolved
+
+
+def log_resolved(proposal: Proposal, state: ProposalState, by: str) -> None:
+    """One line per answer (A8): what was asked, how it ended, how fast.
+    A deep-research Start claims its card itself and logs here too."""
     logger.info(
         "Proposal resolved",
         extra={
             "kind": proposal.kind,
-            "state": resolved.state,
+            "state": state,
             "resolved_by": by,
             "seconds_open": round((utc_now() - proposal.created_at).total_seconds()),
         },
     )
-    return resolved
 
 
 def _apply(proposal: Proposal, option: ProposalOption) -> tuple[ProposalState, str]:
@@ -196,20 +215,21 @@ def _apply(proposal: Proposal, option: ProposalOption) -> tuple[ProposalState, s
     return "approved", result
 
 
-def answer_typed(conversation_id: str, text: str, turn_running: bool = False) -> list[Proposal]:
+def answer_typed(
+    conversation_id: str, text: str, turn_running: bool = False, streaming: bool = True
+) -> list[Proposal]:
     """Resolve the latest reply's pending proposals from the user's typed
-    message (cards under older replies, and expired ones, wait for a tap); a message that answers none of them expires them all - except,
-    while another turn runs (turn_running), the cards it filed and has not
-    shown yet."""
-    on_reply = db.latest_reply_proposals(conversation_id)
-    if not on_reply:
-        db.expire_proposals(conversation_id, keep_unlinked=turn_running)
-        return []
+    message (cards under older replies, and expired ones, wait for a tap);
+    a message that answers none of them expires them all - except, while
+    another turn runs (turn_running), the cards it filed and has not shown
+    yet, and in a batch turn (not streaming) the stream-only kinds."""
+    spared: frozenset[str] = frozenset() if streaming else frozenset(_STREAM_ONLY)
+    on_reply = [p for p in db.latest_reply_proposals(conversation_id) if p.kind not in spared]
     answers = [
         (p, typed_answer(text, p.options, yes_is_first=p.kind in _YES_FIRST)) for p in on_reply
     ]
     if all(answer == NO_ANSWER for _, answer in answers):
-        db.expire_proposals(conversation_id, keep_unlinked=turn_running)
+        db.expire_proposals(conversation_id, keep_unlinked=turn_running, keep_kinds=spared)
         return []
     resolved: list[Proposal] = []
     for proposal, answer in answers:
@@ -220,7 +240,7 @@ def answer_typed(conversation_id: str, text: str, turn_running: bool = False) ->
         except ProposalNotPendingError:  # a tap elsewhere answered it meanwhile
             continue
     # Older or unanswered ones are stale now
-    db.expire_proposals(conversation_id, keep_unlinked=turn_running)
+    db.expire_proposals(conversation_id, keep_unlinked=turn_running, keep_kinds=spared)
     return resolved
 
 
@@ -229,6 +249,7 @@ def start_turn(
     text: str | None,
     since: datetime | None = None,
     turn_running: bool = False,
+    streaming: bool = True,
 ) -> tuple[str | None, list[Proposal]]:
     """The turn's start: resolve a typed answer (None for a rerun, which
     answers nothing); returns what the agent should hear about its proposals
@@ -237,7 +258,9 @@ def start_turn(
     attempt heard it, its retry did not."""
     db.fail_stale_applying(before=utc_now() - APPLY_STALE_AFTER)
     answered = (
-        answer_typed(conversation_id, text, turn_running=turn_running) if text is not None else []
+        answer_typed(conversation_id, text, turn_running=turn_running, streaming=streaming)
+        if text is not None
+        else []
     )
     return turn_note(conversation_id, since=since), answered
 

@@ -131,16 +131,37 @@ class ProposalsMixin:
         )
 
     def claim_proposal(
-        self, proposal_id: str, state: ProposalState, chosen: int | None, resolved_by: str
+        self,
+        proposal_id: str,
+        state: ProposalState,
+        chosen: int | None,
+        resolved_by: str,
+        options: list[ProposalOption] | None = None,
     ) -> bool:
-        """Resolve a pending proposal - True for the one answer that wins."""
+        """Resolve a pending proposal - True for the one answer that wins.
+        `options` replaces the stored ones in the same write (a deep-research
+        start keeps the plan the user edited)."""
         return (
             self._write(
-                """UPDATE proposals SET state = ?, chosen = ?, resolved_by = ?, resolved_at = ?
+                """UPDATE proposals SET state = ?, chosen = ?, resolved_by = ?, resolved_at = ?,
+                       options = COALESCE(?, options)
                    WHERE id = ? AND state = 'pending'""",
-                (state, chosen, resolved_by, to_db(utc_now()), proposal_id),
+                (
+                    state,
+                    chosen,
+                    resolved_by,
+                    to_db(utc_now()),
+                    json.dumps(options) if options is not None else None,
+                    proposal_id,
+                ),
             )
             == 1
+        )
+
+    def set_proposal_options(self, proposal_id: str, options: list[ProposalOption]) -> None:
+        """Rewrite a resolved proposal's options (a typed start records its plan)."""
+        self._write(
+            "UPDATE proposals SET options = ? WHERE id = ?", (json.dumps(options), proposal_id)
         )
 
     def finish_proposal(self, proposal_id: str, state: ProposalState, result: str) -> None:
@@ -158,11 +179,17 @@ class ProposalsMixin:
             )
 
     def expire_proposals(
-        self, conversation_id: str, message_id: str | None = None, *, keep_unlinked: bool = False
+        self,
+        conversation_id: str,
+        message_id: str | None = None,
+        *,
+        keep_unlinked: bool = False,
+        keep_kinds: frozenset[str] = frozenset(),
     ) -> int:
         """Expire pending proposals - the conversation's, or one reply's; how
         many. keep_unlinked spares the ones no saved reply shows yet (a turn
-        still running filed them)."""
+        still running filed them); keep_kinds the kinds this message could
+        not answer (a batch turn cannot start deep research)."""
         # A run's card waits for its answer (or its expiry), whatever is said meanwhile
         query = """UPDATE proposals SET state = 'expired', resolved_by = 'system', resolved_at = ?
                    WHERE conversation_id = ? AND state = 'pending' AND origin = 'chat'"""
@@ -172,6 +199,9 @@ class ProposalsMixin:
             params = (*params, message_id)
         if keep_unlinked:
             query += " AND message_id IS NOT NULL"
+        if keep_kinds:
+            query += f" AND kind NOT IN ({', '.join('?' * len(keep_kinds))})"
+            params = (*params, *sorted(keep_kinds))
         return self._write(query, params)
 
     def fail_stale_applying(self, before: datetime) -> int:
@@ -190,6 +220,15 @@ class ProposalsMixin:
             """UPDATE proposals SET state = 'superseded', resolved_by = 'system', resolved_at = ?
                WHERE request_id = ? AND kind = ? AND id != ? AND state = 'pending'""",
             (to_db(utc_now()), request_id, kind, keep_id),
+        )
+
+    def supersede_open_proposals(self, conversation_id: str, kind: str, keep_id: str) -> int:
+        """A newer proposal of a kind replaces the conversation's older open
+        ones (one open research offer per chat)."""
+        return self._write(
+            """UPDATE proposals SET state = 'superseded', resolved_by = 'system', resolved_at = ?
+               WHERE conversation_id = ? AND kind = ? AND id != ? AND state = 'pending'""",
+            (to_db(utc_now()), conversation_id, kind, keep_id),
         )
 
     def unreported_proposals(self, conversation_id: str) -> list[Proposal]:

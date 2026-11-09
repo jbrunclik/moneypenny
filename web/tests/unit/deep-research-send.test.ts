@@ -23,15 +23,14 @@ vi.mock('@/components/Toast', () => ({
 }));
 vi.mock('@/api/conversations', () => ({
   conversations: { stop: vi.fn(), finishNow: vi.fn() },
-  messages: { delete: vi.fn(), declineResearchOffer: vi.fn(() => Promise.resolve()) },
+  messages: { delete: vi.fn() },
 }));
 
 import { sendStreamingMessage } from '@/core/stream-send';
 import { sendBatchMessage } from '@/core/batch-send';
 import { dispatchSend } from '@/core/messaging';
-import { declineDeepResearch, startDeepResearch } from '@/core/deep-research';
+import { startDeepResearch } from '@/core/deep-research';
 import { getOutboxEntry } from '@/core/outbox';
-import { messages } from '@/api/conversations';
 import { toast } from '@/components/Toast';
 
 function at<T>(items: ArrayLike<T>, i: number): T {
@@ -48,7 +47,8 @@ const CONV: Conversation = {
   updated_at: '2026-10-03T08:00:00',
 };
 const PAGE = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 1 };
-const PLAN = { offer_message_id: 'm1', sub_questions: ['A?', 'B?'], context: 'ctx' };
+const PLAN = { proposal_id: 'p1', sub_questions: ['A?', 'B?'], context: 'ctx' };
+const TARGET = { proposalId: 'p1', messageId: 'm1' };
 
 describe('deep research send', () => {
   beforeEach(() => {
@@ -75,7 +75,7 @@ describe('deep research send', () => {
   });
 
   it('startDeepResearch sends "Start deep research" with the plan and keeps it in the outbox', async () => {
-    await startDeepResearch('m1', ['A?', 'B?'], 'ctx');
+    await startDeepResearch(TARGET, ['A?', 'B?'], 'ctx');
     const [, content, , , tempId] = at(vi.mocked(sendStreamingMessage).mock.calls, 0);
     expect(content).toBe('Start deep research');
     expect(vi.mocked(sendStreamingMessage).mock.calls[0]?.[8]?.deepResearch).toEqual(PLAN);
@@ -90,14 +90,14 @@ describe('deep research send', () => {
 
   it('startDeepResearch waits while a reply is still running', async () => {
     useStore.getState().setActiveRequest('c1', { requestId: 'r', messageId: 'a1' } as never);
-    await startDeepResearch('m1', ['A?'], '');
+    await startDeepResearch(TARGET, ['A?'], '');
     expect(sendStreamingMessage).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalled();
   });
 
   it('an autostart waits for the running reply to end, then sends', async () => {
     useStore.getState().setActiveRequest('c1', { requestId: 'r', messageId: 'a1' } as never);
-    const started = startDeepResearch('m1', ['A?'], '', { whenIdle: true });
+    const started = startDeepResearch(TARGET, ['A?'], '', { whenIdle: true });
     await Promise.resolve();
     expect(sendStreamingMessage).not.toHaveBeenCalled();
     useStore.getState().removeActiveRequest('c1');
@@ -106,16 +106,22 @@ describe('deep research send', () => {
     expect(toast.info).not.toHaveBeenCalled();
   });
 
-  it('declineDeepResearch patches the offer and marks it declined in the store', async () => {
+  it('startDeepResearch marks the card started in the store, and back when it cannot send', async () => {
+    const card = {
+      id: 'p1', kind: 'deep_research', summary: 'Q', details: [], options: [], state: 'pending' as const,
+      chosen: null, result: null, research: null,
+    };
     useStore.getState().setMessages('c1', [
-      {
-        id: 'm1', role: 'assistant', content: 'x', created_at: '2026-10-03T08:00:00',
-        research: { offer: { status: 'offered' } as never },
-      },
+      { id: 'm1', role: 'assistant', content: 'x', created_at: '2026-10-03T08:00:00', proposals: [card] },
     ], PAGE);
-    await declineDeepResearch('m1');
-    expect(messages.declineResearchOffer).toHaveBeenCalledWith('m1');
-    const m = at(useStore.getState().getMessages('c1'), 0);
-    expect(m.research?.offer?.status).toBe('declined');
+    await startDeepResearch(TARGET, ['A?'], '');
+    expect(at(useStore.getState().getMessages('c1'), 0).proposals?.[0]?.state).toBe('approved');
+
+    useStore.getState().setActiveRequest('c1', { requestId: 'r', messageId: 'a1' } as never);
+    useStore.getState().setMessages('c1', [
+      { id: 'm1', role: 'assistant', content: 'x', created_at: '2026-10-03T08:00:00', proposals: [card] },
+    ], PAGE);
+    await startDeepResearch(TARGET, ['A?'], '');
+    expect(at(useStore.getState().getMessages('c1'), 0).proposals?.[0]?.state).toBe('pending');
   });
 });

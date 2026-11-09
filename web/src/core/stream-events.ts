@@ -18,7 +18,9 @@ import {
   getStreamingMessageElement,
   updateUserMessageId,
 } from '../components/messages';
-import type { ToolMetadata } from '../types/api';
+import type { MessageAction, Proposal, ToolMetadata } from '../types/api';
+import { showAnsweredProposals } from '../components/messages/proposal-card';
+import { replaceWithActionRow } from '../components/messages/action-row';
 import { persistInflightStream } from './inflight-streams';
 import { acknowledgeServerStop, type StreamingState } from './stream-session';
 import { deepCopyThinkingState, updateLocalThinkingState } from './thinking-state';
@@ -50,6 +52,19 @@ function snapshotToStore(state: StreamingState, convId: string): void {
   );
 }
 
+/** The cards the message answered, and the action it turned out to be,
+ *  shown now - a research run it started reports only minutes later. */
+function showWhatTheMessageWas(event: StreamEventPayload, convId: string, userMessageId: string): void {
+  const answered = event.answered_proposals as Proposal[] | undefined;
+  if (answered?.length) showAnsweredProposals(answered);
+  const action = event.action as MessageAction | undefined;
+  if (!action) return;
+  const store = useStore.getState();
+  store.updateMessage(convId, userMessageId, { action });
+  const message = store.getMessages(convId).find((m) => m.id === userMessageId);
+  if (message && store.currentConversation?.id === convId) replaceWithActionRow({ ...message, action });
+}
+
 function handleUserMessageSaved(
   event: StreamEventPayload,
   state: StreamingState,
@@ -58,6 +73,7 @@ function handleUserMessageSaved(
 ): void {
   if (event.user_message_id) {
     updateUserMessageId(tempUserMessageId, event.user_message_id as string);
+    showWhatTheMessageWas(event, convId, event.user_message_id as string);
   }
   // Capture the expected assistant message ID for stream recovery
   if (!event.expected_assistant_message_id) return;

@@ -20,7 +20,7 @@ from src.agent.content import (
     extract_image_prompts_from_messages,
     extract_read_sources,
 )
-from src.agent.deep_research.offer import extract_offer, seconds_open
+from src.agent.deep_research.offer import extract_offer, file_offer_card
 from src.agent.grounding_check import GroundingResult
 from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
@@ -193,47 +193,28 @@ def _research_for_turn(
     user_id: str,
     result_messages: list[Any],
     usage: dict[str, Any],
-    message_text: str = "",
+    message_text: str,
+    request_id: str,
 ) -> dict[str, Any] | None:
-    """Deep-research data for this reply: a report's run, or an offer made this
-    turn. A new open offer (or a report's follow-up offer) replaces open ones."""
+    """Deep-research data for this reply - a report's run - and the card of
+    an offer made this turn (or a report's follow-up offer), filed for the
+    reply to link."""
     run = usage.get("research_run")
-    offer = None if run else extract_offer(result_messages, message_text)
-    opens_offer = offer is not None or bool(run and run.get("followup"))
-    if opens_offer:
-        for old in db.find_open_research_offers(conv_id):
-            _log_superseded(old)
-            db.set_message_research(old.id, _superseded(old.research or {}))
-    if run:
-        return {"run": run}
-    if offer is None:
-        return None
-    logger.info(
-        "Deep research offered",
-        extra={
-            "user_id": user_id,
-            "conversation_id": conv_id,
-            "sub_questions": len(offer["sub_questions"]),
-            "estimate": offer["estimate"],
-            "kind": offer["kind"],
-            "autostart": offer["autostart"],
-        },
-    )
-    return {"offer": offer}
-
-
-def _log_superseded(message: Any) -> None:
-    research = message.research or {}
-    offer = research.get("offer") or (research.get("run") or {}).get("followup") or {}
-    logger.info(
-        "Deep research superseded",
-        extra={
-            "conversation_id": message.conversation_id,
-            "offer_message_id": message.id,
-            "kind": offer.get("kind"),
-            "seconds_open": seconds_open(offer),
-        },
-    )
+    offer = extract_offer(result_messages, message_text) if not run else run.pop("followup", None)
+    if offer is not None:
+        file_offer_card(offer, conv_id, user_id, request_id)
+        logger.info(
+            "Deep research offered",
+            extra={
+                "user_id": user_id,
+                "conversation_id": conv_id,
+                "sub_questions": len(offer["sub_questions"]),
+                "estimate": offer["estimate"],
+                "kind": offer["kind"],
+                "autostart": offer["autostart"],
+            },
+        )
+    return {"run": run} if run else None
 
 
 def _log_research_run(run: dict[str, Any], cost_usd: float, message_id: str) -> None:
@@ -258,17 +239,6 @@ def _log_research_run(run: dict[str, Any], cost_usd: float, message_id: str) -> 
             "estimate": run.get("estimate"),
         },
     )
-
-
-def _superseded(research: dict[str, Any]) -> dict[str, Any]:
-    """The research data with its open offer (or follow-up) marked superseded."""
-    if research.get("offer", {}).get("status") == "offered":
-        return {**research, "offer": {**research["offer"], "status": "superseded"}}
-    run = research.get("run", {})
-    if run.get("followup", {}).get("status") == "offered":
-        followup = {**run["followup"], "status": "superseded"}
-        return {**research, "run": {**run, "followup": followup}}
-    return research
 
 
 def _visible_content(
@@ -364,7 +334,9 @@ def save_message_to_db(
             stream_request_id, user_id, conv_id
         )
         content = _visible_content(content, all_generated_files, stop_reason)
-        research = _research_for_turn(conv_id, user_id, result_messages, usage, message_text)
+        research = _research_for_turn(
+            conv_id, user_id, result_messages, usage, message_text, stream_request_id
+        )
         artifacts = extract_artifact_refs(result_messages)
         if usage.get("research_sources") is not None:
             # A deep-research report cites the run's merged pages, not tool calls

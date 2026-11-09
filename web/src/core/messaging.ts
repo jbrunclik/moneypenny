@@ -37,6 +37,7 @@ import { programmaticScrollToBottom } from '../utils/programmatic-scroll';
 import { setConversationHash } from '../router/deeplink';
 import type { Conversation, DeepResearchStart, FileUpload, Message, MessageAction, SendExtras } from '../types/api';
 import { setMessageSendState } from '../components/messages/send-state';
+import { stopResearchCountdowns } from '../components/messages/research-offer';
 
 import { createConversation } from './conversation';
 import { isTempConversation } from '../utils/conversation-id';
@@ -301,6 +302,8 @@ async function sendNewMessage(
   releaseComposer: () => void
 ): Promise<void> {
   const entry = trackNewMessage(conv, messageText, files, forceTools);
+  // The message answers or expires an offer's card: its countdown must not fire
+  stopResearchCountdowns();
 
   // Clear input, draft and force tools (one-shot)
   clearMessageInput();
@@ -338,6 +341,7 @@ export async function sendUiMessage(text: string, extras: SendExtras = {}): Prom
  * user's own typing does (docs/features/proposals.md).
  */
 export function sendAppMessage(text: string, extras: SendExtras = {}): Promise<boolean> {
+  stopResearchCountdowns(); // the message expires an open offer's card
   return sendUiMessage(text, { ...extras, appSent: true });
 }
 

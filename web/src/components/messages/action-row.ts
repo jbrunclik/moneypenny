@@ -70,6 +70,16 @@ export function addActionRowToUI(message: Message, container: HTMLElement, optio
 }
 
 /** Scroll to an element and flash it for CLAIM_FLASH_MS. */
+/** A sent message turned out to be an action (a typed yes that started a
+ *  research run): its bubble becomes the action row, as after a reload. */
+export function replaceWithActionRow(message: Message): void {
+  const bubble = document.querySelector<HTMLElement>(`.message.user[data-message-id="${message.id}"]`);
+  if (!bubble || !message.action) return;
+  const holder = document.createElement('div');
+  addActionRowToUI(message, holder);
+  if (holder.firstElementChild) bubble.replaceWith(holder.firstElementChild);
+}
+
 export function flashElement(target: HTMLElement, flashClass: string): void {
   target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
   target.classList.add(flashClass);

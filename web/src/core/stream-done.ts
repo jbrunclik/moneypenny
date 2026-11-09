@@ -128,10 +128,10 @@ function finalizeDoneBubble(
   decorateGrounding(messageEl, reply);
   // Keeps frames placed during the stream; adds any it missed
   decorateArtifacts(messageEl, reply);
-  // The progress panel becomes the report chip; an offer shows under the answer
+  // The progress panel becomes the report chip (an offer is one of the cards below)
   finishResearchMessage(messageEl, reply, { live: true });
   // Cards for what the reply proposes (a reminder, a new agent, a change)
-  decorateProposals(messageEl, reply);
+  decorateProposals(messageEl, reply, { live: true });
   const reason = event.stop_reason === 'user' ? 'user' : event.stopped_early ? 'budget' : null;
   if (reason) {
     const wrapper = messageEl.querySelector<HTMLElement>('.message-content-wrapper');

@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { decorateProposals, initProposalCards, type ProposalActions } from '@/components/messages/proposal-card';
 import {
   _resetResearchOffers,
   estimateFrom,
   initResearchOffers,
   refreshReportLinks,
-  renderResearchOffer,
+  stopResearchCountdowns,
   type ResearchOfferActions,
 } from '@/components/messages/research-offer';
-import type { ResearchOffer } from '@/types/api';
+import type { Proposal, ResearchPlan } from '@/types/api';
 
 function at<T>(items: ArrayLike<T>, i: number): T {
   const item = items[i];
@@ -16,30 +17,40 @@ function at<T>(items: ArrayLike<T>, i: number): T {
 }
 
 const startDeepResearch = vi.fn<ResearchOfferActions['start']>(() => Promise.resolve(true));
-const declineDeepResearch = vi.fn<ResearchOfferActions['decline']>(() => Promise.resolve(true));
+const declineProposal = vi.fn<ProposalActions['decline']>();
+const approveProposal = vi.fn<ProposalActions['approve']>();
 
 const RATES = { base_minutes: 2, per_wave_minutes: 2.5, parallelism: 4, base_czk: 3, per_item_czk: 2 };
+const TARGET = { proposalId: 'p1', messageId: 'm1' };
 
-function offer(overrides: Partial<ResearchOffer> = {}): ResearchOffer {
+function proposal(plan: Partial<ResearchPlan> = {}, state: Proposal['state'] = 'pending'): Proposal {
   return {
-    question: 'Přepis SPZ',
-    context: 'rodina, Praha',
-    sub_questions: ['Ceny agentur?', 'Kolik to trvá?', 'Co je potřeba?'],
-    estimate: { minutes: 5, cost_czk: 9 },
-    rates: RATES,
-    status: 'offered',
-    autostart: false,
-    kind: 'initial',
-    round: 1,
-    ...overrides,
+    id: 'p1',
+    kind: 'deep_research',
+    summary: 'Přepis SPZ',
+    details: [],
+    options: [{ label: 'Start', description: '' }],
+    state,
+    chosen: state === 'approved' ? 0 : null,
+    result: state === 'approved' ? 'Started' : null,
+    research: {
+      question: 'Přepis SPZ',
+      context: 'rodina, Praha',
+      sub_questions: ['Ceny agentur?', 'Kolik to trvá?', 'Co je potřeba?'],
+      rates: RATES,
+      autostart: false,
+      kind: 'initial',
+      ...plan,
+    },
   };
 }
 
-function render(o: ResearchOffer | null, options?: { live?: boolean }): HTMLElement {
+function render(proposal: Proposal | null, options?: { live?: boolean }): HTMLElement {
   document.body.innerHTML = '<div id="messages"><div class="message assistant" data-message-id="m1"><div class="message-content-wrapper"><div class="message-content"><p>Odpověď</p></div></div></div></div>';
-  initResearchOffers({ start: startDeepResearch, decline: declineDeepResearch });
+  initResearchOffers({ start: startDeepResearch });
+  initProposalCards({ approve: approveProposal, decline: declineProposal });
   const el = document.querySelector<HTMLElement>('.message')!;
-  renderResearchOffer(el, { id: 'm1', ...(o && { research: { offer: o } }) }, options);
+  decorateProposals(el, { id: 'm1', proposals: proposal ? [proposal] : [] }, options);
   return el;
 }
 
@@ -47,6 +58,7 @@ const card = () => document.querySelector<HTMLElement>('.research-offer')!;
 const meta = () => [...card().querySelectorAll('.research-offer__tag')].map((t) => t.textContent).join(' · ');
 const items = () => [...card().querySelectorAll<HTMLTextAreaElement>('.research-offer__item textarea')];
 const startBtn = () => card().querySelector<HTMLButtonElement>('.research-offer__start')!;
+const declineBtn = () => card().querySelector<HTMLButtonElement>('.proposal-card__decline')!;
 const addBtn = () => card().querySelector<HTMLButtonElement>('.research-offer__add')!;
 
 function type(el: HTMLTextAreaElement, text: string): void {
@@ -61,22 +73,23 @@ describe('estimateFrom', () => {
   });
 });
 
-describe('research offer card', () => {
+describe('deep-research card', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     _resetResearchOffers();
   });
 
   it('shows the question, estimate, context and numbered items in English', () => {
-    render(offer());
-    expect(card().querySelector('.research-offer__title')!.textContent).toBe('Research this in depth?');
+    render(proposal());
+    expect(card().classList).toContain('proposal-card');
+    expect(card().querySelector('.proposal-card__summary')!.textContent).toBe('Research this in depth?');
     expect(meta()).toBe('~5 min · ~9 Kč');
     expect(card().querySelector('.research-offer__context-text')!.textContent).toBe('rodina, Praha');
     expect(items().map((i) => i.value)).toEqual(['Ceny agentur?', 'Kolik to trvá?', 'Co je potřeba?']);
   });
 
   it('adding a question updates the estimate once it has text', () => {
-    render(offer());
+    render(proposal());
     addBtn().click();
     expect(items()).toHaveLength(4);
     expect(meta()).toBe('~5 min · ~9 Kč');
@@ -85,14 +98,14 @@ describe('research offer card', () => {
   });
 
   it('removing a question updates the estimate', () => {
-    render(offer());
+    render(proposal());
     card().querySelector<HTMLButtonElement>('.research-offer__remove')!.click();
     expect(items().map((i) => i.value)).toEqual(['Kolik to trvá?', 'Co je potřeba?']);
     expect(meta()).toBe('~5 min · ~7 Kč');
   });
 
   it('Start sends the edited items and context', () => {
-    render(offer());
+    render(proposal());
     type(at(items(), 0), 'Ceny pražských agentur?');
     addBtn().click();
     type(at(items(), 3), 'Online');
@@ -101,7 +114,7 @@ describe('research offer card', () => {
     type(card().querySelector<HTMLTextAreaElement>('.research-offer__context textarea')!, 'rodina se dvěma dětmi');
     startBtn().click();
     expect(startDeepResearch).toHaveBeenCalledWith(
-      'm1',
+      TARGET,
       ['Ceny pražských agentur?', 'Kolik to trvá?', 'Co je potřeba?', 'Online'],
       'rodina se dvěma dětmi',
       { minutes: 5 }
@@ -110,34 +123,35 @@ describe('research offer card', () => {
   });
 
   it('Start is disabled with no questions; Add is disabled at the limit', () => {
-    render(offer({ sub_questions: ['A'] }));
+    render(proposal({ sub_questions: ['A'] }));
     type(at(items(), 0), '  ');
     expect(startBtn().disabled).toBe(true);
-    render(offer({ sub_questions: ['1', '2', '3', '4', '5', '6', '7', '8'] }));
+    render(proposal({ sub_questions: ['1', '2', '3', '4', '5', '6', '7', '8'] }));
     expect(addBtn().disabled).toBe(true);
     expect(startBtn().disabled).toBe(false);
   });
 
-  it('No thanks declines and the offer goes away', async () => {
-    render(offer());
-    card().querySelector<HTMLButtonElement>('.research-offer__decline')!.click();
-    expect(declineDeepResearch).toHaveBeenCalledWith('m1');
-    await vi.waitFor(() => expect(document.querySelector('.research-offer')).toBeNull());
+  it('Not now is the card\'s decline; the card shows the outcome', async () => {
+    declineProposal.mockResolvedValueOnce({ ...proposal(), state: 'declined' });
+    render(proposal());
+    declineBtn().click();
+    expect(declineProposal).toHaveBeenCalledWith('p1');
+    await vi.waitFor(() => expect(document.querySelector('.proposal-card')!.textContent?.trim()).toBe('Not now - Přepis SPZ'));
   });
 
-  it('a failed decline keeps the offer and re-enables No thanks', async () => {
-    vi.mocked(declineDeepResearch).mockResolvedValueOnce(false);
-    render(offer());
-    const decline = card().querySelector<HTMLButtonElement>('.research-offer__decline')!;
-    decline.click();
-    expect(decline.disabled).toBe(true);
-    await vi.waitFor(() => expect(decline.disabled).toBe(false));
-    expect(document.querySelector('.research-offer')).not.toBeNull();
+  it('Not now stops the countdown', async () => {
+    vi.useFakeTimers();
+    declineProposal.mockResolvedValueOnce({ ...proposal(), state: 'declined' });
+    render(proposal({ autostart: true }), { live: true });
+    declineBtn().click();
+    vi.advanceTimersByTime(20_000);
+    vi.useRealTimers();
+    expect(startDeepResearch).not.toHaveBeenCalled();
   });
 
   it('an explicit request counts down in the editor, then starts once', () => {
     vi.useFakeTimers();
-    const o = offer({ autostart: true });
+    const o = proposal({ autostart: true });
     render(o, { live: true });
     expect(startBtn().textContent).toBe('Start now');
     expect(card().querySelector('.research-offer__countdown')!.textContent).toBe('Starting in 8 s');
@@ -146,13 +160,39 @@ describe('research offer card', () => {
     expect(startDeepResearch).not.toHaveBeenCalled();
     vi.advanceTimersByTime(5000);
     expect(startDeepResearch).toHaveBeenCalledTimes(1);
-    expect(startDeepResearch).toHaveBeenCalledWith('m1', o.sub_questions, o.context, { whenIdle: true, minutes: 5 });
+    expect(startDeepResearch).toHaveBeenCalledWith(TARGET, o.research!.sub_questions, o.research!.context, {
+      whenIdle: true,
+      minutes: 5,
+    });
+    vi.useRealTimers();
+  });
+
+  it('a re-render (the card synced) keeps counting down where it was', () => {
+    vi.useFakeTimers();
+    const p = proposal({ autostart: true });
+    const el = render(p, { live: true });
+    vi.advanceTimersByTime(3000);
+    decorateProposals(el, { id: 'm1', proposals: [p] }); // not live: a sync re-decorated it
+    expect(card().querySelector('.research-offer__countdown')!.textContent).toBe('Starting in 5 s');
+    vi.advanceTimersByTime(5000);
+    expect(startDeepResearch).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('sending a message stops every countdown (the card is answered or expires)', () => {
+    vi.useFakeTimers();
+    render(proposal({ autostart: true }), { live: true });
+    vi.advanceTimersByTime(3000);
+    stopResearchCountdowns();
+    vi.advanceTimersByTime(20_000);
+    expect(startDeepResearch).not.toHaveBeenCalled();
+    expect(card().querySelector('.research-offer__countdown')).toBeNull();
     vi.useRealTimers();
   });
 
   it('editing the plan pauses the countdown', () => {
     vi.useFakeTimers();
-    render(offer({ autostart: true }), { live: true });
+    render(proposal({ autostart: true }), { live: true });
     type(at(items(), 0), 'Ceny pražských agentur?');
     vi.advanceTimersByTime(20_000);
     expect(startDeepResearch).not.toHaveBeenCalled();
@@ -163,7 +203,7 @@ describe('research offer card', () => {
 
   it('Edit plan pauses the countdown and focuses the first question', () => {
     vi.useFakeTimers();
-    render(offer({ autostart: true }), { live: true });
+    render(proposal({ autostart: true }), { live: true });
     card().querySelector<HTMLButtonElement>('.research-offer__edit')!.click();
     vi.advanceTimersByTime(20_000);
     expect(startDeepResearch).not.toHaveBeenCalled();
@@ -173,36 +213,36 @@ describe('research offer card', () => {
 
   it('an autostart shows Deep research started once it is sent', async () => {
     vi.useFakeTimers();
-    render(offer({ autostart: true }), { live: true });
+    render(proposal({ autostart: true }), { live: true });
     vi.advanceTimersByTime(8000);
     vi.useRealTimers();
-    await vi.waitFor(() => expect(card().textContent).toBe('Deep research started'));
+    await vi.waitFor(() => expect(card().textContent?.trim()).toBe('Deep research started'));
   });
 
   it('an autostart that could not be sent falls back to the editor', async () => {
     vi.mocked(startDeepResearch).mockResolvedValueOnce(false);
     vi.useFakeTimers();
-    render(offer({ autostart: true }), { live: true });
+    render(proposal({ autostart: true }), { live: true });
     vi.advanceTimersByTime(8000);
     vi.useRealTimers();
     await vi.waitFor(() => expect(startBtn()?.textContent).toBe('Start'));
   });
 
   it('autostart never fires from history', () => {
-    render(offer({ autostart: true }));
+    render(proposal({ autostart: true }));
     expect(startDeepResearch).not.toHaveBeenCalled();
     expect(startBtn()).not.toBeNull();
   });
 
-  it('a started offer collapses to one line; declined and superseded show nothing', () => {
-    render(offer({ status: 'started' }));
-    expect(card().textContent).toBe('Deep research started');
-    render(offer({ status: 'declined' }));
-    expect(document.querySelector('.research-offer')).toBeNull();
-    render(offer({ status: 'superseded' }));
-    expect(document.querySelector('.research-offer')).toBeNull();
+  it('a started card collapses to one line; declined and expired use the card\'s line', () => {
+    render(proposal({}, 'approved'));
+    expect(card().textContent?.trim()).toBe('Deep research started');
+    render(proposal({}, 'declined'));
+    expect(document.querySelector('.proposal-card')!.textContent?.trim()).toBe('Not now - Přepis SPZ');
+    render(proposal({}, 'expired'));
+    expect(document.querySelector('.proposal-card')!.textContent?.trim()).toBe('Expired - Přepis SPZ');
     render(null);
-    expect(document.querySelector('.research-offer')).toBeNull();
+    expect(document.querySelector('.proposal-card')).toBeNull();
   });
 
   it('a started offer links to its report once it exists', async () => {
@@ -216,8 +256,8 @@ describe('research offer card', () => {
         action: { type: 'deep_research', offer_message_id: 'm1', items: 3, minutes: 5 },
       },
     ], page);
-    render(offer({ status: 'started' }));
-    expect(card().textContent).toBe('Deep research started');
+    render(proposal({}, 'approved'));
+    expect(card().textContent?.trim()).toBe('Deep research started');
     useStore.getState().appendMessage('c1', { id: 'rep', role: 'assistant', content: 'Report', created_at: '' });
     const report = document.createElement('div');
     report.className = 'message assistant';
@@ -232,10 +272,7 @@ describe('research offer card', () => {
   });
 
   it('a report follow-up offer renders the same editor', () => {
-    document.body.innerHTML = '<div class="message assistant"><div class="message-content-wrapper"><div class="message-content"></div></div></div>';
-    const el = document.querySelector<HTMLElement>('.message')!;
-    const followup = offer({ kind: 'followup', round: 2, sub_questions: ['Další?'] });
-    renderResearchOffer(el, { id: 'm2', research: { run: { round: 1, followup } as never } });
-    expect(card().querySelector('.research-offer__title')!.textContent).toBe('Research further?');
+    render(proposal({ kind: 'followup', sub_questions: ['Další?'] }));
+    expect(card().querySelector('.proposal-card__summary')!.textContent).toBe('Research further?');
   });
 });

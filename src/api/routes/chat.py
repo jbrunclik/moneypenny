@@ -87,7 +87,7 @@ def chat_batch(user: User, data: ChatRequest, conv_id: str) -> tuple[Mapping[str
     running = _steerable_running_turn(user, data, conv_id)
     if running is not None:
         return _steer_batch_send(user, data, conv_id, running)
-    turn = prepare_turn(user, data, conv_id)
+    turn = prepare_turn(user, data, conv_id, streaming=False)
     if turn.answer_only:  # a typed answer to a run's card: the run is the reply
         return answer_only_body(turn), 200
     return _batch_response(turn, _run_batch_turn(user, conv_id, turn)), 200

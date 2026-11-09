@@ -5280,6 +5280,7 @@
           "Conversations"
         ],
         "summary": "Approve a card: the server applies the chosen option exactly as shown.",
+        "description": "A deep-research card starts from its Start button (the run is a streamed\nturn), not here.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6052,95 +6053,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ChatRequest"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/messages/{message_id}/research-offer": {
-      "patch": {
-        "parameters": [
-          {
-            "in": "path",
-            "name": "message_id",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            },
-            "description": "Validation error"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Not found"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "429": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPError"
-                }
-              }
-            },
-            "description": "Too Many Requests"
-          }
-        },
-        "tags": [
-          "Conversations"
-        ],
-        "summary": "Decline a deep-research offer (starting one goes through the chat stream).",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResearchOfferUpdate"
               }
             }
           }
@@ -7190,6 +7102,86 @@
         "title": "ProposalOptionResponse",
         "type": "object"
       },
+      "JobsOverviewResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/JobsOverviewResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
+        "type": "object"
+      },
       "JobsOverviewResponse.RunProposalResponse": {
         "description": "A run waiting on the user's card, with the job it belongs to.",
         "properties": {
@@ -7261,6 +7253,18 @@
             "description": "What applying did, or why it failed",
             "title": "Result"
           },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobsOverviewResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
+          },
           "job_id": {
             "description": "The job whose run asked",
             "title": "Job Id",
@@ -7291,6 +7295,7 @@
           "state",
           "chosen",
           "result",
+          "research",
           "job_id",
           "job_name",
           "conversation_id",
@@ -8913,6 +8918,86 @@
         "title": "ProposalOptionResponse",
         "type": "object"
       },
+      "PendingApprovalsResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/PendingApprovalsResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
+        "type": "object"
+      },
       "PendingApprovalsResponse.RunProposalResponse": {
         "description": "A run waiting on the user's card, with the job it belongs to.",
         "properties": {
@@ -8984,6 +9069,18 @@
             "description": "What applying did, or why it failed",
             "title": "Result"
           },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PendingApprovalsResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
+          },
           "job_id": {
             "description": "The job whose run asked",
             "title": "Job Id",
@@ -9014,6 +9111,7 @@
           "state",
           "chosen",
           "result",
+          "research",
           "job_id",
           "job_name",
           "conversation_id",
@@ -12303,7 +12401,7 @@
               }
             ],
             "default": null,
-            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "description": "A deep-research report's run data ({run}); offers are proposals",
             "title": "Research"
           },
           "artifacts": {
@@ -12528,6 +12626,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlannerConversationResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -12538,9 +12648,90 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/PlannerConversationResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
         "type": "object"
       },
       "PlannerConversationResponse.SourceResponse": {
@@ -13046,6 +13237,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -13056,9 +13259,90 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "MessageResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/MessageResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "MessageResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
         "type": "object"
       },
       "MessageResponse.SourceResponse": {
@@ -13267,7 +13551,7 @@
               }
             ],
             "default": null,
-            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "description": "A deep-research report's run data ({run}); offers are proposals",
             "title": "Research"
           },
           "artifacts": {
@@ -14052,7 +14336,7 @@
               }
             ],
             "default": null,
-            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "description": "A deep-research report's run data ({run}); offers are proposals",
             "title": "Research"
           },
           "artifacts": {
@@ -14332,6 +14616,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -14342,9 +14638,90 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.SourceResponse": {
@@ -15857,6 +16234,86 @@
         "title": "ProposalOptionResponse",
         "type": "object"
       },
+      "ProposalResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/ProposalResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "ProposalResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
+        "type": "object"
+      },
       "ProposalResponse": {
         "description": "A card awaiting (or past) the user's answer.",
         "properties": {
@@ -15927,6 +16384,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProposalResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -15937,7 +16406,8 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -16515,7 +16985,7 @@
               }
             ],
             "default": null,
-            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "description": "A deep-research report's run data ({run}); offers are proposals",
             "title": "Research"
           },
           "artifacts": {
@@ -16795,6 +17265,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessagesListResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -16805,9 +17287,90 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/MessagesListResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
         "type": "object"
       },
       "MessagesListResponse.SourceResponse": {
@@ -17354,6 +17917,18 @@
             "default": null,
             "description": "What applying did, or why it failed",
             "title": "Result"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatBatchResponse.ResearchPlanResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "deep_research only: the plan its editor shows"
           }
         },
         "required": [
@@ -17364,9 +17939,90 @@
           "options",
           "state",
           "chosen",
-          "result"
+          "result",
+          "research"
         ],
         "title": "ProposalResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.ResearchPlanResponse": {
+        "description": "A deep_research card's plan, for its editor: the questions that run\n(the edited ones once started) and what the estimate needs.",
+        "properties": {
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "context": {
+            "title": "Context",
+            "type": "string"
+          },
+          "sub_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sub Questions",
+            "type": "array"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/ChatBatchResponse.ResearchRatesResponse"
+          },
+          "autostart": {
+            "description": "An explicit request: Start after a countdown",
+            "title": "Autostart",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "initial",
+              "followup"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "context",
+          "sub_questions",
+          "rates",
+          "autostart",
+          "kind"
+        ],
+        "title": "ResearchPlanResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.ResearchRatesResponse": {
+        "description": "What the editor's live estimate is computed from (estimate.py).",
+        "properties": {
+          "base_minutes": {
+            "title": "Base Minutes",
+            "type": "number"
+          },
+          "per_wave_minutes": {
+            "title": "Per Wave Minutes",
+            "type": "number"
+          },
+          "parallelism": {
+            "title": "Parallelism",
+            "type": "integer"
+          },
+          "base_czk": {
+            "title": "Base Czk",
+            "type": "number"
+          },
+          "per_item_czk": {
+            "title": "Per Item Czk",
+            "type": "number"
+          }
+        },
+        "required": [
+          "base_minutes",
+          "per_wave_minutes",
+          "parallelism",
+          "base_czk",
+          "per_item_czk"
+        ],
+        "title": "ResearchRatesResponse",
         "type": "object"
       },
       "ChatBatchResponse.SourceResponse": {
@@ -17585,7 +18241,7 @@
               }
             ],
             "default": null,
-            "description": "Deep-research offer ({offer}) or run ({run}) data",
+            "description": "A deep-research report's run data ({run}); offers are proposals",
             "title": "Research"
           },
           "artifacts": {
@@ -17795,10 +18451,10 @@
         "type": "object"
       },
       "ChatRequest.DeepResearchStart": {
-        "description": "Start a deep-research run from an offer, with the user's final plan.",
+        "description": "Start a deep-research run from its card, with the user's final plan.",
         "properties": {
-          "offer_message_id": {
-            "title": "Offer Message Id",
+          "proposal_id": {
+            "title": "Proposal Id",
             "type": "string"
           },
           "sub_questions": {
@@ -17815,7 +18471,7 @@
           }
         },
         "required": [
-          "offer_message_id"
+          "proposal_id"
         ],
         "title": "DeepResearchStart",
         "type": "object"
@@ -17970,7 +18626,7 @@
               }
             ],
             "default": null,
-            "description": "Run deep research from this offer (stream endpoint only)"
+            "description": "Run deep research from this card (stream endpoint only)"
           },
           "action": {
             "anyOf": [
@@ -18079,21 +18735,6 @@
           "summary"
         ],
         "title": "ConversationCompactionResponse",
-        "type": "object"
-      },
-      "ResearchOfferUpdate": {
-        "description": "The user's decision on an offer (starting goes through the chat stream).",
-        "properties": {
-          "status": {
-            "const": "declined",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "title": "ResearchOfferUpdate",
         "type": "object"
       },
       "UpdateAnonymousModeRequest": {

@@ -8,7 +8,7 @@ shown under a saved reply is a 409.
 
 from __future__ import annotations
 
-from src.agent.proposals import ProposalNotPendingError, resolve
+from src.agent.proposals import STREAM_STARTED, ProposalNotPendingError, resolve
 from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.helpers.chat_turn import refuse_if_read_only
 from src.api.rate_limiting import rate_limit_conversations
@@ -56,7 +56,12 @@ def _answer(user: User, proposal_id: str, choice: int | None) -> dict[str, objec
 def approve_proposal(
     user: User, data: ApproveProposalRequest, proposal_id: str
 ) -> dict[str, object]:
-    """Approve a card: the server applies the chosen option exactly as shown."""
+    """Approve a card: the server applies the chosen option exactly as shown.
+    A deep-research card starts from its Start button (the run is a streamed
+    turn), not here."""
+    proposal = _open_proposal(user, proposal_id)
+    if proposal.kind in STREAM_STARTED:
+        raise_validation_error("Start it from its card.", field="choice")
     return _answer(user, proposal_id, data.choice)
 
 

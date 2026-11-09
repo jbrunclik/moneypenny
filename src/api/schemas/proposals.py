@@ -21,6 +21,28 @@ class ProposalDetailResponse(ResponseModel):
     value: str
 
 
+class ResearchRatesResponse(ResponseModel):
+    """What the editor's live estimate is computed from (estimate.py)."""
+
+    base_minutes: float
+    per_wave_minutes: float
+    parallelism: int
+    base_czk: float
+    per_item_czk: float
+
+
+class ResearchPlanResponse(ResponseModel):
+    """A deep_research card's plan, for its editor: the questions that run
+    (the edited ones once started) and what the estimate needs."""
+
+    question: str
+    context: str
+    sub_questions: list[str]
+    rates: ResearchRatesResponse
+    autostart: bool = Field(description="An explicit request: Start after a countdown")
+    kind: Literal["initial", "followup"]
+
+
 class ProposalResponse(ResponseModel):
     """A card awaiting (or past) the user's answer."""
 
@@ -34,6 +56,9 @@ class ProposalResponse(ResponseModel):
     state: Literal["pending", "applying", "approved", "declined", "expired", "superseded", "failed"]
     chosen: int | None = Field(default=None, description="The option picked")
     result: str | None = Field(default=None, description="What applying did, or why it failed")
+    research: ResearchPlanResponse | None = Field(
+        default=None, description="deep_research only: the plan its editor shows"
+    )
 
 
 class ApproveProposalRequest(RequestModel):

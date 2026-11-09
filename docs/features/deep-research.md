@@ -28,46 +28,54 @@ This page covers what the user sees. The rest of the feature:
   in [prompt_texts/deep_research.py](../../src/agent/prompt_texts/deep_research.py))
   together with a short normal answer. The tool has no side effects: when the
   reply is saved, `extract_offer()` ([offer.py](../../src/agent/deep_research/offer.py))
-  reads the last call's arguments off the turn and `build_offer()` validates
-  them and stores the offer on that assistant message. An invalid plan stores
-  nothing; the tool itself runs `validate_plan()` first and answers "Offer NOT
+  reads the last call's arguments off the turn, `build_offer()` validates
+  them, and `file_offer_card()` files the offer as that reply's card: a
+  `deep_research` [proposal](proposals.md) whose one option (Start) carries the
+  offer as payload (the saved reply links it, as any turn's cards). An invalid
+  plan files nothing; the tool itself runs `validate_plan()` first and answers "Offer NOT
   recorded: <error> Fix the plan and call propose_deep_research again." so the
   model can retry instead of promising a card that never appears. It is bound in every chat but the planner (including anonymous ones and
   standing chats - the user writing in an agent, sports or language chat), never
   in unattended agent runs, and not inside subagents. The [product-research skill](../../src/agent/skills/product-research/SKILL.md)
   step 2 tells the agent to offer it for a real multi-product comparison
   instead of researching a long list itself.
-- **The card** ([research-offer.ts](../../web/src/components/messages/research-offer.ts))
-  under the answer (after the grounding footer): a soft card with a sparkle
-  icon and "Research this in depth?" (or "Research further?" for a follow-up
-  offer), the estimate as two quiet tags ("~7 min", "~12 Kč"), the editable
-  context line (✎, kept inline after a long context), the sub-questions as
-  textareas with ✕, "+ Add a question or topic", **Start** (a filled accent
-  button) and **No thanks**. The live progress panel uses the same card
-  language (see [Progress UI](#progress-ui)).
-  The estimate is recomputed live by `estimateFrom()` from the `rates` stored on
-  the offer (the same formula as [estimate.py](../../src/agent/deep_research/estimate.py);
-  the spec's config endpoint is not used). Start is disabled outside 1 to
-  `DEEP_RESEARCH_MAX_SUB_QUESTIONS` items; the client limits in
-  [config.ts](../../web/src/config.ts) mirror the server defaults and the server
-  enforces them. The currency label is hardcoded "Kč" (`cost_czk` is in
-  `COST_CURRENCY`).
+- **The card** ([research-offer.ts](../../web/src/components/messages/research-offer.ts)
+  `renderResearchCard()`, called by [proposal-card.ts](../../web/src/components/messages/proposal-card.ts)
+  for the kind): the proposal card under the answer with the plan editor as
+  its body - a sparkle icon and "Research this in depth?" (or "Research
+  further?" for a follow-up offer), the estimate as two quiet tags ("~7 min",
+  "~12 Kč"), the editable context line (✎, kept inline after a long
+  context), the sub-questions as textareas with ✕, "+ Add a question or
+  topic", **Start** and **Not now**. The plan reaches the client as the
+  card's `research` field (`_research_plan()` in
+  [api/utils.py](../../src/api/utils.py): question, context, sub-questions -
+  the run's once started - rates, autostart, kind); other kinds' payloads stay
+  on the server. The estimate is recomputed live by `estimateFrom()` from the
+  `rates` (the same formula as [estimate.py](../../src/agent/deep_research/estimate.py)).
+  Start is disabled outside 1 to `DEEP_RESEARCH_MAX_SUB_QUESTIONS` items; the
+  client limits in [config.ts](../../web/src/config.ts) mirror the server
+  defaults and the server enforces them. The currency label is hardcoded "Kč"
+  (`cost_czk` is in `COST_CURRENCY`).
 - **Start** ([core/deep-research.ts](../../web/src/core/deep-research.ts)
   `startDeepResearch()`) sends the user message "Start deep research" with
-  `deep_research: {offer_message_id, sub_questions, context}` and a
+  `deep_research: {proposal_id, sub_questions, context}` and a
   `deep_research` action, through `sendUiMessage()` (refused with a toast
   while a reply in the conversation is still running). The card collapses to
   "Deep research started" (with "Report below ↓" once the report exists); if
-  the send fails the editor comes back.
-- **No thanks** calls `PATCH /api/messages/<id>/research-offer` with
-  `{"status": "declined"}` (the spec's `/conversations/<c>/messages/<m>/...`
-  path became this one); the card disappears. A declined or superseded offer
-  renders nothing. Starting and declining are one conditional UPDATE
-  (`db.decide_research_offer()`, `_decide()` in
-  [plan.py](../../src/agent/deep_research/plan.py)): the new research JSON is
-  written only while the offer's status (`$.offer.status` or
-  `$.run.followup.status`) is still `offered`, so two devices cannot both
-  start it; the loser gets `OfferConflictError`.
+  the send fails the editor comes back. On the server `start_plan()`
+  ([plan.py](../../src/agent/deep_research/plan.py)) validates the plan and
+  claims the card with it in one conditional UPDATE (the run's plan -
+  `final_sub_questions`, `final_context`, `final_estimate` - goes into the
+  option's payload), so two devices cannot both start it; the loser gets
+  `OfferConflictError` (400). The approve endpoint refuses this kind: the
+  run is a streamed turn.
+- **A typed yes** to the card (stream turns only) makes that turn the run,
+  with the plan as offered (`typed_start_plan()`; `resolved_by: typed`). In
+  batch mode a typed message leaves the card open for its Start button (the
+  kind is registered `stream_only`). Any other message expires it, like any
+  chat card.
+- **Not now** is the card's shared decline (`POST /api/proposals/<id>/decline`);
+  the card keeps one line ("Not now - <question>"). An expired card says so.
 - **Autostart.** For an explicit request ("prozkoumej to důkladně", "deep
   research") the agent sets `run_now`. The model's `run_now` alone is not
   enough (it was seen setting it on an ordinary question): `extract_offer()`
@@ -81,15 +89,17 @@ This page covers what the user sees. The rest of the feature:
   "Starting in N s", **Start now** and **Edit plan**; any edit (typing, ✕,
   add, Edit plan) pauses it, and the user starts with Start now. Only for a
   reply that just arrived (stream `done` or batch reply, `live: true`) and
-  once per page, never from history or a re-render, so a second device
-  opening the chat does not start a second run. The countdown's start waits
+  once per page, never from history, so a second device opening the chat does
+  not start a second run; a re-render of the same card (it synced when its
+  reply linked it) carries on from the seconds left. The countdown's start waits
   (`whenIdle`) until the offer turn is no longer the conversation's active
   request; a refused send brings the editor back.
 - **Rounds.** A finished report carries a follow-up offer (2-4 open questions,
-  `kind: "followup"`, round + 1) with the same editor. Its subagents and writer
-  get the previous report. No cap on rounds; one open offer per conversation
-  (a new offer, or a report with a follow-up, marks older open ones
-  `superseded`).
+  `kind: "followup"`, round + 1), filed as the report's card with the same
+  editor. Its subagents and writer get the previous report (the card's
+  message). No cap on rounds; one open offer per conversation (a new card
+  marks older open ones `superseded`). Migration 0089 moved the offers stored
+  on messages (`research.offer`, `research.run.followup`) into cards.
 - **Progress and the chip.** See [Progress UI](#progress-ui).
 
 ## Progress UI
@@ -111,7 +121,7 @@ summary, a `<details>` pill "Deep research · 5 questions · 34 pages · 6 min"
 (plus "· finished early") that shares its pill style with the
 [action rows](deep-research-data.md#action-messages). Expanded, it reuses the progress item rows
 and lists the shared findings clamped to two lines; a tap on a finding opens
-it (`is-open`). It also renders the follow-up offer. Styles in
+it (`is-open`). Styles in
 [research.css](../../web/src/styles/components/research.css).
 
 ## See Also

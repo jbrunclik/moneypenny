@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from src.api.utils import serialize_messages_for_response
+from src.db.models import use_database
 from src.enums import MessageRole
 
 if TYPE_CHECKING:
@@ -28,22 +29,6 @@ def test_add_update_and_set(test_database: Database, test_conversation: Conversa
     assert stored.research == {"offer": {"status": "declined"}}
 
 
-def test_find_open_offers_matches_offers_and_followups(
-    test_database: Database, test_conversation: Conversation
-) -> None:
-    db, conv = test_database, test_conversation.id
-    open_offer = db.add_message(conv, MessageRole.ASSISTANT, "a", research=_OFFER)
-    db.add_message(conv, MessageRole.ASSISTANT, "b", research={"offer": {"status": "declined"}})
-    followup = db.add_message(
-        conv, MessageRole.ASSISTANT, "c", research={"run": {"followup": {"status": "offered"}}}
-    )
-    db.add_message(conv, MessageRole.ASSISTANT, "d")
-
-    found = {m.id for m in db.find_open_research_offers(conv)}
-
-    assert found == {open_offer.id, followup.id}
-
-
 def test_serializer_includes_research_only_when_set(
     test_database: Database, test_conversation: Conversation
 ) -> None:
@@ -58,38 +43,18 @@ def test_serializer_includes_research_only_when_set(
     assert "research" not in out[plain.id]
 
 
-def test_a_decision_lands_only_while_the_offer_is_open(
-    test_database: Any, test_conversation: Any
-) -> None:
-    """Two devices starting one offer at once: only the first may win."""
-    offered = {"offer": {"status": "offered"}}
-    msg_id = test_database.add_message(
-        test_conversation.id, MessageRole.ASSISTANT, "x", research=offered
-    ).id
-    started = {"offer": {"status": "started"}}
-
-    assert test_database.decide_research_offer(msg_id, "$.offer.status", started) is True
-    assert test_database.decide_research_offer(msg_id, "$.offer.status", started) is False
-    assert test_database.get_message_by_id(msg_id).research == started
-
-
-def test_starting_a_stale_offer_conflicts(
-    test_database: Any, test_conversation: Any, monkeypatch: Any
-) -> None:
-    """start_plan reads the offer, then writes: a start that landed in between wins."""
+def test_starting_a_stale_card_conflicts(test_database: Any, test_conversation: Any) -> None:
+    """Two devices starting one offer at once: the first start wins, the
+    other conflicts (the claim is one atomic UPDATE)."""
     from src.agent.deep_research import plan as plan_mod
-    from src.agent.deep_research.offer import build_offer
+    from src.agent.deep_research.offer import build_offer, file_offer_card
 
-    monkeypatch.setattr(plan_mod, "db", test_database)
-    offer_id = test_database.add_message(
-        test_conversation.id,
-        MessageRole.ASSISTANT,
-        "x",
-        research={"offer": build_offer({"question": "Q", "context": "", "sub_questions": ["a"]})},
-    ).id
-    stale = test_database.get_message_by_id(offer_id)
-    plan_mod.start_plan(test_conversation.id, offer_id, ["a"], "")  # the other device
-    monkeypatch.setattr(test_database, "get_message_by_id", lambda _id: stale)
-
-    with pytest.raises(plan_mod.OfferConflictError):
-        plan_mod.start_plan(test_conversation.id, offer_id, ["a"], "")
+    offer = build_offer({"question": "Q", "context": "", "sub_questions": ["a"]})
+    user_id = test_conversation.user_id
+    with use_database(test_database):
+        card = file_offer_card(offer, test_conversation.id, user_id, request_id="t")
+        reply = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "x")
+        test_database.link_proposals("t", reply.id)
+        plan_mod.start_plan(test_conversation.id, user_id, card.id, ["a"], "")  # the other device
+        with pytest.raises(plan_mod.OfferConflictError):
+            plan_mod.start_plan(test_conversation.id, user_id, card.id, ["a"], "")

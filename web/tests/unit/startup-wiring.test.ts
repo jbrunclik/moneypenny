@@ -82,7 +82,7 @@ vi.mock('@/components/messages/research-offer', () => ({ initResearchOffers: vi.
 vi.mock('@/components/messages/research-progress', () => ({ initResearchProgress: vi.fn() }));
 vi.mock('@/components/messages/artifact-host', () => ({ setArtifactSender: vi.fn() }));
 vi.mock('@/utils/markdown', () => ({ setQuizRenderer: vi.fn() }));
-vi.mock('@/core/deep-research', () => ({ declineDeepResearch: vi.fn(), startDeepResearch: vi.fn() }));
+vi.mock('@/core/deep-research', () => ({ startDeepResearch: vi.fn() }));
 
 // search
 vi.mock('@/components/SearchInput', () => ({ initSearchInput: vi.fn() }));
@@ -123,7 +123,7 @@ import { setQuizRenderer } from '@/utils/markdown';
 import { initClaimCard } from '@/components/ClaimCard';
 import { setArtifactSender } from '@/components/messages/artifact-host';
 import { initResearchOffers } from '@/components/messages/research-offer';
-import { declineDeepResearch, startDeepResearch } from '@/core/deep-research';
+import { startDeepResearch } from '@/core/deep-research';
 import { handleSearchResultClick } from '@/core/search';
 
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -211,7 +211,7 @@ describe('initMessageUi', () => {
     // App-sent: an artifact's or the claim card's text never answers a proposal card
     expect(initClaimCard).toHaveBeenCalledWith({ send: sendAppMessage });
     expect(setArtifactSender).toHaveBeenCalledWith(sendAppMessage);
-    expect(initResearchOffers).toHaveBeenCalledWith({ start: startDeepResearch, decline: declineDeepResearch });
+    expect(initResearchOffers).toHaveBeenCalledWith({ start: startDeepResearch });
   });
 });
 

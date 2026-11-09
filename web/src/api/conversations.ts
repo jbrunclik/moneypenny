@@ -358,11 +358,4 @@ export const messages = {
     });
   },
 
-  /** Decline a deep-research offer (starting one goes through the chat stream). */
-  async declineResearchOffer(id: string): Promise<void> {
-    await request<{ status: string }>(`/api/messages/${id}/research-offer`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'declined' }),
-    });
-  },
 };

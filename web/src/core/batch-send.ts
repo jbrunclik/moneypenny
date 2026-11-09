@@ -14,7 +14,7 @@ import {
   updateUserMessageId,
 } from '../components/messages';
 import { checkScrollButtonVisibility } from '../components/ScrollToBottom';
-import { renderResearchOffer } from '../components/messages/research-offer';
+import { decorateProposals } from '../components/messages/proposal-card';
 import { showAnsweredProposals } from '../components/messages/proposal-card';
 import {
   showUploadProgress,
@@ -107,7 +107,7 @@ function renderBatchReply(assistantMessage: Message): void {
     const replyEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
     if (replyEl) {
       reserveTurnSpace(messagesContainer, replyEl);
-      if (assistantMessage.research) renderResearchOffer(replyEl, assistantMessage, { live: true });
+      decorateProposals(replyEl, assistantMessage, { live: true });
       settleAnchoredReply(messagesContainer, replyEl);
     }
     return;
@@ -118,9 +118,9 @@ function renderBatchReply(assistantMessage: Message): void {
   // we're using scroll-to-top-of-message behavior, not scroll-to-bottom.
   // The scroll-on-image-load system is designed for bottom-scrolling.
   addMessageToUI(assistantMessage, messagesContainer, { animate: true });
-  // A reply that just arrived: an autostart offer starts now
+  // A reply that just arrived: an explicitly requested research run counts down
   const messageEl = messagesContainer.querySelector<HTMLElement>(`[data-message-id="${assistantMessage.id}"]`);
-  if (messageEl && assistantMessage.research) renderResearchOffer(messageEl, assistantMessage, { live: true });
+  if (messageEl) decorateProposals(messageEl, assistantMessage, { live: true });
 
   // Only scroll if user was following (at bottom) - don't hijack scroll if user is browsing history
   if (wasAtBottom) {

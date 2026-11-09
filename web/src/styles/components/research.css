@@ -1,11 +1,11 @@
 /*
  * Deep research (components/messages/research-*.ts, action-row.ts).
- * One visual language: a soft tinted card for the offer and the live
- * progress panel, a pill for the report summary and for action rows.
+ * The offer is a proposal card (proposals.css) with the plan editor below;
+ * the live progress panel is a soft tinted card, the report summary and
+ * action rows are pills.
  */
 
 /* --- Shared card surface ------------------------------------------------- */
-.research-offer,
 .research-progress {
     padding: var(--space-3) var(--space-4);
     border: 1px solid var(--border-light);
@@ -13,10 +13,6 @@
     background: var(--bg-secondary);
     font-size: var(--font-size-ui);
     color: var(--text-secondary);
-}
-
-.research-offer {
-    margin-top: var(--space-3);
 }
 
 .research-progress {
@@ -31,7 +27,6 @@
     gap: var(--space-2);
 }
 
-.research-offer__icon,
 .research-progress__icon {
     display: inline-flex;
     width: 16px;
@@ -39,13 +34,11 @@
     color: var(--accent-hover);
 }
 
-.research-offer__icon svg,
 .research-progress__icon svg {
     width: 16px;
     height: 16px;
 }
 
-.research-offer__title,
 .research-progress__title {
     font-weight: 600;
     color: var(--text-primary);
@@ -177,45 +170,6 @@
     cursor: pointer;
 }
 
-.research-offer__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-}
-
-.research-offer__start {
-    padding: var(--space-1-5) var(--space-4);
-    border: 0;
-    border-radius: var(--radius-full);
-    background: var(--accent);
-    color: var(--color-user-text);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-.research-offer__start:hover:not(:disabled) {
-    background: var(--accent-hover);
-}
-
-.research-offer__decline,
-.research-offer__edit {
-    padding: var(--space-1-5) var(--space-2);
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    font: inherit;
-    cursor: pointer;
-}
-
-.research-offer__decline:hover,
-.research-offer__edit:hover {
-    color: var(--text-primary);
-}
-
 .research-offer button:disabled {
     opacity: 0.45;
     cursor: default;
@@ -227,20 +181,6 @@
     font-size: var(--font-size-sm);
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
-}
-
-/* A decided offer: one quiet line with the same rhythm as the grounding footer */
-.research-offer--decided {
-    margin-top: var(--space-2);
-    padding: 0;
-    padding-top: var(--space-3);
-    line-height: 16px;
-    border: 0;
-    border-top: 1px solid var(--border-light);
-    border-radius: 0;
-    background: transparent;
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
 }
 
 /* "Report below ↓" on a started offer */

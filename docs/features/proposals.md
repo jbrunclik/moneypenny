@@ -4,8 +4,9 @@ The one way Moneypenny asks for a yes. Instead of acting, a tool files a
 **proposal**; the reply shows it as a **card**; the user answers on the card or
 by replying; the **server** applies exactly what the card showed. Design:
 [One approval mechanism](../superpowers/specs/2026-11-09-one-approval-mechanism-design.md)
-(step 1 shipped Nov 9 2026: the chat setups; steps 2-5 move agent-run
-approvals, deep research, chat deletes and clarifying questions onto it).
+(step 1 shipped Nov 9 2026: the chat setups; step 2 agent-run approvals,
+step 3 deep research; steps 4-5 move chat deletes and clarifying questions
+onto it).
 
 ## What proposes today
 
@@ -14,6 +15,7 @@ approvals, deep research, chat deletes and clarifying questions onto it).
 | `schedule_item` | `schedule` (create) | Set it up | stores the reminder / check-in / watcher / recurring check |
 | `create_agent` | `create_standing_chat` | Create agent | creates the standing chat and its job |
 | `edit_agent` | `edit_standing_chat` in the agent's chat | Apply | applies the settings change |
+| `deep_research` | `propose_deep_research` (filed when the reply saves) | Start | the run is the turn: Start sends it with the edited plan, a typed yes on the stream makes that turn the run ([deep-research.md](deep-research.md)) |
 
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).

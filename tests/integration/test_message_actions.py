@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from flask.testing import FlaskClient
 
-from src.agent.deep_research.offer import build_offer
+from src.agent.deep_research.offer import build_offer, file_offer_card
 from src.enums import MessageRole
 
 if TYPE_CHECKING:
@@ -81,12 +81,14 @@ class TestActions:
         test_database: Database,
     ) -> None:
         offer = build_offer({"question": "Q", "context": "", "sub_questions": ["a", "b"]})
+        card = file_offer_card(offer, test_conversation.id, test_conversation.user_id, "offer")
         offer_id = test_database.add_message(
-            test_conversation.id, MessageRole.ASSISTANT, "quick", research={"offer": offer}
+            test_conversation.id, MessageRole.ASSISTANT, "quick"
         ).id
+        test_database.link_proposals("offer", offer_id)
         body = {
             "message": "Start deep research",
-            "deep_research": {"offer_message_id": offer_id, "sub_questions": ["a", "b", "c"]},
+            "deep_research": {"proposal_id": card.id, "sub_questions": ["a", "b", "c"]},
         }
         with patch("src.api.helpers.stream_producer.run_deep_research") as run:
             run.return_value = iter(

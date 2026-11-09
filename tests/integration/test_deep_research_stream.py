@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from flask.testing import FlaskClient
 
-from src.agent.deep_research.offer import build_offer
+from src.agent.deep_research.offer import build_offer, file_offer_card
 from src.enums import MessageRole
 
 if TYPE_CHECKING:
@@ -51,9 +51,9 @@ def test_deep_turn_streams_research_events_and_saves_the_report(
     test_database: Database,
 ) -> None:
     offer = build_offer({"question": "Q", "context": "", "sub_questions": ["a", "b"]})
-    offer_id = test_database.add_message(
-        test_conversation.id, MessageRole.ASSISTANT, "quick", research={"offer": offer}
-    ).id
+    card = file_offer_card(offer, test_conversation.id, test_conversation.user_id, "offer")
+    offer_id = test_database.add_message(test_conversation.id, MessageRole.ASSISTANT, "quick").id
+    test_database.link_proposals("offer", offer_id)
 
     with patch("src.api.helpers.stream_producer.run_deep_research", _fake_pipeline):
         response = client.post(
@@ -62,7 +62,7 @@ def test_deep_turn_streams_research_events_and_saves_the_report(
             json={
                 "message": "Start deep research",
                 "deep_research": {
-                    "offer_message_id": offer_id,
+                    "proposal_id": card.id,
                     "sub_questions": ["a", "b"],
                     "context": "",
                 },

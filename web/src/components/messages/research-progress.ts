@@ -14,7 +14,7 @@ import { MS_PER_MINUTE } from '../../constants';
 import { createElement } from '../../utils/dom';
 import { SPARKLES_ICON, createIconElement } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
-import { refreshReportLinks, renderResearchOffer } from './research-offer';
+import { refreshReportLinks } from './research-offer';
 
 const log = createLogger('research-progress');
 
@@ -278,8 +278,8 @@ function renderResearchChip(messageEl: HTMLElement, run: ResearchRun): void {
 
 /**
  * A finished (or loaded) assistant message: the progress panel gives way to
- * the report chip, and an open offer - initial or a report's follow-up - is
- * shown under the answer. `live` marks a reply that just arrived.
+ * the report chip (its follow-up offer is a card, like any offer). `live`
+ * marks a reply that just arrived.
  */
 export function finishResearchMessage(
   messageEl: HTMLElement,
@@ -289,7 +289,6 @@ export function finishResearchMessage(
   messageEl.querySelectorAll(`.${PANEL_CLASS}, .${CHIP_CLASS}`).forEach((el) => el.remove());
   finishRequested.delete(message.id);
   if (message.research?.run) renderResearchChip(messageEl, message.research.run);
-  renderResearchOffer(messageEl, message, options);
-  // A report that just arrived: its offer gets "Report below ↓"
+  // A report that just arrived: its started card gets "Report below ↓"
   if (options.live && message.research?.run) refreshReportLinks();
 }

@@ -80,6 +80,10 @@ The review itself changes nothing in production and edits nothing but
   (`verdict_counts`) or the `grounding` column on messages - the share of
   answers with unsupported claims, against the last review.
 - Deep research: runs, cost per run, runs stopped early (`research` column).
+- Deep-research offers: the `deep_research` cards by state (started /
+  declined / expired / superseded) and `resolved_by` (button vs typed) from
+  `proposals`, and the "Deep research started" lines' edits - do people start
+  what is offered, and does the next-message expiry close offers they wanted?
 - When a change to the agent is pending or quality looks worse: `make eval`
   (costs money - report the cost; the full suite is about $1.40).
 

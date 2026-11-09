@@ -7,6 +7,7 @@ from typing import Any
 from flask import Request
 from werkzeug.exceptions import HTTPException
 
+from src.agent.deep_research.offer import KIND as RESEARCH_KIND
 from src.config import Config
 from src.db.models import Message, Proposal, db
 from src.enums import MessageRole
@@ -150,6 +151,21 @@ def proposal_to_response(proposal: Proposal) -> dict[str, object]:
         "state": proposal.state,
         "chosen": proposal.chosen,
         "result": proposal.result,
+        "research": _research_plan(proposal) if proposal.kind == RESEARCH_KIND else None,
+    }
+
+
+def _research_plan(proposal: Proposal) -> dict[str, object]:
+    """The plan a deep-research card's editor shows (the run's, once started)."""
+    offer = proposal.options[0]["payload"]
+    final = offer.get("final_sub_questions")
+    return {
+        "question": offer.get("question", ""),
+        "context": offer.get("final_context", offer.get("context", "")),
+        "sub_questions": final if final is not None else offer.get("sub_questions", []),
+        "rates": offer.get("rates", {}),
+        "autostart": bool(offer.get("autostart")),
+        "kind": offer.get("kind", "initial"),
     }
 
 

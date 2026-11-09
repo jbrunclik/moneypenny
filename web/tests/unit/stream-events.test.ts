@@ -31,6 +31,9 @@ vi.mock('@/core/research-stream', () => ({ handleResearchEvent: extras.handleRes
 vi.mock('@/components/messages/artifacts', () => ({ addLiveArtifact: extras.addLiveArtifact }));
 vi.mock('@/core/inflight-streams', () => ({ persistInflightStream: vi.fn() }));
 vi.mock('@/core/stream-session', () => ({ acknowledgeServerStop: extras.acknowledgeServerStop }));
+const cards = vi.hoisted(() => ({ showAnsweredProposals: vi.fn(), replaceWithActionRow: vi.fn() }));
+vi.mock('@/components/messages/proposal-card', () => ({ showAnsweredProposals: cards.showAnsweredProposals }));
+vi.mock('@/components/messages/action-row', () => ({ replaceWithActionRow: cards.replaceWithActionRow }));
 
 import { useStore } from '@/state/store';
 import { ApiError } from '@/api/http';
@@ -84,6 +87,24 @@ describe('processStreamEvent', () => {
       'c1',
       true
     );
+  });
+
+  it('a typed yes that started a research run shows the card started and the row at once', () => {
+    const page = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 1 };
+    useStore.getState().setMessages('c1', [{ id: 'u1', role: 'user', content: 'ano', created_at: '' }], page);
+    const answered = [{ id: 'p1', kind: 'deep_research', state: 'approved' }];
+    const action = { type: 'deep_research', offer_message_id: 'm1', items: 3, minutes: 5 };
+
+    processStreamEvent(
+      { type: 'user_message_saved', user_message_id: 'u1', answered_proposals: answered, action },
+      state,
+      'c1',
+      'temp-1'
+    );
+
+    expect(cards.showAnsweredProposals).toHaveBeenCalledWith(answered);
+    expect(useStore.getState().getMessages('c1')[0]?.action).toEqual(action);
+    expect(cards.replaceWithActionRow).toHaveBeenCalledWith(expect.objectContaining({ id: 'u1', action }));
   });
 
   it('notes an own saved message, but not a followed stream\'s', () => {

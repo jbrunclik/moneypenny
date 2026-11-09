@@ -62,9 +62,9 @@ class InterjectRequest(RequestModel):
 
 
 class DeepResearchStart(RequestModel):
-    """Start a deep-research run from an offer, with the user's final plan."""
+    """Start a deep-research run from its card, with the user's final plan."""
 
-    offer_message_id: str
+    proposal_id: str
     sub_questions: list[str] = Field(default_factory=list)
     context: str = ""
 
@@ -91,12 +91,6 @@ class DeepResearchAction(RequestModel):
 MessageAction = Annotated[VerifyClaimAction | DeepResearchAction, Field(discriminator="type")]
 
 
-class ResearchOfferUpdate(RequestModel):
-    """The user's decision on an offer (starting goes through the chat stream)."""
-
-    status: Literal["declined"]
-
-
 class ChatRequest(RequestModel):
     """Schema for POST /api/conversations/<conv_id>/chat/batch and /chat/stream.
 
@@ -115,7 +109,7 @@ class ChatRequest(RequestModel):
     # "continue" (finish a truncated/stopped response)
     rerun_mode: Literal["regenerate", "continue"] | None = Field(default=None)
     deep_research: DeepResearchStart | None = Field(
-        default=None, description="Run deep research from this offer (stream endpoint only)"
+        default=None, description="Run deep research from this card (stream endpoint only)"
     )
     action: MessageAction | None = Field(
         default=None, description="What this message is, when the app sent it for the user"
@@ -251,7 +245,7 @@ class MessageResponse(ResponseModel):
     annotations: list[ClaimAnnotationResponse] | None = None
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(
-        default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+        default=None, description="A deep-research report's run data ({run}); offers are proposals"
     )
     artifacts: list[ArtifactRef] | None = Field(
         default=None, description="Artifact versions shown under the reply"
@@ -311,7 +305,7 @@ class ChatBatchResponse(ResponseModel):
     annotations: list[ClaimAnnotationResponse] | None = None
     grounding: GroundingSummaryResponse | None = None
     research: dict[str, Any] | None = Field(
-        default=None, description="Deep-research offer ({offer}) or run ({run}) data"
+        default=None, description="A deep-research report's run data ({run}); offers are proposals"
     )
     artifacts: list[ArtifactRef] | None = Field(
         default=None, description="Artifact versions shown under the reply"

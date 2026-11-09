@@ -134,30 +134,10 @@ export type Proposal = Schemas['MessageResponse.ProposalResponse'];
 export type ArtifactVersion = Schemas['ArtifactVersionResponse'];
 
 /** What the client needs to recompute an offer's estimate while it is edited */
-export interface ResearchRates {
-  base_minutes: number;
-  per_wave_minutes: number;
-  parallelism: number;
-  base_czk: number;
-  per_item_czk: number;
-}
+export type ResearchRates = Schemas['MessageResponse.ResearchRatesResponse'];
 
-export type ResearchOfferStatus = 'offered' | 'started' | 'declined' | 'superseded';
-
-/** A deep-research offer (src/agent/deep_research/offer.py build_offer) */
-export interface ResearchOffer {
-  question: string;
-  context: string;
-  sub_questions: string[];
-  estimate: { minutes: number; cost_czk: number };
-  rates: ResearchRates;
-  status: ResearchOfferStatus;
-  autostart: boolean;
-  kind: 'initial' | 'followup';
-  round: number;
-  created_at?: string;
-  decided_at?: string;
-}
+/** A deep_research card's plan, for its editor (src/api/utils.py _research_plan) */
+export type ResearchPlan = NonNullable<Proposal['research']>;
 
 /** A finished run's data on the report message (src/agent/deep_research/pipeline.py _run_data) */
 export interface ResearchRun {
@@ -173,12 +153,10 @@ export interface ResearchRun {
   duration_ms: number;
   estimate: { minutes: number; cost_czk: number };
   finished_early: boolean;
-  /** Offer of a next round, extracted from the report */
-  followup?: ResearchOffer;
 }
 
-export interface MessageResearch {
-  offer?: ResearchOffer;
+/** A report's run data (offers are deep_research proposals on the reply) */
+interface MessageResearch {
   run?: ResearchRun;
 }
 
@@ -277,7 +255,14 @@ export type StreamEvent = (
   | { type: 'tool_end'; tool: string }
   | { type: 'retry'; attempt: number; max_retries?: number } // Transient model error being retried
   | { type: 'stopping' } // Server-side Stop acknowledged; done follows at the next checkpoint
-  | { type: 'user_message_saved'; user_message_id: string } // Sent early so lightbox works during streaming
+  | {
+      type: 'user_message_saved';
+      user_message_id: string;
+      /** What the message turned out to be (a typed yes that started a research run) */
+      action?: MessageAction;
+      /** The cards it answered, shown before a long run ends */
+      answered_proposals?: Proposal[];
+    } // Sent early so lightbox works during streaming
   // Another device's turn was running: the send steered it (follow that reply)
   | { type: 'interjected'; message_id: string; message_count: number }
   | { type: 'timeout'; message?: string } // Server-side CHAT_TIMEOUT_SECONDS hit; partial content saved

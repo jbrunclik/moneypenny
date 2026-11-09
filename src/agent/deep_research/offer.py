@@ -1,21 +1,27 @@
 """Deep-research offers: plan validation, the stored offer, extraction.
 
 The agent calls propose_deep_research (src/agent/tools/deep_research.py); its
-arguments are read off the turn's tool calls when the reply is saved, so the
-offer is stored on that assistant message (messages.research = {"offer": ...}).
+arguments are read off the turn's tool calls when the reply is saved, and the
+offer becomes that reply's card: a deep_research proposal whose one option
+(Start) carries the plan (docs/features/proposals.md). A report's follow-up
+offer is filed the same way on the report.
 """
 
 import re
+import uuid
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
 
 from src.agent.deep_research.estimate import estimate, estimate_rates
 from src.config import Config
+from src.db.models import Proposal, db
 from src.db.models.timestamps import from_db
 from src.utils.clock import to_api, utc_now
 
 TOOL_NAME = "propose_deep_research"
+KIND = "deep_research"
+START_LABEL = "Start"
 
 
 class PlanError(ValueError):
@@ -104,3 +110,32 @@ def extract_offer(result_messages: list[BaseMessage], user_text: str = "") -> di
         return None
     offer["autostart"] = offer["autostart"] and asks_for_deep_research(user_text)
     return offer
+
+
+def file_offer_card(
+    offer: dict[str, Any], conversation_id: str, user_id: str, request_id: str
+) -> Proposal:
+    """File the offer as this turn's card (the saved reply links it); it
+    replaces the conversation's open offer, as one plan is on the table."""
+    card = db.create_proposal(
+        Proposal(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            conversation_id=conversation_id,
+            message_id=None,
+            request_id=request_id,
+            kind=KIND,
+            summary=str(offer.get("question") or "Deep research"),
+            details={},
+            options=[{"label": START_LABEL, "description": "", "payload": offer}],
+            state="pending",
+            chosen=None,
+            result=None,
+            resolved_by=None,
+            reported=False,
+            created_at=utc_now(),
+            resolved_at=None,
+        )
+    )
+    db.supersede_open_proposals(conversation_id, KIND, card.id)
+    return card

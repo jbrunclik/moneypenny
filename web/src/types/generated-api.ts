@@ -5881,7 +5881,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a card: the server applies the chosen option exactly as shown. */
+        /**
+         * Approve a card: the server applies the chosen option exactly as shown.
+         * @description A deep-research card starts from its Start button (the run is a streamed
+         *     turn), not here.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -6760,93 +6764,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/messages/{message_id}/research-offer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Decline a deep-research offer (starting one goes through the chat stream). */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    message_id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ResearchOfferUpdate"];
-                };
-            };
-            responses: {
-                /** @description Successful response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["StatusResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-                /** @description Validation error */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ValidationError"];
-                    };
-                };
-                /** @description Too Many Requests */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["HTTPError"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
     "/api/conversations/{conv_id}/anonymous-mode": {
         parameters: {
             query?: never;
@@ -7722,6 +7639,46 @@ export interface components {
             description: string;
         };
         /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "JobsOverviewResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["JobsOverviewResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "JobsOverviewResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
+        };
+        /**
          * RunProposalResponse
          * @description A run waiting on the user's card, with the job it belongs to.
          */
@@ -7762,6 +7719,11 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["JobsOverviewResponse.ResearchPlanResponse"] | null;
             /**
              * Job Id
              * @description The job whose run asked
@@ -8610,6 +8572,46 @@ export interface components {
             description: string;
         };
         /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "PendingApprovalsResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["PendingApprovalsResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "PendingApprovalsResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
+        };
+        /**
          * RunProposalResponse
          * @description A run waiting on the user's card, with the job it belongs to.
          */
@@ -8650,6 +8652,11 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["PendingApprovalsResponse.ResearchPlanResponse"] | null;
             /**
              * Job Id
              * @description The job whose run asked
@@ -10399,7 +10406,7 @@ export interface components {
             grounding: components["schemas"]["PlannerConversationResponse.GroundingSummaryResponse"] | null;
             /**
              * Research
-             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @description A deep-research report's run data ({run}); offers are proposals
              * @default null
              */
             research: {
@@ -10504,6 +10511,51 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["PlannerConversationResponse.ResearchPlanResponse"] | null;
+        };
+        /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "PlannerConversationResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["PlannerConversationResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "PlannerConversationResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
         };
         /**
          * SourceResponse
@@ -10788,6 +10840,51 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["MessageResponse.ResearchPlanResponse"] | null;
+        };
+        /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "MessageResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["MessageResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "MessageResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
         };
         /**
          * SourceResponse
@@ -10878,7 +10975,7 @@ export interface components {
             grounding: components["schemas"]["MessageResponse.GroundingSummaryResponse"] | null;
             /**
              * Research
-             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @description A deep-research report's run data ({run}); offers are proposals
              * @default null
              */
             research: {
@@ -11256,7 +11353,7 @@ export interface components {
             grounding: components["schemas"]["ConversationDetailPaginatedResponse.GroundingSummaryResponse"] | null;
             /**
              * Research
-             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @description A deep-research report's run data ({run}); offers are proposals
              * @default null
              */
             research: {
@@ -11394,6 +11491,51 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["ConversationDetailPaginatedResponse.ResearchPlanResponse"] | null;
+        };
+        /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "ConversationDetailPaginatedResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["ConversationDetailPaginatedResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "ConversationDetailPaginatedResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
         };
         /**
          * SourceResponse
@@ -12156,6 +12298,46 @@ export interface components {
             description: string;
         };
         /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "ProposalResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["ProposalResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "ProposalResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
+        };
+        /**
          * ProposalResponse
          * @description A card awaiting (or past) the user's answer.
          */
@@ -12196,6 +12378,11 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["ProposalResponse.ResearchPlanResponse"] | null;
         };
         /**
          * ApproveProposalRequest
@@ -12504,7 +12691,7 @@ export interface components {
             grounding: components["schemas"]["MessagesListResponse.GroundingSummaryResponse"] | null;
             /**
              * Research
-             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @description A deep-research report's run data ({run}); offers are proposals
              * @default null
              */
             research: {
@@ -12642,6 +12829,51 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["MessagesListResponse.ResearchPlanResponse"] | null;
+        };
+        /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "MessagesListResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["MessagesListResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "MessagesListResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
         };
         /**
          * SourceResponse
@@ -12944,6 +13176,51 @@ export interface components {
              * @default null
              */
             result: string | null;
+            /**
+             * @description deep_research only: the plan its editor shows
+             * @default null
+             */
+            research: components["schemas"]["ChatBatchResponse.ResearchPlanResponse"] | null;
+        };
+        /**
+         * ResearchPlanResponse
+         * @description A deep_research card's plan, for its editor: the questions that run
+         *     (the edited ones once started) and what the estimate needs.
+         */
+        "ChatBatchResponse.ResearchPlanResponse": {
+            /** Question */
+            question: string;
+            /** Context */
+            context: string;
+            /** Sub Questions */
+            sub_questions: string[];
+            rates: components["schemas"]["ChatBatchResponse.ResearchRatesResponse"];
+            /**
+             * Autostart
+             * @description An explicit request: Start after a countdown
+             */
+            autostart: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "initial" | "followup";
+        };
+        /**
+         * ResearchRatesResponse
+         * @description What the editor's live estimate is computed from (estimate.py).
+         */
+        "ChatBatchResponse.ResearchRatesResponse": {
+            /** Base Minutes */
+            base_minutes: number;
+            /** Per Wave Minutes */
+            per_wave_minutes: number;
+            /** Parallelism */
+            parallelism: number;
+            /** Base Czk */
+            base_czk: number;
+            /** Per Item Czk */
+            per_item_czk: number;
         };
         /**
          * SourceResponse
@@ -13040,7 +13317,7 @@ export interface components {
             grounding: components["schemas"]["ChatBatchResponse.GroundingSummaryResponse"] | null;
             /**
              * Research
-             * @description Deep-research offer ({offer}) or run ({run}) data
+             * @description A deep-research report's run data ({run}); offers are proposals
              * @default null
              */
             research: {
@@ -13133,11 +13410,11 @@ export interface components {
         };
         /**
          * DeepResearchStart
-         * @description Start a deep-research run from an offer, with the user's final plan.
+         * @description Start a deep-research run from its card, with the user's final plan.
          */
         "ChatRequest.DeepResearchStart": {
-            /** Offer Message Id */
-            offer_message_id: string;
+            /** Proposal Id */
+            proposal_id: string;
             /** Sub Questions */
             sub_questions?: string[];
             /**
@@ -13219,7 +13496,7 @@ export interface components {
              */
             rerun_mode?: ("regenerate" | "continue") | null;
             /**
-             * @description Run deep research from this offer (stream endpoint only)
+             * @description Run deep research from this card (stream endpoint only)
              * @default null
              */
             deep_research?: components["schemas"]["ChatRequest.DeepResearchStart"] | null;
@@ -13280,17 +13557,6 @@ export interface components {
              * @default null
              */
             summary: string | null;
-        };
-        /**
-         * ResearchOfferUpdate
-         * @description The user's decision on an offer (starting goes through the chat stream).
-         */
-        ResearchOfferUpdate: {
-            /**
-             * Status
-             * @constant
-             */
-            status: "declined";
         };
         /**
          * UpdateAnonymousModeRequest

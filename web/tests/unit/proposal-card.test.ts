@@ -20,6 +20,7 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
     state: 'pending',
     chosen: null,
     result: null,
+    research: null,
     ...overrides,
   };
 }
