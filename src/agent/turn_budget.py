@@ -12,6 +12,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Literal
 
+from src.agent.content import extract_text_content
 from src.agent.round_cap import tool_round_cap
 from src.config import Config
 from src.services.costs import calculate_token_cost
@@ -99,3 +100,40 @@ def log_stop(reason: StopReason, state: AgentState, tool_rounds: int) -> None:
             "cost_usd": round(state.get("turn_cost_usd", 0.0), 4),
         },
     )
+
+
+# An empty last reply still tells the user where things stand
+FALLBACK_LINE = "I stopped before finishing - say *continue* and I'll pick up from here."
+_GUIDANCE_PREFIX = "[SYSTEM GUIDANCE]"
+
+
+def final_reply(response: AIMessage, history: list[BaseMessage]) -> AIMessage:
+    """The turn's last reply: never a tool call (tools are off), never empty."""
+    reply = response
+    if response.tool_calls:
+        logger.info(
+            "Turn final answer dropped tool calls",
+            extra={"tools": [c["name"] for c in response.tool_calls]},
+        )
+        reply = response.model_copy(update={"tool_calls": [], "invalid_tool_calls": []})
+    if extract_text_content(reply.content).strip():
+        return reply
+    earlier = _earlier_text(history)
+    text = f"{earlier}\n\n{FALLBACK_LINE}" if earlier else FALLBACK_LINE
+    return reply.model_copy(update={"content": text})
+
+
+def _earlier_text(history: list[BaseMessage]) -> str:
+    """The model's last non-empty text in this turn (back to the user's message)."""
+    from langchain_core.messages import AIMessage, HumanMessage  # noqa: PLC0415 - typing-only above
+
+    for message in reversed(history):
+        if isinstance(message, HumanMessage) and not str(message.content).startswith(
+            _GUIDANCE_PREFIX
+        ):
+            return ""
+        if isinstance(message, AIMessage) and (
+            text := extract_text_content(message.content).strip()
+        ):
+            return text
+    return ""

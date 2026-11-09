@@ -48,6 +48,9 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     Note that manage_memory is deliberately NOT extract-only: it performs real
     writes and the model needs to read their outcome, so it always executes.
     """
+    # Turn budgets: after a stop the reply just made is the last one
+    if state.get("final_answer"):
+        return "end"
     messages = state["messages"]
     last_message = messages[-1]
 

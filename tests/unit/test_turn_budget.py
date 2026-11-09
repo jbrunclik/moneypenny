@@ -214,3 +214,66 @@ class TestLimits:
         assert "Be efficient" in str(nudge["messages"][0].content)
         assert "Stop calling tools now" in str(capped["messages"][0].content)
         assert "final_answer" not in capped
+
+
+# --- Task 3: one tools-off final answer -----------------------------------------
+
+from src.agent.graph import should_continue  # noqa: E402
+from src.agent.turn_budget import FALLBACK_LINE  # noqa: E402
+
+
+def _final_state(*history: Any) -> Any:
+    return {
+        **initial_state([HumanMessage(content="find it"), *history]),
+        "final_answer": "time",
+    }
+
+
+class TestFinalAnswer:
+    def test_final_answer_drops_tool_calls(self, caplog: pytest.LogCaptureFixture) -> None:
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(
+            content="Here is what I found.",
+            tool_calls=[{"name": "web_search", "args": {"q": "more"}, "id": "c9"}],
+        )
+
+        with caplog.at_level("INFO"):
+            out = chat_node(_final_state(), model)
+
+        [reply] = out["messages"]
+        assert (reply.content, reply.tool_calls) == ("Here is what I found.", [])
+        assert any(r.getMessage() == "Turn final answer dropped tool calls" for r in caplog.records)
+
+    def test_final_answer_ends_the_turn(self) -> None:
+        state = _final_state(
+            AIMessage(content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}])
+        )
+        assert should_continue(state) == "end"
+
+    def test_empty_final_answer_gets_a_fallback_line(self) -> None:
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(content="")
+        earlier = AIMessage(
+            content="The CNB fixing is 24.31 CZK.",
+            tool_calls=[{"name": "fetch_url", "args": {}, "id": "c2"}],
+        )
+
+        out = chat_node(_final_state(earlier), model)
+
+        assert out["messages"][0].content == f"The CNB fixing is 24.31 CZK.\n\n{FALLBACK_LINE}"
+
+    def test_empty_final_answer_without_earlier_text(self) -> None:
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(content="")
+
+        out = chat_node(_final_state(), model)
+
+        assert out["messages"][0].content == FALLBACK_LINE
+
+    def test_without_a_stop_tool_calls_are_kept(self) -> None:
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(
+            content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}]
+        )
+        out = chat_node(initial_state([HumanMessage(content="find it")]), model)
+        assert out["messages"][0].tool_calls

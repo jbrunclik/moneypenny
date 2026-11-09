@@ -13,7 +13,7 @@ from src.agent.chat_model import FallbackModel
 from src.agent.graph_state import AgentState
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
-from src.agent.turn_budget import call_cost_usd
+from src.agent.turn_budget import call_cost_usd, final_reply
 from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -141,6 +141,9 @@ def chat_node(
         response.response_metadata["model_fallback"] = fallback_name
 
     _log_response(response)
+    # Turn budgets: after a stop this is the last reply - no tool calls, never empty
+    if state.get("final_answer") and isinstance(response, AIMessage):
+        response = final_reply(response, messages)
 
     # The turn's running cost, priced with the model that answered
     answering = str(fallback_name or getattr(model, "model_name", "unknown"))
