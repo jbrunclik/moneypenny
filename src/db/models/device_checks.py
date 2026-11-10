@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, TypedDict
 
 from src.config import Config
+from src.db.models.dataclasses import ArtifactShown
 from src.db.models.timestamps import from_db, to_db
 from src.utils.clock import to_api, utc_now
 
@@ -202,6 +203,20 @@ class DeviceChecksMixin:
             )
             conn.commit()
         return conv_id
+
+    def attach_device_check_artifact(
+        self, conversation_id: str, message_index: int, artifact: ArtifactShown
+    ) -> None:
+        """Show ``artifact`` under the fixture's message at ``message_index`` (oldest first)."""
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(
+                conn,
+                """UPDATE messages SET artifacts = ? WHERE id = (
+                     SELECT id FROM messages WHERE conversation_id = ?
+                     ORDER BY created_at LIMIT 1 OFFSET ?)""",
+                (json.dumps([artifact]), conversation_id, message_index),
+            )
+            conn.commit()
 
     def purge_device_check_fixtures(self, user_id: str) -> int:
         """Permanently delete the user's fixture conversations (not via the trash)."""

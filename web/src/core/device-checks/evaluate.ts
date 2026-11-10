@@ -171,6 +171,23 @@ export function evaluateKeyboardClose(m: KeyboardCloseMeasure): Verdict {
   ]);
 }
 
+export interface ScrollWritesMeasure {
+  /** Corrections large enough to check (utils/scroll-writes.ts) */
+  verified: number;
+  dropped: number;
+  maxMissPx: number;
+}
+
+/** Scroll corrections made during a gesture all landed (none dropped by iOS). */
+export function evaluateScrollWrites(m: ScrollWritesMeasure): Verdict {
+  return verdict([
+    [
+      m.dropped === 0,
+      `${m.dropped} of ${m.verified} scroll corrections were dropped, up to ${px(m.maxMissPx)} off`,
+    ],
+  ]);
+}
+
 function operatingSystem(ua: string, iPadOs: boolean): string {
   const ios = /(?:iPhone|CPU) OS (\d+)[_.](\d+)/.exec(ua);
   if (ios) {

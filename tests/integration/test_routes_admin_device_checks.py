@@ -180,6 +180,42 @@ class TestFixture:
         listed = client.get("/api/conversations", headers=auth_headers).get_json()
         assert body["conversation_id"] not in {c["id"] for c in listed["conversations"]}
 
+    def test_carries_one_artifact_on_the_first_page_out_of_view(
+        self, client: FlaskClient, auth_headers: dict[str, str], test_user: User
+    ) -> None:
+        conv_id = client.post(FIXTURE, headers=auth_headers).get_json()["conversation_id"]
+        messages = client.get(f"/api/conversations/{conv_id}", headers=auth_headers).get_json()[
+            "messages"
+        ]
+        with_artifacts = [i for i, m in enumerate(messages) if m.get("artifacts")]
+        assert len(with_artifacts) == 1
+        index = with_artifacts[0]
+        assert messages[index]["role"] == "assistant"
+        # Many turns above the end: off screen at the bottom, even on a tall window
+        assert len(messages) - index >= 30
+        assert index >= len(messages) - Config.MESSAGES_DEFAULT_PAGE_SIZE
+        ref = messages[index]["artifacts"][0]
+        version = client.get(
+            f"/api/artifacts/{ref['id']}/versions/{ref['version']}", headers=auth_headers
+        )
+        assert version.status_code == 200
+        assert "IntersectionObserver" in version.get_json()["html"]
+
+    def test_delete_removes_the_artifact_too(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_user: User,
+        test_database: Database,
+    ) -> None:
+        conv_id = client.post(FIXTURE, headers=auth_headers).get_json()["conversation_id"]
+        messages = client.get(f"/api/conversations/{conv_id}", headers=auth_headers).get_json()[
+            "messages"
+        ]
+        ref = next(m for m in messages if m.get("artifacts"))["artifacts"][0]
+        client.delete(FIXTURE, headers=auth_headers)
+        assert test_database.get_artifact(ref["id"]) is None
+
     def test_writes_no_embeddings(
         self, client: FlaskClient, auth_headers: dict[str, str], test_database: Database
     ) -> None:

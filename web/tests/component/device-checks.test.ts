@@ -81,6 +81,19 @@ describe('device check runner card', () => {
     expect(document.querySelector('.device-check-prompt')?.classList.contains('hidden')).toBe(true);
   });
 
+  it('shows a gesture instruction without a button, updates it, and hides it', () => {
+    const view = openDeviceCheckRunner(ROWS, { onStop: vi.fn(), onClose: vi.fn() });
+    const instruction = view.instruct('Flick the list down hard');
+    const prompt = document.querySelector('.device-check-prompt');
+    expect(prompt?.classList.contains('hidden')).toBe(false);
+    expect(prompt?.querySelector('.device-check-instruction')?.textContent).toBe('Flick the list down hard');
+    expect(prompt?.querySelector('button')).toBeNull();
+    instruction.update('Keep scrolling - 3 s');
+    expect(prompt?.textContent).toBe('Keep scrolling - 3 s');
+    instruction.hide();
+    expect(prompt?.classList.contains('hidden')).toBe(true);
+  });
+
   it('ends with a summary whose Close hands back to the caller', () => {
     const onClose = vi.fn();
     const view = openDeviceCheckRunner(ROWS, { onStop: vi.fn(), onClose });

@@ -240,7 +240,14 @@ guards the wording.
 - Scroll compensation: when a frame entirely above the viewport changes height,
   `applyHeight()` moves `#messages`' `scrollTop` by the difference. Growth of a
   visible or lower frame is applied as is (the spec's "defer while scrolling"
-  was dropped; see [Scroll Behavior](../ui/scroll-behavior.md)).
+  was dropped; see [Scroll Behavior](../ui/scroll-behavior.md)). The target is
+  the `scrollTop` read *before* the resize: WebKit clamps it as soon as the
+  content above shrinks, and correcting from the clamped value moved a list at
+  the bottom up a second time (Nov 10 2026: a chat opened 128px above the
+  bottom when a frame shrank from its 160px placeholder; found by the device
+  check fixture's artifact). The write goes through `utils/scroll-writes.ts`,
+  which counts corrections iOS dropped (device checks, "Artifact resizes while
+  you scroll").
 
 ## Lifecycle and versions
 

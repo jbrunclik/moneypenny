@@ -9,6 +9,37 @@ from src.db.models.device_checks import DeviceCheckRunRow, DeviceCheckScenarioRo
 FIXTURE_TITLE = "Device check (temporary)"
 FIXTURE_TURNS = 40
 
+# One reply carries an artifact for the "artifact resizes while scrolling"
+# check: this many turns from the end, so it is on the first page (50
+# messages) but off screen while the list sits at the bottom - even on a
+# tall desktop window (8 turns was on screen there and resized under the
+# first checks)
+FIXTURE_ARTIFACT_TURNS_FROM_END = 18
+FIXTURE_ARTIFACT_TITLE = "Device check card"
+
+# Grows and shrinks only while on screen and for 3 s after it leaves, so it
+# changes height above the viewport while the user scrolls past it - and
+# never while the earlier checks measure the list at its bottom
+FIXTURE_ARTIFACT_HTML = """<div id="card" style="height:120px;border-radius:12px;\
+background:#9db8f5;color:#102a5c;display:flex;align-items:center;justify-content:center;\
+font:15px system-ui;transition:none">This card changes height while you scroll past it</div>
+<script>
+const card = document.getElementById('card');
+let visible = false;
+let activeUntil = 0;
+new IntersectionObserver((entries) => {
+  const now = entries.some((e) => e.isIntersecting);
+  if (visible && !now) activeUntil = Date.now() + 3000;
+  visible = now;
+}).observe(card);
+let tall = false;
+setInterval(() => {
+  if (!visible && Date.now() > activeUntil) return;
+  tall = !tall;
+  card.style.height = (tall ? 360 : 120) + 'px';
+}, 700);
+</script>"""
+
 # Varied lengths and shapes, like a real chat: short answers, paragraphs,
 # a list, a code block - the scroll checks need a list taller than any screen
 _ANSWERS = (
@@ -41,6 +72,14 @@ def create_fixture(user_id: str) -> FixtureInfo:
     db.purge_device_check_fixtures(user_id)
     messages = fixture_messages()
     conversation_id = db.create_device_check_fixture(user_id, FIXTURE_TITLE, messages)
+    artifact, _ = db.create_artifact(
+        conversation_id, user_id, FIXTURE_ARTIFACT_TITLE, FIXTURE_ARTIFACT_HTML
+    )
+    db.attach_device_check_artifact(
+        conversation_id,
+        len(messages) - 2 * FIXTURE_ARTIFACT_TURNS_FROM_END + 1,
+        {"id": artifact.id, "version": 1, "title": FIXTURE_ARTIFACT_TITLE},
+    )
     return {"conversation_id": conversation_id, "message_count": len(messages)}
 
 

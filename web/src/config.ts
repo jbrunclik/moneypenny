@@ -674,6 +674,16 @@ export const DEVICE_CHECK_SETTLE_MS = 700;
 export const DEVICE_CHECK_SETTLE_TIMEOUT_MS = 5000;
 /** A keyboard that hasn't shrunk the viewport by then never appeared (hardware keyboard) */
 export const DEVICE_CHECK_KEYBOARD_APPEAR_MS = 2500;
+/** Longest the flick step waits for the older page to load and the list to settle */
+export const DEVICE_CHECK_FLICK_TIMEOUT_MS = 10 * MS_PER_SECOND;
+/** How long the artifact step asks the user to scroll past the card */
+export const DEVICE_CHECK_ARTIFACT_SCROLL_MS = 6 * MS_PER_SECOND;
+/**
+ * A checked scroll write (utils/scroll-writes.ts) smaller than this isn't
+ * verified: a coasting list moves about that far per frame, so a drop would
+ * look like a landing
+ */
+export const SCROLL_WRITE_MIN_VERIFY_PX = 20;
 
 /**
  * Longest a sidebar re-render waits for a press on the list to end. A press

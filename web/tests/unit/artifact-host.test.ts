@@ -178,6 +178,35 @@ describe('registerFrame', () => {
     expect(onHeight).toHaveBeenLastCalledWith(cap);
   });
 
+  it('a frame above the screen shrinking keeps a list at the bottom at the bottom', () => {
+    // WebKit clamps scrollTop the moment the content above shrinks; the
+    // correction must start from where the list was, or it moves it twice
+    // (a chat opened 128px above the bottom: placeholder 160 -> 32)
+    const container = document.getElementById('messages')!;
+    const { frame } = makeFrame();
+    frame.style.height = '160px';
+    const frameHeight = (): number => parseFloat(frame.style.height);
+    const maxTop = (): number => 2000 + frameHeight() - 800;
+    let stored = maxTop(); // at the bottom
+    Object.defineProperty(container, 'scrollTop', {
+      configurable: true,
+      get: () => Math.min(stored, maxTop()),
+      set: (v: number) => {
+        stored = Math.max(0, Math.min(v, maxTop()));
+      },
+    });
+    Object.defineProperty(container, 'scrollHeight', { configurable: true, get: () => 2000 + frameHeight() });
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 800 });
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 400, 800));
+    vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, -300, 400, 160));
+
+    registerFrame(frame, REF, {});
+    fromFrame(frame, { type: 'mp:height', height: 0 });
+
+    expect(frame.style.height).toBe(`${ARTIFACT_MIN_HEIGHT_PX}px`);
+    expect(container.scrollTop).toBe(maxTop());
+  });
+
   it('reports failure when the frame never says ready', () => {
     vi.useFakeTimers();
     const { frame } = makeFrame();

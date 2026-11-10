@@ -14,6 +14,7 @@ import {
   turnAnchorExtra,
 } from '../../components/messages/turn-anchor';
 import { distanceFromBottom, isSmoothScrolling } from '../../utils/dom';
+import type { DeviceCheckInstruction } from '../../components/DeviceCheckRunner';
 import type { DeviceCheckMeasurements, DeviceCheckStatus } from '../../types/api';
 import {
   DEVICE_CHECK_KEYBOARD_APPEAR_MS,
@@ -37,6 +38,7 @@ import {
   summarizeUserAgent,
   type Verdict,
 } from './evaluate';
+import { GESTURE_SCENARIOS } from './gesture-scenarios';
 import {
   appRect,
   composerBottom,
@@ -56,11 +58,13 @@ export interface DeviceCheckContext {
   signal: AbortSignal;
   /** Show the big tap button; `onTap` runs inside the tap (keyboard focus) */
   askTap(label: string, onTap: () => void): Promise<void>;
+  /** Show a gesture instruction until hidden (gesture-scenarios.ts) */
+  instruct(text: string): DeviceCheckInstruction;
   /** State one scenario leaves for the next */
   shared: { turnEl: HTMLElement | null; keyboardShown: boolean };
 }
 
-interface ScenarioOutcome {
+export interface ScenarioOutcome {
   status: DeviceCheckStatus;
   measurements: DeviceCheckMeasurements;
   notes: string[];
@@ -71,9 +75,10 @@ export interface DeviceCheckScenario {
   title: string;
   /**
    * Skipped without one: a software keyboard on the device (not on a
-   * desktop), or the keyboard actually up (an earlier step opened it)
+   * desktop), the keyboard actually up (an earlier step opened it), or a
+   * touch screen for the steps that ask for a gesture
    */
-  requires: 'software-keyboard' | 'keyboard-up' | null;
+  requires: 'software-keyboard' | 'keyboard-up' | 'touch' | null;
   run(ctx: DeviceCheckContext): Promise<ScenarioOutcome>;
 }
 
@@ -346,12 +351,17 @@ export function skipReason(
   keyboardShown: boolean
 ): string | null {
   if (requires === null) return null;
+  // A software keyboard means a touch screen (phones, tablets)
+  if (requires === 'touch') return softwareKeyboard ? null : 'no touch screen';
   if (!softwareKeyboard) return 'no software keyboard';
   if (requires === 'keyboard-up' && !keyboardShown) return 'the keyboard did not open';
   return null;
 }
 
-/** The suite, in run order (the scroll button runs while the keyboard is still up). */
+/**
+ * The suite, in run order (the scroll button runs while the keyboard is
+ * still up; the gesture steps once it closed).
+ */
 export const DEVICE_CHECK_SCENARIOS: readonly DeviceCheckScenario[] = [
   environment,
   longConversation,
@@ -359,4 +369,5 @@ export const DEVICE_CHECK_SCENARIOS: readonly DeviceCheckScenario[] = [
   keyboardOpen,
   scrollButton,
   keyboardClose,
+  ...GESTURE_SCENARIOS,
 ];

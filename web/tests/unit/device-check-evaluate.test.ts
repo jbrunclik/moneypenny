@@ -9,6 +9,7 @@ import {
   evaluateKeyboardClose,
   evaluateKeyboardOpen,
   evaluateScrollButton,
+  evaluateScrollWrites,
   summarizeUserAgent,
 } from '@/core/device-checks/evaluate';
 import { skipReason } from '@/core/device-checks/scenarios';
@@ -178,6 +179,11 @@ describe('skipReason', () => {
     expect(skipReason('keyboard-up', false, false)).toBe('no software keyboard');
   });
 
+  it('skips gesture steps without a touch screen, even with the keyboard closed', () => {
+    expect(skipReason('touch', false, false)).toBe('no touch screen');
+    expect(skipReason('touch', true, false)).toBeNull();
+  });
+
   it('skips keyboard-up steps when the keyboard never opened', () => {
     expect(skipReason('software-keyboard', true, false)).toBeNull();
     expect(skipReason('keyboard-up', true, false)).toBe('the keyboard did not open');
@@ -200,5 +206,20 @@ describe('summarize', () => {
       failed: 2,
       skipped: 1,
     });
+  });
+});
+
+describe('evaluateScrollWrites', () => {
+  it('passes when every checked correction landed', () => {
+    expect(evaluateScrollWrites({ verified: 3, dropped: 0, maxMissPx: 0 })).toEqual({
+      status: 'passed',
+      failures: [],
+    });
+  });
+
+  it('fails on a dropped correction, saying how many and how far off', () => {
+    const v = evaluateScrollWrites({ verified: 4, dropped: 2, maxMissPx: 612.4 });
+    expect(v.status).toBe('failed');
+    expect(v.failures).toEqual(['2 of 4 scroll corrections were dropped, up to 612.4px off']);
   });
 });

@@ -37,6 +37,7 @@ import {
 import { createElement, isScrolledToBottom, setSanitizedHtml } from '../utils/dom';
 import { beginProgrammaticScroll, endProgrammaticScroll } from '../utils/programmatic-scroll';
 import { renderMarkdown } from '../utils/markdown';
+import { writeScrollTop } from '../utils/scroll-writes';
 import type { ThinkingState, ThinkingTraceItem } from '../types/api';
 
 /** Map icon keys to SVG strings - used by metadata from backend */
@@ -472,7 +473,7 @@ export function finalizeThinkingIndicator(
       !isScrolledToBottom(scrollContainer, 1)
     ) {
       endProgrammaticScroll(beginProgrammaticScroll());
-      scrollContainer.scrollTop -= collapseDelta;
+      writeScrollTop(scrollContainer, scrollContainer.scrollTop - collapseDelta, 'thinking-collapse');
     }
   }
 

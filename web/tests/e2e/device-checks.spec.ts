@@ -50,7 +50,7 @@ for (const [name, viewport] of [
 
       const card = page.locator('.device-check-card');
       await expect(card.locator('.device-check-close')).toBeVisible({ timeout: 25000 });
-      await expect(card.locator('.device-check-live')).toHaveText('3/3 passed, 3 skipped');
+      await expect(card.locator('.device-check-live')).toHaveText('3/3 passed, 5 skipped');
       for (const id of ['environment', 'long-conversation', 'send-to-top']) {
         await expect(card.locator(`[data-check-id="${id}"]`)).toHaveAttribute('data-status', 'passed');
       }
@@ -58,6 +58,11 @@ for (const [name, viewport] of [
         const row = card.locator(`[data-check-id="${id}"]`);
         await expect(row).toHaveAttribute('data-status', 'skipped');
         await expect(row).toContainText('no software keyboard');
+      }
+      for (const id of ['older-messages-flick', 'artifact-resize-scroll']) {
+        const row = card.locator(`[data-check-id="${id}"]`);
+        await expect(row).toHaveAttribute('data-status', 'skipped');
+        await expect(row).toContainText('no touch screen');
       }
       // Back on the chat that was open, the fixture gone for good
       await expect(page).toHaveURL(new RegExp(`#/conversations/${keptId}$`));
@@ -70,7 +75,7 @@ for (const [name, viewport] of [
       const run = page.locator('.admin-page .device-check-run');
       await expect(run).toHaveCount(1);
       await expect(run.locator('summary')).toContainText(/\[kb\d+\]/);
-      await expect(run.locator('summary')).toContainText('3/3 passed, 3 skipped');
+      await expect(run.locator('summary')).toContainText('3/3 passed, 5 skipped');
       await expect(run.locator('summary')).toContainText('browser tab');
       await run.locator('summary').click();
       await expect(run.locator('.device-check-scenario').first()).toContainText('inner_height');

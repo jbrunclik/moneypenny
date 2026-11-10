@@ -22,6 +22,11 @@ export interface DeviceCheckSummary {
   problem?: string;
 }
 
+export interface DeviceCheckInstruction {
+  update(text: string): void;
+  hide(): void;
+}
+
 export interface DeviceCheckRunnerView {
   setStatus(id: string, status: DeviceCheckRowStatus, detail?: string): void;
   /**
@@ -30,6 +35,11 @@ export interface DeviceCheckRunnerView {
    * made there. Rejects when `signal` aborts first.
    */
   askTap(label: string, onTap: () => void, signal: AbortSignal): Promise<void>;
+  /**
+   * Show a gesture instruction (no button: the user acts on the list
+   * itself) until `hide`; `update` changes its text (a countdown).
+   */
+  instruct(text: string): DeviceCheckInstruction;
   showSummary(summary: DeviceCheckSummary): void;
   close(): void;
 }
@@ -118,6 +128,23 @@ export function openDeviceCheckRunner(
         if (signal.aborted) onAbort();
         else signal.addEventListener('abort', onAbort, { once: true });
       });
+    },
+
+    instruct(text) {
+      const line = createElement('p', { class: 'device-check-instruction' }, [text]);
+      prompt.replaceChildren(line);
+      prompt.classList.remove('hidden');
+      live.textContent = text;
+      return {
+        update(next) {
+          line.textContent = next;
+        },
+        hide() {
+          if (!line.isConnected) return;
+          prompt.classList.add('hidden');
+          prompt.replaceChildren();
+        },
+      };
     },
 
     showSummary(summary) {

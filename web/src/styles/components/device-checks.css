@@ -138,6 +138,18 @@
     background: var(--accent-hover);
 }
 
+/* A gesture step: the user acts on the list below, so a line, not a button */
+.device-check-instruction {
+    margin: 0;
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--accent-muted);
+    color: var(--accent-text);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    text-align: center;
+}
+
 .device-check-stop,
 .device-check-close,
 .device-check-run-btn {

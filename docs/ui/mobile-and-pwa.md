@@ -414,8 +414,12 @@ per `[kbN]` build ([admin.md](../features/admin.md#device-checks)).
    shows **Tap to open the keyboard**, tap it: iOS opens the keyboard only
    from a real tap, so the button's own handler focuses the composer. Don't
    touch the screen otherwise. Then **Tap to close the keyboard**.
-4. The summary reads e.g. "6/6 passed"; **Close** returns to the admin page,
-   where the run is listed ("[kb19] 6/6 passed - standalone - iOS 26.1 -
+4. After the keyboard steps come two gesture steps. **Flick the list down
+   hard, towards older messages** - one hard flick; the run waits until the
+   older page loaded. Then **Scroll slowly up and down past the blue card**
+   for the countdown, taking it fully off the top of the screen a few times.
+5. The summary reads e.g. "8/8 passed"; **Close** returns to the admin page,
+   where the run is listed ("[kb19] 8/8 passed - standalone - iOS 26.1 -
    today 14:32"); expand it for every scenario's numbers.
 
 **Stop** ends a run without storing it. Either way the temporary
@@ -430,6 +434,8 @@ one left by a crashed run (app killed mid-run) is purged by the next run.
 | Keyboard opens (tap) | after the settle: `--keyboard-inset` equals the [unified formula](#5-pwa-keyboard-scroll-miscalculation) within 2px; composer-to-keyboard gap (keyboard top = vvH + saT) equals the accessory allowance (50 standalone, 0 tab) within 6px; no pan; the anchored turn moved <= 4px (the note says where it ended relative to the anchor line). Diagnostics stored with it: the list's scrollTop, clientHeight, turn-space reservation, scroll-padding-top, header-hidden and `--composer-height` before/after, `anchored_after` / `at_anchor_after`, `anchor_drift_px`, `anchor_expected_top_px` (0, or minus the offset for a message taller than the band), `turn_from_anchor_px`, and which anchor holds ran (`holds_keyboard`, `holds_keyboard_delayed`, `holds_composer`, `holds_resize`, `resize_refits`, `resize_retargets`) |
 | Scroll-to-bottom button with the keyboard up | the button shows after scrolling to the top; its tap ends within 2px of the bottom; composer gap as above; no pan |
 | Keyboard closes (tap) | inset 0, `kb-open` gone, `#app` as tall as the true viewport and the composer flush with its bottom (1px), no pan |
+| Older messages load during a flick (gesture) | every position correction the prepended page made landed: `utils/scroll-writes.ts` checks each one-shot `scrollTop` write on the next frame (landed = closer to its target than to where it was, which holds while the list coasts on). Stored: `writes`, `verified`, `dropped`, `max_miss_px`, the last write's `from/target/actual`, `older_loaded`. Skipped when no older page loaded (flick harder) |
+| Artifact resizes while you scroll (gesture) | the same for the artifact frame's height corrections: the fixture's card grows and shrinks (120 <-> 360 px every 700 ms) only while on screen and for 3 s after it leaves, so the earlier steps never see it move. Skipped when it never resized above the screen |
 
 The tolerances are `DEVICE_CHECK_*` in `web/src/config.ts`. Without a
 software keyboard (desktop, Playwright) the keyboard steps are "skipped - no

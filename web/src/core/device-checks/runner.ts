@@ -81,6 +81,7 @@ async function runAll(
     container,
     signal,
     askTap: (label, onTap) => view.askTap(label, onTap, signal),
+    instruct: (text) => view.instruct(text),
     shared: { turnEl: null, keyboardShown: false },
   };
   const results: DeviceCheckScenarioResult[] = [];

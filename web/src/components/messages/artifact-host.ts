@@ -16,6 +16,7 @@ import {
 } from '../../config';
 import type { ArtifactRef } from '../../types/api';
 import { createLogger } from '../../utils/logger';
+import { writeScrollTop } from '../../utils/scroll-writes';
 
 const log = createLogger('artifacts');
 
@@ -89,12 +90,16 @@ function applyHeight(entry: Entry, reported: number): void {
   const cap = Math.round((window.innerHeight * ARTIFACT_MAX_HEIGHT_VH) / 100);
   const height = Math.max(ARTIFACT_MIN_HEIGHT_PX, Math.min(Math.ceil(reported), cap));
   const before = entry.frame.getBoundingClientRect();
+  const container = entry.frame.closest<HTMLElement>('#messages');
+  // Read before the resize: WebKit clamps scrollTop as soon as the content
+  // above shrinks, and correcting from the clamped value moved a list at the
+  // bottom up by the shrink a second time
+  const topBefore = container?.scrollTop ?? 0;
   entry.frame.style.height = `${height}px`;
   // A frame above the viewport changing height would shift what the user
   // is reading: move the scroll position by the same amount
-  const container = entry.frame.closest<HTMLElement>('#messages');
   if (container && before.bottom <= container.getBoundingClientRect().top) {
-    container.scrollTop += height - before.height;
+    writeScrollTop(container, topBefore + height - before.height, 'artifact-resize');
   }
   entry.callbacks.onHeight?.(height);
 }

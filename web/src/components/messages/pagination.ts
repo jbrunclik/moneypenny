@@ -19,6 +19,7 @@ import { refreshVersionBadges } from './artifacts';
 import { addMessageToUI, getRenderGeneration, lockOlderQuizBlocks } from './render';
 import { applyCompactionMarkers } from '../CompactionIndicator';
 import type { Message } from '../../types/api';
+import { writeScrollTop } from '../../utils/scroll-writes';
 
 const log = createLogger('messages');
 
@@ -185,7 +186,7 @@ async function loadOlderMessages(conversationId: string, container: HTMLElement)
       const scrollHeightDiff = newScrollHeight - previousScrollHeight;
       const targetScrollTop = container.scrollTop + scrollHeightDiff;
       endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
-      container.scrollTop = targetScrollTop;
+      writeScrollTop(container, targetScrollTop, 'pagination-prepend');
 
       // Track images in the prepended batch and re-adjust scroll position after they load
       // This prevents scroll drift when lazy-loaded images change the scrollHeight
@@ -320,7 +321,7 @@ function trackPrependedImagesForScrollAdjustment(container: HTMLElement, prepend
           const aboveViewport = img.getBoundingClientRect().top < container.getBoundingClientRect().top;
           if (growth !== 0 && aboveViewport) {
             endProgrammaticScroll(beginProgrammaticScroll()); // ours, not the user's scroll
-            container.scrollTop += growth;
+            writeScrollTop(container, container.scrollTop + growth, 'image-growth');
           }
         });
       };
