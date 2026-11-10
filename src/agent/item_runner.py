@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Literal
 from zoneinfo import ZoneInfo
 
 from src.agent.agent import ChatAgent
+from src.agent.daily_briefing import SYSTEM_TYPE_DAILY_BRIEFING
 from src.agent.prompt_texts.scheduled_items import (
     NO_PREVIOUS_RESULT,
     RECURRING_RUN_PROMPT,
@@ -79,6 +80,7 @@ _NAME_MAX_CHARS = 40
 ALL_GRANTS = "*"
 RUN_TOOL_NAMES = frozenset({"web_search", "fetch_url", "research"})
 _PUSH_BODY_CHARS = 160
+_PUSH_TITLE_CHARS = 100  # the briefing's summary line as the title
 _KIND_TITLES: dict[str, str] = {
     "reminder": "Reminder",
     "check_in": "Check-in",
@@ -313,14 +315,26 @@ def delivery_label(kind: ItemKind, when: datetime, tz: str, outcome: str | None 
     return f"{title} · {when.astimezone(ZoneInfo(tz)).strftime('%a %H:%M')}"
 
 
-def _push_title(item: ScheduledItem) -> str:
-    """A standing job's push is titled with its chat (the Daily Briefing, the
-    coach); a light item's with its kind."""
-    if item.standing:
-        conv = db.get_conversation(item.conversation_id, item.user_id)
-        if conv is not None and conv.title:
-            return conv.title
-    return _KIND_TITLES[item.kind]
+def _plain_line(line: str) -> str:
+    """A report line as a notification shows it (no markdown marks)."""
+    return line.strip().lstrip("#").strip().strip("*_").strip()
+
+
+def _push_text(item: ScheduledItem, text: str) -> tuple[str, str]:
+    """A delivery's push (title, body). A standing job's is titled with its
+    chat (the coach) and shows the report's first line; the Daily Briefing's
+    first line sums up the day, so it is the title and the next line the body.
+    A light item's is titled with its kind."""
+    lines = [plain for line in text.strip().splitlines() if (plain := _plain_line(line))]
+    first = lines[0] if lines else ""
+    if not item.standing:
+        return _KIND_TITLES[item.kind], first[:_PUSH_BODY_CHARS]
+    conv = db.get_conversation(item.conversation_id, item.user_id)
+    if conv is not None and conv.standing_type == SYSTEM_TYPE_DAILY_BRIEFING and first:
+        rest = lines[1] if len(lines) > 1 else ""
+        return first[:_PUSH_TITLE_CHARS], rest[:_PUSH_BODY_CHARS]
+    title = conv.title if conv is not None and conv.title else _KIND_TITLES[item.kind]
+    return title, first[:_PUSH_BODY_CHARS]
 
 
 def deliver(
@@ -340,13 +354,13 @@ def deliver(
     if outcome is not None and outcome.record_cost is not None:
         outcome.record_cost(message.id)
     if push:
-        title, tag = _push_title(item), f"item-{item.id}"
+        (title, body), tag = _push_text(item, text), f"item-{item.id}"
         if item.standing:  # one notification per job, replaced by its next run
             tag = f"job-{item.id}"
         send_push_to_user(
             item.user_id,
             title,
-            text.strip().split("\n", 1)[0][:_PUSH_BODY_CHARS],
+            body,
             url=f"/#/conversations/{item.conversation_id}",
             tag=tag,
         )

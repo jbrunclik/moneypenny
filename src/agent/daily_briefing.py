@@ -57,8 +57,9 @@ writing, in parallel where possible:
 
 Then write the briefing:
 - The VERY FIRST line must be a one-line summary of the day. No
-  greeting, no salutation, no preamble - this line is the notification
-  preview on the user's lock screen, so it must carry information
+  greeting, no salutation, no preamble - this line is the notification's
+  title on the user's lock screen (the next line its text), so it must
+  carry information
 - Follow with a compact agenda: events with times, then top tasks
 - Add one line on readiness from the finalized wake-time metrics (Body
   Battery at wake, resting HR, sleep quality) and what they mean for

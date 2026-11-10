@@ -32,7 +32,10 @@ bespoke tool for a recurring notifier, check whether a prompt-only agent can do 
 
 Prompt guidance for these agents:
 - Make **line 1 of the response a plain-text headline** — the push-notification body is the
-  first line of the agent's response (truncated to ~160 chars).
+  first line of the agent's response (truncated to ~160 chars). The Daily Briefing's first
+  line (its summary of the day) is the push **title** instead, and the next line the body
+  (`_push_text()` in `item_runner.py`), so the notification is not "Daily Briefing" every
+  morning.
 - Pair `fresh_context` with `kv_store` so the agent keeps state across runs (last value seen,
   rolling history) rather than re-deriving it every time.
 - Forbid writing guessed/placeholder data to `kv_store` on a fetch failure, and state units
@@ -314,7 +317,8 @@ see "Standing jobs" above).
 6. **Run**: `ChatAgent.chat_batch()` in autonomous mode with `tools_for_grants()` and the
    job's model; the goals are the chat's standing instructions (`effective_instructions`)
    and data plus the job's task line.
-7. **Deliver**: a report is posted into the chat and pushed (titled with the chat);
+7. **Deliver**: a report is posted into the chat and pushed (titled with the chat; the
+   Daily Briefing's push with its summary line);
    `[SILENT]` posts nothing; cost rows carry `job_id`.
 
 ## Conversation Compaction

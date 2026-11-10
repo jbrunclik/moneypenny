@@ -449,6 +449,25 @@ def test_standing_job_push_names_the_chat(
     assert kwargs["tag"] == f"job-{job.id}"
 
 
+def test_the_daily_briefing_push_is_titled_with_the_days_summary(
+    db: Database, test_user: User, push: MagicMock
+) -> None:
+    """Not "Daily Briefing" every morning: its first line sums up the day."""
+    briefing = db.create_standing_chat(
+        test_user.id, "Daily Briefing", schedule="15 7 * * *", standing_type="daily_briefing"
+    )
+
+    deliver(
+        briefing.job,
+        "**Two meetings and a light run - busy until 15:00.**\n\n- 09:00 Standup\n- 14:00 Dentist",
+        "Recurring · Tue 07:15",
+    )
+
+    args, _ = push.call_args
+    assert args[1] == "Two meetings and a light run - busy until 15:00."
+    assert args[2] == "- 09:00 Standup"
+
+
 def test_standing_job_history_keeps_the_newest_message(
     db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
 ) -> None:
