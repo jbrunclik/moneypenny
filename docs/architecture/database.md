@@ -376,7 +376,7 @@ make vacuum  # Run vacuum immediately
 
 ## Database Backup
 
-Daily automated backups create timestamped snapshots of both SQLite databases, keeping 1 day of history by default (today's and yesterday's copy). Older copies live in the production host's daily full-disk images, which pick up each night's consistent copy, so a longer local history only duplicates them.
+Daily automated backups create timestamped snapshots of both SQLite databases, keeping the copies from the last 24 hours, at most 3 per database (every deploy that brings a migration takes one too; the newest copy always stays). Older copies live in the production host's daily full-disk images, which pick up each night's consistent copy, so a longer local history only duplicates them.
 
 ### Automatic Backup (systemd timer)
 
@@ -413,7 +413,9 @@ writes `chatbot-<timestamp>.db` next to it and runs `PRAGMA integrity_check` (it
 
 ### Retention
 
-- Default: 1 day (configurable via `--retention` flag)
+- Default: the last 24 hours on the clock (`--retention DAYS` changes the window), and at most `MAX_BACKUPS_PER_DATABASE` (3) copies per database
+- The newest copy always stays, even past the window, so failed nights never leave a database without one
+- Before Nov 10 2026 the age was counted in whole days and nothing capped the count: deploy backups piled up to 15 copies per database (~10 GB)
 - Old backups are automatically cleaned up after each backup run
 
 ### Key Files

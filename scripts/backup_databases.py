@@ -3,7 +3,7 @@
 
 Creates timestamped snapshots of both SQLite databases (chatbot.db and files.db),
 stored zstd-compressed (`<stem>-<timestamp>.db.zst`), keeping a configurable
-number of backups (default: 1 day of history).
+number of backups (default: the last 24 hours, at most 3 per database).
 
 Usage:
     python scripts/backup_databases.py [--retention DAYS]
@@ -20,7 +20,7 @@ import sqlite3
 import sys
 import time
 from compression import zstd
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +36,11 @@ logger = get_logger(__name__)
 # daily full-disk images keep a week of these consistent copies, so a longer
 # local history only duplicates them (~1.1 GB uncompressed per day of history).
 DEFAULT_RETENTION_DAYS = 1
+
+# Cap per database on top of the age window: every deploy that brings a
+# migration takes its own backup, and a busy deploy day piled up 15 copies
+# (~10 GB) in Nov 2026. The newest copy (the one a rollback needs) always stays.
+MAX_BACKUPS_PER_DATABASE = 3
 
 # Backup directory relative to database location
 BACKUP_DIR_NAME = "backups"
@@ -264,34 +269,34 @@ def _backup_files(db_path: Path) -> list[tuple[Path, datetime]]:
     return found
 
 
-def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int:
-    """Remove backups older than retention period.
+def cleanup_old_backups(
+    db_path: Path, db_name: str, retention_days: int, max_count: int = MAX_BACKUPS_PER_DATABASE
+) -> int:
+    """Remove backups outside the retention window or beyond the newest `max_count`.
+
+    The window is measured on the clock (`retention_days` x 24 h), not in whole
+    days. The newest backup always stays, however old, so a run of failed
+    nights never leaves a database without one.
 
     Args:
         db_path: Path to the database file
         db_name: Human-readable name for logging
-        retention_days: Number of days to keep backups
+        retention_days: Days of backups to keep
+        max_count: Most backups to keep per database
 
     Returns:
         Number of backups removed
     """
     removed_count = 0
-    now = datetime.now(UTC)
+    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
-    # {stem}-YYYYMMDD-HHMMSS.db.zst, or .db from before compression
-    for backup_file, backup_time in _backup_files(db_path):
+    # {stem}-YYYYMMDD-HHMMSS.db.zst, or .db from before compression; newest first
+    backups = sorted(_backup_files(db_path), key=lambda item: item[1], reverse=True)
+    for index, (backup_file, backup_time) in enumerate(backups):
+        if index == 0 or (index < max_count and backup_time >= cutoff):
+            continue
         try:
-            age_days = (now - backup_time).days
-            if age_days > retention_days:
-                backup_file.unlink()
-                removed_count += 1
-                logger.debug(
-                    "Removed old backup",
-                    extra={
-                        "file": str(backup_file),
-                        "age_days": age_days,
-                    },
-                )
+            backup_file.unlink()
         except OSError as e:
             # Skip files that can't be deleted
             logger.warning(
@@ -299,6 +304,8 @@ def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int
                 extra={"file": str(backup_file), "error": str(e)},
             )
             continue
+        removed_count += 1
+        logger.debug("Removed old backup", extra={"file": str(backup_file)})
 
     if removed_count > 0:
         logger.info(
@@ -307,6 +314,7 @@ def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int
                 "database": db_name,
                 "removed_count": removed_count,
                 "retention_days": retention_days,
+                "max_count": max_count,
             },
         )
 

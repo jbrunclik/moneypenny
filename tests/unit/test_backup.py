@@ -11,6 +11,7 @@ from scripts import backup_databases
 from scripts.backup_databases import (
     BACKUP_DIR_NAME,
     DEFAULT_RETENTION_DAYS,
+    MAX_BACKUPS_PER_DATABASE,
     cleanup_old_backups,
     create_backup,
     decompress_backup,
@@ -134,25 +135,25 @@ class TestCleanupOldBackups:
         """Test that backups older than retention are removed."""
         db_path, _files = backup_dir_with_files
 
-        # Keep 7 days
-        removed = cleanup_old_backups(db_path, "Test DB", retention_days=7)
+        # Keep 7 days (7 x 24 h on the clock), no count cap
+        removed = cleanup_old_backups(db_path, "Test DB", retention_days=7, max_count=100)
 
-        # Should remove backups older than 7 days: 8, 14, 30 days old
-        assert removed == 3
+        # Should remove backups past 7 x 24 h: 7, 8, 14, 30 days old
+        assert removed == 4
 
         backup_dir = get_backup_dir(db_path)
         remaining = list(backup_dir.glob("*.db"))
-        assert len(remaining) == 4  # 0, 1, 5, 7 days old
+        assert len(remaining) == 3  # 0, 1, 5 days old
 
     def test_keeps_recent_backups(self, backup_dir_with_files):
         """Test that recent backups are kept."""
         db_path, files = backup_dir_with_files
 
-        cleanup_old_backups(db_path, "Test DB", retention_days=7)
+        cleanup_old_backups(db_path, "Test DB", retention_days=7, max_count=100)
 
         # Check that recent backups still exist
         for filepath, days_ago in files:
-            if days_ago <= 7:
+            if days_ago < 7:
                 assert filepath.exists(), f"Backup {days_ago} days old should exist"
             else:
                 assert not filepath.exists(), f"Backup {days_ago} days old should be removed"
@@ -310,3 +311,43 @@ class TestCompressedBackups:
         assert len(list_backups(db_path)) == 4
         assert cleanup_old_backups(db_path, "Test DB", retention_days=2) == 2
         assert [p.name.endswith(".db.zst") for p, _, _ in list_backups(db_path)] == [True, False]
+
+
+class TestRetentionRule:
+    """Keep the last 24 hours (by the clock, not whole days), at most 3 per database."""
+
+    @staticmethod
+    def _make(db_path: Path, hours_ago: list[float]) -> dict[float, Path]:
+        backup_dir = get_backup_dir(db_path)
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        now = datetime.now(UTC)
+        made = {}
+        for hours in hours_ago:
+            stamp = (now - timedelta(hours=hours)).strftime("%Y%m%d-%H%M%S")
+            path = backup_dir / f"test-{stamp}.db.zst"
+            path.write_bytes(b"x")
+            made[hours] = path
+        return made
+
+    def test_a_copy_older_than_the_window_goes_even_within_the_same_whole_day(self, tmp_path):
+        made = self._make(tmp_path / "test.db", [1, 23, 30])
+
+        assert cleanup_old_backups(tmp_path / "test.db", "Test DB", retention_days=1) == 1
+        assert not made[30].exists()
+        assert made[1].exists() and made[23].exists()
+
+    def test_at_most_three_copies_are_kept(self, tmp_path):
+        made = self._make(tmp_path / "test.db", [1, 2, 3, 4, 5])
+
+        assert cleanup_old_backups(tmp_path / "test.db", "Test DB", retention_days=1) == 2
+        assert [h for h, p in made.items() if p.exists()] == [1, 2, 3]
+
+    def test_the_newest_copy_stays_even_when_it_is_old(self, tmp_path):
+        made = self._make(tmp_path / "test.db", [72, 96])
+
+        assert cleanup_old_backups(tmp_path / "test.db", "Test DB", retention_days=1) == 1
+        assert made[72].exists()
+        assert not made[96].exists()
+
+    def test_the_default_cap_is_three(self):
+        assert MAX_BACKUPS_PER_DATABASE == 3
