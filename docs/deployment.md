@@ -118,9 +118,10 @@ takes longer needs a larger `--timeout` too.
 (detached HEAD; the next `make update` goes back to `main`), rebuilds and
 reloads under the same lock. It does not touch the databases. When the bad
 deploy ran migrations, stop the service, restore both databases from the
-backup taken just before it (`make backup-list`; copy the
-`backups/<db>/<name>-<timestamp>.db` files over `chatbot.db` and `files.db`),
-then roll back and start it again.
+backup taken just before it (`make backup-list`; decompress each
+`backups/<db>/<name>-<timestamp>.db.zst` with
+`scripts/backup_databases.py --decompress <file>` and copy the resulting `.db`
+files over `chatbot.db` and `files.db`), then roll back and start it again.
 
 ### Pages Loaded Before a Deploy
 
@@ -251,7 +252,7 @@ make backup
 make backup-list
 ```
 
-Backups are stored in `backups/{database_name}/` directories alongside the databases. Each backup file is named with a timestamp: `chatbot-20240101-120000.db`.
+Backups are stored zstd-compressed in `backups/{database_name}/` directories alongside the databases, named with a timestamp: `chatbot-20240101-120000.db.zst`. To restore one, `.venv/bin/python scripts/backup_databases.py --decompress <file>` writes the `.db` next to it and runs an integrity check ([Database backup](architecture/database.md#restoring)).
 
 ## Memory Defragmentation
 

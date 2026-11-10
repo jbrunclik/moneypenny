@@ -7,11 +7,13 @@ from pathlib import Path
 
 import pytest
 
+from scripts import backup_databases
 from scripts.backup_databases import (
     BACKUP_DIR_NAME,
     DEFAULT_RETENTION_DAYS,
     cleanup_old_backups,
     create_backup,
+    decompress_backup,
     get_backup_dir,
     list_backups,
 )
@@ -54,7 +56,7 @@ class TestCreateBackup:
         assert result is True
 
         backup_dir = get_backup_dir(test_db)
-        backups = list(backup_dir.glob("*.db"))
+        backups = list(backup_dir.glob("*.db.zst"))
         assert len(backups) == 1
 
     def test_backup_contains_data(self, test_db):
@@ -62,7 +64,7 @@ class TestCreateBackup:
         create_backup(test_db, "Test DB")
 
         backup_dir = get_backup_dir(test_db)
-        backup_file = next(iter(backup_dir.glob("*.db")))
+        backup_file = decompress_backup(next(iter(backup_dir.glob("*.db.zst"))))
 
         # Verify backup contains data
         conn = sqlite3.connect(str(backup_file))
@@ -94,10 +96,10 @@ class TestCreateBackup:
         create_backup(test_db, "Test DB")
 
         backup_dir = get_backup_dir(test_db)
-        backup_file = next(iter(backup_dir.glob("*.db")))
+        backup_file = next(iter(backup_dir.glob("*.db.zst")))
 
-        # Filename should be: {stem}-YYYYMMDD-HHMMSS.db
-        name = backup_file.stem
+        # Filename should be: {stem}-YYYYMMDD-HHMMSS.db.zst
+        name = backup_file.name.removesuffix(".db.zst")
         assert name.startswith("test-")
         # Should have timestamp in format YYYYMMDD-HHMMSS
         timestamp_part = name.replace("test-", "")
@@ -233,3 +235,78 @@ class TestBackupDirName:
     def test_backup_dir_name(self):
         """Test backup directory name constant."""
         assert BACKUP_DIR_NAME == "backups"
+
+
+class TestCompressedBackups:
+    """Backups are stored zstd-compressed; older plain copies still count."""
+
+    @pytest.fixture
+    def test_db(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.db"
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, data TEXT)")
+            conn.executemany("INSERT INTO test (data) VALUES (?)", [("hello " * 50,)] * 200)
+            conn.commit()
+            conn.close()
+            yield db_path
+
+    def test_backup_is_stored_compressed_without_a_plain_copy(self, test_db):
+        assert create_backup(test_db, "Test DB") is True
+
+        files = sorted(p.name for p in get_backup_dir(test_db).iterdir())
+        assert len(files) == 1
+        assert files[0].endswith(".db.zst")
+        datetime.strptime(files[0].removeprefix("test-").removesuffix(".db.zst"), "%Y%m%d-%H%M%S")
+
+    def test_decompressed_backup_holds_the_data(self, test_db):
+        create_backup(test_db, "Test DB")
+        compressed = next(get_backup_dir(test_db).glob("*.db.zst"))
+
+        restored = decompress_backup(compressed)
+
+        assert restored == compressed.with_suffix("")  # test-<ts>.db
+        conn = sqlite3.connect(str(restored))
+        assert conn.execute("SELECT count(*) FROM test").fetchone()[0] == 200
+        conn.close()
+
+    def test_decompress_refuses_to_overwrite(self, test_db):
+        create_backup(test_db, "Test DB")
+        compressed = next(get_backup_dir(test_db).glob("*.db.zst"))
+        compressed.with_suffix("").write_bytes(b"existing")
+
+        with pytest.raises(FileExistsError):
+            decompress_backup(compressed)
+
+    def test_decompress_rejects_a_corrupt_file(self, tmp_path):
+        bad = tmp_path / "test-20260101-000000.db.zst"
+        bad.write_bytes(b"not zstd at all")
+
+        with pytest.raises(ValueError):
+            decompress_backup(bad)
+        assert not bad.with_suffix("").exists()
+
+    def test_a_failed_compression_keeps_the_plain_copy(self, test_db, monkeypatch):
+        def boom(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(backup_databases, "_compress", boom)
+
+        assert create_backup(test_db, "Test DB") is True
+        files = [p.name for p in get_backup_dir(test_db).iterdir()]
+        assert len(files) == 1
+        assert files[0].endswith(".db")
+
+    def test_cleanup_and_list_see_compressed_and_plain_backups(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        backup_dir = get_backup_dir(db_path)
+        backup_dir.mkdir(parents=True)
+        now = datetime.now(UTC)
+        for days_ago, suffix in [(0, ".db.zst"), (1, ".db"), (5, ".db.zst"), (6, ".db")]:
+            stamp = (now - timedelta(days=days_ago)).strftime("%Y%m%d-%H%M%S")
+            (backup_dir / f"test-{stamp}{suffix}").write_bytes(b"x")
+        (backup_dir / "test-20260101-000000.db.zst.tmp").write_bytes(b"partial")
+
+        assert len(list_backups(db_path)) == 4
+        assert cleanup_old_backups(db_path, "Test DB", retention_days=2) == 2
+        assert [p.name.endswith(".db.zst") for p, _, _ in list_backups(db_path)] == [True, False]

@@ -383,6 +383,7 @@ Daily automated backups create timestamped snapshots of both SQLite databases, k
 - Runs daily at 2:00 AM (with up to 30 min random delay)
 - Backs up both `chatbot.db` (main database) and `files.db` (blob storage)
 - Uses SQLite's online backup API for consistent snapshots even while the database is in use
+- Compresses each copy with zstd (stdlib `compression.zstd`, level 3), checks that it decompresses to the same bytes, then removes the plain copy; if compression fails the plain copy is kept and an error logged. The `Backup compressed` log line carries `plain_size_bytes`, `compressed_size_bytes` and `ratio`
 - Automatically enabled when running `make deploy`
 - Check timer status: `systemctl --user list-timers`
 - View backup logs: `journalctl --user -u moneypenny-backup`
@@ -397,12 +398,22 @@ make backup-list  # List existing backups with sizes and ages
 ### Backup Location
 
 Backups are stored in `backups/{database_name}/` directories alongside the databases:
-- `backups/chatbot.db/chatbot-20240101-120000.db`
-- `backups/files.db/files-20240101-120000.db`
+- `backups/chatbot.db/chatbot-20240101-120000.db.zst`
+- `backups/files.db/files-20240101-120000.db.zst`
+
+Plain `.db` copies from before Nov 2026 (or from a failed compression) are listed and cleaned up the same way.
+
+### Restoring
+
+```bash
+.venv/bin/python scripts/backup_databases.py --decompress backups/chatbot.db/chatbot-<timestamp>.db.zst
+```
+
+writes `chatbot-<timestamp>.db` next to it and runs `PRAGMA integrity_check` (it refuses to overwrite an existing file, and removes its output if the backup is corrupt). Copy that file over the database with the service stopped. The `zstd -d` command does the same where it is installed.
 
 ### Retention
 
-- Default: 7 days (configurable via `--retention` flag)
+- Default: 1 day (configurable via `--retention` flag)
 - Old backups are automatically cleaned up after each backup run
 
 ### Key Files

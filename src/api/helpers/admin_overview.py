@@ -111,9 +111,10 @@ def _size(path: Path) -> int:
     return path.stat().st_size if path.exists() else 0
 
 
-def _last_backup_at(database: Path) -> str | None:
+def last_backup_at(database: Path) -> str | None:
     backups = database.parent / _BACKUP_DIR_NAME / database.name
-    files = list(backups.glob("*.db")) if backups.is_dir() else []
+    # .db.zst since Nov 2026; plain .db copies from before still count
+    files = [*backups.glob("*.db"), *backups.glob("*.db.zst")] if backups.is_dir() else []
     if not files:
         return None
     newest = max(file.stat().st_mtime for file in files)
@@ -125,7 +126,7 @@ def _system() -> dict[str, Any]:
         "version": current_app.config.get("APP_VERSION"),
         "database_bytes": _size(Config.DATABASE_PATH),
         "files_bytes": _size(Config.BLOB_STORAGE_PATH),
-        "last_backup_at": _last_backup_at(Config.DATABASE_PATH),
+        "last_backup_at": last_backup_at(Config.DATABASE_PATH),
         "latest_migration": db.admin_latest_migration(),
         "users": db.admin_user_count(),
     }

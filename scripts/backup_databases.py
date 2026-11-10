@@ -2,19 +2,27 @@
 """Database backup script for Moneypenny.
 
 Creates timestamped snapshots of both SQLite databases (chatbot.db and files.db),
-keeping a configurable number of backups (default: 1 day of history).
+stored zstd-compressed (`<stem>-<timestamp>.db.zst`), keeping a configurable
+number of backups (default: 1 day of history).
 
 Usage:
     python scripts/backup_databases.py [--retention DAYS]
+    python scripts/backup_databases.py --list
+    python scripts/backup_databases.py --decompress PATH.db.zst
 
 This script is designed to be run via systemd timer (daily) or manually as needed.
 """
 
 import argparse
+import hashlib
+import shutil
 import sqlite3
 import sys
+import time
+from compression import zstd
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 # Add parent directory to path so we can import from src
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -26,11 +34,21 @@ logger = get_logger(__name__)
 
 # Default backup retention in days. Short on purpose: the production host's
 # daily full-disk images keep a week of these consistent copies, so a longer
-# local history only duplicates them (~1.1 GB per day of history).
+# local history only duplicates them (~1.1 GB uncompressed per day of history).
 DEFAULT_RETENTION_DAYS = 1
 
 # Backup directory relative to database location
 BACKUP_DIR_NAME = "backups"
+
+# A plain SQLite copy, and its zstd-compressed form (the one kept)
+PLAIN_SUFFIX = ".db"
+COMPRESSED_SUFFIX = ".db.zst"
+BACKUP_SUFFIXES = (COMPRESSED_SUFFIX, PLAIN_SUFFIX)
+TIMESTAMP_FORMAT = "%Y%m%d-%H%M%S"
+
+# zstd's default level: fast, and higher levels barely shrink SQLite pages more
+ZSTD_LEVEL = 3
+COPY_CHUNK_BYTES = 1024 * 1024
 
 
 def get_backup_dir(db_path: Path) -> Path:
@@ -48,11 +66,95 @@ def get_backup_dir(db_path: Path) -> Path:
     return db_path.parent / BACKUP_DIR_NAME / db_path.name
 
 
+def _sha256(stream: Any) -> str:
+    digest = hashlib.sha256()
+    while chunk := stream.read(COPY_CHUNK_BYTES):
+        digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _compress(plain: Path) -> Path:
+    """Compress a plain backup next to itself and verify it round-trips.
+
+    Writes `<name>.db.zst` through a `.tmp` file, checks the decompressed bytes
+    hash the same as the plain copy, then removes the plain copy. On any
+    failure the plain copy stays and the partial file is removed.
+    """
+    compressed = plain.with_name(plain.name.removesuffix(PLAIN_SUFFIX) + COMPRESSED_SUFFIX)
+    partial = compressed.with_name(compressed.name + ".tmp")
+    try:
+        with plain.open("rb") as source, zstd.open(partial, "wb", level=ZSTD_LEVEL) as target:
+            shutil.copyfileobj(source, target, COPY_CHUNK_BYTES)
+        with plain.open("rb") as source, zstd.open(partial, "rb") as check:
+            if _sha256(source) != _sha256(check):
+                raise ValueError("compressed backup does not match the plain copy")
+        partial.replace(compressed)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    plain.unlink()
+    return compressed
+
+
+def decompress_backup(compressed: Path) -> Path:
+    """Decompress a `.db.zst` backup next to itself and check its integrity.
+
+    Returns the plain `.db` path. Refuses to overwrite an existing file and
+    raises ValueError (leaving nothing behind) for a corrupt or non-SQLite file.
+    """
+    target = compressed.with_suffix("")
+    if target.exists():
+        raise FileExistsError(f"{target} already exists")
+    try:
+        with zstd.open(compressed, "rb") as source, target.open("xb") as out:
+            shutil.copyfileobj(source, out, COPY_CHUNK_BYTES)
+        conn = sqlite3.connect(f"file:{target}?mode=ro", uri=True)
+        try:
+            result = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        finally:
+            conn.close()
+        if result != "ok":
+            raise ValueError(f"integrity_check: {result}")
+    except (zstd.ZstdError, sqlite3.DatabaseError, EOFError) as e:
+        target.unlink(missing_ok=True)
+        raise ValueError(f"{compressed} is not a valid backup: {e}") from e
+    except BaseException:
+        target.unlink(missing_ok=True)
+        raise
+    return target
+
+
+def _compress_logged(plain: Path, db_name: str) -> None:
+    """Compress a finished backup; a failure keeps the plain copy (still a backup)."""
+    plain_size = plain.stat().st_size
+    started = time.monotonic()
+    try:
+        compressed = _compress(plain)
+    except (OSError, ValueError, zstd.ZstdError) as e:
+        logger.exception(
+            "Backup compression failed, kept the uncompressed copy",
+            extra={"database": db_name, "backup_path": str(plain), "error": str(e)},
+        )
+        return
+    compressed_size = compressed.stat().st_size
+    logger.info(
+        "Backup compressed",
+        extra={
+            "database": db_name,
+            "backup_path": str(compressed),
+            "plain_size_bytes": plain_size,
+            "compressed_size_bytes": compressed_size,
+            "ratio": round(compressed_size / plain_size, 3) if plain_size else None,
+            "duration_ms": round((time.monotonic() - started) * 1000),
+        },
+    )
+
+
 def create_backup(db_path: Path, db_name: str) -> bool:
     """Create a backup of a SQLite database using online backup API.
 
     Uses SQLite's backup API to create a consistent snapshot even while
-    the database is in use.
+    the database is in use, then compresses it (`_compress_logged`).
 
     Args:
         db_path: Path to the database file
@@ -69,8 +171,8 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         return True  # Not an error if DB doesn't exist yet
 
     backup_dir = get_backup_dir(db_path)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    backup_path = backup_dir / f"{db_path.stem}-{timestamp}.db"
+    timestamp = datetime.now(UTC).strftime(TIMESTAMP_FORMAT)
+    backup_path = backup_dir / f"{db_path.stem}-{timestamp}{PLAIN_SUFFIX}"
 
     try:
         # Ensure backup directory exists
@@ -119,6 +221,7 @@ def create_backup(db_path: Path, db_name: str) -> bool:
                 "backup_size_bytes": backup_size,
             },
         )
+        _compress_logged(backup_path, db_name)
         return True
 
     except sqlite3.Error as e:
@@ -138,6 +241,29 @@ def create_backup(db_path: Path, db_name: str) -> bool:
         return False
 
 
+def _backup_files(db_path: Path) -> list[tuple[Path, datetime]]:
+    """Backups of a database, compressed or plain, with their timestamps.
+
+    Files whose name doesn't parse (partial `.tmp` files, strays) are skipped.
+    """
+    backup_dir = get_backup_dir(db_path)
+    if not backup_dir.exists():
+        return []
+    found = []
+    prefix = f"{db_path.stem}-"
+    for file in backup_dir.iterdir():
+        suffix = next((x for x in BACKUP_SUFFIXES if file.name.endswith(x)), None)
+        if suffix is None or not file.name.startswith(prefix):
+            continue
+        stamp = file.name.removeprefix(prefix).removesuffix(suffix)
+        try:
+            when = datetime.strptime(stamp, TIMESTAMP_FORMAT).replace(tzinfo=UTC)
+        except ValueError:
+            continue
+        found.append((file, when))
+    return found
+
+
 def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int:
     """Remove backups older than retention period.
 
@@ -149,21 +275,12 @@ def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int
     Returns:
         Number of backups removed
     """
-    backup_dir = get_backup_dir(db_path)
-    if not backup_dir.exists():
-        return 0
-
     removed_count = 0
     now = datetime.now(UTC)
 
-    # Find all backup files matching pattern: {stem}-YYYYMMDD-HHMMSS.db
-    for backup_file in backup_dir.glob(f"{db_path.stem}-*.db"):
+    # {stem}-YYYYMMDD-HHMMSS.db.zst, or .db from before compression
+    for backup_file, backup_time in _backup_files(db_path):
         try:
-            # Extract timestamp from filename
-            # Format: chatbot-20240101-120000.db -> 20240101-120000
-            timestamp_str = backup_file.stem.replace(f"{db_path.stem}-", "")
-            backup_time = datetime.strptime(timestamp_str, "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
-
             age_days = (now - backup_time).days
             if age_days > retention_days:
                 backup_file.unlink()
@@ -175,8 +292,8 @@ def cleanup_old_backups(db_path: Path, db_name: str, retention_days: int) -> int
                         "age_days": age_days,
                     },
                 )
-        except (ValueError, OSError) as e:
-            # Skip files that don't match expected pattern or can't be deleted
+        except OSError as e:
+            # Skip files that can't be deleted
             logger.warning(
                 "Could not process backup file",
                 extra={"file": str(backup_file), "error": str(e)},
@@ -205,18 +322,11 @@ def list_backups(db_path: Path) -> list[tuple[Path, int, datetime]]:
     Returns:
         List of (path, size_bytes, timestamp) tuples, newest first
     """
-    backup_dir = get_backup_dir(db_path)
-    if not backup_dir.exists():
-        return []
-
     backups = []
-    for backup_file in backup_dir.glob(f"{db_path.stem}-*.db"):
+    for backup_file, backup_time in _backup_files(db_path):
         try:
-            timestamp_str = backup_file.stem.replace(f"{db_path.stem}-", "")
-            backup_time = datetime.strptime(timestamp_str, "%Y%m%d-%H%M%S").replace(tzinfo=UTC)
-            size = backup_file.stat().st_size
-            backups.append((backup_file, size, backup_time))
-        except ValueError, OSError:
+            backups.append((backup_file, backup_file.stat().st_size, backup_time))
+        except OSError:
             continue
 
     # Sort by timestamp, newest first
@@ -242,7 +352,22 @@ def main() -> int:
         action="store_true",
         help="List existing backups without creating new ones",
     )
+    parser.add_argument(
+        "--decompress",
+        type=Path,
+        metavar="PATH",
+        help="Decompress a .db.zst backup next to itself and run an integrity check",
+    )
     args = parser.parse_args()
+
+    if args.decompress:
+        try:
+            restored = decompress_backup(args.decompress)
+        except (OSError, ValueError) as e:
+            print(f"Decompress failed: {e}", file=sys.stderr)
+            return 1
+        print(f"{restored} (integrity check ok)")
+        return 0
 
     databases = [
         (Config.DATABASE_PATH, "Main database (chatbot.db)"),

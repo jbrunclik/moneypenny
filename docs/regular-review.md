@@ -72,6 +72,10 @@ The review itself changes nothing in production and edits nothing but
 - Model mix: a cheaper model doing well enough is a saving to propose.
 - Response time: median and 95th percentile (admin page "Responses"); a
   slower p95 usually means a tool or the model provider, so name which.
+- Backup sizes: the nightly `Backup compressed` journal lines (`plain_size_bytes`,
+  `compressed_size_bytes`, `ratio` per database). A ratio creeping towards 1, or
+  sizes growing much faster than usage, is a finding; a `Backup compression
+  failed` line means that night's copy stayed uncompressed.
 - Web-search quotas (admin page "Web search"): a provider exhausted early in
   the period, or search falling back to the free provider.
 - Turn budgets (from Nov 2026): the `Turn budget stop` journal lines and
