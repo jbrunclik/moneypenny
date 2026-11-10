@@ -32,6 +32,11 @@ The review itself changes nothing in production and edits nothing but
   `client_errors` table: new fingerprints since last time, anything seen by
   more than one person, anything on the current build. Each needs a cause or
   a TODO entry. See [Browser errors](features/admin.md#browser-errors).
+  Connection noise (`[messaging] Streaming failed: Fetch is aborted`,
+  `Failed to send message: Network error`) is expected on phones; compare its
+  `count` per `app_version` against the last review and look into it only if
+  it grows faster than usage. A timeout followed by "Message already received"
+  at a deploy is the retry hitting the duplicate guard, which is harmless.
 - **Layout checks** - the admin page's "Layout checks" section: a check the
   deployed build fails and the build before it didn't is an iOS layout
   regression. See [Layout checks](ui/mobile-and-pwa.md#layout-checks-field-telemetry).
