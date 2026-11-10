@@ -330,7 +330,10 @@ def _push_text(item: ScheduledItem, text: str) -> tuple[str, str]:
     if not item.standing:
         return _KIND_TITLES[item.kind], first[:_PUSH_BODY_CHARS]
     conv = db.get_conversation(item.conversation_id, item.user_id)
-    if conv is not None and conv.standing_type == SYSTEM_TYPE_DAILY_BRIEFING and first:
+    briefing = conv is not None and conv.standing_type == SYSTEM_TYPE_DAILY_BRIEFING
+    # The title is the lock screen's most trusted line: a summary that looks
+    # injected (it read pages, events, tasks) keeps the chat's name instead
+    if briefing and first and not find_injection(first):
         rest = lines[1] if len(lines) > 1 else ""
         return first[:_PUSH_TITLE_CHARS], rest[:_PUSH_BODY_CHARS]
     title = conv.title if conv is not None and conv.title else _KIND_TITLES[item.kind]
