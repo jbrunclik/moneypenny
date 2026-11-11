@@ -48,6 +48,10 @@ class MemoryWriteConflictError(Exception):
         self.memory_id = memory_id
 
 
+class InstructionsWriteConflictError(Exception):
+    """The user's custom instructions changed after the change was planned."""
+
+
 class MemoryMixin:
     """Mixin providing Memory-related database operations."""
 
@@ -149,6 +153,42 @@ class MemoryMixin:
             conn.commit()
         logger.info("Memory batch applied", extra={"user_id": user_id, "writes": len(writes)})
         return new_ids
+
+    def apply_instructions_change(
+        self,
+        user_id: str,
+        expected_instructions: str,
+        new_instructions: str | None,
+        writes: list[MemoryWrite],
+    ) -> None:
+        """Set the custom instructions and apply memory writes in one transaction.
+
+        The instructions land only while the row still holds
+        ``expected_instructions`` (the text the change was computed from); a
+        memory write that misses rolls everything back, like apply_memory_batch.
+
+        Raises:
+            InstructionsWriteConflictError: the instructions changed meanwhile
+            MemoryWriteConflictError: a memory target changed or vanished
+        """
+        now = to_db(utc_now())
+        with self._pool.get_connection() as conn:
+            self._execute_with_timing(conn, "BEGIN IMMEDIATE")
+            try:
+                cursor = self._execute_with_timing(
+                    conn,
+                    """UPDATE users SET custom_instructions = ?
+                       WHERE id = ? AND COALESCE(custom_instructions, '') = ?""",
+                    (new_instructions, user_id, expected_instructions),
+                )
+                if cursor.rowcount == 0:
+                    raise InstructionsWriteConflictError(user_id)
+                for write in writes:
+                    self._apply_memory_write(conn, user_id, None, write, now)
+            except BaseException:
+                conn.rollback()
+                raise
+            conn.commit()
 
     def _apply_memory_write(
         self,

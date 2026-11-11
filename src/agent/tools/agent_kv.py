@@ -39,6 +39,7 @@ RESERVED_NAMESPACES = frozenset(
         "oauth_state",
         "search-usage",
         "gemini_files",
+        "instructions_tuning",
     }
 )
 _MAX_KEY_LENGTH = 256

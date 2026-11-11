@@ -526,14 +526,23 @@ def _declined_entry(raw: object) -> DeclinedEntry | None:
     }
 
 
-def declined(user_id: str, ref: ProgramRef) -> list[DeclinedEntry]:
-    """The suggestions the user declined for this program, oldest first."""
+def parse_declined(raw: str | None) -> list[DeclinedEntry]:
+    """A stored declined list (plain KV text), malformed entries dropped."""
     try:
-        data = json.loads(db.kv_get(user_id, ref.namespace, _declined_key(ref)) or "[]")
+        data = json.loads(raw or "[]")
     except json.JSONDecodeError, TypeError:
         return []
     entries = [_declined_entry(e) for e in data] if isinstance(data, list) else []
     return [e for e in entries if e is not None]
+
+
+def dump_declined(entries: list[DeclinedEntry]) -> str:
+    return json.dumps(entries)
+
+
+def declined(user_id: str, ref: ProgramRef) -> list[DeclinedEntry]:
+    """The suggestions the user declined for this program, oldest first."""
+    return parse_declined(db.kv_get(user_id, ref.namespace, _declined_key(ref)))
 
 
 def record_decline(user_id: str, ref: ProgramRef, change: SetupChange, summary: str) -> None:
@@ -544,7 +553,7 @@ def record_decline(user_id: str, ref: ProgramRef, change: SetupChange, summary: 
         "declined_at": local_today().isoformat(),
     }
     entries = [*declined(user_id, ref), entry][-Config.SETUP_DECLINED_MAX :]
-    db.kv_set(user_id, ref.namespace, _declined_key(ref), json.dumps(entries))
+    db.kv_set(user_id, ref.namespace, _declined_key(ref), dump_declined(entries))
 
 
 def evidence_dates(evidence: list[str]) -> list[date]:

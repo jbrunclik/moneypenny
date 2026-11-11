@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from src.db.models.dataclasses import Message, MessagePagination
 from src.db.models.helpers import build_cursor, parse_cursor
 from src.db.models.message_rows import row_to_message
-from src.db.models.timestamps import normalize_cursor
+from src.db.models.timestamps import from_db, normalize_cursor
 from src.enums import PaginationDirection
 from src.utils.clock import to_api
 
@@ -250,3 +251,27 @@ class MessagePaginationMixin:
             messages = [row_to_message(row) for row in all_rows]
 
             return messages, _build_pagination(messages, has_older, has_newer, total_count)
+
+    def recent_ordinary_user_turns(
+        self, user_id: str, limit: int
+    ) -> list[tuple[datetime, str, str | None]]:
+        """The user's latest messages in ordinary chats, newest first: when, the
+        text, and the assistant reply just before it (what it answered). Ordinary:
+        not a program, agent, planner, What's new, standing or anonymous chat."""
+        with self._pool.get_connection() as conn:
+            rows = self._execute_with_timing(
+                conn,
+                """SELECT m.created_at, m.content,
+                          (SELECT a.content FROM messages a
+                            WHERE a.conversation_id = m.conversation_id
+                              AND a.role = 'assistant' AND a.created_at < m.created_at
+                            ORDER BY a.created_at DESC LIMIT 1) AS reply
+                   FROM messages m JOIN conversations c ON c.id = m.conversation_id
+                   WHERE c.user_id = ? AND m.role = 'user' AND c.deleted_at IS NULL
+                     AND c.is_planning = 0 AND c.is_agent = 0 AND c.is_sports = 0
+                     AND c.is_language = 0 AND c.is_whats_new = 0
+                     AND c.anonymous_mode = 0 AND c.standing_type IS NULL
+                   ORDER BY m.created_at DESC LIMIT ?""",
+                (user_id, limit),
+            ).fetchall()
+        return [(from_db(r["created_at"]), r["content"], r["reply"]) for r in rows]
