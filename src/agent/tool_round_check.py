@@ -16,11 +16,12 @@ from src.agent.tool_loops import loop_state
 from src.agent.tools.context import get_conversation_context
 from src.agent.turn_budget import (
     BATCHING_HINT,
-    FINAL_GUIDANCE,
     WRAP_UP_NOTICE,
     batching_hint_due,
     budget_stop,
+    final_guidance,
     log_stop,
+    stop_facts,
     with_note,
     wrap_up_due,
 )
@@ -119,11 +120,13 @@ def _budget_update(
         return {"tool_rounds": tool_rounds, "final_answer": reason, "messages": steering}
     if stop := budget_stop(state, tool_rounds):
         log_stop(stop, state, tool_rounds)
-        guidance = _guidance(FINAL_GUIDANCE, use_cache)
+        facts = stop_facts(stop, state, tool_rounds)
+        guidance = _guidance(final_guidance(facts), use_cache)
         return {
             "tool_rounds": tool_rounds,
             "tool_retries": 0,
             "final_answer": stop,
+            "stop_facts": facts,
             "messages": [*steering, guidance],
         }
     latest = state["messages"][-1] if state["messages"] else None

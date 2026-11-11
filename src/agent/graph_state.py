@@ -21,6 +21,8 @@ class AgentState(TypedDict):
     turn_cost_usd: NotRequired[float]
     failed_calls: NotRequired[dict[str, int]]
     final_answer: NotRequired[str]
+    # The stop in plain words (turn_budget.stop_facts), for the final reply
+    stop_facts: NotRequired[str]
     wrap_up_noticed: NotRequired[bool]
     batching_hinted: NotRequired[bool]
     # Loop detector (src/agent/tool_loops.py): the last rounds' signatures,

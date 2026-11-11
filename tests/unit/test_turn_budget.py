@@ -388,6 +388,10 @@ class TestStreamedFinalReply:
     ) -> None:
         writer = MagicMock()
         monkeypatch.setattr(chat_node_module, "get_stream_writer", lambda: writer)
+        # The tools-off retry comes back empty too, so the fallback line stands
+        plain = MagicMock()
+        plain.invoke.return_value = AIMessage(content="")
+        monkeypatch.setattr(chat_node_module, "create_chat_model", lambda *a, **k: plain)
         model = MagicMock(spec=["invoke"])
         model.invoke.return_value = AIMessage(
             content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}]
@@ -398,3 +402,111 @@ class TestStreamedFinalReply:
         writer.assert_any_call(
             {"type": "turn_stop", "reason": "time", "dropped": ["c9"], "fallback": FALLBACK_LINE}
         )
+
+
+# --- Nov 11 2026: a stop says why, and what Continue would do -------------------
+
+from langchain_core.messages import SystemMessage  # noqa: E402
+
+from src.agent.turn_budget import fallback_line, stop_facts  # noqa: E402
+
+
+class TestStopVisibility:
+    def test_stop_facts_name_the_limit_and_what_the_turn_used(
+        self, budgets: pytest.MonkeyPatch
+    ) -> None:
+        _clock(budgets)
+        state = _after_tools(now=53.7, turn_cost_usd=0.1506)
+        assert stop_facts("cost", state, 10) == (
+            "the $0.15 cost limit for one reply, after 10 tool rounds in 54 s ($0.151 spent)"
+        )
+        assert stop_facts("time", _after_tools(now=241), 7).startswith(
+            "the 240 s time limit for one reply, after 7 tool rounds"
+        )
+        assert stop_facts("rounds", state, 20).startswith("the 20-round limit for one reply")
+        assert stop_facts("loop", state, 5).startswith("a tool call that kept failing")
+
+    def test_the_stop_guidance_gives_the_model_the_facts_and_asks_about_continue(
+        self, budgets: pytest.MonkeyPatch
+    ) -> None:
+        _clock(budgets)
+        out = check_tool_results(_after_tools(now=53.7, turn_cost_usd=0.16))
+        assert out["stop_facts"].startswith("the $0.15 cost limit")
+        guidance = str(out["messages"][-1].content)
+        assert out["stop_facts"] in guidance
+        assert "continue" in guidance.lower()
+        assert "differently" in guidance.lower()
+
+    def test_an_empty_final_reply_says_which_limit_stopped_it(self) -> None:
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(content="")
+        state = {**_final_state(), "stop_facts": "the $0.15 cost limit for one reply"}
+
+        out = chat_node(state, model)
+
+        content = out["messages"][0].content
+        assert content == fallback_line("the $0.15 cost limit for one reply")
+        assert "the $0.15 cost limit for one reply" in content
+        assert "continue" in content
+
+    def test_a_final_reply_that_only_calls_tools_is_asked_again_without_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Gemini's context cache carries the tool declarations, so "tools are
+        off" was only a sentence: the briefing's final round asked for one more
+        tool and the user got an empty reply (Nov 11 2026)."""
+        made: list[dict[str, Any]] = []
+        plain = MagicMock()
+        plain.invoke.return_value = _reply("Your day: three meetings, rest day.", inp=5000)
+
+        def factory(name: str, **kwargs: Any) -> MagicMock:
+            made.append({"name": name, **kwargs})
+            return plain
+
+        monkeypatch.setattr(chat_node_module, "create_chat_model", factory)
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(
+            content="",
+            tool_calls=[{"name": "google_calendar", "args": {}, "id": "c9"}],
+            usage_metadata={"input_tokens": 1000, "output_tokens": 10, "total_tokens": 1010},
+        )
+        result = ToolMessage(content="09:00 standup", tool_call_id="c1", name="google_calendar")
+        asked = AIMessage(
+            content="", tool_calls=[{"name": "google_calendar", "args": {}, "id": "c1"}]
+        )
+        state = {
+            **_final_state(asked, result),
+            "stop_facts": "the $0.15 cost limit for one reply",
+        }
+
+        out = chat_node(state, model, model_name=FAST)
+
+        [reply] = out["messages"]
+        assert reply.content == "Your day: three meetings, rest day."
+        assert reply.tool_calls == []
+        assert made == [{"name": FAST, "with_tools": False}]
+        sent = plain.invoke.call_args[0][0]
+        assert isinstance(sent[0], SystemMessage)
+        assert "the $0.15 cost limit for one reply" in str(sent[0].content)
+        # Plain text only: no tool calls or results for a model without tools
+        assert all(not isinstance(m, ToolMessage) for m in sent)
+        assert all(not getattr(m, "tool_calls", None) for m in sent)
+        transcript = str(sent[-1].content)
+        assert "find it" in transcript and "09:00 standup" in transcript
+        # Both calls are paid for
+        assert out["turn_cost_usd"] > call_cost_usd(model.invoke.return_value, FAST)
+
+    def test_when_the_retry_is_empty_too_the_fallback_line_stands(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plain = MagicMock()
+        plain.invoke.return_value = AIMessage(content="")
+        monkeypatch.setattr(chat_node_module, "create_chat_model", lambda *a, **k: plain)
+        model = MagicMock(model_name=FAST)
+        model.invoke.return_value = AIMessage(
+            content="", tool_calls=[{"name": "web_search", "args": {}, "id": "c9"}]
+        )
+
+        out = chat_node(_final_state(), model)
+
+        assert out["messages"][0].content == FALLBACK_LINE

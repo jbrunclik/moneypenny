@@ -58,14 +58,38 @@ BATCHING_HINT = (
     "\n\n[Tip: independent lookups can go into one round - several queries in one call "
     "(research and web_search take a list). Take the time the task needs.]"
 )
-# Before the tools-off final call
+# Before the tools-off final call; {facts} is stop_facts(). Nov 11 2026: the
+# user asked to be told why a reply stopped and what Continue would change
 FINAL_GUIDANCE = (
-    "This turn has used its budget, so this is your last reply and tools are off. "
-    "Answer the user with what you found. If something is still missing, say so and "
-    "give your best answer with what is available. Then end with a short list of what "
-    "you would do next if you could continue - the concrete remaining steps - so the "
-    "user can tell you to go on."
+    "This turn has used its budget, so this is your last reply and tools are off - "
+    "do not call any tool. It stopped at {facts}.\n"
+    "1. Answer the user with what you found. If something is still missing, say so and "
+    "give your best answer with what is available.\n"
+    "2. Then, in one short sentence, tell the user why you stopped (the limit above, in "
+    "plain words) and, if you can tell, what used it up (for example repeated lookups "
+    "or very large results).\n"
+    "3. End with what you would do if the user says continue: the concrete remaining "
+    "steps, and what you would do differently - what you would reuse from above "
+    "instead of fetching again, and what you would skip or narrow down."
 )
+
+
+def final_guidance(facts: str) -> str:
+    """The tools-off final call's instruction, naming the limit that stopped it."""
+    return FINAL_GUIDANCE.format(facts=facts)
+
+
+def stop_facts(reason: StopReason, state: AgentState, tool_rounds: int) -> str:
+    """The stop in plain words, for the model and for the fallback line."""
+    used = f"after {tool_rounds} tool rounds in {round(elapsed_s(state))} s"
+    spent = f"${state.get('turn_cost_usd', 0.0):.3f} spent"
+    limits: dict[str, str] = {
+        "cost": f"the ${Config.TURN_COST_LIMIT_USD:.2f} cost limit for one reply",
+        "time": f"the {Config.TURN_TIME_BUDGET_SECONDS:.0f} s time limit for one reply",
+        "rounds": f"the {tool_round_cap()}-round limit for one reply",
+        "loop": "a tool call that kept failing",
+    }
+    return f"{limits[reason]}, {used} ({spent})"
 
 
 def elapsed_s(state: AgentState) -> float:
@@ -118,6 +142,17 @@ def log_stop(reason: StopReason, state: AgentState, tool_rounds: int) -> None:
 
 # An empty last reply still tells the user where things stand
 FALLBACK_LINE = "I stopped before finishing - say *continue* and I'll pick up from here."
+
+
+def fallback_line(facts: str | None) -> str:
+    """The app's own line for an empty last reply, naming the limit when known."""
+    if not facts:
+        return FALLBACK_LINE
+    return (
+        f"I stopped before finishing: I reached {facts}. Say *continue* and I'll pick up from here."
+    )
+
+
 _GUIDANCE_PREFIX = "[SYSTEM GUIDANCE]"
 
 # A note for the model on a tool result, kept beside the content: the stored
@@ -149,7 +184,9 @@ def model_view(messages: list[BaseMessage]) -> list[BaseMessage]:
     return out
 
 
-def final_reply(response: AIMessage, history: list[BaseMessage], reason: str) -> AIMessage:
+def final_reply(
+    response: AIMessage, history: list[BaseMessage], reason: str, facts: str | None = None
+) -> AIMessage:
     """The turn's last reply: never a tool call (tools are off), never empty,
     marked with why the turn stopped (turn_usage reads it)."""
     reply = response.model_copy(
@@ -164,8 +201,63 @@ def final_reply(response: AIMessage, history: list[BaseMessage], reason: str) ->
     if extract_text_content(reply.content).strip():
         return reply
     earlier = _earlier_text(history)
-    text = f"{earlier}\n\n{FALLBACK_LINE}" if earlier else FALLBACK_LINE
+    line = fallback_line(facts)
+    text = f"{earlier}\n\n{line}" if earlier else line
     return reply.model_copy(update={"content": text})
+
+
+# The tools-off retry's transcript: enough of each result to answer from, and a
+# cap on the whole (the briefing's Garmin result alone was 39k characters)
+_TRANSCRIPT_RESULT_CHARS = 8000
+_TRANSCRIPT_MAX_CHARS = 60000
+
+
+def final_transcript(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """The conversation as plain text, for a final call to a model without tools.
+
+    Earlier turns stay as they are (text only); this turn - from the user's
+    latest message on - becomes one message: the request, what each tool
+    returned (each result cut to a few thousand characters) and the model's
+    own notes. Tool calls and results can't go to a model with no tools.
+    """
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage  # noqa: PLC0415 - typing-only above
+
+    start = next(
+        (
+            i
+            for i in range(len(messages) - 1, -1, -1)
+            if isinstance(messages[i], HumanMessage)
+            and not str(messages[i].content).startswith(_GUIDANCE_PREFIX)
+        ),
+        0,
+    )
+    earlier = [
+        m
+        for m in messages[:start]
+        if isinstance(m, HumanMessage)
+        or (
+            isinstance(m, AIMessage)
+            and not m.tool_calls
+            and extract_text_content(m.content).strip()
+        )
+    ]
+    parts: list[str] = []
+    for message in messages[start:]:
+        if isinstance(message, ToolMessage):
+            result = extract_text_content(message.content)[:_TRANSCRIPT_RESULT_CHARS]
+            parts.append(f"[{message.name or 'tool'} returned]\n{result}")
+        elif isinstance(message, HumanMessage) and not str(message.content).startswith(
+            _GUIDANCE_PREFIX
+        ):
+            parts.append(f"[The user asked]\n{extract_text_content(message.content)}")
+        elif isinstance(message, AIMessage) and (
+            text := extract_text_content(message.content).strip()
+        ):
+            parts.append(f"[Your notes so far]\n{text}")
+        elif isinstance(message, SystemMessage):
+            continue
+    body = "\n\n".join(parts)[:_TRANSCRIPT_MAX_CHARS]
+    return [*earlier, HumanMessage(content=f"{body}\n\nWrite your final reply now.")]
 
 
 def _earlier_text(history: list[BaseMessage]) -> str:

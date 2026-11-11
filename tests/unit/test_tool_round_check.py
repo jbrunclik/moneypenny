@@ -15,7 +15,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from src.agent.graph_state import AgentState
 from src.agent.tool_round_check import check_tool_results
 from src.agent.tools.context import set_conversation_context
-from src.agent.turn_budget import FINAL_GUIDANCE
+from src.agent.turn_budget import final_guidance
 from src.config import Config
 
 _INTERJECTION = (
@@ -115,13 +115,18 @@ class TestCheckToolResultsBranches:
         assert result["final_answer"] == "rounds"
         assert [m.content for m in result["messages"]] == [
             _guidance(_INTERJECTION, use_cache).content,
-            _guidance(FINAL_GUIDANCE, use_cache).content,
+            _guidance(final_guidance(result["stop_facts"]), use_cache).content,
         ]
 
     def test_round_backstop_stops(self, use_cache: bool) -> None:
         result = check_tool_results(_state([_error("boom")], rounds=5, retries=1), use_cache)
-        expected = _expected(FINAL_GUIDANCE, use_cache, retries=0, rounds=6)
-        assert _summary(result) == {**expected, "final_answer": "rounds"}
+        expected = _expected(final_guidance(result["stop_facts"]), use_cache, retries=0, rounds=6)
+        assert result["stop_facts"].startswith("the ")
+        assert _summary(result) == {
+            **expected,
+            "final_answer": "rounds",
+            "stop_facts": result["stop_facts"],
+        }
 
     def test_retriable_error_asks_for_a_retry(self, use_cache: bool) -> None:
         errors = [_error("first", call_id="1"), _error("second", call_id="2")]

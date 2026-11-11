@@ -3,18 +3,25 @@
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackManager
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
 
 from src.agent.cancellation import CancelOnToken, raise_if_cancelled
-from src.agent.chat_model import FallbackModel
+from src.agent.chat_model import FallbackModel, create_chat_model
 from src.agent.content import extract_text_content
 from src.agent.graph_state import AgentState
 from src.agent.retry import is_model_unavailable, with_retry
 from src.agent.tool_result_aging import age_consumed_tool_messages
-from src.agent.turn_budget import FALLBACK_LINE, call_cost_usd, final_reply, model_view
+from src.agent.turn_budget import (
+    call_cost_usd,
+    fallback_line,
+    final_guidance,
+    final_reply,
+    final_transcript,
+    model_view,
+)
 from src.agent.turn_usage import record_model_usage
 from src.config import Config
 from src.utils.logging import get_logger
@@ -108,19 +115,43 @@ def _log_response(response: BaseMessage) -> None:
         logger.debug("No usage_metadata attribute found on AIMessage")
 
 
-def _tell_the_stream(response: AIMessage, reason: str) -> None:
+def _tell_the_stream(
+    response: AIMessage, reason: str, facts: str | None, answered: bool = False
+) -> None:
     """Streaming saves the streamed chunks, not final_reply's result: tell the
     processor why the turn stopped, which tool calls it drops and the line it
-    adds to an empty reply."""
-    empty = not extract_text_content(response.content).strip()
+    adds to an empty reply (none when the tools-off retry answered)."""
+    empty = not answered and not extract_text_content(response.content).strip()
     get_stream_writer()(
         {
             "type": "turn_stop",
             "reason": reason,
             "dropped": [c["id"] for c in response.tool_calls if c["id"]],
-            "fallback": FALLBACK_LINE if empty else None,
+            "fallback": fallback_line(facts) if empty else None,
         }
     )
+
+
+def _answer_without_tools(
+    messages: list[BaseMessage], facts: str, model_name: str, config: RunnableConfig | None
+) -> AIMessage | None:
+    """The final reply from a model that has no tools at all.
+
+    Gemini's context cache carries the tool declarations, so in cached mode
+    "tools are off" is only an instruction - and the Daily Briefing's final
+    round asked for one more tool, leaving the user an empty reply (Nov 11
+    2026). The turn so far goes in as plain text: a model without tools can't
+    take tool calls and results.
+    """
+    logger.info("Turn final answer retried without tools", extra={"model": model_name})
+    plain = create_chat_model(model_name, with_tools=False)
+    prompt = [SystemMessage(content=final_guidance(facts)), *final_transcript(messages)]
+    try:
+        reply = _invoke_model(plain, prompt, config)
+    except Exception:
+        logger.exception("Turn final answer without tools failed")
+        return None
+    return reply if isinstance(reply, AIMessage) else None
 
 
 def chat_node(
@@ -166,21 +197,45 @@ def chat_node(
         response.response_metadata["model_fallback"] = fallback_name
 
     _log_response(response)
-    # Turn budgets: after a stop this is the last reply - no tool calls, never empty
-    reason = state.get("final_answer")
-    if reason and isinstance(response, AIMessage):
-        _tell_the_stream(response, reason)
-        response = final_reply(response, messages, reason)
-
     # The turn's running cost, priced with the model that answered
     answering = fallback_name or model_name
     cost = state.get("turn_cost_usd", 0.0)
     if isinstance(response, AIMessage):
         cost += call_cost_usd(response, answering)
+
+    # Turn budgets: after a stop this is the last reply - no tool calls, never empty
+    reason = state.get("final_answer")
+    if reason and isinstance(response, AIMessage):
+        response, cost = _final_answer(response, state, messages, config, answering, cost)
     update: dict[str, object] = {"messages": [response], "turn_cost_usd": cost}
     if fallback_name:
         update["model_fallback"] = fallback_name
     return update
+
+
+def _final_answer(
+    response: AIMessage,
+    state: AgentState,
+    messages: list[BaseMessage],
+    config: RunnableConfig | None,
+    model_name: str,
+    cost: float,
+) -> tuple[AIMessage, float]:
+    """The stopped turn's last reply, and the turn's cost including any retry."""
+    reason = str(state.get("final_answer"))
+    facts = state.get("stop_facts")
+    text = extract_text_content(response.content).strip()
+    retry = None
+    if response.tool_calls and not text:
+        retry = _answer_without_tools(messages, facts or reason, model_name, config)
+        if retry is not None:
+            cost += call_cost_usd(retry, model_name)
+    answered = retry is not None and bool(extract_text_content(retry.content).strip())
+    _tell_the_stream(response, reason, facts, answered)
+    if answered and retry is not None:
+        merged = retry.model_copy(update={"response_metadata": {**retry.response_metadata}})
+        return final_reply(merged, messages, reason, facts), cost
+    return final_reply(response, messages, reason, facts), cost
 
 
 def _invoke_model(
