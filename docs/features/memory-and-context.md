@@ -326,7 +326,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 
 ### How It Works
 
-1. **Storage**: Custom instructions are stored in the `users.custom_instructions` column (up to 2000 characters)
+1. **Storage**: Custom instructions are stored in the `users.custom_instructions` column (up to `CUSTOM_INSTRUCTIONS_MAX_CHARS`, 8000 characters since Nov 11 2026)
 2. **UI**: Settings popup accessible via gear icon button in sidebar (next to memories and logout)
 3. **Injection**: Instructions are appended to the system prompt via `CUSTOM_INSTRUCTIONS_PROMPT` constant
 4. **Immediate effect**: Changes apply to new messages immediately (no restart needed)
@@ -349,7 +349,7 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [migrations/0010_add_custom_instructions.py](../../migrations/0010_add_custom_instructions.py) - Database migration
 - [models/](../../src/db/models/) - `User.custom_instructions` field, `update_user_custom_instructions()` method
 - [prompt_texts/core.py](../../src/agent/prompt_texts/core.py) - `CUSTOM_INSTRUCTIONS_PROMPT` constant; [prompts.py](../../src/agent/prompts.py) - `get_system_prompt()` with `custom_instructions` parameter
-- [schemas/settings.py](../../src/api/schemas/settings.py) - `UpdateSettingsRequest` schema with 2000 char limit
+- [schemas/settings.py](../../src/api/schemas/settings.py) - `UpdateSettingsRequest` schema (`CUSTOM_INSTRUCTIONS_MAX_CHARS`)
 - [routes/settings.py](../../src/api/routes/settings.py) - Settings endpoints
 - [routes/chat.py](../../src/api/routes/chat.py) - Passes `custom_instructions` to agent
 
@@ -361,8 +361,67 @@ Users can customize LLM behavior via a free-text custom instructions field in th
 - [icons.ts](../../web/src/utils/icons.ts) - `SETTINGS_ICON`
 - [settings.css](../../web/src/styles/components/settings.css) - Styles
 
+### Self-tuning
+
+Since Nov 11 2026 the assistant keeps the instructions up to date itself, and
+the user only says yes or no ([spec](../superpowers/specs/2026-11-11-instructions-self-tuning-design.md)).
+It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
+
+- **The line between instructions and memory.** A lasting rule about how the
+  assistant responds (format, length, tone, language) belongs in the
+  instructions; a fact about the user belongs in memory. The memory prompt and
+  the background memory review no longer save such rules as memories.
+- **In the moment.** In an ordinary non-anonymous chat, `propose_instruction_change`
+  files a `custom_instructions` card: the passage before/after, "Applies to:
+  every chat" (instructions reach the coaches and agents too), and the dated
+  turns it rests on. Its result tells the model not to save the rule as a
+  memory as well. An ignored card may come back once, at least
+  `SETUP_REOFFER_AFTER_DAYS` later, counted per user.
+- **Review.** Settings → AI Instructions → **Review**: one structured call
+  (`INSTRUCTIONS_REVIEW_MODEL`) over the instructions, the memory bank, the
+  declined list and the last `INSTRUCTIONS_REVIEW_MESSAGES` user messages in
+  ordinary chats, each next to the reply it answered. At most
+  `INSTRUCTIONS_REVIEW_MAX_SUGGESTIONS`, shown with the Quick actions Review's
+  cards (`QuickActionsReview.ts`, generic over what apply returns). Pressing
+  Review saves unsaved typing first; an accepted change lands in the textarea.
+- **The change model** (`src/services/instructions_tuning.py`): one passage edit
+  (append / replace / remove) and/or one memory write; a move is both, applied
+  all or nothing in one transaction (`apply_instructions_change`). A replace or
+  remove applies while its passage is in the text exactly once (gone: "no
+  longer applies"; twice: refused), so edits elsewhere in the text never stale
+  a suggestion. Memory halves carry the content they were suggested against;
+  a changed memory is a collision, answered 409 with the suggestion rebuilt
+  (the Review shows it in place). Protected memories are never touched; a new
+  memory only as the other half of moving a passage out.
+- **Evidence.** New wording needs a dated turn on a day the user wrote
+  ("YYYY-MM-DD: ..."); clean-up may cite the items themselves ("Memory: ..." /
+  "Instructions: ..."). Declines live in KV namespace `instructions_tuning`
+  (reserved), key `declined`; a declined suggestion needs a newer dated turn.
+- **Safety.** Proposed text passes `find_injection` (it reaches every system
+  prompt); the review fences the turns with a random boundary as data.
+- **Cost.** The tool's declaration adds ~1.7 KB (~430 tokens) to every ordinary
+  chat request; a Review is one flash call.
+- **Logs** (counts in the [regular review](../regular-review.md)):
+  "Instructions suggestion resolved" (source card / review, outcome, target
+  instructions / memory / move), "Instructions change refused" (reason),
+  "Instructions change proposed", "Instructions changed" (target, length),
+  "Instructions review" (returned, suggestions, turns, cost_usd, duration_ms).
+- **Configuration**: `CUSTOM_INSTRUCTIONS_MAX_CHARS` (8000), `INSTRUCTIONS_REVIEW_MODEL`,
+  `INSTRUCTIONS_REVIEW_MESSAGES` (60), `INSTRUCTIONS_REVIEW_MESSAGE_CHARS` (600),
+  `INSTRUCTIONS_REVIEW_REPLY_CHARS` (300), `INSTRUCTIONS_REVIEW_MAX_SUGGESTIONS` (8);
+  the timeout is `PROGRAM_REVIEW_TIMEOUT_SECONDS`, the re-offer gap and declined
+  list size `SETUP_REOFFER_AFTER_DAYS` / `SETUP_DECLINED_MAX`.
+- **API**: `POST /api/users/me/instructions-review` (suggestions), `/apply`
+  (body: change, summary, evidence; returns `custom_instructions`), `/reject`.
+- **Evals**: `instructions_style_rule`, `instructions_one_off`,
+  `instructions_fact_stays_memory`, `memory_review_skips_style_rule` (the first
+  two use `save_user_turns`, so the chat's dates exist as in production).
+
 ### Testing
 
+- **Backend unit tests**: [test_instructions_tuning.py](../../tests/unit/test_instructions_tuning.py), [test_instructions_review.py](../../tests/unit/test_instructions_review.py), [test_instructions_tool.py](../../tests/unit/test_instructions_tool.py)
+- **Review route tests**: [test_routes_instructions_review.py](../../tests/integration/test_routes_instructions_review.py)
+- **Component tests**: [settings-instructions-review.test.ts](../../web/tests/component/settings-instructions-review.test.ts)
 - **Backend integration tests**: [test_routes_settings.py](../../tests/integration/test_routes_settings.py)
 - **E2E tests**: [settings.spec.ts](../../web/tests/e2e/settings.spec.ts)
 - **Visual tests**: [popups.visual.ts](../../web/tests/visual/popups.visual.ts) - `popup-settings.png`, `popup-settings-empty.png`, `popup-settings-warning.png`

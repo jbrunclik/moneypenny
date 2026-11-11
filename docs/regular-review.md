@@ -66,6 +66,13 @@ The review itself changes nothing in production and edits nothing but
   accepted share means suggestions miss; "Setup change refused" by `reason` (many
   refusals for missing evidence mean the coach proposes on hunches); "Setup review"
   lines with `suggestions` 0 vs more and their `cost_usd`.
+- Instructions self-tuning (from Nov 2026; [memory-and-context.md](features/memory-and-context.md#self-tuning)):
+  "Instructions suggestion resolved" per `source` (card / review), `outcome` and
+  `target` (instructions / memory / move) - a low accepted share means the
+  suggestions miss; "Instructions change refused" by `reason` (evidence refusals
+  = proposing on hunches); "Instructions review" with `suggestions` 0 vs more and
+  `cost_usd`; from the DB (counts only) the `custom_instructions` length
+  distribution against the 8000 limit, and how `custom_instructions` cards end.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
 

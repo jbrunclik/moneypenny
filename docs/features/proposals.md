@@ -18,6 +18,7 @@ step 3 deep research, step 4 chat deletes, step 5 clarifying questions).
 | `chat_change` | a delete or archive in a chat turn (Todoist, Calendar, Rouvy) - held by the gate | Delete / Archive | performs each stored call through its tool ([below](#chat-changes-step-4-nov-9-2026)) |
 | `question` | `ask_choice` | its 2-4 options | nothing: the pick is the user's reply (a tap sends the label as their message) - [below](#questions-step-5-nov-9-2026) |
 | `program_setup` | `propose_setup_change` in a program chat | Apply | applies the quick action / instruction change through `src/services/program_setup.py`; Decline records it on the program's declined list ([ui-composer.md](ui-composer.md#self-tuning)) |
+| `custom_instructions` | `propose_instruction_change` in an ordinary chat | Apply | applies the passage edit (and, for a move, the memory delete) through `src/services/instructions_tuning.py`, all or nothing; Decline records it on the user's declined list ([memory-and-context.md](memory-and-context.md#self-tuning)) |
 
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).
