@@ -4575,6 +4575,47 @@
         "summary": "Restore a soft-deleted memory."
       }
     },
+    "/api/users/me/instructions-review": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupReviewResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Suggested changes to the custom instructions and the memories on their border."
+      }
+    },
     "/api/conversations/{conv_id}/read": {
       "post": {
         "parameters": [
@@ -5920,6 +5961,86 @@
         }
       }
     },
+    "/api/users/me/instructions-review/apply": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionsChangeResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Apply one accepted suggestion; returns the instructions as they now are.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/conversations/{conv_id}/chat/batch": {
       "post": {
         "parameters": [
@@ -6048,6 +6169,69 @@
           "Costs"
         ],
         "summary": "Get how much of a conversation the model sees only as a summary."
+      }
+    },
+    "/api/users/me/instructions-review/reject": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Reject one suggestion: remembered, so it is not suggested again without new turns.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/conversations/{conv_id}/chat/stream": {
@@ -16568,6 +16752,98 @@
         "title": "UpdateSelectedCalendarsRequest",
         "type": "object"
       },
+      "SetupReviewResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
+        "type": "object"
+      },
+      "SetupReviewResponse.SetupSuggestion": {
+        "description": "One suggested change to a program's setup, as the Review returns it.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/SetupReviewResponse.SetupFieldChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "change",
+          "summary",
+          "before",
+          "after",
+          "changes",
+          "evidence"
+        ],
+        "title": "SetupSuggestion",
+        "type": "object"
+      },
+      "SetupReviewResponse": {
+        "description": "The Review's suggestions (an empty list: nothing to change).",
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/SetupReviewResponse.SetupSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "SetupReviewResponse",
+        "type": "object"
+      },
       "MarkReadRequest": {
         "description": "A device has shown the conversation up to this many messages.",
         "properties": {
@@ -18204,6 +18480,50 @@
         "title": "StopChatRequest",
         "type": "object"
       },
+      "InstructionsChangeResponse": {
+        "description": "The custom instructions after an accepted Review suggestion.",
+        "properties": {
+          "custom_instructions": {
+            "title": "Custom Instructions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_instructions"
+        ],
+        "title": "InstructionsChangeResponse",
+        "type": "object"
+      },
+      "SetupChangeRequest": {
+        "description": "Accept or reject one suggestion from the Review.",
+        "properties": {
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "summary": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "change",
+          "summary"
+        ],
+        "title": "SetupChangeRequest",
+        "type": "object"
+      },
       "ChatBatchResponse.ArtifactRef": {
         "description": "One artifact version shown under a message.",
         "properties": {
@@ -19397,98 +19717,6 @@
         "title": "InterjectRequest",
         "type": "object"
       },
-      "SetupReviewResponse.SetupFieldChange": {
-        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
-        "properties": {
-          "field": {
-            "title": "Field",
-            "type": "string"
-          },
-          "before": {
-            "title": "Before",
-            "type": "string"
-          },
-          "after": {
-            "title": "After",
-            "type": "string"
-          }
-        },
-        "required": [
-          "field",
-          "before",
-          "after"
-        ],
-        "title": "SetupFieldChange",
-        "type": "object"
-      },
-      "SetupReviewResponse.SetupSuggestion": {
-        "description": "One suggested change to a program's setup, as the Review returns it.",
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "change": {
-            "additionalProperties": true,
-            "title": "Change",
-            "type": "object"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "before": {
-            "title": "Before",
-            "type": "string"
-          },
-          "after": {
-            "title": "After",
-            "type": "string"
-          },
-          "changes": {
-            "items": {
-              "$ref": "#/components/schemas/SetupReviewResponse.SetupFieldChange"
-            },
-            "title": "Changes",
-            "type": "array"
-          },
-          "evidence": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Evidence",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "change",
-          "summary",
-          "before",
-          "after",
-          "changes",
-          "evidence"
-        ],
-        "title": "SetupSuggestion",
-        "type": "object"
-      },
-      "SetupReviewResponse": {
-        "description": "The Review's suggestions (an empty list: nothing to change).",
-        "properties": {
-          "suggestions": {
-            "items": {
-              "$ref": "#/components/schemas/SetupReviewResponse.SetupSuggestion"
-            },
-            "title": "Suggestions",
-            "type": "array"
-          }
-        },
-        "required": [
-          "suggestions"
-        ],
-        "title": "SetupReviewResponse",
-        "type": "object"
-      },
       "UpdateQuickActionsRequest.QuickActionItem": {
         "description": "A one-tap saved prompt for a program conversation.",
         "properties": {
@@ -19587,36 +19815,6 @@
           "state"
         ],
         "title": "ArtifactVersionResponse",
-        "type": "object"
-      },
-      "SetupChangeRequest": {
-        "description": "Accept or reject one suggestion from the Review.",
-        "properties": {
-          "change": {
-            "additionalProperties": true,
-            "title": "Change",
-            "type": "object"
-          },
-          "summary": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Summary",
-            "type": "string"
-          },
-          "evidence": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 5,
-            "title": "Evidence",
-            "type": "array"
-          }
-        },
-        "required": [
-          "change",
-          "summary"
-        ],
-        "title": "SetupChangeRequest",
         "type": "object"
       }
     }

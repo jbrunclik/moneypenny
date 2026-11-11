@@ -5199,6 +5199,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/me/instructions-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggested changes to the custom instructions and the memories on their border. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SetupReviewResponse"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/read": {
         parameters: {
             query?: never;
@@ -6606,6 +6660,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/me/instructions-review/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply one accepted suggestion; returns the instructions as they now are. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SetupChangeRequest"];
+                };
+            };
+            responses: {
+                /** @description Successful response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InstructionsChangeResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{conv_id}/chat/batch": {
         parameters: {
             query?: never;
@@ -6740,6 +6879,80 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/me/instructions-review/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject one suggestion: remembered, so it is not suggested again without new turns. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SetupChangeRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ValidationError"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HTTPError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -12720,6 +12933,48 @@ export interface components {
             calendar_ids: string[];
         };
         /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "SetupReviewResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+        };
+        /**
+         * SetupSuggestion
+         * @description One suggested change to a program's setup, as the Review returns it.
+         */
+        "SetupReviewResponse.SetupSuggestion": {
+            /** Id */
+            id: string;
+            /** Change */
+            change: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+            /** Changes */
+            changes: components["schemas"]["SetupReviewResponse.SetupFieldChange"][];
+            /** Evidence */
+            evidence: string[];
+        };
+        /**
+         * SetupReviewResponse
+         * @description The Review's suggestions (an empty list: nothing to change).
+         */
+        SetupReviewResponse: {
+            /** Suggestions */
+            suggestions: components["schemas"]["SetupReviewResponse.SetupSuggestion"][];
+        };
+        /**
          * MarkReadRequest
          * @description A device has shown the conversation up to this many messages.
          */
@@ -13577,6 +13832,28 @@ export interface components {
             message_id: string;
         };
         /**
+         * InstructionsChangeResponse
+         * @description The custom instructions after an accepted Review suggestion.
+         */
+        InstructionsChangeResponse: {
+            /** Custom Instructions */
+            custom_instructions: string;
+        };
+        /**
+         * SetupChangeRequest
+         * @description Accept or reject one suggestion from the Review.
+         */
+        SetupChangeRequest: {
+            /** Change */
+            change: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: string;
+            /** Evidence */
+            evidence?: string[];
+        };
+        /**
          * ArtifactRef
          * @description One artifact version shown under a message.
          */
@@ -14168,48 +14445,6 @@ export interface components {
             client_message_id?: string | null;
         };
         /**
-         * SetupFieldChange
-         * @description One changed field: its name for people, the old and new value ("" = none).
-         */
-        "SetupReviewResponse.SetupFieldChange": {
-            /** Field */
-            field: string;
-            /** Before */
-            before: string;
-            /** After */
-            after: string;
-        };
-        /**
-         * SetupSuggestion
-         * @description One suggested change to a program's setup, as the Review returns it.
-         */
-        "SetupReviewResponse.SetupSuggestion": {
-            /** Id */
-            id: string;
-            /** Change */
-            change: {
-                [key: string]: unknown;
-            };
-            /** Summary */
-            summary: string;
-            /** Before */
-            before: string;
-            /** After */
-            after: string;
-            /** Changes */
-            changes: components["schemas"]["SetupReviewResponse.SetupFieldChange"][];
-            /** Evidence */
-            evidence: string[];
-        };
-        /**
-         * SetupReviewResponse
-         * @description The Review's suggestions (an empty list: nothing to change).
-         */
-        SetupReviewResponse: {
-            /** Suggestions */
-            suggestions: components["schemas"]["SetupReviewResponse.SetupSuggestion"][];
-        };
-        /**
          * QuickActionItem
          * @description A one-tap saved prompt for a program conversation.
          */
@@ -14264,20 +14499,6 @@ export interface components {
              * @default null
              */
             state: unknown;
-        };
-        /**
-         * SetupChangeRequest
-         * @description Accept or reject one suggestion from the Review.
-         */
-        SetupChangeRequest: {
-            /** Change */
-            change: {
-                [key: string]: unknown;
-            };
-            /** Summary */
-            summary: string;
-            /** Evidence */
-            evidence?: string[];
         };
     };
     responses: never;

@@ -21,7 +21,7 @@ Route Organization:
 - chat.py: Chat endpoints (2 routes)
 - files.py: File serving (2 routes)
 - costs.py: Cost tracking (4 routes)
-- settings.py: User settings (2 routes)
+- settings.py: User settings (2 routes); instructions_review.py adds the instructions Review (3)
 - memory.py: User memory management (2 routes)
 - system.py: System routes (5 routes)
 - kv_store.py: K/V store management (6 routes)
@@ -59,6 +59,7 @@ from src.api.routes import (
     costs,
     files,
     garmin,
+    instructions_review,  # noqa: F401 - imported for its routes
     jobs,
     kv_store,
     language,

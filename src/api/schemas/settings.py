@@ -85,3 +85,9 @@ class UserSettingsResponse(ResponseModel):
         description="Primary response language (English name, e.g. 'Czech'); null = auto",
     )
     daily_briefing: DailyBriefingSettings = Field(default_factory=DailyBriefingSettings)
+
+
+class InstructionsChangeResponse(ResponseModel):
+    """The custom instructions after an accepted Review suggestion."""
+
+    custom_instructions: str
