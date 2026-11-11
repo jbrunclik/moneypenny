@@ -201,11 +201,16 @@ def test_create_surfaces_rouvys_rejection(mock_req):
 
 
 @patch("src.agent.tools.rouvy._client_request")
-def test_create_logs_an_excerpt_of_a_reply_it_cannot_read(mock_req, caplog):
+def test_create_logs_the_shape_of_a_reply_it_cannot_read(mock_req, caplog):
     mock_req.return_value = _resp(text='[{"_1":2},"data",{"_3":-5},"something","else"]')
     with pytest.raises(ValueError, match="could not parse created workout id"):
         rc.rouvy_create(FakeUser(), "<workout_file/>", "Z2 60min")
-    assert any("something" in str(getattr(r, "excerpt", "")) for r in caplog.records)
+    record = next(
+        r for r in caplog.records if r.getMessage() == "Rouvy create reply not understood"
+    )
+    assert record.fields == ["something"]
+    assert record.chars > 0
+    assert "else" not in str(record.__dict__)  # no values from the reply
 
 
 # A dead or missing session (Nov 11 2026): a 202 single-fetch redirect to the
@@ -261,3 +266,20 @@ def test_the_tool_says_rouvy_is_blocking_access():
         out = json.loads(rc.rouvy_workout.invoke({"action": "list"}))
     assert out["success"] is False
     assert "blocking" in out["error"].lower()
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_requests_send_the_sessions_browser_identity(mock_req):
+    """Cloudflare challenges httpx's default python-httpx User-Agent (Nov 2026)."""
+    mock_req.return_value = _resp(text='[{"_1":2},"data","4183941","ZZ Ride"]')
+    user = FakeUser()
+    user.rouvy_session = json.dumps(
+        {
+            "cookies": [{"name": "s", "value": "v", "domain": ".rouvy.com"}],
+            "user_agent": "UA-of-login",
+        }
+    )
+    rc.rouvy_list(user)
+    _method, _url, kwargs, jar = mock_req.call_args[0]
+    assert kwargs["headers"]["User-Agent"] == "UA-of-login"
+    assert jar == {"s": "v"}

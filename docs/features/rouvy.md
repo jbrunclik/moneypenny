@@ -38,7 +38,7 @@ replicates the authenticated web flow, mirroring the Garmin integration.
 
 ### Confirmed endpoint contract
 
-All cookie-authed; responses are turbo-stream (`text/x-script`). The create reply is decoded (`_turbo_data`: one JSON array of interned values, objects map `"_<key index>"` to a value index, negative = undefined); list still uses a regex. Nov 2026 pitfall: the id turned into a quoted string and the old unquoted-number regex reported every upload as failed, so the agent's retries made duplicates; a reply that doesn't decode is logged (`Rouvy create reply not understood`, 300-char excerpt).
+All cookie-authed; responses are turbo-stream (`text/x-script`). The create reply is decoded (`_turbo_data`: one JSON array of interned values, objects map `"_<key index>"` to a value index, negative = undefined); list still uses a regex. Nov 2026 pitfall: the id turned into a quoted string and the old unquoted-number regex reported every upload as failed, so the agent's retries made duplicates; a reply that doesn't decode is logged by shape only (`Rouvy create reply not understood`: status, content type, length, field names - never values, since replies can carry the user's profile).
 
 | Op | Request |
 |----|---------|
@@ -65,6 +65,14 @@ valid + broken, list, get, get unknown, dead session, no session, delete):
   password step `riders.rouvy.com/login?token=...` serves Cloudflare's "Sorry, you
   have been blocked" to a browser calling itself `HeadlessChrome`; the same
   login with that word removed from the User-Agent reaches `/feed`.
+- **Fix (Nov 11 2026):** the login presents the browser's own User-Agent minus
+  "Headless" (`browser_user_agent`), and the stored session is now
+  `{"cookies": [...], "user_agent": "..."}` so every httpx request sends the
+  identity the login's cookies (incl. Cloudflare's `__cf_bm`) were issued to.
+  Old bare-list sessions read fine and send `FALLBACK_USER_AGENT`. This works
+  around Rouvy's bot protection for the user's own account (Jiri's call); if
+  Rouvy tightens it, the fallback plan is a session the user hands over from
+  their own browser, kept fresh in the background.
 - **List** returned exactly 30 workouts for an account with more: possibly the
   first page only (`pageMeta`) - unverified.
 

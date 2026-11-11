@@ -56,8 +56,6 @@ class RouvyBlockedError(Exception):
 
 
 _SESSION_COOKIE = "rouvy_session"  # a cookie name, not a secret
-# How much of a reply we could not read goes into the log (no session data in it)
-_REPLY_EXCERPT_CHARS = 300
 
 
 def _base() -> str:
@@ -128,6 +126,12 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
     if not user.rouvy_session:
         raise RouvyNotConnectedError()
     jar = rouvy_auth.cookies_to_jar(user.rouvy_session)
+    # The login's browser identity: Cloudflare challenges httpx's default (Nov 2026)
+    headers = {
+        **kwargs.pop("headers", {}),
+        "User-Agent": rouvy_auth.session_user_agent(user.rouvy_session),
+    }
+    kwargs = {**kwargs, "headers": headers}
     resp = _client_request(method, url, kwargs, jar)
     if _is_cloudflare_challenge(resp):
         logger.warning(
@@ -149,6 +153,7 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
     db.update_user_rouvy_session(user.id, new_session)
     user.rouvy_session = new_session
     jar = rouvy_auth.cookies_to_jar(new_session)
+    kwargs["headers"]["User-Agent"] = rouvy_auth.session_user_agent(new_session)
     resp = _client_request(method, url, kwargs, jar)
     if _looks_expired(resp):
         raise RouvySessionExpiredError()
@@ -205,7 +210,13 @@ def _parse_created_id(resp: httpx.Response) -> int:
         return int(m.group(1))
     logger.warning(
         "Rouvy create reply not understood",
-        extra={"excerpt": resp.text[:_REPLY_EXCERPT_CHARS]},
+        # Shape only, never values: replies can carry the user's profile
+        extra={
+            "status": resp.status_code,
+            "content_type": resp.headers.get("content-type", ""),
+            "chars": len(resp.text),
+            "fields": sorted(data),
+        },
     )
     raise ValueError("could not parse created workout id from Rouvy response")
 

@@ -40,15 +40,53 @@ class RouvyAuthError(Exception):
     """Rouvy authentication failed (bad credentials, captcha, timeout, ...)."""
 
 
+# Sent by sessions stored before Nov 2026 (a bare cookie list, no user agent):
+# any ordinary Chrome; Cloudflare challenges httpx's default python-httpx
+FALLBACK_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/141.0.0.0 Safari/537.36"
+)
+
+
+def _load_session(session_json: str) -> tuple[list[dict[str, object]], str | None]:
+    """(cookies, user agent) from a stored blob.
+
+    Since Nov 2026 the blob is ``{"cookies": [...], "user_agent": "..."}``: the
+    requests reuse the browser identity the login was issued to, which Rouvy's
+    Cloudflare lets through. Older blobs are a bare cookie list (no agent).
+    """
+    try:
+        data = json.loads(session_json)
+    except json.JSONDecodeError, TypeError:
+        return [], None
+    if isinstance(data, dict):
+        cookies, agent = data.get("cookies"), data.get("user_agent")
+        return (
+            [c for c in cookies if isinstance(c, dict)] if isinstance(cookies, list) else [],
+            agent if isinstance(agent, str) and agent else None,
+        )
+    if isinstance(data, list):
+        return [c for c in data if isinstance(c, dict)], None
+    return [], None
+
+
+def _dump_session(cookies: list[dict[str, object]], user_agent: str | None) -> str:
+    """The stored blob: the object form when there is an agent, else the old list."""
+    if user_agent is None:
+        return json.dumps(cookies)
+    return json.dumps({"cookies": cookies, "user_agent": user_agent})
+
+
 def cookies_to_jar(session_json: str) -> dict[str, str]:
     """Convert a stored cookie blob into an httpx-compatible name->value map."""
-    try:
-        cookies = json.loads(session_json)
-    except json.JSONDecodeError, TypeError:
-        return {}
-    if not isinstance(cookies, list):
-        return {}
-    return {c["name"]: c["value"] for c in cookies if "name" in c and "value" in c}
+    cookies, _ = _load_session(session_json)
+    return {str(c["name"]): str(c["value"]) for c in cookies if "name" in c and "value" in c}
+
+
+def session_user_agent(session_json: str) -> str:
+    """The browser identity to send with this session's requests."""
+    _, user_agent = _load_session(session_json)
+    return user_agent or FALLBACK_USER_AGENT
 
 
 def merge_cookie_values(session_json: str, updates: Mapping[str, str]) -> str:
@@ -57,28 +95,34 @@ def merge_cookie_values(session_json: str, updates: Mapping[str, str]) -> str:
     Rouvy rotates ``rouvy_session`` (it wraps a 1h Firebase id token) via
     Set-Cookie on ordinary requests; persisting the rotation keeps the session
     alive without a full re-login. Existing entries keep their attributes,
-    unknown cookies are appended.
+    unknown cookies are appended, and the stored user agent is kept.
     """
-    try:
-        cookies = json.loads(session_json)
-    except json.JSONDecodeError, TypeError:
-        cookies = []
-    if not isinstance(cookies, list):
-        cookies = []
+    cookies, user_agent = _load_session(session_json)
     seen: set[str] = set()
     for c in cookies:
         name = c.get("name")
-        if name in updates:
+        if isinstance(name, str) and name in updates:
             c["value"] = updates[name]
             seen.add(name)
     for name, value in updates.items():
         if name not in seen:
             cookies.append({"name": name, "value": value, "domain": ".rouvy.com"})
-    return json.dumps(cookies)
+    return _dump_session(cookies, user_agent)
+
+
+def browser_user_agent(default: str) -> str:
+    """The headless browser's own user agent with the "Headless" marker removed.
+
+    Since Nov 2026 Rouvy's riders site (behind Cloudflare) answers a browser
+    that calls itself "HeadlessChrome" with a block page right after the
+    password step, so the login never reached /feed and timed out. Keeping the
+    rest of the string keeps it consistent with the real browser and platform.
+    """
+    return default.replace("HeadlessChrome", "Chrome")
 
 
 def login(email: str, password: str) -> str:
-    """Headless Rouvy login. Returns a JSON string of .rouvy.com cookies.
+    """Headless Rouvy login. Returns the session blob (.rouvy.com cookies + user agent).
 
     Raises RouvyAuthError (with a user-friendly message) on any failure.
     """
@@ -112,7 +156,10 @@ def _login_sync(email: str, password: str) -> str:
         browser = pw.chromium.launch(
             headless=True, args=["--disable-gpu", "--disable-dev-shm-usage"]
         )
-        context = browser.new_context()
+        probe = browser.new_page()
+        user_agent = browser_user_agent(probe.evaluate("navigator.userAgent"))
+        probe.close()
+        context = browser.new_context(user_agent=user_agent)
         page = context.new_page()
         page.set_default_timeout(timeout)
         try:
@@ -139,7 +186,8 @@ def _login_sync(email: str, password: str) -> str:
     rouvy_cookies = [c for c in cookies if "rouvy.com" in c.get("domain", "")]
     if not rouvy_cookies:
         raise RouvyAuthError("Login did not produce a session. Please try again.")
-    return json.dumps(rouvy_cookies)
+    # The requests reuse this identity: Cloudflare challenges anything else
+    return _dump_session([dict(c) for c in rouvy_cookies], user_agent)
 
 
 def _raise_typed_error(e: Exception) -> NoReturn:
