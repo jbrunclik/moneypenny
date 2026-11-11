@@ -817,6 +817,13 @@ class Config:
     # (kv flag written by POST /chat/stop, possibly on another worker)
     CANCEL_POLL_INTERVAL_SECONDS: float = float(os.getenv("CANCEL_POLL_INTERVAL_SECONDS", "0.5"))
 
+    # Program self-tuning (docs/superpowers/specs/2026-11-11-program-self-tuning-design.md):
+    # the coach proposes changes to its quick actions and instructions.
+    # An expired (ignored) suggestion card may be filed again once, this many days later
+    SETUP_REOFFER_AFTER_DAYS: int = int(os.getenv("SETUP_REOFFER_AFTER_DAYS", "3"))
+    # Declined suggestions remembered per program (newest kept)
+    SETUP_DECLINED_MAX: int = int(os.getenv("SETUP_DECLINED_MAX", "50"))
+
     # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
     # running cost, its time, a loop or the round backstop - whichever comes
     # first - and ends with one tools-off answer. Replaced the 6-round cap after

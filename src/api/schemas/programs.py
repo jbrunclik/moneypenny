@@ -7,11 +7,7 @@ from typing import Any
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel, Timestamp
-
-QUICK_ACTIONS_MAX_PER_PROGRAM = 12
-
-
-QUICK_ACTION_MAX_FIELDS = 6
+from src.services.program_setup import QUICK_ACTION_MAX_FIELDS, QUICK_ACTIONS_MAX_PER_PROGRAM
 
 
 class QuickActionItem(RequestModel):

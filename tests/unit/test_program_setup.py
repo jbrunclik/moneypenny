@@ -1,0 +1,226 @@
+"""A program's setup: quick actions and standing instructions the coach may
+propose changes to (docs/superpowers/specs/2026-11-11-program-self-tuning-design.md)."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Generator
+from datetime import date, timedelta
+
+import pytest
+
+from src.db.models import Database, User, use_database
+from src.services import program_setup as ps
+from src.services.program_setup import ProgramRef, SetupChangeError
+
+REF = ProgramRef("sports", "cycling")
+
+
+@pytest.fixture
+def db(test_database: Database) -> Generator[Database]:
+    with use_database(test_database):
+        yield test_database
+
+
+def _save_program(db: Database, user: User, **extra: object) -> None:
+    program = {
+        "id": "cycling",
+        "name": "Cycling",
+        "emoji": "🚴",
+        "created_at": "2026-11-01",
+        **extra,
+    }
+    db.kv_set(user.id, "sports", "programs", json.dumps([program]))
+
+
+def _stored_actions(db: Database, user: User) -> list[dict[str, object]]:
+    programs = json.loads(db.kv_get(user.id, "sports", "programs") or "[]")
+    return programs[0]["quick_actions"]
+
+
+_NEXT = {
+    "id": "next",
+    "emoji": "⏭️",
+    "label": "Next workout",
+    "body": "What is my next workout?",
+    "fields": [],
+}
+
+
+def _add(**action: object) -> ps.SetupChange:
+    return {"target": "quick_action", "op": "add", "action": {**_NEXT, "id": "new", **action}}
+
+
+class TestQuickActions:
+    def test_add_starts_from_the_defaults(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user)  # no quick_actions key: the defaults apply
+
+        ps.apply_change(test_user.id, REF, _add(label="Plan week"))
+
+        ids = [a["id"] for a in _stored_actions(db, test_user)]
+        assert ids == [*(a["id"] for a in ps.QUICK_ACTION_DEFAULTS["sports"]), "new"]
+
+    def test_edit_replaces_only_the_named_action(self, db: Database, test_user: User) -> None:
+        other = {**_NEXT, "id": "other", "label": "Other"}
+        _save_program(db, test_user, quick_actions=[_NEXT, other])
+        edited = {**_NEXT, "body": "What is my next workout? Use my Garmin readiness."}
+
+        ps.apply_change(
+            test_user.id,
+            REF,
+            {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited},
+        )
+
+        assert _stored_actions(db, test_user) == [edited, other]
+
+    def test_remove_drops_it(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+
+        ps.apply_change(
+            test_user.id, REF, {"target": "quick_action", "op": "remove", "action_id": "next"}
+        )
+
+        assert _stored_actions(db, test_user) == []
+
+    def test_edit_of_a_vanished_action_is_refused(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        change: ps.SetupChange = {
+            "target": "quick_action",
+            "op": "edit",
+            "action_id": "gone",
+            "action": _NEXT,
+        }
+
+        with pytest.raises(SetupChangeError, match="no longer"):
+            ps.apply_change(test_user.id, REF, change)
+        assert _stored_actions(db, test_user) == [_NEXT]
+
+    def test_quick_action_limits_hold(self) -> None:
+        assert isinstance(ps.validate_change("sports", _add(label="x" * 41)), str)
+        assert isinstance(ps.validate_change("sports", _add(fields=["a"] * 7)), str)
+        assert isinstance(ps.validate_change("sports", _add(body="")), str)
+        assert isinstance(ps.validate_change("sports", _add(id="bad id!")), str)
+        assert not isinstance(ps.validate_change("sports", _add()), str)
+
+    def test_the_list_cannot_grow_past_its_limit(self, db: Database, test_user: User) -> None:
+        full = [{**_NEXT, "id": f"a{i}"} for i in range(ps.QUICK_ACTIONS_MAX_PER_PROGRAM)]
+        _save_program(db, test_user, quick_actions=full)
+
+        with pytest.raises(SetupChangeError, match="at most"):
+            ps.apply_change(test_user.id, REF, _add())
+
+
+class TestInstructions:
+    def test_instruction_patch_merges(self, db: Database, test_user: User) -> None:
+        db.kv_set(
+            test_user.id, "sports", "cycling:routine", json.dumps({"days": 3, "z2_watts": 120})
+        )
+        change: ps.SetupChange = {
+            "target": "instruction",
+            "key": "routine",
+            "patch": {"z2_watts": 125, "days": None},
+        }
+
+        ps.apply_change(test_user.id, REF, change)
+
+        assert json.loads(db.kv_get(test_user.id, "sports", "cycling:routine") or "") == {
+            "z2_watts": 125
+        }
+
+    def test_a_prose_instruction_is_replaced_whole(self, db: Database, test_user: User) -> None:
+        db.kv_set(test_user.id, "sports", "cycling:goals", "Ride 200 km")
+
+        ps.apply_change(
+            test_user.id,
+            REF,
+            {"target": "instruction", "key": "goals", "text": "Ride 300 km by June"},
+        )
+        assert db.kv_get(test_user.id, "sports", "cycling:goals") == "Ride 300 km by June"
+
+        with pytest.raises(SetupChangeError, match="text"):
+            ps.apply_change(
+                test_user.id, REF, {"target": "instruction", "key": "goals", "patch": {"km": 1}}
+            )
+
+    def test_only_instruction_keys_may_change(self) -> None:
+        for key in ("progress", "vocabulary", "programs", "last_session"):
+            reason = ps.validate_change(
+                "sports", {"target": "instruction", "key": key, "patch": {"a": 1}}
+            )
+            assert isinstance(reason, str) and "goals" in reason
+        assert not isinstance(
+            ps.validate_change(
+                "language", {"target": "instruction", "key": "grammar", "patch": {"a": 1}}
+            ),
+            str,
+        )
+        assert isinstance(
+            ps.validate_change(
+                "language", {"target": "instruction", "key": "routine", "patch": {"a": 1}}
+            ),
+            str,
+        )
+
+
+class TestDescribe:
+    def test_describe_shows_before_and_after(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        setup = ps.load_setup(test_user.id, REF)
+        edited = {**_NEXT, "body": "What is my next workout? Date: today."}
+
+        before, after = ps.describe_change(
+            setup, {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited}
+        )
+
+        assert "Next workout" in before and "Next workout" in after
+        assert before != after
+        assert "Date: today" in after
+
+    def test_a_new_action_has_no_before(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[])
+        before, after = ps.describe_change(
+            ps.load_setup(test_user.id, REF), _add(label="Plan week")
+        )
+        assert before == "(none)" and "Plan week" in after
+
+
+class TestDeclines:
+    def test_decline_is_remembered_and_blocks_until_newer_evidence(
+        self, db: Database, test_user: User
+    ) -> None:
+        change = _add(label="Plan week")
+        ps.record_decline(test_user.id, REF, change, "Add Plan week")
+        today = date.today()
+        entries = ps.declined(test_user.id, REF)
+
+        assert entries[0]["fingerprint"] == ps.fingerprint(change)
+        assert ps.blocked_by_decline(
+            entries, change, [f"{today - timedelta(days=1)}: asked for a plan"]
+        )
+        assert not ps.blocked_by_decline(
+            entries, change, [f"{today + timedelta(days=1)}: asked again"]
+        )
+        assert not ps.blocked_by_decline(entries, _add(label="Other"), [f"{today}: x"])
+
+    def test_the_declined_list_is_capped(self, db: Database, test_user: User) -> None:
+        for i in range(ps.Config.SETUP_DECLINED_MAX + 5):
+            ps.record_decline(test_user.id, REF, _add(label=f"A{i}"), f"Add A{i}")
+        entries = ps.declined(test_user.id, REF)
+        assert len(entries) == ps.Config.SETUP_DECLINED_MAX
+        assert entries[-1]["summary"] == f"Add A{ps.Config.SETUP_DECLINED_MAX + 4}"
+
+    def test_fingerprint_ignores_case_and_spacing_of_the_body(self) -> None:
+        a = _add(body="What is my  next workout?")
+        b = _add(body="what is my next workout? ")
+        assert ps.fingerprint(a) == ps.fingerprint(b)
+        assert ps.fingerprint(a) != ps.fingerprint(_add(body="Something else"))
+
+
+class TestProgramForConversation:
+    def test_a_program_chat_resolves_to_its_program(self, db: Database, test_user: User) -> None:
+        conv = db.get_or_create_program_conversation("sports", test_user.id, "cycling")
+        assert ps.program_for_conversation(conv.id, test_user.id) == REF
+
+    def test_an_ordinary_chat_has_none(self, db: Database, test_user: User) -> None:
+        conv = db.create_conversation(test_user.id, "Hello")
+        assert ps.program_for_conversation(conv.id, test_user.id) is None

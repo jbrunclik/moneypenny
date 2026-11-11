@@ -1,6 +1,6 @@
 """Unit tests for quick-action defaults and sanitization."""
 
-from src.api.routes.program_quick_actions import (
+from src.services.program_setup import (
     QUICK_ACTION_DEFAULTS,
     resolve_quick_actions,
     sanitize_quick_actions,

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from flask.testing import FlaskClient
 
-from src.api.routes.program_quick_actions import QUICK_ACTION_DEFAULTS
+from src.services.program_setup import QUICK_ACTION_DEFAULTS
 
 if TYPE_CHECKING:
     from src.db.models import Database, User

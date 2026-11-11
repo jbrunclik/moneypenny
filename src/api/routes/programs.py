@@ -18,17 +18,14 @@ from apiflask import APIBlueprint
 
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
-from src.api.routes.program_quick_actions import (
-    QUICK_ACTION_DEFAULTS,
-    register_quick_action_routes,
-    resolve_quick_actions,
-)
+from src.api.routes.program_quick_actions import register_quick_action_routes
 from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.config import Config
 from src.db.models import User, db
 from src.db.models.programs import PROGRAM_FEATURES
+from src.services.program_setup import QUICK_ACTION_DEFAULTS, resolve_quick_actions
 from src.utils.clock import to_api, utc_now
 from src.utils.logging import get_logger
 
