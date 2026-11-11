@@ -8,7 +8,8 @@ import { QUICK_ACTION_REVIEW_PHASES } from '../config';
 import { MS_PER_SECOND } from '../constants';
 import type { QuickAction, SetupSuggestion } from '../types/api';
 import { clearElement, createElement } from '../utils/dom';
-import { SPARKLES_ICON, setIcon } from '../utils/icons';
+import { CHECK_ICON, CLOSE_ICON, INFO_ICON, SPARKLES_ICON, WARNING_ICON, iconNodes, setIcon } from '../utils/icons';
+import type { IconHtml } from '../utils/icons';
 
 export interface SetupReviewHandlers {
   load: () => Promise<SetupSuggestion[]>;
@@ -39,21 +40,58 @@ function fieldRow(change: SetupSuggestion['changes'][number]): HTMLElement {
   ]);
 }
 
+const EVIDENCE_LINE = /^(\d{4})-(\d{2})-(\d{2}):\s*(.*)$/s;
+const QUOTE_MARKS = /^["'“”‘’]+|["'“”‘’]+$/g;
+
+/** "2026-11-09: 'plan my week'" -> the day (readable, machine date kept) + the words as a quote */
+function evidenceRow(line: string): HTMLElement {
+  const match = EVIDENCE_LINE.exec(line);
+  if (!match) return createElement('li', {}, [createElement('q', {}, [line.replace(QUOTE_MARKS, '')])]);
+  const [, y, m, d, said = ''] = match;
+  const day = new Date(Number(y), Number(m) - 1, Number(d));
+  const label = day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return createElement('li', {}, [
+    createElement('time', { datetime: `${y}-${m}-${d}` }, [label]),
+    createElement('q', {}, [said.trim().replace(QUOTE_MARKS, '')]),
+  ]);
+}
+
 function itemElement(s: SetupSuggestion): HTMLElement {
   return createElement('li', { class: 'qa-review-item', 'data-state': 'open' }, [
-    createElement('div', { class: 'qa-review-summary' }, [s.summary]),
+    createElement('div', { class: 'qa-review-item-head' }, [
+      createElement('div', { class: 'qa-review-summary' }, [s.summary]),
+      createElement('div', { class: 'qa-review-item-status', 'aria-live': 'polite' }),
+    ]),
     createElement('div', { class: 'qa-review-change' }, s.changes.map(fieldRow)),
-    createElement(
-      'ul',
-      { class: 'qa-review-evidence', 'aria-label': 'Based on' },
-      s.evidence.map((line) => createElement('li', {}, [line]))
-    ),
+    createElement('div', { class: 'qa-review-evidence' }, [
+      createElement('div', { class: 'qa-review-evidence-title' }, ['Based on']),
+      createElement('ul', {}, s.evidence.map(evidenceRow)),
+    ]),
     createElement('div', { class: 'qa-review-actions' }, [
       createElement('button', { type: 'button', class: 'qa-review-reject' }, ['Reject']),
       createElement('button', { type: 'button', class: 'qa-review-accept' }, ['Accept']),
     ]),
-    createElement('div', { class: 'qa-review-item-status', 'aria-live': 'polite' }),
   ]);
+}
+
+type StatusTone = 'applied' | 'rejected' | 'info' | 'error';
+
+const TONE_ICONS: Record<StatusTone, IconHtml> = {
+  applied: CHECK_ICON,
+  rejected: CLOSE_ICON,
+  info: INFO_ICON,
+  error: WARNING_ICON,
+};
+
+/** The card's status: an outcome pill (applied/rejected) or a notice (info/error). */
+function setStatus(item: HTMLElement, tone: StatusTone, text: string): void {
+  const status = item.querySelector<HTMLElement>('.qa-review-item-status');
+  if (!status) return;
+  status.dataset.tone = tone;
+  status.replaceChildren(
+    createElement('span', { class: 'qa-review-status-icon', 'aria-hidden': 'true' }, [iconNodes(TONE_ICONS[tone])]),
+    createElement('span', { class: 'qa-review-status-text' }, [text])
+  );
 }
 
 /**
@@ -74,31 +112,39 @@ interface ItemContext {
   onApplied: (actions: QuickAction[]) => void;
 }
 
+const BUSY_LABELS = { applied: 'Applying…', rejected: 'Rejecting…' } as const;
+const DONE_LABELS = { applied: 'Applied', rejected: 'Rejected' } as const;
+
 async function answer(
   item: HTMLElement,
   run: () => Promise<void>,
   state: 'applied' | 'rejected',
   ctx: ItemContext
 ): Promise<void> {
-  const status = item.querySelector<HTMLElement>('.qa-review-item-status');
   const buttons = item.querySelectorAll<HTMLButtonElement>('.qa-review-actions button');
+  const pressed = item.querySelector<HTMLButtonElement>(state === 'applied' ? '.qa-review-accept' : '.qa-review-reject');
+  const label = pressed?.textContent ?? '';
   buttons.forEach((b) => (b.disabled = true));
+  if (pressed) pressed.textContent = BUSY_LABELS[state];
   try {
     await run();
     item.dataset.state = state;
+    // Resolved: the outcome, and only what is still worth reading
     item.querySelector('.qa-review-actions')?.remove();
-    if (status) status.textContent = state === 'applied' ? 'Applied' : 'Rejected';
+    item.querySelector('.qa-review-evidence')?.remove();
+    if (state === 'rejected') item.querySelector('.qa-review-change')?.remove();
+    setStatus(item, state, DONE_LABELS[state]);
   } catch (error) {
     if (error instanceof SuggestionRefreshed) {
       // A collision is not a dead end: the updated change, ready to accept again
       const fresh = liveItem(error.suggestion, ctx);
-      const freshStatus = fresh.querySelector<HTMLElement>('.qa-review-item-status');
-      if (freshStatus) freshStatus.textContent = REFRESHED_TEXT;
+      setStatus(fresh, 'info', REFRESHED_TEXT);
       item.replaceWith(fresh);
       return;
     }
     buttons.forEach((b) => (b.disabled = false));
-    if (status) status.textContent = errorText(error);
+    if (pressed) pressed.textContent = label;
+    setStatus(item, 'error', errorText(error));
   }
 }
 

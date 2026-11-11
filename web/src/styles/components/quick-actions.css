@@ -513,17 +513,35 @@
 .qa-review-item {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4) var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
+    transition:
+        opacity var(--transition-fast),
+        border-color var(--transition-fast);
 }
-.qa-review-item[data-state="applied"],
+/* Applied: a quiet green edge on what changed; rejected: faded to its summary */
+.qa-review-item[data-state="applied"] .qa-review-field {
+    border-left-color: var(--success);
+}
 .qa-review-item[data-state="rejected"] {
-    opacity: 0.7;
+    opacity: 0.65;
+}
+.qa-review-item[data-state="rejected"] .qa-review-summary {
+    color: var(--text-secondary);
+}
+.qa-review-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--space-2) var(--space-3);
 }
 .qa-review-summary {
+    flex: 1;
+    min-width: 0;
     font-weight: 600;
+    line-height: 1.4;
     color: var(--text-primary);
 }
 /* What changes, one row per field: name, old struck through, new */
@@ -559,11 +577,40 @@
     color: var(--text-secondary);
     font-style: italic;
 }
+/* What it rests on: the day and the user's own words */
 .qa-review-evidence {
-    margin: 0;
-    padding-left: var(--space-4);
-    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1-5);
     font-size: var(--font-size-xs);
+}
+.qa-review-evidence-title {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+.qa-review-evidence ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.qa-review-evidence li {
+    display: flex;
+    gap: var(--space-2);
+    align-items: baseline;
+}
+.qa-review-evidence time {
+    flex-shrink: 0;
+    min-width: 3.25em;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.qa-review-evidence q {
+    color: var(--text-secondary);
+    font-style: italic;
+    overflow-wrap: anywhere;
 }
 .qa-review-actions {
     display: flex;
@@ -598,12 +645,81 @@
     opacity: 0.5;
     cursor: default;
 }
+.qa-review-accept:disabled {
+    cursor: progress;
+}
+/* The card's status: an outcome pill beside the summary, or a notice under it */
 .qa-review-item-status:empty {
     display: none;
 }
 .qa-review-item-status {
-    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1-5);
     font-size: var(--font-size-sm);
+    line-height: 1.4;
+}
+.qa-review-status-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+.qa-review-status-icon svg {
+    width: 14px;
+    height: 14px;
+}
+.qa-review-item-status[data-tone="applied"],
+.qa-review-item-status[data-tone="rejected"] {
+    padding: 3px var(--space-2-5) 3px var(--space-2);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+    animation: qa-review-settle 220ms var(--ease-out);
+}
+.qa-review-item-status[data-tone="applied"] {
+    background: var(--success-a15);
+    color: var(--color-success-400);
+}
+[data-theme="light"] .qa-review-item-status[data-tone="applied"] {
+    color: var(--color-success-600);
+}
+.qa-review-item-status[data-tone="rejected"] {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+}
+.qa-review-item-status[data-tone="info"],
+.qa-review-item-status[data-tone="error"] {
+    flex-basis: 100%;
+    align-items: flex-start;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    animation: qa-review-settle 220ms var(--ease-out);
+}
+.qa-review-item-status[data-tone="info"] .qa-review-status-icon,
+.qa-review-item-status[data-tone="error"] .qa-review-status-icon {
+    margin-top: 3px;
+}
+.qa-review-item-status[data-tone="info"] {
+    background: var(--info-a15);
+}
+.qa-review-item-status[data-tone="info"] .qa-review-status-icon {
+    color: var(--color-info-500);
+}
+.qa-review-item-status[data-tone="error"] {
+    background: var(--error-a10);
+}
+.qa-review-item-status[data-tone="error"] .qa-review-status-icon {
+    color: var(--color-error-400);
+}
+[data-theme="light"] .qa-review-item-status[data-tone="error"] .qa-review-status-icon {
+    color: var(--color-error-600);
+}
+@keyframes qa-review-settle {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
 }
 /* While the Review runs: the step, the seconds, a moving bar, placeholder cards */
 .qa-review-loading {
@@ -959,7 +1075,8 @@
     .qa-slash-menu,
     .qa-editor,
     .qa-review-loading-icon,
-    .qa-review-progress::after {
+    .qa-review-progress::after,
+    .qa-review-item-status {
         animation: none;
     }
     /* A still bar still says "working" */

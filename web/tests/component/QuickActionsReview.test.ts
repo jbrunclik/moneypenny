@@ -83,7 +83,12 @@ describe('Quick actions Review', () => {
     expect(rows[0]?.querySelector('.qa-review-new')?.textContent).toBe('Plan week');
     expect(rows[1]?.querySelector('.qa-review-old')?.textContent).toBe('Old text');
     expect(rows[1]?.querySelector('.qa-review-new')?.textContent).toBe('Plan my week.');
-    expect(item?.querySelector('.qa-review-evidence')?.textContent).toContain('2026-11-09: plan my week');
+    // Evidence: a "Based on" heading, each line the day (readable, machine date
+    // kept) and the user's words as a quote
+    const evidence = item?.querySelector('.qa-review-evidence');
+    expect(evidence?.querySelector('.qa-review-evidence-title')?.textContent).toBe('Based on');
+    expect(evidence?.querySelector('time')?.getAttribute('datetime')).toBe('2026-11-09');
+    expect(evidence?.querySelector('q')?.textContent).toBe('plan my week');
     expect(item?.querySelector('.qa-review-accept')).not.toBeNull();
     expect(item?.querySelector('.qa-review-reject')).not.toBeNull();
   });
@@ -98,7 +103,11 @@ describe('Quick actions Review', () => {
     expect(handlers.apply).toHaveBeenCalledWith(suggestion());
     expect(onApplied).toHaveBeenCalledWith([next, planWeek]);
     expect(q('.qa-review-item')?.getAttribute('data-state')).toBe('applied');
-    expect(q('.qa-review-item-status')?.textContent).toBe('Applied');
+    // The outcome is a pill in the card's head; the evidence folds away
+    expect(q('.qa-review-item-head .qa-review-item-status')?.textContent?.trim()).toBe('Applied');
+    expect(q('.qa-review-item-status')?.getAttribute('data-tone')).toBe('applied');
+    expect(q('.qa-review-item-status svg')).not.toBeNull();
+    expect(q('.qa-review-evidence')).toBeNull();
     expect(q('.qa-review-accept')).toBeNull();
 
     // Back to the list: it shows the applied change
@@ -116,7 +125,24 @@ describe('Quick actions Review', () => {
 
     expect(handlers.reject).toHaveBeenCalledWith(suggestion());
     expect(q('.qa-review-item')?.getAttribute('data-state')).toBe('rejected');
-    expect(q('.qa-review-item-status')?.textContent).toBe('Rejected');
+    expect(q('.qa-review-item-status')?.textContent?.trim()).toBe('Rejected');
+    expect(q('.qa-review-item-status')?.getAttribute('data-tone')).toBe('rejected');
+    // A rejected change is no longer worth reading: just its summary and the pill
+    expect(q('.qa-review-change')).toBeNull();
+    expect(q('.qa-review-evidence')).toBeNull();
+  });
+
+  it('says what it is doing while Accept waits', async () => {
+    let finish: (a: QuickAction[]) => void = () => undefined;
+    open({ apply: () => new Promise((r) => (finish = r)) });
+    q<HTMLButtonElement>('.qa-editor-review')?.click();
+    await flush();
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    expect(q('.qa-review-accept')?.textContent).toBe('Applying…');
+    expect(q<HTMLButtonElement>('.qa-review-reject')?.disabled).toBe(true);
+    finish([next]);
+    await flush();
+    expect(q('.qa-review-item')?.getAttribute('data-state')).toBe('applied');
   });
 
   it('a failed accept says so and keeps the buttons', async () => {
@@ -126,8 +152,9 @@ describe('Quick actions Review', () => {
     q<HTMLButtonElement>('.qa-review-accept')?.click();
     await flush();
 
-    expect(q('.qa-review-item-status')?.textContent).toContain('no longer exists');
-    expect(q('.qa-review-accept')).not.toBeNull();
+    expect(q('.qa-review-item-status')?.textContent?.trim()).toContain('no longer exists');
+    expect(q('.qa-review-item-status')?.getAttribute('data-tone')).toBe('error');
+    expect(q('.qa-review-accept')?.textContent).toBe('Accept');
   });
 
   it('steps through what it is doing and counts the seconds while it waits', async () => {
@@ -163,7 +190,8 @@ describe('Quick actions Review', () => {
     q<HTMLButtonElement>('.qa-review-accept')?.click();
     await flush();
 
-    expect(q('.qa-review-item-status')?.textContent).toBe('This changed since the review - here is the updated change.');
+    expect(q('.qa-review-item-status')?.textContent?.trim()).toBe('This changed since the review - here is the updated change.');
+    expect(q('.qa-review-item-status')?.getAttribute('data-tone')).toBe('info');
     expect(q('.qa-review-old')?.textContent).toBe('Edited meanwhile');
     q<HTMLButtonElement>('.qa-review-accept')?.click();
     await flush();
