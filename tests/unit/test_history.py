@@ -385,6 +385,28 @@ class TestEnrichHistory:
         assert metadata["tool_outputs"] == 'garmin_connect({"action":"hrv"}) -> {"hrv":62}'
         assert "garmin_connect" in metadata["tools_used"]
 
+    def test_only_the_latest_reply_carries_its_full_tool_outputs(self) -> None:
+        """A stopped turn's larger digest serves the Continue right after it;
+        once a newer reply exists it is cut back to the usual size."""
+        big = {"tool": "google_calendar", "args": "{}", "result": "x" * 3000}
+
+        def reply(msg_id: str, minute: int) -> Message:
+            msg = self._make_message(
+                msg_id,
+                MessageRole.ASSISTANT,
+                "Partial.",
+                datetime(2024, 6, 15, 14, minute, tzinfo=UTC),
+            )
+            msg.tool_outputs = [big, big]
+            return msg
+
+        latest = enrich_history([reply("msg-1", 30)])[0]["metadata"]["tool_outputs"]
+        older = enrich_history([reply("msg-1", 30), reply("msg-2", 40)])[0]["metadata"][
+            "tool_outputs"
+        ]
+        assert len(latest) > 6000
+        assert len(older) <= 1600
+
     def test_tool_digest_caps_length_and_sanitizes(self) -> None:
         """Digest must stay compact and must never contain '-->' (it is
         embedded in an HTML-comment MSG_CONTEXT marker)."""

@@ -288,9 +288,13 @@ def _add_answer_context(metadata: MessageMetadata, msg: Message) -> None:
         metadata["verified_claims"] = verified
 
 
-def _add_tool_outputs(metadata: MessageMetadata, msg: Message) -> None:
-    """Add an assistant message's tool outputs, counting their tools as used."""
-    tool_outputs = format_tool_outputs(msg.tool_outputs)
+def _add_tool_outputs(metadata: MessageMetadata, msg: Message, latest: bool) -> None:
+    """Add an assistant message's tool outputs, counting their tools as used.
+
+    The latest reply's digest is rendered in full: a stopped turn saved a
+    larger one for the Continue that follows it (tool_outputs.STOPPED_*).
+    """
+    tool_outputs = format_tool_outputs(msg.tool_outputs, full=latest)
     if not tool_outputs:
         return
     metadata["tool_outputs"] = tool_outputs
@@ -301,7 +305,7 @@ def _add_tool_outputs(metadata: MessageMetadata, msg: Message) -> None:
     metadata["tools_used"] = used
 
 
-def _add_role_metadata(metadata: MessageMetadata, msg: Message) -> None:
+def _add_role_metadata(metadata: MessageMetadata, msg: Message, latest: bool = False) -> None:
     """Add the metadata specific to the message's role."""
     if msg.role.value == "user":
         files = format_file_metadata(msg)
@@ -310,7 +314,7 @@ def _add_role_metadata(metadata: MessageMetadata, msg: Message) -> None:
     elif msg.role.value == "assistant":
         _add_tool_usage(metadata, msg)
         _add_answer_context(metadata, msg)
-        _add_tool_outputs(metadata, msg)
+        _add_tool_outputs(metadata, msg, latest)
 
 
 def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
@@ -327,6 +331,8 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
 
     enriched: list[dict[str, Any]] = []
     prev_msg: Message | None = None
+    # The latest reply renders its full tool outputs (a stopped turn's, for Continue)
+    latest_reply = next((m.id for m in reversed(messages) if m.role.value == "assistant"), None)
 
     for msg in messages:
         # Build base metadata.
@@ -346,7 +352,7 @@ def enrich_history(messages: list[Message]) -> list[dict[str, Any]]:
             if gap is not None:
                 metadata["session_gap"] = format_session_gap(gap)
 
-        _add_role_metadata(metadata, msg)
+        _add_role_metadata(metadata, msg, latest=msg.id == latest_reply)
 
         enriched.append(
             {

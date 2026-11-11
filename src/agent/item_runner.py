@@ -47,6 +47,7 @@ from src.agent.run_context import (
 )
 from src.agent.standing import StandingContext
 from src.agent.standing_context import load_standing_context
+from src.agent.tool_outputs import build_tool_outputs
 from src.agent.tool_results import get_full_tool_results, set_current_request_id
 from src.agent.tools import set_conversation_context, tools_for_grants
 from src.agent.tools.request_approval import ApprovalRequestedException
@@ -101,6 +102,9 @@ class RunOutcome:
     # Saves the run's cost against a message id (the delivered turn, or a
     # synthetic one for a silent run); None when there is no cost to record
     record_cost: Callable[[str], None] | None = None
+    # The run's tool calls, saved with the delivered turn: later questions in
+    # the chat, and a Continue after a stopped run, reuse them (tool_outputs.py)
+    tool_outputs: list[dict[str, str]] | None = None
 
 
 def parse_reply(raw: str) -> RunOutcome:
@@ -187,7 +191,7 @@ def _chat(
     item: ScheduledItem,
     request_id: str,
     run: tuple[RunTrigger, str | None],
-) -> tuple[str, Callable[[str], None]]:
+) -> tuple[str, Callable[[str], None], list[dict[str, str]] | None]:
     trigger, message = run
     tools = _tools(item)
     chat_agent = ChatAgent(
@@ -218,7 +222,7 @@ def _chat(
         if setup.fresh_context
         else run_history(item, item.conversation_id, keep_last=not resumed)
     )
-    raw, _, usage, _ = chat_agent.chat_batch(
+    raw, _, usage, result_messages = chat_agent.chat_batch(
         text=_run_message(item, trigger, message),
         files=None,
         history=history,
@@ -231,6 +235,7 @@ def _chat(
         conversation_id=item.conversation_id,
     )
     tool_results = get_full_tool_results(request_id)  # pops: read once, now
+    tool_outputs = build_tool_outputs(result_messages, stopped=bool(usage.get("stopped_by")))
 
     def record_cost(message_id: str) -> None:
         try:
@@ -253,7 +258,7 @@ def _chat(
             job_id=item.id if item.standing else None,
         )
 
-    return raw, record_cost
+    return raw, record_cost, tool_outputs
 
 
 def run_model_item(
@@ -279,7 +284,7 @@ def run_model_item(
     )
     set_job_context(context)
     try:
-        raw, record_cost = _chat(setup, user, item, request_id, (trigger, message))
+        raw, record_cost, tool_outputs = _chat(setup, user, item, request_id, (trigger, message))
     except ApprovalRequestedException as e:
         if execution_id is None:  # a light item has no request_approval tool
             return RunOutcome("failed", "", error=str(e))
@@ -302,6 +307,7 @@ def run_model_item(
         db.update_execution(execution_id, status="completed")
     outcome = parse_reply(raw)
     outcome.record_cost = record_cost
+    outcome.tool_outputs = tool_outputs
     if outcome.status == "silent":
         record_cost(f"silent:{uuid.uuid4()}")
     return outcome
@@ -353,6 +359,7 @@ def deliver(
         MessageRole.ASSISTANT,
         text,
         delivery={"kind": item.kind, "label": label},
+        tool_outputs=outcome.tool_outputs if outcome is not None else None,
     )
     if outcome is not None and outcome.record_cost is not None:
         outcome.record_cost(message.id)

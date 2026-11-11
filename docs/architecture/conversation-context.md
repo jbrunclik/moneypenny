@@ -54,6 +54,15 @@ bounded digest per call:
 - **Bounds**: args cut to 160 chars, each result to 400, the whole line to
   `TOOL_OUTPUTS_MAX_CHARS` (1,500; a final entry notes how many calls were dropped).
   `_full_result`, `_efficiency` and `_degraded` keys are stripped.
+- **A turn its budget stopped** (Nov 11 2026) saves more - `STOPPED_RESULT_MAX_CHARS`
+  (3,000) per result, `STOPPED_TOOL_OUTPUTS_MAX_CHARS` (15,000) in all - so Continue can
+  answer from what it already fetched instead of fetching it all again (the Daily
+  Briefing's Continue re-read calendar, tasks and Garmin and stopped a second time).
+  `enrich_history` renders the latest reply's digest in full (`format_tool_outputs(...,
+  full=True)`) and every older one cut back to the bounds above, so the extra size costs
+  only the turn right after the stop (and the prefix bytes change once, when a newer reply
+  arrives). Scheduled runs save a digest too since then (`RunOutcome.tool_outputs`,
+  stored by `deliver`); they saved none before.
 - **Excluded tools** (`_EXCLUDED_TOOLS`): web/page tools (covered by the sources digest),
   `generate_image`, recall tools (`search_conversations`, `read_conversation`,
   `search_memory`, `retrieve_file`), `manage_memory`, `request_approval`, and the

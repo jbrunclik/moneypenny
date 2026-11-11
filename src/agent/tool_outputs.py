@@ -57,6 +57,12 @@ _RESULT_MAX_CHARS = 400
 # Budget for one message's rendered digest - it is re-sent every turn the
 # message stays in the verbatim window
 TOOL_OUTPUTS_MAX_CHARS = 1500
+# A turn stopped by its budget keeps more, so Continue can reuse its results
+# instead of fetching everything again (Nov 11 2026: the briefing's Continue
+# re-read calendar, tasks and Garmin and stopped again). Rendered in full only
+# while it is the latest reply (history.py), cut back to the limits above after
+STOPPED_RESULT_MAX_CHARS = 3000
+STOPPED_TOOL_OUTPUTS_MAX_CHARS = 15000
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -79,13 +85,18 @@ def _compact_result(content: Any) -> str:
     return _compact_json(data)
 
 
-def build_tool_outputs(messages: list[BaseMessage]) -> list[dict[str, str]] | None:
+def build_tool_outputs(
+    messages: list[BaseMessage], *, stopped: bool = False
+) -> list[dict[str, str]] | None:
     """Digest every non-excluded tool call in ``messages`` (one turn's graph output).
 
     Returns ``[{"tool", "args", "result"}]`` in call order, bounded to
     TOOL_OUTPUTS_MAX_CHARS when rendered (a final ``{"tool": "…"}`` entry notes
-    how many calls were dropped), or None when nothing qualifies.
+    how many calls were dropped), or None when nothing qualifies. A turn its
+    budget ``stopped`` gets the STOPPED_* limits.
     """
+    result_max = STOPPED_RESULT_MAX_CHARS if stopped else _RESULT_MAX_CHARS
+    total_max = STOPPED_TOOL_OUTPUTS_MAX_CHARS if stopped else TOOL_OUTPUTS_MAX_CHARS
     calls: dict[str, dict[str, Any]] = {}
     for msg in messages:
         if isinstance(msg, AIMessage):
@@ -106,15 +117,19 @@ def build_tool_outputs(messages: list[BaseMessage]) -> list[dict[str, str]] | No
             {
                 "tool": name,
                 "args": _truncate(_compact_json(call.get("args", {})), _ARGS_MAX_CHARS),
-                "result": _truncate(_compact_result(msg.content), _RESULT_MAX_CHARS),
+                "result": _truncate(_compact_result(msg.content), result_max),
             }
         )
+    return _bounded(candidates, total_max)
 
+
+def _bounded(candidates: list[dict[str, str]], total_max: int) -> list[dict[str, str]] | None:
+    """The entries that fit ``total_max`` rendered, plus a "+N more calls" note."""
     outputs: list[dict[str, str]] = []
     used = 0
     for i, entry in enumerate(candidates):
         size = len(_render(entry)) + 2
-        if used + size > TOOL_OUTPUTS_MAX_CHARS:
+        if used + size > total_max:
             outputs.append(
                 {"tool": "…", "args": "", "result": f"+{len(candidates) - i} more calls"}
             )
@@ -130,8 +145,23 @@ def _render(entry: dict[str, str]) -> str:
     return f"{entry['tool']}({entry['args']}) -> {entry['result']}"
 
 
-def format_tool_outputs(outputs: list[dict[str, str]] | None) -> str | None:
-    """Render digests as one line for MSG_CONTEXT (never contains '-->')."""
+def format_tool_outputs(outputs: list[dict[str, str]] | None, *, full: bool = False) -> str | None:
+    """Render digests as one line for MSG_CONTEXT (never contains '-->').
+
+    Unless ``full``, a stopped turn's larger digest is cut back to the usual
+    per-result and per-message limits (an ordinary digest already fits them).
+    """
     if not outputs:
         return None
+    if not full:
+        dropped = [e for e in outputs if e["tool"] == "…"]
+        calls = [
+            {**e, "result": _truncate(e["result"], _RESULT_MAX_CHARS)}
+            for e in outputs
+            if e["tool"] != "…"
+        ]
+        bounded = _bounded(calls, TOOL_OUTPUTS_MAX_CHARS) or []
+        if dropped and not any(e["tool"] == "…" for e in bounded):
+            bounded.append(dropped[0])
+        outputs = bounded
     return "; ".join(_render(entry) for entry in outputs).replace("-->", "->")

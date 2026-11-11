@@ -350,7 +350,7 @@ def save_message_to_db(
             sources,
             generated_images_meta,
             language,
-            build_tool_outputs(result_messages),
+            build_tool_outputs(result_messages, stopped=bool(usage.get("stopped_by"))),
             stop_reason,
             usage.get("grounding"),
             research,

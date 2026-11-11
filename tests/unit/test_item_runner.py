@@ -7,6 +7,7 @@ tools chosen, the run context and cost recording run for real.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Generator
 from datetime import UTC, datetime
@@ -15,7 +16,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.agent.item_runner import deliver, delivery_label, parse_reply, run_model_item
+from src.agent.item_runner import (
+    RunOutcome,
+    deliver,
+    delivery_label,
+    parse_reply,
+    run_model_item,
+)
 from src.agent.permissions import ALWAYS_SAFE_TOOLS
 from src.agent.run_context import JobContext, get_job_context
 from src.db.models import Conversation, Database, User, use_database
@@ -29,6 +36,8 @@ class FakeChatAgent:
     instances: ClassVar[list[FakeChatAgent]] = []
     response: str = "[SILENT]"
     error: Exception | None = None
+    messages: ClassVar[list[Any]] = []
+    usage_extra: ClassVar[dict[str, Any]] = {}
 
     def __init__(self, **kwargs: Any) -> None:
         self.init_kwargs = kwargs
@@ -41,7 +50,8 @@ class FakeChatAgent:
         self.context_during_call = get_job_context()
         if FakeChatAgent.error is not None:
             raise FakeChatAgent.error
-        return FakeChatAgent.response, [], dict(USAGE), []
+        usage = {**USAGE, **FakeChatAgent.usage_extra}
+        return FakeChatAgent.response, [], usage, list(FakeChatAgent.messages)
 
 
 @pytest.fixture
@@ -55,6 +65,8 @@ def fake_llm() -> Generator[type[FakeChatAgent]]:
     FakeChatAgent.instances = []
     FakeChatAgent.response = "[SILENT]"
     FakeChatAgent.error = None
+    FakeChatAgent.messages = []
+    FakeChatAgent.usage_extra = {}
     with patch("src.agent.item_runner.ChatAgent", FakeChatAgent):
         yield FakeChatAgent
 
@@ -556,3 +568,59 @@ def test_standing_job_can_ask_to_change_its_settings_light_items_cannot(
     light_tools = {t.name for t in fake_llm.instances[1].init_kwargs["tools"]}
     assert "edit_standing_chat" in job_tools
     assert "edit_standing_chat" not in light_tools
+
+
+def _garmin_turn(result: str) -> list[Any]:
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    return [
+        HumanMessage(content="run"),
+        AIMessage(content="", tool_calls=[{"id": "g1", "name": "garmin_connect", "args": {}}]),
+        ToolMessage(content=result, tool_call_id="g1", name="garmin_connect"),
+        AIMessage(content="report"),
+    ]
+
+
+def test_a_run_keeps_a_digest_of_its_tool_calls(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    """Scheduled runs saved no tool digest, so a Continue after a stopped
+    briefing had to fetch everything again (Nov 11 2026)."""
+    fake_llm.response = "Morning report"
+    fake_llm.messages = _garmin_turn('{"hrv": 62}')
+
+    outcome = run_model_item(_job(test_user, test_conversation), test_user)
+
+    assert outcome.tool_outputs == [
+        {"tool": "garmin_connect", "args": "{}", "result": '{"hrv":62}'}
+    ]
+
+
+def test_a_stopped_run_keeps_a_larger_digest(
+    db: Database, test_user: User, test_conversation: Conversation, fake_llm: type[FakeChatAgent]
+) -> None:
+    fake_llm.response = "Partial report"
+    fake_llm.messages = _garmin_turn(json.dumps({"sleep": "x" * 5000}))
+    fake_llm.usage_extra = {"stopped_by": "cost"}
+
+    outcome = run_model_item(_job(test_user, test_conversation), test_user)
+
+    assert outcome.tool_outputs is not None
+    assert len(outcome.tool_outputs[0]["result"]) > 2500
+
+
+def test_deliver_saves_the_runs_tool_digest(
+    db: Database, test_user: User, test_conversation: Conversation, push: MagicMock
+) -> None:
+    digest = [{"tool": "garmin_connect", "args": "{}", "result": '{"hrv":62}'}]
+    outcome = RunOutcome("report", "Morning report", tool_outputs=digest)
+
+    deliver(
+        _job(test_user, test_conversation),
+        "Morning report",
+        "Recurring · Wed 07:15",
+        outcome=outcome,
+    )
+
+    [stored] = db.get_messages(test_conversation.id)
+    assert stored.tool_outputs == digest

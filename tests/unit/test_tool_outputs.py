@@ -158,3 +158,34 @@ class TestArtifactToolsNotDigested:
             )
         )
         assert [o["tool"] for o in outputs] == ["garmin_connect"]
+
+
+class TestStoppedTurnDigest:
+    """A turn stopped by its budget keeps more of each result, so Continue can
+    reuse them instead of fetching everything again (Nov 11 2026)."""
+
+    _BIG = json.dumps({"events": ["meeting " * 40] * 30})  # ~10k chars
+
+    def test_a_stopped_turn_keeps_larger_results(self) -> None:
+        normal = build_tool_outputs(_turn(("google_calendar", {}, self._BIG)))
+        stopped = build_tool_outputs(_turn(("google_calendar", {}, self._BIG)), stopped=True)
+        assert len(normal[0]["result"]) <= 400
+        assert 2500 < len(stopped[0]["result"]) <= 3000
+
+    def test_a_stopped_turns_digest_is_bounded_too(self) -> None:
+        calls = [("google_calendar", {"day": i}, self._BIG) for i in range(10)]
+        stopped = build_tool_outputs(_turn(*calls), stopped=True)
+        rendered = format_tool_outputs(stopped, full=True)
+        assert len(rendered) <= 15000 + 50
+
+    def test_rendering_cuts_a_large_digest_back_unless_full(self) -> None:
+        calls = [("google_calendar", {"day": i}, self._BIG) for i in range(4)]
+        stopped = build_tool_outputs(_turn(*calls), stopped=True)
+        short = format_tool_outputs(stopped)
+        full = format_tool_outputs(stopped, full=True)
+        assert len(short) <= TOOL_OUTPUTS_MAX_CHARS + 50
+        assert len(full) > 4 * 2500
+
+    def test_an_ordinary_digest_renders_the_same_either_way(self) -> None:
+        outputs = build_tool_outputs(_turn(("garmin_connect", {"action": "hrv"}, '{"hrv":62}')))
+        assert format_tool_outputs(outputs) == format_tool_outputs(outputs, full=True)
