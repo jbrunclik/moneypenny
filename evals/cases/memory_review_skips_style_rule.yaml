@@ -1,0 +1,16 @@
+id: memory_review_skips_style_rule
+description: >
+  The background memory review does not save a rule about how to answer: it
+  belongs in the custom instructions (instructions self-tuning, Nov 2026)
+memory_review: true
+history:
+  - role: user
+    content: "What should I cook tonight? Something quick."
+  - role: assistant
+    content: "- pasta aglio e olio\n- omelette\n- fried rice"
+user: "From now on always answer me in short paragraphs, never bullet lists."
+expect:
+  rubric: >
+    The response says nothing was saved. A memory about answer format,
+    bullet lists or paragraphs would be a failure.
+  forbidden_tools: [manage_memory]

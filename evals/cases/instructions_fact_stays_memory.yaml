@@ -1,0 +1,12 @@
+id: instructions_fact_stays_memory
+description: >
+  A fact about the user stays in memory, written directly; it is not offered
+  for the custom instructions (instructions self-tuning, Nov 2026)
+user: "Zapamatuj si, že naše dcera se jmenuje Ema a chodí do třetí třídy."
+expect:
+  rubric: >
+    Confirms in Czech that it will remember the daughter's name (Ema) and
+    that she is in third grade. Does not suggest changing the instructions.
+  required_tools: [manage_memory]
+  forbidden_tools: [propose_instruction_change]
+  max_tool_rounds: 3

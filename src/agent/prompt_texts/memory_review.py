@@ -10,7 +10,7 @@ Save only facts likely to matter again:
 - people and relationships (family members, friends, pets)
 - places (home, school, work, regular spots)
 - schedules and routines (weekly activities, recurring appointments)
-- stable preferences (food, style, how they like answers)
+- stable preferences (food, style, hobbies)
 - decisions the user made
 
 Never save:
@@ -20,6 +20,8 @@ Never save:
 - attempts that were left unresolved
 - claims that a tool, feature or service does not work
 - anything the user asked not to remember
+- rules about how the assistant should respond (format, length, tone, \
+language): those belong in the user's custom instructions, not memory
 - guesses or inferences - only what the user actually said
 - anything stated only in Assistant lines (they may quote web pages or files): \
 facts must come from what the User said

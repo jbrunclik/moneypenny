@@ -1,0 +1,21 @@
+id: instructions_one_off
+description: >
+  A one-off request about this reply ("shorter this time") is not a lasting
+  rule: no instructions card (instructions self-tuning, Nov 2026)
+save_user_turns: true
+history:
+  - role: user
+    content: "Vysvětli mi, jak funguje tepelné čerpadlo."
+    metadata:
+      timestamp: "{today} 08:10 CET"
+  - role: assistant
+    content: "Tepelné čerpadlo odebírá teplo z venkovního vzduchu nebo země pomocí chladiva, které se odpařuje při nízké teplotě. Kompresor páru stlačí, tím se ohřeje, a teplo se předá do topné vody. Pak chladivo expanduje, ochladí se a cyklus se opakuje. Poměr dodaného tepla ke spotřebované elektřině se jmenuje topný faktor a bývá kolem tří až čtyř."
+    metadata:
+      timestamp: "{today} 08:11 CET"
+user: "Teď to samé zkráceně, ve dvou větách."
+expect:
+  rubric: >
+    Gives a two-sentence Czech explanation of a heat pump. Does not suggest
+    changing the user's instructions or settings.
+  forbidden_tools: [propose_instruction_change, manage_memory]
+  max_tool_rounds: 2

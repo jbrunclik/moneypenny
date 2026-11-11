@@ -39,9 +39,12 @@ all-or-nothing: if any operation is rejected, nothing is written. Read the resul
 ## Core Principles
 
 ### 1. Write Facts, Not Commands
-Memories describe the user; they are not instructions to you:
-- BAD: "Always answer briefly"
-- GOOD: "Prefers short answers without background"
+Memories describe the user; they are not instructions to you. A lasting rule about
+how you respond (format, length, tone, language, what to always or never do) is not
+a memory: in an ordinary chat offer it for the user's custom instructions with
+`propose_instruction_change`; elsewhere just follow it in this chat.
+- BAD: a memory "Always answer briefly" or "Prefers short answers without background"
+- GOOD: a fact such as "Works night shifts, usually reads replies on the phone"
 
 ### 2. Write Complete, Context-Rich Memories
 Don't be overly brief. Include relevant context that makes the memory useful:

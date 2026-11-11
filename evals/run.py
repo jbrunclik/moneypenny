@@ -102,6 +102,10 @@ class EvalCase:
     mode: str = "chat"
     # Sports mode: stored KV data injected into the program context
     program_kv: dict[str, str] = field(default_factory=dict)
+    # Save the history's user turns and the case's message in the chat (dated
+    # now), as production saves them before the turn: tools that check what
+    # the user wrote in this chat (propose_instruction_change evidence) see them
+    save_user_turns: bool = False
     # Attachment fixture paths, relative to evals/ (e.g. fixtures/sign.png)
     files: list[str] = field(default_factory=list)
     # Memories seeded before the case (soft-deleted after): [{content, category}]
@@ -212,6 +216,7 @@ def load_cases(directory: Path) -> list[EvalCase]:
                 compact_history=bool(data.get("compact_history", False)),
                 mode=str(data.get("mode") or "chat"),
                 program_kv={str(k): str(v) for k, v in (data.get("program_kv") or {}).items()},
+                save_user_turns=bool(data.get("save_user_turns", False)),
                 files=[str(f) for f in (data.get("files") or [])],
                 memories=[
                     {"content": str(m["content"]), "category": str(m.get("category", "fact"))}
@@ -803,6 +808,14 @@ def _program_conversation(case: EvalCase, user: Any, db: Any) -> Any:
     return conversation
 
 
+def _save_user_turns(case: EvalCase, db: Any, conversation_id: str) -> None:
+    """The history's user turns and the case's message as chat messages (dated now)."""
+    for turn in case.history:
+        if turn.get("role") == "user":
+            db.add_message(conversation_id, "user", str(turn.get("content", "")))
+    db.add_message(conversation_id, "user", case.user)
+
+
 def _agent_conversation(user: Any, db: Any) -> Any:
     name, instructions, schedule = _CANNED_AGENT
     agent = db.create_standing_chat(user.id, name, instructions, schedule=schedule)
@@ -1027,6 +1040,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
         conversation = db.create_conversation(
             user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL
         )
+        if case.save_user_turns:
+            _save_user_turns(case, db, conversation.id)
     set_conversation_context(conversation.id, user.id)
     # Per-turn tool bookkeeping (batching nudges, web_search -> research
     # upgrade) is keyed by request id; without one it is inert, so evals

@@ -1,0 +1,25 @@
+id: instructions_style_rule
+description: >
+  The user corrects the reply format in a way meant to last ("vždycky");
+  the assistant follows it and offers it for the custom instructions with
+  propose_instruction_change - not as a memory (instructions self-tuning, Nov 2026)
+save_user_turns: true
+history:
+  - role: user
+    content: "Co si mám zabalit na víkend na hory?"
+    metadata:
+      timestamp: "{today} 08:10 CET"
+  - role: assistant
+    content: "- bunda\n- čepice\n- termoska\n- čelovka"
+    metadata:
+      timestamp: "{today} 08:11 CET"
+user: "Prosím přestaň mi psát odrážky. Od teď mi odpovídej vždycky v souvislém textu."
+expect:
+  rubric: >
+    Replies in Czech, in running text without bullet points, and briefly
+    mentions that it suggested adding this to the user's instructions (a card).
+    The evidence goes in the tool call (the judge does not see tool
+    arguments). Must not claim the instructions are already changed.
+  required_tools: [propose_instruction_change]
+  forbidden_tools: [manage_memory]
+  max_tool_rounds: 3
