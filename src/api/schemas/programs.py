@@ -77,6 +77,8 @@ class SetupChangeRequest(RequestModel):
 
     change: dict[str, object]
     summary: str = Field(..., min_length=1, max_length=200)
+    # Shown again when a collision sends back a refreshed suggestion
+    evidence: list[str] = Field(default_factory=list, max_length=5)
 
 
 class SportsProgramItem(ResponseModel):

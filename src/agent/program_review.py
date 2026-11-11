@@ -209,6 +209,35 @@ def _suggestion(
     }
 
 
+def refresh_suggestion(
+    user_id: str, ref: ProgramRef, change: SetupChange, summary: str, evidence: list[str]
+) -> Suggestion | None:
+    """The same suggestion against the setup as it is now (a field it touches
+    changed since the review): new before/after and snapshot, or None when it no
+    longer applies (its target is gone, or it now changes nothing)."""
+    current = setup.load_setup(user_id, ref)
+    clean = {k: v for k, v in change.items() if k != "expect"}
+    checked = setup.validate_change(ref.namespace, clean)
+    if isinstance(checked, str):
+        return None
+    try:
+        rows = setup.field_changes(current, checked)
+        before, after = setup.describe_change(current, checked)
+    except SetupChangeError:
+        return None
+    if not rows:
+        return None
+    return {
+        "id": setup.fingerprint(checked),
+        "change": setup.with_snapshot(current, checked),
+        "summary": summary,
+        "before": before,
+        "after": after,
+        "changes": rows,
+        "evidence": evidence,
+    }
+
+
 def review_setup(user_id: str, ref: ProgramRef) -> list[Suggestion]:
     """Suggested changes to the program's setup, each valid on its own; [] = nothing to change."""
     started = time.monotonic()

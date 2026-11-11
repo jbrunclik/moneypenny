@@ -10,15 +10,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.agent.program_review import review_setup
-from src.api.errors import raise_not_found_error, raise_validation_error
+from src.agent.program_review import refresh_suggestion, review_setup
+from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.programs import SetupChangeRequest, SetupReviewResponse
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
 from src.db.models import User
 from src.services import program_setup as setup
-from src.services.program_setup import ProgramRef, SetupChange, SetupChangeError
+from src.services.program_setup import (
+    ProgramRef,
+    SetupChange,
+    SetupChangeError,
+    SetupConflictError,
+)
 
 if TYPE_CHECKING:
     from apiflask import APIBlueprint
@@ -73,6 +78,15 @@ def register_setup_review_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) ->
         change = _checked(ref, data)
         try:
             setup.apply_change(user.id, ref, change)
+        except SetupConflictError as e:
+            # Not a dead end: the same change against the setup as it is now
+            setup.log_resolved("review", "conflict", change)
+            refreshed = refresh_suggestion(user.id, ref, change, data.summary, data.evidence)
+            if refreshed is None:
+                raise_validation_error(
+                    "That no longer applies - nothing was changed.", field="change"
+                )
+            raise_conflict_error(str(e), {"suggestion": refreshed})
         except SetupChangeError as e:
             setup.log_resolved("review", "failed", change)
             raise_validation_error(str(e), field="change")

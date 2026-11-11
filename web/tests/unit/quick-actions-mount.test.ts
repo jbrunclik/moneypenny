@@ -8,8 +8,10 @@ import {
   getQuickActionsContext,
   openQuickActionsEditor,
   reloadQuickActions,
+  refreshedOr,
   reviewErrorText,
 } from '@/core/quick-actions';
+import { SuggestionRefreshed } from '@/components/QuickActionsReview';
 import { ApiError } from '@/api/http';
 import { closeQuickActionsEditor } from '@/components/QuickActionsEditor';
 
@@ -100,5 +102,17 @@ describe('reviewErrorText', () => {
     expect(reviewErrorText(offline)).toBe("Couldn't reach Moneypenny - check your connection.");
     expect(reviewErrorText(server)).toBe('That program no longer exists.');
     expect(reviewErrorText(new TypeError('x'))).toBe('Something went wrong on our side.');
+  });
+});
+
+describe('refreshedOr', () => {
+  it('turns a 409 carrying a refreshed suggestion into SuggestionRefreshed', () => {
+    const fresh = { id: 'f', change: {}, summary: 's', before: '', after: '', changes: [], evidence: [] };
+    const conflict = new ApiError('changed', 409, { code: 'CONFLICT', details: { suggestion: fresh } });
+    const out = refreshedOr(conflict);
+    expect(out).toBeInstanceOf(SuggestionRefreshed);
+    expect((out as SuggestionRefreshed).suggestion).toEqual(fresh);
+    const other = new ApiError('bad', 400, {});
+    expect(refreshedOr(other)).toBe(other);
   });
 });

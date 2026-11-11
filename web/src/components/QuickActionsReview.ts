@@ -56,10 +56,29 @@ function itemElement(s: SetupSuggestion): HTMLElement {
   ]);
 }
 
+/**
+ * Thrown by `apply` when what the suggestion touches changed since the review
+ * (a collision): it carries the same change against the setup as it is now.
+ */
+export class SuggestionRefreshed extends Error {
+  constructor(readonly suggestion: SetupSuggestion) {
+    super('This changed since the review.');
+    this.name = 'SuggestionRefreshed';
+  }
+}
+
+const REFRESHED_TEXT = 'This changed since the review - here is the updated change.';
+
+interface ItemContext {
+  handlers: SetupReviewHandlers;
+  onApplied: (actions: QuickAction[]) => void;
+}
+
 async function answer(
   item: HTMLElement,
   run: () => Promise<void>,
-  state: 'applied' | 'rejected'
+  state: 'applied' | 'rejected',
+  ctx: ItemContext
 ): Promise<void> {
   const status = item.querySelector<HTMLElement>('.qa-review-item-status');
   const buttons = item.querySelectorAll<HTMLButtonElement>('.qa-review-actions button');
@@ -70,9 +89,29 @@ async function answer(
     item.querySelector('.qa-review-actions')?.remove();
     if (status) status.textContent = state === 'applied' ? 'Applied' : 'Rejected';
   } catch (error) {
+    if (error instanceof SuggestionRefreshed) {
+      // A collision is not a dead end: the updated change, ready to accept again
+      const fresh = liveItem(error.suggestion, ctx);
+      const freshStatus = fresh.querySelector<HTMLElement>('.qa-review-item-status');
+      if (freshStatus) freshStatus.textContent = REFRESHED_TEXT;
+      item.replaceWith(fresh);
+      return;
+    }
     buttons.forEach((b) => (b.disabled = false));
     if (status) status.textContent = errorText(error);
   }
+}
+
+/** A suggestion's card with its Accept / Reject wired. */
+function liveItem(s: SetupSuggestion, ctx: ItemContext): HTMLElement {
+  const item = itemElement(s);
+  item.querySelector('.qa-review-accept')?.addEventListener('click', () => {
+    void answer(item, async () => ctx.onApplied(await ctx.handlers.apply(s)), 'applied', ctx);
+  });
+  item.querySelector('.qa-review-reject')?.addEventListener('click', () => {
+    void answer(item, () => ctx.handlers.reject(s), 'rejected', ctx);
+  });
+  return item;
 }
 
 function renderSuggestions(
@@ -81,16 +120,7 @@ function renderSuggestions(
   handlers: SetupReviewHandlers,
   onApplied: (actions: QuickAction[]) => void
 ): void {
-  suggestions.forEach((s) => {
-    const item = itemElement(s);
-    item.querySelector('.qa-review-accept')?.addEventListener('click', () => {
-      void answer(item, async () => onApplied(await handlers.apply(s)), 'applied');
-    });
-    item.querySelector('.qa-review-reject')?.addEventListener('click', () => {
-      void answer(item, () => handlers.reject(s), 'rejected');
-    });
-    list.appendChild(item);
-  });
+  suggestions.forEach((s) => list.appendChild(liveItem(s, { handlers, onApplied })));
 }
 
 /**

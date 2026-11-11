@@ -19602,6 +19602,14 @@
             "minLength": 1,
             "title": "Summary",
             "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Evidence",
+            "type": "array"
           }
         },
         "required": [

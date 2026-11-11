@@ -14276,6 +14276,8 @@ export interface components {
             };
             /** Summary */
             summary: string;
+            /** Evidence */
+            evidence?: string[];
         };
     };
     responses: never;

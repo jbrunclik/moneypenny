@@ -152,3 +152,75 @@ class TestSetupReview:
             "approved",
             "quick_action",
         )  # type: ignore[attr-defined]
+
+
+@pytest.mark.usefixtures("program")
+class TestCollisions:
+    """A suggestion whose field changed since the review comes back refreshed
+    (409 with the new version) instead of making the user run it again."""
+
+    def test_a_collision_returns_the_refreshed_suggestion(
+        self,
+        client: FlaskClient,
+        auth_headers: dict[str, str],
+        test_database: Database,
+        test_user: User,
+    ) -> None:
+        test_database.kv_set(
+            test_user.id, "sports", "cycling:routine", json.dumps({"gtg": "1-2 strict"})
+        )
+        [suggestion] = _suggest_patch(client, auth_headers, {"gtg": "3 strict"})
+        # Meanwhile the same field changed (the coach, or another suggestion)
+        test_database.kv_set(
+            test_user.id, "sports", "cycling:routine", json.dumps({"gtg": "2 strict"})
+        )
+
+        resp = client.post(
+            f"{BASE}/apply",
+            headers=auth_headers,
+            json={
+                "change": suggestion["change"],
+                "summary": suggestion["summary"],
+                "evidence": suggestion["evidence"],
+            },
+        )
+
+        assert resp.status_code == 409
+        refreshed = resp.get_json()["error"]["details"]["suggestion"]
+        assert refreshed["changes"] == [{"field": "gtg", "before": "2 strict", "after": "3 strict"}]
+        assert refreshed["change"]["expect"] != suggestion["change"]["expect"]
+        again = client.post(
+            f"{BASE}/apply",
+            headers=auth_headers,
+            json={
+                "change": refreshed["change"],
+                "summary": refreshed["summary"],
+                "evidence": refreshed["evidence"],
+            },
+        )
+        assert again.status_code == 200
+        assert json.loads(
+            test_database.kv_get(test_user.id, "sports", "cycling:routine") or ""
+        ) == {"gtg": "3 strict"}
+
+
+def _suggest_patch(
+    client: FlaskClient, headers: dict[str, str], patch: dict[str, Any]
+) -> list[dict[str, Any]]:
+    item = program_review.ReviewItem(
+        target="instruction",
+        key="routine",
+        patch_json=json.dumps(patch),
+        summary="Update GTG",
+        evidence=[f"{date.today().isoformat()}: 'plan my week'"],
+    )
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            program_review,
+            "_invoke",
+            lambda prompt: (
+                program_review.ReviewOutput(suggestions=[item]),
+                {"input_tokens": 1, "output_tokens": 1},
+            ),
+        )
+        return client.post(BASE, headers=headers).get_json()["suggestions"]

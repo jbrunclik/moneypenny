@@ -4,6 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeQuickActionsEditor, showQuickActionsEditor } from '@/components/QuickActionsEditor';
+import { SuggestionRefreshed } from '@/components/QuickActionsReview';
 import type { QuickAction, SetupSuggestion } from '@/types/api';
 
 const next: QuickAction = { id: 'next', emoji: '⏭️', label: 'Next workout', body: 'Next?', fields: [] };
@@ -145,6 +146,29 @@ describe('Quick actions Review', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('a collision on Accept shows the refreshed change in place, ready to accept again', async () => {
+    const refreshed = suggestion({
+      summary: 'Add a weekly plan',
+      changes: [{ field: 'Message', before: 'Edited meanwhile', after: 'Plan my week.' }],
+    });
+    const apply = vi
+      .fn<(s: SetupSuggestion) => Promise<QuickAction[]>>()
+      .mockRejectedValueOnce(new SuggestionRefreshed(refreshed))
+      .mockResolvedValueOnce([next, planWeek]);
+    open({ apply });
+    q<HTMLButtonElement>('.qa-editor-review')?.click();
+    await flush();
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    await flush();
+
+    expect(q('.qa-review-item-status')?.textContent).toBe('This changed since the review - here is the updated change.');
+    expect(q('.qa-review-old')?.textContent).toBe('Edited meanwhile');
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    await flush();
+    expect(apply).toHaveBeenLastCalledWith(refreshed);
+    expect(q('.qa-review-item')?.getAttribute('data-state')).toBe('applied');
   });
 
   it('says when there is nothing to change', async () => {

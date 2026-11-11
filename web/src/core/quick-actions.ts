@@ -7,7 +7,7 @@
  * note), the "/" slash menu, sending, and the editor glue. Components in
  * components/QuickAction*.ts are presentation only.
  */
-import type { QuickAction } from '../types/api';
+import type { QuickAction, SetupSuggestion } from '../types/api';
 import { useStore } from '../state/store';
 import { renderQuickActionsBar, setQuickActionsBarDisabled } from '../components/QuickActionsBar';
 import {
@@ -21,6 +21,7 @@ import {
   renderSlashMenu,
 } from '../components/QuickActionsSlashMenu';
 import { showQuickActionsEditor } from '../components/QuickActionsEditor';
+import { SuggestionRefreshed } from '../components/QuickActionsReview';
 import { ApiError } from '../api/http';
 import { languageSetup, sportsSetup } from '../api/programs';
 import { isMobileViewport, setComposerHasExternalContent } from '../components/MessageInput';
@@ -290,6 +291,15 @@ export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
 }
 
+/**
+ * A collision (409 with the refreshed suggestion) as the sheet's
+ * SuggestionRefreshed, so it shows the updated change; any other error as is.
+ */
+export function refreshedOr(error: unknown): unknown {
+  const fresh = error instanceof ApiError && error.status === 409 ? error.details?.suggestion : undefined;
+  return fresh && typeof fresh === 'object' ? new SuggestionRefreshed(fresh as SetupSuggestion) : error;
+}
+
 /** Why the setup Review failed, in plain words for the sheet. */
 export function reviewErrorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -345,7 +355,10 @@ export async function openQuickActionsEditor(draft?: Partial<QuickAction>): Prom
         setupClient.review(ctx.programId).catch((error: unknown) => {
           throw new Error(reviewErrorText(error));
         }),
-      apply: (suggestion) => setupClient.apply(ctx.programId, suggestion),
+      apply: (suggestion) =>
+        setupClient.apply(ctx.programId, suggestion).catch((error: unknown) => {
+          throw refreshedOr(error);
+        }),
       reject: (suggestion) => setupClient.reject(ctx.programId, suggestion),
       onApplied: showSaved,
     },

@@ -100,6 +100,10 @@ class SetupChangeError(Exception):
     """A change that cannot apply now (stale target, over a limit); says why."""
 
 
+class SetupConflictError(SetupChangeError):
+    """What the change touches was changed since it was suggested."""
+
+
 @dataclass(frozen=True)
 class ProgramRef:
     namespace: str
@@ -414,10 +418,24 @@ def _apply_instruction(user_id: str, ref: ProgramRef, change: SetupChange) -> st
     return f"Updated the coach's {key}."
 
 
+def _touched(value: object, patch: Mapping[str, object]) -> dict[str, object]:
+    """The current values at the paths a merge patch writes (nothing else)."""
+    current = value if isinstance(value, dict) else {}
+    out: dict[str, object] = {}
+    for key, new in patch.items():
+        old = current.get(key)
+        out[key] = _touched(old, new) if isinstance(new, dict) and isinstance(old, dict) else old
+    return out
+
+
 def _target_value(current: ProgramSetup, change: SetupChange) -> object:
-    """What the change replaces now: the quick action, or the instruction's value."""
+    """What the change replaces now: the quick action, or the instruction's value
+    - for a patch only the fields it writes, so changes to other fields of the
+    same instruction (another accepted suggestion) don't make it stale."""
     if change.get("target") == "instruction":
-        return current["instructions"].get(str(change.get("key")))
+        value = current["instructions"].get(str(change.get("key")))
+        patch = change.get("patch")
+        return _touched(value, patch) if isinstance(patch, dict) else value
     if change.get("op") == "add":
         return None
     return next((a for a in current["quick_actions"] if a["id"] == change.get("action_id")), None)
@@ -444,7 +462,7 @@ def _check_snapshot(user_id: str, ref: ProgramRef, change: SetupChange) -> None:
     if value is None and change.get("target") == "quick_action":
         return  # gone entirely: the apply says "no longer exists"
     if _digest(value) != expected:
-        raise SetupChangeError("That changed since this was suggested - nothing was changed.")
+        raise SetupConflictError("That changed since this was suggested - nothing was changed.")
 
 
 def apply_change(user_id: str, ref: ProgramRef, change: SetupChange) -> str:

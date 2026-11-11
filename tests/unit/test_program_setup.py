@@ -394,3 +394,51 @@ class TestFieldChanges:
             {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited},
         )
         assert (before, after) == ("Label: Next workout", "Label: Next ride")
+
+
+class TestCollisions:
+    """Nov 11 2026: accepting one suggestion made the next one on the same
+    instruction look stale, though they touched different fields."""
+
+    def _routine(self, db: Database, user: User) -> ps.ProgramSetup:
+        db.kv_set(
+            user.id,
+            "sports",
+            "cycling:routine",
+            json.dumps({"gtg": "1-2 strict", "explain": None, "z2": 120}),
+        )
+        _save_program(db, user)
+        return ps.load_setup(user.id, REF)
+
+    def test_two_changes_to_different_fields_both_apply(
+        self, db: Database, test_user: User
+    ) -> None:
+        current = self._routine(db, test_user)
+        first = ps.with_snapshot(
+            current, {"target": "instruction", "key": "routine", "patch": {"explain": "always"}}
+        )
+        second = ps.with_snapshot(
+            current, {"target": "instruction", "key": "routine", "patch": {"gtg": "3 strict"}}
+        )
+
+        ps.apply_change(test_user.id, REF, first)
+        ps.apply_change(test_user.id, REF, second)
+
+        stored = json.loads(db.kv_get(test_user.id, "sports", "cycling:routine") or "")
+        assert stored == {"gtg": "3 strict", "explain": "always", "z2": 120}
+
+    def test_the_same_field_changed_meanwhile_is_a_conflict(
+        self, db: Database, test_user: User
+    ) -> None:
+        current = self._routine(db, test_user)
+        change = ps.with_snapshot(
+            current, {"target": "instruction", "key": "routine", "patch": {"gtg": "3 strict"}}
+        )
+        ps.apply_change(
+            test_user.id,
+            REF,
+            {"target": "instruction", "key": "routine", "patch": {"gtg": "2 strict"}},
+        )
+
+        with pytest.raises(ps.SetupConflictError):
+            ps.apply_change(test_user.id, REF, change)
