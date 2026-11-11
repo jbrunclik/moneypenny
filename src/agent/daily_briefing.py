@@ -32,17 +32,19 @@ BRIEFING_AGENT_DESCRIPTION = "Morning summary of your day (managed from Settings
 BRIEFING_SYSTEM_PROMPT = """\
 You produce a short morning briefing. ALWAYS call these tools before
 writing, in parallel where possible:
-1. The calendar tool for today's events (note the first meeting and
-   any conflicts)
+1. The calendar tool for today's events, once (note the first meeting
+   and any conflicts) - do not re-read the same day or range
 2. The task tool for tasks that are ACTIONABLE NOW - filter to overdue,
    today, and the next 3 days (e.g. filter "overdue | today | next 3
    days"). Never surface tasks whose due date is weeks or months away,
    even as low-effort filler - a task due next year is not for today
-3. The Garmin tool for last night's sleep and recovery - call it every
-   time. Read recovery from the FINALIZED wake-time values:
-   `bodyBatteryAtWakeTime` (the overnight peak at wake - NOT the current
-   or most-recent reading, which is still climbing if the run fired
-   before you woke) and resting heart rate from the daily summary
+3. The Garmin tool with action "get_morning_summary" for last night's
+   sleep and recovery - call it every time, once. It is the compact
+   morning view; do not fetch the full snapshot or single metrics on top.
+   Read recovery from the FINALIZED wake-time values: `wake`'s
+   `body_battery_at_wake` (the overnight peak at wake - not a current
+   reading, which is still climbing if the run fired before you woke) and
+   `resting_hr`
 4. The kv_store tool with namespace "sports": `list` the keys; when
    training programs exist, `get` `<program_id>:routine` and
    `<program_id>:last_session` to determine whether a training is

@@ -9,6 +9,7 @@ kv_store merge, and the cached Garmin session.
 """
 
 import json
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -334,3 +335,140 @@ class TestReadinessSnapshot:
         with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
             listed = json.loads(garmin_connect.invoke({"action": "no_such_action"}))
         assert "get_readiness_snapshot" in listed["available_actions"]
+
+
+class TestMorningSummary:
+    """The briefing's compact view of the same snapshot (Nov 11 2026: the full
+    snapshot was 39k characters and pushed the briefing past its budget)."""
+
+    _DATA: ClassVar[dict[str, object]] = {
+        "get_training_readiness": [
+            {"calendarDate": "2026-09-05", "score": 40, "level": "LOW"},
+            {
+                "calendarDate": "2026-09-06",
+                "score": 72,
+                "level": "MODERATE",
+                "feedbackShort": "RECOVERED",
+                "extra": "x" * 2000,
+            },
+        ],
+        "get_sleep_data": {
+            "dailySleepDTO": {
+                "sleepTimeSeconds": 27000,
+                "deepSleepSeconds": 5400,
+                "lightSleepSeconds": 14400,
+                "remSleepSeconds": 6000,
+                "awakeSleepSeconds": 1200,
+                "sleepScores": {"overall": {"value": 82, "qualifierKey": "GOOD"}},
+            },
+            "sleepLevels": [{"x": i} for i in range(500)],
+        },
+        "get_hrv_data": {
+            "hrvSummary": {"lastNightAvg": 58, "weeklyAvg": 61, "status": "BALANCED"},
+            "hrvReadings": [{"v": i} for i in range(300)],
+        },
+        "get_stats": {
+            "bodyBatteryAtWakeTime": 81,
+            "bodyBatteryMostRecentValue": 55,
+            "restingHeartRate": 48,
+            "lastSevenDaysAvgRestingHeartRate": 50,
+            "totalSteps": 1200,
+        },
+        "get_training_status": {"latest": {"trainingStatusFeedbackPhrase": "PRODUCTIVE_1"}},
+        "get_activities_by_date": [
+            {
+                "activityName": f"Ride {i}",
+                "activityType": {"typeKey": "cycling"},
+                "startTimeLocal": "2026-09-05 07:00:00",
+                "duration": 3600.0,
+                "distance": 30000.0,
+                "averageHR": 140,
+                "activityTrainingLoad": 80.4,
+                "splitSummaries": [{"x": j} for j in range(50)],
+            }
+            for i in range(5)
+        ],
+    }
+
+    def _invoke(self, mapping: dict, action: str = "get_morning_summary") -> dict:
+        def fake(garmin, method, *args, **kwargs):
+            val = mapping.get(method, {})
+            if isinstance(val, Exception):
+                raise val
+            return val
+
+        with (
+            patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()),
+            patch("src.agent.tools.garmin.safe_api_call", side_effect=fake),
+        ):
+            from src.agent.tools.garmin import garmin_connect
+
+            return json.loads(garmin_connect.invoke({"action": action, "date_str": "2026-09-06"}))
+
+    def test_keeps_the_morning_numbers(self) -> None:
+        out = self._invoke(self._DATA)
+        assert out["action"] == "get_morning_summary"
+        assert out["wake"] == {
+            "body_battery_at_wake": 81,
+            "resting_hr": 48,
+            "resting_hr_7d_avg": 50,
+        }
+        assert out["sleep"] == {
+            "duration_h": 7.5,
+            "score": 82,
+            "quality": "GOOD",
+            "deep_min": 90,
+            "light_min": 240,
+            "rem_min": 100,
+            "awake_min": 20,
+        }
+        assert out["hrv"] == {"last_night_avg": 58, "weekly_avg": 61, "status": "BALANCED"}
+        assert out["training_readiness"] == {
+            "score": 72,
+            "level": "MODERATE",
+            "feedback": "RECOVERED",
+        }
+        assert out["training_status"] == "PRODUCTIVE_1"
+        assert out["recent_activities"][0] == {
+            "name": "Ride 0",
+            "type": "cycling",
+            "start": "2026-09-05 07:00:00",
+            "duration_min": 60,
+            "distance_km": 30.0,
+            "avg_hr": 140,
+            "training_load": 80,
+        }
+        assert len(out["recent_activities"]) == 3
+        assert "get_readiness_snapshot" in out["note"]
+
+    def test_is_a_small_fraction_of_the_full_snapshot(self) -> None:
+        compact = json.dumps(self._invoke(self._DATA))
+        full = json.dumps(self._invoke(self._DATA, "get_readiness_snapshot"))
+        assert len(compact) < 1500
+        assert len(compact) * 5 < len(full)
+
+    def test_the_full_snapshot_is_unchanged(self) -> None:
+        """Sports coaching needs every field: the snapshot keeps them."""
+        full = self._invoke(self._DATA, "get_readiness_snapshot")
+        assert full["sleep"]["dailySleepDTO"]["deepSleepSeconds"] == 5400
+        assert full["stats"]["bodyBatteryMostRecentValue"] == 55
+        assert len(full["recent_activities"]) == 5
+
+    def test_a_failing_section_is_named_and_the_rest_stands(self) -> None:
+        out = self._invoke({**self._DATA, "get_hrv_data": Exception("no HRV for this device")})
+        assert out["hrv"] is None
+        assert "no HRV" in out["errors"]["hrv"]
+        assert out["wake"]["body_battery_at_wake"] == 81
+
+    def test_missing_fields_are_left_out(self) -> None:
+        out = self._invoke({})
+        assert out["wake"] == {}
+        assert out["sleep"] == {}
+        assert out["recent_activities"] == []
+
+    def test_is_an_advertised_action(self) -> None:
+        from src.agent.tools.garmin import garmin_connect
+
+        with patch("src.agent.tools.garmin.get_garmin_client", return_value=MagicMock()):
+            listed = json.loads(garmin_connect.invoke({"action": "no_such_action"}))
+        assert "get_morning_summary" in listed["available_actions"]

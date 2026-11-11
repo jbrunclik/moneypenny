@@ -298,6 +298,7 @@ def validate_tool_names() -> None:
 # sensibly in the UI without a change here.
 _GARMIN_ACTION_LABELS = {
     "get_readiness_snapshot": "readiness snapshot",
+    "get_morning_summary": "morning summary",
     "get_stats": "daily stats",
     "get_heart_rates": "heart rate",
     "get_sleep_data": "sleep",

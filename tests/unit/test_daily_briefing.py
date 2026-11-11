@@ -175,3 +175,12 @@ def test_create_agent_makes_chat_and_job(test_database, test_user) -> None:
     assert (job.grants, job.budget_usd, job.fresh_context) == (["garmin_connect"], 0.3, False)
     assert (conv.standing_name, conv.standing_instructions) == ("Coach", "Coach my rides")
     assert test_database.count_items(test_user.id) == 0  # outside the light-item cap
+
+
+def test_the_briefing_reads_the_compact_garmin_view_once():
+    """The full snapshot (~39k chars) pushed the Nov 11 2026 briefing past its budget."""
+    from src.agent.daily_briefing import BRIEFING_SYSTEM_PROMPT
+
+    assert '"get_morning_summary"' in BRIEFING_SYSTEM_PROMPT
+    assert "body_battery_at_wake" in BRIEFING_SYSTEM_PROMPT
+    assert "bodyBatteryAtWakeTime" not in BRIEFING_SYSTEM_PROMPT

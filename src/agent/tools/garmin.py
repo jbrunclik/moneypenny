@@ -15,6 +15,7 @@ from langchain_core.tools import tool
 from src.agent.tools.context import get_conversation_context
 from src.agent.tools.errors import tool_error
 from src.agent.tools.garmin_courses import slim_course_detail, slim_course_summary
+from src.agent.tools.garmin_morning import MORNING_ACTIVITIES, morning_summary
 from src.agent.tools.garmin_payloads import (
     slim_exercise_set,
     slim_hr_zones,
@@ -201,6 +202,7 @@ def _readiness_snapshot(garmin: Any, target_date: str, limit: int | None) -> dic
 
 _GARMIN_ACTIONS = {
     "get_readiness_snapshot",
+    "get_morning_summary",
     "get_stats",
     "get_heart_rates",
     "get_sleep_data",
@@ -246,6 +248,12 @@ def garmin_connect(
       (recent activities to include, default 5). Sections that a device does
       not report come back as {"error": ...}; the rest of the snapshot is still
       valid.
+    - "get_morning_summary": the same data cut to the morning numbers - Body
+      Battery at wake, resting HR, sleep duration/score/stages, HRV, training
+      readiness and status, the last 3 activities - about 1k characters
+      instead of tens of thousands. For a quick daily check-in (the Daily
+      Briefing); use get_readiness_snapshot when you need every field.
+      Optional: date_str.
     - "get_stats": Daily summary (steps, distance, calories, floors, active minutes)
       plus recovery metrics: Body Battery (use `bodyBatteryAtWakeTime` for the
       stable morning value, not `bodyBatteryMostRecentValue`) and resting heart
@@ -309,6 +317,10 @@ def garmin_connect(
     try:
         if action == "get_readiness_snapshot":
             return json.dumps(_readiness_snapshot(garmin, target_date, limit))
+
+        if action == "get_morning_summary":
+            snapshot = _readiness_snapshot(garmin, target_date, MORNING_ACTIVITIES)
+            return json.dumps(morning_summary(snapshot, target_date))
 
         if action in _DAILY_ACTIONS:
             api_method, result_key = _DAILY_ACTIONS[action]

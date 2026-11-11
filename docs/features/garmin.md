@@ -28,6 +28,7 @@ The `garmin_connect` tool is read-only and exposes the following actions:
 | Action | Parameters | Description |
 |--------|------------|-------------|
 | `get_readiness_snapshot` | `date_str`, `limit` (optional) | **Preferred** composite: training readiness, sleep, HRV, daily stats, training status and recent activities in one call (sections a device lacks come back as `{"error": ...}`) |
+| `get_morning_summary` | `date_str` (optional) | The same fetch cut to the morning numbers ([garmin_morning.py](../../src/agent/tools/garmin_morning.py)): Body Battery at wake, resting HR (+7-day average), sleep duration/score/quality/stages, HRV, training readiness and status, the last 3 activities; failed sections listed under `errors`. ~1k characters instead of the snapshot's tens of thousands (39k on Nov 11 2026, which pushed the Daily Briefing past its cost limit). Used by the Daily Briefing; sports coaching keeps `get_readiness_snapshot`, which is unchanged |
 | `get_stats` | `date_str` (optional) | Daily summary: steps, distance, calories, floors, active minutes |
 | `get_heart_rates` | `date_str` (optional) | Resting HR, HR zones, min/max for a day |
 | `get_sleep_data` | `date_str` (optional) | Sleep quality, stages (deep/light/REM/awake), duration |
