@@ -547,6 +547,11 @@ export type QuickAction = Schemas['SportsProgramsResponse.QuickActionResponse'];
 
 export type SportsProgram = Schemas['SportsProgramsResponse.SportsProgramItem'];
 
+/** One suggested change to a program's quick actions or instructions (the sheet's Review). */
+export type SetupSuggestion = Schemas['SetupReviewResponse.SetupSuggestion'];
+
+export type SetupReviewResponse = Schemas['SetupReviewResponse'];
+
 export type SportsProgramsResponse = Schemas['SportsProgramsResponse'];
 
 export type SportsConversation = Omit<Schemas['SportsConversationResponse'], 'messages'> & {

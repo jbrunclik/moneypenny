@@ -823,6 +823,13 @@ class Config:
     SETUP_REOFFER_AFTER_DAYS: int = int(os.getenv("SETUP_REOFFER_AFTER_DAYS", "3"))
     # Declined suggestions remembered per program (newest kept)
     SETUP_DECLINED_MAX: int = int(os.getenv("SETUP_DECLINED_MAX", "50"))
+    # The Quick actions sheet's Review: one structured call over the setup and
+    # the program chat's latest messages (each cut), at most this many suggestions
+    PROGRAM_REVIEW_MODEL: str = os.getenv("PROGRAM_REVIEW_MODEL") or "gemini-3.8-flash"
+    PROGRAM_REVIEW_MESSAGES: int = int(os.getenv("PROGRAM_REVIEW_MESSAGES", "40"))
+    PROGRAM_REVIEW_MESSAGE_CHARS: int = int(os.getenv("PROGRAM_REVIEW_MESSAGE_CHARS", "600"))
+    PROGRAM_REVIEW_MAX_SUGGESTIONS: int = int(os.getenv("PROGRAM_REVIEW_MAX_SUGGESTIONS", "8"))
+    PROGRAM_REVIEW_TIMEOUT_SECONDS: float = float(os.getenv("PROGRAM_REVIEW_TIMEOUT_SECONDS", "60"))
 
     # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
     # running cost, its time, a loop or the round backstop - whichever comes

@@ -6330,6 +6330,66 @@
         }
       }
     },
+    "/api/sports/programs/{program_id}/setup-review": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupReviewResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Suggested changes to the program's quick actions and instructions."
+      }
+    },
     "/api/sports/programs/{program_id}/quick-actions": {
       "put": {
         "parameters": [
@@ -6417,6 +6477,66 @@
             }
           }
         }
+      }
+    },
+    "/api/language/programs/{program_id}/setup-review": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupReviewResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Suggested changes to the program's quick actions and instructions."
       }
     },
     "/api/messages/{message_id}/files/{file_index}": {
@@ -6633,6 +6753,348 @@
           "Artifacts"
         ],
         "summary": "One version's HTML plus the artifact's saved state."
+      }
+    },
+    "/api/sports/programs/{program_id}/setup-review/apply": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SportsProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Apply one accepted suggestion; returns the program (its quick actions).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sports/programs/{program_id}/setup-review/reject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Sports"
+        ],
+        "summary": "Reject one suggestion: remembered, so it is not suggested again without new turns.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/language/programs/{program_id}/setup-review/apply": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageProgramsResponse"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Apply one accepted suggestion; returns the program (its quick actions).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/language/programs/{program_id}/setup-review/reject": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "program_id",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPError"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        },
+        "tags": [
+          "Language"
+        ],
+        "summary": "Reject one suggestion: remembered, so it is not suggested again without new turns.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupChangeRequest"
+              }
+            }
+          }
+        }
       }
     },
     "/api/messages/{message_id}/files/{file_index}/thumbnail": {
@@ -18935,6 +19397,66 @@
         "title": "InterjectRequest",
         "type": "object"
       },
+      "SetupReviewResponse.SetupSuggestion": {
+        "description": "One suggested change to a program's setup, as the Review returns it.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "change",
+          "summary",
+          "before",
+          "after",
+          "evidence"
+        ],
+        "title": "SetupSuggestion",
+        "type": "object"
+      },
+      "SetupReviewResponse": {
+        "description": "The Review's suggestions (an empty list: nothing to change).",
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/SetupReviewResponse.SetupSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions"
+        ],
+        "title": "SetupReviewResponse",
+        "type": "object"
+      },
       "UpdateQuickActionsRequest.QuickActionItem": {
         "description": "A one-tap saved prompt for a program conversation.",
         "properties": {
@@ -19033,6 +19555,28 @@
           "state"
         ],
         "title": "ArtifactVersionResponse",
+        "type": "object"
+      },
+      "SetupChangeRequest": {
+        "description": "Accept or reject one suggestion from the Review.",
+        "properties": {
+          "change": {
+            "additionalProperties": true,
+            "title": "Change",
+            "type": "object"
+          },
+          "summary": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change",
+          "summary"
+        ],
+        "title": "SetupChangeRequest",
         "type": "object"
       }
     }

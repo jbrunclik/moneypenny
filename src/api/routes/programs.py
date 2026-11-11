@@ -19,6 +19,7 @@ from apiflask import APIBlueprint
 from src.api.errors import raise_not_found_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.program_quick_actions import register_quick_action_routes
+from src.api.routes.program_setup_review import register_setup_review_routes
 from src.api.utils import serialize_messages_for_response
 from src.api.validation import validate_request
 from src.auth.jwt_auth import require_auth
@@ -123,6 +124,7 @@ def register_program_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None
     _register_program_crud_routes(api, cfg)
     _register_program_conversation_routes(api, cfg)
     register_quick_action_routes(api, cfg)
+    register_setup_review_routes(api, cfg)
 
 
 def _register_program_crud_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) -> None:

@@ -46,6 +46,30 @@ class UpdateQuickActionsRequest(RequestModel):
     )
 
 
+class SetupSuggestion(ResponseModel):
+    """One suggested change to a program's setup, as the Review returns it."""
+
+    id: str
+    change: dict[str, object]
+    summary: str
+    before: str
+    after: str
+    evidence: list[str]
+
+
+class SetupReviewResponse(ResponseModel):
+    """The Review's suggestions (an empty list: nothing to change)."""
+
+    suggestions: list[SetupSuggestion]
+
+
+class SetupChangeRequest(RequestModel):
+    """Accept or reject one suggestion from the Review."""
+
+    change: dict[str, object]
+    summary: str = Field(..., min_length=1, max_length=200)
+
+
 class SportsProgramItem(ResponseModel):
     """A single sports training program."""
 

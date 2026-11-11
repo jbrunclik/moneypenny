@@ -11,6 +11,8 @@ import {
   type LanguageProgram,
   type LanguageProgramsResponse,
   type LanguageResetResponse,
+  type SetupReviewResponse,
+  type SetupSuggestion,
 } from '../types/api';
 import { request, requestWithRetry } from './http';
 
@@ -95,5 +97,37 @@ export const language = {
     const updated = response.programs[0];
     if (updated === undefined) throw new Error('Quick-action update returned no program');
     return updated;
+  },
+};
+
+// A program's setup Review (quick actions + instructions), shared by both namespaces
+export type ProgramNamespace = 'sports' | 'language';
+
+function setupReviewUrl(ns: ProgramNamespace, programId: string, action = ''): string {
+  return `/api/${ns}/programs/${encodeURIComponent(programId)}/setup-review${action}`;
+}
+
+export const programSetup = {
+  async review(ns: ProgramNamespace, programId: string): Promise<SetupSuggestion[]> {
+    const data = await request<SetupReviewResponse>(setupReviewUrl(ns, programId), { method: 'POST' });
+    return data.suggestions;
+  },
+
+  /** Apply one accepted suggestion; resolves to the program's new quick actions. */
+  async apply(ns: ProgramNamespace, programId: string, suggestion: SetupSuggestion): Promise<QuickAction[]> {
+    const response = await request<SportsProgramsResponse | LanguageProgramsResponse>(
+      setupReviewUrl(ns, programId, '/apply'),
+      { method: 'POST', body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }) }
+    );
+    const updated = response.programs[0];
+    if (updated === undefined) throw new Error('Setup change returned no program');
+    return updated.quick_actions;
+  },
+
+  async reject(ns: ProgramNamespace, programId: string, suggestion: SetupSuggestion): Promise<void> {
+    await request<unknown>(setupReviewUrl(ns, programId, '/reject'), {
+      method: 'POST',
+      body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }),
+    });
   },
 };
