@@ -780,6 +780,19 @@ _CANNED_AGENT = (
 )
 
 
+def _program_conversation(case: EvalCase, user: Any, db: Any) -> Any:
+    """A real program chat with its program and stored data, as production has
+    them: tools that resolve the chat's program (propose_setup_change) work."""
+    import json
+
+    name, program_id = _CANNED_PROGRAMS[case.mode]
+    program = {"id": program_id, "name": name, "emoji": "🏁", "created_at": "2026-11-01"}
+    db.kv_set(user.id, case.mode, "programs", json.dumps([program]))
+    for key, value in case.program_kv.items():
+        db.kv_set(user.id, case.mode, key, value)
+    return db.get_or_create_program_conversation(case.mode, user.id, program_id)
+
+
 def _agent_conversation(user: Any, db: Any) -> Any:
     name, instructions, schedule = _CANNED_AGENT
     agent = db.create_standing_chat(user.id, name, instructions, schedule=schedule)
@@ -998,6 +1011,8 @@ def _run_case(case: EvalCase, user: Any, db: Any) -> dict[str, Any]:
     user = _case_user(case, user, db)
     if case.mode == "agent":
         conversation = _agent_conversation(user, db)
+    elif case.mode in _CANNED_PROGRAMS:
+        conversation = _program_conversation(case, user, db)
     else:
         conversation = db.create_conversation(
             user.id, f"eval-{case.id}", model=Config.DEFAULT_MODEL

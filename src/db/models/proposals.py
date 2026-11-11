@@ -122,6 +122,14 @@ class ProposalsMixin:
             grouped.setdefault(proposal.message_id or "", []).append(proposal)
         return grouped
 
+    def kind_proposals(self, conversation_id: str, kind: str) -> list[Proposal]:
+        """The conversation's proposals of one kind, newest first (any state)."""
+        return self._select(
+            """SELECT * FROM proposals WHERE conversation_id = ? AND kind = ?
+               ORDER BY created_at DESC, rowid DESC""",
+            (conversation_id, kind),
+        )
+
     def pending_proposals(self, conversation_id: str) -> list[Proposal]:
         """The conversation's proposals still awaiting an answer (oldest first)."""
         return self._select(

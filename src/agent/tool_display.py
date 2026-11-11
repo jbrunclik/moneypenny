@@ -231,6 +231,11 @@ TOOL_METADATA: dict[str, dict[str, str]] = {
         "label_past": "Proposed a settings change",
         "icon": "edit",
     },
+    "propose_setup_change": {
+        "label": "Suggesting an improvement",
+        "label_past": "Suggested an improvement",
+        "icon": "edit",
+    },
 }
 
 # Place/routing tools share one detail formatter.
@@ -254,6 +259,7 @@ _CONDITIONAL_TOOLS = frozenset(
         "schedule",  # ordinary non-anonymous chats only
         "create_standing_chat",  # ordinary non-anonymous chats only
         "ask_choice",  # ordinary chats only, never for agents
+        "propose_setup_change",  # interactive standing chats only
     }
 )
 
@@ -710,6 +716,7 @@ _DETAIL_FORMATTERS: dict[str, DetailFormatter] = {
     "schedule": _schedule_detail,
     "create_standing_chat": _standing_create_detail,
     "ask_choice": _truthy_arg("question"),
+    "propose_setup_change": _truthy_arg("reason", 80),
 }
 
 

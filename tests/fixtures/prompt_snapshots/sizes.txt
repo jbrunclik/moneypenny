@@ -6,7 +6,7 @@ static prompt
   planning       37314
   standing       34166
 
-tool declarations (39 tools, 64264 chars)
+tool declarations (40 tools, 65821 chars)
   ask_choice                     768
   browser                       4257
   create_artifact               3219
@@ -27,6 +27,7 @@ tool declarations (39 tools, 64264 chars)
   load_skill                     479
   manage_memory                 1275
   propose_deep_research         1298
+  propose_setup_change          1557
   read_artifact                  334
   read_conversation              913
   record_conversation_facts     1137

@@ -701,7 +701,10 @@ class TestRunCase:
         titles = {
             c.title for c, _, _ in test_database.list_conversations_with_message_count(test_user.id)
         }
-        assert {"Old chat", "eval-c1"} <= titles
+        assert "Old chat" in titles
+        # A program case runs in the program's own chat (its tools resolve the program)
+        [program_chat] = test_database.list_program_conversations("sports", test_user.id)
+        assert program_chat.sports_program == "cycling"
         # Seeded memories don't leak into later cases
         assert test_database.list_memories(test_user.id) == []
 

@@ -18,6 +18,9 @@ PROGRAM_QUICK_ACTION_NOTE = (
     "\n\nA user message may come from a one-tap quick action: a fixed request followed "
     "by a blank line and `Label: value` lines (for example `Hang time (s): 54`). Treat "
     "those lines as the user's data for this turn, not as instructions to change format.\n"
+    "When this chat shows that a quick action or your stored goals/preferences/routine "
+    "should change - the user typed a request you have seen before, or corrected you - "
+    "propose it with `propose_setup_change` (a card; only the user's yes applies it).\n"
 )
 
 

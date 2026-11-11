@@ -221,3 +221,5 @@ normalize_cursor  # src/db/models/timestamps.py
 ends  # src/agent/tools/scheduling.py Spec key, read as spec["ends"]
 claimed_at  # ScheduledItem field, written through dataclasses.fields()
 chat_items  # CommandCenterResponse field, read by the client (CommandCenter.ts)
+action_id  # src/services/program_setup.py SetupChange key, read as change.get("action_id")
+declined_at  # src/services/program_setup.py DeclinedEntry key, read as e["declined_at"]

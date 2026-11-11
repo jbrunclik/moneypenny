@@ -620,6 +620,33 @@
     }
   },
   {
+    "description": "Propose a change to this program's own setup - a quick action or a\nstanding instruction - when this chat shows it is needed: the user typed a\nrequest you have seen before (a quick action would save the typing), or\ncorrected you (an instruction is out of date). The user sees a card with\nthe change as before/after and your evidence, and only their yes applies\nit. Not for things the user asked you to change - do those directly.\n\nArgs:\n    change: JSON object, one of:\n        {\"target\": \"quick_action\", \"op\": \"add\", \"action\": {\"id\", \"emoji\", \"label\", \"body\", \"fields\": [..]}};\n        {\"target\": \"quick_action\", \"op\": \"edit\", \"action_id\": \"<id>\", \"action\": {...the whole new action}};\n        {\"target\": \"quick_action\", \"op\": \"remove\", \"action_id\": \"<id>\"};\n        {\"target\": \"instruction\", \"key\": \"<goals|preferences|routine (sports); profile|grammar (language)>\",\n         \"patch\": {\"field\": \"new value\", \"old_field\": null}} or \"text\": \"<whole new value>\" for a prose value.\n        Labels and bodies in the user's language.\n    evidence: 1-5 items, each \"YYYY-MM-DD: what the user said or did\" from this chat.\n    reason: One sentence, for the user, on why this helps.",
+    "name": "propose_setup_change",
+    "parameters": {
+      "properties": {
+        "change": {
+          "type": "STRING"
+        },
+        "evidence": {
+          "items": {
+            "type": "STRING"
+          },
+          "type": "ARRAY"
+        },
+        "reason": {
+          "type": "STRING"
+        }
+      },
+      "required": [
+        "change",
+        "evidence",
+        "reason"
+      ],
+      "title": "propose_setup_change",
+      "type": "OBJECT"
+    }
+  },
+  {
     "description": "Read an artifact's current HTML (before editing one from an earlier turn).\n\nArgs:\n    artifact_id: The artifact's id from the conversation history.",
     "name": "read_artifact",
     "parameters": {

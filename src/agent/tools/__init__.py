@@ -56,6 +56,7 @@ from src.agent.tools.planner import (
     is_refresh_planner_dashboard_available,
     refresh_planner_dashboard,
 )
+from src.agent.tools.program_setup_tool import propose_setup_change
 from src.agent.tools.request_approval import ApprovalRequestedException, request_approval
 from src.agent.tools.research import research
 from src.agent.tools.rouvy import is_rouvy_available, rouvy_workout
@@ -267,8 +268,10 @@ def get_tools_for_request(
         tools.append(kv_store)
     if standing:
         # An agent's chat: it may propose changes to its own settings (the
-        # tool refuses in chats without an agent)
+        # tool refuses in chats without an agent); a program chat to its own
+        # quick actions and instructions (refuses outside a program chat)
         tools.append(edit_standing_chat)
+        tools.append(propose_setup_change)
     elif not anonymous_mode and not is_planning:
         # Ordinary chats set up new standing chats ("be my coach...")
         tools.append(create_standing_chat)
@@ -320,6 +323,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "ask_choice",  # ordinary chats only, never for agents
         "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
         "edit_standing_chat",  # standing chats and their jobs, never a grant
+        "propose_setup_change",  # interactive standing chats only, never a grant
         "create_standing_chat",  # ordinary chats only, never a grant
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",

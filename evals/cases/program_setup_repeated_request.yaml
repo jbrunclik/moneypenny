@@ -1,0 +1,46 @@
+id: program_setup_repeated_request
+description: >
+  The user typed the same "next workout with my readiness" request three times
+  this week; the coach answers and proposes a quick action for it with
+  propose_setup_change, citing those turns (program self-tuning, Nov 2026)
+mode: sports
+integrations:
+  garmin:
+    state: connected
+    data:
+      get_training_readiness: [{ score: 71, level: MODERATE, feedbackShort: "RECOVERED" }]
+      get_sleep_data:
+        { dailySleepDTO: { sleepTimeSeconds: 26000, sleepScores: { overall: { value: 80 } } } }
+      get_hrv_data: { hrvSummary: { lastNightAvg: 58, weeklyAvg: 60, status: BALANCED } }
+      get_stats: { restingHeartRate: 47, bodyBatteryAtWakeTime: 78 }
+program_kv:
+  "cycling:goals": '{"goal": "FTP 220 W by March"}'
+  "cycling:routine": '{"days": ["po", "st", "so"], "z2_watts": 125}'
+history:
+  - role: user
+    content: "Jaký je můj další trénink? Zohledni dnešní readiness z Garminu."
+    metadata:
+      timestamp: "2026-11-05 07:10 CET"
+  - role: assistant
+    content: "Dnes máš v plánu Z2 60 min na 125 W; readiness 68, takže v pohodě."
+    metadata:
+      timestamp: "2026-11-05 07:11 CET"
+  - role: user
+    content: "Jaký je můj další trénink? Podívej se i na readiness."
+    metadata:
+      timestamp: "2026-11-07 07:05 CET"
+  - role: assistant
+    content: "Další je sweet spot 2x12 min na 170 W; readiness 74, jdi do toho."
+    metadata:
+      timestamp: "2026-11-07 07:06 CET"
+user: "Jaký je můj další trénink? A zohledni readiness."
+expect:
+  rubric: >
+    Answers the request in Czech (the next session from the routine, adjusted
+    for readiness, or says it needs the readiness data). Calls
+    propose_setup_change to ADD a quick action for this repeated request (a
+    short Czech label such as "Další trénink", a body asking for the next
+    workout with readiness), with evidence citing the earlier dated turns
+    (2026-11-05, 2026-11-07). Does not claim the quick action already exists.
+  required_tools: [propose_setup_change]
+  max_tool_rounds: 4
