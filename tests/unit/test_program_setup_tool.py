@@ -100,7 +100,8 @@ def test_files_a_card_with_before_after_and_evidence(
     assert result.startswith("PROPOSAL shown to the user")
     card = _card(test_database, program_chat)
     assert card.kind == "program_setup"
-    assert "(none)" in card.details["Change"] and "Plan week" in card.details["Change"]
+    # One line per changed field, not the whole action twice
+    assert "Label: — → Plan week" in card.details["Change"].splitlines()
     assert "plan my week please" in card.details["Based on"]
     assert card.details["Why"] == "You ask for a weekly plan every Monday."
     assert card.options[0]["payload"]["fingerprint"] == ps.fingerprint(_ADD)

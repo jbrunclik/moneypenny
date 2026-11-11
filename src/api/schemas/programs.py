@@ -46,6 +46,14 @@ class UpdateQuickActionsRequest(RequestModel):
     )
 
 
+class SetupFieldChange(ResponseModel):
+    """One changed field: its name for people, the old and new value ("" = none)."""
+
+    field: str
+    before: str
+    after: str
+
+
 class SetupSuggestion(ResponseModel):
     """One suggested change to a program's setup, as the Review returns it."""
 
@@ -54,6 +62,7 @@ class SetupSuggestion(ResponseModel):
     summary: str
     before: str
     after: str
+    changes: list[SetupFieldChange]
     evidence: list[str]
 
 

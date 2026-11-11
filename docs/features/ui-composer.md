@@ -115,13 +115,19 @@ instructions (sports `goals`, `preferences`, `routine`; language `profile`,
   sheet never posts into the chat. The call can take most of a minute (45 s on Nov 11
   2026), so the client waits `QUICK_ACTION_REVIEW_TIMEOUT_MS` (90 s, not the default 30 s)
   and shows timed steps in the work's real order (`QUICK_ACTION_REVIEW_PHASES`), the
-  seconds so far, a moving bar and placeholder cards; a failure names why
+  seconds so far and a moving bar (no placeholder cards - they read as a count of
+  coming results); a failure names why
   (`reviewErrorText`: too slow, offline, or the server's message) and that nothing changed.
 - **Relevance**: every suggestion needs 1-5 evidence items starting with a
   `YYYY-MM-DD` date. Decline (card) or Reject (Review) records it in
   `{program_id}:setup_declined` (newest `SETUP_DECLINED_MAX`); it is offered again
   only with evidence dated after the decline. An ignored card (expired because the
   user carried on) may be filed again once, at least `SETUP_REOFFER_AFTER_DAYS` later.
+- **What changes, not the whole value**: `field_changes()` diffs the target - an
+  instruction's changed leaves by path ("ring numbers › 17"), a quick action's changed
+  parts (Icon, Label, Message, Questions). The sheet shows one row per field (old struck
+  through, new below); the card's Change line lists them one per line. Before Nov 11 2026
+  both showed the whole JSON twice.
 - **One service** applies both paths: `src/services/program_setup.py` (load, validate,
   describe, apply, fingerprint, declines; it also owns the quick action defaults,
   sanitizing and limits). A stale target (an action edited by hand since) fails with

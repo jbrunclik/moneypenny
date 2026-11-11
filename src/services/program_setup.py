@@ -285,18 +285,6 @@ def validate_change(namespace: str, change: Mapping[str, object]) -> SetupChange
     return problem if problem else clean
 
 
-def _action_text(action: Mapping[str, object] | None) -> str:
-    if not action:
-        return "(none)"
-    fields = action.get("fields") or []
-    extra = (
-        f" [fields: {', '.join(str(f) for f in fields)}]"
-        if isinstance(fields, list) and fields
-        else ""
-    )
-    return f"{action.get('emoji', '')} {action.get('label', '')}: '{action.get('body', '')}'{extra}".strip()
-
-
 def _value_text(value: object) -> str:
     if value is None:
         return "(none)"
@@ -311,15 +299,78 @@ def _after_instruction(current: object, change: SetupChange) -> object:
     return merge_patch(dict(current or {}), dict(change.get("patch") or {}))
 
 
-def describe_change(setup: ProgramSetup, change: SetupChange) -> tuple[str, str]:
-    """(before, after) as short human text."""
+class FieldChange(TypedDict):
+    """One changed field: its name for people, the old and new value ("" = none)."""
+
+    field: str
+    before: str
+    after: str
+
+
+_FIELD_CHARS = 300
+_ACTION_PARTS = (
+    ("emoji", "Icon"),
+    ("label", "Label"),
+    ("body", "Message"),
+    ("fields", "Questions"),
+)
+
+
+def _plain(value: object) -> str:
+    """A value as short human text (lists joined, objects as key: value)."""
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        text = ", ".join(_plain(v) for v in value)
+    elif isinstance(value, dict):
+        text = "; ".join(f"{k}: {_plain(v)}" for k, v in value.items())
+    else:
+        text = str(value)
+    return text if len(text) <= _FIELD_CHARS else text[: _FIELD_CHARS - 1] + "…"
+
+
+def _field_name(path: tuple[str, ...]) -> str:
+    return " › ".join(part.replace("_", " ") for part in path)
+
+
+def _diff(before: object, after: object, path: tuple[str, ...]) -> list[FieldChange]:
+    """The leaves that differ between two JSON values, by dotted path."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        rows: list[FieldChange] = []
+        for key in [*before, *(k for k in after if k not in before)]:
+            rows += _diff(before.get(key), after.get(key), (*path, str(key)))
+        return rows
+    if before == after:
+        return []
+    return [{"field": _field_name(path), "before": _plain(before), "after": _plain(after)}]
+
+
+def field_changes(setup: ProgramSetup, change: SetupChange) -> list[FieldChange]:
+    """What the change changes, field by field - not the whole value twice."""
     if change.get("target") == "instruction":
-        current = setup["instructions"].get(str(change.get("key")))
-        return _value_text(current), _value_text(_after_instruction(current, change))
+        key = str(change.get("key"))
+        current = setup["instructions"].get(key)
+        after = _after_instruction(current, change)
+        if isinstance(current, dict) and isinstance(after, dict):
+            return _diff(current, after, ())
+        return [{"field": key.replace("_", " "), "before": _plain(current), "after": _plain(after)}]
     actions = {str(a["id"]): a for a in setup["quick_actions"]}
     old = actions.get(str(change.get("action_id"))) if change.get("op") != "add" else None
     new = None if change.get("op") == "remove" else change.get("action")
-    return _action_text(old), _action_text(new)
+    rows = []
+    for part, name in _ACTION_PARTS:
+        was, will = _plain((old or {}).get(part)), _plain((new or {}).get(part))
+        if was != will:
+            rows.append(FieldChange(field=name, before=was, after=will))
+    return rows
+
+
+def describe_change(setup: ProgramSetup, change: SetupChange) -> tuple[str, str]:
+    """(before, after) as short text: one "Field: value" line per changed field."""
+    rows = field_changes(setup, change)
+    before = "\n".join(f"{r['field']}: {r['before']}" for r in rows if r["before"])
+    after = "\n".join(f"{r['field']}: {r['after']}" for r in rows if r["after"])
+    return before or "(none)", after or "(none)"
 
 
 # --- applying -----------------------------------------------------------------

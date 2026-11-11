@@ -24,19 +24,25 @@ function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong.';
 }
 
+/** One changed field: its name, the old value struck through (if any), the new one. */
+function fieldRow(change: SetupSuggestion['changes'][number]): HTMLElement {
+  const values: HTMLElement[] = [];
+  if (change.before) values.push(createElement('del', { class: 'qa-review-old' }, [change.before]));
+  values.push(
+    change.after
+      ? createElement('ins', { class: 'qa-review-new' }, [change.after])
+      : createElement('span', { class: 'qa-review-removed' }, ['Removed'])
+  );
+  return createElement('div', { class: 'qa-review-field' }, [
+    createElement('div', { class: 'qa-review-field-name' }, [change.field]),
+    ...values,
+  ]);
+}
+
 function itemElement(s: SetupSuggestion): HTMLElement {
   return createElement('li', { class: 'qa-review-item', 'data-state': 'open' }, [
     createElement('div', { class: 'qa-review-summary' }, [s.summary]),
-    createElement('div', { class: 'qa-review-change' }, [
-      createElement('div', { class: 'qa-review-before' }, [
-        createElement('span', { class: 'qa-review-tag' }, ['Before']),
-        s.before,
-      ]),
-      createElement('div', { class: 'qa-review-after' }, [
-        createElement('span', { class: 'qa-review-tag' }, ['After']),
-        s.after,
-      ]),
-    ]),
+    createElement('div', { class: 'qa-review-change' }, s.changes.map(fieldRow)),
     createElement(
       'ul',
       { class: 'qa-review-evidence', 'aria-label': 'Based on' },
@@ -149,9 +155,9 @@ function phaseAt(seconds: number): string {
 }
 
 /**
- * While the Review runs: the step it is on, the seconds so far, a moving bar
- * and placeholder cards shaped like suggestions. Returns the function that
- * removes them (and stops the clock).
+ * While the Review runs: the step it is on, the seconds so far and a moving
+ * bar (no placeholder cards: they looked like a count of coming results).
+ * Returns the function that removes them (and stops the clock).
  */
 function showLoading(container: HTMLElement, list: HTMLElement): () => void {
   const phase = createElement('span', { class: 'qa-review-phase' }, [phaseAt(0)]);
@@ -168,15 +174,6 @@ function showLoading(container: HTMLElement, list: HTMLElement): () => void {
     }),
   ]);
   list.before(loading);
-  const skeletons = [0, 1].map(() => {
-    const card = createElement('li', { class: 'qa-review-skeleton', 'aria-hidden': 'true' }, [
-      createElement('span', { class: 'qa-review-skeleton-line qa-review-skeleton-title' }),
-      createElement('span', { class: 'qa-review-skeleton-line' }),
-      createElement('span', { class: 'qa-review-skeleton-line qa-review-skeleton-short' }),
-    ]);
-    list.appendChild(card);
-    return card;
-  });
   const started = Date.now();
   const timer = window.setInterval(() => {
     if (!container.isConnected) {
@@ -190,6 +187,5 @@ function showLoading(container: HTMLElement, list: HTMLElement): () => void {
   return () => {
     window.clearInterval(timer);
     loading.remove();
-    skeletons.forEach((card) => card.remove());
   };
 }

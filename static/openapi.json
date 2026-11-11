@@ -19397,6 +19397,30 @@
         "title": "InterjectRequest",
         "type": "object"
       },
+      "SetupReviewResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
+        "type": "object"
+      },
       "SetupReviewResponse.SetupSuggestion": {
         "description": "One suggested change to a program's setup, as the Review returns it.",
         "properties": {
@@ -19421,6 +19445,13 @@
             "title": "After",
             "type": "string"
           },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/SetupReviewResponse.SetupFieldChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
           "evidence": {
             "items": {
               "type": "string"
@@ -19435,6 +19466,7 @@
           "summary",
           "before",
           "after",
+          "changes",
           "evidence"
         ],
         "title": "SetupSuggestion",

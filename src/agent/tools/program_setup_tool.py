@@ -139,7 +139,7 @@ def _file(
 ) -> str:
     try:
         current = setup.load_setup(user_id, ref)
-        before, after = setup.describe_change(current, change)
+        rows = setup.field_changes(current, change)
     except SetupChangeError as e:
         return _refused(str(e), retriable=False)
     # Approving later applies only if the target is still what the card showed
@@ -151,7 +151,9 @@ def _file(
         "fingerprint": setup.fingerprint(change),
     }
     option: ProposalOption = {"label": _APPROVE_LABEL, "description": "", "payload": payload}
-    details = {"Change": f"{before} → {after}", "Why": reason, "Based on": "; ".join(evidence)}
+    # One line per changed field, not the whole value twice
+    changed = "\n".join(f"{r['field']}: {r['before'] or '—'} → {r['after'] or '—'}" for r in rows)
+    details = {"Change": changed or "—", "Why": reason, "Based on": "\n".join(evidence)}
     proposal = file_proposal(KIND, _summary(change), details, [option])
     logger.info(
         "Setup change proposed", extra={"target": change.get("target"), "namespace": ref.namespace}

@@ -14168,6 +14168,18 @@ export interface components {
             client_message_id?: string | null;
         };
         /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "SetupReviewResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+        };
+        /**
          * SetupSuggestion
          * @description One suggested change to a program's setup, as the Review returns it.
          */
@@ -14184,6 +14196,8 @@ export interface components {
             before: string;
             /** After */
             after: string;
+            /** Changes */
+            changes: components["schemas"]["SetupReviewResponse.SetupFieldChange"][];
             /** Evidence */
             evidence: string[];
         };

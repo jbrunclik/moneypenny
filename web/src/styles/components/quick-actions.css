@@ -526,24 +526,38 @@
     font-weight: 600;
     color: var(--text-primary);
 }
+/* What changes, one row per field: name, old struck through, new */
 .qa-review-change {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     font-size: var(--font-size-sm);
-    color: var(--text-primary);
     overflow-wrap: anywhere;
 }
-.qa-review-tag {
-    display: inline-block;
-    min-width: 3.5em;
-    margin-right: var(--space-2);
+.qa-review-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: var(--space-3);
+    border-left: 2px solid var(--border);
+}
+.qa-review-field-name {
     color: var(--text-secondary);
     font-size: var(--font-size-xs);
     font-weight: 600;
 }
-.qa-review-before {
+.qa-review-old {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--text-muted);
+}
+.qa-review-new {
+    color: var(--text-primary);
+    text-decoration: none;
+}
+.qa-review-removed {
     color: var(--text-secondary);
+    font-style: italic;
 }
 .qa-review-evidence {
     margin: 0;
@@ -638,35 +652,6 @@
     border-radius: inherit;
     background: var(--accent);
     animation: qa-review-indeterminate 1.4s ease-in-out infinite;
-}
-.qa-review-skeleton {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-}
-.qa-review-skeleton-line {
-    display: block;
-    height: 10px;
-    width: 85%;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(
-        90deg,
-        var(--bg-tertiary) 25%,
-        var(--bg-hover) 50%,
-        var(--bg-tertiary) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.4s ease-in-out infinite;
-}
-.qa-review-skeleton-title {
-    height: 14px;
-    width: 55%;
-}
-.qa-review-skeleton-short {
-    width: 40%;
 }
 @keyframes qa-review-pulse {
     50% {
@@ -974,7 +959,6 @@
     .qa-slash-menu,
     .qa-editor,
     .qa-review-loading-icon,
-    .qa-review-skeleton-line,
     .qa-review-progress::after {
         animation: none;
     }

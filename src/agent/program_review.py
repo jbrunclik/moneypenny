@@ -68,6 +68,8 @@ class Suggestion(TypedDict):
     summary: str
     before: str
     after: str
+    # What changes, field by field (the sheet shows these rows)
+    changes: list[setup.FieldChange]
     evidence: list[str]
 
 
@@ -202,6 +204,7 @@ def _suggestion(
         "summary": item.summary.strip()[:200],
         "before": before,
         "after": after,
+        "changes": setup.field_changes(current, checked),
         "evidence": evidence,
     }
 

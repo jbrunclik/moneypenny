@@ -172,7 +172,8 @@ class TestDescribe:
             setup, {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited}
         )
 
-        assert "Next workout" in before and "Next workout" in after
+        # Only what changes - here the message
+        assert before == "Message: What is my next workout?"
         assert before != after
         assert "Date: today" in after
 
@@ -311,3 +312,85 @@ class TestReviewFixes:
         )
         assert ps.evidence_problem([], days) is not None
         assert ps.evidence_problem(["you often ask"], days) is not None
+
+
+class TestFieldChanges:
+    """Show what changes, not the whole object (Nov 11 2026: a routine edit
+    showed the full JSON twice)."""
+
+    def test_an_instruction_patch_lists_only_the_changed_fields(
+        self, db: Database, test_user: User
+    ) -> None:
+        routine = {
+            "location": "Man Cave",
+            "gtg_pullups": "1-2 strict",
+            "ring_numbers": {"01": "Pull-ups"},
+        }
+        db.kv_set(test_user.id, "sports", "cycling:routine", json.dumps(routine))
+        _save_program(db, test_user)
+        change: ps.SetupChange = {
+            "target": "instruction",
+            "key": "routine",
+            "patch": {
+                "gtg_pullups": "3 strict, Wed + Thu",
+                "ring_numbers": {"17": "Ring rows"},
+                "old": None,
+            },
+        }
+
+        rows = ps.field_changes(ps.load_setup(test_user.id, REF), change)
+
+        assert rows == [
+            {"field": "gtg pullups", "before": "1-2 strict", "after": "3 strict, Wed + Thu"},
+            {"field": "ring numbers › 17", "before": "", "after": "Ring rows"},
+        ]
+
+    def test_a_removed_field_shows_what_goes(self, db: Database, test_user: User) -> None:
+        db.kv_set(
+            test_user.id,
+            "sports",
+            "cycling:routine",
+            json.dumps({"days": ["Mon", "Wed"], "z2": 120}),
+        )
+        _save_program(db, test_user)
+        rows = ps.field_changes(
+            ps.load_setup(test_user.id, REF),
+            {"target": "instruction", "key": "routine", "patch": {"days": None}},
+        )
+        assert rows == [{"field": "days", "before": "Mon, Wed", "after": ""}]
+
+    def test_a_quick_action_edit_lists_only_what_differs(
+        self, db: Database, test_user: User
+    ) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        edited = {**_NEXT, "body": "What is my next workout? Use readiness.", "fields": ["Time"]}
+        rows = ps.field_changes(
+            ps.load_setup(test_user.id, REF),
+            {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited},
+        )
+        assert rows == [
+            {
+                "field": "Message",
+                "before": "What is my next workout?",
+                "after": "What is my next workout? Use readiness.",
+            },
+            {"field": "Questions", "before": "", "after": "Time"},
+        ]
+
+    def test_a_prose_instruction_is_one_row(self, db: Database, test_user: User) -> None:
+        db.kv_set(test_user.id, "sports", "cycling:goals", "Ride 200 km")
+        _save_program(db, test_user)
+        rows = ps.field_changes(
+            ps.load_setup(test_user.id, REF),
+            {"target": "instruction", "key": "goals", "text": "Ride 300 km"},
+        )
+        assert rows == [{"field": "goals", "before": "Ride 200 km", "after": "Ride 300 km"}]
+
+    def test_the_text_form_is_one_line_per_field(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        edited = {**_NEXT, "label": "Next ride"}
+        before, after = ps.describe_change(
+            ps.load_setup(test_user.id, REF),
+            {"target": "quick_action", "op": "edit", "action_id": "next", "action": edited},
+        )
+        assert (before, after) == ("Label: Next workout", "Label: Next ride")

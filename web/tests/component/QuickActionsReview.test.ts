@@ -14,7 +14,11 @@ const suggestion = (over: Partial<SetupSuggestion> = {}): SetupSuggestion => ({
   change: { target: 'quick_action', op: 'add' },
   summary: 'Add a weekly plan',
   before: '(none)',
-  after: "📅 Plan week: 'Plan my week.'",
+  after: 'Label: Plan week',
+  changes: [
+    { field: 'Label', before: '', after: 'Plan week' },
+    { field: 'Message', before: 'Old text', after: 'Plan my week.' },
+  ],
   evidence: ['2026-11-09: plan my week'],
   ...over,
 });
@@ -62,16 +66,22 @@ describe('Quick actions Review', () => {
     expect(q('.qa-review-elapsed')?.textContent).toBe('0 s');
     expect(q('.qa-review-progress')?.getAttribute('role')).toBe('progressbar');
     expect(q('.qa-review-loading svg')).not.toBeNull();
-    expect(document.querySelectorAll('.qa-review-skeleton').length).toBe(2);
+    // No placeholder cards: they suggested how many results were coming
+    expect(document.querySelectorAll('.qa-review-skeleton').length).toBe(0);
 
     resolve([suggestion()]);
     await flush();
     expect(q('.qa-review-loading')).toBeNull();
-    expect(document.querySelectorAll('.qa-review-skeleton').length).toBe(0);
     const item = q('.qa-review-item');
     expect(item?.querySelector('.qa-review-summary')?.textContent).toBe('Add a weekly plan');
-    expect(item?.querySelector('.qa-review-before')?.textContent).toContain('(none)');
-    expect(item?.querySelector('.qa-review-after')?.textContent).toContain('Plan week');
+    // One row per changed field: its name, the old value (if any) and the new one
+    const rows = item?.querySelectorAll('.qa-review-field') ?? [];
+    expect(rows.length).toBe(2);
+    expect(rows[0]?.querySelector('.qa-review-field-name')?.textContent).toBe('Label');
+    expect(rows[0]?.querySelector('.qa-review-old')).toBeNull();
+    expect(rows[0]?.querySelector('.qa-review-new')?.textContent).toBe('Plan week');
+    expect(rows[1]?.querySelector('.qa-review-old')?.textContent).toBe('Old text');
+    expect(rows[1]?.querySelector('.qa-review-new')?.textContent).toBe('Plan my week.');
     expect(item?.querySelector('.qa-review-evidence')?.textContent).toContain('2026-11-09: plan my week');
     expect(item?.querySelector('.qa-review-accept')).not.toBeNull();
     expect(item?.querySelector('.qa-review-reject')).not.toBeNull();

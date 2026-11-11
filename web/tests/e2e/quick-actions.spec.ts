@@ -153,7 +153,8 @@ test.describe('Quick actions - desktop', () => {
     await page.locator('.qa-editor-review').click();
     const item = page.locator('.qa-review-item');
     await expect(item.locator('.qa-review-summary')).toHaveText('Add a weekly plan action');
-    await expect(item.locator('.qa-review-after')).toContainText('Plan week');
+    await expect(item.locator('.qa-review-new').first()).toContainText('📅');
+    await expect(item.locator('.qa-review-field')).toContainText(['Icon', 'Label', 'Message']);
     await expect(item.locator('.qa-review-evidence')).toContainText('plan my week please');
     await item.locator('.qa-review-accept').click();
     await expect(item.locator('.qa-review-item-status')).toHaveText('Applied');

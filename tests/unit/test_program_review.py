@@ -97,6 +97,8 @@ def test_returns_validated_suggestions_with_before_after(
     assert change.pop("expect")  # the snapshot of the routine as it is now
     assert change == {"target": "instruction", "key": "routine", "patch": {"z2_watts": 125}}
     assert "120" in routine["before"] and "125" in routine["after"]
+    # The sheet shows only the changed field
+    assert routine["changes"] == [{"field": "z2 watts", "before": "120", "after": "125"}]
     assert routine["evidence"] == [f"{TODAY}: 'plan my week'"]
 
 
