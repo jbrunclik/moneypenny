@@ -404,6 +404,14 @@ It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
   or a changed memory quotes that memory, a removed duplicate also what it
   duplicates. A quote shorter than 12 characters must be the whole item. Declines live in KV namespace `instructions_tuning`
   (reserved), key `declined`; a declined suggestion needs a newer dated turn.
+- **Edits stay local and don't duplicate.** A removal closes only the gap it
+  left (the rest of the text stays as written); a rule already in the
+  instructions or a fact already remembered is not suggested or applied again;
+  a delete re-checks the memory's content inside the transaction; memories
+  changed here keep their search embeddings in step, like `manage_memory`.
+  A suggestion that can never apply (400) closes in the list instead of
+  offering Accept again. A protected memory may be quoted as what a duplicate
+  duplicates; it is never a target.
 - **Safety.** Proposed text passes `find_injection` (it reaches every system
   prompt); the review fences the turns with a random boundary as data.
 - **Cost.** The tool's declaration adds ~1.7 KB (~430 tokens) to every ordinary

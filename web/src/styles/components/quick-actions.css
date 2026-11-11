@@ -578,6 +578,10 @@
 .qa-review-item[data-state="rejected"] {
     opacity: 0.65;
 }
+/* No longer applies: the change dims, the notice says why */
+.qa-review-item[data-state="failed"] .qa-review-change {
+    opacity: 0.6;
+}
 .qa-review-item[data-state="rejected"] .qa-review-summary {
     color: var(--text-secondary);
 }

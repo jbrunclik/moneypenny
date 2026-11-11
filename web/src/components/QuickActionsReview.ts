@@ -6,6 +6,7 @@
  * the sheet). Settings' instructions Review renders the same cards with its
  * own texts (docs/superpowers/specs/2026-11-11-instructions-self-tuning-design.md).
  */
+import { ApiError } from '../api/http';
 import { SuggestionRefreshed } from '../api/setup-review';
 import { changeRows, evidenceList } from './setup-change';
 import { QUICK_ACTION_REVIEW_PHASES } from '../config';
@@ -49,9 +50,13 @@ function countText(n: number): string {
 function doneText(list: HTMLElement): string | null {
   const items = [...list.querySelectorAll<HTMLElement>('.qa-review-item')];
   if (!items.length || items.some((i) => i.dataset.state === 'open')) return null;
-  const applied = items.filter((i) => i.dataset.state === 'applied').length;
-  const rejected = items.length - applied;
-  const parts = [applied && `${applied} applied`, rejected && `${rejected} rejected`].filter(Boolean);
+  const count = (state: string): number => items.filter((i) => i.dataset.state === state).length;
+  const [applied, rejected, failed] = [count('applied'), count('rejected'), count('failed')];
+  const parts = [
+    applied && `${applied} applied`,
+    rejected && `${rejected} rejected`,
+    failed && `${failed} no longer applied`,
+  ].filter(Boolean);
   return `${parts.join(', ')}.`;
 }
 
@@ -159,10 +164,28 @@ async function answer<T>(
       item.replaceWith(fresh);
       return;
     }
+    if (closeIfFinal(item, error)) {
+      ctx.onAnswered();
+      return;
+    }
     buttons.forEach((b) => (b.disabled = false));
     if (pressed) pressed.textContent = label;
     setStatus(item, 'error', errorText(error));
   }
+}
+
+/**
+ * A suggestion that can never apply (400: gone, ambiguous, already there)
+ * closes like an answered card instead of offering Accept forever; true when
+ * it did.
+ */
+function closeIfFinal(item: HTMLElement, error: unknown): boolean {
+  if (!(error instanceof ApiError && error.status === 400)) return false;
+  item.dataset.state = 'failed';
+  item.querySelector('.qa-review-actions')?.remove();
+  item.querySelector('.qa-review-evidence')?.remove();
+  setStatus(item, 'error', errorText(error));
+  return true;
 }
 
 /** A suggestion's card with its Accept / Reject wired. */
@@ -207,10 +230,7 @@ export function renderSetupReview<T = QuickAction[]>(
   const list = createElement('ul', { class: 'qa-review-list' });
   // Back leads (it goes somewhere); a close sits at the end, out of the title's way
   const header = texts.leave === 'back' ? [leave, heading] : [heading, leave];
-  container.append(
-    createElement('div', { class: `qa-review-header qa-review-header--${texts.leave}` }, header),
-    list
-  );
+  container.append(createElement('div', { class: `qa-review-header qa-review-header--${texts.leave}` }, header), list);
   const ctx: ItemContext<T> = {
     handlers,
     onApplied,

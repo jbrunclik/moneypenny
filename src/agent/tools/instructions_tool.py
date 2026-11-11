@@ -105,6 +105,8 @@ def _checked(
     if "instructions" not in checked:
         return "a card changes the instructions; a fact about the user goes to manage_memory."
     state = it.load_state(user_id)
+    if duplicate := it.already_there(state, checked):
+        return duplicate
     if problem := it.evidence_problem(evidence, setup.chat_dates(conversation_id), state, checked):
         return problem
     return checked

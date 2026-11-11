@@ -38,7 +38,6 @@ NAMESPACE = "instructions_tuning"
 _DECLINED_KEY = "declined"
 MEMORY_CATEGORIES = ("preference", "fact", "context", "goal")
 _ITEM = re.compile(r"^\s*(Memory|Instructions):\s*(.+?)\s*$", re.DOTALL)
-_BLANK_RUNS = re.compile(r"\n{3,}")
 
 _INSTRUCTION_OPS = ("append", "replace", "remove")
 _MEMORY_OPS = ("add", "patch", "delete")
@@ -103,7 +102,7 @@ def _text(raw: Mapping[str, object], key: str) -> str | None:
 
 def _unsafe(text: str) -> str | None:
     reason = find_injection(text)
-    return f"the text reads as an instruction to the assistant ({reason})" if reason else None
+    return f"the text {reason}" if reason else None
 
 
 def _instruction_edit(raw: object) -> InstructionEdit | str:
@@ -243,7 +242,26 @@ def _edited_text(text: str, edit: InstructionEdit) -> str:
         raise InstructionsChangeError(
             "That passage appears more than once in your instructions - nothing was changed."
         )
-    return _BLANK_RUNS.sub("\n\n", text.replace(old, new, 1)).strip()
+    if new:
+        return text.replace(old, new, 1)
+    at = text.index(old)
+    return _joined(text[:at], text[at + len(old) :])
+
+
+def _joined(before: str, after: str) -> str:
+    """Close the gap a removed passage left, touching only its two sides (the
+    rest of the text stays exactly as the user wrote it)."""
+    left, right = before.rstrip(" \t"), after.lstrip(" \t")
+    if not left:
+        return right.lstrip("\n")
+    if not right:
+        return left.rstrip("\n")
+    left_breaks = len(left) - len(left.rstrip("\n"))
+    right_breaks = len(right) - len(right.lstrip("\n"))
+    if left_breaks or right_breaks:
+        # A removed line or paragraph: keep the larger break that was there
+        return left.rstrip("\n") + "\n" * max(left_breaks, right_breaks) + right.lstrip("\n")
+    return f"{left} {right}"
 
 
 def _memory_label(category: str | None) -> str:
@@ -419,7 +437,8 @@ def _memory_write(state: TuningState, edit: MemoryEdit) -> MemoryWrite:
         return MemoryWrite("add", content=edit.get("content"), category=edit.get("category"))
     target = _target_memory(state, edit)
     if edit["op"] == "delete":
-        return MemoryWrite("delete", memory_id=target.id)
+        # The content it was shown with is checked again inside the transaction
+        return MemoryWrite("delete", memory_id=target.id, expected=target.content)
     return MemoryWrite(
         "patch",
         memory_id=target.id,
@@ -427,6 +446,34 @@ def _memory_write(state: TuningState, edit: MemoryEdit) -> MemoryWrite:
         expected=target.content,
         category=edit.get("category"),
     )
+
+
+def _sync_embedding(user_id: str, write: MemoryWrite, new_id: str | None) -> None:
+    """Keep memory search's vectors in step, as manage_memory does (best effort:
+    the change already landed)."""
+    try:
+        if write.action == "delete":
+            db.delete_embedding("memory", str(write.memory_id))
+        else:
+            ref = new_id if write.action == "add" else write.memory_id
+            db.embed_and_store_async(user_id, "memory", str(ref), str(write.content))
+    except Exception:
+        logger.warning("Memory embedding update failed after commit", exc_info=True)
+
+
+def already_there(state: TuningState, change: InstructionChange) -> str | None:
+    """Why the change would add what is already there, or None (final review:
+    a second copy of a rule made later edits of it ambiguous)."""
+    edit = change.get("instructions")
+    new = edit.get("new") if edit is not None else None
+    if new and _norm(new) in _norm(state["instructions"]):
+        return "That's already in your instructions - nothing was changed."
+    memory = change.get("memory")
+    content = memory.get("content") if memory is not None and memory["op"] == "add" else None
+    known = [_norm(m.content) for m in state["memories"]]
+    if content and any(_norm(content) in k for k in known):
+        return "That's already remembered - nothing was changed."
+    return None
 
 
 def target_name(change: InstructionChange) -> str:
@@ -443,6 +490,8 @@ def apply_change(user_id: str, raw: Mapping[str, object]) -> str:
     if isinstance(change, str):
         raise InstructionsChangeError(change)
     state = load_state(user_id)
+    if duplicate := already_there(state, change):
+        raise InstructionsChangeError(duplicate)
     text = state["instructions"]
     if (edit := change.get("instructions")) is not None:
         text = _edited_text(text, edit)
@@ -453,9 +502,11 @@ def apply_change(user_id: str, raw: Mapping[str, object]) -> str:
         )
     writes = [_memory_write(state, change["memory"])] if "memory" in change else []
     try:
-        db.apply_instructions_change(user_id, state["instructions"], text or None, writes)
+        new_ids = db.apply_instructions_change(user_id, state["instructions"], text or None, writes)
     except (InstructionsWriteConflictError, MemoryWriteConflictError) as e:
         raise InstructionsConflictError(_CHANGED_MEANWHILE) from e
+    for write, new_id in zip(writes, new_ids, strict=True):
+        _sync_embedding(user_id, write, new_id)
     logger.info(
         "Instructions changed",
         extra={"user_id": user_id, "target": target_name(change), "length": len(text)},

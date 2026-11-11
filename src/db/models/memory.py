@@ -160,12 +160,15 @@ class MemoryMixin:
         expected_instructions: str,
         new_instructions: str | None,
         writes: list[MemoryWrite],
-    ) -> None:
+    ) -> list[str | None]:
         """Set the custom instructions and apply memory writes in one transaction.
 
         The instructions land only while the row still holds
         ``expected_instructions`` (the text the change was computed from); a
         memory write that misses rolls everything back, like apply_memory_batch.
+
+        Returns:
+            The new memory id for each add, None for the other writes
 
         Raises:
             InstructionsWriteConflictError: the instructions changed meanwhile
@@ -183,12 +186,12 @@ class MemoryMixin:
                 )
                 if cursor.rowcount == 0:
                     raise InstructionsWriteConflictError(user_id)
-                for write in writes:
-                    self._apply_memory_write(conn, user_id, None, write, now)
+                new_ids = [self._apply_memory_write(conn, user_id, None, w, now) for w in writes]
             except BaseException:
                 conn.rollback()
                 raise
             conn.commit()
+        return new_ids
 
     def _apply_memory_write(
         self,
@@ -222,8 +225,9 @@ class MemoryMixin:
             cursor = self._execute_with_timing(
                 conn,
                 """UPDATE user_memories SET deleted_at = ?
-                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL AND protected = 0""",
-                (now, write.memory_id, user_id),
+                   WHERE id = ? AND user_id = ? AND deleted_at IS NULL AND protected = 0
+                     AND (? IS NULL OR content = ?)""",
+                (now, write.memory_id, user_id, write.expected, write.expected),
             )
         if cursor.rowcount == 0:
             raise MemoryWriteConflictError(str(write.memory_id))

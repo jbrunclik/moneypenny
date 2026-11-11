@@ -228,7 +228,7 @@ def _suggestion(
     evidence = [e.strip() for e in item.evidence if e.strip()]
     if isinstance(change, str) or it.evidence_problem(evidence, known_days, state, change):
         return None
-    if it.blocked_by_decline(declined, change, evidence):
+    if it.blocked_by_decline(declined, change, evidence) or it.already_there(state, change):
         return None
     try:
         return _built(state, change, item.summary.strip()[:200], evidence)

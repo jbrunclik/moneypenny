@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeQuickActionsEditor, showQuickActionsEditor } from '@/components/QuickActionsEditor';
 import { SuggestionRefreshed } from '@/api/setup-review';
+import { ApiError } from '@/api/http';
 import type { QuickAction, SetupSuggestion } from '@/types/api';
 
 const next: QuickAction = { id: 'next', emoji: '⏭️', label: 'Next workout', body: 'Next?', fields: [] };
@@ -172,6 +173,19 @@ describe('Quick actions Review', () => {
     expect(q('.qa-review-item-status')?.textContent?.trim()).toContain('no longer exists');
     expect(q('.qa-review-item-status')?.getAttribute('data-tone')).toBe('error');
     expect(q('.qa-review-accept')?.textContent).toBe('Accept');
+  });
+
+  it('a suggestion that can no longer apply closes instead of offering Accept again', async () => {
+    open({ apply: () => Promise.reject(new ApiError('That no longer applies - nothing was changed.', 400)) });
+    q<HTMLButtonElement>('.qa-editor-review')?.click();
+    await flush();
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    await flush();
+
+    expect(q('.qa-review-item')?.getAttribute('data-state')).toBe('failed');
+    expect(q('.qa-review-accept')).toBeNull();
+    expect(q('.qa-review-item-status')?.textContent?.trim()).toBe('That no longer applies - nothing was changed.');
+    expect(q('.qa-review-done .empty-state__hint')?.textContent).toBe('1 no longer applied.');
   });
 
   it('steps through what it is doing and counts the seconds while it waits', async () => {
