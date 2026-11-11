@@ -223,3 +223,14 @@ def test_the_review_logs_its_cost(
     assert line.suggestions == 1  # type: ignore[attr-defined]
     assert line.cost_usd > 0  # type: ignore[attr-defined]
     assert line.namespace == "sports"  # type: ignore[attr-defined]
+
+
+def test_an_answer_that_cannot_be_read_is_an_error_not_nothing_to_change(
+    program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        review, "_invoke", lambda prompt: (None, {"input_tokens": 1, "output_tokens": 0})
+    )
+
+    with pytest.raises(review.ReviewUnreadableError):
+        review.review_setup(test_user.id, REF)

@@ -6,7 +6,7 @@ import type { Message, Proposal } from '../../src/types/api';
 const PAGE = { older_cursor: null, newer_cursor: null, has_older: false, has_newer: false, total_count: 2 };
 
 function card(state: Proposal['state']): Proposal {
-  return { id: `p-${state}`, kind: 'schedule_item', summary: 's', details: [], options: [], state, chosen: null, result: null, research: null };
+  return { id: `p-${state}`, kind: 'schedule_item', summary: 's', details: [], options: [], state, chosen: null, result: null, research: null, changes: null };
 }
 
 function reply(id: string, proposals: Proposal[] | null): Message {

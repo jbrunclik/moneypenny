@@ -13,7 +13,7 @@ const CHAR_LIMIT = CUSTOM_INSTRUCTIONS_MAX_CHARS;
 const REVIEW_TEXTS: ReviewTexts = {
   empty: 'Nothing to change - your instructions and memories match how you use them.',
   phases: INSTRUCTIONS_REVIEW_PHASES,
-  back: 'Done',
+  leave: 'close',
 };
 
 /** The saved custom instructions (store: settings slice). */
@@ -42,15 +42,20 @@ export function renderInstructionsSection(): HTMLElement {
       fieldLabel(EDIT_ICON, 'Custom Instructions', 'custom-instructions'),
       helper('Tell the AI how to respond (e.g., "respond in Czech", "be concise", "use bullet points")'),
       textarea,
-      createElement('span', { class: `settings-char-count ${charCountClass}` }, [`${charCount}/${CHAR_LIMIT}`]),
-      createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'custom-instructions' }, ['Saved']),
-      // Suggested changes from the user's recent chats, accepted one by one
-      createElement('div', { class: 'settings-instructions-review-row' }, [
-        createElement('button', { type: 'button', class: 'settings-instructions-review' }, [
-          iconNodes(SPARKLES_ICON),
-          'Review',
+      // One line under the field: Review (suggested changes from the user's
+      // recent chats, accepted one by one), then Saved and the count
+      createElement('div', { class: 'settings-instructions-footer' }, [
+        createElement('div', { class: 'settings-instructions-review-row' }, [
+          createElement('button', { type: 'button', class: 'settings-instructions-review' }, [
+            iconNodes(SPARKLES_ICON),
+            'Review',
+          ]),
+          helper('Suggests changes from your recent chats and memories.', true),
         ]),
-        helper('Suggests changes from your recent chats and memories - you accept or reject each.', true),
+        createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'custom-instructions' }, [
+          'Saved',
+        ]),
+        createElement('span', { class: `settings-char-count ${charCountClass}` }, [`${charCount}/${CHAR_LIMIT}`]),
       ]),
       createElement('div', { class: 'settings-instructions-review-panel' }),
     ]),

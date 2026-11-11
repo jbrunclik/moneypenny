@@ -21,6 +21,7 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
     chosen: null,
     result: null,
     research: null,
+    changes: null,
     ...overrides,
   };
 }
@@ -34,6 +35,44 @@ function reply(proposals: Proposal[]): HTMLElement {
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe('a setup change card', () => {
+  const setup = (): Proposal =>
+    proposal({
+      kind: 'custom_instructions',
+      summary: 'Add to your instructions',
+      details: [
+        { label: 'Change', value: 'Instructions: — → Never use bullet points.' },
+        { label: 'Applies to', value: 'Every chat - the coaches and agents included' },
+        { label: 'Why', value: 'You asked twice.' },
+        { label: 'Based on', value: "2026-11-11: 'stop using bullet points please'" },
+      ],
+      changes: [{ field: 'Instructions', before: '', after: 'Never use bullet points.' }],
+    });
+
+  it('shows the change as field rows and the evidence as dated quotes', () => {
+    const card = renderProposalCard(setup());
+
+    expect(card.querySelector('.qa-review-field-name')?.textContent).toBe('Instructions');
+    expect(card.querySelector('.qa-review-new')?.textContent).toBe('Never use bullet points.');
+    expect(card.querySelector('.qa-review-evidence time')?.getAttribute('datetime')).toBe('2026-11-11');
+    expect(card.querySelector('.qa-review-evidence q')?.textContent).toBe('stop using bullet points please');
+    // The text forms of those two are not repeated as rows; the rest stay
+    // Why reads under the title; where it applies is a quiet note, not a row
+    expect(card.querySelector('.proposal-card__why')?.textContent).toBe('You asked twice.');
+    expect(card.querySelector('.proposal-card__scope')?.textContent).toBe(
+      'Applies to: Every chat - the coaches and agents included'
+    );
+    expect(card.querySelectorAll('.proposal-card__row').length).toBe(0);
+  });
+
+  it('an older card without change rows keeps its text rows', () => {
+    const card = renderProposalCard({ ...setup(), changes: null });
+
+    const labels = [...card.querySelectorAll('.proposal-card__row dt')].map((dt) => dt.textContent);
+    expect(labels).toEqual(['Change', 'Applies to', 'Why', 'Based on']);
+  });
+});
 
 describe('proposal card', () => {
   let actions: ProposalActions;

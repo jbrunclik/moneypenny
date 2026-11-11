@@ -93,7 +93,19 @@ describe('instructions Review in Settings', () => {
     expect(api.update.mock.invocationCallOrder[0]).toBeLessThan(api.review.mock.invocationCallOrder[0] ?? 0);
   });
 
-  it('says when there is nothing to change, and Done closes the Review', async () => {
+  it('closes with an icon button in the header, not a Done that reads as finished', async () => {
+    mount();
+    q<HTMLButtonElement>('.settings-instructions-review')?.click();
+    await flush();
+    await flush();
+
+    const close = q<HTMLButtonElement>('.qa-review-header .qa-review-close');
+    expect(close?.getAttribute('aria-label')).toBe('Close suggestions');
+    expect(close?.textContent?.trim()).toBe('');
+    expect(q('.qa-review-header')?.textContent).not.toContain('Done');
+  });
+
+  it('says when there is nothing to change, and closing ends the Review', async () => {
     api.review.mockResolvedValue([]);
     mount();
     q<HTMLButtonElement>('.settings-instructions-review')?.click();

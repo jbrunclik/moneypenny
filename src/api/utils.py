@@ -152,7 +152,26 @@ def proposal_to_response(proposal: Proposal) -> dict[str, object]:
         "chosen": proposal.chosen,
         "result": proposal.result,
         "research": _research_plan(proposal) if proposal.kind == RESEARCH_KIND else None,
+        "changes": _change_rows(proposal),
     }
+
+
+def _change_rows(proposal: Proposal) -> list[dict[str, str]] | None:
+    """A setup change card's field rows (field, before, after), or None (other
+    cards, and cards filed before the rows were stored)."""
+    payload = proposal.options[0]["payload"] if proposal.options else {}
+    rows = payload.get("changes")
+    if not isinstance(rows, list):
+        return None
+    return [
+        {
+            "field": str(r.get("field", "")),
+            "before": str(r.get("before", "")),
+            "after": str(r.get("after", "")),
+        }
+        for r in rows
+        if isinstance(r, dict)
+    ]
 
 
 def _research_plan(proposal: Proposal) -> dict[str, object]:

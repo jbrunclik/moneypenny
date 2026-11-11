@@ -109,7 +109,7 @@ describe('deep research send', () => {
   it('startDeepResearch marks the card started in the store, and back when it cannot send', async () => {
     const card = {
       id: 'p1', kind: 'deep_research', summary: 'Q', details: [], options: [], state: 'pending' as const,
-      chosen: null, result: null, research: null,
+      chosen: null, result: null, research: null, changes: null,
     };
     useStore.getState().setMessages('c1', [
       { id: 'm1', role: 'assistant', content: 'x', created_at: '2026-10-03T08:00:00', proposals: [card] },

@@ -497,6 +497,46 @@
 .qa-review-header .qa-detail-section-title {
     margin-bottom: 0;
 }
+/* Opened in place (Settings): the title leads, a quiet close ends the line */
+.qa-review-header--close {
+    justify-content: space-between;
+}
+.qa-review-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.qa-review-close svg {
+    width: 16px;
+    height: 16px;
+}
+.qa-review-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+/* The list's own line: nothing to change, or everything answered */
+.qa-review-status[data-tone="empty"],
+.qa-review-status[data-tone="done"] {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    animation: qa-review-settle 220ms var(--ease-out);
+}
+.qa-review-status[data-tone="done"] {
+    border-color: transparent;
+    background: var(--success-a15);
+}
 .qa-review-status {
     margin: 0 0 var(--space-3);
     color: var(--text-secondary);
@@ -573,9 +613,15 @@
     color: var(--text-primary);
     text-decoration: none;
 }
+/* A removed value: struck through above, then this small tag */
 .qa-review-removed {
+    align-self: flex-start;
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
     color: var(--text-secondary);
-    font-style: italic;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
 }
 /* What it rests on: the day and the user's own words */
 .qa-review-evidence {
@@ -789,22 +835,50 @@
     }
 }
 
-/* The Review failed: why, that nothing changed, and Try again */
+/* The Review failed: one tinted notice - icon, what failed, why, Try again */
 .qa-review-error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--error-a10);
+    list-style: none;
+    animation: qa-review-settle 220ms var(--ease-out);
+}
+.qa-review-error-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-error-400);
+}
+[data-theme="light"] .qa-review-error-icon {
+    color: var(--color-error-600);
+}
+.qa-review-error-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.qa-review-error-body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-3);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--error);
-    border-radius: var(--radius-md);
-    list-style: none;
+    gap: var(--space-1);
+    min-width: 0;
 }
-.qa-review-error-detail {
+.qa-review-error-title {
     margin: 0;
     color: var(--text-primary);
     font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+.qa-review-error-detail {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+.qa-review-error .qa-review-retry {
+    margin-top: var(--space-2);
 }
 .qa-review-status {
     color: var(--text-secondary);
@@ -1082,7 +1156,9 @@
     .qa-editor,
     .qa-review-loading-icon,
     .qa-review-progress::after,
-    .qa-review-item-status {
+    .qa-review-item-status,
+    .qa-review-status,
+    .qa-review-error {
         animation: none;
     }
     /* A still bar still says "working" */

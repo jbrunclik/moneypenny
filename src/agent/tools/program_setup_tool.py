@@ -149,6 +149,8 @@ def _file(
         "program_id": ref.program_id,
         "change": dict(change),
         "fingerprint": setup.fingerprint(change),
+        # The card shows these as field rows (proposal_to_response)
+        "changes": list(rows),
     }
     option: ProposalOption = {"label": _APPROVE_LABEL, "description": "", "payload": payload}
     # One line per changed field, not the whole value twice

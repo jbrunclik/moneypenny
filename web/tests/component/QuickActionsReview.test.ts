@@ -116,6 +116,22 @@ describe('Quick actions Review', () => {
     expect(labels).toEqual(['Next workout', 'Plan week']);
   });
 
+  it('titles the list with its count and says when every suggestion is answered', async () => {
+    open({ load: () => Promise.resolve([suggestion(), suggestion({ id: 'fp-2', summary: 'Second' })]) });
+    q<HTMLButtonElement>('.qa-editor-review')?.click();
+    await flush();
+    expect(q('.qa-review-title')?.textContent).toBe('2 suggestions');
+    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true);
+
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    await flush();
+    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true); // one still open
+    document.querySelectorAll<HTMLButtonElement>('.qa-review-reject')[0]?.click();
+    await flush();
+    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(false);
+    expect(q('.qa-review-status')?.textContent).toBe('All done - 1 applied, 1 rejected.');
+  });
+
   it('Reject records it and marks it rejected', async () => {
     const { handlers } = open({});
     q<HTMLButtonElement>('.qa-editor-review')?.click();
@@ -216,7 +232,10 @@ describe('Quick actions Review', () => {
     open({ load });
     q<HTMLButtonElement>('.qa-editor-review')?.click();
     await flush();
-    expect(q('.qa-review-status')?.textContent).toBe('The review failed.');
+    // One notice: what failed, why, that nothing changed, and Try again
+    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true);
+    expect(q('.qa-review-error-title')?.textContent).toBe('The review failed.');
+    expect(q('.qa-review-error svg')).not.toBeNull();
     // Why, and that nothing changed
     expect(q('.qa-review-error-detail')?.textContent).toBe(
       'It took too long to answer. Nothing was changed.'

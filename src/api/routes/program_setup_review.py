@@ -10,8 +10,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.agent.program_review import refresh_suggestion, review_setup
-from src.api.errors import raise_conflict_error, raise_not_found_error, raise_validation_error
+from src.agent.program_review import ReviewUnreadableError, refresh_suggestion, review_setup
+from src.api.errors import (
+    raise_conflict_error,
+    raise_llm_error,
+    raise_not_found_error,
+    raise_validation_error,
+)
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.schemas.programs import SetupChangeRequest, SetupReviewResponse
 from src.api.validation import validate_request
@@ -62,7 +67,11 @@ def register_setup_review_routes(api: APIBlueprint, cfg: ProgramRoutesConfig) ->
     def review_program_setup(user: User, program_id: str) -> dict[str, object]:
         """Suggested changes to the program's quick actions and instructions."""
         ref = _program_ref(user, ns, program_id)
-        return {"suggestions": review_setup(user.id, ref)}
+        try:
+            return {"suggestions": review_setup(user.id, ref)}
+        except ReviewUnreadableError as e:
+            # Not "nothing to change": the answer was lost, a retry usually reads
+            raise_llm_error(str(e))
 
     @api.route(f"/{ns}/programs/<program_id>/setup-review/apply", methods=["POST"])
     @api.output(cfg.programs_response)

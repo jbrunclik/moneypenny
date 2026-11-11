@@ -405,7 +405,19 @@ It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
   "Instructions suggestion resolved" (source card / review, outcome, target
   instructions / memory / move), "Instructions change refused" (reason),
   "Instructions change proposed", "Instructions changed" (target, length),
-  "Instructions review" (returned, suggestions, turns, cost_usd, duration_ms).
+  "Instructions review" (returned, suggestions, turns, memories, output_tokens,
+  cost_usd, duration_ms); "Instructions review unreadable" when the model's
+  answer could not be parsed - shown as a retryable error (502), never as
+  "nothing to change" (both Reviews; Nov 11 2026 a parse failure was
+  indistinguishable from an empty answer).
+- **A dropped connection** (iOS drops a backgrounded PWA's requests - Nov 11
+  2026 the server answered while the phone had given up): both Reviews' clients
+  retry the read once (`retryDropped`, api/setup-review.ts) before the error.
+- **Cards in chat** (`program_setup`, `custom_instructions`) carry their field
+  rows in the option payload (`changes`); `proposal_to_response` exposes them
+  and the card renders them like the Review, with Why under the title,
+  "Based on" as dated quotes and "Applies to" as a closing note. Cards filed
+  before keep their text rows.
 - **Configuration**: `CUSTOM_INSTRUCTIONS_MAX_CHARS` (8000), `INSTRUCTIONS_REVIEW_MODEL`,
   `INSTRUCTIONS_REVIEW_MESSAGES` (60), `INSTRUCTIONS_REVIEW_MESSAGE_CHARS` (600),
   `INSTRUCTIONS_REVIEW_REPLY_CHARS` (300), `INSTRUCTIONS_REVIEW_MAX_SUGGESTIONS` (8);

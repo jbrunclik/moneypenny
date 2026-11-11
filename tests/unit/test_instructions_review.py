@@ -180,3 +180,15 @@ def test_refresh_gives_up_when_the_passage_is_gone(chats: Database, test_user: U
     change: it.InstructionChange = {"instructions": {"op": "remove", "old": "Not there."}}
 
     assert review.refresh_suggestion(test_user.id, change, "x", []) is None
+
+
+def test_an_answer_that_cannot_be_read_is_an_error_not_nothing_to_change(
+    chats: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nov 11 2026: a parse failure read as "Nothing to change" (returned 0)."""
+    monkeypatch.setattr(
+        review, "_invoke", lambda prompt: (None, {"input_tokens": 1000, "output_tokens": 0})
+    )
+
+    with pytest.raises(review.ReviewUnreadableError):
+        review.review_instructions(test_user.id)

@@ -158,7 +158,12 @@ def _file(user_id: str, change: it.InstructionChange, evidence: list[str], reaso
         return _refused(str(e), retriable=False)
     # Approving later applies only if its memory still holds what the card showed
     change = it.with_snapshot(state, change)
-    payload: dict[str, object] = {"change": dict(change), "fingerprint": it.fingerprint(change)}
+    payload: dict[str, object] = {
+        "change": dict(change),
+        "fingerprint": it.fingerprint(change),
+        # The card shows these as field rows (proposal_to_response)
+        "changes": list(rows),
+    }
     option: ProposalOption = {"label": _APPROVE_LABEL, "description": "", "payload": payload}
     changed = "\n".join(f"{r['field']}: {r['before'] or '—'} → {r['after'] or '—'}" for r in rows)
     details = {

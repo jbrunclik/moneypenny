@@ -8471,6 +8471,12 @@ export interface components {
              */
             research: components["schemas"]["JobsOverviewResponse.ResearchPlanResponse"] | null;
             /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["JobsOverviewResponse.SetupFieldChange"][] | null;
+            /**
              * Job Id
              * @description The job whose run asked
              */
@@ -8490,6 +8496,18 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "JobsOverviewResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * JobsOverviewResponse
@@ -9410,6 +9428,12 @@ export interface components {
              */
             research: components["schemas"]["PendingApprovalsResponse.ResearchPlanResponse"] | null;
             /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["PendingApprovalsResponse.SetupFieldChange"][] | null;
+            /**
              * Job Id
              * @description The job whose run asked
              */
@@ -9429,6 +9453,18 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "PendingApprovalsResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * PendingApprovalsResponse
@@ -11286,6 +11322,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["PlannerConversationResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["PlannerConversationResponse.SetupFieldChange"][] | null;
         };
         /**
          * ResearchPlanResponse
@@ -11326,6 +11368,18 @@ export interface components {
             base_czk: number;
             /** Per Item Czk */
             per_item_czk: number;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "PlannerConversationResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * SourceResponse
@@ -11615,6 +11669,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["MessageResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["MessageResponse.SetupFieldChange"][] | null;
         };
         /**
          * ResearchPlanResponse
@@ -11655,6 +11715,18 @@ export interface components {
             base_czk: number;
             /** Per Item Czk */
             per_item_czk: number;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "MessageResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * SourceResponse
@@ -12266,6 +12338,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["ConversationDetailPaginatedResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["ConversationDetailPaginatedResponse.SetupFieldChange"][] | null;
         };
         /**
          * ResearchPlanResponse
@@ -12306,6 +12384,18 @@ export interface components {
             base_czk: number;
             /** Per Item Czk */
             per_item_czk: number;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "ConversationDetailPaginatedResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * SourceResponse
@@ -13150,6 +13240,18 @@ export interface components {
             per_item_czk: number;
         };
         /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "ProposalResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
+        };
+        /**
          * ProposalResponse
          * @description A card awaiting (or past) the user's answer.
          */
@@ -13195,6 +13297,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["ProposalResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["ProposalResponse.SetupFieldChange"][] | null;
         };
         /**
          * ApproveProposalRequest
@@ -13670,6 +13778,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["MessagesListResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["MessagesListResponse.SetupFieldChange"][] | null;
         };
         /**
          * ResearchPlanResponse
@@ -13710,6 +13824,18 @@ export interface components {
             base_czk: number;
             /** Per Item Czk */
             per_item_czk: number;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "MessagesListResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * SourceResponse
@@ -14039,6 +14165,12 @@ export interface components {
              * @default null
              */
             research: components["schemas"]["ChatBatchResponse.ResearchPlanResponse"] | null;
+            /**
+             * Changes
+             * @description program_setup / custom_instructions: what changes, one row per field
+             * @default null
+             */
+            changes: components["schemas"]["ChatBatchResponse.SetupFieldChange"][] | null;
         };
         /**
          * ResearchPlanResponse
@@ -14079,6 +14211,18 @@ export interface components {
             base_czk: number;
             /** Per Item Czk */
             per_item_czk: number;
+        };
+        /**
+         * SetupFieldChange
+         * @description One changed field: its name for people, the old and new value ("" = none).
+         */
+        "ChatBatchResponse.SetupFieldChange": {
+            /** Field */
+            field: string;
+            /** Before */
+            before: string;
+            /** After */
+            after: string;
         };
         /**
          * SourceResponse

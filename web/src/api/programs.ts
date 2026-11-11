@@ -16,6 +16,7 @@ import {
 } from "../types/api";
 import { QUICK_ACTION_REVIEW_TIMEOUT_MS } from "../config";
 import { request, requestWithRetry } from "./http";
+import { retryDropped } from "./setup-review";
 
 // Sports endpoints
 export const sports = {
@@ -115,11 +116,13 @@ function setupReviewUrl(ns: ProgramNamespace, programId: string, action = ""): s
 function setupReviewClient(ns: ProgramNamespace) {
   return {
     async review(programId: string): Promise<SetupSuggestion[]> {
-      const data = await request<SetupReviewResponse>(setupReviewUrl(ns, programId), {
-        method: "POST",
-        // One model call that can take most of a minute
-        timeout: QUICK_ACTION_REVIEW_TIMEOUT_MS,
-      });
+      const data = await retryDropped(() =>
+        request<SetupReviewResponse>(setupReviewUrl(ns, programId), {
+          method: "POST",
+          // One model call that can take most of a minute
+          timeout: QUICK_ACTION_REVIEW_TIMEOUT_MS,
+        }),
+      );
       return data.suggestions;
     },
 

@@ -7962,6 +7962,22 @@
             "default": null,
             "description": "deep_research only: the plan its editor shows"
           },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/JobsOverviewResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
+          },
           "job_id": {
             "description": "The job whose run asked",
             "title": "Job Id",
@@ -7993,12 +8009,37 @@
           "chosen",
           "result",
           "research",
+          "changes",
           "job_id",
           "job_name",
           "conversation_id",
           "created_at"
         ],
         "title": "RunProposalResponse",
+        "type": "object"
+      },
+      "JobsOverviewResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "JobsOverviewResponse": {
@@ -9791,6 +9832,22 @@
             "default": null,
             "description": "deep_research only: the plan its editor shows"
           },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PendingApprovalsResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
+          },
           "job_id": {
             "description": "The job whose run asked",
             "title": "Job Id",
@@ -9822,12 +9879,37 @@
           "chosen",
           "result",
           "research",
+          "changes",
           "job_id",
           "job_name",
           "conversation_id",
           "created_at"
         ],
         "title": "RunProposalResponse",
+        "type": "object"
+      },
+      "PendingApprovalsResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "PendingApprovalsResponse": {
@@ -13383,6 +13465,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlannerConversationResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -13394,7 +13492,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -13477,6 +13576,30 @@
           "per_item_czk"
         ],
         "title": "ResearchRatesResponse",
+        "type": "object"
+      },
+      "PlannerConversationResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "PlannerConversationResponse.SourceResponse": {
@@ -13994,6 +14117,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessageResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -14005,7 +14144,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -14088,6 +14228,30 @@
           "per_item_czk"
         ],
         "title": "ResearchRatesResponse",
+        "type": "object"
+      },
+      "MessageResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "MessageResponse.SourceResponse": {
@@ -15373,6 +15537,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ConversationDetailPaginatedResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -15384,7 +15564,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -15467,6 +15648,30 @@
           "per_item_czk"
         ],
         "title": "ResearchRatesResponse",
+        "type": "object"
+      },
+      "ConversationDetailPaginatedResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "ConversationDetailPaginatedResponse.SourceResponse": {
@@ -17151,6 +17356,30 @@
         "title": "ResearchRatesResponse",
         "type": "object"
       },
+      "ProposalResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
+        "type": "object"
+      },
       "ProposalResponse": {
         "description": "A card awaiting (or past) the user's answer.",
         "properties": {
@@ -17233,6 +17462,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProposalResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -17244,7 +17489,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -18169,6 +18415,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessagesListResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -18180,7 +18442,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -18263,6 +18526,30 @@
           "per_item_czk"
         ],
         "title": "ResearchRatesResponse",
+        "type": "object"
+      },
+      "MessagesListResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "MessagesListResponse.SourceResponse": {
@@ -18865,6 +19152,22 @@
             ],
             "default": null,
             "description": "deep_research only: the plan its editor shows"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatBatchResponse.SetupFieldChange"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "program_setup / custom_instructions: what changes, one row per field",
+            "title": "Changes"
           }
         },
         "required": [
@@ -18876,7 +19179,8 @@
           "state",
           "chosen",
           "result",
-          "research"
+          "research",
+          "changes"
         ],
         "title": "ProposalResponse",
         "type": "object"
@@ -18959,6 +19263,30 @@
           "per_item_czk"
         ],
         "title": "ResearchRatesResponse",
+        "type": "object"
+      },
+      "ChatBatchResponse.SetupFieldChange": {
+        "description": "One changed field: its name for people, the old and new value (\"\" = none).",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "after": {
+            "title": "After",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "SetupFieldChange",
         "type": "object"
       },
       "ChatBatchResponse.SourceResponse": {

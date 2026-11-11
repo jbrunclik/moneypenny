@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field
 
 from src.api.schemas.base import RequestModel, ResponseModel
+from src.api.schemas.programs import SetupFieldChange
 
 
 class ProposalOptionResponse(ResponseModel):
@@ -58,6 +59,10 @@ class ProposalResponse(ResponseModel):
     result: str | None = Field(default=None, description="What applying did, or why it failed")
     research: ResearchPlanResponse | None = Field(
         default=None, description="deep_research only: the plan its editor shows"
+    )
+    changes: list[SetupFieldChange] | None = Field(
+        default=None,
+        description="program_setup / custom_instructions: what changes, one row per field",
     )
 
 

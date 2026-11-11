@@ -138,3 +138,19 @@ class TestCollisions:
         assert (
             resp.get_json()["error"]["message"] == "That no longer applies - nothing was changed."
         )
+
+
+@pytest.mark.usefixtures("chat")
+def test_an_unreadable_answer_says_try_again(
+    client: FlaskClient, auth_headers: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        instructions_review,
+        "_invoke",
+        lambda prompt: (None, {"input_tokens": 1, "output_tokens": 0}),
+    )
+
+    resp = client.post(BASE, headers=auth_headers)
+
+    assert resp.status_code == 502
+    assert resp.get_json()["error"]["message"] == "The review's answer couldn't be read."

@@ -7,6 +7,7 @@
  * own texts (docs/superpowers/specs/2026-11-11-instructions-self-tuning-design.md).
  */
 import { SuggestionRefreshed } from '../api/setup-review';
+import { changeRows, evidenceList } from './setup-change';
 import { QUICK_ACTION_REVIEW_PHASES } from '../config';
 import { MS_PER_SECOND } from '../constants';
 import type { QuickAction, SetupSuggestion } from '../types/api';
@@ -21,65 +22,55 @@ export interface SetupReviewHandlers<T = QuickAction[]> {
   reject: (suggestion: SetupSuggestion) => Promise<void>;
 }
 
-/** What a Review says: its empty line, its timed loading steps, its back button. */
+/**
+ * What a Review says: its empty line, its timed loading steps, and how it is
+ * left - "back" to the list it came from (the sheet), or "close" when it opened
+ * in place (Settings: a "Done" there read as "the review is done").
+ */
 export interface ReviewTexts {
   empty: string;
   phases: readonly { afterSeconds: number; text: string }[];
-  back: string;
+  leave: 'back' | 'close';
 }
 
 const QUICK_ACTION_TEXTS: ReviewTexts = {
   empty: 'Nothing to change - your quick actions and instructions match how you use them.',
   phases: QUICK_ACTION_REVIEW_PHASES,
-  back: 'Back',
+  leave: 'back',
 };
+
+function countText(n: number): string {
+  return n === 1 ? '1 suggestion' : `${n} suggestions`;
+}
+
+/** Once every card is answered: what came of them (null while one is open). */
+function doneText(list: HTMLElement): string | null {
+  const items = [...list.querySelectorAll<HTMLElement>('.qa-review-item')];
+  if (!items.length || items.some((i) => i.dataset.state === 'open')) return null;
+  const applied = items.filter((i) => i.dataset.state === 'applied').length;
+  const rejected = items.length - applied;
+  const parts = [applied && `${applied} applied`, rejected && `${rejected} rejected`].filter(Boolean);
+  return `All done - ${parts.join(', ')}.`;
+}
+
+function leaveButton(leave: ReviewTexts['leave'], back: () => void): HTMLButtonElement {
+  const button =
+    leave === 'back'
+      ? createElement('button', { type: 'button', class: 'qa-detail-back qa-review-back' }, ['Back'])
+      : createElement('button', {
+          type: 'button',
+          class: 'qa-review-back qa-review-close',
+          'aria-label': 'Close suggestions',
+          title: 'Close',
+        });
+  if (leave === 'close') setIcon(button, CLOSE_ICON);
+  button.addEventListener('click', back);
+  return button;
+}
 const FAILED_TEXT = 'The review failed.';
 
 function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong.';
-}
-
-/** One changed field: its name, the old value struck through (if any), the new one. */
-function fieldRow(change: SetupSuggestion['changes'][number]): HTMLElement {
-  const values: HTMLElement[] = [];
-  if (change.before) values.push(createElement('del', { class: 'qa-review-old' }, [change.before]));
-  values.push(
-    change.after
-      ? createElement('ins', { class: 'qa-review-new' }, [change.after])
-      : createElement('span', { class: 'qa-review-removed' }, ['Removed'])
-  );
-  return createElement('div', { class: 'qa-review-field' }, [
-    createElement('div', { class: 'qa-review-field-name' }, [change.field]),
-    ...values,
-  ]);
-}
-
-const EVIDENCE_LINE = /^(\d{4})-(\d{2})-(\d{2}):\s*(.*)$/s;
-const QUOTE_MARKS = /^["'“”‘’]+|["'“”‘’]+$/g;
-
-/** "2026-11-09: 'plan my week'" -> the day (readable, machine date kept) + the words as a quote */
-const ITEM_LINE = /^(Memory|Instructions):\s*(.*)$/s;
-
-/** "Memory: ..." / "Instructions: ..." -> what it quotes, labelled (clean-up evidence) */
-function itemRow(kind: string, quoted: string): HTMLElement {
-  return createElement('li', {}, [
-    createElement('span', { class: 'qa-review-evidence-kind' }, [kind]),
-    createElement('q', {}, [quoted.trim().replace(QUOTE_MARKS, '')]),
-  ]);
-}
-
-function evidenceRow(line: string): HTMLElement {
-  const item = ITEM_LINE.exec(line);
-  if (item) return itemRow(item[1] ?? '', item[2] ?? '');
-  const match = EVIDENCE_LINE.exec(line);
-  if (!match) return createElement('li', {}, [createElement('q', {}, [line.replace(QUOTE_MARKS, '')])]);
-  const [, y, m, d, said = ''] = match;
-  const day = new Date(Number(y), Number(m) - 1, Number(d));
-  const label = day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return createElement('li', {}, [
-    createElement('time', { datetime: `${y}-${m}-${d}` }, [label]),
-    createElement('q', {}, [said.trim().replace(QUOTE_MARKS, '')]),
-  ]);
 }
 
 function itemElement(s: SetupSuggestion): HTMLElement {
@@ -88,11 +79,8 @@ function itemElement(s: SetupSuggestion): HTMLElement {
       createElement('div', { class: 'qa-review-summary' }, [s.summary]),
       createElement('div', { class: 'qa-review-item-status', 'aria-live': 'polite' }),
     ]),
-    createElement('div', { class: 'qa-review-change' }, s.changes.map(fieldRow)),
-    createElement('div', { class: 'qa-review-evidence' }, [
-      createElement('div', { class: 'qa-review-evidence-title' }, ['Based on']),
-      createElement('ul', {}, s.evidence.map(evidenceRow)),
-    ]),
+    changeRows(s.changes),
+    evidenceList(s.evidence),
     createElement('div', { class: 'qa-review-actions' }, [
       createElement('button', { type: 'button', class: 'qa-review-reject' }, ['Reject']),
       createElement('button', { type: 'button', class: 'qa-review-accept' }, ['Accept']),
@@ -125,6 +113,8 @@ const REFRESHED_TEXT = 'This changed since the review - here is the updated chan
 interface ItemContext<T> {
   handlers: SetupReviewHandlers<T>;
   onApplied: (result: T) => void;
+  /** After each answer: the list may now be all done */
+  onAnswered: () => void;
 }
 
 const BUSY_LABELS = { applied: 'Applying…', rejected: 'Rejecting…' } as const;
@@ -137,7 +127,9 @@ async function answer<T>(
   ctx: ItemContext<T>
 ): Promise<void> {
   const buttons = item.querySelectorAll<HTMLButtonElement>('.qa-review-actions button');
-  const pressed = item.querySelector<HTMLButtonElement>(state === 'applied' ? '.qa-review-accept' : '.qa-review-reject');
+  const pressed = item.querySelector<HTMLButtonElement>(
+    state === 'applied' ? '.qa-review-accept' : '.qa-review-reject'
+  );
   const label = pressed?.textContent ?? '';
   buttons.forEach((b) => (b.disabled = true));
   if (pressed) pressed.textContent = BUSY_LABELS[state];
@@ -149,6 +141,7 @@ async function answer<T>(
     item.querySelector('.qa-review-evidence')?.remove();
     if (state === 'rejected') item.querySelector('.qa-review-change')?.remove();
     setStatus(item, state, DONE_LABELS[state]);
+    ctx.onAnswered();
   } catch (error) {
     if (error instanceof SuggestionRefreshed) {
       // A collision is not a dead end: the updated change, ready to accept again
@@ -175,13 +168,8 @@ function liveItem<T>(s: SetupSuggestion, ctx: ItemContext<T>): HTMLElement {
   return item;
 }
 
-function renderSuggestions<T>(
-  list: HTMLElement,
-  suggestions: SetupSuggestion[],
-  handlers: SetupReviewHandlers<T>,
-  onApplied: (result: T) => void
-): void {
-  suggestions.forEach((s) => list.appendChild(liveItem(s, { handlers, onApplied })));
+function renderSuggestions<T>(list: HTMLElement, suggestions: SetupSuggestion[], ctx: ItemContext<T>): void {
+  suggestions.forEach((s) => list.appendChild(liveItem(s, ctx)));
 }
 
 /**
@@ -197,18 +185,27 @@ export function renderSetupReview<T = QuickAction[]>(
   texts: ReviewTexts = QUICK_ACTION_TEXTS
 ): void {
   clearElement(container);
-  const backButton = createElement('button', { type: 'button', class: 'qa-detail-back qa-review-back' }, [texts.back]);
-  backButton.addEventListener('click', back);
+  const title = createElement('span', { class: 'qa-detail-section-title qa-review-title' }, ['Suggestions']);
+  const leave = leaveButton(texts.leave, back);
   const status = createElement('p', { class: 'qa-review-status', 'aria-live': 'polite' });
   const list = createElement('ul', { class: 'qa-review-list' });
+  // Back leads (it goes somewhere); a close sits at the end, out of the title's way
+  const header = texts.leave === 'back' ? [leave, title] : [title, leave];
   container.append(
-    createElement('div', { class: 'qa-review-header' }, [
-      backButton,
-      createElement('span', { class: 'qa-detail-section-title' }, ['Suggestions']),
-    ]),
+    createElement('div', { class: `qa-review-header qa-review-header--${texts.leave}` }, header),
     status,
     list
   );
+  const ctx: ItemContext<T> = {
+    handlers,
+    onApplied,
+    onAnswered: () => {
+      const done = doneText(list);
+      status.hidden = done === null;
+      status.dataset.tone = done === null ? '' : 'done';
+      status.textContent = done ?? '';
+    },
+  };
 
   const run = async (): Promise<void> => {
     clearElement(list);
@@ -218,24 +215,30 @@ export function renderSetupReview<T = QuickAction[]>(
       const suggestions = await handlers.load();
       stopLoading();
       status.hidden = suggestions.length > 0;
+      status.dataset.tone = suggestions.length ? '' : 'empty';
       status.textContent = suggestions.length ? '' : texts.empty;
-      renderSuggestions(list, suggestions, handlers, onApplied);
+      title.textContent = suggestions.length ? countText(suggestions.length) : 'Suggestions';
+      renderSuggestions(list, suggestions, ctx);
     } catch (error) {
       stopLoading();
-      status.hidden = false;
-      status.textContent = FAILED_TEXT;
-      const detail = `${errorText(error)} Nothing was changed.`;
-      const retry = createElement('button', { type: 'button', class: 'qa-detail-back qa-review-retry' }, ['Try again']);
-      retry.addEventListener('click', () => void run());
-      list.appendChild(
-        createElement('li', { class: 'qa-review-error' }, [
-          createElement('p', { class: 'qa-review-error-detail' }, [detail]),
-          retry,
-        ])
-      );
+      list.appendChild(failedNotice(error, () => void run()));
     }
   };
   void run();
+}
+
+/** The Review failed: one notice - what, why, that nothing changed - and Try again. */
+function failedNotice(error: unknown, retry: () => void): HTMLElement {
+  const again = createElement('button', { type: 'button', class: 'qa-detail-back qa-review-retry' }, ['Try again']);
+  again.addEventListener('click', retry);
+  return createElement('li', { class: 'qa-review-error', role: 'alert' }, [
+    createElement('span', { class: 'qa-review-error-icon', 'aria-hidden': 'true' }, [iconNodes(WARNING_ICON)]),
+    createElement('div', { class: 'qa-review-error-body' }, [
+      createElement('p', { class: 'qa-review-error-title' }, [FAILED_TEXT]),
+      createElement('p', { class: 'qa-review-error-detail' }, [`${errorText(error)} Nothing was changed.`]),
+      again,
+    ]),
+  ]);
 }
 
 /** The step the Review is on after `seconds` (the work's real order, timed). */
@@ -252,11 +255,7 @@ function phaseAt(phases: ReviewTexts['phases'], seconds: number): string {
  * bar (no placeholder cards: they looked like a count of coming results).
  * Returns the function that removes them (and stops the clock).
  */
-function showLoading(
-  container: HTMLElement,
-  list: HTMLElement,
-  phases: ReviewTexts['phases']
-): () => void {
+function showLoading(container: HTMLElement, list: HTMLElement, phases: ReviewTexts['phases']): () => void {
   const phase = createElement('span', { class: 'qa-review-phase' }, [phaseAt(phases, 0)]);
   const elapsed = createElement('span', { class: 'qa-review-elapsed' }, ['0 s']);
   const icon = createElement('span', { class: 'qa-review-loading-icon', 'aria-hidden': 'true' });

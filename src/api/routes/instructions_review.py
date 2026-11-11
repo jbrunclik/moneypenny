@@ -9,7 +9,8 @@ posts into a chat (docs/superpowers/specs/2026-11-11-instructions-self-tuning-de
 from __future__ import annotations
 
 from src.agent.instructions_review import refresh_suggestion, review_instructions
-from src.api.errors import raise_conflict_error, raise_validation_error
+from src.agent.program_review import ReviewUnreadableError
+from src.api.errors import raise_conflict_error, raise_llm_error, raise_validation_error
 from src.api.rate_limiting import rate_limit_conversations
 from src.api.routes.settings import api
 from src.api.schemas.programs import SetupChangeRequest, SetupReviewResponse
@@ -34,7 +35,11 @@ def _checked(data: SetupChangeRequest) -> it.InstructionChange:
 @require_auth
 def review_custom_instructions(user: User) -> dict[str, object]:
     """Suggested changes to the custom instructions and the memories on their border."""
-    return {"suggestions": review_instructions(user.id)}
+    try:
+        return {"suggestions": review_instructions(user.id)}
+    except ReviewUnreadableError as e:
+        # Not "nothing to change": the answer was lost, a retry usually reads
+        raise_llm_error(str(e))
 
 
 @api.route("/users/me/instructions-review/apply", methods=["POST"])

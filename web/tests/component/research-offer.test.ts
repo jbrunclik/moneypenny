@@ -34,6 +34,7 @@ function proposal(plan: Partial<ResearchPlan> = {}, state: Proposal['state'] = '
     state,
     chosen: state === 'approved' ? 0 : null,
     result: state === 'approved' ? 'Started' : null,
+    changes: null,
     research: {
       question: 'Přepis SPZ',
       context: 'rodina, Praha',

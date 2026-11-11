@@ -71,7 +71,8 @@ The review itself changes nothing in production and edits nothing but
   `target` (instructions / memory / move) - a low accepted share means the
   suggestions miss; "Instructions change refused" by `reason` (evidence refusals
   = proposing on hunches); "Instructions review" with `suggestions` 0 vs more and
-  `cost_usd`; from the DB (counts only) the `custom_instructions` length
+  `cost_usd` ("Instructions review unreadable" / "Setup review unreadable" should
+  be rare; often = the structured output needs attention); from the DB (counts only) the `custom_instructions` length
   distribution against the 8000 limit, and how `custom_instructions` cards end.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.

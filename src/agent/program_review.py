@@ -36,6 +36,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class ReviewUnreadableError(Exception):
+    """The model's answer could not be read as suggestions (not "nothing to change")."""
+
+    def __init__(self) -> None:
+        super().__init__("The review's answer couldn't be read.")
+
+
 class ReviewItem(BaseModel):
     """One suggestion as the model returns it (flat: Gemini handles open objects poorly)."""
 
@@ -140,8 +147,8 @@ def _prompt(user_id: str, ref: ProgramRef) -> str:
     )
 
 
-def _invoke(prompt: str) -> tuple[ReviewOutput, dict[str, int]]:
-    """The one model call: the parsed suggestions and the token usage."""
+def _invoke(prompt: str) -> tuple[ReviewOutput | None, dict[str, int]]:
+    """The one model call: the parsed suggestions (None: unreadable) and the token usage."""
     model = chat_model(Config.PROGRAM_REVIEW_MODEL, timeout=Config.PROGRAM_REVIEW_TIMEOUT_SECONDS)
     out = model.with_structured_output(ReviewOutput, include_raw=True).invoke(prompt)
     parsed = out.get("parsed") if isinstance(out, dict) else None
@@ -151,7 +158,7 @@ def _invoke(prompt: str) -> tuple[ReviewOutput, dict[str, int]]:
         "input_tokens": int(metadata.get("input_tokens", 0)),
         "output_tokens": int(metadata.get("output_tokens", 0)),
     }
-    return (parsed if isinstance(parsed, ReviewOutput) else ReviewOutput()), usage
+    return (parsed if isinstance(parsed, ReviewOutput) else None), usage
 
 
 def _change(item: ReviewItem) -> dict[str, object] | None:
@@ -242,6 +249,12 @@ def review_setup(user_id: str, ref: ProgramRef) -> list[Suggestion]:
     """Suggested changes to the program's setup, each valid on its own; [] = nothing to change."""
     started = time.monotonic()
     output, usage = _invoke(_prompt(user_id, ref))
+    if output is None:
+        logger.warning(
+            "Setup review unreadable",
+            extra={"user_id": user_id, "output_tokens": usage["output_tokens"]},
+        )
+        raise ReviewUnreadableError
     current = setup.load_setup(user_id, ref)
     chat = _program_chat(user_id, ref)
     # Evidence must cite days the user really wrote in the program chat
@@ -264,6 +277,7 @@ def review_setup(user_id: str, ref: ProgramRef) -> list[Suggestion]:
             "namespace": ref.namespace,
             "returned": len(output.suggestions),
             "suggestions": len(suggestions),
+            "output_tokens": usage["output_tokens"],
             "cost_usd": round(cost, 5),
             "duration_ms": round((time.monotonic() - started) * 1000),
         },

@@ -187,3 +187,15 @@ def test_a_stale_card_fails_with_its_reason(
     assert answered.state == "failed"
     assert "no longer" in (answered.result or "")
     assert _stored(test_database, test_user) == "Be brief."
+
+
+def test_the_card_shows_its_change_as_field_rows(
+    chat: Conversation, test_database: Database
+) -> None:
+    """The client renders the same field rows as the Review (not a text line)."""
+    from src.api.utils import proposal_to_response
+
+    _propose()
+    shown = proposal_to_response(_card(test_database, chat))
+
+    assert shown["changes"] == [{"field": "Instructions", "before": "", "after": RULE}]

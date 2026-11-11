@@ -24,6 +24,7 @@ import {
   type IconHtml,
 } from '../../utils/icons';
 import { createLogger } from '../../utils/logger';
+import { changeRows, evidenceList } from '../setup-change';
 import { refreshReportLinks, renderResearchCard, stopResearchCountdowns } from './research-offer';
 
 const log = createLogger('proposals');
@@ -52,6 +53,8 @@ function kindIcon(kind: string): IconHtml {
   if (kind === 'deep_research') return SPARKLES_ICON;
   if (kind === 'chat_change') return DELETE_ICON;
   if (kind === 'question') return CHECKLIST_ICON;
+  // The assistant tuning itself: the same mark as the Review buttons
+  if (SETUP_KINDS.has(kind)) return SPARKLES_ICON;
   return CHECK_ICON;
 }
 
@@ -69,8 +72,38 @@ let actions: ProposalActions | null = null;
 const proposalsByCard = new WeakMap<HTMLElement, Proposal>();
 const wired = new WeakSet<HTMLElement>();
 
+// A setup change card lays these out itself: why under the title, the change
+// as field rows, "Based on" as dated quotes, where it applies as a quiet note
+const CHANGE_LABEL = 'Change';
+const EVIDENCE_LABEL = 'Based on';
+const WHY_LABEL = 'Why';
+const SCOPE_LABEL = 'Applies to';
+const SETUP_LABELS = [CHANGE_LABEL, EVIDENCE_LABEL, WHY_LABEL, SCOPE_LABEL];
+const SETUP_KINDS = new Set(['program_setup', 'custom_instructions']);
+
+function detailValue(proposal: Proposal, label: string): string {
+  return proposal.details.find((row) => row.label === label)?.value ?? '';
+}
+
+/** A setup change card's body (null: not one, or filed before it had change rows). */
+function setupChange(proposal: Proposal): HTMLElement[] | null {
+  if (!proposal.changes?.length) return null;
+  const why = detailValue(proposal, WHY_LABEL);
+  const scope = detailValue(proposal, SCOPE_LABEL);
+  const lines = detailValue(proposal, EVIDENCE_LABEL)
+    .split('\n')
+    .filter((line) => line.trim());
+  return [
+    ...(why ? [createElement('p', { class: 'proposal-card__why' }, [why])] : []),
+    createElement('div', { class: 'proposal-card__change' }, [changeRows(proposal.changes)]),
+    ...(lines.length ? [evidenceList(lines)] : []),
+    ...(scope ? [createElement('p', { class: 'proposal-card__scope' }, [`${SCOPE_LABEL}: ${scope}`])] : []),
+  ];
+}
+
 function details(proposal: Proposal): HTMLElement | null {
-  const rows = proposal.details ?? [];
+  const shownAsRows = proposal.changes?.length ? SETUP_LABELS : [];
+  const rows = (proposal.details ?? []).filter((row) => !shownAsRows.includes(row.label));
   if (!rows.length) return null;
   return createElement(
     'dl',
@@ -158,6 +191,7 @@ export function renderProposalCard(proposal: Proposal, options: { live?: boolean
       createIconElement('proposal-card__icon', kindIcon(proposal.kind)),
       createElement('span', { class: 'proposal-card__summary' }, [proposal.summary]),
     ]),
+    ...(setupChange(proposal) ?? []),
     ...[details(proposal)].filter((n): n is HTMLElement => n !== null),
     buttons(proposal)
   );

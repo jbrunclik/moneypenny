@@ -20,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from src.agent.gemini_clients import chat_model
-from src.agent.program_review import Suggestion
+from src.agent.program_review import ReviewUnreadableError, Suggestion
 from src.config import Config
 from src.db.models.dataclasses import Memory
 from src.services import instructions_tuning as it
@@ -154,8 +154,8 @@ def _prompt(state: it.TuningState, declined: list[DeclinedEntry], turns: list[it
     )
 
 
-def _invoke(prompt: str) -> tuple[ReviewOutput, dict[str, int]]:
-    """The one model call: the parsed suggestions and the token usage."""
+def _invoke(prompt: str) -> tuple[ReviewOutput | None, dict[str, int]]:
+    """The one model call: the parsed suggestions (None: unreadable) and the token usage."""
     model = chat_model(
         Config.INSTRUCTIONS_REVIEW_MODEL, timeout=Config.PROGRAM_REVIEW_TIMEOUT_SECONDS
     )
@@ -167,7 +167,7 @@ def _invoke(prompt: str) -> tuple[ReviewOutput, dict[str, int]]:
         "input_tokens": int(metadata.get("input_tokens", 0)),
         "output_tokens": int(metadata.get("output_tokens", 0)),
     }
-    return (parsed if isinstance(parsed, ReviewOutput) else ReviewOutput()), usage
+    return (parsed if isinstance(parsed, ReviewOutput) else None), usage
 
 
 def _draft(item: ReviewItem) -> dict[str, object]:
@@ -261,6 +261,12 @@ def review_instructions(user_id: str) -> list[Suggestion]:
     declined = it.declined(user_id)
     turns = it.ordinary_turns(user_id, Config.INSTRUCTIONS_REVIEW_MESSAGES)
     output, usage = _invoke(_prompt(state, declined, turns))
+    if output is None:
+        logger.warning(
+            "Instructions review unreadable",
+            extra={"user_id": user_id, "output_tokens": usage["output_tokens"]},
+        )
+        raise ReviewUnreadableError
     known_days = {t["day"] for t in turns}
     suggestions: list[Suggestion] = []
     seen: set[str] = set()
@@ -280,6 +286,8 @@ def review_instructions(user_id: str) -> list[Suggestion]:
             "returned": len(output.suggestions),
             "suggestions": len(suggestions),
             "turns": len(turns),
+            "memories": len(state["memories"]),
+            "output_tokens": usage["output_tokens"],
             "cost_usd": round(cost, 5),
             "duration_ms": round((time.monotonic() - started) * 1000),
         },
