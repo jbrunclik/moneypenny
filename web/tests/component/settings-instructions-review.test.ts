@@ -93,6 +93,35 @@ describe('instructions Review in Settings', () => {
     expect(api.update.mock.invocationCallOrder[0]).toBeLessThan(api.review.mock.invocationCallOrder[0] ?? 0);
   });
 
+  it('Accept waits for a save the blur started (typing after the Review opened)', async () => {
+    // Final review I3: an apply that beat the PATCH was overwritten by it
+    let saved: () => void = () => undefined;
+    api.update.mockImplementation(() => new Promise<void>((r) => (saved = r)));
+    mount();
+    q<HTMLButtonElement>('.settings-instructions-review')?.click();
+    await flush();
+    saved();
+    await flush();
+    await flush();
+    const textarea = q<HTMLTextAreaElement>('#custom-instructions');
+    if (textarea) {
+      textarea.value = 'Answer in Czech. Typed later.';
+      textarea.dispatchEvent(new Event('blur'));
+    }
+    q<HTMLButtonElement>('.qa-review-accept')?.click();
+    await flush();
+    expect(api.apply).not.toHaveBeenCalled(); // the save is still running
+    saved();
+    await flush();
+    await flush();
+    expect(api.apply).toHaveBeenCalledTimes(1);
+  });
+
+  it('the Review button is the small secondary button used across the app', () => {
+    mount();
+    expect(q('.settings-instructions-review')?.className).toContain('btn btn-secondary btn-sm');
+  });
+
   it('closes with an icon button in the header, not a Done that reads as finished', async () => {
     mount();
     q<HTMLButtonElement>('.settings-instructions-review')?.click();
@@ -112,9 +141,7 @@ describe('instructions Review in Settings', () => {
     await flush();
     await flush();
 
-    expect(q('.qa-review-status')?.textContent).toBe(
-      'Nothing to change - your instructions and memories match how you use them.'
-    );
+    expect(q('.qa-review-empty .empty-state__title')?.textContent).toBe('Nothing to change');
     q<HTMLButtonElement>('.qa-review-back')?.click();
     expect(q('.qa-review-list')).toBeNull();
     expect(q<HTMLButtonElement>('.settings-instructions-review')?.hidden).toBe(false);

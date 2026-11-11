@@ -57,16 +57,22 @@ def is_ordinary(conv: Conversation | None) -> bool:
     )
 
 
-def _offered_again_too_soon(user_id: str, mark: str) -> str | None:
+def _ignored(p: Proposal, conversation_id: str) -> bool:
+    """An offer the user left unanswered: expired, or still pending in another
+    chat (a card expires only when its own chat goes on - final review I1)."""
+    return p.state == "expired" or (p.state == "pending" and p.conversation_id != conversation_id)
+
+
+def _offered_again_too_soon(user_id: str, conversation_id: str, mark: str) -> str | None:
     """Why an ignored card may not come back yet (once, after a few days), or None."""
     past = [
         p
         for p in db.user_kind_proposals(user_id, KIND)
         if p.options and p.options[0]["payload"].get("fingerprint") == mark
     ]
-    if any(p.state == "pending" for p in past):
-        return "This exact change is already on a card."
-    expired = [p for p in past if p.state == "expired"]
+    if any(p.state == "pending" and p.conversation_id == conversation_id for p in past):
+        return "This exact change is already on a card in this chat."
+    expired = [p for p in past if _ignored(p, conversation_id)]
     if len(expired) >= 2:
         return "This change was offered twice already and left unanswered - don't offer it again."
     if expired:
@@ -107,12 +113,13 @@ def _checked(
 @tool
 def propose_instruction_change(change: str, evidence: list[str], reason: str) -> str:
     """Propose a change to the user's custom instructions (the rules in every
-    chat's system prompt) when the user corrects how you respond in a way meant
-    to last: format, length, tone, language, what to always or never do ("stop
-    using bullet points", "from now on answer in Czech"). The user sees a card
-    with the passage before/after and your evidence; only their yes applies it.
-    Not for a one-off request ("shorter this time") and not for facts about the
-    user - those stay with manage_memory.
+    chat's system prompt) when the user corrects the form of your replies in a
+    way meant to last: format, length, tone, language ("stop using bullet
+    points", "from now on answer in Czech"). The user sees a card with the
+    passage before/after and your evidence; only their yes applies it. Not for
+    a one-off request ("shorter this time") and not for facts about the user -
+    those stay with manage_memory, also when phrased as a rule ("I'm
+    vegetarian, never suggest meat": save the fact).
 
     Args:
         change: JSON object, one of:
@@ -145,9 +152,24 @@ def propose_instruction_change(change: str, evidence: list[str], reason: str) ->
             "after that decline.",
             retriable=False,
         )
-    if refusal := _offered_again_too_soon(user_id, it.fingerprint(checked)):
+    mark = it.fingerprint(checked)
+    if refusal := _offered_again_too_soon(user_id, conversation_id, mark):
         return _refused(refusal, retriable=False)
+    _retire_elsewhere(user_id, conversation_id, mark)
     return _file(user_id, checked, items, reason.strip())
+
+
+def _retire_elsewhere(user_id: str, conversation_id: str, mark: str) -> None:
+    """Offered again here: the same card left pending in another chat expires
+    (two live cards for one change would apply it twice)."""
+    for p in db.user_kind_proposals(user_id, KIND):
+        if (
+            p.state == "pending"
+            and p.conversation_id != conversation_id
+            and p.options
+            and p.options[0]["payload"].get("fingerprint") == mark
+        ):
+            db.finish_proposal(p.id, "expired", "Offered again in another chat.")
 
 
 def _file(user_id: str, change: it.InstructionChange, evidence: list[str], reason: str) -> str:

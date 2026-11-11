@@ -1,0 +1,14 @@
+id: instructions_fact_in_a_rule
+description: >
+  A fact phrased as a rule ("I'm vegetarian, never suggest meat") is saved as a
+  memory - the routing of style rules to the instructions must not drop it
+  (instructions self-tuning final review, Nov 2026)
+save_user_turns: true
+user: "Jsem vegetarián, takže mi nikdy nenavrhuj jídla s masem."
+expect:
+  rubric: >
+    Confirms in Czech that it will keep this in mind (vegetarian, no meat
+    suggestions). It saves that the user is vegetarian; it may additionally
+    suggest an instructions change, but the fact must be remembered.
+  required_tools: [manage_memory]
+  max_tool_rounds: 3

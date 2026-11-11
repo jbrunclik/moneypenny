@@ -20,8 +20,10 @@ Never save:
 - attempts that were left unresolved
 - claims that a tool, feature or service does not work
 - anything the user asked not to remember
-- rules about how the assistant should respond (format, length, tone, \
-language): those belong in the user's custom instructions, not memory
+- rules about the form of the assistant's replies (format, length, tone, \
+language): those belong in the user's custom instructions - but a fact inside \
+a rule is still a fact ("I'm vegetarian, never suggest meat": save that they \
+are vegetarian)
 - guesses or inferences - only what the user actually said
 - anything stated only in Assistant lines (they may quote web pages or files): \
 facts must come from what the User said

@@ -247,3 +247,50 @@ class TestOrdinaryTurns:
         assert [(t["user"], t["reply"]) for t in turns] == [("no bullets please", "- one\n- two")]
         assert turns[0]["day"] == local_today()
         assert isinstance(turns[0]["day"], date)
+
+
+class TestEvidenceGrounding:
+    """Final review I2: clean-up must rest on the items it names, not cite itself."""
+
+    def test_a_standalone_rule_removal_needs_a_dated_turn(
+        self, db: Database, test_user: User
+    ) -> None:
+        _instructions(db, test_user, "Answer in Czech.\n\nBe brief.")
+        state = it.load_state(test_user.id)
+        remove: it.InstructionChange = {"instructions": {"op": "remove", "old": "Answer in Czech."}}
+
+        assert it.evidence_problem(["Instructions: Answer in Czech."], set(), state, remove)
+
+    def test_a_move_must_cite_the_memory_it_moves(self, db: Database, test_user: User) -> None:
+        moved = db.add_memory(test_user.id, "Prefers answers without bullet points", "preference")
+        db.add_memory(test_user.id, "Has a short commute to work", "context")
+        state = it.load_state(test_user.id)
+        move: it.InstructionChange = {**_append(), "memory": {"op": "delete", "id": moved.id}}
+
+        assert it.evidence_problem(["Memory: Has a short commute to work"], set(), state, move)
+        assert (
+            it.evidence_problem(
+                ["Memory: Prefers answers without bullet points"], set(), state, move
+            )
+            is None
+        )
+
+    def test_a_duplicate_removal_names_what_it_duplicates(
+        self, db: Database, test_user: User
+    ) -> None:
+        _instructions(db, test_user, "Keep answers short and to the point.")
+        dup = db.add_memory(test_user.id, "Prefers short answers without background", "preference")
+        state = it.load_state(test_user.id)
+        delete: it.InstructionChange = {"memory": {"op": "delete", "id": dup.id}}
+
+        only_itself = ["Memory: Prefers short answers without background"]
+        assert it.evidence_problem(only_itself, set(), state, delete)
+        both = [*only_itself, "Instructions: Keep answers short and to the point."]
+        assert it.evidence_problem(both, set(), state, delete) is None
+
+    def test_a_quote_must_be_more_than_a_fragment(self, db: Database, test_user: User) -> None:
+        moved = db.add_memory(test_user.id, "Prefers answers without bullet points", "preference")
+        state = it.load_state(test_user.id)
+        move: it.InstructionChange = {**_append(), "memory": {"op": "delete", "id": moved.id}}
+
+        assert it.evidence_problem(["Memory: bullet"], set(), state, move)

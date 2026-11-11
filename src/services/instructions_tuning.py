@@ -285,24 +285,50 @@ def _norm(text: str) -> str:
     return " ".join(text.casefold().split())
 
 
-def _item_holds(kind: str, quoted: str, state: TuningState) -> bool:
-    """A "Memory: ..." / "Instructions: ..." item quotes something that is there now."""
+# A quote shorter than this must be the whole item (final review: "Memory: e"
+# matched any memory with an e in it)
+_MIN_QUOTE_CHARS = 12
+
+
+def _quotes(needle: str, text: str) -> bool:
+    return needle in text and (len(needle) >= _MIN_QUOTE_CHARS or needle == text)
+
+
+def _cited(kind: str, quoted: str, state: TuningState) -> set[str] | None:
+    """What a "Memory: ..." / "Instructions: ..." item quotes now: the memory ids
+    it matches, {"instructions"} for the text, or None when it matches nothing."""
     needle = _norm(quoted.strip("\"'“”‘’ "))
     if not needle:
-        return False
+        return None
     if kind == "Instructions":
-        return needle in _norm(state["instructions"])
-    return any(needle in _norm(m.content) for m in state["memories"])
+        return {"instructions"} if _quotes(needle, _norm(state["instructions"])) else None
+    ids = {m.id for m in state["memories"] if _quotes(needle, _norm(m.content))}
+    return ids or None
 
 
 def needs_turn(change: InstructionChange) -> bool:
-    """New wording (a rule, a corrected memory) needs a dated turn; a move or a
-    removal rests on the items themselves."""
+    """New wording or a removed rule needs a dated turn where the user asked for
+    it; a move and a duplicate removal rest on the items themselves."""
     if "instructions" in change and "memory" in change:
         return False
-    if (edit := change.get("instructions")) is not None:
-        return edit["op"] != "remove"
+    if "instructions" in change:
+        return True
     return change.get("memory", {}).get("op") == "patch"
+
+
+def _grounding_problem(change: InstructionChange, cited: set[str], dated: int) -> str | None:
+    """Clean-up must name what it acts on: a move or a removed memory cites that
+    memory, and a removed memory also what it duplicates (final review I2)."""
+    memory: Mapping[str, object] = change.get("memory") or {}
+    target = memory.get("id")
+    if memory.get("op") not in ("delete", "patch") or target is None:
+        return None
+    if target not in cited:
+        return "Quote the memory this changes as 'Memory: <its text>'."
+    alone = "instructions" not in change and memory.get("op") == "delete"
+    if alone and not (cited - {target}) and not dated:
+        return "Quote what this memory duplicates or contradicts ('Instructions: ...' or 'Memory: ...')."
+    return None
 
 
 def evidence_problem(
@@ -310,11 +336,12 @@ def evidence_problem(
 ) -> str | None:
     """Why the evidence does not hold, or None: 1-5 items, each a dated turn on a
     day the user wrote ("YYYY-MM-DD: ...") or a quote of a current item
-    ("Memory: ..." / "Instructions: ..."); new wording needs a dated turn."""
+    ("Memory: ..." / "Instructions: ..."); new wording needs a dated turn, and
+    clean-up names what it acts on."""
     items = [e.strip() for e in evidence if e.strip()]
     if not 1 <= len(items) <= EVIDENCE_MAX:
         return f"Give 1-{EVIDENCE_MAX} evidence items."
-    dated = 0
+    dated, cited = 0, set[str]()
     for item in items:
         days = setup.evidence_dates([item])
         if days:
@@ -323,14 +350,16 @@ def evidence_problem(
             dated += 1
             continue
         match = _ITEM.match(item)
-        if match is None or not _item_holds(match.group(1), match.group(2), state):
+        found = _cited(match.group(1), match.group(2), state) if match else None
+        if found is None:
             return (
                 "Each evidence item is 'YYYY-MM-DD: what the user said' or quotes a current "
                 "item as 'Memory: <its text>' / 'Instructions: <the passage>'."
             )
+        cited |= found
     if needs_turn(change) and dated == 0:
         return "New wording needs at least one dated turn where the user asked for it."
-    return None
+    return _grounding_problem(change, cited, dated)
 
 
 # --- fingerprints and declines -----------------------------------------------------

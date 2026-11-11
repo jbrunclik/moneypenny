@@ -199,3 +199,26 @@ def test_the_card_shows_its_change_as_field_rows(
     shown = proposal_to_response(_card(test_database, chat))
 
     assert shown["changes"] == [{"field": "Instructions", "before": "", "after": RULE}]
+
+
+def test_a_card_left_in_another_chat_does_not_block_it_forever(
+    chat: Conversation,
+    test_database: Database,
+    test_user: User,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Final review I1: a card nobody answered in chat A (it only expires when
+    chat A goes on) must not block the change in chat B for good."""
+    _propose()
+    first = _card(test_database, chat)  # still pending: the user left chat A
+
+    other = test_database.create_conversation(test_user.id, "Other")
+    test_database.add_message(other.id, MessageRole.USER, "no bullet points")
+    set_conversation_context(other.id, test_user.id)
+    set_current_request_id("turn-2")
+    assert "again" in _propose()  # the usual gap applies
+
+    monkeypatch.setattr(tool_module, "utc_now", lambda: utc_now() + timedelta(days=4))
+    assert _propose().startswith("PROPOSAL")
+    # The old card no longer waits in chat A
+    assert test_database.get_proposal(first.id, test_user.id).state != "pending"  # type: ignore[union-attr]

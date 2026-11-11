@@ -40,9 +40,11 @@ all-or-nothing: if any operation is rejected, nothing is written. Read the resul
 
 ### 1. Write Facts, Not Commands
 Memories describe the user; they are not instructions to you. A lasting rule about
-how you respond (format, length, tone, language, what to always or never do) is not
-a memory: in an ordinary chat offer it for the user's custom instructions with
-`propose_instruction_change`; elsewhere just follow it in this chat.
+the form of your replies (format, length, tone, language) is not a memory: in an
+ordinary chat offer it for the user's custom instructions with
+`propose_instruction_change`; in a coach chat propose it with `propose_setup_change`;
+in an anonymous chat follow it in this chat only. A fact inside a rule is still a
+memory: "I'm vegetarian, never suggest meat" saves "Is vegetarian".
 - BAD: a memory "Always answer briefly" or "Prefers short answers without background"
 - GOOD: a fact such as "Works night shifts, usually reads replies on the phone"
 

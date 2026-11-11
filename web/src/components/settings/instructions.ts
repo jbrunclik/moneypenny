@@ -11,7 +11,7 @@ import { fieldLabel, helper, log, showSavedIndicator } from './shared';
 const CHAR_LIMIT = CUSTOM_INSTRUCTIONS_MAX_CHARS;
 
 const REVIEW_TEXTS: ReviewTexts = {
-  empty: 'Nothing to change - your instructions and memories match how you use them.',
+  empty: 'Your instructions and memories match how you use them.',
   phases: INSTRUCTIONS_REVIEW_PHASES,
   leave: 'close',
 };
@@ -46,7 +46,7 @@ export function renderInstructionsSection(): HTMLElement {
       // recent chats, accepted one by one), then Saved and the count
       createElement('div', { class: 'settings-instructions-footer' }, [
         createElement('div', { class: 'settings-instructions-review-row' }, [
-          createElement('button', { type: 'button', class: 'settings-instructions-review' }, [
+          createElement('button', { type: 'button', class: 'btn btn-secondary btn-sm settings-instructions-review' }, [
             iconNodes(SPARKLES_ICON),
             'Review',
           ]),
@@ -145,7 +145,11 @@ async function startReview(textarea: HTMLTextAreaElement): Promise<void> {
   };
   const handlers = {
     load: () => instructionsReview.review(),
-    apply: (suggestion: SetupSuggestion) => instructionsReview.apply(suggestion),
+    // A save the blur started must land first, or it would overwrite the change
+    apply: async (suggestion: SetupSuggestion) => {
+      await saveCustomInstructions();
+      return instructionsReview.apply(suggestion);
+    },
     reject: (suggestion: SetupSuggestion) => instructionsReview.reject(suggestion),
   };
   renderSetupReview<string>(panel, handlers, applied, close, REVIEW_TEXTS);
