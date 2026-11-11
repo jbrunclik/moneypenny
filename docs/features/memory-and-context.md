@@ -367,16 +367,21 @@ Since Nov 11 2026 the assistant keeps the instructions up to date itself, and
 the user only says yes or no ([spec](../superpowers/specs/2026-11-11-instructions-self-tuning-design.md)).
 It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
 
-- **The line between instructions and memory.** A lasting rule about how the
-  assistant responds (format, length, tone, language) belongs in the
-  instructions; a fact about the user belongs in memory. The memory prompt and
-  the background memory review no longer save such rules as memories.
+- **The line between instructions and memory.** A lasting rule about the form
+  of the replies (format, length, tone, language) belongs in the instructions;
+  a fact about the user belongs in memory - also when phrased as a rule ("I'm
+  vegetarian, never suggest meat" saves the fact). The memory prompt and the
+  background memory review no longer save form rules as memories; in a coach
+  chat they go to `propose_setup_change`, in an anonymous chat they hold for
+  that chat only.
 - **In the moment.** In an ordinary non-anonymous chat, `propose_instruction_change`
   files a `custom_instructions` card: the passage before/after, "Applies to:
   every chat" (instructions reach the coaches and agents too), and the dated
   turns it rests on. Its result tells the model not to save the rule as a
   memory as well. An ignored card may come back once, at least
-  `SETUP_REOFFER_AFTER_DAYS` later, counted per user.
+  `SETUP_REOFFER_AFTER_DAYS` later, counted per user; a card still pending in
+  another chat counts as ignored (a card expires only when its own chat goes
+  on), and offering it again expires that one.
 - **Review.** Settings → AI Instructions → **Review**: one structured call
   (`INSTRUCTIONS_REVIEW_MODEL`) over the instructions, the memory bank, the
   declined list and the last `INSTRUCTIONS_REVIEW_MESSAGES` user messages in
@@ -393,9 +398,11 @@ It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
   a changed memory is a collision, answered 409 with the suggestion rebuilt
   (the Review shows it in place). Protected memories are never touched; a new
   memory only as the other half of moving a passage out.
-- **Evidence.** New wording needs a dated turn on a day the user wrote
-  ("YYYY-MM-DD: ..."); clean-up may cite the items themselves ("Memory: ..." /
-  "Instructions: ..."). Declines live in KV namespace `instructions_tuning`
+- **Evidence.** New wording and a removed rule need a dated turn on a day the
+  user wrote ("YYYY-MM-DD: ..."); clean-up may cite the items themselves
+  ("Memory: ..." / "Instructions: ..."), but must name what it acts on: a move
+  or a changed memory quotes that memory, a removed duplicate also what it
+  duplicates. A quote shorter than 12 characters must be the whole item. Declines live in KV namespace `instructions_tuning`
   (reserved), key `declined`; a declined suggestion needs a newer dated turn.
 - **Safety.** Proposed text passes `find_injection` (it reaches every system
   prompt); the review fences the turns with a random boundary as data.
@@ -426,8 +433,14 @@ It follows [program self-tuning](ui-composer.md#self-tuning) for the coaches.
 - **API**: `POST /api/users/me/instructions-review` (suggestions), `/apply`
   (body: change, summary, evidence; returns `custom_instructions`), `/reject`.
 - **Evals**: `instructions_style_rule`, `instructions_one_off`,
-  `instructions_fact_stays_memory`, `memory_review_skips_style_rule` (the first
-  two use `save_user_turns`, so the chat's dates exist as in production).
+  `instructions_fact_stays_memory`, `instructions_fact_in_a_rule`,
+  `memory_review_skips_style_rule` (those with `save_user_turns` save the
+  chat's user turns, as production does before the turn); 15/15 over 3 runs
+  on Nov 11 2026.
+- **UI**: both Reviews use the app's own pieces - `btn btn-primary/secondary
+  btn-sm`, the shared `EmptyState` (compact, success) for "Nothing to change"
+  and "All done", cards on the raised row surface; in Settings the header is
+  icon + label with a close button, never a leading "Done".
 
 ### Testing
 

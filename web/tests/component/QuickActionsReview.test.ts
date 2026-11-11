@@ -89,8 +89,9 @@ describe('Quick actions Review', () => {
     expect(evidence?.querySelector('.qa-review-evidence-title')?.textContent).toBe('Based on');
     expect(evidence?.querySelector('time')?.getAttribute('datetime')).toBe('2026-11-09');
     expect(evidence?.querySelector('q')?.textContent).toBe('plan my week');
-    expect(item?.querySelector('.qa-review-accept')).not.toBeNull();
-    expect(item?.querySelector('.qa-review-reject')).not.toBeNull();
+    // The app's own buttons, as on proposal cards
+    expect(item?.querySelector('.qa-review-accept')?.className).toContain('btn btn-primary btn-sm');
+    expect(item?.querySelector('.qa-review-reject')?.className).toContain('btn btn-secondary btn-sm');
   });
 
   it('Accept applies the suggestion, marks it applied and hands back the new actions', async () => {
@@ -121,15 +122,15 @@ describe('Quick actions Review', () => {
     q<HTMLButtonElement>('.qa-editor-review')?.click();
     await flush();
     expect(q('.qa-review-title')?.textContent).toBe('2 suggestions');
-    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true);
 
     q<HTMLButtonElement>('.qa-review-accept')?.click();
     await flush();
-    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true); // one still open
+    expect(q('.qa-review-done')).toBeNull(); // one still open
     document.querySelectorAll<HTMLButtonElement>('.qa-review-reject')[0]?.click();
     await flush();
-    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(false);
-    expect(q('.qa-review-status')?.textContent).toBe('All done - 1 applied, 1 rejected.');
+    // The app's empty-state look: a green tick, "All done" and what came of it
+    expect(q('.qa-review-done .empty-state__title')?.textContent).toBe('All done');
+    expect(q('.qa-review-done .empty-state__hint')?.textContent).toBe('1 applied, 1 rejected.');
   });
 
   it('Reject records it and marks it rejected', async () => {
@@ -219,8 +220,9 @@ describe('Quick actions Review', () => {
     open({ load: () => Promise.resolve([]) });
     q<HTMLButtonElement>('.qa-editor-review')?.click();
     await flush();
-    expect(q('.qa-review-status')?.textContent).toBe(
-      'Nothing to change - your quick actions and instructions match how you use them.'
+    expect(q('.qa-review-empty .empty-state__title')?.textContent).toBe('Nothing to change');
+    expect(q('.qa-review-empty .empty-state__hint')?.textContent).toBe(
+      'Your quick actions and instructions match how you use them.'
     );
   });
 
@@ -233,7 +235,6 @@ describe('Quick actions Review', () => {
     q<HTMLButtonElement>('.qa-editor-review')?.click();
     await flush();
     // One notice: what failed, why, that nothing changed, and Try again
-    expect(q<HTMLElement>('.qa-review-status')?.hidden).toBe(true);
     expect(q('.qa-review-error-title')?.textContent).toBe('The review failed.');
     expect(q('.qa-review-error svg')).not.toBeNull();
     // Why, and that nothing changed

@@ -13,6 +13,7 @@ import { MS_PER_SECOND } from '../constants';
 import type { QuickAction, SetupSuggestion } from '../types/api';
 import { clearElement, createElement } from '../utils/dom';
 import { CHECK_ICON, CLOSE_ICON, INFO_ICON, SPARKLES_ICON, WARNING_ICON, iconNodes, setIcon } from '../utils/icons';
+import { createEmptyState } from './EmptyState';
 import type { IconHtml } from '../utils/icons';
 
 /** The Review's calls; `apply` resolves with what changed (the sheet: the program's quick actions). */
@@ -28,13 +29,14 @@ export interface SetupReviewHandlers<T = QuickAction[]> {
  * in place (Settings: a "Done" there read as "the review is done").
  */
 export interface ReviewTexts {
+  /** "Nothing to change": the hint under it (what matches how they're used) */
   empty: string;
   phases: readonly { afterSeconds: number; text: string }[];
   leave: 'back' | 'close';
 }
 
 const QUICK_ACTION_TEXTS: ReviewTexts = {
-  empty: 'Nothing to change - your quick actions and instructions match how you use them.',
+  empty: 'Your quick actions and instructions match how you use them.',
   phases: QUICK_ACTION_REVIEW_PHASES,
   leave: 'back',
 };
@@ -50,7 +52,14 @@ function doneText(list: HTMLElement): string | null {
   const applied = items.filter((i) => i.dataset.state === 'applied').length;
   const rejected = items.length - applied;
   const parts = [applied && `${applied} applied`, rejected && `${rejected} rejected`].filter(Boolean);
-  return `All done - ${parts.join(', ')}.`;
+  return `${parts.join(', ')}.`;
+}
+
+/** The app's empty state, compact and green: nothing to change, or all done. */
+function resultState(title: string, hint: string, className: string): HTMLElement {
+  return createElement('li', { class: `qa-review-result ${className}` }, [
+    createEmptyState({ icon: CHECK_ICON, title, hint, variant: 'success', compact: true }),
+  ]);
 }
 
 function leaveButton(leave: ReviewTexts['leave'], back: () => void): HTMLButtonElement {
@@ -82,8 +91,8 @@ function itemElement(s: SetupSuggestion): HTMLElement {
     changeRows(s.changes),
     evidenceList(s.evidence),
     createElement('div', { class: 'qa-review-actions' }, [
-      createElement('button', { type: 'button', class: 'qa-review-reject' }, ['Reject']),
-      createElement('button', { type: 'button', class: 'qa-review-accept' }, ['Accept']),
+      createElement('button', { type: 'button', class: 'btn btn-secondary btn-sm qa-review-reject' }, ['Reject']),
+      createElement('button', { type: 'button', class: 'btn btn-primary btn-sm qa-review-accept' }, ['Accept']),
     ]),
   ]);
 }
@@ -186,14 +195,20 @@ export function renderSetupReview<T = QuickAction[]>(
 ): void {
   clearElement(container);
   const title = createElement('span', { class: 'qa-detail-section-title qa-review-title' }, ['Suggestions']);
+  // Opened in place (Settings): the title reads like the section's own labels
+  const heading =
+    texts.leave === 'close'
+      ? createElement('span', { class: 'qa-review-heading' }, [
+          createElement('span', { class: 'qa-review-heading-icon', 'aria-hidden': 'true' }, [iconNodes(SPARKLES_ICON)]),
+          title,
+        ])
+      : title;
   const leave = leaveButton(texts.leave, back);
-  const status = createElement('p', { class: 'qa-review-status', 'aria-live': 'polite' });
   const list = createElement('ul', { class: 'qa-review-list' });
   // Back leads (it goes somewhere); a close sits at the end, out of the title's way
-  const header = texts.leave === 'back' ? [leave, title] : [title, leave];
+  const header = texts.leave === 'back' ? [leave, heading] : [heading, leave];
   container.append(
     createElement('div', { class: `qa-review-header qa-review-header--${texts.leave}` }, header),
-    status,
     list
   );
   const ctx: ItemContext<T> = {
@@ -201,23 +216,20 @@ export function renderSetupReview<T = QuickAction[]>(
     onApplied,
     onAnswered: () => {
       const done = doneText(list);
-      status.hidden = done === null;
-      status.dataset.tone = done === null ? '' : 'done';
-      status.textContent = done ?? '';
+      if (done !== null && !list.querySelector('.qa-review-done')) {
+        list.prepend(resultState('All done', done, 'qa-review-done'));
+      }
     },
   };
 
   const run = async (): Promise<void> => {
     clearElement(list);
-    status.hidden = true;
     const stopLoading = showLoading(container, list, texts.phases);
     try {
       const suggestions = await handlers.load();
       stopLoading();
-      status.hidden = suggestions.length > 0;
-      status.dataset.tone = suggestions.length ? '' : 'empty';
-      status.textContent = suggestions.length ? '' : texts.empty;
       title.textContent = suggestions.length ? countText(suggestions.length) : 'Suggestions';
+      if (!suggestions.length) list.appendChild(resultState('Nothing to change', texts.empty, 'qa-review-empty'));
       renderSuggestions(list, suggestions, ctx);
     } catch (error) {
       stopLoading();
@@ -229,7 +241,9 @@ export function renderSetupReview<T = QuickAction[]>(
 
 /** The Review failed: one notice - what, why, that nothing changed - and Try again. */
 function failedNotice(error: unknown, retry: () => void): HTMLElement {
-  const again = createElement('button', { type: 'button', class: 'qa-detail-back qa-review-retry' }, ['Try again']);
+  const again = createElement('button', { type: 'button', class: 'btn btn-secondary btn-sm qa-review-retry' }, [
+    'Try again',
+  ]);
   again.addEventListener('click', retry);
   return createElement('li', { class: 'qa-review-error', role: 'alert' }, [
     createElement('span', { class: 'qa-review-error-icon', 'aria-hidden': 'true' }, [iconNodes(WARNING_ICON)]),

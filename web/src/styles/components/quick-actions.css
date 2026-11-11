@@ -497,9 +497,34 @@
 .qa-review-header .qa-detail-section-title {
     margin-bottom: 0;
 }
-/* Opened in place (Settings): the title leads, a quiet close ends the line */
+/* Opened in place (Settings): the title leads like the section's own labels
+   (icon + label), a quiet close ends the line */
 .qa-review-header--close {
     justify-content: space-between;
+}
+.qa-review-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.qa-review-heading-icon {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    color: var(--accent-text);
+}
+.qa-review-heading-icon svg {
+    width: 100%;
+    height: 100%;
+}
+.qa-review-heading .qa-review-title {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+}
+/* Nothing to change / All done: the app's empty state, in the list */
+.qa-review-result {
+    list-style: none;
+    animation: qa-review-settle 220ms var(--ease-out);
 }
 .qa-review-close {
     display: inline-flex;
@@ -524,24 +549,6 @@
     background: var(--bg-hover);
     color: var(--text-primary);
 }
-/* The list's own line: nothing to change, or everything answered */
-.qa-review-status[data-tone="empty"],
-.qa-review-status[data-tone="done"] {
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    animation: qa-review-settle 220ms var(--ease-out);
-}
-.qa-review-status[data-tone="done"] {
-    border-color: transparent;
-    background: var(--success-a15);
-}
-.qa-review-status {
-    margin: 0 0 var(--space-3);
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-}
 .qa-review-list {
     display: flex;
     flex-direction: column;
@@ -550,6 +557,8 @@
     padding: 0;
     list-style: none;
 }
+/* A suggestion sits on the raised row surface the sheet's actions and
+   Settings' cards use */
 .qa-review-item {
     display: flex;
     flex-direction: column;
@@ -557,6 +566,7 @@
     padding: var(--space-3) var(--space-4) var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
+    background: var(--bg-primary);
     transition:
         opacity var(--transition-fast),
         border-color var(--transition-fast);
@@ -669,34 +679,8 @@
     justify-content: flex-end;
     gap: var(--space-2);
 }
-.qa-review-accept,
-.qa-review-reject {
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-.qa-review-reject:hover {
-    background: var(--bg-hover);
-}
-.qa-review-accept {
-    background: var(--accent);
-    border-color: transparent;
-    color: var(--color-user-text);
-}
-.qa-review-accept:hover {
-    background: var(--accent-hover);
-}
-.qa-review-accept:disabled,
-.qa-review-reject:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
+/* Accept / Reject are the app's btn btn-primary/secondary btn-sm (as on
+   proposal cards); waiting on an answer shows as progress */
 .qa-review-accept:disabled {
     cursor: progress;
 }
@@ -880,10 +864,6 @@
 .qa-review-error .qa-review-retry {
     margin-top: var(--space-2);
 }
-.qa-review-status {
-    color: var(--text-secondary);
-}
-
 .qa-detail {
     display: flex;
     flex-direction: column;
@@ -1157,7 +1137,7 @@
     .qa-review-loading-icon,
     .qa-review-progress::after,
     .qa-review-item-status,
-    .qa-review-status,
+    .qa-review-result,
     .qa-review-error {
         animation: none;
     }
