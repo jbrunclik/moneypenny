@@ -246,17 +246,18 @@ def _load_vite_manifest(app: APIFlask, logger: Logger) -> dict[str, dict[str, st
     return vite_manifest
 
 
-def _app_version(vite_manifest: dict[str, dict[str, str | list[str]]]) -> str | None:
-    """The app version: the main JS bundle's hash from the manifest."""
-    # Extract app version from manifest (JS bundle hash)
-    app_version: str | None = None
-    if vite_manifest:
-        main_entry = vite_manifest.get("src/main.ts", {})
-        js_file = str(main_entry.get("file", ""))
-        # Extract hash: "assets/main-y-VVsbiY.js" -> "y-VVsbiY"
-        if "-" in js_file and js_file.endswith(".js"):
-            app_version = js_file.rsplit("-", 1)[1].replace(".js", "")
-    return app_version
+def app_version_from_manifest(vite_manifest: dict[str, dict[str, str | list[str]]]) -> str | None:
+    """The app version: the main JS bundle's whole hash from the manifest.
+
+    "assets/main-y-VVsbiY.js" -> "y-VVsbiY". The hash may hold "-" anywhere -
+    splitting on the last one gave "" for main-QL6ZQxq-.js (Nov 11 2026) and
+    switched the clients' stale-bundle checks off.
+    """
+    js_file = str(vite_manifest.get("src/main.ts", {}).get("file", "")) if vite_manifest else ""
+    name = js_file.rsplit("/", 1)[-1]
+    if not (name.startswith("main-") and name.endswith(".js")):
+        return None
+    return name.removeprefix("main-").removesuffix(".js") or None
 
 
 def _register_page_routes(
@@ -479,7 +480,7 @@ def create_app(*, apply_migrations: bool = True) -> APIFlask:
     _register_error_processor(app)
 
     vite_manifest = _load_vite_manifest(app, logger)
-    app_version = _app_version(vite_manifest)
+    app_version = app_version_from_manifest(vite_manifest)
     # Store version in app config for access by routes
     app.config["APP_VERSION"] = app_version
 
