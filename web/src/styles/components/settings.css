@@ -251,6 +251,49 @@
     color: var(--error);
 }
 
+/* AI Instructions: the Review button and the suggestions under the field */
+.settings-instructions-review-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    margin-top: var(--space-2);
+}
+.settings-instructions-review-row[hidden] {
+    display: none;
+}
+.settings-instructions-review-row .settings-helper-muted {
+    flex: 1;
+    min-width: 12em;
+    margin: 0;
+}
+.settings-instructions-review {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.settings-instructions-review svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+.settings-instructions-review:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+.settings-instructions-review-panel:not(:empty) {
+    margin-top: var(--space-3);
+}
+
 /* Settings divider between sections */
 .settings-divider {
     height: 1px;

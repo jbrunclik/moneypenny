@@ -7,7 +7,7 @@
  * note), the "/" slash menu, sending, and the editor glue. Components in
  * components/QuickAction*.ts are presentation only.
  */
-import type { QuickAction, SetupSuggestion } from '../types/api';
+import type { QuickAction } from '../types/api';
 import { useStore } from '../state/store';
 import { renderQuickActionsBar, setQuickActionsBarDisabled } from '../components/QuickActionsBar';
 import {
@@ -21,8 +21,7 @@ import {
   renderSlashMenu,
 } from '../components/QuickActionsSlashMenu';
 import { showQuickActionsEditor } from '../components/QuickActionsEditor';
-import { SuggestionRefreshed } from '../components/QuickActionsReview';
-import { ApiError } from '../api/http';
+import { refreshedOr, reviewErrorText } from '../api/setup-review';
 import { languageSetup, sportsSetup } from '../api/programs';
 import { isMobileViewport, setComposerHasExternalContent } from '../components/MessageInput';
 import { toast } from '../components/Toast';
@@ -289,25 +288,6 @@ function handleComposerKeydown(e: KeyboardEvent): void {
 
 export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
-}
-
-/**
- * A collision (409 with the refreshed suggestion) as the sheet's
- * SuggestionRefreshed, so it shows the updated change; any other error as is.
- */
-export function refreshedOr(error: unknown): unknown {
-  const fresh = error instanceof ApiError && error.status === 409 ? error.details?.suggestion : undefined;
-  return fresh && typeof fresh === 'object' ? new SuggestionRefreshed(fresh as SetupSuggestion) : error;
-}
-
-/** Why the setup Review failed, in plain words for the sheet. */
-export function reviewErrorText(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.isTimeout) return 'It took too long to answer.';
-    if (error.isNetworkError) return "Couldn't reach Moneypenny - check your connection.";
-    if (error.message) return error.message;
-  }
-  return 'Something went wrong on our side.';
 }
 
 /**

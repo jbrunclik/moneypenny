@@ -607,6 +607,12 @@
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
+/* A clean-up item quotes what it rests on: which kind, then the text */
+.qa-review-evidence-kind {
+    flex-shrink: 0;
+    min-width: 3.25em;
+    color: var(--text-muted);
+}
 .qa-review-evidence q {
     color: var(--text-secondary);
     font-style: italic;

@@ -1,12 +1,20 @@
-import { CUSTOM_INSTRUCTIONS_MAX_CHARS } from '../../config';
-import { createElement } from '../../utils/dom';
-import { EDIT_ICON } from '../../utils/icons';
-import { settings } from '../../api/settings';
+import { CUSTOM_INSTRUCTIONS_MAX_CHARS, INSTRUCTIONS_REVIEW_PHASES } from '../../config';
+import { clearElement, createElement } from '../../utils/dom';
+import { EDIT_ICON, SPARKLES_ICON, iconNodes } from '../../utils/icons';
+import { instructionsReview, settings } from '../../api/settings';
+import { renderSetupReview, type ReviewTexts } from '../QuickActionsReview';
+import type { SetupSuggestion } from '../../types/api';
 import { toast } from '../Toast';
 import { useStore } from '../../state/store';
 import { fieldLabel, helper, log, showSavedIndicator } from './shared';
 
 const CHAR_LIMIT = CUSTOM_INSTRUCTIONS_MAX_CHARS;
+
+const REVIEW_TEXTS: ReviewTexts = {
+  empty: 'Nothing to change - your instructions and memories match how you use them.',
+  phases: INSTRUCTIONS_REVIEW_PHASES,
+  back: 'Done',
+};
 
 /** The saved custom instructions (store: settings slice). */
 function savedInstructions(): string {
@@ -36,6 +44,15 @@ export function renderInstructionsSection(): HTMLElement {
       textarea,
       createElement('span', { class: `settings-char-count ${charCountClass}` }, [`${charCount}/${CHAR_LIMIT}`]),
       createElement('span', { class: 'settings-saved-indicator', 'data-saved-for': 'custom-instructions' }, ['Saved']),
+      // Suggested changes from the user's recent chats, accepted one by one
+      createElement('div', { class: 'settings-instructions-review-row' }, [
+        createElement('button', { type: 'button', class: 'settings-instructions-review' }, [
+          iconNodes(SPARKLES_ICON),
+          'Review',
+        ]),
+        helper('Suggests changes from your recent chats and memories - you accept or reject each.', true),
+      ]),
+      createElement('div', { class: 'settings-instructions-review-panel' }),
     ]),
   ]);
 }
@@ -57,10 +74,17 @@ function updateCharCount(textarea: HTMLTextAreaElement): void {
   }
 }
 
-/**
- * Save the custom instructions field (called on blur when changed).
- */
-async function saveCustomInstructions(): Promise<void> {
+let saving: Promise<void> | null = null;
+
+/** Save the field if it changed; a save already running is shared (blur + Review click). */
+function saveCustomInstructions(): Promise<void> {
+  saving ??= saveNow().finally(() => {
+    saving = null;
+  });
+  return saving;
+}
+
+async function saveNow(): Promise<void> {
   const textarea = document.getElementById('custom-instructions') as HTMLTextAreaElement | null;
   if (!textarea) return;
   const instructions = textarea.value.trim();
@@ -83,7 +107,41 @@ export function bindInstructionsField(): void {
   if (textarea) {
     textarea.addEventListener('input', () => updateCharCount(textarea));
     textarea.addEventListener('blur', () => void saveCustomInstructions());
+    document
+      .querySelector('.settings-instructions-review')
+      ?.addEventListener('click', () => void startReview(textarea));
     // NOTE: no autofocus here - focusing this last field scrolled the
     // popup body to the bottom on open (regression test in settings.spec)
   }
+}
+
+/**
+ * Settings' instructions Review: typing not yet saved is saved first, then
+ * the suggestions render under the field; an accepted change lands in the
+ * textarea, the counter and the store.
+ */
+async function startReview(textarea: HTMLTextAreaElement): Promise<void> {
+  const row = document.querySelector<HTMLElement>('.settings-instructions-review-row');
+  const button = document.querySelector<HTMLButtonElement>('.settings-instructions-review');
+  const panel = document.querySelector<HTMLElement>('.settings-instructions-review-panel');
+  if (!row || !button || !panel) return;
+  await saveCustomInstructions();
+  row.hidden = true;
+  button.hidden = true;
+  const applied = (text: string): void => {
+    textarea.value = text;
+    updateCharCount(textarea);
+    useStore.getState().patchUserSettings({ custom_instructions: text });
+  };
+  const close = (): void => {
+    clearElement(panel);
+    row.hidden = false;
+    button.hidden = false;
+  };
+  const handlers = {
+    load: () => instructionsReview.review(),
+    apply: (suggestion: SetupSuggestion) => instructionsReview.apply(suggestion),
+    reject: (suggestion: SetupSuggestion) => instructionsReview.reject(suggestion),
+  };
+  renderSetupReview<string>(panel, handlers, applied, close, REVIEW_TEXTS);
 }

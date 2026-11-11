@@ -551,6 +551,7 @@ export type SportsProgram = Schemas['SportsProgramsResponse.SportsProgramItem'];
 export type SetupSuggestion = Schemas['SetupReviewResponse.SetupSuggestion'];
 
 export type SetupReviewResponse = Schemas['SetupReviewResponse'];
+export type InstructionsChangeResponse = Schemas['InstructionsChangeResponse'];
 
 export type SportsProgramsResponse = Schemas['SportsProgramsResponse'];
 

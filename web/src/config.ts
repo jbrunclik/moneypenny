@@ -64,6 +64,14 @@ export const QUICK_ACTION_REVIEW_PHASES: readonly { afterSeconds: number; text: 
   { afterSeconds: 22, text: 'Checking each suggestion…' },
 ];
 
+/** Settings' instructions Review: the same kind of wait, its own steps */
+export const INSTRUCTIONS_REVIEW_PHASES: readonly { afterSeconds: number; text: string }[] = [
+  { afterSeconds: 0, text: 'Reading your instructions and memories…' },
+  { afterSeconds: 3, text: 'Going through your recent chats…' },
+  { afterSeconds: 10, text: 'Looking for corrections and duplicates…' },
+  { afterSeconds: 22, text: 'Checking each suggestion…' },
+];
+
 /** Timeout for individual stream reads (1 minute, backend sends keepalives every 15s) */
 export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 

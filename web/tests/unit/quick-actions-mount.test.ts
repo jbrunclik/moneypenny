@@ -8,10 +8,8 @@ import {
   getQuickActionsContext,
   openQuickActionsEditor,
   reloadQuickActions,
-  refreshedOr,
-  reviewErrorText,
 } from '@/core/quick-actions';
-import { SuggestionRefreshed } from '@/components/QuickActionsReview';
+import { SuggestionRefreshed, refreshedOr, reviewErrorText } from '@/api/setup-review';
 import { ApiError } from '@/api/http';
 import { closeQuickActionsEditor } from '@/components/QuickActionsEditor';
 

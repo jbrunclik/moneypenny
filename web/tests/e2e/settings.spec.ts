@@ -2,7 +2,7 @@
  * E2E tests for settings popup and custom instructions
  */
 import { test, expect } from '../global-setup';
-import { appReady } from './waits';
+import { appReady, serverReplySaved } from './waits';
 
 test.describe('Settings', () => {
   test('settings button is visible in the user menu', async ({ page }) => {
@@ -402,5 +402,53 @@ test.describe('Color Scheme', () => {
 
     // Verify background colors are different
     expect(darkBg).not.toBe(lightBg);
+  });
+});
+
+/**
+ * Settings' instructions Review (instructions self-tuning): the user wrote in a
+ * chat today, the (faked) Review suggests a no-bullets rule citing it, Accept
+ * puts the rule in the textarea and on the server.
+ */
+async function reviewAndAccept(page: import('@playwright/test').Page, mobile: boolean): Promise<void> {
+  await page.goto('/');
+  await appReady(page);
+  await page.fill('#message-input', 'stop using bullet points please');
+  await page.click('#send-btn');
+  await expect(page).toHaveURL(/\/conversations\//);
+  await serverReplySaved(page);
+
+  if (mobile) await page.click('#menu-btn');
+  await page.locator('#user-menu-btn').click();
+  await page.locator('#settings-btn').click();
+  await page.waitForSelector('#settings-popup:not(.hidden)');
+  // Desktop has tabs; the mobile sheet is one scrolling list
+  if (!mobile) await page.locator('[data-settings-tab="instructions"]').click();
+  await page.locator('.settings-instructions-review').click();
+
+  const item = page.locator('.qa-review-item');
+  await expect(item.locator('.qa-review-summary')).toHaveText('No bullet points');
+  await expect(item.locator('.qa-review-new')).toHaveText('Never use bullet points.');
+  await item.locator('.qa-review-accept').click();
+  await expect(item.locator('.qa-review-item-status')).toHaveText('Applied');
+  await expect(page.locator('#custom-instructions')).toHaveValue('Never use bullet points.');
+
+  const saved = await (await page.request.get('/api/users/me/settings')).json();
+  expect(saved.custom_instructions).toBe('Never use bullet points.');
+  await page.locator('.qa-review-back').click();
+  await expect(page.locator('.settings-instructions-review')).toBeVisible();
+}
+
+test.describe('Instructions Review', () => {
+  test('Review suggests a rule; Accept puts it in the instructions', async ({ page }) => {
+    await reviewAndAccept(page, false);
+  });
+});
+
+test.describe('Instructions Review - mobile', () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test('Review and Accept on mobile', async ({ page }) => {
+    await reviewAndAccept(page, true);
   });
 });

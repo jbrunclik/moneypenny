@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeQuickActionsEditor, showQuickActionsEditor } from '@/components/QuickActionsEditor';
-import { SuggestionRefreshed } from '@/components/QuickActionsReview';
+import { SuggestionRefreshed } from '@/api/setup-review';
 import type { QuickAction, SetupSuggestion } from '@/types/api';
 
 const next: QuickAction = { id: 'next', emoji: '⏭️', label: 'Next workout', body: 'Next?', fields: [] };
