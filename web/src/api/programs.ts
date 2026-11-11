@@ -107,27 +107,32 @@ function setupReviewUrl(ns: ProgramNamespace, programId: string, action = ''): s
   return `/api/${ns}/programs/${encodeURIComponent(programId)}/setup-review${action}`;
 }
 
-export const programSetup = {
-  async review(ns: ProgramNamespace, programId: string): Promise<SetupSuggestion[]> {
-    const data = await request<SetupReviewResponse>(setupReviewUrl(ns, programId), { method: 'POST' });
-    return data.suggestions;
-  },
+function setupReviewClient(ns: ProgramNamespace) {
+  return {
+    async review(programId: string): Promise<SetupSuggestion[]> {
+      const data = await request<SetupReviewResponse>(setupReviewUrl(ns, programId), { method: 'POST' });
+      return data.suggestions;
+    },
 
-  /** Apply one accepted suggestion; resolves to the program's new quick actions. */
-  async apply(ns: ProgramNamespace, programId: string, suggestion: SetupSuggestion): Promise<QuickAction[]> {
-    const response = await request<SportsProgramsResponse | LanguageProgramsResponse>(
-      setupReviewUrl(ns, programId, '/apply'),
-      { method: 'POST', body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }) }
-    );
-    const updated = response.programs[0];
-    if (updated === undefined) throw new Error('Setup change returned no program');
-    return updated.quick_actions;
-  },
+    /** Apply one accepted suggestion; resolves to the program's new quick actions. */
+    async apply(programId: string, suggestion: SetupSuggestion): Promise<QuickAction[]> {
+      const response = await request<SportsProgramsResponse | LanguageProgramsResponse>(
+        setupReviewUrl(ns, programId, '/apply'),
+        { method: 'POST', body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }) }
+      );
+      const updated = response.programs[0];
+      if (updated === undefined) throw new Error('Setup change returned no program');
+      return updated.quick_actions;
+    },
 
-  async reject(ns: ProgramNamespace, programId: string, suggestion: SetupSuggestion): Promise<void> {
-    await request<unknown>(setupReviewUrl(ns, programId, '/reject'), {
-      method: 'POST',
-      body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }),
-    });
-  },
-};
+    async reject(programId: string, suggestion: SetupSuggestion): Promise<void> {
+      await request<unknown>(setupReviewUrl(ns, programId, '/reject'), {
+        method: 'POST',
+        body: JSON.stringify({ change: suggestion.change, summary: suggestion.summary }),
+      });
+    },
+  };
+}
+
+export const sportsSetup = setupReviewClient('sports');
+export const languageSetup = setupReviewClient('language');

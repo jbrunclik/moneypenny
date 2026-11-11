@@ -61,6 +61,11 @@ The review itself changes nothing in production and edits nothing but
   median seconds to an answer. Many expired = people answer in words the typed alias
   misses (look at nothing, only the counts - then widen the word list); many failed =
   apply refusals worth fixing at the source.
+- Program self-tuning (from Nov 2026; [ui-composer.md](features/ui-composer.md#self-tuning)):
+  "Setup suggestion resolved" per `source` (card / review) and `outcome` - a low
+  accepted share means suggestions miss; "Setup change refused" by `reason` (many
+  refusals for missing evidence mean the coach proposes on hunches); "Setup review"
+  lines with `suggestions` 0 vs more and their `cost_usd`.
 - Integration tokens that expired (Calendar, Garmin, Todoist "disconnected"
   results in the journal) - the person may not know.
 

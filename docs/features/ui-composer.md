@@ -92,18 +92,54 @@ One-tap saved prompts in sports and language program conversations. Everything l
   remove) and a preview rendered as the user bubble it will become. Closing over a valid,
   unfinished detail form commits it, so no path loses work.
 - **Save as quick action** on any of your own messages in a program conversation.
+- **Review** (Nov 2026, [program self-tuning](#self-tuning)): the coach's suggested
+  changes to its quick actions and instructions, accepted or rejected one by one.
+
+### Self-tuning
+
+The coach keeps its own setup up to date - its quick actions and its standing
+instructions (sports `goals`, `preferences`, `routine`; language `profile`,
+`grammar`; `INSTRUCTION_KEYS`) - and only the user's yes applies a change
+([spec](../superpowers/specs/2026-11-11-program-self-tuning-design.md)):
+
+- **In the moment**: `propose_setup_change` (bound in interactive standing chats,
+  refused outside program chats) files a `program_setup` card under the reply
+  with the change as before/after, the reason and the dated turns it rests on
+  ([proposals.md](proposals.md)). What the user asks for in their own words still
+  changes directly (`kv_store`, the editor).
+- **Review**: the editor's Review button runs `POST /api/{ns}/programs/<id>/setup-review`
+  (`src/agent/program_review.py`: one structured `PROGRAM_REVIEW_MODEL` call over the
+  setup, the declined list and the program chat's latest `PROGRAM_REVIEW_MESSAGES`
+  messages). Every suggestion is validated on its own and at most
+  `PROGRAM_REVIEW_MAX_SUGGESTIONS` are shown; `/apply` and `/reject` act on one. The
+  sheet never posts into the chat.
+- **Relevance**: every suggestion needs 1-5 evidence items starting with a
+  `YYYY-MM-DD` date. Decline (card) or Reject (Review) records it in
+  `{program_id}:setup_declined` (newest `SETUP_DECLINED_MAX`); it is offered again
+  only with evidence dated after the decline. An ignored card (expired because the
+  user carried on) may be filed again once, at least `SETUP_REOFFER_AFTER_DAYS` later.
+- **One service** applies both paths: `src/services/program_setup.py` (load, validate,
+  describe, apply, fingerprint, declines; it also owns the quick action defaults,
+  sanitizing and limits). A stale target (an action edited by hand since) fails with
+  its reason and changes nothing.
+- **Logs** (A8): "Setup change proposed" / "Setup change refused" (with `reason`),
+  "Setup review" (`returned`, `suggestions`, `cost_usd`, `duration_ms`), and "Setup
+  suggestion resolved" (`source` card/review, `outcome`, `target`) from both paths.
 
 ### Storage
 
 Actions live inside each program object in the namespace's `programs` K/V list — never
 under `{program_id}:*`, which `program_context.py` injects into the prompt each turn.
 Programs without a `quick_actions` key resolve to the namespace defaults
-(`QUICK_ACTION_DEFAULTS` in `src/api/routes/program_quick_actions.py`). Corrupt entries are
+(`QUICK_ACTION_DEFAULTS` in `src/services/program_setup.py`). Corrupt entries are
 dropped on read with a warning. Limits: 12 actions, 6 questions, 40-char labels, 2000-char body.
 
 ### Key Files
 
-- `src/api/routes/program_quick_actions.py` — defaults, sanitization, `PUT /api/{ns}/programs/<id>/quick-actions`
+- `src/api/routes/program_quick_actions.py` — `PUT /api/{ns}/programs/<id>/quick-actions`
+- `src/services/program_setup.py` — defaults, sanitization, limits, and applying setup changes
+- `src/agent/tools/program_setup_tool.py`, `src/agent/program_review.py`, `src/api/routes/program_setup_review.py` — self-tuning
+- `web/src/components/QuickActionsReview.ts` — the Review view
 - `web/src/core/quick-actions.ts` — composition, mount/visibility, composer mode, slash menu, send, editor glue
 - `web/src/components/QuickActionsBar.ts`, `QuickActionComposer.ts`, `QuickActionsSlashMenu.ts`, `QuickActionsEditor.ts`
 - `web/src/styles/components/quick-actions.css`

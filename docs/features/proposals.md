@@ -17,6 +17,7 @@ step 3 deep research, step 4 chat deletes, step 5 clarifying questions).
 | `deep_research` | `propose_deep_research` (filed when the reply saves) | Start | the run is the turn: Start sends it with the edited plan, a typed yes on the stream makes that turn the run ([deep-research.md](deep-research.md)) |
 | `chat_change` | a delete or archive in a chat turn (Todoist, Calendar, Rouvy) - held by the gate | Delete / Archive | performs each stored call through its tool ([below](#chat-changes-step-4-nov-9-2026)) |
 | `question` | `ask_choice` | its 2-4 options | nothing: the pick is the user's reply (a tap sends the label as their message) - [below](#questions-step-5-nov-9-2026) |
+| `program_setup` | `propose_setup_change` in a program chat | Apply | applies the quick action / instruction change through `src/services/program_setup.py`; Decline records it on the program's declined list ([ui-composer.md](ui-composer.md#self-tuning)) |
 
 `edit_standing_chat` in an unattended run still files a `job_approvals` request
 (step 2 moves it).
