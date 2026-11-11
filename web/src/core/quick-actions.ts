@@ -21,6 +21,7 @@ import {
   renderSlashMenu,
 } from '../components/QuickActionsSlashMenu';
 import { showQuickActionsEditor } from '../components/QuickActionsEditor';
+import { ApiError } from '../api/http';
 import { languageSetup, sportsSetup } from '../api/programs';
 import { isMobileViewport, setComposerHasExternalContent } from '../components/MessageInput';
 import { toast } from '../components/Toast';
@@ -289,6 +290,16 @@ export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
 }
 
+/** Why the setup Review failed, in plain words for the sheet. */
+export function reviewErrorText(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.isTimeout) return 'It took too long to answer.';
+    if (error.isNetworkError) return "Couldn't reach Moneypenny - check your connection.";
+    if (error.message) return error.message;
+  }
+  return 'Something went wrong on our side.';
+}
+
 /**
  * Re-read the program's actions from the server (the coach may have changed
  * them through an approved card) and re-render the chips; keeps the current
@@ -330,7 +341,10 @@ export async function openQuickActionsEditor(draft?: Partial<QuickAction>): Prom
     onChange: async (actions) => showSaved(await ctx.save(actions)),
     // The coach's suggestions for its quick actions and instructions
     review: {
-      load: () => setupClient.review(ctx.programId),
+      load: () =>
+        setupClient.review(ctx.programId).catch((error: unknown) => {
+          throw new Error(reviewErrorText(error));
+        }),
       apply: (suggestion) => setupClient.apply(ctx.programId, suggestion),
       reject: (suggestion) => setupClient.reject(ctx.programId, suggestion),
       onApplied: showSaved,

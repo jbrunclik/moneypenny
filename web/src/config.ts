@@ -42,6 +42,25 @@ export const API_DEFAULT_TIMEOUT_MS = 30 * MS_PER_SECOND;
 /** Timeout for chat requests (5 minutes) */
 export const API_CHAT_TIMEOUT_MS = 5 * MS_PER_MINUTE;
 
+/**
+ * The Quick actions sheet's Review: one model call that took 45 s on Nov 11
+ * 2026 (the default 30 s timeout gave up while the server still answered) -
+ * above the server's PROGRAM_REVIEW_TIMEOUT_SECONDS (60) plus the reads
+ */
+export const QUICK_ACTION_REVIEW_TIMEOUT_MS = 90 * MS_PER_SECOND;
+
+/**
+ * The steps the Review shows while it waits, in the work's real order (read
+ * the setup, read the chat, the model call, the checks), advanced on a timer:
+ * there are no progress events from one model call
+ */
+export const QUICK_ACTION_REVIEW_PHASES: readonly { afterSeconds: number; text: string }[] = [
+  { afterSeconds: 0, text: 'Reading your quick actions and instructions…' },
+  { afterSeconds: 3, text: 'Going through your recent chats…' },
+  { afterSeconds: 10, text: 'Looking for repeated requests and corrections…' },
+  { afterSeconds: 22, text: 'Checking each suggestion…' },
+];
+
 /** Timeout for individual stream reads (1 minute, backend sends keepalives every 15s) */
 export const API_STREAM_READ_TIMEOUT_MS = 1 * MS_PER_MINUTE;
 

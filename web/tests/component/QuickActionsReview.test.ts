@@ -55,10 +55,19 @@ describe('Quick actions Review', () => {
     let resolve: (s: SetupSuggestion[]) => void = () => undefined;
     open({ load: () => new Promise((r) => (resolve = r)) });
     q<HTMLButtonElement>('.qa-editor-review')?.click();
-    expect(q('.qa-review-status')?.textContent).toBe('Reviewing your quick actions and recent chats…');
+
+    // While it runs: the step it is on, the seconds so far, a moving bar and
+    // placeholder cards shaped like suggestions
+    expect(q('.qa-review-phase')?.textContent).toBe('Reading your quick actions and instructions…');
+    expect(q('.qa-review-elapsed')?.textContent).toBe('0 s');
+    expect(q('.qa-review-progress')?.getAttribute('role')).toBe('progressbar');
+    expect(q('.qa-review-loading svg')).not.toBeNull();
+    expect(document.querySelectorAll('.qa-review-skeleton').length).toBe(2);
 
     resolve([suggestion()]);
     await flush();
+    expect(q('.qa-review-loading')).toBeNull();
+    expect(document.querySelectorAll('.qa-review-skeleton').length).toBe(0);
     const item = q('.qa-review-item');
     expect(item?.querySelector('.qa-review-summary')?.textContent).toBe('Add a weekly plan');
     expect(item?.querySelector('.qa-review-before')?.textContent).toContain('(none)');
@@ -110,6 +119,24 @@ describe('Quick actions Review', () => {
     expect(q('.qa-review-accept')).not.toBeNull();
   });
 
+  it('steps through what it is doing and counts the seconds while it waits', async () => {
+    vi.useFakeTimers();
+    try {
+      open({ load: () => new Promise(() => undefined) });
+      q<HTMLButtonElement>('.qa-editor-review')?.click();
+
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(q('.qa-review-phase')?.textContent).toBe('Going through your recent chats…');
+      expect(q('.qa-review-elapsed')?.textContent).toBe('3 s');
+
+      await vi.advanceTimersByTimeAsync(20000);
+      expect(q('.qa-review-phase')?.textContent).toBe('Checking each suggestion…');
+      expect(q('.qa-review-elapsed')?.textContent).toBe('23 s');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('says when there is nothing to change', async () => {
     open({ load: () => Promise.resolve([]) });
     q<HTMLButtonElement>('.qa-editor-review')?.click();
@@ -122,12 +149,16 @@ describe('Quick actions Review', () => {
   it('a failed review offers a retry', async () => {
     const load = vi
       .fn<() => Promise<SetupSuggestion[]>>()
-      .mockRejectedValueOnce(new Error('down'))
+      .mockRejectedValueOnce(new Error('It took too long to answer.'))
       .mockResolvedValueOnce([suggestion()]);
     open({ load });
     q<HTMLButtonElement>('.qa-editor-review')?.click();
     await flush();
     expect(q('.qa-review-status')?.textContent).toBe('The review failed.');
+    // Why, and that nothing changed
+    expect(q('.qa-review-error-detail')?.textContent).toBe(
+      'It took too long to answer. Nothing was changed.'
+    );
 
     q<HTMLButtonElement>('.qa-review-retry')?.click();
     await flush();

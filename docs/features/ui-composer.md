@@ -112,7 +112,11 @@ instructions (sports `goals`, `preferences`, `routine`; language `profile`,
   setup, the declined list and the program chat's latest `PROGRAM_REVIEW_MESSAGES`
   messages). Every suggestion is validated on its own and at most
   `PROGRAM_REVIEW_MAX_SUGGESTIONS` are shown; `/apply` and `/reject` act on one. The
-  sheet never posts into the chat.
+  sheet never posts into the chat. The call can take most of a minute (45 s on Nov 11
+  2026), so the client waits `QUICK_ACTION_REVIEW_TIMEOUT_MS` (90 s, not the default 30 s)
+  and shows timed steps in the work's real order (`QUICK_ACTION_REVIEW_PHASES`), the
+  seconds so far, a moving bar and placeholder cards; a failure names why
+  (`reviewErrorText`: too slow, offline, or the server's message) and that nothing changed.
 - **Relevance**: every suggestion needs 1-5 evidence items starting with a
   `YYYY-MM-DD` date. Decline (card) or Reject (Review) records it in
   `{program_id}:setup_declined` (newest `SETUP_DECLINED_MAX`); it is offered again

@@ -591,8 +591,116 @@
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
 }
-.qa-review-retry-row {
+/* While the Review runs: the step, the seconds, a moving bar, placeholder cards */
+.qa-review-loading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+.qa-review-loading-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+.qa-review-loading-icon {
+    display: inline-flex;
+    color: var(--accent);
+    animation: qa-review-pulse 1.6s ease-in-out infinite;
+}
+.qa-review-loading-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.qa-review-phase {
+    flex: 1;
+    min-width: 0;
+}
+.qa-review-elapsed {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+.qa-review-progress {
+    position: relative;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--bg-tertiary);
+}
+.qa-review-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 35%;
+    border-radius: inherit;
+    background: var(--accent);
+    animation: qa-review-indeterminate 1.4s ease-in-out infinite;
+}
+.qa-review-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.qa-review-skeleton-line {
+    display: block;
+    height: 10px;
+    width: 85%;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-hover) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.qa-review-skeleton-title {
+    height: 14px;
+    width: 55%;
+}
+.qa-review-skeleton-short {
+    width: 40%;
+}
+@keyframes qa-review-pulse {
+    50% {
+        opacity: 0.45;
+    }
+}
+@keyframes qa-review-indeterminate {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(300%);
+    }
+}
+
+/* The Review failed: why, that nothing changed, and Try again */
+.qa-review-error {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--error);
+    border-radius: var(--radius-md);
     list-style: none;
+}
+.qa-review-error-detail {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+}
+.qa-review-status {
+    color: var(--text-secondary);
 }
 
 .qa-detail {
@@ -864,7 +972,15 @@
     .quick-actions-bar,
     .qa-mode,
     .qa-slash-menu,
-    .qa-editor {
+    .qa-editor,
+    .qa-review-loading-icon,
+    .qa-review-skeleton-line,
+    .qa-review-progress::after {
         animation: none;
+    }
+    /* A still bar still says "working" */
+    .qa-review-progress::after {
+        width: 100%;
+        opacity: 0.4;
     }
 }

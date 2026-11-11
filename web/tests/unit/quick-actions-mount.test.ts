@@ -8,7 +8,9 @@ import {
   getQuickActionsContext,
   openQuickActionsEditor,
   reloadQuickActions,
+  reviewErrorText,
 } from '@/core/quick-actions';
+import { ApiError } from '@/api/http';
 import { closeQuickActionsEditor } from '@/components/QuickActionsEditor';
 
 describe('quick actions mount', () => {
@@ -86,5 +88,17 @@ describe('quick actions mount', () => {
     expect(bar.classList.contains('hidden')).toBe(false);
     expect(bar.querySelectorAll('.quick-action-chip').length).toBe(0);
     expect(bar.querySelector('.quick-action-edit-chip')).not.toBeNull();
+  });
+});
+
+describe('reviewErrorText', () => {
+  it('names a timeout, a lost connection and a server message in plain words', () => {
+    const timeout = new ApiError('timed out', 0, { code: 'TIMEOUT', isTimeout: true });
+    const offline = new ApiError('offline', 0, { code: 'NETWORK_ERROR', isNetworkError: true });
+    const server = new ApiError('That program no longer exists.', 404, { code: 'NOT_FOUND' });
+    expect(reviewErrorText(timeout)).toBe('It took too long to answer.');
+    expect(reviewErrorText(offline)).toBe("Couldn't reach Moneypenny - check your connection.");
+    expect(reviewErrorText(server)).toBe('That program no longer exists.');
+    expect(reviewErrorText(new TypeError('x'))).toBe('Something went wrong on our side.');
   });
 });

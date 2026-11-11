@@ -4,8 +4,11 @@
  * or rejected one by one (docs/superpowers/specs/2026-11-11-program-self-tuning-design.md).
  * Presentation only: the calls come in as handlers from core/quick-actions.ts.
  */
+import { QUICK_ACTION_REVIEW_PHASES } from '../config';
+import { MS_PER_SECOND } from '../constants';
 import type { QuickAction, SetupSuggestion } from '../types/api';
 import { clearElement, createElement } from '../utils/dom';
+import { SPARKLES_ICON, setIcon } from '../utils/icons';
 
 export interface SetupReviewHandlers {
   load: () => Promise<SetupSuggestion[]>;
@@ -14,7 +17,6 @@ export interface SetupReviewHandlers {
   reject: (suggestion: SetupSuggestion) => Promise<void>;
 }
 
-const LOADING_TEXT = 'Reviewing your quick actions and recent chats…';
 const EMPTY_TEXT = 'Nothing to change - your quick actions and instructions match how you use them.';
 const FAILED_TEXT = 'The review failed.';
 
@@ -111,19 +113,83 @@ export function renderSetupReview(
 
   const run = async (): Promise<void> => {
     clearElement(list);
-    status.textContent = LOADING_TEXT;
+    status.hidden = true;
+    const stopLoading = showLoading(container, list);
     try {
       const suggestions = await handlers.load();
-      status.textContent = suggestions.length ? '' : EMPTY_TEXT;
+      stopLoading();
       status.hidden = suggestions.length > 0;
+      status.textContent = suggestions.length ? '' : EMPTY_TEXT;
       renderSuggestions(list, suggestions, handlers, onApplied);
-    } catch {
+    } catch (error) {
+      stopLoading();
       status.hidden = false;
       status.textContent = FAILED_TEXT;
+      const detail = `${errorText(error)} Nothing was changed.`;
       const retry = createElement('button', { type: 'button', class: 'qa-detail-back qa-review-retry' }, ['Try again']);
       retry.addEventListener('click', () => void run());
-      list.appendChild(createElement('li', { class: 'qa-review-retry-row' }, [retry]));
+      list.appendChild(
+        createElement('li', { class: 'qa-review-error' }, [
+          createElement('p', { class: 'qa-review-error-detail' }, [detail]),
+          retry,
+        ])
+      );
     }
   };
   void run();
+}
+
+/** The step the Review is on after `seconds` (the work's real order, timed). */
+function phaseAt(seconds: number): string {
+  let text = QUICK_ACTION_REVIEW_PHASES[0]?.text ?? '';
+  for (const phase of QUICK_ACTION_REVIEW_PHASES) {
+    if (seconds >= phase.afterSeconds) text = phase.text;
+  }
+  return text;
+}
+
+/**
+ * While the Review runs: the step it is on, the seconds so far, a moving bar
+ * and placeholder cards shaped like suggestions. Returns the function that
+ * removes them (and stops the clock).
+ */
+function showLoading(container: HTMLElement, list: HTMLElement): () => void {
+  const phase = createElement('span', { class: 'qa-review-phase' }, [phaseAt(0)]);
+  const elapsed = createElement('span', { class: 'qa-review-elapsed' }, ['0 s']);
+  const icon = createElement('span', { class: 'qa-review-loading-icon', 'aria-hidden': 'true' });
+  setIcon(icon, SPARKLES_ICON);
+  const loading = createElement('div', { class: 'qa-review-loading', 'aria-live': 'polite' }, [
+    createElement('div', { class: 'qa-review-loading-row' }, [icon, phase, elapsed]),
+    createElement('div', {
+      class: 'qa-review-progress',
+      role: 'progressbar',
+      'aria-label': 'Reviewing',
+      'aria-busy': 'true',
+    }),
+  ]);
+  list.before(loading);
+  const skeletons = [0, 1].map(() => {
+    const card = createElement('li', { class: 'qa-review-skeleton', 'aria-hidden': 'true' }, [
+      createElement('span', { class: 'qa-review-skeleton-line qa-review-skeleton-title' }),
+      createElement('span', { class: 'qa-review-skeleton-line' }),
+      createElement('span', { class: 'qa-review-skeleton-line qa-review-skeleton-short' }),
+    ]);
+    list.appendChild(card);
+    return card;
+  });
+  const started = Date.now();
+  const timer = window.setInterval(() => {
+    if (!container.isConnected) {
+      window.clearInterval(timer);
+      return;
+    }
+    const seconds = Math.floor((Date.now() - started) / MS_PER_SECOND);
+    elapsed.textContent = `${seconds} s`;
+    phase.textContent = phaseAt(seconds);
+  }, MS_PER_SECOND);
+  return () => {
+    window.clearInterval(timer);
+    loading.remove();
+    skeletons.forEach((card) => card.remove());
+  };
 }
