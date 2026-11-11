@@ -16,6 +16,7 @@ from tests.e2e_server.llm_fakes import (
     create_mock_llm,
     create_mock_stream_chat_events,
     mock_check_grounding,
+    mock_program_review_invoke,
     mock_should_check,
 )
 from tests.fake_clock import strictly_increasing_now
@@ -44,6 +45,7 @@ def apply_service_patches(stack: contextlib.ExitStack) -> None:
     stack.enter_context(patch("src.auth.google_auth.httpx.get", create_mock_google_tokeninfo()))
     stack.enter_context(patch("src.agent.grounding_check.should_check", mock_should_check))
     stack.enter_context(patch("src.agent.grounding_check.check_grounding", mock_check_grounding))
+    stack.enter_context(patch("src.agent.program_review._invoke", mock_program_review_invoke))
     stack.enter_context(
         patch("src.api.helpers.stream_producer.run_deep_research", mock_run_deep_research)
     )

@@ -303,3 +303,21 @@ def mock_check_grounding(
     return GroundingOutcome(
         annotations=canned.get("annotations", []), summary=canned.get("summary"), usage=None
     )
+
+
+def mock_program_review_invoke(prompt: str) -> Any:
+    """The setup Review's model call: one suggestion - add a "Plan week" quick
+    action, evidence dated today."""
+    from src.agent.program_review import ReviewItem, ReviewOutput
+    from src.utils.clock import local_today
+
+    item = ReviewItem(
+        target="quick_action",
+        op="add",
+        emoji="📅",
+        label="Plan week",
+        body="Plan my training week.",
+        summary="Add a weekly plan action",
+        evidence=[f"{local_today().isoformat()}: 'plan my week please'"],
+    )
+    return ReviewOutput(suggestions=[item]), {"input_tokens": 100, "output_tokens": 20}

@@ -21,6 +21,7 @@ import {
   renderSlashMenu,
 } from '../components/QuickActionsSlashMenu';
 import { showQuickActionsEditor } from '../components/QuickActionsEditor';
+import { programSetup } from '../api/programs';
 import { isMobileViewport, setComposerHasExternalContent } from '../components/MessageInput';
 import { toast } from '../components/Toast';
 import { getElementById } from '../utils/dom';
@@ -290,15 +291,22 @@ export function getQuickActionsContext(): QuickActionsContext | null {
 export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
   const ctx = current;
   if (!ctx) return;
+  const showSaved = (saved: QuickAction[]): void => {
+    if (current && current.programId === ctx.programId) {
+      current.actions = saved;
+      renderCurrent();
+    }
+  };
   showQuickActionsEditor({
     actions: ctx.actions,
     ...(draft && { initialDraft: draft }),
-    onChange: async (actions) => {
-      const saved = await ctx.save(actions);
-      if (current && current.programId === ctx.programId) {
-        current.actions = saved;
-        renderCurrent();
-      }
+    onChange: async (actions) => showSaved(await ctx.save(actions)),
+    // The coach's suggestions for its quick actions and instructions
+    review: {
+      load: () => programSetup.review(ctx.namespace, ctx.programId),
+      apply: (suggestion) => programSetup.apply(ctx.namespace, ctx.programId, suggestion),
+      reject: (suggestion) => programSetup.reject(ctx.namespace, ctx.programId, suggestion),
+      onApplied: showSaved,
     },
   });
 }

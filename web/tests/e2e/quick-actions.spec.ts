@@ -147,6 +147,22 @@ test.describe('Quick actions - desktop', () => {
     await expect(page.locator('.quick-action-chip')).toHaveCount(3);
   });
 
+  test('Review suggests a new action; Accept adds it to the list and the chips', async ({ page }) => {
+    await openProgram(page);
+    await page.locator('.program-quick-actions-btn').click();
+    await page.locator('.qa-editor-review').click();
+    const item = page.locator('.qa-review-item');
+    await expect(item.locator('.qa-review-summary')).toHaveText('Add a weekly plan action');
+    await expect(item.locator('.qa-review-after')).toContainText('Plan week');
+    await expect(item.locator('.qa-review-evidence')).toContainText('plan my week please');
+    await item.locator('.qa-review-accept').click();
+    await expect(item.locator('.qa-review-item-status')).toHaveText('Applied');
+    await expect(page.locator('.quick-action-chip')).toHaveCount(3);
+    await page.locator('.qa-review-back').click();
+    await expect(page.locator('.qa-editor-row')).toHaveCount(3);
+    await expect(page.locator('.qa-editor-row-label').last()).toHaveText('Plan week');
+  });
+
   test('save as quick action prefills the editor with the message', async ({ page }) => {
     await openProgram(page);
     const replies = page.locator('.message.assistant:not(.streaming)');
@@ -189,6 +205,18 @@ test.describe('Quick actions - mobile', () => {
     await openProgram(page);
     await page.locator('.quick-action-edit-chip').click();
     await expect(page.locator('.qa-editor')).toBeVisible();
+    await expect(page.locator('.qa-editor-row')).toHaveCount(2);
+  });
+
+  test('Review on mobile: Reject marks the suggestion and leaves the list as it was', async ({ page }) => {
+    await openProgram(page);
+    await page.locator('.quick-action-edit-chip').click();
+    await page.locator('.qa-editor-review').click();
+    const item = page.locator('.qa-review-item');
+    await expect(item.locator('.qa-review-summary')).toBeVisible();
+    await item.locator('.qa-review-reject').click();
+    await expect(item.locator('.qa-review-item-status')).toHaveText('Rejected');
+    await page.locator('.qa-review-back').click();
     await expect(page.locator('.qa-editor-row')).toHaveCount(2);
   });
 

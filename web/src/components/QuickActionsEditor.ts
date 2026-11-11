@@ -16,11 +16,13 @@ import {
   PLUS_ICON,
   CHEVRON_DOWN_ICON,
   SLIDERS_ICON,
+  SPARKLES_ICON,
   createIconButton,
   createIconElement,
   setIcon,
   type IconHtml,
 } from '../utils/icons';
+import { renderSetupReview, type SetupReviewHandlers } from './QuickActionsReview';
 import { toast } from './Toast';
 
 const QUICK_ACTIONS_MAX = 12;
@@ -67,6 +69,8 @@ interface EditorOptions {
   initialDraft?: Partial<QuickAction>;
   /** Called after every change with the full ordered list; persist it. */
   onChange: (actions: QuickAction[]) => Promise<void>;
+  /** The Review (program self-tuning); onApplied gets the actions after an accepted change */
+  review?: SetupReviewHandlers & { onApplied: (actions: QuickAction[]) => void };
 }
 
 interface DetailParts {
@@ -122,6 +126,7 @@ interface EditorSession {
   draftList: QuickAction[];
   /** Persist after each mutation; keeps the draft on failure so the next change resends everything. */
   persist: () => Promise<void>;
+  review?: EditorOptions['review'];
 }
 
 /** The detail form's working state: the chosen icon and the questions. */
@@ -199,10 +204,35 @@ function renderList(session: EditorSession): void {
   add.append(createElement('span', {}, ['Add quick action']));
   add.disabled = draftList.length >= QUICK_ACTIONS_MAX;
   body.appendChild(list);
-  body.appendChild(add);
+  const footer = createElement('div', { class: 'qa-editor-footer' }, [add]);
+  const review = reviewButton(session);
+  if (review) footer.appendChild(review);
+  body.appendChild(footer);
 
   list.addEventListener('click', (e) => handleListClick(session, e));
   add.addEventListener('click', () => renderDetail(session, {}, null));
+}
+
+/** The Review button (only when the sheet was given review handlers). */
+function reviewButton(session: EditorSession): HTMLButtonElement | null {
+  const { review } = session;
+  if (!review) return null;
+  const button = createElement('button', { type: 'button', class: 'qa-editor-review' });
+  setIcon(button, SPARKLES_ICON);
+  button.append(createElement('span', {}, ['Review']));
+  button.title = 'Suggest improvements from your recent chats';
+  button.addEventListener('click', () => {
+    renderSetupReview(
+      session.body,
+      review,
+      (actions) => {
+        session.draftList.splice(0, session.draftList.length, ...actions.map((a) => ({ ...a, fields: [...a.fields] })));
+        review.onApplied(actions);
+      },
+      () => renderList(session)
+    );
+  });
+  return button;
 }
 
 function sectionTitle(title: string): HTMLElement {
@@ -482,6 +512,7 @@ export function showQuickActionsEditor(opts: EditorOptions): void {
   const session: EditorSession = {
     body,
     draftList,
+    ...(opts.review && { review: opts.review }),
     persist: async (): Promise<void> => {
       try {
         await opts.onChange(draftList.map((a) => ({ ...a, fields: [...a.fields] })));
