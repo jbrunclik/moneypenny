@@ -171,3 +171,93 @@ def test_plain_turbo_redirect_without_cookie_is_not_retried(mock_req):
     assert out == {"deleted": True, "id": 5}
     assert mock_req.call_count == 1
     assert not save.called
+
+
+# Real create replies (Nov 11 2026): the id now comes back quoted, and a
+# rejected upload carries Rouvy's reason in "error" with no id
+_ACCEPTED_NOV_2026 = (
+    '[{"_1":2},"data",{"_3":-5,"_4":5,"_6":7},"error","missingUsername",false,'
+    '"workoutId","4904455"]'
+)
+_REJECTED_NOV_2026 = (
+    '[{"_1":2},"data",{"_3":4,"_5":6,"_7":-5},"error","Failed to import workout",'
+    '"missingUsername",false,"workoutId"]'
+)
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_create_reads_a_quoted_workout_id(mock_req):
+    mock_req.return_value = _resp(text=_ACCEPTED_NOV_2026)
+    out = rc.rouvy_create(FakeUser(), "<workout_file/>", "Z2 60min")
+    assert out["id"] == 4904455
+    assert out["workout_url"].endswith("/workouts/4904455")
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_create_surfaces_rouvys_rejection(mock_req):
+    mock_req.return_value = _resp(text=_REJECTED_NOV_2026)
+    with pytest.raises(ValueError, match="Rouvy rejected the workout: Failed to import workout"):
+        rc.rouvy_create(FakeUser(), "<broken", "Z2 60min")
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_create_logs_an_excerpt_of_a_reply_it_cannot_read(mock_req, caplog):
+    mock_req.return_value = _resp(text='[{"_1":2},"data",{"_3":-5},"something","else"]')
+    with pytest.raises(ValueError, match="could not parse created workout id"):
+        rc.rouvy_create(FakeUser(), "<workout_file/>", "Z2 60min")
+    assert any("something" in str(getattr(r, "excerpt", "")) for r in caplog.records)
+
+
+# A dead or missing session (Nov 11 2026): a 202 single-fetch redirect to the
+# sign-in page, not a 401/403 or an HTML login page
+_SIGN_IN_REDIRECT_NOV_2026 = (
+    '[["SingleFetchRedirect",1],{"_2":3,"_4":5,"_6":7,"_8":7,"_9":7},"redirect",'
+    '"https://account.rouvy.com/sign-in?riders=true&redirectTo=%2Fworkouts%2Fcollections%2Fcreated",'
+    '"status",302,"revalidate",false,"reload","replace"]'
+)
+
+# Cloudflare's bot challenge (Nov 11 2026): any request it doesn't trust
+_CLOUDFLARE_CHALLENGE = (
+    '<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title>'
+    '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head></html>'
+)
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_a_sign_in_redirect_counts_as_expired_and_relogs_in(mock_req):
+    listed = '[{"_1":2},"data","4183941","ZZ Ride"]'
+    mock_req.side_effect = [
+        _resp(status=202, text=_SIGN_IN_REDIRECT_NOV_2026),
+        _resp(text=listed),
+    ]
+    with (
+        patch("src.agent.tools.rouvy.rouvy_auth.login", return_value="[]") as login,
+        patch("src.agent.tools.rouvy.db.update_user_rouvy_session"),
+    ):
+        out = rc.rouvy_list(FakeUser())
+    assert login.called
+    assert out == [{"id": 4183941, "name": "ZZ Ride"}]
+
+
+@patch("src.agent.tools.rouvy._client_request")
+def test_a_cloudflare_challenge_is_reported_without_a_relogin(mock_req):
+    mock_req.return_value = _resp(
+        status=403, text=_CLOUDFLARE_CHALLENGE, ctype="text/html; charset=UTF-8"
+    )
+    with (
+        patch("src.agent.tools.rouvy.rouvy_auth.login") as login,
+        pytest.raises(rc.RouvyBlockedError),
+    ):
+        rc.rouvy_list(FakeUser())
+    assert not login.called
+
+
+def test_the_tool_says_rouvy_is_blocking_access():
+    with (
+        patch("src.agent.tools.rouvy._resolve_user", return_value=FakeUser()),
+        patch("src.agent.tools.rouvy.rouvy_list", side_effect=rc.RouvyBlockedError()),
+        patch("src.agent.tools.rouvy.check_autonomous_permission", return_value=None),
+    ):
+        out = json.loads(rc.rouvy_workout.invoke({"action": "list"}))
+    assert out["success"] is False
+    assert "blocking" in out["error"].lower()

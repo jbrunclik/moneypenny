@@ -38,14 +38,35 @@ replicates the authenticated web flow, mirroring the Garmin integration.
 
 ### Confirmed endpoint contract
 
-All cookie-authed; responses are turbo-stream (`text/x-script`), parsed by regex.
+All cookie-authed; responses are turbo-stream (`text/x-script`). The create reply is decoded (`_turbo_data`: one JSON array of interned values, objects map `"_<key index>"` to a value index, negative = undefined); list still uses a regex. Nov 2026 pitfall: the id turned into a quoted string and the old unquoted-number regex reported every upload as failed, so the agent's retries made duplicates; a reply that doesn't decode is logged (`Rouvy create reply not understood`, 300-char excerpt).
 
 | Op | Request |
 |----|---------|
-| create | `POST /resources/workout-upload.data`, multipart field **`file`** → `"workoutId",<id>` |
+| create | `POST /resources/workout-upload.data`, multipart field **`file`** → `data.workoutId` (quoted since Nov 2026: `"workoutId","4904455"`), or `data.error` ("Failed to import workout") on a rejected file |
 | delete | `POST /workouts/{id}.data`, urlencoded body **`id=<id>`** |
 | list | `GET /workouts/collections/created.data` (the user's created workouts) |
-| get | `GET /workouts/{id}.data` |
+| get | `GET /workouts/{id}.data` (unknown id: 404) |
+
+Replies checked against the live service on Nov 11 2026 (probe: login, create
+valid + broken, list, get, get unknown, dead session, no session, delete):
+
+- **Delete** answers 202 with a single-fetch redirect to `/workouts` (success).
+- **A dead or missing session** answers **202** with a single-fetch redirect to
+  `account.rouvy.com/sign-in` - not a 401/403 or an HTML login page. Before Nov
+  11 the tool missed it (list read "no workouts", create "could not parse");
+  `_is_sign_in_redirect` now counts it as expired, which re-logs in.
+- **Cloudflare's bot challenge** ("Just a moment...", 403 HTML, or the
+  `cf-mitigated: challenge` header) answers any request it does not trust - in
+  Nov 2026 every request with httpx's default `python-httpx` User-Agent, while
+  the same request with a browser User-Agent passed. It is reported as
+  `RouvyBlockedError` ("Rouvy is blocking automated access") with no re-login:
+  treating it as an expired session started a ~50 s login that hit the same wall.
+- The headless login is blocked the same way since Nov 2026: right after the
+  password step `riders.rouvy.com/login?token=...` serves Cloudflare's "Sorry, you
+  have been blocked" to a browser calling itself `HeadlessChrome`; the same
+  login with that word removed from the User-Agent reaches `/feed`.
+- **List** returned exactly 30 workouts for an account with more: possibly the
+  first page only (`pageMeta`) - unverified.
 
 ## The tool
 

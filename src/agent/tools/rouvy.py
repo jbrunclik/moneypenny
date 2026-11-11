@@ -50,7 +50,14 @@ class RouvySessionExpiredError(Exception):
     """Session expired and automated refresh failed — user must reconnect."""
 
 
+class RouvyBlockedError(Exception):
+    """Rouvy's Cloudflare answered with its bot challenge: no session problem,
+    so no re-login (that only ran into the same wall for ~50 s, Nov 2026)."""
+
+
 _SESSION_COOKIE = "rouvy_session"  # a cookie name, not a secret
+# How much of a reply we could not read goes into the log (no session data in it)
+_REPLY_EXCERPT_CHARS = 300
 
 
 def _base() -> str:
@@ -70,7 +77,27 @@ def _client_request(
         return c.request(method, url, **kwargs)
 
 
+def _is_cloudflare_challenge(resp: httpx.Response) -> bool:
+    """Cloudflare's "Just a moment..." bot challenge (403, or 503, HTML)."""
+    if resp.headers.get("cf-mitigated") == "challenge":
+        return True
+    html = "text/html" in resp.headers.get("content-type", "")
+    return resp.status_code in (403, 503) and html and "Just a moment" in resp.text[:1000]
+
+
+def _is_sign_in_redirect(resp: httpx.Response) -> bool:
+    """A dead or missing session since Nov 2026: a 202 single-fetch redirect to
+    account.rouvy.com/sign-in instead of a 401/403 or an HTML login page."""
+    return (
+        resp.status_code == 202
+        and '"redirect"' in resp.text[:400]
+        and "/sign-in" in resp.text[:600]
+    )
+
+
 def _looks_expired(resp: httpx.Response) -> bool:
+    if _is_sign_in_redirect(resp):
+        return True
     if resp.status_code in (401, 403):
         return True
     if resp.status_code in (302, 307) and "sign-in" in resp.headers.get("location", ""):
@@ -102,6 +129,11 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
         raise RouvyNotConnectedError()
     jar = rouvy_auth.cookies_to_jar(user.rouvy_session)
     resp = _client_request(method, url, kwargs, jar)
+    if _is_cloudflare_challenge(resp):
+        logger.warning(
+            "Rouvy request met the Cloudflare challenge", extra={"status": resp.status_code}
+        )
+        raise RouvyBlockedError()
     rotated_jar = _persist_rotated_cookies(user, resp)
     if rotated_jar is not None and _is_refresh_redirect(resp):
         resp = _client_request(method, url, kwargs, rotated_jar)
@@ -123,15 +155,59 @@ def _authed_request(user: User, method: str, url: str, **kwargs: Any) -> httpx.R
     return resp
 
 
+def _turbo_data(text: str) -> dict[str, object]:
+    """The flat fields of a turbo-stream reply's ``data`` object.
+
+    A reply is one JSON array of interned values: objects map ``"_<key
+    index>"`` to a value index, negative indexes are sentinels (undefined), e.g.
+    `[{"_1":2},"data",{"_3":-5,"_6":7},"error",...,"workoutId","4904455"]`.
+    Returns {} for anything that doesn't decode that way.
+    """
+    try:
+        values = json.loads(text.splitlines()[0] if text else "")
+    except json.JSONDecodeError, IndexError:
+        return {}
+    if not (isinstance(values, list) and values and isinstance(values[0], dict)):
+        return {}
+
+    def at(index: object) -> object:
+        if isinstance(index, int) and 0 <= index < len(values):
+            return values[index]
+        return None
+
+    def key(ref: str) -> str | None:
+        name = at(int(ref[1:])) if ref.startswith("_") and ref[1:].isdigit() else None
+        return name if isinstance(name, str) else None
+
+    data = next((at(v) for k, v in values[0].items() if key(k) == "data"), None)
+    if not isinstance(data, dict):
+        return {}
+    return {name: at(v) for k, v in data.items() if (name := key(k)) is not None}
+
+
 def _parse_created_id(resp: httpx.Response) -> int:
     """Extract the new workout id from a create response (turbo-stream).
 
-    Success looks like `[...,"error",<null-ref>,"workoutId",4183941]`.
+    Since Nov 2026 the id comes back quoted (`"workoutId","4904455"`; before,
+    `"workoutId",4183941`), and a rejected upload names its reason in
+    ``error`` ("Failed to import workout") with no id. Reading only an unquoted
+    number reported real uploads as failures, so retries made duplicates.
     """
-    m = re.search(r'"workoutId"\s*,\s*(\d+)', resp.text)
-    if not m:
-        raise ValueError("could not parse created workout id from Rouvy response")
-    return int(m.group(1))
+    data = _turbo_data(resp.text)
+    error = data.get("error")
+    if isinstance(error, str) and error:
+        raise ValueError(f"Rouvy rejected the workout: {error}")
+    wid = data.get("workoutId")
+    if isinstance(wid, int) or (isinstance(wid, str) and wid.isdigit()):
+        return int(wid)
+    m = re.search(r'"workoutId"\s*,\s*"?(\d+)', resp.text)
+    if m:
+        return int(m.group(1))
+    logger.warning(
+        "Rouvy create reply not understood",
+        extra={"excerpt": resp.text[:_REPLY_EXCERPT_CHARS]},
+    )
+    raise ValueError("could not parse created workout id from Rouvy response")
 
 
 def _parse_workout_list(resp: httpx.Response) -> list[dict[str, Any]]:
@@ -293,6 +369,12 @@ def rouvy_workout(
     except RouvySessionExpiredError:
         # Automatic re-login failed: the stored credentials no longer work
         return not_connected_result("rouvy", was_connected=True, success=False)
+    except RouvyBlockedError:
+        return tool_error(
+            "Rouvy is blocking automated access right now (its bot protection), so this did not"
+            " reach Rouvy. Tell the user; reconnecting will not help.",
+            success=False,
+        )
     except Exception as e:  # tool must return, not raise
         logger.exception("rouvy_workout failed", extra={"action": action, "error": str(e)})
         return tool_error(f"Rouvy request failed: {e}", success=False)
