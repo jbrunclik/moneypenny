@@ -200,7 +200,11 @@ def load_cases(directory: Path) -> list[EvalCase]:
                     {
                         "role": str(h["role"]),
                         "content": str(h["content"]),
-                        **({"metadata": dict(h["metadata"])} if h.get("metadata") else {}),
+                        **(
+                            {"metadata": _resolve_dates(dict(h["metadata"]))}
+                            if h.get("metadata")
+                            else {}
+                        ),
                         **({"files": [str(f) for f in h["files"]]} if h.get("files") else {}),
                     }
                     for h in (data.get("history") or [])
@@ -790,7 +794,13 @@ def _program_conversation(case: EvalCase, user: Any, db: Any) -> Any:
     db.kv_set(user.id, case.mode, "programs", json.dumps([program]))
     for key, value in case.program_kv.items():
         db.kv_set(user.id, case.mode, key, value)
-    return db.get_or_create_program_conversation(case.mode, user.id, program_id)
+    conversation = db.get_or_create_program_conversation(case.mode, user.id, program_id)
+    # The history's user turns as messages (dated now): setup-change evidence
+    # must cite a day the user really wrote in the chat
+    for turn in case.history:
+        if turn.get("role") == "user":
+            db.add_message(conversation.id, "user", str(turn.get("content", "")))
+    return conversation
 
 
 def _agent_conversation(user: Any, db: Any) -> Any:

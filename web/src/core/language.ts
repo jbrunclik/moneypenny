@@ -224,13 +224,14 @@ export async function navigateToLanguageProgram(programId: string): Promise<void
         program,
         () => void navigateToLanguage(),
         () => void handleProgramReset(programId),
-        () => openQuickActionsEditor(),
+        () => void openQuickActionsEditor(),
       );
       mountQuickActionsBar({
         namespace: 'language',
         programId,
         actions: program.quick_actions ?? [],
         save: (actions: QuickAction[]) => saveLanguageQuickActions(programId, actions),
+        load: async () => (await language.getPrograms()).find((p) => p.id === programId)?.quick_actions ?? [],
       });
     } else {
       renderChatHeader(null);

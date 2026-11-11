@@ -61,6 +61,8 @@ export interface QuickActionsContext {
   actions: QuickAction[];
   /** Persist the full list; resolves with the server's copy. */
   save: (actions: QuickAction[]) => Promise<QuickAction[]>;
+  /** Read the server's copy (the coach's approved setup changes land there) */
+  load?: () => Promise<QuickAction[]>;
 }
 
 // UI-local (F2): the composer's quick-action mode and slash menu
@@ -115,7 +117,7 @@ function renderCurrent(): void {
     bar,
     current.actions,
     (action) => activateQuickAction(action),
-    () => openQuickActionsEditor()
+    () => void openQuickActionsEditor()
   );
   refreshQuickActionsBar();
 }
@@ -287,8 +289,32 @@ export function getQuickActionsContext(): QuickActionsContext | null {
   return current;
 }
 
-/** Open the per-program editor; autosaves through the context and re-renders the chips. */
-export function openQuickActionsEditor(draft?: Partial<QuickAction>): void {
+/**
+ * Re-read the program's actions from the server (the coach may have changed
+ * them through an approved card) and re-render the chips; keeps the current
+ * list when the read fails.
+ */
+export async function reloadQuickActions(): Promise<void> {
+  const ctx = current;
+  if (!ctx?.load) return;
+  try {
+    const fresh = await ctx.load();
+    if (current && current.programId === ctx.programId) {
+      current.actions = fresh;
+      renderCurrent();
+    }
+  } catch (error) {
+    log.warn('Quick actions reload failed', { error });
+  }
+}
+
+/**
+ * Open the per-program editor on the server's copy (a card approved in chat
+ * may have changed it, and the editor saves its whole list); autosaves
+ * through the context and re-renders the chips.
+ */
+export async function openQuickActionsEditor(draft?: Partial<QuickAction>): Promise<void> {
+  await reloadQuickActions();
   const ctx = current;
   if (!ctx) return;
   const setupClient = ctx.namespace === 'sports' ? sportsSetup : languageSetup;
@@ -344,7 +370,12 @@ export function initQuickActions(): void {
   unsubscribeStore?.();
   unsubscribeStore = useStore.subscribe(
     (state) => state.activeRequests,
-    () => refreshQuickActionsBar()
+    (requests, previous) => {
+      refreshQuickActionsBar();
+      // A finished turn may have applied a setup card (a typed yes): re-read the actions
+      const convId = useStore.getState().currentConversation?.id;
+      if (convId && previous.has(convId) && !requests.has(convId)) void reloadQuickActions();
+    }
   );
   document.addEventListener('message:save-quick-action', (e) => {
     const { messageId } = (e as CustomEvent<{ messageId: string }>).detail;
@@ -355,6 +386,6 @@ export function initQuickActions(): void {
       .getMessages(convId)
       .find((m) => m.id === messageId);
     if (!message) return;
-    openQuickActionsEditor({ body: message.content });
+    void openQuickActionsEditor({ body: message.content });
   });
 }

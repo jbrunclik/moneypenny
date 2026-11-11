@@ -23,7 +23,7 @@ from typing import Literal, TypedDict, cast
 from src.config import Config
 from src.db.models import db
 from src.db.models.programs import PROGRAM_FEATURES
-from src.utils.clock import local_today
+from src.utils.clock import local_today, to_local
 from src.utils.json_merge import merge_patch
 from src.utils.logging import get_logger
 
@@ -87,7 +87,12 @@ QUICK_ACTION_DEFAULTS: dict[str, list[dict[str, object]]] = {
     ],
 }
 
-_DECLINED_KEY = "setup_declined"
+# Not under the {program_id}: prefix: program_context.py puts every key there into
+# the chat's prompt each turn (final review, Nov 11 2026)
+_DECLINED_KEY_PREFIX = "setup_declined:"
+EVIDENCE_MAX = 5
+# How far back the chat's own dates are read to check evidence against
+_CHAT_DATES_MESSAGES = 200
 _DATE = re.compile(r"^\s*(\d{4}-\d{2}-\d{2})")
 
 
@@ -111,6 +116,9 @@ class SetupChange(TypedDict, total=False):
     key: str
     patch: dict[str, object]
     text: str
+    # A digest of the target as it was when suggested: a change made since
+    # (by hand, or by the coach on request) makes the suggestion stale
+    expect: str
 
 
 class ProgramSetup(TypedDict):
@@ -355,11 +363,45 @@ def _apply_instruction(user_id: str, ref: ProgramRef, change: SetupChange) -> st
     return f"Updated the coach's {key}."
 
 
+def _target_value(current: ProgramSetup, change: SetupChange) -> object:
+    """What the change replaces now: the quick action, or the instruction's value."""
+    if change.get("target") == "instruction":
+        return current["instructions"].get(str(change.get("key")))
+    if change.get("op") == "add":
+        return None
+    return next((a for a in current["quick_actions"] if a["id"] == change.get("action_id")), None)
+
+
+def _digest(value: object) -> str:
+    raw = json.dumps(value, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:12]
+
+
+def with_snapshot(current: ProgramSetup, change: SetupChange) -> SetupChange:
+    """The change carrying a digest of its target as it is now (adds have none)."""
+    if change.get("target") == "quick_action" and change.get("op") == "add":
+        return change
+    return {**change, "expect": _digest(_target_value(current, change))}
+
+
+def _check_snapshot(user_id: str, ref: ProgramRef, change: SetupChange) -> None:
+    """Refuse a change whose target was changed since it was suggested."""
+    expected = change.get("expect")
+    if not expected:
+        return
+    value = _target_value(load_setup(user_id, ref), change)
+    if value is None and change.get("target") == "quick_action":
+        return  # gone entirely: the apply says "no longer exists"
+    if _digest(value) != expected:
+        raise SetupChangeError("That changed since this was suggested - nothing was changed.")
+
+
 def apply_change(user_id: str, ref: ProgramRef, change: SetupChange) -> str:
     """Apply an approved change; the line says what changed. Raises SetupChangeError."""
     checked = validate_change(ref.namespace, cast("Mapping[str, object]", change))
     if isinstance(checked, str):
         raise SetupChangeError(checked)
+    _check_snapshot(user_id, ref, checked)
     if checked["target"] == "instruction":
         line = _apply_instruction(user_id, ref, checked)
     else:
@@ -396,16 +438,33 @@ def fingerprint(change: SetupChange) -> str:
     return f"{head}|{digest[:12]}"
 
 
+def _declined_key(ref: ProgramRef) -> str:
+    return f"{_DECLINED_KEY_PREFIX}{ref.program_id}"
+
+
+def _declined_entry(raw: object) -> DeclinedEntry | None:
+    """A stored entry, or None when malformed (the key is plain KV data)."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("fingerprint"), str):
+        return None
+    try:
+        when = date.fromisoformat(str(raw.get("declined_at")))
+    except ValueError:
+        return None
+    return {
+        "fingerprint": raw["fingerprint"],
+        "summary": str(raw.get("summary", "")),
+        "declined_at": when.isoformat(),
+    }
+
+
 def declined(user_id: str, ref: ProgramRef) -> list[DeclinedEntry]:
     """The suggestions the user declined for this program, oldest first."""
-    raw = db.kv_get(user_id, ref.namespace, f"{ref.program_id}:{_DECLINED_KEY}")
     try:
-        data = json.loads(raw or "[]")
+        data = json.loads(db.kv_get(user_id, ref.namespace, _declined_key(ref)) or "[]")
     except json.JSONDecodeError, TypeError:
         return []
-    if not isinstance(data, list):
-        return []
-    return [cast("DeclinedEntry", e) for e in data if isinstance(e, dict) and "fingerprint" in e]
+    entries = [_declined_entry(e) for e in data] if isinstance(data, list) else []
+    return [e for e in entries if e is not None]
 
 
 def record_decline(user_id: str, ref: ProgramRef, change: SetupChange, summary: str) -> None:
@@ -416,7 +475,7 @@ def record_decline(user_id: str, ref: ProgramRef, change: SetupChange, summary: 
         "declined_at": local_today().isoformat(),
     }
     entries = [*declined(user_id, ref), entry][-Config.SETUP_DECLINED_MAX :]
-    db.kv_set(user_id, ref.namespace, f"{ref.program_id}:{_DECLINED_KEY}", json.dumps(entries))
+    db.kv_set(user_id, ref.namespace, _declined_key(ref), json.dumps(entries))
 
 
 def evidence_dates(evidence: list[str]) -> list[date]:
@@ -429,6 +488,30 @@ def evidence_dates(evidence: list[str]) -> list[date]:
             except ValueError:
                 continue
     return dates
+
+
+def chat_dates(conversation_id: str) -> set[date]:
+    """The local days the user wrote in this chat (its latest messages)."""
+    messages, _ = db.get_messages_paginated(conversation_id, limit=_CHAT_DATES_MESSAGES)
+    return {to_local(m.created_at).date() for m in messages if m.role.value == "user"}
+
+
+def evidence_problem(evidence: list[str], known_days: set[date]) -> str | None:
+    """Why the evidence does not hold, or None: 1-5 items, each starting with a
+    YYYY-MM-DD the user actually wrote on in this chat (final review: the dates
+    were the model's word, and a fresh date re-opened a declined suggestion)."""
+    items = [e.strip() for e in evidence if e.strip()]
+    dates = evidence_dates(items)
+    if not 1 <= len(items) <= EVIDENCE_MAX or len(dates) != len(items):
+        return (
+            f"Give 1-{EVIDENCE_MAX} evidence items, each starting with the YYYY-MM-DD date of a "
+            "turn in this chat and what was said (e.g. \"2026-11-09: 'what's my next workout?'\")."
+        )
+    unknown = sorted({d for d in dates if d not in known_days})
+    if unknown:
+        days = ", ".join(d.isoformat() for d in unknown)
+        return f"Cite only days the user wrote in this chat - not {days}."
+    return None
 
 
 def blocked_by_decline(

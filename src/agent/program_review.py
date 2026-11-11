@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Literal, TypedDict
+import unicodedata
+from datetime import date
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -27,6 +29,9 @@ from src.services.costs import calculate_token_cost
 from src.services.program_setup import ProgramRef, SetupChange, SetupChangeError
 from src.utils.clock import to_local
 from src.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from src.db.models import Conversation
 
 logger = get_logger(__name__)
 
@@ -92,16 +97,22 @@ Latest turns (oldest first):
 {turns}"""
 
 
-def _turns(user_id: str, ref: ProgramRef) -> str:
+def _program_chat(user_id: str, ref: ProgramRef) -> Conversation | None:
     column = PROGRAM_FEATURES[ref.namespace].program_column
-    conv = next(
-        (
-            c
-            for c in db.list_program_conversations(ref.namespace, user_id)
-            if getattr(c, column) == ref.program_id
-        ),
-        None,
-    )
+    chats = db.list_program_conversations(ref.namespace, user_id)
+    return next((c for c in chats if getattr(c, column) == ref.program_id), None)
+
+
+def _ascii_id(text: str) -> str:
+    """A quick action id from a label: ASCII letters, digits and - only
+    ("Plán týdne" -> "plan-tydne"; final review: Czech adds were all dropped)."""
+    folded = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    words = "-".join(folded.casefold().split())
+    return "".join(ch for ch in words if ch.isalnum() or ch in "-_")[:32] or "action"
+
+
+def _turns(user_id: str, ref: ProgramRef) -> str:
+    conv = _program_chat(user_id, ref)
     if conv is None:
         return "(no turns yet)"
     messages, _ = db.get_messages_paginated(conv.id, limit=Config.PROGRAM_REVIEW_MESSAGES)
@@ -156,9 +167,8 @@ def _change(item: ReviewItem) -> dict[str, object] | None:
         return draft
     draft = {"target": "quick_action", "op": item.op, "action_id": item.action_id}
     if item.op != "remove":
-        action_id = item.action_id or "-".join((item.label or "action").casefold().split())[:32]
         draft["action"] = {
-            "id": "".join(ch for ch in action_id if ch.isalnum() or ch in "-_") or "action",
+            "id": _ascii_id(item.action_id or item.label or "action"),
             "emoji": item.emoji or "✨",
             "label": item.label or "",
             "body": item.body or "",
@@ -168,16 +178,16 @@ def _change(item: ReviewItem) -> dict[str, object] | None:
 
 
 def _suggestion(
-    user_id: str, ref: ProgramRef, item: ReviewItem, current: setup.ProgramSetup
+    user_id: str,
+    ref: ProgramRef,
+    item: ReviewItem,
+    current: setup.ProgramSetup,
+    known_days: set[date],
 ) -> Suggestion | None:
     draft = _change(item)
     checked = setup.validate_change(ref.namespace, draft) if draft is not None else "bad patch"
-    evidence = [e.strip() for e in item.evidence if e.strip()][:5]
-    if (
-        isinstance(checked, str)
-        or not evidence
-        or len(setup.evidence_dates(evidence)) != len(evidence)
-    ):
+    evidence = [e.strip() for e in item.evidence if e.strip()]
+    if isinstance(checked, str) or setup.evidence_problem(evidence, known_days):
         return None
     if setup.blocked_by_decline(setup.declined(user_id, ref), checked, evidence):
         return None
@@ -187,7 +197,8 @@ def _suggestion(
         return None
     return {
         "id": setup.fingerprint(checked),
-        "change": checked,
+        # Accepting later applies only if the target is still what was shown
+        "change": setup.with_snapshot(current, checked),
         "summary": item.summary.strip()[:200],
         "before": before,
         "after": after,
@@ -200,10 +211,13 @@ def review_setup(user_id: str, ref: ProgramRef) -> list[Suggestion]:
     started = time.monotonic()
     output, usage = _invoke(_prompt(user_id, ref))
     current = setup.load_setup(user_id, ref)
+    chat = _program_chat(user_id, ref)
+    # Evidence must cite days the user really wrote in the program chat
+    known_days = setup.chat_dates(chat.id) if chat is not None else set()
     suggestions: list[Suggestion] = []
     seen: set[str] = set()
     for item in output.suggestions:
-        found = _suggestion(user_id, ref, item, current)
+        found = _suggestion(user_id, ref, item, current, known_days)
         if found is not None and found["id"] not in seen:
             seen.add(found["id"])
             suggestions.append(found)

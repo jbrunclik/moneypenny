@@ -6,7 +6,10 @@ import {
   mountQuickActionsBar,
   unmountQuickActionsBar,
   getQuickActionsContext,
+  openQuickActionsEditor,
+  reloadQuickActions,
 } from '@/core/quick-actions';
+import { closeQuickActionsEditor } from '@/components/QuickActionsEditor';
 
 describe('quick actions mount', () => {
   beforeEach(() => {
@@ -40,6 +43,41 @@ describe('quick actions mount', () => {
     expect(bar.classList.contains('hidden')).toBe(true);
     expect(document.body.classList.contains('has-quick-actions')).toBe(false);
     expect(getQuickActionsContext()).toBeNull();
+  });
+
+  it('reloadQuickActions refreshes the chips from the server (a card approved in chat)', async () => {
+    const plan = { id: 'a', emoji: '📋', label: 'Plan', body: 'Plan.', fields: [] };
+    const week = { id: 'w', emoji: '📅', label: 'Plan week', body: 'Week.', fields: [] };
+    mountQuickActionsBar({
+      namespace: 'sports',
+      programId: 'pushups',
+      actions: [plan],
+      save: vi.fn(),
+      load: vi.fn(() => Promise.resolve([plan, week])),
+    });
+
+    await reloadQuickActions();
+
+    const bar = document.getElementById('quick-actions-bar')!;
+    expect(bar.querySelectorAll('.quick-action-chip').length).toBe(2);
+    expect(getQuickActionsContext()?.actions.map((a) => a.id)).toEqual(['a', 'w']);
+  });
+
+  it('the editor opens on the server copy, so an edit never resends a stale list', async () => {
+    const plan = { id: 'a', emoji: '📋', label: 'Plan', body: 'Plan.', fields: [] };
+    const week = { id: 'w', emoji: '📅', label: 'Plan week', body: 'Week.', fields: [] };
+    mountQuickActionsBar({
+      namespace: 'sports',
+      programId: 'pushups',
+      actions: [plan],
+      save: vi.fn(),
+      load: vi.fn(() => Promise.resolve([plan, week])),
+    });
+
+    await openQuickActionsEditor();
+
+    expect(document.querySelectorAll('.qa-editor-row').length).toBe(2);
+    closeQuickActionsEditor();
   });
 
   it('mount with zero actions still shows the bar with only the edit chip', () => {

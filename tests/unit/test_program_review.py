@@ -41,6 +41,9 @@ def program(test_database: Database, test_user: User) -> Generator[Database]:
         test_database.kv_set(
             test_user.id, "sports", "cycling:routine", json.dumps({"z2_watts": 120})
         )
+        # The day the suggestions cite: the user wrote in the program chat today
+        conv = test_database.get_or_create_program_conversation("sports", test_user.id, "cycling")
+        test_database.add_message(conv.id, MessageRole.USER, "plan my week please")
         yield test_database
 
 
@@ -90,11 +93,9 @@ def test_returns_validated_suggestions_with_before_after(
 
     assert add["before"] == "(none)" and "Plan week" in add["after"]
     assert add["id"] == ps.fingerprint(add["change"])
-    assert routine["change"] == {
-        "target": "instruction",
-        "key": "routine",
-        "patch": {"z2_watts": 125},
-    }
+    change = dict(routine["change"])
+    assert change.pop("expect")  # the snapshot of the routine as it is now
+    assert change == {"target": "instruction", "key": "routine", "patch": {"z2_watts": 125}}
     assert "120" in routine["before"] and "125" in routine["after"]
     assert routine["evidence"] == [f"{TODAY}: 'plan my week'"]
 
@@ -158,13 +159,48 @@ def test_invalid_and_declined_items_are_dropped(
     assert "Keeper" in suggestions[0]["after"]
 
 
-def test_no_program_chat_means_no_turns_but_a_review(
+def test_a_program_without_a_chat_has_nothing_to_cite(
     program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    running = {"id": "running", "name": "Running", "emoji": "🏃", "created_at": "2026-11-01"}
+    cycling = json.loads(program.kv_get(test_user.id, "sports", "programs") or "[]")
+    program.kv_set(test_user.id, "sports", "programs", json.dumps([*cycling, running]))
     seen: list[str] = []
     _returns(monkeypatch, [_item()], seen)
-    assert len(review.review_setup(test_user.id, REF)) == 1
+
+    assert review.review_setup(test_user.id, ProgramRef("sports", "running")) == []
     assert "(no turns yet)" in seen[0]
+
+
+def test_evidence_must_cite_days_the_user_wrote(
+    program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review #4: a made-up date drops the suggestion."""
+    made_up = (date.today() - timedelta(days=9)).isoformat()
+    _returns(monkeypatch, [_item(evidence=[f"{made_up}: never said"]), _item(label="Real")])
+    [kept] = review.review_setup(test_user.id, REF)
+    assert "Real" in kept["after"]
+
+
+def test_a_czech_label_still_makes_a_valid_add(
+    program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review #3: the id built from "Plán týdne" was not ASCII and every Czech add vanished."""
+    _returns(monkeypatch, [_item(label="Plán týdne", body="Naplánuj mi týden.")])
+    [suggestion] = review.review_setup(test_user.id, REF)
+    action = suggestion["change"]["action"]
+    assert action["label"] == "Plán týdne"
+    assert action["id"] == "plan-tydne"
+
+
+def test_a_suggestion_carries_a_snapshot_of_its_target(
+    program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Final review #1: accepting after a hand edit is refused, not applied over it."""
+    edit = _item(op="edit", action_id="next", label="Next workout", body="Coach's version")
+    _returns(monkeypatch, [edit])
+    [suggestion] = review.review_setup(test_user.id, REF)
+    assert suggestion["change"].get("expect")
 
 
 def test_at_most_eight(program: Database, test_user: User, monkeypatch: pytest.MonkeyPatch) -> None:

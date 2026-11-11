@@ -224,13 +224,14 @@ export async function navigateToSportsProgram(programId: string): Promise<void> 
         program,
         () => void navigateToSports(),
         () => void handleProgramReset(programId),
-        () => openQuickActionsEditor(),
+        () => void openQuickActionsEditor(),
       );
       mountQuickActionsBar({
         namespace: 'sports',
         programId,
         actions: program.quick_actions ?? [],
         save: (actions: QuickAction[]) => saveSportsQuickActions(programId, actions),
+        load: async () => (await sports.getPrograms()).find((p) => p.id === programId)?.quick_actions ?? [],
       });
     } else {
       renderChatHeader(null);

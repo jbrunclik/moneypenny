@@ -55,6 +55,8 @@ def program_chat(test_database: Database, test_user: User) -> Iterator[Conversat
         }
         test_database.kv_set(test_user.id, "sports", "programs", json.dumps([program]))
         conv = test_database.get_or_create_program_conversation("sports", test_user.id, "cycling")
+        # The day the evidence cites: the user wrote in this chat today
+        test_database.add_message(conv.id, MessageRole.USER, "plan my week please")
         set_conversation_context(conv.id, test_user.id)
         set_current_request_id("turn-1")
         yield conv
@@ -139,10 +141,50 @@ def test_an_invalid_change_is_refused_with_its_reason(
 def test_a_declined_change_needs_newer_evidence(
     program_chat: Conversation, test_database: Database, test_user: User
 ) -> None:
+    # Declined today: today's turn is not newer evidence
     ps.record_decline(test_user.id, REF, ps.validate_change("sports", _ADD), "Add Plan week")  # type: ignore[arg-type]
+    assert "declined" in _propose(evidence=[f"{_today()}: 'plan my week'"])
 
-    assert "declined" in _propose(evidence=[f"{_today(-1)}: 'plan my week'"])
-    assert _propose(evidence=[f"{_today(1)}: 'plan my week again'"]).startswith("PROPOSAL")
+    # Declined two days ago: today's turn is newer
+    entries = [{**e, "declined_at": _today(-2)} for e in ps.declined(test_user.id, REF)]
+    test_database.kv_set(test_user.id, "sports", "setup_declined:cycling", json.dumps(entries))
+    assert _propose(evidence=[f"{_today()}: 'plan my week again'"]).startswith("PROPOSAL")
+
+
+def test_evidence_must_cite_a_day_the_user_wrote(
+    program_chat: Conversation, test_database: Database
+) -> None:
+    """Final review #4: a made-up date is refused (it used to re-open declined changes)."""
+    result = _propose(evidence=[f"{_today(-5)}: 'plan my week'"])
+    assert "Cite only days the user wrote" in result
+    assert test_database.pending_proposals(program_chat.id) == []
+
+
+def test_the_card_carries_a_snapshot_so_a_hand_edit_wins(
+    program_chat: Conversation, test_database: Database, test_user: User
+) -> None:
+    """Final review #1: approving after a hand edit refuses instead of overwriting."""
+    edit = {
+        "target": "quick_action",
+        "op": "edit",
+        "action_id": "next",
+        "action": {**_NEXT, "body": "Coach's version"},
+    }
+    _propose(edit)
+    card = _card(test_database, program_chat)
+    mine = {
+        "target": "quick_action",
+        "op": "edit",
+        "action_id": "next",
+        "action": {**_NEXT, "body": "Mine"},
+    }
+    ps.apply_change(test_user.id, REF, mine)  # type: ignore[arg-type]
+
+    answered = resolve(card, 0, "button")
+
+    assert answered.state == "failed"
+    assert "changed since" in (answered.result or "")
+    assert ps.load_setup(test_user.id, REF)["quick_actions"][0]["body"] == "Mine"
 
 
 def test_an_ignored_card_comes_back_once_after_three_days(

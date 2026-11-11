@@ -20,19 +20,19 @@ history:
   - role: user
     content: "Jaký je můj další trénink? Zohledni dnešní readiness z Garminu."
     metadata:
-      timestamp: "2026-11-05 07:10 CET"
+      timestamp: "{today} 07:10 CET"
   - role: assistant
     content: "Dnes máš v plánu Z2 60 min na 125 W; readiness 68, takže v pohodě."
     metadata:
-      timestamp: "2026-11-05 07:11 CET"
+      timestamp: "{today} 07:11 CET"
   - role: user
     content: "Jaký je můj další trénink? Podívej se i na readiness."
     metadata:
-      timestamp: "2026-11-07 07:05 CET"
+      timestamp: "{today} 09:05 CET"
   - role: assistant
     content: "Další je sweet spot 2x12 min na 170 W; readiness 74, jdi do toho."
     metadata:
-      timestamp: "2026-11-07 07:06 CET"
+      timestamp: "{today} 09:06 CET"
 user: "Jaký je můj další trénink? A zohledni readiness."
 expect:
   rubric: >
@@ -40,7 +40,9 @@ expect:
     for readiness, or says it needs the readiness data). Calls
     propose_setup_change to ADD a quick action for this repeated request (a
     short Czech label such as "Další trénink", a body asking for the next
-    workout with readiness), with evidence citing the earlier dated turns
-    (2026-11-05, 2026-11-07). Does not claim the quick action already exists.
+    workout with readiness) and mentions the suggestion briefly in the reply.
+    The evidence goes in the tool call (the server checks it against the
+    chat; the judge does not see tool arguments), so the reply need not list
+    dates. Does not claim the quick action already exists.
   required_tools: [propose_setup_change]
   max_tool_rounds: 4

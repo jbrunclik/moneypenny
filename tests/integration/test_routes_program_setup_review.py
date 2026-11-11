@@ -42,6 +42,9 @@ def program(test_database: Database, test_user: User) -> None:
         "quick_actions": [_NEXT],
     }
     test_database.kv_set(test_user.id, "sports", "programs", json.dumps([entry]))
+    # The day the suggestion's evidence cites
+    conv = test_database.get_or_create_program_conversation("sports", test_user.id, "cycling")
+    test_database.add_message(conv.id, "user", "plan my week")
 
 
 @pytest.fixture

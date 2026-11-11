@@ -23,6 +23,7 @@ import { setArtifactSender } from '../../components/messages/artifact-host';
 import { setQuizRenderer } from '../../utils/markdown';
 import { startDeepResearch } from '../deep-research';
 import { sendAppMessage, sendUiMessage } from '../messaging';
+import { reloadQuickActions } from '../quick-actions';
 
 /**
  * Wire up message popups and widgets.
@@ -37,7 +38,16 @@ export function initMessageUi(): void {
   setArtifactSender(sendAppMessage);
   initResearchOffers({ start: startDeepResearch });
   // A question's pick is the user's reply: sent as their own message
-  initProposalCards({ approve: proposals.approve, decline: proposals.decline, reply: (text) => sendUiMessage(text) });
+  initProposalCards({
+    approve: async (id, choice) => {
+      const card = await proposals.approve(id, choice);
+      // A coach's setup change applied: the chips show the new quick actions
+      if (card.kind === 'program_setup') void reloadQuickActions();
+      return card;
+    },
+    decline: proposals.decline,
+    reply: (text) => sendUiMessage(text),
+  });
   initResearchProgress();
   initActionRows();
   initImageGenPopup();

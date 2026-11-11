@@ -33,7 +33,6 @@ logger = get_logger(__name__)
 
 KIND = "program_setup"
 TOOL_NAME = "propose_setup_change"
-MAX_EVIDENCE = 5
 _APPROVE_LABEL = "Apply"
 
 
@@ -49,16 +48,6 @@ def _parse(change: str) -> dict[str, object] | str:
     except json.JSONDecodeError:
         return "change must be a JSON object"
     return data if isinstance(data, dict) else "change must be a JSON object"
-
-
-def _evidence_problem(evidence: list[str]) -> str | None:
-    items = [e.strip() for e in evidence if e.strip()]
-    if not 1 <= len(items) <= MAX_EVIDENCE or len(setup.evidence_dates(items)) != len(items):
-        return (
-            f"Give 1-{MAX_EVIDENCE} evidence items, each starting with the YYYY-MM-DD date of a "
-            "turn in this chat and what was said (e.g. \"2026-11-09: 'what's my next workout?'\")."
-        )
-    return None
 
 
 def _offered_again_too_soon(conversation_id: str, mark: str) -> str | None:
@@ -138,7 +127,7 @@ def propose_setup_change(change: str, evidence: list[str], reason: str) -> str:
     checked = parsed if isinstance(parsed, str) else setup.validate_change(ref.namespace, parsed)
     if isinstance(checked, str):
         return _refused(f"{checked}.")
-    if problem := _evidence_problem(evidence):
+    if problem := setup.evidence_problem(evidence, setup.chat_dates(conversation_id)):
         return _refused(problem)
     if refusal := _refusal(ref, user_id, conversation_id, checked, evidence):
         return _refused(refusal, retriable=False)
@@ -149,9 +138,12 @@ def _file(
     ref: ProgramRef, user_id: str, change: SetupChange, evidence: list[str], reason: str
 ) -> str:
     try:
-        before, after = setup.describe_change(setup.load_setup(user_id, ref), change)
+        current = setup.load_setup(user_id, ref)
+        before, after = setup.describe_change(current, change)
     except SetupChangeError as e:
         return _refused(str(e), retriable=False)
+    # Approving later applies only if the target is still what the card showed
+    change = setup.with_snapshot(current, change)
     payload: dict[str, object] = {
         "namespace": ref.namespace,
         "program_id": ref.program_id,

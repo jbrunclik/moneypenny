@@ -224,3 +224,90 @@ class TestProgramForConversation:
     def test_an_ordinary_chat_has_none(self, db: Database, test_user: User) -> None:
         conv = db.create_conversation(test_user.id, "Hello")
         assert ps.program_for_conversation(conv.id, test_user.id) is None
+
+
+class TestReviewFixes:
+    def test_a_card_for_a_hand_edited_action_is_refused(
+        self, db: Database, test_user: User
+    ) -> None:
+        """Final review #1: the snapshot taken when suggested must still match."""
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        coach: ps.SetupChange = {
+            "target": "quick_action",
+            "op": "edit",
+            "action_id": "next",
+            "action": {**_NEXT, "body": "Coach's version"},
+        }
+        coach = ps.with_snapshot(ps.load_setup(test_user.id, REF), coach)
+        mine: ps.SetupChange = {
+            "target": "quick_action",
+            "op": "edit",
+            "action_id": "next",
+            "action": {**_NEXT, "body": "My own words"},
+        }
+        ps.apply_change(test_user.id, REF, mine)
+
+        with pytest.raises(SetupChangeError, match="changed since"):
+            ps.apply_change(test_user.id, REF, coach)
+        assert _stored_actions(db, test_user)[0]["body"] == "My own words"
+
+    def test_an_unchanged_target_still_applies(self, db: Database, test_user: User) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        change: ps.SetupChange = {"target": "quick_action", "op": "remove", "action_id": "next"}
+        ps.apply_change(
+            test_user.id, REF, ps.with_snapshot(ps.load_setup(test_user.id, REF), change)
+        )
+        assert _stored_actions(db, test_user) == []
+
+    def test_an_instruction_changed_since_is_refused(self, db: Database, test_user: User) -> None:
+        db.kv_set(test_user.id, "sports", "cycling:goals", "Ride 200 km")
+        _save_program(db, test_user)
+        change = ps.with_snapshot(
+            ps.load_setup(test_user.id, REF),
+            {"target": "instruction", "key": "goals", "text": "Ride 300 km"},
+        )
+        db.kv_set(test_user.id, "sports", "cycling:goals", "Ride 250 km")
+
+        with pytest.raises(SetupChangeError, match="changed since"):
+            ps.apply_change(test_user.id, REF, change)
+
+    def test_the_snapshot_does_not_change_the_fingerprint(
+        self, db: Database, test_user: User
+    ) -> None:
+        _save_program(db, test_user, quick_actions=[_NEXT])
+        change: ps.SetupChange = {"target": "quick_action", "op": "remove", "action_id": "next"}
+        snapped = ps.with_snapshot(ps.load_setup(test_user.id, REF), change)
+        assert ps.fingerprint(snapped) == ps.fingerprint(change)
+
+    def test_the_declined_list_is_not_under_the_program_prefix(
+        self, db: Database, test_user: User
+    ) -> None:
+        """Final review #6: program_context injects every {program_id}: key into the prompt."""
+        ps.record_decline(test_user.id, REF, _add(label="X"), "Add X")
+        assert db.kv_list(test_user.id, "sports", prefix="cycling:") == []
+        assert len(ps.declined(test_user.id, REF)) == 1
+
+    def test_a_malformed_declined_entry_is_skipped(self, db: Database, test_user: User) -> None:
+        entries = [
+            {"fingerprint": "a"},
+            {"fingerprint": "b", "declined_at": "not a date"},
+            "junk",
+            {"fingerprint": "c", "summary": "ok", "declined_at": "2026-11-01"},
+        ]
+        db.kv_set(test_user.id, "sports", "setup_declined:cycling", json.dumps(entries))
+        assert [e["fingerprint"] for e in ps.declined(test_user.id, REF)] == ["c"]
+
+    def test_evidence_must_cite_days_the_user_wrote(self, db: Database, test_user: User) -> None:
+        """Final review #4: dates are checked against the chat, not taken on the model's word."""
+        conv = db.get_or_create_program_conversation("sports", test_user.id, "cycling")
+        db.add_message(conv.id, "user", "plan my week")
+        today = date.today()
+        days = ps.chat_dates(conv.id)
+
+        assert today in days
+        assert ps.evidence_problem([f"{today}: 'plan my week'"], days) is None
+        assert "wrote" in (
+            ps.evidence_problem([f"{today - timedelta(days=3)}: made up"], days) or ""
+        )
+        assert ps.evidence_problem([], days) is not None
+        assert ps.evidence_problem(["you often ask"], days) is not None
