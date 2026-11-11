@@ -3,7 +3,7 @@
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackManager
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.config import get_stream_writer
@@ -17,9 +17,8 @@ from src.agent.tool_result_aging import age_consumed_tool_messages
 from src.agent.turn_budget import (
     call_cost_usd,
     fallback_line,
-    final_guidance,
+    final_prompt,
     final_reply,
-    final_transcript,
     model_view,
 )
 from src.agent.turn_usage import record_model_usage
@@ -141,11 +140,12 @@ def _answer_without_tools(
     "tools are off" is only an instruction - and the Daily Briefing's final
     round asked for one more tool, leaving the user an empty reply (Nov 11
     2026). The turn so far goes in as plain text: a model without tools can't
-    take tool calls and results.
+    take tool calls and results, and the system message carries the
+    untrusted-content rule (turn_budget.final_prompt).
     """
     logger.info("Turn final answer retried without tools", extra={"model": model_name})
     plain = create_chat_model(model_name, with_tools=False)
-    prompt = [SystemMessage(content=final_guidance(facts)), *final_transcript(messages)]
+    prompt = final_prompt(messages, facts)
     try:
         reply = _invoke_model(plain, prompt, config)
     except Exception:
