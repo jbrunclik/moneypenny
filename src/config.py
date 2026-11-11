@@ -835,6 +835,18 @@ class Config:
     # may keep; it rides in every chat's system prompt
     # (docs/superpowers/specs/2026-11-11-instructions-self-tuning-design.md)
     CUSTOM_INSTRUCTIONS_MAX_CHARS: int = int(os.getenv("CUSTOM_INSTRUCTIONS_MAX_CHARS", "8000"))
+    # Settings' instructions Review: one structured call over the instructions,
+    # the memory bank and the user's latest messages in ordinary chats (each with
+    # an excerpt of the reply it answered), at most this many suggestions
+    INSTRUCTIONS_REVIEW_MODEL: str = os.getenv("INSTRUCTIONS_REVIEW_MODEL") or "gemini-3.8-flash"
+    INSTRUCTIONS_REVIEW_MESSAGES: int = int(os.getenv("INSTRUCTIONS_REVIEW_MESSAGES", "60"))
+    INSTRUCTIONS_REVIEW_MESSAGE_CHARS: int = int(
+        os.getenv("INSTRUCTIONS_REVIEW_MESSAGE_CHARS", "600")
+    )
+    INSTRUCTIONS_REVIEW_REPLY_CHARS: int = int(os.getenv("INSTRUCTIONS_REVIEW_REPLY_CHARS", "300"))
+    INSTRUCTIONS_REVIEW_MAX_SUGGESTIONS: int = int(
+        os.getenv("INSTRUCTIONS_REVIEW_MAX_SUGGESTIONS", "8")
+    )
 
     # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
     # running cost, its time, a loop or the round backstop - whichever comes

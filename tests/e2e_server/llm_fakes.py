@@ -321,3 +321,18 @@ def mock_program_review_invoke(prompt: str) -> Any:
         evidence=[f"{local_today().isoformat()}: 'plan my week please'"],
     )
     return ReviewOutput(suggestions=[item]), {"input_tokens": 100, "output_tokens": 20}
+
+
+def mock_instructions_review_invoke(prompt: str) -> Any:
+    """The instructions Review's model call: one suggestion - a no-bullets rule,
+    evidence dated today (the E2E chats write today)."""
+    from src.agent.instructions_review import ReviewItem, ReviewOutput
+    from src.utils.clock import local_today
+
+    item = ReviewItem(
+        kind="add_rule",
+        new_passage="Never use bullet points.",
+        summary="No bullet points",
+        evidence=[f"{local_today().isoformat()}: 'stop using bullet points please'"],
+    )
+    return ReviewOutput(suggestions=[item]), {"input_tokens": 100, "output_tokens": 20}
