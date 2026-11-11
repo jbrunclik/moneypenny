@@ -11789,7 +11789,7 @@
           "custom_instructions": {
             "anyOf": [
               {
-                "maxLength": 2000,
+                "maxLength": 8000,
                 "type": "string"
               },
               {

@@ -49,6 +49,9 @@ export const API_CHAT_TIMEOUT_MS = 5 * MS_PER_MINUTE;
  */
 export const QUICK_ACTION_REVIEW_TIMEOUT_MS = 90 * MS_PER_SECOND;
 
+/** Longest custom instructions text, chars (server: CUSTOM_INSTRUCTIONS_MAX_CHARS) */
+export const CUSTOM_INSTRUCTIONS_MAX_CHARS = 8000;
+
 /**
  * The steps the Review shows while it waits, in the work's real order (read
  * the setup, read the chat, the model call, the checks), advanced on a timer:

@@ -831,6 +831,11 @@ class Config:
     PROGRAM_REVIEW_MAX_SUGGESTIONS: int = int(os.getenv("PROGRAM_REVIEW_MAX_SUGGESTIONS", "8"))
     PROGRAM_REVIEW_TIMEOUT_SECONDS: float = float(os.getenv("PROGRAM_REVIEW_TIMEOUT_SECONDS", "60"))
 
+    # Custom instructions (Settings -> AI Instructions): the longest text a user
+    # may keep; it rides in every chat's system prompt
+    # (docs/superpowers/specs/2026-11-11-instructions-self-tuning-design.md)
+    CUSTOM_INSTRUCTIONS_MAX_CHARS: int = int(os.getenv("CUSTOM_INSTRUCTIONS_MAX_CHARS", "8000"))
+
     # Turn budgets (docs/architecture/agent-graph.md): a turn stops on its
     # running cost, its time, a loop or the round backstop - whichever comes
     # first - and ends with one tools-off answer. Replaced the 6-round cap after

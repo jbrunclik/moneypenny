@@ -173,14 +173,14 @@ test.describe('Settings', () => {
 
     // Verify initial character count (instructions tab)
     await page.locator('[data-settings-tab="instructions"]').click();
-    await expect(page.locator('.settings-char-count')).toHaveText('0/2000');
+    await expect(page.locator('.settings-char-count')).toHaveText('0/8000');
 
     // Enter some text
     const textarea = page.locator('#custom-instructions');
     await textarea.fill('Hello');
 
     // Verify character count updated
-    await expect(page.locator('.settings-char-count')).toHaveText('5/2000');
+    await expect(page.locator('.settings-char-count')).toHaveText('5/8000');
   });
 
   test('shows warning when approaching character limit', async ({ page }) => {
@@ -195,7 +195,7 @@ test.describe('Settings', () => {
     // Enter text that's over 90% of limit
     await page.locator('[data-settings-tab="instructions"]').click();
     const textarea = page.locator('#custom-instructions');
-    await textarea.fill('x'.repeat(1850));
+    await textarea.fill('x'.repeat(7400));
 
     // Verify warning class is applied
     await expect(page.locator('.settings-char-count')).toHaveClass(/warning/);

@@ -1,3 +1,4 @@
+import { CUSTOM_INSTRUCTIONS_MAX_CHARS } from '../../config';
 import { createElement } from '../../utils/dom';
 import { EDIT_ICON } from '../../utils/icons';
 import { settings } from '../../api/settings';
@@ -5,7 +6,7 @@ import { toast } from '../Toast';
 import { useStore } from '../../state/store';
 import { fieldLabel, helper, log, showSavedIndicator } from './shared';
 
-const CHAR_LIMIT = 2000;
+const CHAR_LIMIT = CUSTOM_INSTRUCTIONS_MAX_CHARS;
 
 /** The saved custom instructions (store: settings slice). */
 function savedInstructions(): string {

@@ -96,8 +96,8 @@ class TestUpdateUserSettings:
     def test_update_custom_instructions_max_length(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
-        """Should reject instructions exceeding 2000 characters."""
-        long_instructions = "x" * 2001
+        """Should reject instructions exceeding 8000 characters."""
+        long_instructions = "x" * 8001
 
         response = client.patch(
             "/api/users/me/settings",
@@ -112,8 +112,8 @@ class TestUpdateUserSettings:
     def test_update_custom_instructions_at_max_length(
         self, client: FlaskClient, auth_headers: dict[str, str]
     ) -> None:
-        """Should accept instructions at exactly 2000 characters."""
-        max_instructions = "x" * 2000
+        """Should accept instructions at exactly 8000 characters."""
+        max_instructions = "x" * 8000
 
         response = client.patch(
             "/api/users/me/settings",

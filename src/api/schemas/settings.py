@@ -7,6 +7,7 @@ import re
 from pydantic import Field, field_validator
 
 from src.api.schemas.base import RequestModel, ResponseModel
+from src.config import Config
 
 
 class UpdateDailyBriefingRequest(RequestModel):
@@ -20,7 +21,7 @@ class UpdateDailyBriefingRequest(RequestModel):
 class UpdateSettingsRequest(RequestModel):
     """Schema for PATCH /api/users/me/settings."""
 
-    custom_instructions: str | None = Field(None, max_length=2000)
+    custom_instructions: str | None = Field(None, max_length=Config.CUSTOM_INSTRUCTIONS_MAX_CHARS)
     daily_briefing: UpdateDailyBriefingRequest | None = None
     preferred_language: str | None = Field(
         None,
