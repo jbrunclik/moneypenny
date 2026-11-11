@@ -43,7 +43,13 @@ def _names(**kwargs: Any) -> set[str]:
 
 
 # Bound in every interactive chat but the planner on top of get_available_tools()
-_ORDINARY_CHAT_ONLY = {"propose_deep_research", "schedule", "create_standing_chat", "ask_choice"}
+_ORDINARY_CHAT_ONLY = {
+    "propose_deep_research",
+    "schedule",
+    "create_standing_chat",
+    "ask_choice",
+    "propose_instruction_change",
+}
 
 
 class TestGetToolsForRequest:
@@ -116,6 +122,17 @@ class TestGetToolsForRequest:
         tool_names = {t.name for t in get_tools_for_request()}
         available = {t.name for t in get_available_tools()}
         assert tool_names == available | _ORDINARY_CHAT_ONLY
+
+    def test_instruction_cards_only_in_ordinary_non_anonymous_chats(self) -> None:
+        """Instructions are learned from ordinary chats (instructions self-tuning)."""
+
+        def names(**kwargs: bool) -> set[str]:
+            return {t.name for t in get_tools_for_request(**kwargs)}
+
+        assert "propose_instruction_change" in names()
+        assert "propose_instruction_change" not in names(standing=True)
+        assert "propose_instruction_change" not in names(anonymous_mode=True)
+        assert "propose_instruction_change" not in names(is_planning=True)
 
     def test_non_agent_request_excludes_kv_store(self) -> None:
         """Regular (non-agent, non-sports, non-language) chats must not get kv_store."""

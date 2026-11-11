@@ -130,6 +130,14 @@ class ProposalsMixin:
             (conversation_id, kind),
         )
 
+    def user_kind_proposals(self, user_id: str, kind: str) -> list[Proposal]:
+        """The user's proposals of one kind across their chats, newest first (any state)."""
+        return self._select(
+            """SELECT * FROM proposals WHERE user_id = ? AND kind = ?
+               ORDER BY created_at DESC, rowid DESC""",
+            (user_id, kind),
+        )
+
     def pending_proposals(self, conversation_id: str) -> list[Proposal]:
         """The conversation's proposals still awaiting an answer (oldest first)."""
         return self._select(

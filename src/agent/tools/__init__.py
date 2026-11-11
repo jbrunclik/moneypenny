@@ -38,6 +38,7 @@ from src.agent.tools.garmin import garmin_connect, is_garmin_available
 from src.agent.tools.garmin_workout import garmin_workout
 from src.agent.tools.google_calendar import google_calendar, is_google_calendar_available
 from src.agent.tools.image_generation import generate_image
+from src.agent.tools.instructions_tool import propose_instruction_change
 from src.agent.tools.memory import manage_memory, search_memory
 from src.agent.tools.metadata import (
     EXTRACT_ONLY_TOOL_NAMES,
@@ -273,8 +274,10 @@ def get_tools_for_request(
         tools.append(edit_standing_chat)
         tools.append(propose_setup_change)
     elif not anonymous_mode and not is_planning:
-        # Ordinary chats set up new standing chats ("be my coach...")
+        # Ordinary chats set up new standing chats ("be my coach...") and offer
+        # lasting style corrections for the user's custom instructions
         tools.append(create_standing_chat)
+        tools.append(propose_instruction_change)
 
     return tools
 
@@ -324,6 +327,7 @@ _NON_PERMISSIONED_TOOLS = frozenset(
         "schedule",  # ordinary non-anonymous chats only: a scheduled run must not schedule
         "edit_standing_chat",  # standing chats and their jobs, never a grant
         "propose_setup_change",  # interactive standing chats only, never a grant
+        "propose_instruction_change",  # ordinary non-anonymous chats only, never a grant
         "create_standing_chat",  # ordinary chats only, never a grant
         # Inline artifacts: chats only, never granted to agents
         "create_artifact",
