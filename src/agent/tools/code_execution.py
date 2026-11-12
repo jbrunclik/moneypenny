@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 import threading
+import time
 from typing import Any, Protocol
 
 from langchain_core.tools import tool
@@ -38,6 +39,22 @@ logger = get_logger(__name__)
 # per-worker: a cached probe of this host's Docker, the same answer in every worker
 _docker_available: bool | None = None
 _docker_available_lock = threading.Lock()
+# Why the last probe failed, for the tool result: the agent relays it to the
+# user, and "Docker is not running" for a missing image sent everyone looking
+# at the wrong thing (Nov 2026)
+_DOCKER_DOWN = "Docker is not running or accessible."
+# per-worker: describes this worker's own cached probe, like _docker_available
+_unavailable_reason = _DOCKER_DOWN
+# per-worker: when this worker last probed; each worker re-probes on its own
+_probed_at = 0.0
+# A failed probe is retried after this long, so fixing Docker or rebuilding
+# the image takes effect without a restart; a passing probe stays cached
+_RECHECK_UNAVAILABLE_SECONDS = 60.0
+
+
+def _now() -> float:
+    return time.monotonic()
+
 
 # Session settings shared by the availability probe and execute_code (S4):
 # probing with different settings than real executions can pass while
@@ -71,23 +88,31 @@ def sandbox_runtime_configs() -> dict[str, Any]:
 def _check_docker_available() -> bool:
     """Check if Docker is available for code execution.
 
-    Caches the result to avoid repeated checks. Double-checked locking: two
-    gthread request threads racing the first check would each spin up a
-    probe sandbox container.
+    Caches a pass for the worker's life and a failure for
+    _RECHECK_UNAVAILABLE_SECONDS. Double-checked locking: two gthread request
+    threads racing the first check would each spin up a probe sandbox
+    container.
     """
-    global _docker_available
-    if _docker_available is not None:
-        return _docker_available
+    if _probe_is_fresh():
+        return bool(_docker_available)
     with _docker_available_lock:
-        if _docker_available is not None:
-            return _docker_available
+        if _probe_is_fresh():
+            return bool(_docker_available)
         return _probe_docker_available()
+
+
+def _probe_is_fresh() -> bool:
+    if _docker_available is None:
+        return False
+    return _docker_available or _now() - _probed_at < _RECHECK_UNAVAILABLE_SECONDS
 
 
 def _probe_docker_available() -> bool:
     """Run the actual Docker/sandbox probe (callers hold the lock)."""
-    global _docker_available
+    global _docker_available, _unavailable_reason, _probed_at
 
+    _probed_at = _now()
+    _unavailable_reason = _DOCKER_DOWN
     try:
         # Check if the custom sandbox image exists
         result = subprocess.run(  # noqa: S603 - fixed args, no untrusted input
@@ -107,6 +132,10 @@ def _probe_docker_available() -> bool:
 
         if not result.stdout.strip():
             _docker_available = False
+            _unavailable_reason = (
+                f"The sandbox image {Config.CODE_SANDBOX_IMAGE} is missing on this server "
+                "(Docker itself is running)."
+            )
             logger.warning(
                 "Custom sandbox image not found",
                 extra={
@@ -509,9 +538,15 @@ def execute_code(code: str, files: list[str] | None = None) -> str:
         return tool_error("Code execution is disabled on this server.", retriable=False)
 
     if not _check_docker_available():
+        image_missing = _unavailable_reason != _DOCKER_DOWN
         return tool_error(
-            "Code execution is not available. Docker is not running or accessible.",
-            hint="The server administrator needs to ensure Docker is running and accessible.",
+            f"Code execution is not available. {_unavailable_reason}",
+            retriable=False,
+            hint=(
+                "The server administrator needs to run 'make sandbox-image'."
+                if image_missing
+                else "The server administrator needs to ensure Docker is running and accessible."
+            ),
         )
 
     if not code or not code.strip():

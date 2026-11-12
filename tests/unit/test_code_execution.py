@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.agent.tools import (
     execute_code,
     is_code_sandbox_available,
@@ -654,3 +656,78 @@ class TestExecuteCodeAttachments:
             "/work/attachments/plan.pdf",
             "/work/attachments/plan-2.pdf",
         ]
+
+
+class TestDockerProbe:
+    """Nov 2026: a disk cleanup pruned the sandbox image on the production host.
+
+    The tool told the agent "Docker is not running" (Docker was fine), and
+    each worker cached the failed probe until restart, so rebuilding the
+    image did not help either.
+    """
+
+    @staticmethod
+    def _images(stdout: str) -> MagicMock:
+        return MagicMock(returncode=0, stdout=stdout, stderr="")
+
+    @staticmethod
+    def _reset(monkeypatch: pytest.MonkeyPatch, now: list[float]) -> None:
+        from src.agent.tools import code_execution
+
+        monkeypatch.setattr(code_execution, "_docker_available", None)
+        monkeypatch.setattr(code_execution, "_now", lambda: now[0], raising=False)
+        monkeypatch.setattr(code_execution.Config, "CODE_SANDBOX_ENABLED", True)
+
+    def test_missing_image_is_named_not_blamed_on_docker(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._reset(monkeypatch, [0.0])
+        with patch("src.agent.tools.code_execution.subprocess.run", return_value=self._images("")):
+            parsed = json.loads(execute_code.invoke({"code": "print(1)"}))
+
+        assert "image" in parsed["error"]
+        assert "not running" not in parsed["error"]
+        assert "make sandbox-image" in parsed["hint"]
+
+    def test_failed_probe_is_retried_after_the_recheck_interval(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.agent.tools import code_execution
+
+        now = [0.0]
+        self._reset(monkeypatch, now)
+        session = MagicMock()
+        session.__enter__.return_value.run.return_value = MagicMock(exit_code=0)
+        with (
+            patch(
+                "src.agent.tools.code_execution.subprocess.run",
+                side_effect=[self._images(""), self._images("abc123\n")],
+            ) as run,
+            patch("llm_sandbox.SandboxSession", return_value=session),
+        ):
+            assert code_execution._check_docker_available() is False
+            assert code_execution._check_docker_available() is False  # within the interval
+            assert run.call_count == 1
+
+            now[0] += code_execution._RECHECK_UNAVAILABLE_SECONDS + 1
+            assert code_execution._check_docker_available() is True
+            assert run.call_count == 2
+
+    def test_available_probe_stays_cached(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from src.agent.tools import code_execution
+
+        now = [0.0]
+        self._reset(monkeypatch, now)
+        session = MagicMock()
+        session.__enter__.return_value.run.return_value = MagicMock(exit_code=0)
+        with (
+            patch(
+                "src.agent.tools.code_execution.subprocess.run",
+                return_value=self._images("abc123\n"),
+            ) as run,
+            patch("llm_sandbox.SandboxSession", return_value=session),
+        ):
+            assert code_execution._check_docker_available() is True
+            now[0] += 10_000
+            assert code_execution._check_docker_available() is True
+            assert run.call_count == 1

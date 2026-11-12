@@ -136,10 +136,16 @@ CODE_SANDBOX_IMAGE=moneypenny-sandbox:local
 make sandbox-image
 ```
 
-`make update` does **not** rebuild the sandbox image. After a Dockerfile change
-(e.g. the 1.1 office libraries), run `make sandbox-image` on the production host
-as well, or the running image keeps the old library set while the prompt
-already advertises the new one.
+`make update` builds the sandbox image only when it is **missing** (a failed
+build warns and the deploy goes on). It does not rebuild an existing one: after
+a Dockerfile change (e.g. the 1.1 office libraries), run `make sandbox-image` on
+the production host as well, or the running image keeps the old library set
+while the prompt already advertises the new one.
+
+**Never `docker image prune -a` on the production host.** The sandbox image has
+no container between runs, so an `-a` prune deletes it as unused. In Nov 2026
+a disk cleanup did exactly that, and code execution was off for three days.
+Use a plain `docker image prune` (dangling images only).
 
 **Note:** The custom image is required. The base Python image lacks pre-installed fonts and libraries, causing code execution to fail or perform poorly.
 
@@ -169,8 +175,14 @@ The tool uses the same `_full_result` pattern as `generate_image` to avoid sendi
 
 ## Graceful Degradation
 
-- If Docker is not available, the tool returns an error message
-- Docker availability is checked once and cached
+- If Docker is not available, the tool returns a non-retriable error naming
+  the cause: a missing sandbox image ("run `make sandbox-image`") or Docker
+  itself. The journal has the same split ("Custom sandbox image not found" vs
+  "Docker command failed"/"Docker not available ..."): check it before
+  suspecting Docker.
+- A passing probe is cached for the worker's life; a failed one is retried
+  after `_RECHECK_UNAVAILABLE_SECONDS` (60 s), so rebuilding the image or
+  starting Docker takes effect without a restart
 - The tool is only added to the available tools list if `CODE_SANDBOX_ENABLED=true` (`is_code_sandbox_available()` additionally checks Docker)
 
 ## Key Files

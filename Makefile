@@ -413,6 +413,13 @@ _update:
 	# install"). No-op download when already current; no --with-deps (unattended,
 	# no sudo - system libs come from the one-time `make browser-setup`).
 	$(PYTHON) -m playwright install chromium
+	# Rebuild the code sandbox image when it is gone: a host-wide
+	# `docker image prune -a` deleted it and code execution was off for days
+	# (Nov 2026). Never fails the deploy - the tool reports the missing image.
+	@if command -v docker >/dev/null && ! docker image inspect moneypenny-sandbox:local >/dev/null 2>&1; then \
+		echo "Sandbox image missing - building it"; \
+		$(MAKE) --no-print-directory sandbox-image || echo "Sandbox image build failed - code execution stays off"; \
+	fi
 	$(MAKE) --no-print-directory _build_and_reload
 
 # Code-only rollback to the commit before the last deploy (S11). A deploy that
