@@ -72,6 +72,6 @@
     "mediabunny": "^1.65.0",
     "mermaid": "^12.2.0",
     "pdfjs-dist": "^6.4.299",
-    "zustand": "^5.0.16"
+    "zustand": "^5.1.0"
   }
 }
